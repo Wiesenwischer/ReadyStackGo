@@ -1,115 +1,57 @@
-import { ReactComponent as PlusIcon } from "./plus.svg?react";
-import { ReactComponent as CloseIcon } from "./close.svg?react";
-import { ReactComponent as BoxIcon } from "./box.svg?react";
-import { ReactComponent as CheckCircleIcon } from "./check-circle.svg?react";
-import { ReactComponent as AlertIcon } from "./alert.svg?react";
-import { ReactComponent as InfoIcon } from "./info.svg?react";
-import { ReactComponent as ErrorIcon } from "./info-error.svg?react";
-import { ReactComponent as BoltIcon } from "./bolt.svg?react";
-import { ReactComponent as ArrowUpIcon } from "./arrow-up.svg?react";
-import { ReactComponent as ArrowDownIcon } from "./arrow-down.svg?react";
-import { ReactComponent as FolderIcon } from "./folder.svg?react";
-import { ReactComponent as VideoIcon } from "./videos.svg?react";
-import { ReactComponent as AudioIcon } from "./audio.svg?react";
-import { ReactComponent as GridIcon } from "./grid.svg?react";
-import { ReactComponent as FileIcon } from "./file.svg?react";
-import { ReactComponent as DownloadIcon } from "./download.svg?react";
-import { ReactComponent as ArrowRightIcon } from "./arrow-right.svg?react";
-import { ReactComponent as GroupIcon } from "./group.svg?react";
-import { ReactComponent as BoxIconLine } from "./box-line.svg?react";
-import { ReactComponent as ShootingStarIcon } from "./shooting-star.svg?react";
-import { ReactComponent as DollarLineIcon } from "./dollar-line.svg?react";
-import { ReactComponent as TrashBinIcon } from "./trash.svg?react";
-import { ReactComponent as AngleUpIcon } from "./angle-up.svg?react";
-import { ReactComponent as AngleDownIcon } from "./angle-down.svg?react";
-import { ReactComponent as AngleLeftIcon } from "./angle-left.svg?react";
-import { ReactComponent as AngleRightIcon } from "./angle-right.svg?react";
-import { ReactComponent as PencilIcon } from "./pencil.svg?react";
-import { ReactComponent as CheckLineIcon } from "./check-line.svg?react";
-import { ReactComponent as CloseLineIcon } from "./close-line.svg?react";
-import { ReactComponent as ChevronDownIcon } from "./chevron-down.svg?react";
-import { ReactComponent as ChevronUpIcon } from "./chevron-up.svg?react";
-import { ReactComponent as PaperPlaneIcon } from "./paper-plane.svg?react";
-import { ReactComponent as LockIcon } from "./lock.svg?react";
-import { ReactComponent as EnvelopeIcon } from "./envelope.svg?react";
-import { ReactComponent as UserIcon } from "./user-line.svg?react";
-import { ReactComponent as CalenderIcon } from "./calender-line.svg?react";
-import { ReactComponent as EyeIcon } from "./eye.svg?react";
-import { ReactComponent as EyeCloseIcon } from "./eye-close.svg?react";
-import { ReactComponent as TimeIcon } from "./time.svg?react";
-import { ReactComponent as CopyIcon } from "./copy.svg?react";
-import { ReactComponent as ChevronLeftIcon } from "./chevron-left.svg?react";
-import { ReactComponent as UserCircleIcon } from "./user-circle.svg?react";
-import { ReactComponent as TaskIcon } from "./task-icon.svg?react";
-import { ReactComponent as ListIcon } from "./list.svg?react";
-import { ReactComponent as TableIcon } from "./table.svg?react";
-import { ReactComponent as PageIcon } from "./page.svg?react";
-import { ReactComponent as PieChartIcon } from "./pie-chart.svg?react";
-import { ReactComponent as BoxCubeIcon } from "./box-cube.svg?react";
-import { ReactComponent as PlugInIcon } from "./plug-in.svg?react";
-import { ReactComponent as DocsIcon } from "./docs.svg?react";
-import { ReactComponent as MailIcon } from "./mail-line.svg?react";
-import { ReactComponent as HorizontaLDots } from "./horizontal-dots.svg?react";
-import { ReactComponent as ChatIcon } from "./chat.svg?react";
-import { ReactComponent as MoreDotIcon } from "./moredot.svg?react";
-import { ReactComponent as AlertHexaIcon } from "./alert-hexa.svg?react";
-import { ReactComponent as ErrorHexaIcon } from "./info-hexa.svg?react";
+export { default as PlusIcon } from "./plus.svg?react";
+export { default as CloseIcon } from "./close.svg?react";
+export { default as BoxIcon } from "./box.svg?react";
+export { default as CheckCircleIcon } from "./check-circle.svg?react";
+export { default as AlertIcon } from "./alert.svg?react";
+export { default as InfoIcon } from "./info.svg?react";
+export { default as ErrorIcon } from "./info-error.svg?react";
+export { default as BoltIcon } from "./bolt.svg?react";
+export { default as ArrowUpIcon } from "./arrow-up.svg?react";
+export { default as ArrowDownIcon } from "./arrow-down.svg?react";
+export { default as FolderIcon } from "./folder.svg?react";
+export { default as VideoIcon } from "./videos.svg?react";
+export { default as AudioIcon } from "./audio.svg?react";
+export { default as GridIcon } from "./grid.svg?react";
+export { default as FileIcon } from "./file.svg?react";
+export { default as DownloadIcon } from "./download.svg?react";
+export { default as ArrowRightIcon } from "./arrow-right.svg?react";
+export { default as GroupIcon } from "./group.svg?react";
+export { default as BoxIconLine } from "./box-line.svg?react";
+export { default as ShootingStarIcon } from "./shooting-star.svg?react";
+export { default as DollarLineIcon } from "./dollar-line.svg?react";
+export { default as TrashBinIcon } from "./trash.svg?react";
+export { default as AngleUpIcon } from "./angle-up.svg?react";
+export { default as AngleDownIcon } from "./angle-down.svg?react";
+export { default as AngleLeftIcon } from "./angle-left.svg?react";
+export { default as AngleRightIcon } from "./angle-right.svg?react";
+export { default as PencilIcon } from "./pencil.svg?react";
+export { default as CheckLineIcon } from "./check-line.svg?react";
+export { default as CloseLineIcon } from "./close-line.svg?react";
+export { default as ChevronDownIcon } from "./chevron-down.svg?react";
+export { default as ChevronUpIcon } from "./chevron-up.svg?react";
+export { default as PaperPlaneIcon } from "./paper-plane.svg?react";
+export { default as LockIcon } from "./lock.svg?react";
+export { default as EnvelopeIcon } from "./envelope.svg?react";
+export { default as UserIcon } from "./user-line.svg?react";
+export { default as CalenderIcon } from "./calender-line.svg?react";
+export { default as EyeIcon } from "./eye.svg?react";
+export { default as EyeCloseIcon } from "./eye-close.svg?react";
+export { default as TimeIcon } from "./time.svg?react";
+export { default as CopyIcon } from "./copy.svg?react";
+export { default as ChevronLeftIcon } from "./chevron-left.svg?react";
+export { default as UserCircleIcon } from "./user-circle.svg?react";
+export { default as TaskIcon } from "./task-icon.svg?react";
+export { default as ListIcon } from "./list.svg?react";
+export { default as TableIcon } from "./table.svg?react";
+export { default as PageIcon } from "./page.svg?react";
+export { default as PieChartIcon } from "./pie-chart.svg?react";
+export { default as BoxCubeIcon } from "./box-cube.svg?react";
+export { default as PlugInIcon } from "./plug-in.svg?react";
+export { default as DocsIcon } from "./docs.svg?react";
+export { default as MailIcon } from "./mail-line.svg?react";
+export { default as HorizontaLDots } from "./horizontal-dots.svg?react";
+export { default as ChatIcon } from "./chat.svg?react";
+export { default as MoreDotIcon } from "./moredot.svg?react";
+export { default as AlertHexaIcon } from "./alert-hexa.svg?react";
+export { default as ErrorHexaIcon } from "./info-hexa.svg?react";
 
-export {
-  ErrorHexaIcon,
-  AlertHexaIcon,
-  MoreDotIcon,
-  DownloadIcon,
-  FileIcon,
-  GridIcon,
-  AudioIcon,
-  VideoIcon,
-  BoltIcon,
-  PlusIcon,
-  BoxIcon,
-  CloseIcon,
-  CheckCircleIcon,
-  AlertIcon,
-  InfoIcon,
-  ErrorIcon,
-  ArrowUpIcon,
-  FolderIcon,
-  ArrowDownIcon,
-  ArrowRightIcon,
-  GroupIcon,
-  BoxIconLine,
-  ShootingStarIcon,
-  DollarLineIcon,
-  TrashBinIcon,
-  AngleUpIcon,
-  AngleDownIcon,
-  PencilIcon,
-  CheckLineIcon,
-  CloseLineIcon,
-  ChevronDownIcon,
-  PaperPlaneIcon,
-  EnvelopeIcon,
-  LockIcon,
-  UserIcon,
-  CalenderIcon,
-  EyeIcon,
-  EyeCloseIcon,
-  TimeIcon,
-  CopyIcon,
-  ChevronLeftIcon,
-  UserCircleIcon,
-  TaskIcon,
-  ListIcon,
-  TableIcon,
-  PageIcon,
-  PieChartIcon,
-  BoxCubeIcon,
-  PlugInIcon,
-  DocsIcon,
-  MailIcon,
-  HorizontaLDots,
-  ChevronUpIcon,
-  ChatIcon,
-  AngleLeftIcon,
-  AngleRightIcon,
-};
