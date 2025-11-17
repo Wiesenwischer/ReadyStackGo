@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  readystackgo-admin:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: readystackgo-admin
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - rsgo-config:/app/config
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+    restart: unless-stopped
+    networks:
+      - rsgo-net
+
+  # Development: Frontend-only (Hot Reload)
+  readystackgo-dev-frontend:
+    image: node:20-alpine
+    container_name: readystackgo-dev-frontend
+    working_dir: /app
+    command: npm run dev -- --host
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./src/ReadyStackGo.WebUI:/app
+    environment:
+      - NODE_ENV=development
+    networks:
+      - rsgo-net
+    profiles:
+      - dev
+
+  # Development: Backend-only
+  readystackgo-dev-backend:
+    image: mcr.microsoft.com/dotnet/sdk:9.0
+    container_name: readystackgo-dev-backend
+    working_dir: /app
+    command: dotnet watch run --project src/ReadyStackGo.Api/ReadyStackGo.Api.csproj
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      - rsgo-config-dev:/app/config
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+    networks:
+      - rsgo-net
+    profiles:
+      - dev
+
+volumes:
+  rsgo-config:
+    name: rsgo-config
+  rsgo-config-dev:
+    name: rsgo-config-dev
+
+networks:
+  rsgo-net:
+    name: rsgo-net
+    driver: bridge
