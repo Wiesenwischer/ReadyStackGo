@@ -1,14 +1,87 @@
+import { useEffect, useState } from "react";
+import { containerApi, type Container } from "../api/containers";
+
 export default function Containers() {
+  const [containers, setContainers] = useState<Container[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  const loadContainers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await containerApi.list();
+      setContainers(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load containers");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadContainers();
+  }, []);
+
+  const handleStart = async (id: string) => {
+    try {
+      setActionLoading(id);
+      await containerApi.start(id);
+      await loadContainers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to start container");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleStop = async (id: string) => {
+    try {
+      setActionLoading(id);
+      await containerApi.stop(id);
+      await loadContainers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to stop container");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const getStatusBadge = (state: string) => {
+    const isRunning = state.toLowerCase() === "running";
+    return (
+      <span
+        className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
+          isRunning
+            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+            : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+        }`}
+      >
+        {state}
+      </span>
+    );
+  };
+
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-title-md2 font-semibold text-black dark:text-white">
           Container Management
         </h1>
-        <button className="inline-flex items-center justify-center gap-2.5 rounded-md bg-primary px-10 py-4 text-center font-medium text-white hover:bg-opacity-90 lg:px-8 xl:px-10">
-          Add Container
+        <button
+          onClick={loadContainers}
+          className="inline-flex items-center justify-center gap-2.5 rounded-md bg-primary px-10 py-4 text-center font-medium text-white hover:bg-opacity-90 lg:px-8 xl:px-10"
+        >
+          Refresh
         </button>
       </div>
+
+      {error && (
+        <div className="mb-4 rounded-sm border border-red-300 bg-red-50 p-4 text-red-800 dark:border-red-700 dark:bg-red-900 dark:text-red-200">
+          {error}
+        </div>
+      )}
 
       <div className="flex flex-col gap-10">
         <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
@@ -36,11 +109,66 @@ export default function Containers() {
             </div>
           </div>
 
-          <div className="border-t border-stroke px-4 py-4.5 dark:border-strokedark md:px-6 2xl:px-7.5">
-            <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-              No containers configured. Click "Add Container" to get started.
-            </p>
-          </div>
+          {loading ? (
+            <div className="border-t border-stroke px-4 py-4.5 dark:border-strokedark md:px-6 2xl:px-7.5">
+              <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+                Loading containers...
+              </p>
+            </div>
+          ) : containers.length === 0 ? (
+            <div className="border-t border-stroke px-4 py-4.5 dark:border-strokedark md:px-6 2xl:px-7.5">
+              <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+                No containers found. Make sure Docker is running.
+              </p>
+            </div>
+          ) : (
+            containers.map((container) => (
+              <div
+                key={container.id}
+                className="grid grid-cols-6 border-t border-stroke px-4 py-4.5 dark:border-strokedark sm:grid-cols-8 md:px-6 2xl:px-7.5"
+              >
+                <div className="col-span-3 flex items-center">
+                  <p className="text-sm text-black dark:text-white">
+                    {container.name}
+                  </p>
+                </div>
+                <div className="col-span-2 hidden items-center sm:flex">
+                  <p className="text-sm text-black dark:text-white">
+                    {container.image}
+                  </p>
+                </div>
+                <div className="col-span-1 flex items-center">
+                  {getStatusBadge(container.state)}
+                </div>
+                <div className="col-span-1 flex items-center">
+                  <p className="text-sm text-black dark:text-white">
+                    {container.ports[0]
+                      ? `${container.ports[0].publicPort}:${container.ports[0].privatePort}`
+                      : "-"}
+                  </p>
+                </div>
+                <div className="col-span-1 flex items-center gap-2">
+                  {container.state.toLowerCase() === "running" ? (
+                    <button
+                      onClick={() => handleStop(container.id)}
+                      disabled={actionLoading === container.id}
+                      className="rounded bg-red-500 px-3 py-1 text-xs font-medium text-white hover:bg-red-600 disabled:opacity-50"
+                    >
+                      {actionLoading === container.id ? "..." : "Stop"}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleStart(container.id)}
+                      disabled={actionLoading === container.id}
+                      className="rounded bg-green-500 px-3 py-1 text-xs font-medium text-white hover:bg-green-600 disabled:opacity-50"
+                    >
+                      {actionLoading === container.id ? "..." : "Start"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

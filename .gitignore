@@ -389,6 +389,9 @@ lerna-debug.log*
 # Testing
 coverage/
 .nyc_output/
+test-results/
+playwright-report/
+playwright/.cache/
 
 # Misc
 .cache/
