@@ -3,6 +3,7 @@ import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Dashboard from "./pages/Dashboard";
 import Containers from "./pages/Containers";
+import Stacks from "./pages/Stacks";
 
 export default function App() {
   return (
@@ -12,6 +13,7 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route index path="/" element={<Dashboard />} />
           <Route path="/containers" element={<Containers />} />
+          <Route path="/stacks" element={<Stacks />} />
         </Route>
       </Routes>
     </Router>
