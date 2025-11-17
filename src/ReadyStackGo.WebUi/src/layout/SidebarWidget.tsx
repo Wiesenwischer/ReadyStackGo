@@ -11,7 +11,7 @@ export default function SidebarWidget() {
         Self-hosted platform for managing Docker-based microservice stacks.
       </p>
       <a
-        href="https://github.com/yourusername/readystackgo"
+        href="https://github.com/Wiesenwischer/ReadyStackGo"
         target="_blank"
         rel="noopener noreferrer"
         className="flex items-center justify-center p-3 font-medium text-white rounded-lg bg-brand-500 text-theme-sm hover:bg-brand-600"
