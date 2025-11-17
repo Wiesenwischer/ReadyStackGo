@@ -1,0 +1,38 @@
+mode: ContinuousDeployment
+branches:
+  main:
+    regex: ^main$
+    tag: ''
+    increment: Patch
+    is-release-branch: true
+    track-merge-target: false
+  develop:
+    regex: ^develop$
+    tag: alpha
+    increment: Minor
+    is-release-branch: false
+    track-merge-target: true
+  feature:
+    regex: ^feature?[/-]
+    tag: useBranchName
+    increment: Inherit
+    is-release-branch: false
+    track-merge-target: false
+  hotfix:
+    regex: ^hotfix?[/-]
+    tag: beta
+    increment: Patch
+    is-release-branch: false
+    track-merge-target: false
+  release:
+    regex: ^release?[/-]
+    tag: rc
+    increment: None
+    is-release-branch: true
+    track-merge-target: false
+major-version-bump-message: '\+semver:\s?(breaking|major)'
+minor-version-bump-message: '\+semver:\s?(feature|minor)'
+patch-version-bump-message: '\+semver:\s?(fix|patch)'
+no-bump-message: '\+semver:\s?(none|skip)'
+tag-prefix: v
+continuous-delivery-fallback-tag: ci
