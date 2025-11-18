@@ -18,10 +18,11 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         // Starte einen Test-Container (nginx) den wir für die Tests verwenden können
+        // Verwende WithPortBinding(80, true) um einen zufälligen freien Port zu bekommen
         _testContainer = new ContainerBuilder()
             .WithImage("nginx:alpine")
             .WithName($"readystackgo-test-{Guid.NewGuid():N}")
-            .WithPortBinding(8080, 80)
+            .WithPortBinding(80, true) // true = assign random free host port
             .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(80))
             .Build();
 

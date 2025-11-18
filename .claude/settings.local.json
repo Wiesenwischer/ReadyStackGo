@@ -5,7 +5,10 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push)",
-      "Bash(dotnet test:*)"
+      "Bash(dotnet test:*)",
+      "Bash(taskkill //F //PID 4552)",
+      "Bash(ForEach-Object { docker rm -f $_ })",
+      "Bash(xargs -r docker rm:*)"
     ],
     "deny": [],
     "ask": []
