@@ -4,13 +4,13 @@ FROM node:20-alpine AS frontend-build
 WORKDIR /app/frontend
 
 # Copy package files
-COPY src/ReadyStackGo.WebUI/package*.json ./
+COPY src/ReadyStackGo.WebUi/package*.json ./
 
 # Install dependencies
 RUN npm ci
 
 # Copy source files
-COPY src/ReadyStackGo.WebUI/ ./
+COPY src/ReadyStackGo.WebUi/ ./
 
 # Build frontend (outputs to ../ReadyStackGo.Api/wwwroot)
 RUN npm run build
