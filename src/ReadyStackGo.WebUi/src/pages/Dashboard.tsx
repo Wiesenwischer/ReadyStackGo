@@ -39,46 +39,46 @@ export default function Dashboard() {
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-4 2xl:gap-7.5">
-        <div className="rounded-sm border border-stroke bg-white px-7.5 py-6 shadow-default dark:border-strokedark dark:bg-boxdark">
+        <div className="rounded-2xl border border-gray-200 bg-white px-7.5 py-6 dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="flex items-end justify-between">
             <div>
               <h4 className="text-title-md font-bold text-black dark:text-white">
                 {loading ? '...' : stats?.totalStacks ?? 0}
               </h4>
-              <span className="text-sm font-medium">Total Stacks</span>
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Stacks</span>
             </div>
           </div>
         </div>
 
-        <div className="rounded-sm border border-stroke bg-white px-7.5 py-6 shadow-default dark:border-strokedark dark:bg-boxdark">
+        <div className="rounded-2xl border border-gray-200 bg-white px-7.5 py-6 dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="flex items-end justify-between">
             <div>
               <h4 className="text-title-md font-bold text-black dark:text-white">
                 {loading ? '...' : stats?.deployedStacks ?? 0}
               </h4>
-              <span className="text-sm font-medium">Deployed Stacks</span>
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Deployed Stacks</span>
             </div>
           </div>
         </div>
 
-        <div className="rounded-sm border border-stroke bg-white px-7.5 py-6 shadow-default dark:border-strokedark dark:bg-boxdark">
+        <div className="rounded-2xl border border-gray-200 bg-white px-7.5 py-6 dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="flex items-end justify-between">
             <div>
               <h4 className="text-title-md font-bold text-black dark:text-white">
                 {loading ? '...' : stats?.totalContainers ?? 0}
               </h4>
-              <span className="text-sm font-medium">Total Containers</span>
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Containers</span>
             </div>
           </div>
         </div>
 
-        <div className="rounded-sm border border-stroke bg-white px-7.5 py-6 shadow-default dark:border-strokedark dark:bg-boxdark">
+        <div className="rounded-2xl border border-gray-200 bg-white px-7.5 py-6 dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="flex items-end justify-between">
             <div>
               <h4 className="text-title-md font-bold text-black dark:text-white">
                 {loading ? '...' : stats?.runningContainers ?? 0}
               </h4>
-              <span className="text-sm font-medium">Running Containers</span>
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Running Containers</span>
             </div>
           </div>
         </div>
@@ -86,7 +86,7 @@ export default function Dashboard() {
 
       <div className="mt-4 grid grid-cols-12 gap-4 md:mt-6 md:gap-6 2xl:mt-7.5 2xl:gap-7.5">
         <div className="col-span-12 xl:col-span-8">
-          <div className="rounded-sm border border-stroke bg-white px-5 pb-5 pt-7.5 shadow-default dark:border-strokedark dark:bg-boxdark sm:px-7.5">
+          <div className="rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-7.5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-7.5">
             <div className="mb-3 justify-between gap-4 sm:flex">
               <div>
                 <h4 className="text-xl font-semibold text-black dark:text-white">
@@ -95,21 +95,21 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <div className="flex justify-between border-b border-stroke pb-2 dark:border-strokedark">
-                <span className="text-sm font-medium">Running:</span>
-                <span className="text-sm font-semibold text-meta-3">
+              <div className="flex justify-between border-b border-gray-200 pb-2 dark:border-gray-800">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Running:</span>
+                <span className="text-sm font-semibold text-success-600 dark:text-success-400">
                   {loading ? '...' : stats?.runningContainers ?? 0}
                 </span>
               </div>
-              <div className="flex justify-between border-b border-stroke pb-2 dark:border-strokedark">
-                <span className="text-sm font-medium">Stopped:</span>
-                <span className="text-sm font-semibold text-meta-1">
+              <div className="flex justify-between border-b border-gray-200 pb-2 dark:border-gray-800">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Stopped:</span>
+                <span className="text-sm font-semibold text-error-600 dark:text-error-400">
                   {loading ? '...' : stats?.stoppedContainers ?? 0}
                 </span>
               </div>
               <div className="flex justify-between pt-2">
-                <span className="text-sm font-medium">Total:</span>
-                <span className="text-sm font-bold">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total:</span>
+                <span className="text-sm font-bold text-gray-900 dark:text-white">
                   {loading ? '...' : stats?.totalContainers ?? 0}
                 </span>
               </div>
@@ -118,28 +118,28 @@ export default function Dashboard() {
         </div>
 
         <div className="col-span-12 xl:col-span-4">
-          <div className="rounded-sm border border-stroke bg-white px-5 pb-5 pt-7.5 shadow-default dark:border-strokedark dark:bg-boxdark sm:px-7.5">
+          <div className="rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-7.5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-7.5">
             <div className="mb-3">
               <h4 className="text-xl font-semibold text-black dark:text-white">
                 Stack Overview
               </h4>
             </div>
             <div className="flex flex-col gap-2">
-              <div className="flex justify-between border-b border-stroke pb-2 dark:border-strokedark">
-                <span className="text-sm font-medium">Deployed:</span>
-                <span className="text-sm font-semibold text-meta-3">
+              <div className="flex justify-between border-b border-gray-200 pb-2 dark:border-gray-800">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Deployed:</span>
+                <span className="text-sm font-semibold text-success-600 dark:text-success-400">
                   {loading ? '...' : stats?.deployedStacks ?? 0}
                 </span>
               </div>
-              <div className="flex justify-between border-b border-stroke pb-2 dark:border-strokedark">
-                <span className="text-sm font-medium">Not Deployed:</span>
-                <span className="text-sm font-semibold text-meta-7">
+              <div className="flex justify-between border-b border-gray-200 pb-2 dark:border-gray-800">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Not Deployed:</span>
+                <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">
                   {loading ? '...' : stats?.notDeployedStacks ?? 0}
                 </span>
               </div>
               <div className="flex justify-between pt-2">
-                <span className="text-sm font-medium">Total:</span>
-                <span className="text-sm font-bold">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total:</span>
+                <span className="text-sm font-bold text-gray-900 dark:text-white">
                   {loading ? '...' : stats?.totalStacks ?? 0}
                 </span>
               </div>

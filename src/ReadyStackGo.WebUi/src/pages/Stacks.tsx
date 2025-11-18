@@ -88,7 +88,7 @@ export default function Stacks() {
       )}
 
       <div className="flex flex-col gap-10">
-        <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
+        <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="px-4 py-6 md:px-6 xl:px-7.5">
             <h4 className="text-xl font-semibold text-black dark:text-white">
               Available Stacks
@@ -97,13 +97,13 @@ export default function Stacks() {
 
           {loading ? (
             <div className="border-t border-stroke px-4 py-8 dark:border-strokedark">
-              <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-center text-sm text-gray-600 dark:text-gray-400">
                 Loading stacks...
               </p>
             </div>
           ) : stacks.length === 0 ? (
             <div className="border-t border-stroke px-4 py-8 dark:border-strokedark">
-              <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-center text-sm text-gray-600 dark:text-gray-400">
                 No stacks available.
               </p>
             </div>
@@ -111,16 +111,16 @@ export default function Stacks() {
             <>
               <div className="grid grid-cols-6 border-t border-stroke px-4 py-4.5 dark:border-strokedark sm:grid-cols-8 md:px-6 2xl:px-7.5">
                 <div className="col-span-3 flex items-center">
-                  <p className="font-medium">Stack Name</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-200">Stack Name</p>
                 </div>
                 <div className="col-span-2 hidden items-center sm:flex">
-                  <p className="font-medium">Services</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-200">Services</p>
                 </div>
                 <div className="col-span-1 flex items-center">
-                  <p className="font-medium">Status</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-200">Status</p>
                 </div>
                 <div className="col-span-2 flex items-center">
-                  <p className="font-medium">Actions</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-200">Actions</p>
                 </div>
               </div>
 
@@ -130,16 +130,16 @@ export default function Stacks() {
                   className="grid grid-cols-6 border-t border-stroke px-4 py-4.5 dark:border-strokedark sm:grid-cols-8 md:px-6 2xl:px-7.5"
                 >
                   <div className="col-span-3 flex flex-col gap-1">
-                    <p className="text-sm text-black dark:text-white font-medium">
+                    <p className="text-sm text-gray-900 dark:text-white font-medium">
                       {stack.name}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
                       {stack.description}
                     </p>
                   </div>
 
                   <div className="col-span-2 hidden items-center sm:flex">
-                    <p className="text-sm text-black dark:text-white">
+                    <p className="text-sm text-gray-900 dark:text-gray-300">
                       {stack.services.length} service{stack.services.length !== 1 ? 's' : ''}
                     </p>
                   </div>
