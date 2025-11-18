@@ -1,5 +1,12 @@
 # ReadyStackGo
 
+[![Build Status](https://tfsmain.ams.local/tfs/ams/Products/_apis/build/status%2FReadyStackGo?branchName=develop)](https://tfsmain.ams.local/tfs/ams/Products/_build/latest?definitionId=&branchName=develop)
+[![Docker Hub](https://img.shields.io/docker/v/amssolution/readystackgo?label=docker&logo=docker)](https://hub.docker.com/r/amssolution/readystackgo)
+[![Docker Image Size](https://img.shields.io/docker/image-size/amssolution/readystackgo/latest)](https://hub.docker.com/r/amssolution/readystackgo)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev/)
+
 ReadyStackGo (RSGO) ist eine selbst gehostete Plattform, um komplexe Microservice-Stacks auf Basis von Docker **einfach zu installieren, zu aktualisieren und zu verwalten** – mit einem einzigen Admin-Container, einer modernen Web-UI und manifestbasierten Deployments.
 
 ---
@@ -104,7 +111,7 @@ Die ausführliche Dokumentation findest du im Ordner [`docs/`](./docs):
 - [Roadmap](./docs/Roadmap/Roadmap.md) – Zukunftspläne
 
 ### Vollständige Dokumentation
-Siehe [Dokumentations-Index](./docs/index.md) für die vollständige Übersicht.  
+Siehe [Dokumentations-Übersicht](./docs/Home.md) für die vollständige Übersicht.  
 
 ---
 
