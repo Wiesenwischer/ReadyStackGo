@@ -45,7 +45,7 @@ export default function Dashboard() {
               <h4 className="text-title-md font-bold text-black dark:text-white">
                 {loading ? '...' : stats?.totalStacks ?? 0}
               </h4>
-              <span className="text-sm font-medium">Total Stacks</span>
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Stacks</span>
             </div>
           </div>
         </div>
@@ -56,7 +56,7 @@ export default function Dashboard() {
               <h4 className="text-title-md font-bold text-black dark:text-white">
                 {loading ? '...' : stats?.deployedStacks ?? 0}
               </h4>
-              <span className="text-sm font-medium">Deployed Stacks</span>
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Deployed Stacks</span>
             </div>
           </div>
         </div>
@@ -67,7 +67,7 @@ export default function Dashboard() {
               <h4 className="text-title-md font-bold text-black dark:text-white">
                 {loading ? '...' : stats?.totalContainers ?? 0}
               </h4>
-              <span className="text-sm font-medium">Total Containers</span>
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Containers</span>
             </div>
           </div>
         </div>
@@ -78,7 +78,7 @@ export default function Dashboard() {
               <h4 className="text-title-md font-bold text-black dark:text-white">
                 {loading ? '...' : stats?.runningContainers ?? 0}
               </h4>
-              <span className="text-sm font-medium">Running Containers</span>
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Running Containers</span>
             </div>
           </div>
         </div>
@@ -96,20 +96,20 @@ export default function Dashboard() {
             </div>
             <div className="flex flex-col gap-2">
               <div className="flex justify-between border-b border-stroke pb-2 dark:border-strokedark">
-                <span className="text-sm font-medium">Running:</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Running:</span>
                 <span className="text-sm font-semibold text-meta-3">
                   {loading ? '...' : stats?.runningContainers ?? 0}
                 </span>
               </div>
               <div className="flex justify-between border-b border-stroke pb-2 dark:border-strokedark">
-                <span className="text-sm font-medium">Stopped:</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Stopped:</span>
                 <span className="text-sm font-semibold text-meta-1">
                   {loading ? '...' : stats?.stoppedContainers ?? 0}
                 </span>
               </div>
               <div className="flex justify-between pt-2">
-                <span className="text-sm font-medium">Total:</span>
-                <span className="text-sm font-bold">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total:</span>
+                <span className="text-sm font-bold text-gray-900 dark:text-white">
                   {loading ? '...' : stats?.totalContainers ?? 0}
                 </span>
               </div>
@@ -126,20 +126,20 @@ export default function Dashboard() {
             </div>
             <div className="flex flex-col gap-2">
               <div className="flex justify-between border-b border-stroke pb-2 dark:border-strokedark">
-                <span className="text-sm font-medium">Deployed:</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Deployed:</span>
                 <span className="text-sm font-semibold text-meta-3">
                   {loading ? '...' : stats?.deployedStacks ?? 0}
                 </span>
               </div>
               <div className="flex justify-between border-b border-stroke pb-2 dark:border-strokedark">
-                <span className="text-sm font-medium">Not Deployed:</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Not Deployed:</span>
                 <span className="text-sm font-semibold text-meta-7">
                   {loading ? '...' : stats?.notDeployedStacks ?? 0}
                 </span>
               </div>
               <div className="flex justify-between pt-2">
-                <span className="text-sm font-medium">Total:</span>
-                <span className="text-sm font-bold">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total:</span>
+                <span className="text-sm font-bold text-gray-900 dark:text-white">
                   {loading ? '...' : stats?.totalStacks ?? 0}
                 </span>
               </div>
