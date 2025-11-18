@@ -1,6 +1,7 @@
 # ReadyStackGo
 
 [![Build Status](https://tfsmain.ams.local/tfs/ams/Products/_apis/build/status%2FReadyStackGo?branchName=develop)](https://tfsmain.ams.local/tfs/ams/Products/_build/latest?definitionId=&branchName=develop)
+[![Tests](https://img.shields.io/azure-devops/tests/ams/Products/ReadyStackGo/develop)](https://tfsmain.ams.local/tfs/ams/Products/_build/latest?definitionId=&branchName=develop)
 [![Docker Hub](https://img.shields.io/docker/v/amssolution/readystackgo?label=docker&logo=docker)](https://hub.docker.com/r/amssolution/readystackgo)
 [![Docker Image Size](https://img.shields.io/docker/image-size/amssolution/readystackgo/latest)](https://hub.docker.com/r/amssolution/readystackgo)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)

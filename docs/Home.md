@@ -4,6 +4,15 @@ Willkommen zur Dokumentation von **ReadyStackGo** – einer selbst gehosteten Pl
 
 ---
 
+## Project Status
+
+- **Build Pipeline:** [View Latest Build](https://tfsmain.ams.local/tfs/ams/Products/_build?definitionId=ReadyStackGo)
+- **Docker Hub:** [amssolution/readystackgo](https://hub.docker.com/r/amssolution/readystackgo)
+- **Repository:** [Azure DevOps](https://tfsmain.ams.local/tfs/ams/Products/_git/ReadyStackGo)
+- **License:** MIT
+
+---
+
 ## Was ist ReadyStackGo?
 
 ReadyStackGo (RSGO) ist eine selbst gehostete Plattform, die die Bereitstellung komplexer Microservice-Stacks extrem vereinfacht. Mit einem **einzigen Admin-Container**, einer **modernen Web-UI** und **manifestbasierten Deployments** können On-Premise-Kunden Software-Stacks ohne direkte Interaktion mit Docker Compose oder Kubernetes installieren und verwalten.
