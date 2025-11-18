@@ -27,8 +27,8 @@ COPY src/ReadyStackGo.Application/*.csproj ./src/ReadyStackGo.Application/
 COPY src/ReadyStackGo.Domain/*.csproj ./src/ReadyStackGo.Domain/
 COPY src/ReadyStackGo.Infrastructure/*.csproj ./src/ReadyStackGo.Infrastructure/
 
-# Restore dependencies
-RUN dotnet restore
+# Restore dependencies (only for src projects, exclude tests)
+RUN dotnet restore src/ReadyStackGo.Api/ReadyStackGo.Api.csproj
 
 # Copy all source files
 COPY src/ ./src/
