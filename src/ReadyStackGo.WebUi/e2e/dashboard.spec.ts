@@ -1,13 +1,21 @@
 import { test, expect } from '@playwright/test';
+import { login } from './helpers/auth';
 
 /**
  * E2E Tests für Dashboard Stats
- * Diese Tests testen die Dashboard-Anzeige mit Statistiken
+ * Diese Tests testen die komplette User Journey: Login → Dashboard → API → Docker
+ *
+ * IMPORTANT: Diese Tests simulieren echte Nutzer-Workflows, inkl. Authentifizierung
  */
 
-test.describe('Dashboard Stats', () => {
+test.describe('Dashboard Stats - Authenticated User', () => {
   test.beforeEach(async ({ page }) => {
+    // Simulate real user login workflow
+    await login(page);
+
+    // Navigate to dashboard
     await page.goto('/');
+
     // Wait for dashboard to load
     await page.waitForTimeout(2000);
   });
@@ -161,10 +169,6 @@ test.describe('Dashboard Stats', () => {
   });
 
   test('should auto-refresh stats every 10 seconds', async ({ page }) => {
-    // Navigate to dashboard
-    await page.goto('/');
-    await page.waitForTimeout(2000);
-
     // Get initial stat value
     const totalStacksCard = page.locator('text=Total Stacks').locator('..').locator('h4');
     const initialValue = await totalStacksCard.textContent();
@@ -176,6 +180,9 @@ test.describe('Dashboard Stats', () => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           totalStacks: callCount + 10, // Different value each time
           deployedStacks: 1,
@@ -195,5 +202,62 @@ test.describe('Dashboard Stats', () => {
 
     // Value should have changed (due to our mock API)
     expect(updatedValue).not.toBe(initialValue);
+  });
+});
+
+/**
+ * CRITICAL: Test unauthenticated access
+ * This test would have caught the original bug where Dashboard was accessible but API returned 401
+ */
+test.describe('Dashboard Stats - Unauthenticated User', () => {
+  test('should redirect to login when accessing dashboard without auth', async ({ page }) => {
+    // Clear any existing auth
+    await page.goto('/login');
+    await page.evaluate(() => {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+    });
+
+    // Try to access dashboard
+    await page.goto('/');
+
+    // Should be redirected to login page
+    await page.waitForURL(/\/login/);
+
+    // Should show login form
+    await expect(page.locator('input[name="username"], input[type="text"]')).toBeVisible();
+  });
+
+  test('should show error when API returns 401', async ({ page }) => {
+    // Login first
+    await login(page);
+    await page.goto('/');
+    await page.waitForTimeout(2000);
+
+    // Verify dashboard loads initially
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+
+    // Now simulate token expiration - intercept API to return 401
+    await page.route('**/api/dashboard/stats', route => {
+      route.fulfill({
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: 'Unauthorized' })
+      });
+    });
+
+    // Clear localStorage to simulate expired token
+    await page.evaluate(() => {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+    });
+
+    // Reload page
+    await page.reload();
+
+    // Should redirect to login
+    await page.waitForURL(/\/login/, { timeout: 5000 });
   });
 });

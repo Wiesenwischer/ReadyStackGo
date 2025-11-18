@@ -1,13 +1,5 @@
 import { useEffect, useState } from 'react';
-
-interface DashboardStats {
-  totalStacks: number;
-  deployedStacks: number;
-  notDeployedStacks: number;
-  totalContainers: number;
-  runningContainers: number;
-  stoppedContainers: number;
-}
+import { dashboardApi, type DashboardStats } from '../api/dashboard';
 
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -22,11 +14,7 @@ export default function Dashboard() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/dashboard/stats');
-      if (!response.ok) {
-        throw new Error('Failed to fetch dashboard stats');
-      }
-      const data = await response.json();
+      const data = await dashboardApi.getStats();
       setStats(data);
       setError(null);
     } catch (err) {
