@@ -8,19 +8,19 @@ public class RemoveStackRequest
     public string Id { get; set; } = null!;
 }
 
-public class RemoveStackEndpoint : Endpoint<RemoveStackRequest, EmptyResponse>
+public class RemoveStackEndpoint : EndpointWithoutRequest
 {
     public IStackService StackService { get; set; } = null!;
 
     public override void Configure()
     {
-        Delete("/api/stacks/{Id}");
+        Delete("/api/stacks/{id}");
         Roles("admin");
     }
 
-    public override async Task HandleAsync(RemoveStackRequest req, CancellationToken ct)
+    public override async Task HandleAsync(CancellationToken ct)
     {
-        await StackService.RemoveStackAsync(req.Id, ct);
-        // No content response
+        var id = Route<string>("id")!;
+        await StackService.RemoveStackAsync(id, ct);
     }
 }

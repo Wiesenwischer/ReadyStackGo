@@ -127,7 +127,7 @@ public class StackEndpointsIntegrationTests : IClassFixture<WebApplicationFactor
         var response = await _client.DeleteAsync("/api/stacks/demo-stack");
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         // Verify stack is now NotDeployed
         var getResponse = await _client.GetAsync("/api/stacks/demo-stack");
@@ -152,7 +152,7 @@ public class StackEndpointsIntegrationTests : IClassFixture<WebApplicationFactor
         var response = await _client.DeleteAsync("/api/stacks/demo-stack");
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
 
     [Fact]
@@ -182,7 +182,7 @@ public class StackEndpointsIntegrationTests : IClassFixture<WebApplicationFactor
 
         // 4. Remove the stack
         var removeResponse = await _client.DeleteAsync("/api/stacks/demo-stack");
-        removeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        removeResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         // 5. Verify final state is NotDeployed
         var finalResponse = await _client.GetAsync("/api/stacks/demo-stack");
