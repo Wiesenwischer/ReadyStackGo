@@ -62,6 +62,11 @@ public class StackService : IStackService
         {
             foreach (var service in stack.Services)
             {
+                var containerName = $"{stack.Id}-{service.Name}";
+
+                // Check if container with this name already exists and remove it
+                await RemoveExistingContainerByNameAsync(containerName, cancellationToken);
+
                 // Create container
                 var createResponse = await _dockerClient.Containers.CreateContainerAsync(
                     new CreateContainerParameters
@@ -160,6 +165,46 @@ public class StackService : IStackService
         stack.Status = StackStatus.NotDeployed;
         stack.DeployedAt = null;
         stack.UpdatedAt = DateTime.UtcNow;
+    }
+
+    private async Task RemoveExistingContainerByNameAsync(string containerName, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // List all containers (including stopped ones) with this name
+            var containers = await _dockerClient.Containers.ListContainersAsync(
+                new ContainersListParameters
+                {
+                    All = true,
+                    Filters = new Dictionary<string, IDictionary<string, bool>>
+                    {
+                        ["name"] = new Dictionary<string, bool> { [containerName] = true }
+                    }
+                },
+                cancellationToken);
+
+            foreach (var container in containers)
+            {
+                // Stop container if running
+                if (container.State == "running")
+                {
+                    await _dockerClient.Containers.StopContainerAsync(
+                        container.ID,
+                        new ContainerStopParameters { WaitBeforeKillSeconds = 10 },
+                        cancellationToken);
+                }
+
+                // Remove container
+                await _dockerClient.Containers.RemoveContainerAsync(
+                    container.ID,
+                    new ContainerRemoveParameters { Force = true },
+                    cancellationToken);
+            }
+        }
+        catch
+        {
+            // Ignore errors - container might not exist
+        }
     }
 
     private async Task PullImageIfNotExistsAsync(string image, CancellationToken cancellationToken)
