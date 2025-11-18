@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5259';
+// In development, use empty string to use Vite proxy
+// In production, API is served from same origin (built into wwwroot)
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem('auth_token');
