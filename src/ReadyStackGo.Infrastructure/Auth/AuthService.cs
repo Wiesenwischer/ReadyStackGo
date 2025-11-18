@@ -21,7 +21,7 @@ public class AuthService : IAuthService
             {
                 Username = "admin",
                 // Password: "admin" - BCrypt hash
-                PasswordHash = "$2a$11$5pZhQ3PZkV9gJxqN5qT5Ru.kGZhKqXn5z8xF4lK9qZ5KqZ5KqZ5Kq",
+                PasswordHash = "$2a$11$gDiJeNG9rJsKnvmRRhpWyuPl2r8mO9ioDEHs8D2kk0chXr1rycV06",
                 Role = UserRole.Admin,
                 CreatedAt = DateTime.UtcNow
             }

@@ -10,7 +10,7 @@ public class StopContainerEndpoint : EndpointWithoutRequest
     public override void Configure()
     {
         Post("/api/containers/{id}/stop");
-        AllowAnonymous(); // v0.1 has no authentication
+        Roles("admin", "operator");
         Options(x => x.WithTags("Containers"));
     }
 

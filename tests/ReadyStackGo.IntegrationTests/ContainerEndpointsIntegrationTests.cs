@@ -28,6 +28,10 @@ public class ContainerEndpointsIntegrationTests : IClassFixture<WebApplicationFa
 
     public async Task InitializeAsync()
     {
+        // Authentifizierung für Tests
+        var token = await TestAuthHelper.GetAdminTokenAsync(_client);
+        TestAuthHelper.AddAuthToken(_client, token);
+
         // Starte einen Test-Container für die API-Tests
         _testContainer = new ContainerBuilder()
             .WithImage("nginx:alpine")

@@ -56,9 +56,17 @@ public class Program
         }
 
         app.UseHttpsRedirection();
+
+        // Serve static files from wwwroot
+        app.UseDefaultFiles();
+        app.UseStaticFiles();
+
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseFastEndpoints();
+
+        // Fallback to index.html for SPA routing
+        app.MapFallbackToFile("index.html");
 
         app.Run();
     }

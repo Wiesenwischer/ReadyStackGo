@@ -11,7 +11,7 @@ public class ListContainersEndpoint : Endpoint<EmptyRequest, IEnumerable<Contain
     public override void Configure()
     {
         Get("/api/containers");
-        AllowAnonymous(); // v0.1 has no authentication
+        Roles("admin", "operator");
     }
 
     public override async Task HandleAsync(EmptyRequest req, CancellationToken ct)

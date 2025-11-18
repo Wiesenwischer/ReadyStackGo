@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5259';
+import { apiGet, apiPost } from './client';
 
 export interface Container {
   id: string;
@@ -18,28 +18,14 @@ export interface Port {
 
 export const containerApi = {
   async list(): Promise<Container[]> {
-    const response = await fetch(`${API_BASE_URL}/api/containers`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch containers');
-    }
-    return response.json();
+    return apiGet<Container[]>('/api/containers');
   },
 
   async start(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/api/containers/${id}/start`, {
-      method: 'POST',
-    });
-    if (!response.ok) {
-      throw new Error('Failed to start container');
-    }
+    return apiPost(`/api/containers/${id}/start`);
   },
 
   async stop(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/api/containers/${id}/stop`, {
-      method: 'POST',
-    });
-    if (!response.ok) {
-      throw new Error('Failed to stop container');
-    }
+    return apiPost(`/api/containers/${id}/stop`);
   },
 };

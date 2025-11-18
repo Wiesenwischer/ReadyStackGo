@@ -15,7 +15,7 @@ public class LogoutEndpoint : EndpointWithoutRequest
     {
         // For JWT, logout is handled client-side by removing the token
         // In the future, we could add token blacklisting if needed
-        HttpContext.Response.StatusCode = StatusCodes.Status200OK;
+        // FastEndpoints will automatically return 200 OK for successful completion
         return Task.CompletedTask;
     }
 }

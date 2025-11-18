@@ -21,7 +21,7 @@ public class LoginEndpoint : Endpoint<LoginRequest, LoginResponse>
 
         if (result is null)
         {
-            HttpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            ThrowError("Invalid username or password", StatusCodes.Status401Unauthorized);
             return;
         }
 
