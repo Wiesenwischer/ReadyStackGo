@@ -84,7 +84,7 @@ export default function Containers() {
       )}
 
       <div className="flex flex-col gap-10">
-        <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
+        <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="px-4 py-6 md:px-6 xl:px-7.5">
             <h4 className="text-xl font-semibold text-black dark:text-white">
               All Containers
@@ -93,31 +93,31 @@ export default function Containers() {
 
           <div className="grid grid-cols-6 border-t border-stroke px-4 py-4.5 dark:border-strokedark sm:grid-cols-8 md:px-6 2xl:px-7.5">
             <div className="col-span-3 flex items-center">
-              <p className="font-medium">Container Name</p>
+              <p className="font-medium text-gray-900 dark:text-gray-200">Container Name</p>
             </div>
             <div className="col-span-2 hidden items-center sm:flex">
-              <p className="font-medium">Image</p>
+              <p className="font-medium text-gray-900 dark:text-gray-200">Image</p>
             </div>
             <div className="col-span-1 flex items-center">
-              <p className="font-medium">Status</p>
+              <p className="font-medium text-gray-900 dark:text-gray-200">Status</p>
             </div>
             <div className="col-span-1 flex items-center">
-              <p className="font-medium">Port</p>
+              <p className="font-medium text-gray-900 dark:text-gray-200">Port</p>
             </div>
             <div className="col-span-1 flex items-center">
-              <p className="font-medium">Actions</p>
+              <p className="font-medium text-gray-900 dark:text-gray-200">Actions</p>
             </div>
           </div>
 
           {loading ? (
             <div className="border-t border-stroke px-4 py-4.5 dark:border-strokedark md:px-6 2xl:px-7.5">
-              <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-center text-sm text-gray-600 dark:text-gray-400">
                 Loading containers...
               </p>
             </div>
           ) : containers.length === 0 ? (
             <div className="border-t border-stroke px-4 py-4.5 dark:border-strokedark md:px-6 2xl:px-7.5">
-              <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-center text-sm text-gray-600 dark:text-gray-400">
                 No containers found. Make sure Docker is running.
               </p>
             </div>
