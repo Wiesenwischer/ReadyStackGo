@@ -8,7 +8,7 @@ branches:
     track-merge-target: false
   develop:
     regex: ^develop$
-    tag: alpha
+    tag: ci
     increment: Minor
     is-release-branch: false
     track-merge-target: true
