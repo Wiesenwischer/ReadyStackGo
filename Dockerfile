@@ -34,7 +34,7 @@ RUN dotnet restore src/ReadyStackGo.Api/ReadyStackGo.Api.csproj
 COPY src/ ./src/
 
 # Copy frontend build output to wwwroot
-COPY --from=frontend-build /app/frontend/dist ./src/ReadyStackGo.Api/wwwroot
+COPY --from=frontend-build /app/ReadyStackGo.Api/wwwroot ./src/ReadyStackGo.Api/wwwroot
 
 # Build and publish
 RUN dotnet publish src/ReadyStackGo.Api/ReadyStackGo.Api.csproj \
