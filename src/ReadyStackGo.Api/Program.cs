@@ -1,4 +1,7 @@
+using System.Text;
 using FastEndpoints;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using ReadyStackGo.Infrastructure;
 
 namespace ReadyStackGo.Api;
@@ -10,8 +13,28 @@ public class Program
         var builder = WebApplication.CreateBuilder(args);
 
         // Add services to the container
-        builder.Services.AddInfrastructure();
+        builder.Services.AddInfrastructure(builder.Configuration);
         builder.Services.AddFastEndpoints();
+
+        // Add JWT Authentication
+        var jwtSettings = builder.Configuration.GetSection("Jwt");
+        builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = jwtSettings["Issuer"],
+                    ValidAudience = jwtSettings["Audience"],
+                    IssuerSigningKey = new SymmetricSecurityKey(
+                        Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!))
+                };
+            });
+
+        builder.Services.AddAuthorization();
 
         // Add CORS for development
         builder.Services.AddCors(options =>
@@ -33,6 +56,8 @@ public class Program
         }
 
         app.UseHttpsRedirection();
+        app.UseAuthentication();
+        app.UseAuthorization();
         app.UseFastEndpoints();
 
         app.Run();

@@ -1,8 +1,12 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 const UserDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -15,6 +19,11 @@ const UserDropdown = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
@@ -24,10 +33,10 @@ const UserDropdown = () => {
       >
         <span className="hidden text-right lg:block">
           <span className="block text-sm font-medium text-gray-900 dark:text-white">
-            Admin User
+            {user?.username || 'Admin User'}
           </span>
           <span className="block text-xs text-gray-500 dark:text-gray-400">
-            Administrator
+            {user?.role || 'Administrator'}
           </span>
         </span>
 
@@ -122,7 +131,10 @@ const UserDropdown = () => {
               Settings
             </button>
             <hr className="my-1 border-gray-200 dark:border-gray-800" />
-            <button className="flex w-full items-center gap-3.5 rounded-lg px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/10">
+            <button
+              onClick={handleLogout}
+              className="flex w-full items-center gap-3.5 rounded-lg px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/10"
+            >
               <svg
                 width="18"
                 height="18"

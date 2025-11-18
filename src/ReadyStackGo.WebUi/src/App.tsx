@@ -4,18 +4,30 @@ import { ScrollToTop } from "./components/common/ScrollToTop";
 import Dashboard from "./pages/Dashboard";
 import Containers from "./pages/Containers";
 import Stacks from "./pages/Stacks";
+import Login from "./pages/Auth/Login";
+import { AuthProvider } from "./context/AuthContext";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 export default function App() {
   return (
-    <Router>
-      <ScrollToTop />
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route index path="/" element={<Dashboard />} />
-          <Route path="/containers" element={<Containers />} />
-          <Route path="/stacks" element={<Stacks />} />
-        </Route>
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <ScrollToTop />
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index path="/" element={<Dashboard />} />
+            <Route path="/containers" element={<Containers />} />
+            <Route path="/stacks" element={<Stacks />} />
+          </Route>
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
