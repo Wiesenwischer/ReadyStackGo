@@ -128,24 +128,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Future Releases
 
 ### [0.4.0] - Planned
-- Actual container deployment from manifests
-- Advanced connection mode (per-context configuration)
-- Custom TLS certificate upload
-- Release management UI
-- Feature flags UI
-- Container health monitoring
+
+#### Multi-Environment Support
+- **Environments:** Organizations can have multiple environments (Development, Test, Production)
+- **Environment Selector:** UI dropdown to switch between environments
+- **Per-Environment Configuration:**
+  - Independent connection strings (Transport, Persistence, EventStore)
+  - Separate Docker host per environment
+  - Environment-specific deployed stacks and containers
+- **Wizard Update:** Combined Organization + Default Environment setup step
+- **Configuration Files:** Per-environment config files (`rsgo.contexts.{env}.json`)
+- **Migration:** Automatic upgrade from v0.3 single-environment to v0.4 multi-environment
+
+#### Environment Management
+- Create, update, delete environments via Settings UI
+- Test Docker host connectivity before saving
+- Default environment designation
+- Environment-scoped container and stack views
+
+#### API Enhancements
+- `GET /api/environments` - List all environments
+- `POST /api/environments` - Create new environment
+- `PUT /api/environments/{id}` - Update environment
+- `DELETE /api/environments/{id}` - Delete environment
+- Environment query parameter for container/stack endpoints
+
+#### Limitations (v0.4)
+- Single Docker host per environment (multi-node deferred to v0.5)
+- Simple connection mode only (Advanced mode in future release)
+- Basic Docker host auth (TLS support in v0.5)
 
 ### [0.5.0] - Planned
+
+#### Container Deployment
+- Actual stack deployment from manifests
+- Docker network creation and management
+- Container health monitoring
+- Deployment rollback capabilities
+
+#### Multi-Node Support
+- Multiple Docker hosts per environment
+- Load balancing across nodes
+- Node health monitoring
+- Distributed container orchestration
+
+#### Authentication & Authorization
 - Multi-user support
 - OIDC/SSO integration
-- Plugin system foundation
-- Advanced role-based access control
+- Role-based access control (RBAC)
+- Per-environment access permissions
 
 ### [0.6.0] - Planned
-- CI/CD pipeline integration
+
+#### Release Management
+- Release management UI
+- Feature flags UI
+- Stack version comparison
 - Automated release notifications
-- Rollback capabilities
+
+#### Advanced Configuration
+- Advanced connection mode (per-context configuration)
+- Custom TLS certificate upload
+- Let's Encrypt integration
+- Environment templates and cloning
+
+### [0.7.0] - Planned
+
+#### CI/CD Integration
+- Webhook support for automated deployments
+- CI/CD pipeline integration
+- Git repository monitoring
+- Automated testing integration
+
+#### Operations & Monitoring
 - Stack health dashboard
+- Container logs aggregation
+- Metrics and alerting
+- Audit logs per environment
 
 ---
 
