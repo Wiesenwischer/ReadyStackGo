@@ -166,6 +166,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Container health monitoring
 - Deployment rollback capabilities
 
+#### Database Migration & Multi-User Support
+- **SQLite Database:** Migrate from JSON file storage to SQLite for better concurrency and ACID transactions
+- **Multi-user support:** Individual user accounts with invitation system
+- User session management and activity tracking
+- Audit logging for all operations
+- Migration tool: `rsgo.system.json` → `readystackgo.db`
+
 #### Multi-Node Support
 - Multiple Docker hosts per environment
 - Load balancing across nodes
@@ -173,10 +180,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Distributed container orchestration
 
 #### Authentication & Authorization
-- Multi-user support
-- OIDC/SSO integration
+- OIDC/SSO integration (optional)
 - Role-based access control (RBAC)
 - Per-environment access permissions
+- API key management
 
 ### [0.6.0] - Planned
 
