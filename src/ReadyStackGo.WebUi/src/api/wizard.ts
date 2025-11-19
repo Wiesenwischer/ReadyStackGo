@@ -1,0 +1,70 @@
+import { apiGet, apiPost } from './client';
+
+// Wizard DTOs matching the backend
+export interface WizardStatusResponse {
+  wizardState: 'NotStarted' | 'AdminCreated' | 'OrganizationSet' | 'ConnectionsSet' | 'Installed';
+  isCompleted: boolean;
+}
+
+export interface CreateAdminRequest {
+  username: string;
+  password: string;
+}
+
+export interface CreateAdminResponse {
+  success: boolean;
+  message?: string;
+}
+
+export interface SetOrganizationRequest {
+  id: string;
+  name: string;
+}
+
+export interface SetOrganizationResponse {
+  success: boolean;
+  message?: string;
+}
+
+export interface SetConnectionsRequest {
+  transport: string;
+  persistence: string;
+  eventStore?: string;
+}
+
+export interface SetConnectionsResponse {
+  success: boolean;
+  message?: string;
+}
+
+export interface InstallStackRequest {
+  manifestPath?: string;
+}
+
+export interface InstallStackResponse {
+  success: boolean;
+  stackVersion?: string;
+  deployedContexts: string[];
+  errors: string[];
+}
+
+// API functions
+export async function getWizardStatus(): Promise<WizardStatusResponse> {
+  return apiGet<WizardStatusResponse>('/api/wizard/status');
+}
+
+export async function createAdmin(request: CreateAdminRequest): Promise<CreateAdminResponse> {
+  return apiPost<CreateAdminResponse>('/api/wizard/admin', request);
+}
+
+export async function setOrganization(request: SetOrganizationRequest): Promise<SetOrganizationResponse> {
+  return apiPost<SetOrganizationResponse>('/api/wizard/organization', request);
+}
+
+export async function setConnections(request: SetConnectionsRequest): Promise<SetConnectionsResponse> {
+  return apiPost<SetConnectionsResponse>('/api/wizard/connections', request);
+}
+
+export async function installStack(request: InstallStackRequest = {}): Promise<InstallStackResponse> {
+  return apiPost<InstallStackResponse>('/api/wizard/install', request);
+}

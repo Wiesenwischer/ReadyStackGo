@@ -5,9 +5,11 @@ import Dashboard from "./pages/Dashboard";
 import Containers from "./pages/Containers";
 import Stacks from "./pages/Stacks";
 import Login from "./pages/Auth/Login";
+import Wizard from "./pages/Wizard";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import WizardGuard from "./components/wizard/WizardGuard";
 
 export default function App() {
   return (
@@ -15,20 +17,23 @@ export default function App() {
       <AuthProvider>
         <Router>
           <ScrollToTop />
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route
-              element={
-                <ProtectedRoute>
-                  <AppLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index path="/" element={<Dashboard />} />
-              <Route path="/containers" element={<Containers />} />
-              <Route path="/stacks" element={<Stacks />} />
-            </Route>
-          </Routes>
+          <WizardGuard>
+            <Routes>
+              <Route path="/wizard" element={<Wizard />} />
+              <Route path="/login" element={<Login />} />
+              <Route
+                element={
+                  <ProtectedRoute>
+                    <AppLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index path="/" element={<Dashboard />} />
+                <Route path="/containers" element={<Containers />} />
+                <Route path="/stacks" element={<Stacks />} />
+              </Route>
+            </Routes>
+          </WizardGuard>
         </Router>
       </AuthProvider>
     </ThemeProvider>
