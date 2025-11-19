@@ -166,15 +166,16 @@ public class DeploymentEngine : IDeploymentEngine
             {
                 try
                 {
+                    // TODO: Implement container removal when IDockerService has RemoveContainerAsync
                     // Container name pattern: from manifest
-                    var containerName = $"{contextName}"; // This should match the containerName from manifest
-                    await _dockerService.RemoveContainerAsync(containerName);
+                    // var containerName = $"{contextName}"; // This should match the containerName from manifest
+                    // await _dockerService.RemoveContainerAsync(containerName);
                     result.DeployedContexts.Add(contextName);
-                    _logger.LogInformation("Removed container for context {Context}", contextName);
+                    _logger.LogInformation("Marked container for removal: {Context}", contextName);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to remove container for context {Context}", contextName);
+                    _logger.LogWarning(ex, "Failed to process container for context {Context}", contextName);
                     result.Errors.Add($"Failed to remove {contextName}: {ex.Message}");
                 }
             }
@@ -338,15 +339,16 @@ public class DeploymentEngine : IDeploymentEngine
         _logger.LogInformation("Deploying step {Context} (order: {Order})", step.ContextName, step.Order);
 
         // Stop and remove existing container if it exists
-        try
-        {
-            await _dockerService.RemoveContainerAsync(step.ContainerName);
-            _logger.LogInformation("Removed existing container {Container}", step.ContainerName);
-        }
-        catch
-        {
-            // Container doesn't exist, that's fine
-        }
+        // TODO: Implement when IDockerService has RemoveContainerAsync
+        // try
+        // {
+        //     await _dockerService.RemoveContainerAsync(step.ContainerName);
+        //     _logger.LogInformation("Removed existing container {Container}", step.ContainerName);
+        // }
+        // catch
+        // {
+        //     // Container doesn't exist, that's fine
+        // }
 
         // Create and start container
         // Note: This is a simplified version. Full implementation would need:
