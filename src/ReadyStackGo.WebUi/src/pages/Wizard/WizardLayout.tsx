@@ -11,7 +11,7 @@ export default function WizardLayout({ currentStep, children }: WizardLayoutProp
     { number: 1, name: 'Admin', description: 'Create admin user' },
     { number: 2, name: 'Organization', description: 'Set organization' },
     { number: 3, name: 'Connections', description: 'Configure connections' },
-    { number: 4, name: 'Install', description: 'Install stack' },
+    { number: 4, name: 'Complete', description: 'Finish setup' },
   ];
 
   return (

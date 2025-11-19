@@ -2,10 +2,10 @@ import { useState } from 'react';
 
 interface InstallStepProps {
   onInstall: () => Promise<void>;
-  onBack: () => void;
+  onBack?: () => void;
 }
 
-export default function InstallStep({ onInstall, onBack }: InstallStepProps) {
+export default function InstallStep({ onInstall }: InstallStepProps) {
   const [isInstalling, setIsInstalling] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<{
@@ -40,10 +40,10 @@ export default function InstallStep({ onInstall, onBack }: InstallStepProps) {
     <div>
       <div className="mb-6">
         <h2 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white">
-          Ready to Install
+          Complete Setup
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Review your configuration and install the ReadyStackGo stack
+          Review your configuration and complete the initial setup
         </p>
       </div>
 
@@ -51,7 +51,7 @@ export default function InstallStep({ onInstall, onBack }: InstallStepProps) {
         {/* Summary Card */}
         <div className="p-5 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800/50 dark:border-gray-700">
           <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-            Installation Summary
+            Configuration Summary
           </h3>
           <div className="space-y-2 text-sm">
             <div className="flex items-center gap-2">
@@ -85,13 +85,9 @@ export default function InstallStep({ onInstall, onBack }: InstallStepProps) {
               <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
                 What happens next
               </p>
-              <ul className="mt-2 space-y-1 text-xs text-blue-700 dark:text-blue-400 list-disc list-inside">
-                <li>Load the latest release manifest</li>
-                <li>Create Docker network (rsgo-net)</li>
-                <li>Deploy all service containers</li>
-                <li>Configure environment variables</li>
-                <li>Start the gateway (last)</li>
-              </ul>
+              <p className="mt-2 text-xs text-blue-700 dark:text-blue-400">
+                Your configuration will be saved and you'll be able to access the admin dashboard. You can deploy and manage container stacks from there.
+              </p>
             </div>
           </div>
         </div>
@@ -99,7 +95,7 @@ export default function InstallStep({ onInstall, onBack }: InstallStepProps) {
         {/* Error Display */}
         {error && (
           <div className="p-4 text-sm border border-red-300 rounded-lg bg-red-50 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
-            <p className="font-medium mb-1">Installation Failed</p>
+            <p className="font-medium mb-1">Setup Failed</p>
             <p>{error}</p>
             {result?.errors && result.errors.length > 0 && (
               <ul className="mt-2 space-y-1 list-disc list-inside">
@@ -111,7 +107,7 @@ export default function InstallStep({ onInstall, onBack }: InstallStepProps) {
           </div>
         )}
 
-        {/* Installation in Progress */}
+        {/* Setup in Progress */}
         {isInstalling && (
           <div className="p-4 text-sm border border-blue-300 rounded-lg bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800">
             <div className="flex items-center gap-3">
@@ -120,28 +116,20 @@ export default function InstallStep({ onInstall, onBack }: InstallStepProps) {
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
               <p className="text-blue-800 dark:text-blue-300">
-                Installing stack... This may take a few minutes.
+                Completing setup...
               </p>
             </div>
           </div>
         )}
 
-        <div className="pt-4 flex gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            disabled={isInstalling}
-            className="inline-flex items-center justify-center flex-1 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500/50 disabled:opacity-50 disabled:cursor-not-allowed px-7"
-          >
-            Back
-          </button>
+        <div className="pt-4">
           <button
             type="button"
             onClick={handleInstall}
             disabled={isInstalling}
-            className="inline-flex items-center justify-center flex-1 py-3 text-sm font-medium text-white transition-colors rounded-lg bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/50 disabled:opacity-50 disabled:cursor-not-allowed px-7"
+            className="inline-flex items-center justify-center w-full py-3 text-sm font-medium text-white transition-colors rounded-lg bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/50 disabled:opacity-50 disabled:cursor-not-allowed px-7"
           >
-            {isInstalling ? 'Installing...' : 'Install Stack'}
+            {isInstalling ? 'Completing Setup...' : 'Complete Setup'}
           </button>
         </div>
       </div>

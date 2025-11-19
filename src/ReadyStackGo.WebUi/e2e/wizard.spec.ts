@@ -140,10 +140,10 @@ test.describe('Setup Wizard', () => {
     await page.getByRole('button', { name: /Continue/i }).click();
 
     // Should move to step 4
-    await expect(page.getByRole('heading', { name: /Ready to Install/i })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
   });
 
-  test('should show installation summary on step 4', async ({ page }) => {
+  test('should show configuration summary on step 4', async ({ page }) => {
     await completeStep1(page);
     await completeStep2(page);
     await completeStep3(page);
@@ -153,8 +153,8 @@ test.describe('Setup Wizard', () => {
     await expect(page.getByText(/Organization details set/i)).toBeVisible();
     await expect(page.getByText(/Connection strings configured/i)).toBeVisible();
 
-    // Check install button
-    await expect(page.getByRole('button', { name: /Install Stack/i })).toBeVisible();
+    // Check complete button
+    await expect(page.getByRole('button', { name: /Complete Setup/i })).toBeVisible();
   });
 
   test('should show progress indicator for all 4 steps', async ({ page }) => {
@@ -170,7 +170,7 @@ test.describe('Setup Wizard', () => {
     await expect(page.getByText('Admin')).toBeVisible();
     await expect(page.getByText('Organization')).toBeVisible();
     await expect(page.getByText('Connections')).toBeVisible();
-    await expect(page.getByText('Install')).toBeVisible();
+    await expect(page.getByText('Complete')).toBeVisible();
   });
 
   test('should prevent direct access to later steps', async ({ page }) => {
@@ -276,6 +276,6 @@ test.describe('Setup Wizard', () => {
     await page.fill('input[placeholder*="amqp"]', 'amqp://localhost:5672');
     await page.fill('input[placeholder*="postgres"]', 'Host=localhost;Database=test;Username=user;Password=pass');
     await page.getByRole('button', { name: /Continue/i }).click();
-    await expect(page.getByRole('heading', { name: /Ready to Install/i })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
   }
 });

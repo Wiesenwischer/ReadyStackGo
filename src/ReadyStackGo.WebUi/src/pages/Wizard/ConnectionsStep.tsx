@@ -2,10 +2,10 @@ import { useState, type FormEvent } from 'react';
 
 interface ConnectionsStepProps {
   onNext: (data: { transport: string; persistence: string; eventStore?: string }) => Promise<void>;
-  onBack: () => void;
+  onBack?: () => void;
 }
 
-export default function ConnectionsStep({ onNext, onBack }: ConnectionsStepProps) {
+export default function ConnectionsStep({ onNext }: ConnectionsStepProps) {
   const [transport, setTransport] = useState('');
   const [persistence, setPersistence] = useState('');
   const [eventStore, setEventStore] = useState('');
@@ -126,18 +126,11 @@ export default function ConnectionsStep({ onNext, onBack }: ConnectionsStepProps
             </div>
           </div>
 
-          <div className="pt-4 flex gap-3">
-            <button
-              type="button"
-              onClick={onBack}
-              className="inline-flex items-center justify-center flex-1 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500/50 px-7"
-            >
-              Back
-            </button>
+          <div className="pt-4">
             <button
               type="submit"
               disabled={isLoading}
-              className="inline-flex items-center justify-center flex-1 py-3 text-sm font-medium text-white transition-colors rounded-lg bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/50 disabled:opacity-50 disabled:cursor-not-allowed px-7"
+              className="inline-flex items-center justify-center w-full py-3 text-sm font-medium text-white transition-colors rounded-lg bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/50 disabled:opacity-50 disabled:cursor-not-allowed px-7"
             >
               {isLoading ? 'Saving...' : 'Continue'}
             </button>

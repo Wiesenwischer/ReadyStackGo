@@ -129,7 +129,7 @@ public class WizardEndpointsIntegrationTests : IClassFixture<WebApplicationFacto
     }
 
     [Fact]
-    public async Task POST_InstallStack_WithNoManifests_ReturnsError()
+    public async Task POST_CompleteWizard_AfterAllSteps_ReturnsSuccess()
     {
         // Arrange - Complete all previous steps
         await CreateAdminForTest();
@@ -149,9 +149,9 @@ public class WizardEndpointsIntegrationTests : IClassFixture<WebApplicationFacto
 
         var result = await response.Content.ReadFromJsonAsync<InstallStackResponse>();
         result.Should().NotBeNull();
-        // Expecting failure if no manifests are available
-        result!.Success.Should().BeFalse();
-        result.Errors.Should().NotBeEmpty();
+        // Wizard completion no longer requires manifests - it just marks setup as complete
+        result!.Success.Should().BeTrue();
+        result.StackVersion.Should().Be("v0.3.0");
     }
 
     [Fact]
