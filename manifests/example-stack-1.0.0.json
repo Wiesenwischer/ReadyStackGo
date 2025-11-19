@@ -1,0 +1,56 @@
+{
+  "manifestVersion": "1.0.0",
+  "stackVersion": "1.0.0",
+  "schemaVersion": 1,
+  "gateway": {
+    "context": "gateway",
+    "protocol": "https",
+    "publicPort": 8443,
+    "internalHttpPort": 8080
+  },
+  "contexts": {
+    "api": {
+      "image": "myregistry/example-api",
+      "version": "1.0.0",
+      "containerName": "example-api",
+      "internal": true,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Production"
+      },
+      "ports": [
+        "5000:5000"
+      ]
+    },
+    "gateway": {
+      "image": "myregistry/example-gateway",
+      "version": "1.0.0",
+      "containerName": "example-gateway",
+      "internal": false,
+      "env": {
+        "BACKEND_URL": "http://example-api:5000"
+      },
+      "ports": [
+        "8080:80",
+        "8443:443"
+      ],
+      "dependsOn": [
+        "api"
+      ]
+    }
+  },
+  "features": {
+    "exampleFeature": {
+      "default": true,
+      "description": "Example feature flag"
+    }
+  },
+  "metadata": {
+    "releaseName": "Initial Release",
+    "releaseDate": "2025-01-19T00:00:00Z",
+    "description": "Example stack manifest for testing",
+    "changeNotes": [
+      "Initial implementation",
+      "Basic API and Gateway setup"
+    ]
+  }
+}

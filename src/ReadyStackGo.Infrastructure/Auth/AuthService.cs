@@ -1,55 +1,80 @@
+using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Auth;
 using ReadyStackGo.Application.Auth.DTOs;
 using ReadyStackGo.Domain.Auth;
+using ReadyStackGo.Infrastructure.Configuration;
 
 namespace ReadyStackGo.Infrastructure.Auth;
 
 public class AuthService : IAuthService
 {
     private readonly ITokenService _tokenService;
-    private readonly Dictionary<string, User> _users;
+    private readonly IConfigStore _configStore;
+    private readonly ILogger<AuthService> _logger;
 
-    public AuthService(ITokenService tokenService)
+    public AuthService(
+        ITokenService tokenService,
+        IConfigStore configStore,
+        ILogger<AuthService> logger)
     {
         _tokenService = tokenService;
-
-        // TODO: For v0.2, we use hardcoded admin user
-        // Later versions will use database/configuration
-        _users = new Dictionary<string, User>
-        {
-            ["admin"] = new User
-            {
-                Username = "admin",
-                // Password: "admin" - BCrypt hash
-                PasswordHash = "$2a$11$gDiJeNG9rJsKnvmRRhpWyuPl2r8mO9ioDEHs8D2kk0chXr1rycV06",
-                Role = UserRole.Admin,
-                CreatedAt = DateTime.UtcNow
-            }
-        };
+        _configStore = configStore;
+        _logger = logger;
     }
 
-    public Task<LoginResponse?> LoginAsync(LoginRequest request)
+    public async Task<LoginResponse?> LoginAsync(LoginRequest request)
     {
-        if (!_users.TryGetValue(request.Username, out var user))
+        try
         {
-            return Task.FromResult<LoginResponse?>(null);
-        }
+            // Load security config to get admin user
+            var securityConfig = await _configStore.GetSecurityConfigAsync();
 
-        // Verify password using BCrypt
-        if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+            if (securityConfig.LocalAdmin == null)
+            {
+                _logger.LogWarning("No admin user configured. Please complete the setup wizard.");
+                return null;
+            }
+
+            // Check if username matches
+            if (request.Username != securityConfig.LocalAdmin.Username)
+            {
+                _logger.LogWarning("Login attempt with invalid username: {Username}", request.Username);
+                return null;
+            }
+
+            // Verify password using BCrypt
+            if (!BCrypt.Net.BCrypt.Verify(request.Password, securityConfig.LocalAdmin.PasswordHash))
+            {
+                _logger.LogWarning("Login attempt with invalid password for user: {Username}", request.Username);
+                return null;
+            }
+
+            // Create user object
+            var user = new User
+            {
+                Username = securityConfig.LocalAdmin.Username,
+                PasswordHash = securityConfig.LocalAdmin.PasswordHash,
+                Role = UserRole.Admin,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var token = _tokenService.GenerateToken(user);
+
+            var response = new LoginResponse(
+                Token: token,
+                Username: user.Username,
+                Role: user.Role
+            );
+
+            _logger.LogInformation("User logged in successfully: {Username}", user.Username);
+
+            return response;
+        }
+        catch (Exception ex)
         {
-            return Task.FromResult<LoginResponse?>(null);
+            _logger.LogError(ex, "Error during login for user: {Username}", request.Username);
+            return null;
         }
-
-        var token = _tokenService.GenerateToken(user);
-
-        var response = new LoginResponse(
-            Token: token,
-            Username: user.Username,
-            Role: user.Role
-        );
-
-        return Task.FromResult<LoginResponse?>(response);
     }
 
     public Task<bool> ValidateTokenAsync(string token)

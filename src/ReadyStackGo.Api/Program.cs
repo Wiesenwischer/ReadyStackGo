@@ -8,7 +8,7 @@ namespace ReadyStackGo.Api;
 
 public class Program
 {
-    public static void Main(string[] args)
+    public static async Task Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
 
@@ -49,6 +49,9 @@ public class Program
 
         var app = builder.Build();
 
+        // Bootstrap: Generate TLS certificate if not exists
+        await BootstrapTlsCertificateAsync(app);
+
         // Configure the HTTP request pipeline
         if (app.Environment.IsDevelopment())
         {
@@ -68,6 +71,46 @@ public class Program
         // Fallback to index.html for SPA routing
         app.MapFallbackToFile("index.html");
 
-        app.Run();
+        await app.RunAsync();
+    }
+
+    /// <summary>
+    /// Bootstrap TLS certificate generation on first startup
+    /// </summary>
+    private static async Task BootstrapTlsCertificateAsync(WebApplication app)
+    {
+        using var scope = app.Services.CreateScope();
+        var tlsService = scope.ServiceProvider.GetRequiredService<ReadyStackGo.Infrastructure.Tls.ITlsService>();
+        var configStore = scope.ServiceProvider.GetRequiredService<ReadyStackGo.Infrastructure.Configuration.IConfigStore>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+        try
+        {
+            // Check if TLS is already configured
+            var tlsConfig = await configStore.GetTlsConfigAsync();
+
+            if (tlsConfig.CertificatePath == null || !File.Exists(tlsConfig.CertificatePath))
+            {
+                logger.LogInformation("TLS certificate not found. Generating self-signed certificate...");
+
+                // Get hostname from configuration or use localhost
+                var hostname = app.Configuration.GetValue<string>("Hostname") ?? "localhost";
+
+                // Generate self-signed certificate
+                var certPassword = await tlsService.GenerateSelfSignedCertificateAsync(hostname);
+
+                logger.LogInformation("Self-signed TLS certificate generated successfully for hostname: {Hostname}", hostname);
+                logger.LogInformation("Certificate path: {CertPath}", tlsConfig.CertificatePath);
+                logger.LogWarning("IMPORTANT: Store the certificate password securely. It is saved in rsgo.tls.json");
+            }
+            else
+            {
+                logger.LogInformation("TLS certificate already exists at: {CertPath}", tlsConfig.CertificatePath);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to bootstrap TLS certificate. The application will continue but HTTPS may not work properly.");
+        }
     }
 }
