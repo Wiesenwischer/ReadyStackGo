@@ -6,6 +6,7 @@ using ReadyStackGo.Application.Stacks;
 using ReadyStackGo.Infrastructure.Auth;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Docker;
+using ReadyStackGo.Infrastructure.Manifests;
 using ReadyStackGo.Infrastructure.Stacks;
 using ReadyStackGo.Infrastructure.Tls;
 
@@ -20,6 +21,9 @@ public static class DependencyInjection
 
         // TLS services
         services.AddSingleton<ITlsService, TlsService>();
+
+        // Manifest services
+        services.AddSingleton<IManifestProvider, ManifestProvider>();
 
         // Docker services
         services.AddSingleton<IDockerService, DockerService>();
