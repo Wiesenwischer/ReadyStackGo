@@ -143,21 +143,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New Flow: Admin Account → Organization → Complete
 - Faster onboarding, less complexity
 
-#### Stack-Specific Configuration System
-- **Manifest-Driven Config:** Each stack defines `configurationSchema` in manifest
+#### Stack-Specific Configuration System (Docker Compose)
+- **Docker Compose Support:** Deploy stacks using standard `docker-compose.yml` files
+- **Automatic Variable Detection:** Parse `${VARIABLE}` syntax from compose files
 - **Deployment-Time Configuration:** Users provide values when deploying stack
-- **Variable Interpolation:** `{{transport.url}}` in container environment variables
-- **Validation:** Type checking, regex patterns, required fields
+- **Dynamic UI Generation:** Configuration form generated from detected variables
+- **Default Value Support:** Extract defaults from `${VAR:-default}` syntax
 - **Per-Deployment Storage:** `/app/config/deployments/{env}/{stack}.deployment.json`
 - **No Global Connection Strings:** Removed `rsgo.contexts.json`
+- **Portainer-Compatible:** Familiar workflow for existing Portainer users
 
 #### Domain Model Improvements
 - **Organization Aggregate:** Can exist without environments
 - **Environment Entity:** Polymorphic type hierarchy (Strategy Pattern)
-  - `DockerSocketEnvironment` (v0.4 - Unix socket / named pipe)
-  - `DockerApiEnvironment` (v0.5+ - TCP with TLS)
-  - `DockerAgentEnvironment` (v0.5+ - Portainer Edge Agent)
-  - `KubernetesEnvironment` (v2.0+ - Future)
+  - `DockerSocketEnvironment` (v0.4 - Unix socket / named pipe - ONLY THIS TYPE in v0.4)
+  - `DockerApiEnvironment` (Post-v1.0 - TCP with TLS)
+  - `DockerAgentEnvironment` (Post-v1.0 - Portainer Edge Agent)
+  - `KubernetesEnvironment` (Post-v1.0 - Future)
 - **JSON Type Discriminator:** `$type` field for polymorphic serialization
 - **Connection Uniqueness:** Enforced via `GetConnectionString()` method
 
@@ -181,17 +183,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### [0.5.0] - Planned
 
-#### Additional Environment Types
-- **DockerApiEnvironment:** TCP/HTTP connection with optional TLS
-- **DockerAgentEnvironment:** Portainer Edge Agent support
-- TLS certificate management for Docker API connections
-
-#### Container Deployment (Full Implementation)
-- Actual stack deployment from manifests with configuration
-- Docker network creation and management
-- Container health monitoring
-- Deployment rollback capabilities
-- Multi-container orchestration
+#### Enhanced Stack Format (Custom Manifests)
+- **Custom Manifest Format:** Optional enhanced format with validation
+- **Type Validation:** Numbers, booleans, strings, select fields
+- **Regex Validation:** Enforce URL formats and patterns
+- **Required Fields:** Explicit required field marking
+- **Sensitive Fields:** Password/secret field marking
+- **Documentation:** Display names, descriptions, placeholders
+- **Dual Format Support:** Both Docker Compose and Custom Manifest formats supported
 
 #### Database Migration & Multi-User Support
 - **SQLite Database:** Migrate from JSON file storage to SQLite for better concurrency and ACID transactions
@@ -200,11 +199,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Audit logging for all operations
 - Migration tool: `rsgo.system.json` → `readystackgo.db`
 
-#### Multi-Node Support
-- Multiple Docker hosts per environment
-- Load balancing across nodes
-- Node health monitoring
-- Distributed container orchestration
+#### Container Management Enhancements
+- Container health monitoring
+- Deployment rollback capabilities
+- Multi-container orchestration improvements
 
 #### Authentication & Authorization
 - OIDC/SSO integration (optional)
@@ -239,6 +237,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Container logs aggregation
 - Metrics and alerting
 - Audit logs per environment
+
+### [1.0.0] - Planned
+
+#### Production Readiness
+- Plugin-System
+- Performance Optimierungen
+- Comprehensive Documentation
+- Security hardening
+- Production-grade deployment options
+
+### Post-v2.0 - Future
+
+#### Multi-Node Support
+- Multi-Node-Support (mehrere Docker Hosts pro Environment)
+- Load balancing across nodes
+- Node health monitoring
+- Distributed container orchestration
+
+#### Additional Environment Types
+- **DockerApiEnvironment:** TCP/HTTP connection with optional TLS
+- **DockerAgentEnvironment:** Portainer Edge Agent support
+- TLS certificate management for Docker API connections
+
+#### Advanced Orchestration
+- Kubernetes Environment Support
+- Advanced networking features
+- Service mesh integration
 
 ---
 

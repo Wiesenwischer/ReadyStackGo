@@ -10,7 +10,7 @@
 This specification defines the multi-environment feature for ReadyStackGo v0.4. Organizations can manage multiple isolated environments (e.g., Development, Testing, Production), each with independent configurations, Docker hosts, and deployed stacks.
 
 **Key Principles:**
-- **Minimal Variant:** Single Docker host per environment (multi-node support deferred to future releases)
+- **Minimal Variant:** Single Docker host per environment (multi-node support deferred to v2.0+)
 - **Docker Host Uniqueness:** Each Docker host URL can only be used by one environment (prevents conflicts)
 - **Environment Isolation:** Each environment has separate connection strings, Docker host, and deployed containers
 - **Domain-Driven Design:** Organization and Environment are core domain aggregates with proper validation
@@ -1370,23 +1370,363 @@ public class ConfigStore : IConfigStore
 - No flexibility for different stack requirements
 - Connection strings stored in `rsgo.contexts.json`
 
-**New Approach (v0.4 - CORRECT):**
+**New Approach (v0.4+ - CORRECT):**
 - **Connection strings are stack-specific**, not global
 - Each stack deployment can have different configuration values
 - Configuration happens during **stack deployment**, not during wizard setup
-- Manifest-based configuration with defaults and overrides
+- Supports multiple stack formats (prioritized by implementation phase)
 
-### Design: Manifest-Driven Configuration
+### Implementation Strategy: Phased Approach
 
-Each stack manifest defines its required configuration parameters. When deploying, users provide values for these parameters.
+**Phase 1 - v0.4: Docker Compose Format (Portainer-style)**
+- ✅ Use standard `docker-compose.yml` files
+- ✅ Automatic environment variable detection from `${VARIABLE}` syntax
+- ✅ Dynamic UI generation based on detected variables
+- ✅ Quick deployment of existing stacks
+- ✅ Familiar format for Docker users
+- ⚠️ Limited validation (no type checking, no required field enforcement)
 
-#### Manifest Schema with Configuration Parameters
+**Phase 2 - v0.5+: Custom Manifest Format (Enhanced)**
+- ✅ Full validation with type checking and regex patterns
+- ✅ Required field enforcement
+- ✅ Display names and descriptions for better UX
+- ✅ Sensitive field marking
+- ✅ Default values and documentation
+- ✅ Advanced configuration types (numbers, paths, database connections)
+
+**Rationale:**
+- Docker Compose allows **immediate deployment** of existing stacks
+- Custom manifest format can be added later as **optional enhancement**
+- Both formats can coexist (users choose which to use)
+
+---
+
+### Phase 1: Docker Compose Configuration (v0.4)
+
+#### Format: Standard Docker Compose
+
+**File:** `docker-compose.yml`
+
+```yaml
+version: '3.8'
+
+services:
+  api-gateway:
+    image: readystack/api-gateway:1.0.0
+    ports:
+      - "${API_PORT:-8080}:8080"
+    environment:
+      - TRANSPORT_URL=${TRANSPORT_URL}
+      - PERSISTENCE_CONNECTION=${PERSISTENCE_CONNECTION}
+      - EVENTSTORE_URL=${EVENTSTORE_URL:-esdb://eventstore:2113}
+    depends_on:
+      - postgres
+      - rabbitmq
+      - eventstore
+
+  order-service:
+    image: readystack/order-service:1.0.0
+    ports:
+      - "${ORDER_SERVICE_PORT:-8081}:8080"
+    environment:
+      - TRANSPORT_URL=${TRANSPORT_URL}
+      - PERSISTENCE_CONNECTION=${PERSISTENCE_CONNECTION}
+      - EVENTSTORE_URL=${EVENTSTORE_URL:-esdb://eventstore:2113}
+    depends_on:
+      - postgres
+      - rabbitmq
+      - eventstore
+
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-readystack}
+      - POSTGRES_USER=${POSTGRES_USER:-admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  eventstore:
+    image: eventstore/eventstore:latest
+    environment:
+      - EVENTSTORE_INSECURE=true
+    ports:
+      - "2113:2113"
+
+volumes:
+  postgres-data:
+```
+
+#### Variable Detection Algorithm
+
+**How ReadyStackGo Detects Variables:**
+
+1. **Parse `docker-compose.yml`** using YAML parser
+2. **Scan all `environment` sections** for `${VARIABLE}` or `${VARIABLE:-default}` patterns
+3. **Extract variable names and defaults**:
+   - `${TRANSPORT_URL}` → Variable: `TRANSPORT_URL`, Default: `null`
+   - `${API_PORT:-8080}` → Variable: `API_PORT`, Default: `8080`
+4. **Generate UI input fields** dynamically
+5. **Store configuration** per deployment
+
+**C# Implementation (Pseudocode):**
+
+```csharp
+public class DockerComposeParser
+{
+    public List<EnvironmentVariable> ExtractVariables(string composeYaml)
+    {
+        var variables = new List<EnvironmentVariable>();
+        var yaml = new YamlStream();
+        yaml.Load(new StringReader(composeYaml));
+
+        var root = (YamlMappingNode)yaml.Documents[0].RootNode;
+        var services = (YamlMappingNode)root.Children["services"];
+
+        foreach (var service in services.Children)
+        {
+            var serviceNode = (YamlMappingNode)service.Value;
+
+            if (serviceNode.Children.ContainsKey("environment"))
+            {
+                var envNode = serviceNode.Children["environment"];
+
+                if (envNode is YamlSequenceNode envList)
+                {
+                    foreach (var envItem in envList.Children)
+                    {
+                        var envString = ((YamlScalarNode)envItem).Value;
+
+                        // Match patterns: ${VAR} or ${VAR:-default}
+                        var matches = Regex.Matches(envString, @"\$\{([^}:]+)(?::-(.*))?\}");
+
+                        foreach (Match match in matches)
+                        {
+                            var varName = match.Groups[1].Value;
+                            var defaultValue = match.Groups[2].Success ? match.Groups[2].Value : null;
+
+                            if (!variables.Any(v => v.Name == varName))
+                            {
+                                variables.Add(new EnvironmentVariable
+                                {
+                                    Name = varName,
+                                    DefaultValue = defaultValue,
+                                    DisplayName = FormatDisplayName(varName), // "TRANSPORT_URL" → "Transport URL"
+                                    Required = defaultValue == null
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return variables;
+    }
+
+    private string FormatDisplayName(string varName)
+    {
+        // Convert "TRANSPORT_URL" to "Transport URL"
+        return string.Join(" ", varName.Split('_')
+            .Select(word => char.ToUpper(word[0]) + word.Substring(1).ToLower()));
+    }
+}
+
+public class EnvironmentVariable
+{
+    public string Name { get; set; }
+    public string? DefaultValue { get; set; }
+    public string DisplayName { get; set; }
+    public bool Required { get; set; }
+}
+```
+
+#### Deployment Configuration Storage
+
+When a stack is deployed to an environment, its configuration is stored per deployment instance:
+
+**File:** `/app/config/deployments/{environmentId}/{stackName}.deployment.json`
+
+```json
+{
+  "deploymentId": "deployment-12345",
+  "environmentId": "production",
+  "stackName": "readystack-core",
+  "composeFile": "docker-compose.yml",
+  "deployedAt": "2025-01-20T10:00:00Z",
+  "configuration": {
+    "TRANSPORT_URL": "amqp://prod-rabbitmq.acme.local:5672",
+    "PERSISTENCE_CONNECTION": "Host=prod-db.acme.local;Port=5432;Database=readystack_prod;Username=prod_admin;Password=***",
+    "EVENTSTORE_URL": "esdb://prod-eventstore.acme.local:2113?tls=true",
+    "API_PORT": "8080",
+    "ORDER_SERVICE_PORT": "8081",
+    "POSTGRES_DB": "readystack_prod",
+    "POSTGRES_USER": "admin",
+    "POSTGRES_PASSWORD": "***"
+  },
+  "containers": [
+    {
+      "serviceName": "api-gateway",
+      "containerId": "abc123def456",
+      "status": "running",
+      "ports": ["8080:8080"]
+    },
+    {
+      "serviceName": "order-service",
+      "containerId": "def456ghi789",
+      "status": "running",
+      "ports": ["8081:8080"]
+    },
+    {
+      "serviceName": "postgres",
+      "containerId": "ghi789jkl012",
+      "status": "running",
+      "ports": []
+    },
+    {
+      "serviceName": "rabbitmq",
+      "containerId": "jkl012mno345",
+      "status": "running",
+      "ports": ["5672:5672", "15672:15672"]
+    },
+    {
+      "serviceName": "eventstore",
+      "containerId": "mno345pqr678",
+      "status": "running",
+      "ports": ["2113:2113"]
+    }
+  ]
+}
+```
+
+**Key Properties:**
+- `deploymentId`: Unique identifier for this deployment
+- `environmentId`: Which environment the stack is deployed to
+- `stackName`: Name of the stack (derived from compose file or user input)
+- `composeFile`: Original compose file name
+- `configuration`: Flat key-value pairs for all environment variables
+- `containers`: List of deployed containers with Docker IDs
+
+#### Deployment Flow with Docker Compose (v0.4)
+
+1. **User uploads `docker-compose.yml`** via UI or selects from existing stacks
+2. **System parses compose file** and extracts environment variables
+3. **Selects environment** (e.g., "Production")
+4. **Configuration UI appears** - dynamically generated from detected variables
+   - Shows all detected variables
+   - Pre-fills defaults from `${VAR:-default}` syntax
+   - Marks variables without defaults as required
+5. **User provides/confirms values**
+   - `TRANSPORT_URL`: `amqp://prod-rabbitmq:5672`
+   - `PERSISTENCE_CONNECTION`: `Host=prod-db;Port=5432;Database=readystack_prod;...`
+   - `EVENTSTORE_URL`: `esdb://prod-es:2113` (default already filled)
+   - `POSTGRES_PASSWORD`: `***` (required, no default)
+6. **System validates basic requirements** (non-empty required fields)
+7. **Deployment starts** - Docker Compose executed with environment variables
+8. **Configuration saved** to deployment file
+
+#### UI Mockup: Docker Compose Deployment (v0.4)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Deploy Stack from Docker Compose                            │
+│ Environment: Production                                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                               │
+│ Stack Configuration                                          │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ Stack Name *                                             │ │
+│ │ ┌──────────────────────────────────────────────────────┐│ │
+│ │ │ readystack-core                                      ││ │
+│ │ └──────────────────────────────────────────────────────┘│ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                                                               │
+│ Environment Variables (8 detected)                           │
+│                                                               │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ TRANSPORT_URL *                                          │ │
+│ │ ┌──────────────────────────────────────────────────────┐│ │
+│ │ │ amqp://prod-rabbitmq.acme.local:5672                ││ │
+│ │ └──────────────────────────────────────────────────────┘│ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                                                               │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ PERSISTENCE_CONNECTION *                                 │ │
+│ │ ┌──────────────────────────────────────────────────────┐│ │
+│ │ │ Host=prod-db;Port=5432;Database=readystack_prod;... ││ │
+│ │ └──────────────────────────────────────────────────────┘│ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                                                               │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ EVENTSTORE_URL                                           │ │
+│ │ ┌──────────────────────────────────────────────────────┐│ │
+│ │ │ esdb://eventstore:2113                               ││ │  ← Default from compose
+│ │ └──────────────────────────────────────────────────────┘│ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                                                               │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ POSTGRES_PASSWORD *                                      │ │
+│ │ ┌──────────────────────────────────────────────────────┐│ │
+│ │ │ ••••••••                                             ││ │  ← Password field
+│ │ └──────────────────────────────────────────────────────┘│ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                                                               │
+│ [Show all variables (4 more)] ▼                              │
+│                                                               │
+│                          [Cancel]  [Deploy Stack]             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Features:**
+- ✅ Variables without defaults marked with `*` (required)
+- ✅ Variables with defaults pre-filled (can be overridden)
+- ✅ Collapsible section for less important variables
+- ✅ Automatic password field detection (contains "PASSWORD", "SECRET", "TOKEN")
+
+#### Benefits of Docker Compose Approach (v0.4)
+
+1. ✅ **Standard Format:** Docker Compose is industry-standard, widely known
+2. ✅ **Quick Start:** Deploy existing stacks immediately without conversion
+3. ✅ **Stack-Specific:** Each stack can have different configuration requirements
+4. ✅ **Environment-Specific:** Same stack can have different configs per environment
+5. ✅ **No Global State:** No wizard step for connection strings
+6. ✅ **Flexibility:** Easy to add new configuration parameters by editing compose file
+7. ✅ **Portainer Compatibility:** Familiar workflow for existing Portainer users
+
+#### Limitations of Docker Compose Approach
+
+1. ⚠️ **No Type Validation:** All values are strings, no number/boolean validation
+2. ⚠️ **No Regex Validation:** Can't enforce format patterns (e.g., URL format)
+3. ⚠️ **Basic Required Check:** Only checks if value is non-empty
+4. ⚠️ **No Sensitive Marking:** Must detect password fields by naming convention
+5. ⚠️ **Limited Documentation:** No field descriptions or help text
+
+**Solution:** These limitations will be addressed in Phase 2 (Custom Manifest Format in v0.5+).
+
+---
+
+### Phase 2: Custom Manifest Format (v0.5+ - Future Enhancement)
+
+**Status:** 🚧 Planned for v0.5 or later
+
+This phase adds an **optional enhanced format** for stacks that need advanced validation and documentation.
+
+#### Custom Manifest Schema
+
+**File:** `readystack-core.manifest.json`
 
 ```json
 {
   "version": "1.0.0",
   "name": "ReadyStack Core",
   "description": "Core microservices for ReadyStack platform",
+  "format": "manifest",
   "containers": [
     {
       "name": "api-gateway",
@@ -1414,10 +1754,11 @@ Each stack manifest defines its required configuration parameters. When deployin
       "url": {
         "type": "string",
         "displayName": "Message Transport URL",
-        "description": "RabbitMQ connection string",
+        "description": "RabbitMQ connection string (AMQP protocol)",
         "default": "amqp://rabbitmq:5672",
         "required": true,
-        "validation": "^amqps?://.*"
+        "validation": "^amqps?://.*",
+        "placeholder": "amqp://hostname:5672"
       }
     },
     "persistence": {
@@ -1427,7 +1768,8 @@ Each stack manifest defines its required configuration parameters. When deployin
         "description": "PostgreSQL connection string",
         "default": "Host=postgres;Port=5432;Database=readystack;Username=admin",
         "required": true,
-        "sensitive": true
+        "sensitive": true,
+        "placeholder": "Host=hostname;Port=5432;Database=dbname;Username=user;Password=pwd"
       }
     },
     "eventstore": {
@@ -1437,118 +1779,86 @@ Each stack manifest defines its required configuration parameters. When deployin
         "description": "EventStoreDB connection string",
         "default": "esdb://eventstore:2113?tls=false",
         "required": true,
-        "validation": "^esdb://.*"
+        "validation": "^esdb://.*",
+        "placeholder": "esdb://hostname:2113"
       }
     }
   }
 }
 ```
 
-#### Deployment Configuration Storage
+#### Enhanced Configuration Schema
 
-When a stack is deployed to an environment, its configuration is stored per deployment instance:
-
-**File:** `/app/config/deployments/{environmentId}/{stackId}.deployment.json`
+**Configuration Value Types (v0.5+):**
 
 ```json
 {
-  "deploymentId": "deployment-12345",
-  "environmentId": "production",
-  "stackManifestVersion": "1.0.0",
-  "deployedAt": "2025-01-20T10:00:00Z",
-  "configuration": {
-    "transport": {
-      "url": "amqp://prod-rabbitmq.acme.local:5672"
-    },
-    "persistence": {
-      "connection": "Host=prod-db.acme.local;Port=5432;Database=readystack_prod;Username=prod_admin;Password=***"
-    },
-    "eventstore": {
-      "url": "esdb://prod-eventstore.acme.local:2113?tls=true"
+  "configurationSchema": {
+    "example": {
+      "stringField": {
+        "type": "string",
+        "displayName": "Example String",
+        "description": "A string field with validation",
+        "default": "default-value",
+        "required": true,
+        "validation": "^[a-z0-9-]+$",
+        "placeholder": "enter-value-here"
+      },
+      "numberField": {
+        "type": "number",
+        "displayName": "Example Number",
+        "description": "A number field with range",
+        "default": 8080,
+        "required": true,
+        "min": 1024,
+        "max": 65535
+      },
+      "booleanField": {
+        "type": "boolean",
+        "displayName": "Example Boolean",
+        "description": "A boolean toggle",
+        "default": true
+      },
+      "selectField": {
+        "type": "select",
+        "displayName": "Example Dropdown",
+        "description": "A dropdown selection",
+        "default": "option1",
+        "options": ["option1", "option2", "option3"]
+      },
+      "secretField": {
+        "type": "string",
+        "displayName": "Example Secret",
+        "description": "A sensitive field",
+        "required": true,
+        "sensitive": true
+      }
     }
-  },
-  "containers": [
-    {
-      "name": "api-gateway",
-      "containerId": "abc123",
-      "status": "running"
-    },
-    {
-      "name": "order-service",
-      "containerId": "def456",
-      "status": "running"
-    }
-  ]
+  }
 }
 ```
 
-### Deployment Flow with Configuration
+#### Benefits of Custom Manifest Format (v0.5+)
 
-1. **User clicks "Deploy Stack"** in dashboard
-2. **Selects environment** (e.g., "Production")
-3. **Selects manifest version** (e.g., "v1.0.0")
-4. **Configuration UI appears** - dynamically generated from `configurationSchema`
-   - Shows all required parameters
-   - Pre-fills defaults from manifest
-   - Allows overriding values
-5. **User provides/confirms values**
-   - Transport URL: `amqp://prod-rabbitmq:5672`
-   - Database Connection: `Host=prod-db;...`
-   - Event Store URL: `esdb://prod-es:2113`
-6. **System validates configuration** against schema
-7. **Deployment starts** - containers created with environment variables injected
-8. **Configuration saved** to deployment file
+1. ✅ **Type Validation:** Numbers, booleans, strings, selects
+2. ✅ **Regex Validation:** Enforce URL formats, patterns, etc.
+3. ✅ **Range Validation:** Min/max for numbers
+4. ✅ **Required Fields:** Explicit required marking
+5. ✅ **Sensitive Fields:** Explicit password/secret marking
+6. ✅ **Documentation:** Display names, descriptions, placeholders
+7. ✅ **Better UX:** More user-friendly configuration UI
 
-### UI Mockup: Deployment Configuration Screen
+#### Coexistence: Both Formats Supported
+
+**v0.5+ will support BOTH formats:**
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│ Deploy Stack: ReadyStack Core v1.0.0                        │
-│ Environment: Production                                      │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│ Configuration Parameters                                     │
-│                                                               │
-│ Transport                                                     │
-│ ┌─────────────────────────────────────────────────────────┐ │
-│ │ Message Transport URL *                                  │ │
-│ │ ┌──────────────────────────────────────────────────────┐│ │
-│ │ │ amqp://prod-rabbitmq.acme.local:5672                ││ │
-│ │ └──────────────────────────────────────────────────────┘│ │
-│ │ RabbitMQ connection string                              │ │
-│ └─────────────────────────────────────────────────────────┘ │
-│                                                               │
-│ Persistence                                                   │
-│ ┌─────────────────────────────────────────────────────────┐ │
-│ │ Database Connection String *                             │ │
-│ │ ┌──────────────────────────────────────────────────────┐│ │
-│ │ │ Host=prod-db;Port=5432;Database=readystack;...      ││ │
-│ │ └──────────────────────────────────────────────────────┘│ │
-│ │ 🔒 Sensitive - PostgreSQL connection string             │ │
-│ └─────────────────────────────────────────────────────────┘ │
-│                                                               │
-│ Event Store                                                   │
-│ ┌─────────────────────────────────────────────────────────┐ │
-│ │ Event Store URL *                                        │ │
-│ │ ┌──────────────────────────────────────────────────────┐│ │
-│ │ │ esdb://prod-eventstore:2113?tls=true                ││ │
-│ │ └──────────────────────────────────────────────────────┘│ │
-│ │ EventStoreDB connection string                          │ │
-│ └─────────────────────────────────────────────────────────┘ │
-│                                                               │
-│                          [Cancel]  [Deploy Stack]             │
-└─────────────────────────────────────────────────────────────┘
+User uploads stack:
+├─ docker-compose.yml → Parsed as Docker Compose (Phase 1 logic)
+└─ *.manifest.json → Parsed as Custom Manifest (Phase 2 logic)
 ```
 
-### Benefits of This Approach
-
-1. ✅ **Stack-Specific:** Each stack can have different configuration requirements
-2. ✅ **Environment-Specific:** Same stack can have different configs per environment
-3. ✅ **Declarative:** Configuration schema lives in manifest (version-controlled)
-4. ✅ **Validation:** Type checking and regex validation at deployment time
-5. ✅ **Defaults:** Sensible defaults reduce configuration burden
-6. ✅ **No Global State:** No wizard step for connection strings
-7. ✅ **Flexibility:** Easy to add new configuration parameters in future manifests
+**No migration required:** Existing Docker Compose stacks continue to work. Users can optionally upgrade to custom manifests when they need advanced features.
 
 ### Migration from v0.3 Connection Strings
 
@@ -1556,16 +1866,72 @@ When a stack is deployed to an environment, its configuration is stored per depl
 - `rsgo.contexts.json` with global connection strings (Simple mode)
 
 **v0.4 Migration Strategy:**
-1. Read existing `rsgo.contexts.json`
+1. Read existing `rsgo.contexts.json` on first startup
 2. When user deploys first stack in v0.4:
    - Pre-fill deployment configuration UI with values from `rsgo.contexts.json`
-   - User can confirm or modify
+   - Map v0.3 context names to v0.4 environment variables:
+     - `Transport` → `TRANSPORT_URL`
+     - `Persistence` → `PERSISTENCE_CONNECTION`
+     - `EventStore` → `EVENTSTORE_URL`
+   - User can confirm or modify values
 3. Save configuration per stack deployment
 4. Archive `rsgo.contexts.json` → `rsgo.contexts.json.v0.3.backup`
+5. Remove wizard step for connection configuration
+
+**Example Migration:**
+
+```json
+// v0.3: rsgo.contexts.json (OLD)
+{
+  "transport": "amqp://rabbitmq:5672",
+  "persistence": "Host=postgres;Port=5432;Database=readystack",
+  "eventStore": "esdb://eventstore:2113?tls=false"
+}
+
+// v0.4: Pre-filled deployment UI (NEW)
+{
+  "TRANSPORT_URL": "amqp://rabbitmq:5672",
+  "PERSISTENCE_CONNECTION": "Host=postgres;Port=5432;Database=readystack",
+  "EVENTSTORE_URL": "esdb://eventstore:2113?tls=false"
+}
+```
 
 ### API Endpoints
 
-**Deploy Stack with Configuration**
+#### Upload and Parse Docker Compose (v0.4)
+
+**Upload Compose File**
+```http
+POST /api/stacks/upload
+Authorization: Bearer {token}
+Content-Type: multipart/form-data
+
+File: docker-compose.yml
+
+Response 200 OK:
+{
+  "stackName": "readystack-core",
+  "detectedVariables": [
+    {
+      "name": "TRANSPORT_URL",
+      "displayName": "Transport URL",
+      "required": true,
+      "defaultValue": null
+    },
+    {
+      "name": "EVENTSTORE_URL",
+      "displayName": "Eventstore URL",
+      "required": false,
+      "defaultValue": "esdb://eventstore:2113"
+    }
+  ],
+  "services": ["api-gateway", "order-service", "postgres", "rabbitmq", "eventstore"]
+}
+```
+
+#### Deploy Stack with Configuration (v0.4)
+
+**Deploy Docker Compose Stack**
 ```http
 POST /api/deployments
 Authorization: Bearer {token}
@@ -1573,29 +1939,34 @@ Content-Type: application/json
 
 {
   "environmentId": "production",
-  "manifestPath": "/app/manifests/readystack-core-v1.0.0.json",
+  "stackName": "readystack-core",
+  "composeFile": "docker-compose.yml",
   "configuration": {
-    "transport": {
-      "url": "amqp://prod-rabbitmq:5672"
-    },
-    "persistence": {
-      "connection": "Host=prod-db;..."
-    },
-    "eventstore": {
-      "url": "esdb://prod-es:2113"
-    }
+    "TRANSPORT_URL": "amqp://prod-rabbitmq:5672",
+    "PERSISTENCE_CONNECTION": "Host=prod-db;Port=5432;Database=readystack_prod;...",
+    "EVENTSTORE_URL": "esdb://prod-es:2113?tls=true",
+    "POSTGRES_PASSWORD": "secure-password-here"
   }
 }
 
 Response 201 Created:
 {
   "deploymentId": "deployment-12345",
+  "environmentId": "production",
+  "stackName": "readystack-core",
   "status": "deploying",
-  "containers": [...]
+  "containers": [
+    { "serviceName": "api-gateway", "status": "creating" },
+    { "serviceName": "order-service", "status": "creating" },
+    { "serviceName": "postgres", "status": "creating" },
+    { "serviceName": "rabbitmq", "status": "creating" },
+    { "serviceName": "eventstore", "status": "creating" }
+  ]
 }
 ```
 
-**Get Deployment Configuration**
+#### Get Deployment Configuration
+
 ```http
 GET /api/deployments/{deploymentId}/configuration
 Authorization: Bearer {token}
@@ -1604,10 +1975,33 @@ Response 200 OK:
 {
   "deploymentId": "deployment-12345",
   "environmentId": "production",
+  "stackName": "readystack-core",
   "configuration": {
-    "transport": { "url": "amqp://prod-rabbitmq:5672" },
-    "persistence": { "connection": "Host=..." },
-    "eventstore": { "url": "esdb://..." }
+    "TRANSPORT_URL": "amqp://prod-rabbitmq:5672",
+    "PERSISTENCE_CONNECTION": "Host=prod-db;Port=5432;Database=readystack_prod;...",
+    "EVENTSTORE_URL": "esdb://prod-es:2113?tls=true",
+    "POSTGRES_PASSWORD": "***" // Masked for security
+  }
+}
+```
+
+#### Future: Deploy Custom Manifest (v0.5+)
+
+```http
+POST /api/deployments
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "environmentId": "production",
+  "manifestFile": "readystack-core.manifest.json",
+  "configuration": {
+    "transport": {
+      "url": "amqp://prod-rabbitmq:5672"
+    },
+    "persistence": {
+      "connection": "Host=prod-db;..."
+    }
   }
 }
 ```
@@ -2142,7 +2536,7 @@ private static async Task MigrateConfigurationAsync(WebApplication app)
 
 The following features are explicitly **NOT included** in v0.4 and deferred to future releases:
 
-### Multi-Node Support (Deferred to v0.5+)
+### Multi-Node Support (Deferred to v2.0+)
 - Multiple Docker hosts per environment
 - Load balancing across nodes
 - Node health monitoring

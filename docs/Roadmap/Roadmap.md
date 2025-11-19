@@ -10,18 +10,18 @@ Grober Ausblick auf geplante Versionen und Features.
 
 ## Planned
 
-### v0.4 – Multi-Environment + Simplified Wizard + Stack-Config
-- Polymorphe Environment-Typen (Docker Socket, Docker API, Docker Agent)
+### v0.4 – Multi-Environment + Simplified Wizard + Docker Compose Deployment
+- Polymorphe Environment-Typen (Docker Socket)
 - Organisationen ohne Environments (optional)
 - Wizard-Vereinfachung (4 Steps → 3 Steps)
-- Stack-spezifische Konfiguration (manifest-driven)
+- Docker Compose Stack-Deployment (Portainer-style)
+- Automatische Environment Variable Detection
 - Keine globalen Connection Strings mehr
 
-### v0.5 – Deployment + Multi-User + Multi-Node
-- Zusätzliche Environment-Typen (DockerApi, DockerAgent)
-- Vollständige Stack-Deployment-Implementierung
+### v0.5 – Enhanced Stacks + Multi-User
+- Custom Manifest Format (enhanced validation)
+- Beide Stack-Formate gleichzeitig unterstützt (Docker Compose + Custom Manifest)
 - SQLite-Migration für Multi-User-Support
-- Multi-Node-Support (mehrere Docker Hosts pro Environment)
 - Container Health Monitoring & Rollback
 
 ### v0.6 – Release Management
@@ -37,7 +37,13 @@ Grober Ausblick auf geplante Versionen und Features.
 - Audit Logs
 
 ### v1.0 – Production Ready
-- Kubernetes Environment Support
 - Plugin-System
 - Performance Optimierungen
 - Comprehensive Documentation
+- Security Hardening
+
+### Post v2.0 – Advanced Features
+- Multi-Node-Support (mehrere Docker Hosts pro Environment)
+- Zusätzliche Environment-Typen (DockerApi mit TLS, DockerAgent)
+- Kubernetes Environment Support
+- Advanced Networking Features
