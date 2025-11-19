@@ -130,41 +130,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### [0.4.0] - Planned
 
 #### Multi-Environment Support
-- **Environments:** Organizations can have multiple environments (Development, Test, Production)
+- **Polymorphic Environment Types:** Docker Socket, Docker API, Docker Agent (Portainer-like)
+- **Organizations without Environments:** Optional environment creation during setup
+- **Environment Management UI:** Create, update, delete environments via Settings
 - **Environment Selector:** UI dropdown to switch between environments
-- **Per-Environment Configuration:**
-  - Independent connection strings (Transport, Persistence, EventStore)
-  - Separate Docker host per environment
-  - Environment-specific deployed stacks and containers
-- **Wizard Update:** Combined Organization + Default Environment setup step
-- **Configuration Files:** Per-environment config files (`rsgo.contexts.{env}.json`)
-- **Migration:** Automatic upgrade from v0.3 single-environment to v0.4 multi-environment
+- **Per-Environment Docker Hosts:** Each environment connects to separate Docker daemon
+- **Environment-Scoped Resources:** Containers and stacks isolated per environment
 
-#### Environment Management
-- Create, update, delete environments via Settings UI
-- Test Docker host connectivity before saving
-- Default environment designation
-- Environment-scoped container and stack views
+#### Simplified Wizard (4 Steps → 3 Steps)
+- **Removed Step 3:** "Configure Connections" removed from wizard
+- **No Mandatory Environments:** Organization can exist without environments
+- New Flow: Admin Account → Organization → Complete
+- Faster onboarding, less complexity
+
+#### Stack-Specific Configuration System
+- **Manifest-Driven Config:** Each stack defines `configurationSchema` in manifest
+- **Deployment-Time Configuration:** Users provide values when deploying stack
+- **Variable Interpolation:** `{{transport.url}}` in container environment variables
+- **Validation:** Type checking, regex patterns, required fields
+- **Per-Deployment Storage:** `/app/config/deployments/{env}/{stack}.deployment.json`
+- **No Global Connection Strings:** Removed `rsgo.contexts.json`
+
+#### Domain Model Improvements
+- **Organization Aggregate:** Can exist without environments
+- **Environment Entity:** Polymorphic type hierarchy (Strategy Pattern)
+  - `DockerSocketEnvironment` (v0.4 - Unix socket / named pipe)
+  - `DockerApiEnvironment` (v0.5+ - TCP with TLS)
+  - `DockerAgentEnvironment` (v0.5+ - Portainer Edge Agent)
+  - `KubernetesEnvironment` (v2.0+ - Future)
+- **JSON Type Discriminator:** `$type` field for polymorphic serialization
+- **Connection Uniqueness:** Enforced via `GetConnectionString()` method
 
 #### API Enhancements
 - `GET /api/environments` - List all environments
 - `POST /api/environments` - Create new environment
 - `PUT /api/environments/{id}` - Update environment
 - `DELETE /api/environments/{id}` - Delete environment
-- Environment query parameter for container/stack endpoints
+- `POST /api/deployments` - Deploy stack with configuration
+- `GET /api/deployments/{id}/configuration` - Get deployment config
 
-#### Limitations (v0.4)
-- Single Docker host per environment (multi-node deferred to v0.5)
-- Simple connection mode only (Advanced mode in future release)
-- Basic Docker host auth (TLS support in v0.5)
+#### Breaking Changes
+- `WizardState.ConnectionsSet` removed (auto-migrated to `Installed`)
+- `rsgo.contexts.json` removed (archived as `.v0.3.backup`)
+- Organization factory method signature changed: `Create(id, name)` (no environment)
+
+#### Migration from v0.3
+- Automatic migration on startup
+- `rsgo.contexts.json` archived and values pre-filled in first deployment
+- No manual intervention required
 
 ### [0.5.0] - Planned
 
-#### Container Deployment
-- Actual stack deployment from manifests
+#### Additional Environment Types
+- **DockerApiEnvironment:** TCP/HTTP connection with optional TLS
+- **DockerAgentEnvironment:** Portainer Edge Agent support
+- TLS certificate management for Docker API connections
+
+#### Container Deployment (Full Implementation)
+- Actual stack deployment from manifests with configuration
 - Docker network creation and management
 - Container health monitoring
 - Deployment rollback capabilities
+- Multi-container orchestration
 
 #### Database Migration & Multi-User Support
 - **SQLite Database:** Migrate from JSON file storage to SQLite for better concurrency and ACID transactions
