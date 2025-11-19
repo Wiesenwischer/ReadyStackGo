@@ -5,6 +5,7 @@ using ReadyStackGo.Application.Containers;
 using ReadyStackGo.Application.Stacks;
 using ReadyStackGo.Infrastructure.Auth;
 using ReadyStackGo.Infrastructure.Configuration;
+using ReadyStackGo.Infrastructure.Deployment;
 using ReadyStackGo.Infrastructure.Docker;
 using ReadyStackGo.Infrastructure.Manifests;
 using ReadyStackGo.Infrastructure.Stacks;
@@ -24,6 +25,9 @@ public static class DependencyInjection
 
         // Manifest services
         services.AddSingleton<IManifestProvider, ManifestProvider>();
+
+        // Deployment services
+        services.AddSingleton<IDeploymentEngine, DeploymentEngine>();
 
         // Docker services
         services.AddSingleton<IDockerService, DockerService>();
