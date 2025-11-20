@@ -36,7 +36,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             // Add test-specific configuration
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConfigPath"] = _testConfigPath
+                ["ConfigPath"] = _testConfigPath,
+                ["ManifestsPath"] = Path.Combine(_testConfigPath, "manifests")
             });
         });
 
