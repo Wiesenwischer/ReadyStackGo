@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ReadyStackGo.Application.Auth;
 using ReadyStackGo.Application.Containers;
 using ReadyStackGo.Application.Environments;
+using ReadyStackGo.Application.Manifests;
 using ReadyStackGo.Application.Stacks;
 using ReadyStackGo.Application.Wizard;
 using ReadyStackGo.Infrastructure.Auth;
@@ -29,6 +30,7 @@ public static class DependencyInjection
 
         // Manifest services
         services.AddSingleton<IManifestProvider, ManifestProvider>();
+        services.AddSingleton<IDockerComposeParser, DockerComposeParser>();
 
         // Deployment services
         services.AddSingleton<IDeploymentEngine, DeploymentEngine>();
