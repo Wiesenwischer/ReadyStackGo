@@ -183,15 +183,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### [0.5.0] - Planned
 
-#### Enhanced Stack Format (Custom Manifests)
-- **Custom Manifest Format:** Optional enhanced format with validation
-- **Type Validation:** Numbers, booleans, strings, select fields
-- **Regex Validation:** Enforce URL formats and patterns
-- **Required Fields:** Explicit required field marking
-- **Sensitive Fields:** Password/secret field marking
-- **Documentation:** Display names, descriptions, placeholders
-- **Dual Format Support:** Both Docker Compose and Custom Manifest formats supported
-
 #### Database Migration & Multi-User Support
 - **SQLite Database:** Migrate from JSON file storage to SQLite for better concurrency and ACID transactions
 - **Multi-user support:** Individual user accounts with invitation system
@@ -237,6 +228,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Container logs aggregation
 - Metrics and alerting
 - Audit logs per environment
+
+### [0.8.0] - Planned
+
+#### Enhanced Stack Format (Custom Manifests)
+- **Custom Manifest Format:** Optional enhanced format with validation
+- **Type Validation:** Numbers, booleans, strings, select fields
+- **Regex Validation:** Enforce URL formats and patterns
+- **Required Fields:** Explicit required field marking
+- **Sensitive Fields:** Password/secret field marking
+- **Documentation:** Display names, descriptions, placeholders
+- **Dual Format Support:** Both Docker Compose and Custom Manifest formats supported
 
 ### [1.0.0] - Planned
 

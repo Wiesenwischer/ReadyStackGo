@@ -18,11 +18,10 @@ Grober Ausblick auf geplante Versionen und Features.
 - Automatische Environment Variable Detection
 - Keine globalen Connection Strings mehr
 
-### v0.5 – Enhanced Stacks + Multi-User
-- Custom Manifest Format (enhanced validation)
-- Beide Stack-Formate gleichzeitig unterstützt (Docker Compose + Custom Manifest)
+### v0.5 – Multi-User + Database Migration
 - SQLite-Migration für Multi-User-Support
 - Container Health Monitoring & Rollback
+- RBAC (Role-Based Access Control)
 
 ### v0.6 – Release Management
 - Release Management UI
@@ -35,6 +34,12 @@ Grober Ausblick auf geplante Versionen und Features.
 - Stack Health Dashboard
 - Metrics & Alerting
 - Audit Logs
+
+### v0.8 – Enhanced Stack Format
+- Custom Manifest Format (enhanced validation)
+- Beide Stack-Formate gleichzeitig unterstützt (Docker Compose + Custom Manifest)
+- Type Validation (Numbers, Booleans, Strings, Select)
+- Regex Validation für URL-Formate
 
 ### v1.0 – Production Ready
 - Plugin-System
