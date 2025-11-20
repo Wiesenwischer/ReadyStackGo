@@ -5,6 +5,7 @@ import Dashboard from "./pages/Dashboard";
 import Containers from "./pages/Containers";
 import Stacks from "./pages/Stacks";
 import Environments from "./pages/Environments";
+import SetupEnvironment from "./pages/SetupEnvironment";
 import Login from "./pages/Auth/Login";
 import Wizard from "./pages/Wizard";
 import { AuthProvider } from "./context/AuthContext";
@@ -12,6 +13,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { EnvironmentProvider } from "./context/EnvironmentContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import WizardGuard from "./components/wizard/WizardGuard";
+import EnvironmentGuard from "./components/environment/EnvironmentGuard";
 
 export default function App() {
   return (
@@ -23,6 +25,17 @@ export default function App() {
             <Routes>
               <Route path="/wizard" element={<Wizard />} />
               <Route path="/login" element={<Login />} />
+              {/* Setup environment page - standalone, no layout */}
+              <Route
+                path="/setup-environment"
+                element={
+                  <ProtectedRoute>
+                    <EnvironmentProvider>
+                      <SetupEnvironment />
+                    </EnvironmentProvider>
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 element={
                   <ProtectedRoute>
@@ -32,9 +45,33 @@ export default function App() {
                   </ProtectedRoute>
                 }
               >
-                <Route index path="/" element={<Dashboard />} />
-                <Route path="/containers" element={<Containers />} />
-                <Route path="/stacks" element={<Stacks />} />
+                {/* Routes that require an active environment */}
+                <Route
+                  index
+                  path="/"
+                  element={
+                    <EnvironmentGuard>
+                      <Dashboard />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/containers"
+                  element={
+                    <EnvironmentGuard>
+                      <Containers />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/stacks"
+                  element={
+                    <EnvironmentGuard>
+                      <Stacks />
+                    </EnvironmentGuard>
+                  }
+                />
+                {/* Environments page - doesn't require active environment */}
                 <Route path="/environments" element={<Environments />} />
               </Route>
             </Routes>
