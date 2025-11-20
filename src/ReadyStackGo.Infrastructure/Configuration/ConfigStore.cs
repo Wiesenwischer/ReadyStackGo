@@ -1,12 +1,16 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Configuration;
 using ReadyStackGo.Domain.Configuration;
+using ReadyStackGo.Domain.Organizations;
 
 namespace ReadyStackGo.Infrastructure.Configuration;
 
 /// <summary>
 /// File-based configuration store that manages all rsgo.*.json files
-/// in the /app/config volume
+/// in the /app/config volume.
+///
+/// v0.4: Updated to support polymorphic Environment serialization with $type discriminator.
 /// </summary>
 public class ConfigStore : IConfigStore
 {
@@ -26,7 +30,9 @@ public class ConfigStore : IConfigStore
         _jsonOptions = new JsonSerializerOptions
         {
             WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            // Required for polymorphic Environment serialization
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
     }
 
