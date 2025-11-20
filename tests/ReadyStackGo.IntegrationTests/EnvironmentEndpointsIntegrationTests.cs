@@ -25,7 +25,8 @@ public class EnvironmentEndpointsIntegrationTests : AuthenticatedTestBase
 
         var result = await response.Content.ReadFromJsonAsync<ListEnvironmentsResponse>();
         result.Should().NotBeNull();
-        result!.Environments.Should().NotBeNull();
+        result!.Success.Should().BeTrue();
+        result.Environments.Should().NotBeNull();
     }
 
     [Fact]
@@ -442,7 +443,7 @@ public class EnvironmentEndpointsIntegrationTests : AuthenticatedTestBase
     private record UpdateEnvironmentResponse(bool Success, string? Message, EnvironmentDto? Environment);
     private record DeleteEnvironmentResponse(bool Success, string? Message);
     private record SetDefaultEnvironmentResponse(bool Success, string? Message);
-    private record ListEnvironmentsResponse(List<EnvironmentDto> Environments);
+    private record ListEnvironmentsResponse(bool Success, List<EnvironmentDto> Environments);
 
     #endregion
 }

@@ -21,6 +21,7 @@ export function EnvironmentProvider({ children }: { children: ReactNode }) {
   const refreshEnvironments = async () => {
     try {
       const response = await getEnvironments();
+      console.log('Environments API response:', response);
       if (response.success) {
         setEnvironments(response.environments);
 
@@ -46,6 +47,8 @@ export function EnvironmentProvider({ children }: { children: ReactNode }) {
           setActiveEnv(activeEnv);
           localStorage.setItem(ACTIVE_ENV_KEY, activeEnv.id);
         }
+      } else {
+        console.error('Failed to load environments: response.success is false');
       }
     } catch (error) {
       console.error('Failed to load environments:', error);

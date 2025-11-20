@@ -66,6 +66,7 @@ public class DeleteEnvironmentResponse
 /// </summary>
 public class ListEnvironmentsResponse
 {
+    public bool Success { get; set; } = true;
     public List<EnvironmentResponse> Environments { get; set; } = new();
 }
 

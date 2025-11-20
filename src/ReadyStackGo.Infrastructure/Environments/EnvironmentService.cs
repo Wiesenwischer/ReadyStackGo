@@ -26,14 +26,22 @@ public class EnvironmentService : IEnvironmentService
 
         if (systemConfig.Organization == null)
         {
-            return new ListEnvironmentsResponse { Environments = new List<EnvironmentResponse>() };
+            return new ListEnvironmentsResponse
+            {
+                Success = true,
+                Environments = new List<EnvironmentResponse>()
+            };
         }
 
         var environments = systemConfig.Organization.Environments
             .Select(MapToResponse)
             .ToList();
 
-        return new ListEnvironmentsResponse { Environments = environments };
+        return new ListEnvironmentsResponse
+        {
+            Success = true,
+            Environments = environments
+        };
     }
 
     public async Task<EnvironmentResponse?> GetEnvironmentAsync(string environmentId)
