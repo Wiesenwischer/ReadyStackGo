@@ -67,7 +67,7 @@ public class WizardEndpointsIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task POST_CreateAdmin_WithShortPassword_AcceptsRequest()
+    public async Task POST_CreateAdmin_WithShortPassword_ReturnsBadRequest()
     {
         // Arrange
         var request = new
@@ -80,12 +80,7 @@ public class WizardEndpointsIntegrationTests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/wizard/admin", request);
 
         // Assert
-        // The API currently accepts short passwords without validation
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var result = await response.Content.ReadFromJsonAsync<WizardResponse>();
-        result.Should().NotBeNull();
-        result!.Success.Should().BeTrue();
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -236,7 +231,7 @@ public class WizardEndpointsIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task POST_CreateAdmin_WithEmptyUsername_AcceptsRequest()
+    public async Task POST_CreateAdmin_WithEmptyUsername_ReturnsBadRequest()
     {
         // Arrange
         var request = new
@@ -249,16 +244,11 @@ public class WizardEndpointsIntegrationTests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/wizard/admin", request);
 
         // Assert
-        // The API currently accepts empty usernames without validation
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var result = await response.Content.ReadFromJsonAsync<WizardResponse>();
-        result.Should().NotBeNull();
-        result!.Success.Should().BeTrue();
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]
-    public async Task POST_SetOrganization_WithEmptyId_AcceptsRequest()
+    public async Task POST_SetOrganization_WithEmptyId_ReturnsBadRequest()
     {
         // Arrange
         await CreateAdminForTest();
@@ -273,12 +263,7 @@ public class WizardEndpointsIntegrationTests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/wizard/organization", request);
 
         // Assert
-        // The API currently accepts empty organization IDs without validation
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var result = await response.Content.ReadFromJsonAsync<WizardResponse>();
-        result.Should().NotBeNull();
-        result!.Success.Should().BeTrue();
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     private async Task CreateAdminForTest()

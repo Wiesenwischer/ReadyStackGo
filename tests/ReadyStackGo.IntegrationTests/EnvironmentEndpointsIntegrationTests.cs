@@ -74,7 +74,7 @@ public class EnvironmentEndpointsIntegrationTests : AuthenticatedTestBase
     }
 
     [Fact]
-    public async Task POST_CreateEnvironment_WithEmptyName_AcceptsRequest()
+    public async Task POST_CreateEnvironment_WithEmptyName_ReturnsBadRequest()
     {
         // Arrange
         var request = new
@@ -88,12 +88,7 @@ public class EnvironmentEndpointsIntegrationTests : AuthenticatedTestBase
         var response = await Client.PostAsJsonAsync("/api/environments", request);
 
         // Assert
-        // The API currently accepts empty names without validation
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var result = await response.Content.ReadFromJsonAsync<CreateEnvironmentResponse>();
-        result.Should().NotBeNull();
-        result!.Success.Should().BeTrue();
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     #endregion
