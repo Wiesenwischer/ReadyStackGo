@@ -8,6 +8,7 @@ import Login from "./pages/Auth/Login";
 import Wizard from "./pages/Wizard";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
+import { EnvironmentProvider } from "./context/EnvironmentContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import WizardGuard from "./components/wizard/WizardGuard";
 
@@ -24,7 +25,9 @@ export default function App() {
               <Route
                 element={
                   <ProtectedRoute>
-                    <AppLayout />
+                    <EnvironmentProvider>
+                      <AppLayout />
+                    </EnvironmentProvider>
                   </ProtectedRoute>
                 }
               >
