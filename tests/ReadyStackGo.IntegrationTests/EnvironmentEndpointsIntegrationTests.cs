@@ -238,6 +238,115 @@ public class EnvironmentEndpointsIntegrationTests : AuthenticatedTestBase
 
     #endregion
 
+    #region First Environment Setup Flow
+
+    [Fact]
+    public async Task POST_CreateEnvironment_WithDuplicateId_ReturnsError()
+    {
+        // Arrange - Create first environment
+        var envId = $"dup-env-{Guid.NewGuid():N}";
+        var request = new
+        {
+            id = envId,
+            name = "Original Environment",
+            socketPath = "/var/run/docker.sock"
+        };
+
+        var firstResponse = await Client.PostAsJsonAsync("/api/environments", request);
+        firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Act - Try to create with same ID
+        var duplicateRequest = new
+        {
+            id = envId,
+            name = "Duplicate Environment",
+            socketPath = "/var/run/docker.sock"
+        };
+        var secondResponse = await Client.PostAsJsonAsync("/api/environments", duplicateRequest);
+
+        // Assert
+        var result = await secondResponse.Content.ReadFromJsonAsync<CreateEnvironmentResponse>();
+        result!.Success.Should().BeFalse();
+        result.Message.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task POST_CreateEnvironment_WithInvalidId_ReturnsBadRequest()
+    {
+        // Arrange
+        var request = new
+        {
+            id = "invalid id with spaces",
+            name = "Test Environment",
+            socketPath = "/var/run/docker.sock"
+        };
+
+        // Act
+        var response = await Client.PostAsJsonAsync("/api/environments", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task POST_CreateEnvironment_WithEmptySocketPath_ReturnsBadRequest()
+    {
+        // Arrange
+        var request = new
+        {
+            id = $"env-{Guid.NewGuid():N}",
+            name = "Test Environment",
+            socketPath = ""
+        };
+
+        // Act
+        var response = await Client.PostAsJsonAsync("/api/environments", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task EnvironmentSetupFlow_AfterWizard_WorksCorrectly()
+    {
+        // This test verifies the complete flow from wizard completion to first environment creation
+
+        // Step 1: Verify we can list environments (should be empty or have existing)
+        var listResponse = await Client.GetAsync("/api/environments");
+        listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var initialList = await listResponse.Content.ReadFromJsonAsync<ListEnvironmentsResponse>();
+        var initialCount = initialList!.Environments.Count;
+
+        // Step 2: Create first environment
+        var envId = $"setup-flow-{Guid.NewGuid():N}";
+        var createRequest = new
+        {
+            id = envId,
+            name = "Setup Flow Environment",
+            socketPath = "/var/run/docker.sock"
+        };
+
+        var createResponse = await Client.PostAsJsonAsync("/api/environments", createRequest);
+        createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var created = await createResponse.Content.ReadFromJsonAsync<CreateEnvironmentResponse>();
+        created!.Success.Should().BeTrue();
+        created.Environment.Should().NotBeNull();
+        created.Environment!.Id.Should().Be(envId);
+        created.Environment.Name.Should().Be("Setup Flow Environment");
+        created.Environment.Type.Should().Be("docker-socket");
+        created.Environment.ConnectionString.Should().Be("/var/run/docker.sock");
+
+        // Step 3: Verify environment appears in list
+        var finalListResponse = await Client.GetAsync("/api/environments");
+        var finalList = await finalListResponse.Content.ReadFromJsonAsync<ListEnvironmentsResponse>();
+        finalList!.Environments.Count.Should().Be(initialCount + 1);
+        finalList.Environments.Should().Contain(e => e.Id == envId);
+    }
+
+    #endregion
+
     #region Complete CRUD Flow
 
     [Fact]

@@ -43,7 +43,21 @@ export async function apiPost<T = void>(path: string, body?: unknown): Promise<T
       // Unauthorized - redirect to login
       window.location.href = '/login';
     }
-    throw new Error(`API request failed: ${response.statusText}`);
+    // Try to get error details from response body
+    let errorMessage = `API request failed: ${response.statusText}`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody.errors) {
+        // FastEndpoints validation error format
+        const messages = Object.values(errorBody.errors).flat();
+        errorMessage = messages.join(', ') || errorMessage;
+      } else if (errorBody.message) {
+        errorMessage = errorBody.message;
+      }
+    } catch {
+      // Ignore if body is not JSON
+    }
+    throw new Error(errorMessage);
   }
 
   if (response.status === 204 || response.headers.get('content-length') === '0') {

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
 import {
   createEnvironment,
   type CreateEnvironmentRequest,
@@ -11,7 +10,6 @@ import { useEnvironment } from "../context/EnvironmentContext";
  * Guides the user to create their first Docker environment.
  */
 export default function SetupEnvironment() {
-  const navigate = useNavigate();
   const { refreshEnvironments } = useEnvironment();
   const [formData, setFormData] = useState<CreateEnvironmentRequest>({
     id: "local-docker",
@@ -28,13 +26,16 @@ export default function SetupEnvironment() {
     try {
       setLoading(true);
       const response = await createEnvironment(formData);
+      console.log('Create environment response:', response);
       if (response.success) {
         await refreshEnvironments();
-        navigate("/");
+        // Use window.location for a full page reload to ensure fresh state
+        window.location.href = "/";
       } else {
         setError(response.message || "Failed to create environment");
       }
     } catch (err) {
+      console.error('Create environment error:', err);
       setError(err instanceof Error ? err.message : "Failed to create environment");
     } finally {
       setLoading(false);
