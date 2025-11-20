@@ -1,9 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
-using ReadyStackGo.Api;
 using ReadyStackGo.Application.Dashboard.DTOs;
+using ReadyStackGo.IntegrationTests.Infrastructure;
 
 namespace ReadyStackGo.IntegrationTests;
 
@@ -11,31 +10,13 @@ namespace ReadyStackGo.IntegrationTests;
 /// Integration tests for Dashboard Endpoints
 /// Diese Tests prüfen die Dashboard Stats API
 /// </summary>
-public class DashboardEndpointsIntegrationTests : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
+public class DashboardEndpointsIntegrationTests : AuthenticatedTestBase
 {
-    private readonly HttpClient _client;
-
-    public DashboardEndpointsIntegrationTests(WebApplicationFactory<Program> factory)
-    {
-        _client = factory.CreateClient();
-    }
-
-    public async Task InitializeAsync()
-    {
-        var token = await TestAuthHelper.GetAdminTokenAsync(_client);
-        TestAuthHelper.AddAuthToken(_client, token);
-    }
-
-    public Task DisposeAsync()
-    {
-        return Task.CompletedTask;
-    }
-
     [Fact]
     public async Task GET_DashboardStats_ReturnsStats()
     {
         // Act
-        var response = await _client.GetAsync("/api/dashboard/stats");
+        var response = await Client.GetAsync("/api/dashboard/stats");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -54,7 +35,7 @@ public class DashboardEndpointsIntegrationTests : IClassFixture<WebApplicationFa
     public async Task GET_DashboardStats_TotalStacksEqualsSumOfDeployedAndNotDeployed()
     {
         // Act
-        var response = await _client.GetAsync("/api/dashboard/stats");
+        var response = await Client.GetAsync("/api/dashboard/stats");
         var stats = await response.Content.ReadFromJsonAsync<DashboardStatsDto>();
 
         // Assert
@@ -66,7 +47,7 @@ public class DashboardEndpointsIntegrationTests : IClassFixture<WebApplicationFa
     public async Task GET_DashboardStats_TotalContainersEqualsSumOfRunningAndStopped()
     {
         // Act
-        var response = await _client.GetAsync("/api/dashboard/stats");
+        var response = await Client.GetAsync("/api/dashboard/stats");
         var stats = await response.Content.ReadFromJsonAsync<DashboardStatsDto>();
 
         // Assert
@@ -78,10 +59,10 @@ public class DashboardEndpointsIntegrationTests : IClassFixture<WebApplicationFa
     public async Task GET_DashboardStats_ReturnsConsistentData()
     {
         // Act - Get stats twice
-        var response1 = await _client.GetAsync("/api/dashboard/stats");
+        var response1 = await Client.GetAsync("/api/dashboard/stats");
         var stats1 = await response1.Content.ReadFromJsonAsync<DashboardStatsDto>();
 
-        var response2 = await _client.GetAsync("/api/dashboard/stats");
+        var response2 = await Client.GetAsync("/api/dashboard/stats");
         var stats2 = await response2.Content.ReadFromJsonAsync<DashboardStatsDto>();
 
         // Assert - Stats should be consistent
