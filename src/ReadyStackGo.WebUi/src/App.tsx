@@ -4,6 +4,7 @@ import { ScrollToTop } from "./components/common/ScrollToTop";
 import Dashboard from "./pages/Dashboard";
 import Containers from "./pages/Containers";
 import Stacks from "./pages/Stacks";
+import Environments from "./pages/Environments";
 import Login from "./pages/Auth/Login";
 import Wizard from "./pages/Wizard";
 import { AuthProvider } from "./context/AuthContext";
@@ -34,6 +35,7 @@ export default function App() {
                 <Route index path="/" element={<Dashboard />} />
                 <Route path="/containers" element={<Containers />} />
                 <Route path="/stacks" element={<Stacks />} />
+                <Route path="/environments" element={<Environments />} />
               </Route>
             </Routes>
           </WizardGuard>

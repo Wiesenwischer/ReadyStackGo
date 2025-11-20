@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 /**
  * E2E Tests for Setup Wizard
- * These tests verify the complete 4-step wizard workflow
+ * These tests verify the complete 3-step wizard workflow (v0.4)
  */
 
 test.describe('Setup Wizard', () => {
@@ -103,7 +103,7 @@ test.describe('Setup Wizard', () => {
     await expect(heading).toBeVisible();
   });
 
-  test('should complete step 2 and move to step 3', async ({ page }) => {
+  test('should complete step 2 and move to step 3 (Install)', async ({ page }) => {
     await completeStep1(page);
 
     // Fill organization form
@@ -113,8 +113,8 @@ test.describe('Setup Wizard', () => {
     // Submit
     await page.getByRole('button', { name: /Continue/i }).click();
 
-    // Should move to step 3
-    await expect(page.getByRole('heading', { name: /Configure Connections/i })).toBeVisible({ timeout: 5000 });
+    // Should move to step 3 (Complete Setup)
+    await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
   });
 
   test('should allow going back from step 2', async ({ page }) => {
@@ -127,49 +127,29 @@ test.describe('Setup Wizard', () => {
     await expect(page.getByRole('heading', { name: /Create Admin Account/i })).toBeVisible();
   });
 
-  test('should complete step 3 and move to step 4', async ({ page }) => {
+  test('should show configuration summary on step 3', async ({ page }) => {
     await completeStep1(page);
     await completeStep2(page);
-
-    // Fill connection strings
-    await page.fill('input[placeholder*="amqp"]', 'amqp://localhost:5672');
-    await page.fill('input[placeholder*="postgres"]', 'Host=localhost;Database=test;Username=user;Password=pass');
-    // EventStore is optional
-
-    // Submit
-    await page.getByRole('button', { name: /Continue/i }).click();
-
-    // Should move to step 4
-    await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
-  });
-
-  test('should show configuration summary on step 4', async ({ page }) => {
-    await completeStep1(page);
-    await completeStep2(page);
-    await completeStep3(page);
 
     // Check summary items
     await expect(page.getByText(/Admin account configured/i)).toBeVisible();
     await expect(page.getByText(/Organization details set/i)).toBeVisible();
-    await expect(page.getByText(/Connection strings configured/i)).toBeVisible();
 
     // Check complete button
     await expect(page.getByRole('button', { name: /Complete Setup/i })).toBeVisible();
   });
 
-  test('should show progress indicator for all 4 steps', async ({ page }) => {
+  test('should show progress indicator for all 3 steps', async ({ page }) => {
     await page.goto('/wizard');
 
-    // Check all 4 step numbers are visible
+    // Check all 3 step numbers are visible
     await expect(page.locator('text=1').first()).toBeVisible();
     await expect(page.locator('text=2').first()).toBeVisible();
     await expect(page.locator('text=3').first()).toBeVisible();
-    await expect(page.locator('text=4').first()).toBeVisible();
 
     // Check step names
     await expect(page.getByText('Admin')).toBeVisible();
     await expect(page.getByText('Organization')).toBeVisible();
-    await expect(page.getByText('Connections')).toBeVisible();
     await expect(page.getByText('Complete')).toBeVisible();
   });
 
@@ -195,7 +175,6 @@ test.describe('Setup Wizard', () => {
     await expect(step1Circle).toBeVisible();
 
     await completeStep2(page);
-    await completeStep3(page);
 
     // Multiple steps should show checkmarks
     const completedSteps = page.locator('[class*="bg-brand"]');
@@ -268,13 +247,6 @@ test.describe('Setup Wizard', () => {
   async function completeStep2(page: any) {
     await page.fill('input[placeholder*="my-company"]', `org-${Date.now()}`);
     await page.fill('input[placeholder*="My Company"]', 'Test Organization');
-    await page.getByRole('button', { name: /Continue/i }).click();
-    await expect(page.getByRole('heading', { name: /Configure Connections/i })).toBeVisible({ timeout: 5000 });
-  }
-
-  async function completeStep3(page: any) {
-    await page.fill('input[placeholder*="amqp"]', 'amqp://localhost:5672');
-    await page.fill('input[placeholder*="postgres"]', 'Host=localhost;Database=test;Username=user;Password=pass');
     await page.getByRole('button', { name: /Continue/i }).click();
     await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
   }

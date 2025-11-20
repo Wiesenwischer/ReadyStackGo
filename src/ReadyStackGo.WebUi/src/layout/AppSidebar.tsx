@@ -7,6 +7,7 @@ import {
   GridIcon,
   HorizontaLDots,
   BoxCubeIcon,
+  PlugInIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import SidebarWidget from "./SidebarWidget";
@@ -33,6 +34,11 @@ const navItems: NavItem[] = [
     icon: <BoxCubeIcon />,
     name: "Stacks",
     path: "/stacks",
+  },
+  {
+    icon: <PlugInIcon />,
+    name: "Environments",
+    path: "/environments",
   },
 ];
 
