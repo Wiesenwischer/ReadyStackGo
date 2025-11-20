@@ -10,5 +10,6 @@ export interface DashboardStats {
 }
 
 export const dashboardApi = {
-  getStats: () => apiGet<DashboardStats>('/api/dashboard/stats'),
+  getStats: (environmentId: string) =>
+    apiGet<DashboardStats>(`/api/dashboard/stats?environment=${encodeURIComponent(environmentId)}`),
 };

@@ -1,17 +1,25 @@
 import { useEffect, useState } from "react";
 import { containerApi, type Container } from "../api/containers";
+import { useEnvironment } from "../context/EnvironmentContext";
 
 export default function Containers() {
   const [containers, setContainers] = useState<Container[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const { activeEnvironment } = useEnvironment();
 
   const loadContainers = async () => {
+    if (!activeEnvironment) {
+      setContainers([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
-      const data = await containerApi.list();
+      const data = await containerApi.list(activeEnvironment.id);
       setContainers(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load containers");
@@ -22,12 +30,14 @@ export default function Containers() {
 
   useEffect(() => {
     loadContainers();
-  }, []);
+  }, [activeEnvironment]);
 
   const handleStart = async (id: string) => {
+    if (!activeEnvironment) return;
+
     try {
       setActionLoading(id);
-      await containerApi.start(id);
+      await containerApi.start(activeEnvironment.id, id);
       await loadContainers();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start container");
@@ -37,9 +47,11 @@ export default function Containers() {
   };
 
   const handleStop = async (id: string) => {
+    if (!activeEnvironment) return;
+
     try {
       setActionLoading(id);
-      await containerApi.stop(id);
+      await containerApi.stop(activeEnvironment.id, id);
       await loadContainers();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to stop container");
