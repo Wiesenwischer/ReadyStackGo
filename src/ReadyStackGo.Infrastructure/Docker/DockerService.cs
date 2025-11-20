@@ -87,6 +87,221 @@ public class DockerService : IDockerService, IDisposable
         }
     }
 
+    public async Task<string> CreateAndStartContainerAsync(
+        string environmentId,
+        CreateContainerRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+
+        _logger.LogInformation("Creating container {Name} from image {Image} in environment {EnvironmentId}",
+            request.Name, request.Image, environmentId);
+
+        // Parse port bindings
+        var portBindings = new Dictionary<string, IList<PortBinding>>();
+        var exposedPorts = new Dictionary<string, EmptyStruct>();
+
+        foreach (var port in request.Ports)
+        {
+            var parts = port.Split(':');
+            string containerPort, hostPort;
+
+            if (parts.Length == 2)
+            {
+                hostPort = parts[0];
+                containerPort = parts[1];
+            }
+            else
+            {
+                containerPort = parts[0];
+                hostPort = parts[0];
+            }
+
+            // Ensure port has protocol
+            if (!containerPort.Contains('/'))
+            {
+                containerPort += "/tcp";
+            }
+
+            exposedPorts[containerPort] = new EmptyStruct();
+            portBindings[containerPort] = new List<PortBinding>
+            {
+                new PortBinding { HostPort = hostPort }
+            };
+        }
+
+        // Parse volume bindings
+        var binds = new List<string>();
+        foreach (var (hostPath, containerPath) in request.Volumes)
+        {
+            binds.Add($"{hostPath}:{containerPath}");
+        }
+
+        // Convert environment variables to list format
+        var envVars = request.EnvironmentVariables
+            .Select(kv => $"{kv.Key}={kv.Value}")
+            .ToList();
+
+        // Parse restart policy
+        var restartPolicy = new RestartPolicy
+        {
+            Name = request.RestartPolicy switch
+            {
+                "always" => RestartPolicyKind.Always,
+                "unless-stopped" => RestartPolicyKind.UnlessStopped,
+                "on-failure" => RestartPolicyKind.OnFailure,
+                _ => RestartPolicyKind.No
+            }
+        };
+
+        // Create container
+        var createParams = new CreateContainerParameters
+        {
+            Name = request.Name,
+            Image = request.Image,
+            Env = envVars,
+            ExposedPorts = exposedPorts,
+            Labels = request.Labels,
+            HostConfig = new HostConfig
+            {
+                PortBindings = portBindings,
+                Binds = binds,
+                RestartPolicy = restartPolicy,
+                NetworkMode = request.Networks.FirstOrDefault() ?? "bridge"
+            }
+        };
+
+        var response = await client.Containers.CreateContainerAsync(createParams, cancellationToken);
+
+        // Connect to additional networks
+        foreach (var network in request.Networks.Skip(1))
+        {
+            try
+            {
+                await client.Networks.ConnectNetworkAsync(network, new NetworkConnectParameters
+                {
+                    Container = response.ID
+                }, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to connect container {ContainerId} to network {Network}",
+                    response.ID, network);
+            }
+        }
+
+        // Start container
+        await client.Containers.StartContainerAsync(response.ID, new ContainerStartParameters(), cancellationToken);
+
+        _logger.LogInformation("Created and started container {ContainerId} ({Name}) in environment {EnvironmentId}",
+            response.ID, request.Name, environmentId);
+
+        return response.ID;
+    }
+
+    public async Task RemoveContainerAsync(string environmentId, string containerId, bool force = false, CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+
+        _logger.LogInformation("Removing container {ContainerId} in environment {EnvironmentId}", containerId, environmentId);
+
+        await client.Containers.RemoveContainerAsync(containerId, new ContainerRemoveParameters
+        {
+            Force = force,
+            RemoveVolumes = false
+        }, cancellationToken);
+
+        _logger.LogInformation("Removed container {ContainerId} in environment {EnvironmentId}", containerId, environmentId);
+    }
+
+    public async Task EnsureNetworkAsync(string environmentId, string networkName, CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+
+        try
+        {
+            // Check if network exists
+            var networks = await client.Networks.ListNetworksAsync(new NetworksListParameters
+            {
+                Filters = new Dictionary<string, IDictionary<string, bool>>
+                {
+                    ["name"] = new Dictionary<string, bool> { [networkName] = true }
+                }
+            }, cancellationToken);
+
+            if (networks.Any(n => n.Name == networkName))
+            {
+                _logger.LogDebug("Network {NetworkName} already exists in environment {EnvironmentId}",
+                    networkName, environmentId);
+                return;
+            }
+
+            // Create network
+            await client.Networks.CreateNetworkAsync(new NetworksCreateParameters
+            {
+                Name = networkName,
+                Driver = "bridge",
+                CheckDuplicate = true
+            }, cancellationToken);
+
+            _logger.LogInformation("Created network {NetworkName} in environment {EnvironmentId}",
+                networkName, environmentId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to ensure network {NetworkName} in environment {EnvironmentId}",
+                networkName, environmentId);
+            throw;
+        }
+    }
+
+    public async Task PullImageAsync(string environmentId, string image, string tag = "latest", CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+
+        var fullImage = $"{image}:{tag}";
+        _logger.LogInformation("Pulling image {Image} in environment {EnvironmentId}", fullImage, environmentId);
+
+        await client.Images.CreateImageAsync(
+            new ImagesCreateParameters
+            {
+                FromImage = image,
+                Tag = tag
+            },
+            null,
+            new Progress<JSONMessage>(msg =>
+            {
+                if (!string.IsNullOrEmpty(msg.Status))
+                {
+                    _logger.LogDebug("Pull progress: {Status}", msg.Status);
+                }
+            }),
+            cancellationToken);
+
+        _logger.LogInformation("Pulled image {Image} in environment {EnvironmentId}", fullImage, environmentId);
+    }
+
+    public async Task<ContainerDto?> GetContainerByNameAsync(string environmentId, string containerName, CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+
+        var containers = await client.Containers.ListContainersAsync(
+            new ContainersListParameters
+            {
+                All = true,
+                Filters = new Dictionary<string, IDictionary<string, bool>>
+                {
+                    ["name"] = new Dictionary<string, bool> { [containerName] = true }
+                }
+            },
+            cancellationToken);
+
+        var container = containers.FirstOrDefault(c =>
+            c.Names.Any(n => n.TrimStart('/') == containerName));
+
+        return container != null ? MapToContainerDto(container) : null;
+    }
+
     private async Task<DockerClient> GetDockerClientAsync(string environmentId)
     {
         // Check cache first
@@ -172,7 +387,10 @@ public class DockerService : IDockerService, IDisposable
                 PrivatePort = (int)p.PrivatePort,
                 PublicPort = (int)p.PublicPort,
                 Type = p.Type
-            }).ToList() ?? []
+            }).ToList() ?? [],
+            Labels = container.Labels != null
+                ? new Dictionary<string, string>(container.Labels)
+                : new Dictionary<string, string>()
         };
     }
 

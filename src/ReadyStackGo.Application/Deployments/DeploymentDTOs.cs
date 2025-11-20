@@ -115,8 +115,10 @@ public class GetDeploymentResponse
     public string? Message { get; set; }
     public string? DeploymentId { get; set; }
     public string? StackName { get; set; }
+    public string? StackVersion { get; set; }
     public string? EnvironmentId { get; set; }
     public DateTime? DeployedAt { get; set; }
+    public string? Status { get; set; }
     public List<DeployedServiceInfo> Services { get; set; } = new();
     public Dictionary<string, string> Configuration { get; set; } = new();
 }
@@ -135,8 +137,9 @@ public class ListDeploymentsResponse
 /// </summary>
 public class DeploymentSummary
 {
-    public required string DeploymentId { get; set; }
+    public string? DeploymentId { get; set; }
     public required string StackName { get; set; }
+    public string? StackVersion { get; set; }
     public DateTime DeployedAt { get; set; }
     public int ServiceCount { get; set; }
     public string? Status { get; set; }

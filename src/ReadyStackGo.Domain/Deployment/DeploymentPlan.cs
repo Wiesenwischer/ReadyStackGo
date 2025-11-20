@@ -6,6 +6,23 @@ namespace ReadyStackGo.Domain.Deployment;
 public class DeploymentPlan
 {
     public required string StackVersion { get; set; }
+
+    /// <summary>
+    /// The environment ID where this plan will be deployed.
+    /// v0.4: Required for environment-scoped deployments.
+    /// </summary>
+    public string? EnvironmentId { get; set; }
+
+    /// <summary>
+    /// The stack name for identification.
+    /// </summary>
+    public string? StackName { get; set; }
+
+    /// <summary>
+    /// The network name to use for all containers.
+    /// </summary>
+    public string NetworkName { get; set; } = "rsgo-network";
+
     public List<DeploymentStep> Steps { get; set; } = new();
     public Dictionary<string, string> GlobalEnvVars { get; set; } = new();
 }

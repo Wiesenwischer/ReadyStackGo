@@ -9,6 +9,7 @@ public record ContainerDto
     public required string Status { get; init; }
     public DateTime Created { get; init; }
     public List<PortDto> Ports { get; init; } = [];
+    public Dictionary<string, string> Labels { get; init; } = new();
 }
 
 public record PortDto

@@ -23,9 +23,83 @@ public interface IDockerService
     /// Tests the connection to a Docker host.
     /// </summary>
     Task<TestConnectionResult> TestConnectionAsync(string dockerHost, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Creates and starts a container in the specified environment.
+    /// </summary>
+    Task<string> CreateAndStartContainerAsync(
+        string environmentId,
+        CreateContainerRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes a container (stops if running) in the specified environment.
+    /// </summary>
+    Task RemoveContainerAsync(string environmentId, string containerId, bool force = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Ensures a Docker network exists in the specified environment.
+    /// </summary>
+    Task EnsureNetworkAsync(string environmentId, string networkName, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Pulls an image in the specified environment.
+    /// </summary>
+    Task PullImageAsync(string environmentId, string image, string tag = "latest", CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a container by name in the specified environment.
+    /// </summary>
+    Task<ContainerDto?> GetContainerByNameAsync(string environmentId, string containerName, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
 /// Result of testing a Docker connection.
 /// </summary>
 public record TestConnectionResult(bool Success, string Message, string? DockerVersion = null);
+
+/// <summary>
+/// Request to create a container.
+/// </summary>
+public class CreateContainerRequest
+{
+    /// <summary>
+    /// Container name (must be unique).
+    /// </summary>
+    public required string Name { get; set; }
+
+    /// <summary>
+    /// Image name with tag (e.g., "nginx:alpine").
+    /// </summary>
+    public required string Image { get; set; }
+
+    /// <summary>
+    /// Environment variables.
+    /// </summary>
+    public Dictionary<string, string> EnvironmentVariables { get; set; } = new();
+
+    /// <summary>
+    /// Port bindings in format "hostPort:containerPort" or "containerPort".
+    /// </summary>
+    public List<string> Ports { get; set; } = new();
+
+    /// <summary>
+    /// Volume bindings in format "hostPath:containerPath" or "volumeName:containerPath".
+    /// </summary>
+    public Dictionary<string, string> Volumes { get; set; } = new();
+
+    /// <summary>
+    /// Networks to attach to.
+    /// </summary>
+    public List<string> Networks { get; set; } = new();
+
+    /// <summary>
+    /// Labels to apply to the container.
+    /// </summary>
+    public Dictionary<string, string> Labels { get; set; } = new();
+
+    /// <summary>
+    /// Restart policy (e.g., "no", "always", "unless-stopped", "on-failure").
+    /// </summary>
+    public string RestartPolicy { get; set; } = "unless-stopped";
+}

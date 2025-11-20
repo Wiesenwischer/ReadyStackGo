@@ -20,9 +20,10 @@ public class DeployComposeEndpoint : Endpoint<DeployComposeRequest, DeployCompos
         var environmentId = Route<string>("environmentId");
         var response = await DeploymentService.DeployComposeAsync(environmentId!, req);
 
-        if (!response.Success)
+        // Return 400 if environment not found, otherwise return the response
+        if (!response.Success && response.Message?.Contains("not found") == true)
         {
-            ThrowError(response.Message ?? "Deployment failed");
+            ThrowError(response.Message);
         }
 
         Response = response;

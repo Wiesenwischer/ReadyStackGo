@@ -102,6 +102,17 @@ public class ConfigStore : IConfigStore
         await SaveConfigAsync("rsgo.release.json", config);
     }
 
+    public async Task<DeploymentsConfig> GetDeploymentsConfigAsync()
+    {
+        return await LoadConfigAsync<DeploymentsConfig>("rsgo.deployments.json")
+            ?? new DeploymentsConfig();
+    }
+
+    public async Task SaveDeploymentsConfigAsync(DeploymentsConfig config)
+    {
+        await SaveConfigAsync("rsgo.deployments.json", config);
+    }
+
     private async Task<T?> LoadConfigAsync<T>(string fileName) where T : class
     {
         var filePath = Path.Combine(_configPath, fileName);
