@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ReadyStackGo.Application.Auth;
 using ReadyStackGo.Application.Containers;
+using ReadyStackGo.Application.Deployments;
 using ReadyStackGo.Application.Environments;
 using ReadyStackGo.Application.Manifests;
 using ReadyStackGo.Application.Stacks;
@@ -10,6 +11,7 @@ using ReadyStackGo.Infrastructure.Auth;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Deployment;
 using ReadyStackGo.Infrastructure.Docker;
+using ReadyStackGo.Infrastructure.Deployments;
 using ReadyStackGo.Infrastructure.Environments;
 using ReadyStackGo.Infrastructure.Manifests;
 using ReadyStackGo.Infrastructure.Stacks;
@@ -34,6 +36,7 @@ public static class DependencyInjection
 
         // Deployment services
         services.AddSingleton<IDeploymentEngine, DeploymentEngine>();
+        services.AddSingleton<IDeploymentService, DeploymentService>();
 
         // Docker services
         services.AddSingleton<IDockerService, DockerService>();
