@@ -9,7 +9,7 @@ namespace ReadyStackGo.IntegrationTests;
 
 /// <summary>
 /// Integration tests for Wizard API Endpoints
-/// Tests the complete 4-step setup wizard flow
+/// Tests the complete 3-step setup wizard flow (v0.4)
 /// </summary>
 public class WizardEndpointsIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
 {
@@ -104,37 +104,11 @@ public class WizardEndpointsIntegrationTests : IClassFixture<WebApplicationFacto
     }
 
     [Fact]
-    public async Task POST_SetConnections_WithValidData_ReturnsSuccess()
+    public async Task POST_CompleteWizard_WithValidData_ReturnsSuccess()
     {
-        // Arrange - First complete previous steps
+        // Arrange - Complete previous steps
         await CreateAdminForTest();
         await SetOrganizationForTest();
-
-        var request = new
-        {
-            transport = "amqp://rabbitmq:5672",
-            persistence = "Host=postgres;Database=test;Username=user;Password=pass",
-            eventStore = "esdb://eventstore:2113"
-        };
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/wizard/connections", request);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var result = await response.Content.ReadFromJsonAsync<WizardResponse>();
-        result.Should().NotBeNull();
-        result!.Success.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task POST_CompleteWizard_AfterAllSteps_ReturnsSuccess()
-    {
-        // Arrange - Complete all previous steps
-        await CreateAdminForTest();
-        await SetOrganizationForTest();
-        await SetConnectionsForTest();
 
         var request = new
         {
@@ -149,15 +123,37 @@ public class WizardEndpointsIntegrationTests : IClassFixture<WebApplicationFacto
 
         var result = await response.Content.ReadFromJsonAsync<InstallStackResponse>();
         result.Should().NotBeNull();
-        // Wizard completion no longer requires manifests - it just marks setup as complete
         result!.Success.Should().BeTrue();
-        result.StackVersion.Should().Be("v0.3.0");
+    }
+
+    [Fact]
+    public async Task POST_CompleteWizard_ReturnsCorrectVersion()
+    {
+        // Arrange - Complete all previous steps
+        await CreateAdminForTest();
+        await SetOrganizationForTest();
+
+        var request = new
+        {
+            manifestPath = (string?)null
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/wizard/install", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<InstallStackResponse>();
+        result.Should().NotBeNull();
+        result!.Success.Should().BeTrue();
+        result.StackVersion.Should().Be("v0.4.0");
     }
 
     [Fact]
     public async Task WizardFlow_CompleteSequence_WorksInOrder()
     {
-        // This test validates the complete wizard flow in sequence
+        // This test validates the complete 3-step wizard flow in sequence
 
         // Step 1: Get initial status
         var statusResponse = await _client.GetAsync("/api/wizard/status");
@@ -181,24 +177,23 @@ public class WizardEndpointsIntegrationTests : IClassFixture<WebApplicationFacto
         var orgResponse = await _client.PostAsJsonAsync("/api/wizard/organization", orgRequest);
         orgResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // Step 4: Set connections
-        var connRequest = new
-        {
-            transport = "amqp://rabbitmq:5672",
-            persistence = "Host=postgres;Database=flow;Username=user;Password=pass"
-        };
-        var connResponse = await _client.PostAsJsonAsync("/api/wizard/connections", connRequest);
-        connResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        // Step 5: Check status before install
+        // Step 4: Check status before install
         var preInstallStatus = await _client.GetAsync("/api/wizard/status");
         preInstallStatus.StatusCode.Should().Be(HttpStatusCode.OK);
         var status = await preInstallStatus.Content.ReadFromJsonAsync<WizardStatusResponse>();
-        status!.WizardState.Should().Be("ConnectionsSet");
+        status!.WizardState.Should().Be("OrganizationSet");
         status.IsCompleted.Should().BeFalse();
 
-        // Step 6: Install would require manifests, so we skip actual execution
-        // But we've validated the flow up to this point
+        // Step 5: Complete wizard
+        var installRequest = new
+        {
+            manifestPath = (string?)null
+        };
+        var installResponse = await _client.PostAsJsonAsync("/api/wizard/install", installRequest);
+        installResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var installResult = await installResponse.Content.ReadFromJsonAsync<InstallStackResponse>();
+        installResult!.Success.Should().BeTrue();
+        installResult.StackVersion.Should().Be("v0.4.0");
     }
 
     [Fact]
@@ -223,26 +218,24 @@ public class WizardEndpointsIntegrationTests : IClassFixture<WebApplicationFacto
     }
 
     [Fact]
-    public async Task POST_SetConnections_WithoutOrganization_ReturnsError()
+    public async Task POST_Install_WithoutOrganization_ReturnsError()
     {
         // Arrange - Only create admin, skip organization
         await CreateAdminForTest();
 
         var request = new
         {
-            transport = "amqp://rabbitmq:5672",
-            persistence = "Host=postgres;Database=test;Username=user;Password=pass"
+            manifestPath = (string?)null
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/wizard/connections", request);
+        var response = await _client.PostAsJsonAsync("/api/wizard/install", request);
 
         // Assert
         // Should fail because organization wasn't set
-        var result = await response.Content.ReadFromJsonAsync<WizardResponse>();
+        var result = await response.Content.ReadFromJsonAsync<InstallStackResponse>();
         result.Should().NotBeNull();
         result!.Success.Should().BeFalse();
-        result.Message.Should().Contain("OrganizationSet");
     }
 
     [Fact]
@@ -301,16 +294,6 @@ public class WizardEndpointsIntegrationTests : IClassFixture<WebApplicationFacto
             name = "Test Organization"
         };
         await _client.PostAsJsonAsync("/api/wizard/organization", request);
-    }
-
-    private async Task SetConnectionsForTest()
-    {
-        var request = new
-        {
-            transport = "amqp://rabbitmq:5672",
-            persistence = "Host=postgres;Database=test;Username=user;Password=pass"
-        };
-        await _client.PostAsJsonAsync("/api/wizard/connections", request);
     }
 
     // Response DTOs
