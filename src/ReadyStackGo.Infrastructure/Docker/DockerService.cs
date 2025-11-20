@@ -374,6 +374,9 @@ public class DockerService : IDockerService, IDisposable
 
     private static ContainerDto MapToContainerDto(ContainerListResponse container)
     {
+        // Extract health status from Status string (e.g., "Up 2 hours (healthy)")
+        var healthStatus = ExtractHealthStatus(container.Status);
+
         return new ContainerDto
         {
             Id = container.ID,
@@ -390,8 +393,25 @@ public class DockerService : IDockerService, IDisposable
             }).ToList() ?? [],
             Labels = container.Labels != null
                 ? new Dictionary<string, string>(container.Labels)
-                : new Dictionary<string, string>()
+                : new Dictionary<string, string>(),
+            HealthStatus = healthStatus
         };
+    }
+
+    private static string ExtractHealthStatus(string status)
+    {
+        if (string.IsNullOrEmpty(status))
+            return "none";
+
+        // Docker status format: "Up 2 hours (healthy)" or "Up 2 hours (unhealthy)"
+        if (status.Contains("(healthy)"))
+            return "healthy";
+        if (status.Contains("(unhealthy)"))
+            return "unhealthy";
+        if (status.Contains("(health: starting)"))
+            return "starting";
+
+        return "none";
     }
 
     public void Dispose()

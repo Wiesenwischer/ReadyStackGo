@@ -44,8 +44,9 @@ export interface DeployComposeResponse {
 }
 
 export interface DeploymentSummary {
-  deploymentId: string;
+  deploymentId?: string;
   stackName: string;
+  stackVersion?: string;
   deployedAt: string;
   serviceCount: number;
   status?: string;

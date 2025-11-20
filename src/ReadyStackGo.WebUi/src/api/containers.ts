@@ -8,6 +8,9 @@ export interface Container {
   status: string;
   created: string;
   ports: Port[];
+  labels?: Record<string, string>;
+  healthStatus?: string; // "healthy", "unhealthy", "starting", or "none"
+  failingStreak?: number;
 }
 
 export interface Port {
