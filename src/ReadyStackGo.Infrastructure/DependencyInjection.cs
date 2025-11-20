@@ -2,12 +2,14 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ReadyStackGo.Application.Auth;
 using ReadyStackGo.Application.Containers;
+using ReadyStackGo.Application.Environments;
 using ReadyStackGo.Application.Stacks;
 using ReadyStackGo.Application.Wizard;
 using ReadyStackGo.Infrastructure.Auth;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Deployment;
 using ReadyStackGo.Infrastructure.Docker;
+using ReadyStackGo.Infrastructure.Environments;
 using ReadyStackGo.Infrastructure.Manifests;
 using ReadyStackGo.Infrastructure.Stacks;
 using ReadyStackGo.Infrastructure.Tls;
@@ -44,6 +46,9 @@ public static class DependencyInjection
 
         // Wizard services
         services.AddSingleton<IWizardService, WizardService>();
+
+        // Environment services (v0.4)
+        services.AddSingleton<IEnvironmentService, EnvironmentService>();
 
         return services;
     }
