@@ -17,6 +17,7 @@ public class AuthEndpointsIntegrationTests : IAsyncLifetime
     private HttpClient _client = null!;
     private string _adminUsername = string.Empty;
     private string _adminPassword = string.Empty;
+    private string _environmentId = string.Empty;
 
     public async Task InitializeAsync()
     {
@@ -27,6 +28,7 @@ public class AuthEndpointsIntegrationTests : IAsyncLifetime
         var testId = Guid.NewGuid().ToString("N")[..8];
         _adminUsername = $"admin_{testId}";
         _adminPassword = "TestPassword123!";
+        _environmentId = $"env-{testId}";
 
         // Step 1: Create admin
         var adminRequest = new { username = _adminUsername, password = _adminPassword };
@@ -39,6 +41,32 @@ public class AuthEndpointsIntegrationTests : IAsyncLifetime
         // Step 3: Complete wizard
         var installRequest = new { manifestPath = (string?)null };
         await _client.PostAsJsonAsync("/api/wizard/install", installRequest);
+
+        // Authenticate to create environment
+        var loginRequest = new { username = _adminUsername, password = _adminPassword };
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", loginRequest);
+        var login = await loginResponse.Content.ReadFromJsonAsync<LoginResponse>();
+
+        _client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", login!.Token);
+
+        // Create default environment for tests
+        var socketPath = OperatingSystem.IsWindows()
+            ? "npipe://./pipe/docker_engine"
+            : "unix:///var/run/docker.sock";
+
+        var envRequest = new
+        {
+            id = _environmentId,
+            name = $"Test Environment {testId}",
+            type = "docker-socket",
+            socketPath = socketPath,
+            isDefault = true
+        };
+        await _client.PostAsJsonAsync("/api/environments", envRequest);
+
+        // Clear auth for subsequent tests
+        _client.DefaultRequestHeaders.Authorization = null;
     }
 
     public async Task DisposeAsync()
@@ -119,7 +147,7 @@ public class AuthEndpointsIntegrationTests : IAsyncLifetime
     public async Task GET_ProtectedEndpoint_WithoutToken_ReturnsUnauthorized()
     {
         // Act
-        var response = await _client.GetAsync("/api/containers");
+        var response = await _client.GetAsync($"/api/containers?environment={_environmentId}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -138,7 +166,7 @@ public class AuthEndpointsIntegrationTests : IAsyncLifetime
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", login!.Token);
 
         // Act
-        var response = await authenticatedClient.GetAsync("/api/containers");
+        var response = await authenticatedClient.GetAsync($"/api/containers?environment={_environmentId}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -153,7 +181,7 @@ public class AuthEndpointsIntegrationTests : IAsyncLifetime
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "invalid.token.here");
 
         // Act
-        var response = await authenticatedClient.GetAsync("/api/containers");
+        var response = await authenticatedClient.GetAsync($"/api/containers?environment={_environmentId}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);

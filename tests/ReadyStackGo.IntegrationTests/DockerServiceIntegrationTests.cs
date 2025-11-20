@@ -41,7 +41,7 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
 
         // Setup system config with test environment
         var socketPath = OperatingSystem.IsWindows()
-            ? "npipe:////./pipe/docker_engine"
+            ? "npipe://./pipe/docker_engine"
             : "unix:///var/run/docker.sock";
 
         var testEnv = new DockerSocketEnvironment
@@ -156,7 +156,7 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
     {
         // Arrange
         var dockerHost = OperatingSystem.IsWindows()
-            ? "npipe:////./pipe/docker_engine"
+            ? "npipe://./pipe/docker_engine"
             : "unix:///var/run/docker.sock";
 
         // Act

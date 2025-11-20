@@ -41,7 +41,7 @@ public class ContainerEndpointsIntegrationTests : AuthenticatedTestBase
     public async Task GET_Containers_ReturnsSuccessAndContainers()
     {
         // Act
-        var response = await Client.GetAsync("/api/containers");
+        var response = await Client.GetAsync($"/api/containers?environment={EnvironmentId}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -59,14 +59,19 @@ public class ContainerEndpointsIntegrationTests : AuthenticatedTestBase
         await Task.Delay(1000);
 
         // Act
-        var response = await Client.PostAsync($"/api/containers/{_testContainer.Id}/start", new StringContent("", System.Text.Encoding.UTF8, "application/json"));
+        var response = await Client.PostAsync($"/api/containers/{_testContainer.Id}/start?environment={EnvironmentId}", null);
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            throw new Exception($"Start container failed with {response.StatusCode}: {errorContent}");
+        }
+        response.IsSuccessStatusCode.Should().BeTrue();
 
         // Verify container is running
         await Task.Delay(2000);
-        var listResponse = await Client.GetAsync("/api/containers");
+        var listResponse = await Client.GetAsync($"/api/containers?environment={EnvironmentId}");
         var containers = await listResponse.Content.ReadFromJsonAsync<List<ContainerDto>>();
         var testContainer = containers!.FirstOrDefault(c => c.Id.StartsWith(_testContainer.Id));
 
@@ -85,14 +90,19 @@ public class ContainerEndpointsIntegrationTests : AuthenticatedTestBase
         await Task.Delay(1000);
 
         // Act
-        var response = await Client.PostAsync($"/api/containers/{_testContainer.Id}/stop", new StringContent("", System.Text.Encoding.UTF8, "application/json"));
+        var response = await Client.PostAsync($"/api/containers/{_testContainer.Id}/stop?environment={EnvironmentId}", null);
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            throw new Exception($"Stop container failed with {response.StatusCode}: {errorContent}");
+        }
+        response.IsSuccessStatusCode.Should().BeTrue();
 
         // Verify container is stopped
         await Task.Delay(2000);
-        var listResponse = await Client.GetAsync("/api/containers");
+        var listResponse = await Client.GetAsync($"/api/containers?environment={EnvironmentId}");
         var containers = await listResponse.Content.ReadFromJsonAsync<List<ContainerDto>>();
         var testContainer = containers!.FirstOrDefault(c => c.Id.StartsWith(_testContainer.Id));
 
@@ -104,7 +114,7 @@ public class ContainerEndpointsIntegrationTests : AuthenticatedTestBase
     public async Task GET_Containers_ReturnsCorsHeaders()
     {
         // Act
-        var response = await Client.GetAsync("/api/containers");
+        var response = await Client.GetAsync($"/api/containers?environment={EnvironmentId}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);

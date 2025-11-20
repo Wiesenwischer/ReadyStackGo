@@ -10,7 +10,7 @@ public class TestConnectionRequest
 {
     /// <summary>
     /// The Docker host URL to test.
-    /// Examples: "unix:///var/run/docker.sock", "npipe:////./pipe/docker_engine", "tcp://192.168.1.10:2375"
+    /// Examples: "unix:///var/run/docker.sock", "npipe://./pipe/docker_engine", "tcp://192.168.1.10:2375"
     /// </summary>
     public string DockerHost { get; set; } = null!;
 }

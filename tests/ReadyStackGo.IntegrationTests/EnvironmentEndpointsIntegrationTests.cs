@@ -399,6 +399,11 @@ public class EnvironmentEndpointsIntegrationTests : AuthenticatedTestBase
         var list = await listResponse.Content.ReadFromJsonAsync<ListEnvironmentsResponse>();
         list!.Environments.Should().Contain(e => e.Id == environmentId);
 
+        // Step 5.5: Set the base environment as default before deleting our test environment
+        // (cannot delete default environment when other environments exist)
+        var resetDefaultResponse = await Client.PostAsync($"/api/environments/{EnvironmentId}/default", null);
+        resetDefaultResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
         // Step 6: Delete environment
         var deleteResponse = await Client.DeleteAsync($"/api/environments/{environmentId}");
         deleteResponse.StatusCode.Should().Be(HttpStatusCode.OK);

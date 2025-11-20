@@ -9,7 +9,7 @@ public class DockerSocketEnvironment : Environment
     /// <summary>
     /// Path to the Docker socket.
     /// Linux: "unix:///var/run/docker.sock"
-    /// Windows: "npipe:////./pipe/docker_engine"
+    /// Windows: "npipe://./pipe/docker_engine"
     /// Can also be a remote socket: "tcp://docker-host:2375"
     /// </summary>
     public required string SocketPath { get; set; }
@@ -30,7 +30,7 @@ public class DockerSocketEnvironment : Environment
     public static DockerSocketEnvironment CreateLocal(string id, string name)
     {
         var socketPath = OperatingSystem.IsWindows()
-            ? "npipe:////./pipe/docker_engine"
+            ? "npipe://./pipe/docker_engine"
             : "unix:///var/run/docker.sock";
 
         return new DockerSocketEnvironment

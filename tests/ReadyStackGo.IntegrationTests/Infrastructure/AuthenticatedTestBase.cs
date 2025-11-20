@@ -15,6 +15,7 @@ public abstract class AuthenticatedTestBase : IAsyncLifetime
     protected string AdminPassword { get; private set; } = string.Empty;
     protected string OrganizationId { get; private set; } = string.Empty;
     protected string AuthToken { get; private set; } = string.Empty;
+    protected string EnvironmentId { get; private set; } = string.Empty;
 
     protected AuthenticatedTestBase()
     {
@@ -26,6 +27,7 @@ public abstract class AuthenticatedTestBase : IAsyncLifetime
     {
         await CompleteWizardSetupAsync();
         await AuthenticateAsync();
+        await CreateDefaultEnvironmentAsync();
         await OnInitializedAsync();
     }
 
@@ -118,6 +120,34 @@ public abstract class AuthenticatedTestBase : IAsyncLifetime
         // Add token to default request headers
         Client.DefaultRequestHeaders.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", AuthToken);
+    }
+
+    private async Task CreateDefaultEnvironmentAsync()
+    {
+        // Create a default Docker socket environment for tests
+        var testId = Guid.NewGuid().ToString("N")[..8];
+        EnvironmentId = $"env-{testId}";
+
+        var socketPath = OperatingSystem.IsWindows()
+            ? "npipe://./pipe/docker_engine"
+            : "unix:///var/run/docker.sock";
+
+        var envRequest = new
+        {
+            id = EnvironmentId,
+            name = $"Test Environment {testId}",
+            type = "docker-socket",
+            socketPath = socketPath,
+            isDefault = true
+        };
+
+        var response = await Client.PostAsJsonAsync("/api/environments", envRequest);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var content = await response.Content.ReadAsStringAsync();
+            throw new InvalidOperationException($"Failed to create environment: {response.StatusCode} - {content}");
+        }
     }
 
     /// <summary>
