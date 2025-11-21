@@ -1,15 +1,20 @@
 import { useEffect, useState } from "react";
 import { listDeployments, removeDeployment, type DeploymentSummary } from "../api/deployments";
+import { getStackDefinitions, syncSources, type StackDefinition } from "../api/stackSources";
 import { useEnvironment } from "../context/EnvironmentContext";
 import DeployComposeModal from "../components/stacks/DeployComposeModal";
 
 export default function Stacks() {
   const { activeEnvironment } = useEnvironment();
   const [deployments, setDeployments] = useState<DeploymentSummary[]>([]);
+  const [stackDefinitions, setStackDefinitions] = useState<StackDefinition[]>([]);
   const [loading, setLoading] = useState(true);
+  const [stacksLoading, setStacksLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
+  const [selectedStack, setSelectedStack] = useState<StackDefinition | null>(null);
 
   const loadDeployments = async () => {
     if (!activeEnvironment) {
@@ -34,8 +39,34 @@ export default function Stacks() {
     }
   };
 
+  const loadStackDefinitions = async () => {
+    try {
+      setStacksLoading(true);
+      const stacks = await getStackDefinitions();
+      setStackDefinitions(stacks);
+    } catch (err) {
+      console.error("Failed to load stack definitions:", err);
+      // Don't set error for stack definitions as deployments might still work
+    } finally {
+      setStacksLoading(false);
+    }
+  };
+
+  const handleSync = async () => {
+    try {
+      setSyncing(true);
+      await syncSources();
+      await loadStackDefinitions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to sync sources");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   useEffect(() => {
     loadDeployments();
+    loadStackDefinitions();
   }, [activeEnvironment]);
 
   const handleRemove = async (stackName: string) => {
@@ -50,6 +81,11 @@ export default function Stacks() {
     } finally {
       setActionLoading(null);
     }
+  };
+
+  const handleDeploy = (stack: StackDefinition) => {
+    setSelectedStack(stack);
+    setIsDeployModalOpen(true);
   };
 
   const getStatusBadge = (status: string | null | undefined) => {
@@ -86,23 +122,27 @@ export default function Stacks() {
         </h1>
         <div className="flex gap-3">
           <button
-            onClick={() => setIsDeployModalOpen(true)}
+            onClick={() => {
+              setSelectedStack(null);
+              setIsDeployModalOpen(true);
+            }}
             disabled={!activeEnvironment}
             className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            Deploy Stack
+            Deploy Custom
           </button>
           <button
-            onClick={loadDeployments}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-gray-100 px-6 py-3 text-center font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+            onClick={handleSync}
+            disabled={syncing}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-gray-100 px-6 py-3 text-center font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 disabled:opacity-50"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-5 h-5 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Refresh
+            {syncing ? "Syncing..." : "Sync Sources"}
           </button>
         </div>
       </div>
@@ -122,6 +162,84 @@ export default function Stacks() {
       )}
 
       <div className="flex flex-col gap-10">
+        {/* Available Stacks Section */}
+        <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+          <div className="px-4 py-6 md:px-6 xl:px-7.5">
+            <h4 className="text-xl font-semibold text-black dark:text-white">
+              Available Stacks
+            </h4>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              Stack definitions from configured sources
+            </p>
+          </div>
+
+          {stacksLoading ? (
+            <div className="border-t border-stroke px-4 py-8 dark:border-strokedark">
+              <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+                Loading available stacks...
+              </p>
+            </div>
+          ) : stackDefinitions.length === 0 ? (
+            <div className="border-t border-stroke px-4 py-8 dark:border-strokedark">
+              <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+                No stack definitions available. Click "Sync Sources" to load stacks from configured sources.
+              </p>
+            </div>
+          ) : (
+            <div className="border-t border-stroke p-4 dark:border-strokedark">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {stackDefinitions.map((stack) => (
+                  <div
+                    key={stack.id}
+                    className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50"
+                  >
+                    <div className="mb-3 flex items-start justify-between">
+                      <div>
+                        <h5 className="font-semibold text-gray-900 dark:text-white">
+                          {stack.name}
+                        </h5>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {stack.sourceId}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleDeploy(stack)}
+                        disabled={!activeEnvironment}
+                        className="rounded bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Deploy
+                      </button>
+                    </div>
+
+                    {stack.description && (
+                      <p className="mb-3 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                        {stack.description}
+                      </p>
+                    )}
+
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <span className="inline-flex items-center rounded bg-blue-100 px-2 py-1 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                        {stack.services.length} service{stack.services.length !== 1 ? 's' : ''}
+                      </span>
+                      {stack.variables.length > 0 && (
+                        <span className="inline-flex items-center rounded bg-purple-100 px-2 py-1 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                          {stack.variables.length} config{stack.variables.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                      {stack.version && (
+                        <span className="inline-flex items-center rounded bg-gray-200 px-2 py-1 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                          v{stack.version.substring(0, 8)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Deployed Stacks Section */}
         <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="px-4 py-6 md:px-6 xl:px-7.5">
             <h4 className="text-xl font-semibold text-black dark:text-white">
@@ -144,7 +262,7 @@ export default function Stacks() {
           ) : deployments.length === 0 ? (
             <div className="border-t border-stroke px-4 py-8 dark:border-strokedark">
               <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-                No deployments in this environment. Click "Deploy Stack" to get started.
+                No deployments in this environment. Deploy a stack from the available stacks above.
               </p>
             </div>
           ) : (
@@ -221,8 +339,15 @@ export default function Stacks() {
 
       <DeployComposeModal
         isOpen={isDeployModalOpen}
-        onClose={() => setIsDeployModalOpen(false)}
-        onDeploySuccess={loadDeployments}
+        onClose={() => {
+          setIsDeployModalOpen(false);
+          setSelectedStack(null);
+        }}
+        onDeploySuccess={() => {
+          loadDeployments();
+          setSelectedStack(null);
+        }}
+        preloadedStack={selectedStack}
       />
     </div>
   );

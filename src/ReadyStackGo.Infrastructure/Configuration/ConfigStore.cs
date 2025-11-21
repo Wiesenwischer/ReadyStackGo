@@ -32,7 +32,11 @@ public class ConfigStore : IConfigStore
             WriteIndented = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             // Required for polymorphic Environment serialization
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            // Enable enum serialization as strings (also reads integer values for backwards compatibility)
+            Converters = { new JsonStringEnumConverter() },
+            // Ensure polymorphic type handling is enabled for Environment class hierarchy
+            TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver()
         };
     }
 
@@ -125,11 +129,22 @@ public class ConfigStore : IConfigStore
         try
         {
             var json = await File.ReadAllTextAsync(filePath);
+
+            // Handle empty files gracefully
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return null;
+            }
+
             return JsonSerializer.Deserialize<T>(json, _jsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException($"Configuration file '{fileName}' contains invalid JSON. Please check the file format.", ex);
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException($"Failed to load configuration file {fileName}", ex);
+            throw new InvalidOperationException($"Failed to load configuration file '{fileName}': {ex.Message}", ex);
         }
     }
 

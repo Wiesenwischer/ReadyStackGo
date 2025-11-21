@@ -1,16 +1,18 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { parseCompose, deployCompose, type EnvironmentVariableInfo } from '../../api/deployments';
 import { useEnvironment } from '../../context/EnvironmentContext';
+import { type StackDefinition, getStackDefinitionDetail } from '../../api/stackSources';
 
 interface DeployComposeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onDeploySuccess: () => void;
+  preloadedStack?: StackDefinition | null;
 }
 
 type Step = 'upload' | 'configure' | 'deploying' | 'success' | 'error';
 
-export default function DeployComposeModal({ isOpen, onClose, onDeploySuccess }: DeployComposeModalProps) {
+export default function DeployComposeModal({ isOpen, onClose, onDeploySuccess, preloadedStack }: DeployComposeModalProps) {
   const { activeEnvironment } = useEnvironment();
   const [step, setStep] = useState<Step>('upload');
   const [yamlContent, setYamlContent] = useState('');
@@ -22,6 +24,48 @@ export default function DeployComposeModal({ isOpen, onClose, onDeploySuccess }:
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle preloaded stack from stack definitions
+  useEffect(() => {
+    if (preloadedStack && isOpen) {
+      const loadStackDetails = async () => {
+        try {
+          setIsLoading(true);
+          setError('');
+
+          // Fetch the full stack details including YAML content
+          const detail = await getStackDefinitionDetail(preloadedStack.id);
+
+          setYamlContent(detail.yamlContent);
+          setStackName(detail.name);
+          setServices(detail.services);
+
+          // Convert StackVariable to EnvironmentVariableInfo format
+          const vars: EnvironmentVariableInfo[] = detail.variables.map(v => ({
+            name: v.name,
+            defaultValue: v.defaultValue || '',
+            isRequired: v.isRequired
+          }));
+          setVariables(vars);
+
+          // Initialize variable values with defaults
+          const initialValues: Record<string, string> = {};
+          detail.variables.forEach(v => {
+            initialValues[v.name] = v.defaultValue || '';
+          });
+          setVariableValues(initialValues);
+
+          setStep('configure');
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to load stack details');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      loadStackDetails();
+    }
+  }, [preloadedStack, isOpen]);
 
   const resetModal = () => {
     setStep('upload');

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FastEndpoints;
 using ReadyStackGo.Application.Containers;
 using ReadyStackGo.Application.Dashboard.DTOs;
@@ -10,7 +11,7 @@ public class GetDashboardStatsRequest
     /// <summary>
     /// The environment ID to get stats for.
     /// </summary>
-    [QueryParam]
+    [BindFrom("environment")]
     public string Environment { get; set; } = null!;
 }
 
@@ -28,7 +29,9 @@ public class GetDashboardStatsEndpoint : Endpoint<GetDashboardStatsRequest, Dash
 
     public override async Task HandleAsync(GetDashboardStatsRequest req, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(req.Environment))
+        // Manually bind from query string since this is a GET request
+        var environment = Query<string>("environment", false);
+        if (string.IsNullOrWhiteSpace(environment))
         {
             // Return empty stats if no environment specified
             Response = new DashboardStatsDto();
@@ -38,7 +41,7 @@ public class GetDashboardStatsEndpoint : Endpoint<GetDashboardStatsRequest, Dash
         try
         {
             var stacks = await StackService.ListStacksAsync(ct);
-            var containers = await DockerService.ListContainersAsync(req.Environment, ct);
+            var containers = await DockerService.ListContainersAsync(environment, ct);
 
             var stats = new DashboardStatsDto
             {
@@ -52,9 +55,17 @@ public class GetDashboardStatsEndpoint : Endpoint<GetDashboardStatsRequest, Dash
 
             Response = stats;
         }
+        catch (JsonException ex)
+        {
+            ThrowError($"Configuration error: Unable to read configuration file. Please check that all configuration files contain valid JSON. Details: {ex.Message}");
+        }
         catch (InvalidOperationException ex)
         {
             ThrowError(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            ThrowError($"Unexpected error: {ex.Message}");
         }
     }
 }

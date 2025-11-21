@@ -7,6 +7,7 @@ import {
   type EnvironmentResponse,
   type CreateEnvironmentRequest,
 } from "../api/environments";
+import { getWizardStatus } from "../api/wizard";
 
 export default function Environments() {
   const [environments, setEnvironments] = useState<EnvironmentResponse[]>([]);
@@ -238,10 +239,29 @@ function CreateEnvironmentModal({
   const [formData, setFormData] = useState<CreateEnvironmentRequest>({
     id: "",
     name: "",
-    socketPath: "/var/run/docker.sock",
+    socketPath: "", // Will be set from API
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [defaultSocketPath, setDefaultSocketPath] = useState<string>("");
+
+  // Fetch default socket path from server on mount
+  useEffect(() => {
+    const fetchDefaultSocketPath = async () => {
+      try {
+        const status = await getWizardStatus();
+        const socketPath = status.defaultDockerSocketPath || "unix:///var/run/docker.sock";
+        setDefaultSocketPath(socketPath);
+        setFormData(prev => ({ ...prev, socketPath }));
+      } catch {
+        // Fallback to Linux default if API fails
+        const fallback = "unix:///var/run/docker.sock";
+        setDefaultSocketPath(fallback);
+        setFormData(prev => ({ ...prev, socketPath: fallback }));
+      }
+    };
+    fetchDefaultSocketPath();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -326,7 +346,7 @@ function CreateEnvironmentModal({
               type="text"
               value={formData.socketPath}
               onChange={(e) => setFormData({ ...formData, socketPath: e.target.value })}
-              placeholder="/var/run/docker.sock"
+              placeholder={defaultSocketPath || "Loading..."}
               required
               className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:text-white"
             />

@@ -18,7 +18,12 @@ export default function Dashboard() {
     try {
       const data = await dashboardApi.getStats(activeEnvironment.id);
       setStats(data);
-      setError(null);
+      // Check for error message in successful response
+      if (data.errorMessage) {
+        setError(data.errorMessage);
+      } else {
+        setError(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {

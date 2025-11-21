@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { login } from './helpers/auth';
 
 /**
  * E2E Tests for Deployment Workflow
@@ -7,6 +8,8 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Deployment Workflow', () => {
   test.beforeEach(async ({ page }) => {
+    // Login before each test
+    await login(page);
     await page.goto('/stacks');
   });
 
@@ -277,6 +280,8 @@ services:
 
 test.describe('Deployment Actions', () => {
   test.beforeEach(async ({ page }) => {
+    // Login before each test
+    await login(page);
     await page.goto('/stacks');
     // Wait for page to load
     await page.waitForTimeout(2000);
@@ -335,6 +340,8 @@ test.describe('Deployment Actions', () => {
 
 test.describe('Deploy Stack Modal Flow', () => {
   test.beforeEach(async ({ page }) => {
+    // Login before each test
+    await login(page);
     await page.goto('/stacks');
     await page.waitForTimeout(1000);
   });

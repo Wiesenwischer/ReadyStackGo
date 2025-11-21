@@ -210,7 +210,8 @@ public class WizardService : IWizardService
             return new WizardStatusResponse
             {
                 WizardState = systemConfig.WizardState.ToString(),
-                IsCompleted = systemConfig.WizardState == WizardState.Installed
+                IsCompleted = systemConfig.WizardState == WizardState.Installed,
+                DefaultDockerSocketPath = GetDefaultDockerSocketPath()
             };
         }
         catch (Exception ex)
@@ -219,8 +220,19 @@ public class WizardService : IWizardService
             return new WizardStatusResponse
             {
                 WizardState = "Unknown",
-                IsCompleted = false
+                IsCompleted = false,
+                DefaultDockerSocketPath = GetDefaultDockerSocketPath()
             };
         }
+    }
+
+    /// <summary>
+    /// Returns the default Docker socket path based on the server's operating system.
+    /// </summary>
+    private static string GetDefaultDockerSocketPath()
+    {
+        return OperatingSystem.IsWindows()
+            ? "npipe://./pipe/docker_engine"
+            : "unix:///var/run/docker.sock";
     }
 }

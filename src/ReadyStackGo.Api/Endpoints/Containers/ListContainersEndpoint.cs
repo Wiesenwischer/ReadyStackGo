@@ -26,14 +26,16 @@ public class ListContainersEndpoint : Endpoint<ListContainersRequest, IEnumerabl
 
     public override async Task HandleAsync(ListContainersRequest req, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(req.Environment))
+        // Manually bind from query string since this is a GET request
+        var environment = Query<string>("environment", false);
+        if (string.IsNullOrWhiteSpace(environment))
         {
             ThrowError("Environment is required");
         }
 
         try
         {
-            var containers = await DockerService.ListContainersAsync(req.Environment, ct);
+            var containers = await DockerService.ListContainersAsync(environment, ct);
             Response = containers;
         }
         catch (InvalidOperationException ex)

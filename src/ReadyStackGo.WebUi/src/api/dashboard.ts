@@ -7,6 +7,7 @@ export interface DashboardStats {
   totalContainers: number;
   runningContainers: number;
   stoppedContainers: number;
+  errorMessage?: string;
 }
 
 export const dashboardApi = {

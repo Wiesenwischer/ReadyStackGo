@@ -15,6 +15,7 @@ using ReadyStackGo.Infrastructure.Deployments;
 using ReadyStackGo.Infrastructure.Environments;
 using ReadyStackGo.Infrastructure.Manifests;
 using ReadyStackGo.Infrastructure.Stacks;
+using ReadyStackGo.Infrastructure.Stacks.Sources;
 using ReadyStackGo.Infrastructure.Tls;
 using ReadyStackGo.Infrastructure.Wizard;
 
@@ -43,6 +44,11 @@ public static class DependencyInjection
 
         // Stack services
         services.AddSingleton<IStackService, StackService>();
+
+        // Stack source services (v0.4)
+        services.AddSingleton<IStackCache, InMemoryStackCache>();
+        services.AddSingleton<IStackSourceProvider, LocalDirectoryStackSourceProvider>();
+        services.AddSingleton<IStackSourceService, StackSourceService>();
 
         // Auth services
         services.Configure<JwtSettings>(configuration.GetSection("Jwt"));

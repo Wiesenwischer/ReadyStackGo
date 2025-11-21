@@ -3,6 +3,7 @@ import {
   createEnvironment,
   type CreateEnvironmentRequest,
 } from "../api/environments";
+import { getWizardStatus } from "../api/wizard";
 import { useEnvironment } from "../context/EnvironmentContext";
 
 /**
@@ -14,10 +15,29 @@ export default function SetupEnvironment() {
   const [formData, setFormData] = useState<CreateEnvironmentRequest>({
     id: "local-docker",
     name: "Local Docker",
-    socketPath: "/var/run/docker.sock",
+    socketPath: "", // Will be set from API
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [defaultSocketPath, setDefaultSocketPath] = useState<string>("");
+
+  // Fetch default socket path from server on mount
+  useEffect(() => {
+    const fetchDefaultSocketPath = async () => {
+      try {
+        const status = await getWizardStatus();
+        const socketPath = status.defaultDockerSocketPath || "unix:///var/run/docker.sock";
+        setDefaultSocketPath(socketPath);
+        setFormData(prev => ({ ...prev, socketPath }));
+      } catch (err) {
+        // Fallback to Linux default if API fails
+        const fallback = "unix:///var/run/docker.sock";
+        setDefaultSocketPath(fallback);
+        setFormData(prev => ({ ...prev, socketPath: fallback }));
+      }
+    };
+    fetchDefaultSocketPath();
+  }, []);
 
   // Redirect to dashboard if environments already exist
   useEffect(() => {
@@ -132,7 +152,7 @@ export default function SetupEnvironment() {
                 type="text"
                 value={formData.socketPath}
                 onChange={(e) => setFormData({ ...formData, socketPath: e.target.value })}
-                placeholder="/var/run/docker.sock"
+                placeholder={defaultSocketPath || "Loading..."}
                 required
                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:text-white"
               />
@@ -159,8 +179,7 @@ export default function SetupEnvironment() {
               <div className="text-xs text-blue-700 dark:text-blue-300">
                 <p className="font-medium">Docker Socket</p>
                 <p className="mt-1">
-                  The default path is <code className="rounded bg-blue-100 px-1 dark:bg-blue-800">/var/run/docker.sock</code> for Linux/macOS.
-                  For Docker Desktop on Windows, use the WSL2 socket path.
+                  The default path <code className="rounded bg-blue-100 px-1 dark:bg-blue-800">{defaultSocketPath || "..."}</code> has been detected for your server's operating system.
                 </p>
               </div>
             </div>
