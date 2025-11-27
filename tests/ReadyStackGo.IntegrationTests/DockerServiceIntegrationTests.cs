@@ -1,6 +1,12 @@
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
+using ReadyStackGo.Application.Containers;
+using ReadyStackGo.Domain.Configuration;
+using ReadyStackGo.Domain.Organizations;
+using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Docker;
 using Xunit;
 
@@ -14,6 +20,7 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
 {
     private IContainer? _testContainer;
     private DockerService? _dockerService;
+    private const string TestEnvironmentId = "test-env";
 
     public async Task InitializeAsync()
     {
@@ -28,7 +35,40 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
 
         await _testContainer.StartAsync();
 
-        _dockerService = new DockerService();
+        // Create mock config store that returns a test environment
+        var configStore = Substitute.For<IConfigStore>();
+        var logger = Substitute.For<ILogger<DockerService>>();
+
+        // Setup system config with test environment
+        var socketPath = OperatingSystem.IsWindows()
+            ? "npipe://./pipe/docker_engine"
+            : "unix:///var/run/docker.sock";
+
+        var testEnv = new DockerSocketEnvironment
+        {
+            Id = TestEnvironmentId,
+            Name = "Test Environment",
+            SocketPath = socketPath,
+            IsDefault = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var org = new Organization
+        {
+            Id = "test-org",
+            Name = "Test Organization",
+            CreatedAt = DateTime.UtcNow
+        };
+        org.AddEnvironment(testEnv);
+
+        var systemConfig = new SystemConfig
+        {
+            Organization = org
+        };
+
+        configStore.GetSystemConfigAsync().Returns(systemConfig);
+
+        _dockerService = new DockerService(configStore, logger);
     }
 
     public async Task DisposeAsync()
@@ -37,13 +77,15 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
         {
             await _testContainer.DisposeAsync();
         }
+
+        _dockerService?.Dispose();
     }
 
     [Fact]
     public async Task ListContainersAsync_ShouldReturnContainers()
     {
         // Act
-        var containers = await _dockerService!.ListContainersAsync();
+        var containers = await _dockerService!.ListContainersAsync(TestEnvironmentId);
 
         // Assert
         containers.Should().NotBeNull();
@@ -57,13 +99,13 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
         await _testContainer!.StopAsync();
 
         // Act
-        await _dockerService!.StartContainerAsync(_testContainer.Id);
+        await _dockerService!.StartContainerAsync(TestEnvironmentId, _testContainer.Id);
 
         // Wait a bit for container to start
         await Task.Delay(2000);
 
         // Assert
-        var containers = await _dockerService.ListContainersAsync();
+        var containers = await _dockerService.ListContainersAsync(TestEnvironmentId);
         var testContainer = containers.FirstOrDefault(c => c.Id.StartsWith(_testContainer.Id));
 
         testContainer.Should().NotBeNull();
@@ -80,13 +122,13 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
         }
 
         // Act
-        await _dockerService!.StopContainerAsync(_testContainer.Id);
+        await _dockerService!.StopContainerAsync(TestEnvironmentId, _testContainer.Id);
 
         // Wait a bit for container to stop
         await Task.Delay(2000);
 
         // Assert
-        var containers = await _dockerService.ListContainersAsync();
+        var containers = await _dockerService.ListContainersAsync(TestEnvironmentId);
         var testContainer = containers.FirstOrDefault(c => c.Id.StartsWith(_testContainer.Id));
 
         testContainer.Should().NotBeNull();
@@ -97,7 +139,7 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
     public async Task ListContainersAsync_ShouldReturnContainerWithCorrectProperties()
     {
         // Act
-        var containers = await _dockerService!.ListContainersAsync();
+        var containers = await _dockerService!.ListContainersAsync(TestEnvironmentId);
         var testContainer = containers.FirstOrDefault(c => c.Id.StartsWith(_testContainer!.Id));
 
         // Assert
@@ -107,5 +149,44 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
         testContainer.Image.Should().Contain("nginx");
         testContainer.State.Should().NotBeNullOrEmpty();
         testContainer.Status.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task TestConnectionAsync_ShouldSucceedWithValidDockerHost()
+    {
+        // Arrange
+        var dockerHost = OperatingSystem.IsWindows()
+            ? "npipe://./pipe/docker_engine"
+            : "unix:///var/run/docker.sock";
+
+        // Act
+        var result = await _dockerService!.TestConnectionAsync(dockerHost);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        result.DockerVersion.Should().NotBeNullOrWhiteSpace();
+        result.Message.Should().Contain("Connected to Docker");
+    }
+
+    [Fact]
+    public async Task TestConnectionAsync_ShouldFailWithInvalidDockerHost()
+    {
+        // Arrange
+        var dockerHost = "tcp://invalid-host:9999";
+
+        // Act
+        var result = await _dockerService!.TestConnectionAsync(dockerHost);
+
+        // Assert
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("Connection failed");
+    }
+
+    [Fact]
+    public async Task ListContainersAsync_ShouldThrowForInvalidEnvironment()
+    {
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _dockerService!.ListContainersAsync("non-existent-env"));
     }
 }

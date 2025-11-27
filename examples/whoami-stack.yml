@@ -1,0 +1,12 @@
+version: '3.8'
+
+# Whoami Stack
+# Simple HTTP service that returns container info - useful for testing
+
+services:
+  whoami:
+    image: traefik/whoami:latest
+    ports:
+      - "${WHOAMI_PORT:-8081}:80"
+    environment:
+      - WHOAMI_NAME=${INSTANCE_NAME:-whoami}

@@ -1,16 +1,10 @@
 using FastEndpoints;
-using Microsoft.AspNetCore.Http;
 using ReadyStackGo.Application.Stacks;
 using ReadyStackGo.Application.Stacks.DTOs;
 
 namespace ReadyStackGo.API.Endpoints.Stacks;
 
-public class GetStackRequest
-{
-    public string Id { get; set; } = null!;
-}
-
-public class GetStackEndpoint : Endpoint<GetStackRequest, StackDto>
+public class GetStackEndpoint : EndpointWithoutRequest<StackDto>
 {
     public IStackService StackService { get; set; } = null!;
 
@@ -20,9 +14,17 @@ public class GetStackEndpoint : Endpoint<GetStackRequest, StackDto>
         Roles("admin", "operator");
     }
 
-    public override async Task HandleAsync(GetStackRequest req, CancellationToken ct)
+    public override async Task HandleAsync(CancellationToken ct)
     {
-        var stack = await StackService.GetStackAsync(req.Id, ct);
+        // Manually bind from route since this is a GET request
+        var id = Route<string>("Id");
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            ThrowError("Stack ID is required");
+            return;
+        }
+
+        var stack = await StackService.GetStackAsync(id, ct);
 
         if (stack is null)
         {

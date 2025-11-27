@@ -8,4 +8,9 @@ public class DashboardStatsDto
     public int TotalContainers { get; set; }
     public int RunningContainers { get; set; }
     public int StoppedContainers { get; set; }
+
+    /// <summary>
+    /// Error message if the request failed.
+    /// </summary>
+    public string? ErrorMessage { get; set; }
 }

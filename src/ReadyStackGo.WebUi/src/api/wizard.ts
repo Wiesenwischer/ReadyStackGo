@@ -1,9 +1,12 @@
 import { apiGet, apiPost } from './client';
 
 // Wizard DTOs matching the backend
+// v0.4: ConnectionsSet removed from wizard states
 export interface WizardStatusResponse {
-  wizardState: 'NotStarted' | 'AdminCreated' | 'OrganizationSet' | 'ConnectionsSet' | 'Installed';
+  wizardState: 'NotStarted' | 'AdminCreated' | 'OrganizationSet' | 'Installed';
   isCompleted: boolean;
+  /** Default Docker socket path for the server's OS (e.g., "npipe://./pipe/docker_engine" for Windows) */
+  defaultDockerSocketPath: string;
 }
 
 export interface CreateAdminRequest {
@@ -26,12 +29,20 @@ export interface SetOrganizationResponse {
   message?: string;
 }
 
+/**
+ * @deprecated v0.4: Global connection strings are replaced by stack-specific configuration.
+ * This type is kept for backwards compatibility and will be removed in v0.5.
+ */
 export interface SetConnectionsRequest {
   transport: string;
   persistence: string;
   eventStore?: string;
 }
 
+/**
+ * @deprecated v0.4: Global connection strings are replaced by stack-specific configuration.
+ * This type is kept for backwards compatibility and will be removed in v0.5.
+ */
 export interface SetConnectionsResponse {
   success: boolean;
   message?: string;
@@ -61,6 +72,10 @@ export async function setOrganization(request: SetOrganizationRequest): Promise<
   return apiPost<SetOrganizationResponse>('/api/wizard/organization', request);
 }
 
+/**
+ * @deprecated v0.4: Global connection strings are replaced by stack-specific configuration.
+ * This function is kept for backwards compatibility and will be removed in v0.5.
+ */
 export async function setConnections(request: SetConnectionsRequest): Promise<SetConnectionsResponse> {
   return apiPost<SetConnectionsResponse>('/api/wizard/connections', request);
 }

@@ -4,7 +4,16 @@ using ReadyStackGo.Application.Containers.DTOs;
 
 namespace ReadyStackGo.API.Endpoints.Containers;
 
-public class ListContainersEndpoint : Endpoint<EmptyRequest, IEnumerable<ContainerDto>>
+public class ListContainersRequest
+{
+    /// <summary>
+    /// The environment ID to list containers from.
+    /// </summary>
+    [QueryParam]
+    public string Environment { get; set; } = null!;
+}
+
+public class ListContainersEndpoint : Endpoint<ListContainersRequest, IEnumerable<ContainerDto>>
 {
     public IDockerService DockerService { get; set; } = null!;
 
@@ -12,11 +21,26 @@ public class ListContainersEndpoint : Endpoint<EmptyRequest, IEnumerable<Contain
     {
         Get("/api/containers");
         Roles("admin", "operator");
+        Description(b => b.WithTags("Containers"));
     }
 
-    public override async Task HandleAsync(EmptyRequest req, CancellationToken ct)
+    public override async Task HandleAsync(ListContainersRequest req, CancellationToken ct)
     {
-        var containers = await DockerService.ListContainersAsync(ct);
-        Response = containers;
+        // Manually bind from query string since this is a GET request
+        var environment = Query<string>("environment", false);
+        if (string.IsNullOrWhiteSpace(environment))
+        {
+            ThrowError("Environment is required");
+        }
+
+        try
+        {
+            var containers = await DockerService.ListContainersAsync(environment, ct);
+            Response = containers;
+        }
+        catch (InvalidOperationException ex)
+        {
+            ThrowError(ex.Message);
+        }
     }
 }

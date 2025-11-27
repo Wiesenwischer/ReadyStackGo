@@ -1,6 +1,154 @@
-@ReadyStackGo.Api_HostAddress = http://localhost:5259
+@baseUrl = http://localhost:5259
+@environmentId = local
 
-GET {{ReadyStackGo.Api_HostAddress}}/weatherforecast/
+### Health Check
+GET {{baseUrl}}/health
 Accept: application/json
 
-###
+### ===================
+### Setup Wizard
+### ===================
+
+### Get Wizard State
+GET {{baseUrl}}/api/wizard/state
+Accept: application/json
+
+### Complete Step 1 - Organization
+POST {{baseUrl}}/api/wizard/organization
+Content-Type: application/json
+
+{
+  "organizationId": "my-org",
+  "organizationName": "My Organization"
+}
+
+### Complete Step 2 - Environment
+POST {{baseUrl}}/api/wizard/environment
+Content-Type: application/json
+
+{
+  "environmentId": "local",
+  "environmentName": "Local Development",
+  "socketPath": "npipe://./pipe/docker_engine"
+}
+
+### Complete Step 3 - Admin User
+POST {{baseUrl}}/api/wizard/admin
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "Admin123!",
+  "email": "admin@example.com"
+}
+
+### Complete Wizard
+POST {{baseUrl}}/api/wizard/complete
+Content-Type: application/json
+
+{}
+
+### ===================
+### Environments
+### ===================
+
+### List Environments
+GET {{baseUrl}}/api/environments
+Accept: application/json
+
+### Get Environment
+GET {{baseUrl}}/api/environments/{{environmentId}}
+Accept: application/json
+
+### Create Environment
+POST {{baseUrl}}/api/environments
+Content-Type: application/json
+
+{
+  "id": "staging",
+  "name": "Staging Environment",
+  "socketPath": "npipe://./pipe/docker_engine"
+}
+
+### Update Environment
+PUT {{baseUrl}}/api/environments/{{environmentId}}
+Content-Type: application/json
+
+{
+  "name": "Local Dev Updated",
+  "socketPath": "npipe://./pipe/docker_engine"
+}
+
+### Set Default Environment
+POST {{baseUrl}}/api/environments/{{environmentId}}/default
+Content-Type: application/json
+
+{}
+
+### Delete Environment
+DELETE {{baseUrl}}/api/environments/staging
+
+### Test Docker Connection
+POST {{baseUrl}}/api/environments/test-connection
+Content-Type: application/json
+
+{
+  "dockerHost": "npipe://./pipe/docker_engine"
+}
+
+### ===================
+### Containers
+### ===================
+
+### List Containers
+GET {{baseUrl}}/api/containers?environment={{environmentId}}
+Accept: application/json
+
+### Start Container
+POST {{baseUrl}}/api/containers/{containerId}/start?environment={{environmentId}}
+Content-Type: application/json
+
+### Stop Container
+POST {{baseUrl}}/api/containers/{containerId}/stop?environment={{environmentId}}
+Content-Type: application/json
+
+### ===================
+### Deployments
+### ===================
+
+### Parse Docker Compose
+POST {{baseUrl}}/api/deployments/parse
+Content-Type: application/json
+
+{
+  "yamlContent": "version: '3.8'\nservices:\n  web:\n    image: nginx:alpine\n    ports:\n      - '8080:80'\n  db:\n    image: postgres:15\n    environment:\n      POSTGRES_USER: ${DB_USER:-postgres}\n      POSTGRES_PASSWORD: ${DB_PASSWORD}"
+}
+
+### Deploy Stack
+POST {{baseUrl}}/api/deployments/{{environmentId}}
+Content-Type: application/json
+
+{
+  "stackName": "my-stack",
+  "yamlContent": "version: '3.8'\nservices:\n  web:\n    image: nginx:alpine\n    ports:\n      - '8080:80'",
+  "variables": {}
+}
+
+### List Deployments
+GET {{baseUrl}}/api/deployments/{{environmentId}}
+Accept: application/json
+
+### Get Deployment
+GET {{baseUrl}}/api/deployments/{{environmentId}}/my-stack
+Accept: application/json
+
+### Remove Deployment
+DELETE {{baseUrl}}/api/deployments/{{environmentId}}/my-stack
+
+### ===================
+### System
+### ===================
+
+### Get System Status
+GET {{baseUrl}}/api/system/status
+Accept: application/json

@@ -7,8 +7,10 @@ export interface DashboardStats {
   totalContainers: number;
   runningContainers: number;
   stoppedContainers: number;
+  errorMessage?: string;
 }
 
 export const dashboardApi = {
-  getStats: () => apiGet<DashboardStats>('/api/dashboard/stats'),
+  getStats: (environmentId: string) =>
+    apiGet<DashboardStats>(`/api/dashboard/stats?environment=${encodeURIComponent(environmentId)}`),
 };

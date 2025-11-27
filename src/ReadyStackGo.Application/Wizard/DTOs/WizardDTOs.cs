@@ -59,4 +59,11 @@ public class WizardStatusResponse
 {
     public string WizardState { get; set; } = "NotStarted";
     public bool IsCompleted { get; set; }
+
+    /// <summary>
+    /// The default Docker socket path for the server's operating system.
+    /// Windows: "npipe://./pipe/docker_engine"
+    /// Linux/macOS: "unix:///var/run/docker.sock"
+    /// </summary>
+    public string DefaultDockerSocketPath { get; set; } = string.Empty;
 }
