@@ -1,0 +1,18 @@
+# Development overrides for WordPress stack
+# This file is automatically merged with docker-compose.yml
+
+version: '3.8'
+
+services:
+  wordpress:
+    environment:
+      - WORDPRESS_DEBUG=1
+    # Mount local plugins/themes for development
+    # volumes:
+    #   - ./plugins:/var/www/html/wp-content/plugins
+    #   - ./themes:/var/www/html/wp-content/themes
+
+  db:
+    # Expose database port for local development tools
+    ports:
+      - "${DB_PORT:-3306}:3306"
