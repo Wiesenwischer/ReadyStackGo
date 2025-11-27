@@ -18,6 +18,12 @@ Grober Ausblick auf geplante Versionen und Features.
 - Automatische Environment Variable Detection
 - Keine globalen Connection Strings mehr
 
+### v0.4.1 – Environment Setup Flow
+- Nach Organization-Setup: Environment-Erstellung als optionaler Schritt
+- Nach Login: Prüfung ob Environment existiert
+- Wenn kein Environment: Environment-Übersicht mit Hinweis anzeigen
+- Navigation: Dashboard und environment-abhängige Seiten ausblenden wenn kein Environment existiert/ausgewählt
+
 ### v0.5 – Multi-User + Database Migration
 - SQLite-Migration für Multi-User-Support
 - Container Health Monitoring & Rollback

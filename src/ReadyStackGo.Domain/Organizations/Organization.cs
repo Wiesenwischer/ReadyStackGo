@@ -81,8 +81,8 @@ public class Organization
 
     /// <summary>
     /// Removes an environment from this organization.
+    /// If the removed environment was the default, the first remaining environment becomes the new default.
     /// </summary>
-    /// <exception cref="InvalidOperationException">Thrown when trying to remove the default environment</exception>
     public void RemoveEnvironment(string environmentId)
     {
         var environment = Environments.FirstOrDefault(e => e.Id == environmentId);
@@ -92,13 +92,15 @@ public class Organization
             throw new InvalidOperationException($"Environment '{environmentId}' not found.");
         }
 
-        if (environment.IsDefault && Environments.Count > 1)
+        var wasDefault = environment.IsDefault;
+        Environments.Remove(environment);
+
+        // If we removed the default and other environments exist, set the first one as default
+        if (wasDefault && Environments.Count > 0)
         {
-            throw new InvalidOperationException(
-                "Cannot remove the default environment. Set another environment as default first.");
+            Environments[0].IsDefault = true;
         }
 
-        Environments.Remove(environment);
         UpdatedAt = DateTime.UtcNow;
     }
 

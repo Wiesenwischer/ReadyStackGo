@@ -2,7 +2,8 @@ import { test, expect, Page } from '@playwright/test';
 
 /**
  * E2E Tests for Setup Wizard
- * These tests verify the complete 3-step wizard workflow (v0.4)
+ * These tests verify the complete 4-step wizard workflow (v0.4.1)
+ * Steps: Admin -> Organization -> Environment -> Complete
  */
 
 // Helper functions for wizard steps
@@ -22,10 +23,26 @@ async function completeStep2(page: Page, orgId?: string) {
   await page.fill('input[placeholder*="my-company"]', org);
   await page.fill('input[placeholder*="My Company"]', 'Test Organization');
   await page.getByRole('button', { name: /Continue/i }).click();
+  // v0.4.1: Now goes to Environment step instead of Complete
+  await expect(page.getByRole('heading', { name: /Configure Environment/i })).toBeVisible({ timeout: 5000 });
+}
+
+async function completeStep3Environment(page: Page, skip = false) {
+  if (skip) {
+    // Skip environment setup
+    await page.getByRole('button', { name: /Skip/i }).click();
+  } else {
+    // Fill environment form
+    const envId = `env-${Date.now()}`;
+    await page.fill('input[placeholder*="local-docker"]', envId);
+    await page.fill('input[placeholder*="Local Docker"]', 'Test Environment');
+    await page.fill('input[placeholder*="/var/run/docker.sock"]', '/var/run/docker.sock');
+    await page.getByRole('button', { name: /Continue/i }).click();
+  }
   await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
 }
 
-async function completeStep3(page: Page) {
+async function completeStep4(page: Page) {
   await page.getByRole('button', { name: /Complete Setup/i }).click();
 }
 
@@ -127,7 +144,7 @@ test.describe('Setup Wizard', () => {
     await expect(heading).toBeVisible();
   });
 
-  test('should complete step 2 and move to step 3 (Install)', async ({ page }) => {
+  test('should complete step 2 and move to step 3 (Environment)', async ({ page }) => {
     await completeStep1(page);
 
     // Fill organization form
@@ -137,7 +154,35 @@ test.describe('Setup Wizard', () => {
     // Submit
     await page.getByRole('button', { name: /Continue/i }).click();
 
-    // Should move to step 3 (Complete Setup)
+    // Should move to step 3 (Environment)
+    await expect(page.getByRole('heading', { name: /Configure Environment/i })).toBeVisible({ timeout: 5000 });
+  });
+
+  test('should complete step 3 (Environment) and move to step 4 (Complete)', async ({ page }) => {
+    await completeStep1(page);
+    await completeStep2(page);
+
+    // Fill environment form
+    const envId = `e2e-env-${Date.now()}`;
+    await page.fill('input[placeholder*="local-docker"]', envId);
+    await page.fill('input[placeholder*="Local Docker"]', 'E2E Test Environment');
+    await page.fill('input[placeholder*="/var/run/docker.sock"]', '/var/run/docker.sock');
+
+    // Submit
+    await page.getByRole('button', { name: /Continue/i }).click();
+
+    // Should move to step 4 (Complete)
+    await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
+  });
+
+  test('should allow skipping environment step', async ({ page }) => {
+    await completeStep1(page);
+    await completeStep2(page);
+
+    // Skip environment setup
+    await page.getByRole('button', { name: /Skip/i }).click();
+
+    // Should move to step 4 (Complete)
     await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
   });
 
@@ -151,9 +196,10 @@ test.describe('Setup Wizard', () => {
     await expect(page.getByRole('heading', { name: /Create Admin Account/i })).toBeVisible();
   });
 
-  test('should show configuration summary on step 3', async ({ page }) => {
+  test('should show configuration summary on step 4', async ({ page }) => {
     await completeStep1(page);
     await completeStep2(page);
+    await completeStep3Environment(page);
 
     // Check summary items
     await expect(page.getByText(/Admin account configured/i)).toBeVisible();
@@ -163,17 +209,19 @@ test.describe('Setup Wizard', () => {
     await expect(page.getByRole('button', { name: /Complete Setup/i })).toBeVisible();
   });
 
-  test('should show progress indicator for all 3 steps', async ({ page }) => {
+  test('should show progress indicator for all 4 steps', async ({ page }) => {
     await page.goto('/wizard');
 
-    // Check all 3 step numbers are visible
+    // Check all 4 step numbers are visible
     await expect(page.locator('text=1').first()).toBeVisible();
     await expect(page.locator('text=2').first()).toBeVisible();
     await expect(page.locator('text=3').first()).toBeVisible();
+    await expect(page.locator('text=4').first()).toBeVisible();
 
     // Check step names
     await expect(page.getByText('Admin')).toBeVisible();
     await expect(page.getByText('Organization')).toBeVisible();
+    await expect(page.getByText('Environment')).toBeVisible();
     await expect(page.getByText('Complete')).toBeVisible();
   });
 
@@ -285,137 +333,72 @@ test.describe('Setup Wizard', () => {
 
 });
 
-test.describe('Complete Wizard to Environment Setup Flow', () => {
-  test('should complete wizard and redirect to environment setup', async ({ page }) => {
-    // Complete all wizard steps
+test.describe('Complete Wizard Flow with Environment Step', () => {
+  test('should complete wizard with environment and redirect to login', async ({ page }) => {
+    // Complete all wizard steps including environment
     await completeStep1(page, `e2e_flow_${Date.now()}`);
     await completeStep2(page, `flow-org-${Date.now()}`);
-    await completeStep3(page);
+    await completeStep3Environment(page);
+    await completeStep4(page);
 
-    // Should redirect to setup-environment page
-    await page.waitForURL(/\/setup-environment/, { timeout: 10000 });
+    // Should redirect to login page
+    await page.waitForURL(/\/login/, { timeout: 10000 });
+  });
 
-    // Check setup environment page elements
-    await expect(page.getByRole('heading', { name: /Setup Your First Environment/i })).toBeVisible();
-    await expect(page.getByText(/Connect to a Docker daemon/i)).toBeVisible();
+  test('should complete wizard without environment (skip) and redirect to login', async ({ page }) => {
+    // Complete wizard steps, skip environment
+    await completeStep1(page, `e2e_skip_${Date.now()}`);
+    await completeStep2(page, `skip-org-${Date.now()}`);
+    await completeStep3Environment(page, true); // skip
+    await completeStep4(page);
 
-    // Check form fields
+    // Should redirect to login page
+    await page.waitForURL(/\/login/, { timeout: 10000 });
+  });
+
+  test('should show environment form fields on step 3', async ({ page }) => {
+    await completeStep1(page, `e2e_form_${Date.now()}`);
+    await completeStep2(page, `form-org-${Date.now()}`);
+
+    // Check environment form fields
     await expect(page.locator('input[placeholder*="local-docker"]')).toBeVisible();
     await expect(page.locator('input[placeholder*="Local Docker"]')).toBeVisible();
     await expect(page.locator('input[placeholder*="/var/run/docker.sock"]')).toBeVisible();
+
+    // Check skip button
+    await expect(page.getByRole('button', { name: /Skip/i })).toBeVisible();
   });
 
-  test('should create environment and redirect to dashboard', async ({ page }) => {
-    // Complete wizard
-    await completeStep1(page, `e2e_env_${Date.now()}`);
-    await completeStep2(page, `env-org-${Date.now()}`);
-    await completeStep3(page);
-
-    // Wait for environment setup page
-    await page.waitForURL(/\/setup-environment/, { timeout: 10000 });
-
-    // Fill environment form
-    const envId = `env-${Date.now()}`;
-    await page.fill('input[placeholder*="local-docker"]', envId);
-    await page.fill('input[placeholder*="Local Docker"]', 'E2E Test Environment');
-    await page.fill('input[placeholder*="/var/run/docker.sock"]', '/var/run/docker.sock');
-
-    // Create environment
-    await page.getByRole('button', { name: /Create Environment/i }).click();
-
-    // Should redirect to dashboard
-    await page.waitForURL('/', { timeout: 10000 });
-
-    // Check dashboard is visible
-    await expect(page.getByText(/Dashboard/i)).toBeVisible({ timeout: 5000 });
-  });
-
-  test('should show validation error for invalid environment ID', async ({ page }) => {
-    // Complete wizard
+  test('should show validation error for invalid environment ID in wizard', async ({ page }) => {
     await completeStep1(page, `e2e_valid_${Date.now()}`);
     await completeStep2(page, `valid-org-${Date.now()}`);
-    await completeStep3(page);
-
-    await page.waitForURL(/\/setup-environment/, { timeout: 10000 });
 
     // Fill with invalid ID (contains spaces)
     await page.fill('input[placeholder*="local-docker"]', 'invalid id with spaces');
     await page.fill('input[placeholder*="Local Docker"]', 'Test Environment');
     await page.fill('input[placeholder*="/var/run/docker.sock"]', '/var/run/docker.sock');
 
-    // Try to create - should fail HTML5 validation or backend validation
-    await page.getByRole('button', { name: /Create Environment/i }).click();
+    // Try to submit
+    await page.getByRole('button', { name: /Continue/i }).click();
 
-    // Should show error message or stay on page
-    await expect(page.getByRole('heading', { name: /Setup Your First Environment/i })).toBeVisible();
+    // Should stay on environment step
+    await expect(page.getByRole('heading', { name: /Configure Environment/i })).toBeVisible();
   });
 
-  test('should show validation error for empty socket path', async ({ page }) => {
-    // Complete wizard
+  test('should show validation error for empty socket path in wizard', async ({ page }) => {
     await completeStep1(page, `e2e_socket_${Date.now()}`);
     await completeStep2(page, `socket-org-${Date.now()}`);
-    await completeStep3(page);
-
-    await page.waitForURL(/\/setup-environment/, { timeout: 10000 });
 
     // Fill form with empty socket path
     await page.fill('input[placeholder*="local-docker"]', `env-${Date.now()}`);
     await page.fill('input[placeholder*="Local Docker"]', 'Test Environment');
     await page.fill('input[placeholder*="/var/run/docker.sock"]', '');
 
-    // Try to create
-    await page.getByRole('button', { name: /Create Environment/i }).click();
+    // Try to submit
+    await page.getByRole('button', { name: /Continue/i }).click();
 
-    // Should stay on page due to required field
-    await expect(page.getByRole('heading', { name: /Setup Your First Environment/i })).toBeVisible();
-  });
-
-  test('should display loading state during environment creation', async ({ page }) => {
-    // Complete wizard
-    await completeStep1(page, `e2e_load_${Date.now()}`);
-    await completeStep2(page, `load-org-${Date.now()}`);
-    await completeStep3(page);
-
-    await page.waitForURL(/\/setup-environment/, { timeout: 10000 });
-
-    // Fill form
-    await page.fill('input[placeholder*="local-docker"]', `env-${Date.now()}`);
-    await page.fill('input[placeholder*="Local Docker"]', 'Loading Test Environment');
-    await page.fill('input[placeholder*="/var/run/docker.sock"]', '/var/run/docker.sock');
-
-    // Click create and check for loading state
-    const createButton = page.getByRole('button', { name: /Create Environment/i });
-    await createButton.click();
-
-    // Button should show loading text
-    await expect(page.getByRole('button', { name: /Creating Environment/i })).toBeVisible({ timeout: 1000 }).catch(() => {
-      // Loading state might be too fast to catch, that's okay
-    });
-  });
-
-  test('should show duplicate environment error', async ({ page }) => {
-    // This test creates two environments with the same socket path
-    // First complete wizard and create an environment
-    await completeStep1(page, `e2e_dup1_${Date.now()}`);
-    await completeStep2(page, `dup1-org-${Date.now()}`);
-    await completeStep3(page);
-
-    await page.waitForURL(/\/setup-environment/, { timeout: 10000 });
-
-    // Create first environment
-    await page.fill('input[placeholder*="local-docker"]', `dup-env-1-${Date.now()}`);
-    await page.fill('input[placeholder*="Local Docker"]', 'First Environment');
-    await page.fill('input[placeholder*="/var/run/docker.sock"]', '/var/run/docker.sock');
-    await page.getByRole('button', { name: /Create Environment/i }).click();
-
-    // Wait for dashboard
-    await page.waitForURL('/', { timeout: 10000 });
-
-    // Now try to go back to create another with same socket (via direct URL)
-    await page.goto('/setup-environment');
-
-    // Should redirect to dashboard since environment exists
-    await page.waitForURL('/', { timeout: 5000 });
+    // Should stay on environment step due to required field
+    await expect(page.getByRole('heading', { name: /Configure Environment/i })).toBeVisible();
   });
 });
 
@@ -462,48 +445,54 @@ test.describe('Wizard Step Organization Validation', () => {
 });
 
 test.describe('Post-Wizard Navigation', () => {
-  test('should access dashboard after complete setup', async ({ page }) => {
-    // Complete full wizard + environment setup
-    await completeStep1(page, `nav_test_${Date.now()}`);
+  test('should access dashboard after complete setup and login', async ({ page }) => {
+    // Complete full wizard with environment
+    const username = `nav_test_${Date.now()}`;
+    await completeStep1(page, username);
     await completeStep2(page, `nav-org-${Date.now()}`);
-    await completeStep3(page);
+    await completeStep3Environment(page);
+    await completeStep4(page);
 
-    await page.waitForURL(/\/setup-environment/, { timeout: 10000 });
+    // Wait for login redirect
+    await page.waitForURL(/\/login/, { timeout: 10000 });
 
-    // Create environment
-    await page.fill('input[placeholder*="local-docker"]', `nav-env-${Date.now()}`);
-    await page.fill('input[placeholder*="Local Docker"]', 'Navigation Test');
-    await page.fill('input[placeholder*="/var/run/docker.sock"]', '/var/run/docker.sock');
-    await page.getByRole('button', { name: /Create Environment/i }).click();
+    // Login with the created credentials
+    await page.fill('input[type="text"]', username);
+    await page.fill('input[type="password"]', 'TestPassword123!');
+    await page.click('button[type="submit"]');
 
-    await page.waitForURL('/', { timeout: 10000 });
+    // Should redirect to dashboard
+    await page.waitForURL(/\/(dashboard)?$/, { timeout: 10000 });
 
     // Verify dashboard elements
     await expect(page.getByText(/Dashboard/i)).toBeVisible();
-
-    // Try navigating to containers
-    await page.click('text=Containers');
-    await expect(page.getByText(/Container Management/i)).toBeVisible({ timeout: 5000 });
   });
 
-  test('should show environment in sidebar after creation', async ({ page }) => {
-    // Complete full wizard + environment setup
-    await completeStep1(page, `sidebar_${Date.now()}`);
-    await completeStep2(page, `sidebar-org-${Date.now()}`);
-    await completeStep3(page);
-
-    await page.waitForURL(/\/setup-environment/, { timeout: 10000 });
-
+  test('should show environment in UI after wizard completion', async ({ page }) => {
+    // Complete full wizard with environment
+    const username = `sidebar_${Date.now()}`;
     const envName = 'Sidebar Test Env';
+    await completeStep1(page, username);
+    await completeStep2(page, `sidebar-org-${Date.now()}`);
+
+    // Create environment with specific name in step 3
     await page.fill('input[placeholder*="local-docker"]', `sidebar-env-${Date.now()}`);
     await page.fill('input[placeholder*="Local Docker"]', envName);
     await page.fill('input[placeholder*="/var/run/docker.sock"]', '/var/run/docker.sock');
-    await page.getByRole('button', { name: /Create Environment/i }).click();
+    await page.getByRole('button', { name: /Continue/i }).click();
+    await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
 
-    await page.waitForURL('/', { timeout: 10000 });
+    await completeStep4(page);
+
+    // Wait for login redirect and login
+    await page.waitForURL(/\/login/, { timeout: 10000 });
+    await page.fill('input[type="text"]', username);
+    await page.fill('input[type="password"]', 'TestPassword123!');
+    await page.click('button[type="submit"]');
+
+    await page.waitForURL(/\/(dashboard)?$/, { timeout: 10000 });
 
     // Environment name should appear somewhere in the UI
-    // (could be in sidebar, header, or environment selector)
     await expect(page.getByText(envName)).toBeVisible({ timeout: 5000 });
   });
 });

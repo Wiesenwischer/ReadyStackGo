@@ -124,7 +124,7 @@ const EnvironmentSelector = () => {
             <hr className="my-2 border-gray-200 dark:border-gray-700" />
 
             <a
-              href="/settings/environments"
+              href="/environments"
               className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-400 dark:hover:bg-gray-700"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,11 +1,12 @@
 version: '3.8'
 
 services:
-  readystackgo-admin:
+  readystackgo:
+    image: readystackgo:${TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: readystackgo-admin
+    container_name: readystackgo
     ports:
       - "8080:8080"
       - "8443:8443"

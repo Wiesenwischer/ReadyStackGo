@@ -50,6 +50,9 @@ WORKDIR /app
 # Copy published application
 COPY --from=backend-build /app/publish .
 
+# Copy example stacks for default stack source
+COPY examples/ ./examples/
+
 # Create config directory
 RUN mkdir -p /app/config
 

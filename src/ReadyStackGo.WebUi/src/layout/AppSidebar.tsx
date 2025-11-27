@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import {
@@ -10,6 +10,7 @@ import {
   PlugInIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
+import { useEnvironment } from "../context/EnvironmentContext";
 import SidebarWidget from "./SidebarWidget";
 
 type NavItem = {
@@ -17,6 +18,7 @@ type NavItem = {
   icon: React.ReactNode;
   path?: string;
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
+  requiresEnvironment?: boolean;
 };
 
 const navItems: NavItem[] = [
@@ -24,16 +26,19 @@ const navItems: NavItem[] = [
     icon: <GridIcon />,
     name: "Dashboard",
     path: "/",
+    requiresEnvironment: true,
   },
   {
     icon: <BoxIcon />,
     name: "Containers",
     path: "/containers",
+    requiresEnvironment: true,
   },
   {
     icon: <BoxCubeIcon />,
     name: "Stacks",
     path: "/stacks",
+    requiresEnvironment: true,
   },
   {
     icon: <PlugInIcon />,
@@ -46,7 +51,15 @@ const othersItems: NavItem[] = [];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
+  const { environments } = useEnvironment();
   const location = useLocation();
+
+  const hasEnvironments = environments.length > 0;
+
+  // Filter nav items based on whether environments exist
+  const filteredNavItems = useMemo(() => {
+    return navItems.filter(item => !item.requiresEnvironment || hasEnvironments);
+  }, [hasEnvironments]);
 
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main" | "others";
@@ -296,7 +309,7 @@ const AppSidebar: React.FC = () => {
                   </div>
                 )}
               </h2>
-              {renderMenuItems(navItems, "main")}
+              {renderMenuItems(filteredNavItems, "main")}
             </div>
           </div>
         </nav>

@@ -6,7 +6,7 @@ interface EnvironmentGuardProps {
 }
 
 /**
- * Guard component that redirects to environment setup if no environments exist.
+ * Guard component that redirects to environments page if no environments exist.
  * Used to wrap routes that require an active environment.
  */
 export default function EnvironmentGuard({ children }: EnvironmentGuardProps) {
@@ -28,9 +28,9 @@ export default function EnvironmentGuard({ children }: EnvironmentGuardProps) {
     );
   }
 
-  // If no environments exist, redirect to setup (unless already on environments page)
+  // If no environments exist, redirect to environments page (unless already there)
   if (environments.length === 0 && location.pathname !== "/environments") {
-    return <Navigate to="/setup-environment" replace />;
+    return <Navigate to="/environments" replace />;
   }
 
   return <>{children}</>;

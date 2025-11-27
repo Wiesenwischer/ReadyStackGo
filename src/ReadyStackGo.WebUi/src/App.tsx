@@ -8,6 +8,7 @@ import Environments from "./pages/Environments";
 import SetupEnvironment from "./pages/SetupEnvironment";
 import Login from "./pages/Auth/Login";
 import Wizard from "./pages/Wizard";
+import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { EnvironmentProvider } from "./context/EnvironmentContext";
@@ -74,6 +75,8 @@ export default function App() {
                 {/* Environments page - doesn't require active environment */}
                 <Route path="/environments" element={<Environments />} />
               </Route>
+              {/* 404 catch-all route */}
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </WizardGuard>
         </Router>

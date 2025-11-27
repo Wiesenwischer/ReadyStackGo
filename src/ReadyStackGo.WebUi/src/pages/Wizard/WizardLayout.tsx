@@ -7,11 +7,12 @@ interface WizardLayoutProps {
 }
 
 export default function WizardLayout({ currentStep, children }: WizardLayoutProps) {
-  // v0.4: Simplified from 4 steps to 3 steps (Connections removed)
+  // v0.4: 4 steps (Admin, Organization, Environment, Complete)
   const steps = [
     { number: 1, name: 'Admin', description: 'Create admin user' },
     { number: 2, name: 'Organization', description: 'Set organization' },
-    { number: 3, name: 'Complete', description: 'Finish setup' },
+    { number: 3, name: 'Environment', description: 'Configure Docker' },
+    { number: 4, name: 'Complete', description: 'Finish setup' },
   ];
 
   return (
@@ -24,7 +25,7 @@ export default function WizardLayout({ currentStep, children }: WizardLayoutProp
               ReadyStackGo Setup Wizard
             </h1>
             <p className="text-gray-500 dark:text-gray-400">
-              Let's get your system configured in 3 easy steps
+              Let's get your system configured in a few easy steps
             </p>
           </div>
 

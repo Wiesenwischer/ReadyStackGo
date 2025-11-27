@@ -8,8 +8,10 @@ import {
   type CreateEnvironmentRequest,
 } from "../api/environments";
 import { getWizardStatus } from "../api/wizard";
+import { useEnvironment } from "../context/EnvironmentContext";
 
 export default function Environments() {
+  const { refreshEnvironments: refreshEnvContext } = useEnvironment();
   const [environments, setEnvironments] = useState<EnvironmentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +35,12 @@ export default function Environments() {
     }
   };
 
+  // Refresh both local state and context
+  const refreshAll = async () => {
+    await loadEnvironments();
+    await refreshEnvContext();
+  };
+
   useEffect(() => {
     loadEnvironments();
   }, []);
@@ -42,7 +50,7 @@ export default function Environments() {
       setActionLoading(id);
       const response = await setDefaultEnvironment(id);
       if (response.success) {
-        await loadEnvironments();
+        await refreshAll();
       } else {
         setError(response.message || "Failed to set default environment");
       }
@@ -62,7 +70,7 @@ export default function Environments() {
       setActionLoading(id);
       const response = await deleteEnvironment(id);
       if (response.success) {
-        await loadEnvironments();
+        await refreshAll();
       } else {
         setError(response.message || "Failed to delete environment");
       }
@@ -125,17 +133,28 @@ export default function Environments() {
               </p>
             </div>
           ) : environments.length === 0 ? (
-            <div className="border-t border-stroke px-4 py-8 dark:border-strokedark">
-              <div className="text-center">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-                </svg>
+            <div className="border-t border-stroke px-4 py-16 dark:border-strokedark">
+              <div className="text-center max-w-md mx-auto">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900/30">
+                  <svg className="h-8 w-8 text-brand-600 dark:text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                  </svg>
+                </div>
+                <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
+                  No Environments Configured
+                </h3>
                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                  No environments configured yet.
+                  Environments connect ReadyStackGo to Docker daemons. Create your first environment to start managing containers and deploying stacks.
                 </p>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-500">
-                  Click "Add Environment" to connect to a Docker daemon.
-                </p>
+                <button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="mt-6 inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white hover:bg-brand-700"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Create Your First Environment
+                </button>
               </div>
             </div>
           ) : (
@@ -200,9 +219,9 @@ export default function Environments() {
                     )}
                     <button
                       onClick={() => handleDelete(env.id)}
-                      disabled={actionLoading === env.id || env.isDefault}
+                      disabled={actionLoading === env.id}
                       className="inline-flex items-center justify-center rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={env.isDefault ? "Cannot delete default environment" : "Delete environment"}
+                      title="Delete environment"
                     >
                       {actionLoading === env.id ? "..." : "Delete"}
                     </button>
@@ -218,9 +237,9 @@ export default function Environments() {
       {isCreateModalOpen && (
         <CreateEnvironmentModal
           onClose={() => setIsCreateModalOpen(false)}
-          onSuccess={() => {
+          onSuccess={async () => {
             setIsCreateModalOpen(false);
-            loadEnvironments();
+            await refreshAll();
           }}
         />
       )}
