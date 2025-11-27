@@ -431,13 +431,13 @@ public class ConfigStoreSerializationTests
         systemConfig.Organization!.Environments.Should().NotBeEmpty("Environments should be deserialized");
         systemConfig.Organization.Environments.Should().HaveCount(1, "Should have exactly one environment");
 
-        // Check that we can find the local-docker environment
-        var localDocker = systemConfig.Organization.GetEnvironment("local-docker");
-        localDocker.Should().NotBeNull("GetEnvironment('local-docker') should find the environment");
-        localDocker!.Id.Should().Be("local-docker");
-        localDocker.Should().BeOfType<DockerSocketEnvironment>("Environment should be deserialized as DockerSocketEnvironment");
+        // Check that we can find the local environment (actual config uses "local" not "local-docker")
+        var local = systemConfig.Organization.GetEnvironment("local");
+        local.Should().NotBeNull("GetEnvironment('local') should find the environment");
+        local!.Id.Should().Be("local");
+        local.Should().BeOfType<DockerSocketEnvironment>("Environment should be deserialized as DockerSocketEnvironment");
 
-        var dockerEnv = (DockerSocketEnvironment)localDocker;
+        var dockerEnv = (DockerSocketEnvironment)local;
         dockerEnv.SocketPath.Should().Be("npipe://./pipe/docker_engine");
         dockerEnv.IsDefault.Should().BeTrue();
     }

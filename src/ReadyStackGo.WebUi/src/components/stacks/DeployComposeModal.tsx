@@ -185,7 +185,7 @@ export default function DeployComposeModal({ isOpen, onClose, onDeploySuccess, p
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div className="fixed inset-0 z-99999 flex items-center justify-center bg-black bg-opacity-50">
       <div className="w-full max-w-2xl bg-white rounded-lg shadow-xl dark:bg-gray-800 max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -393,10 +393,18 @@ services:
           {step === 'configure' && (
             <>
               <button
-                onClick={() => setStep('upload')}
+                onClick={() => {
+                  if (preloadedStack) {
+                    // If we came from a preloaded stack, close the modal
+                    handleClose();
+                  } else {
+                    // If we came from upload, go back to upload
+                    setStep('upload');
+                  }
+                }}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
               >
-                Back
+                {preloadedStack ? 'Cancel' : 'Back'}
               </button>
               <button
                 onClick={handleDeploy}

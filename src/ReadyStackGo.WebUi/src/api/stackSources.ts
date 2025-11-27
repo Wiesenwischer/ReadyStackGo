@@ -1,4 +1,4 @@
-import { api } from './client';
+import { apiGet, apiPost } from './client';
 
 export interface StackVariable {
   name: string;
@@ -35,26 +35,23 @@ export interface SyncResult {
 }
 
 export async function getStackDefinitions(): Promise<StackDefinition[]> {
-  const response = await api.get<StackDefinition[]>('/api/stack-sources/stacks');
-  return response.data;
+  return apiGet<StackDefinition[]>('/api/stack-sources/stacks');
 }
 
 export async function getStackSources(): Promise<StackSource[]> {
-  const response = await api.get<StackSource[]>('/api/stack-sources');
-  return response.data;
+  return apiGet<StackSource[]>('/api/stack-sources');
 }
 
 export async function syncSources(): Promise<SyncResult> {
-  const response = await api.post<SyncResult>('/api/stack-sources/sync');
-  return response.data;
+  return apiPost<SyncResult>('/api/stack-sources/sync');
 }
 
 export interface StackDefinitionDetail extends StackDefinition {
   yamlContent: string;
   filePath?: string;
+  additionalFiles?: string[];
 }
 
 export async function getStackDefinitionDetail(stackId: string): Promise<StackDefinitionDetail> {
-  const response = await api.get<StackDefinitionDetail>(`/api/stack-sources/stacks/${encodeURIComponent(stackId)}`);
-  return response.data;
+  return apiGet<StackDefinitionDetail>(`/api/stack-sources/stacks/${encodeURIComponent(stackId)}`);
 }
