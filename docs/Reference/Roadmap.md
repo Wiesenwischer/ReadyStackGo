@@ -49,9 +49,13 @@ Grober Ausblick auf geplante Versionen und Features.
 - Volume Backup/Export Funktionalität
 
 ### v1.0 – Production Ready
+- Dokumentation überarbeiten und vervollständigen
+- Code Cleanup und Refactorings
+- Docker Hub Dokumentation (Overview Page mit README.md)
+- Wiki überarbeiten und aktualisieren
+- SBOM (Software Bill of Materials) generieren
 - Plugin-System
 - Performance Optimierungen
-- Comprehensive Documentation
 - Security Hardening
 
 ### Post v1.0 – Stack Sources Management
