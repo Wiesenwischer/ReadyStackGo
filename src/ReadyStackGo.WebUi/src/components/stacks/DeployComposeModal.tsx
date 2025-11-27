@@ -44,7 +44,8 @@ export default function DeployComposeModal({ isOpen, onClose, onDeploySuccess, p
           const vars: EnvironmentVariableInfo[] = detail.variables.map(v => ({
             name: v.name,
             defaultValue: v.defaultValue || '',
-            isRequired: v.isRequired
+            isRequired: v.isRequired,
+            usedInServices: [] // Not tracked in stack definitions
           }));
           setVariables(vars);
 
