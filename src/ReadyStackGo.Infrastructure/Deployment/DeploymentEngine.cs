@@ -113,19 +113,37 @@ public class DeploymentEngine : IDeploymentEngine
                 }
             }
 
-            // Determine network name
-            var networkName = plan.NetworkName ?? systemConfig.DockerNetwork ?? "rsgo-network";
+            // Determine stack name first (needed for network naming)
             var stackName = plan.StackName ?? plan.StackVersion;
 
-            // Ensure Docker network exists
-            await EnsureDockerNetworkAsync(environmentId, networkName);
+            // Create all non-external networks defined in the plan
+            foreach (var (networkName, networkDef) in plan.Networks)
+            {
+                if (!networkDef.External)
+                {
+                    // Create the network with resolved name (already prefixed with stack name)
+                    await EnsureDockerNetworkAsync(environmentId, networkDef.ResolvedName);
+                }
+                else
+                {
+                    _logger.LogInformation("Network '{NetworkName}' is external, assuming it already exists",
+                        networkDef.ResolvedName);
+                }
+            }
+
+            // Fallback: if no networks defined, create a default stack network
+            var defaultNetwork = $"{stackName}_default";
+            if (plan.Networks.Count == 0)
+            {
+                await EnsureDockerNetworkAsync(environmentId, defaultNetwork);
+            }
 
             // Execute deployment steps in order
             foreach (var step in plan.Steps)
             {
                 try
                 {
-                    await DeployStepAsync(environmentId, step, networkName, stackName);
+                    await DeployStepAsync(environmentId, step, defaultNetwork, stackName);
                     result.DeployedContexts.Add(step.ContextName);
                     _logger.LogInformation("Successfully deployed context {Context}", step.ContextName);
                 }
@@ -366,7 +384,7 @@ public class DeploymentEngine : IDeploymentEngine
         }
     }
 
-    private async Task DeployStepAsync(string environmentId, DeploymentStep step, string networkName, string stackName)
+    private async Task DeployStepAsync(string environmentId, DeploymentStep step, string defaultNetwork, string stackName)
     {
         _logger.LogInformation("Deploying step {Context} (order: {Order}) in environment {EnvironmentId}",
             step.ContextName, step.Order, environmentId);
@@ -400,7 +418,15 @@ public class DeploymentEngine : IDeploymentEngine
             _logger.LogWarning(ex, "Failed to pull image {Image}:{Tag}, will try to use existing", imageName, imageTag);
         }
 
+        // Determine networks for this container
+        // Use step's networks if specified, otherwise fall back to default network
+        var networks = step.Networks.Count > 0 ? step.Networks : new List<string> { defaultNetwork };
+
+        _logger.LogDebug("Container {Container} will be connected to networks: {Networks}",
+            step.ContainerName, string.Join(", ", networks));
+
         // Create and start container
+        // Add service name as network alias so other containers can resolve it by service name
         var request = new CreateContainerRequest
         {
             Name = step.ContainerName,
@@ -408,7 +434,8 @@ public class DeploymentEngine : IDeploymentEngine
             EnvironmentVariables = step.EnvVars,
             Ports = step.Ports,
             Volumes = step.Volumes,
-            Networks = new List<string> { networkName },
+            Networks = networks,
+            NetworkAliases = new List<string> { step.ContextName },
             Labels = new Dictionary<string, string>
             {
                 ["rsgo.stack"] = stackName,
@@ -421,12 +448,13 @@ public class DeploymentEngine : IDeploymentEngine
         var containerId = await _dockerService.CreateAndStartContainerAsync(environmentId, request);
 
         _logger.LogInformation(
-            "Deployed container {Container} ({ContainerId}) from {Image}:{Tag} with {EnvCount} env vars",
+            "Deployed container {Container} ({ContainerId}) from {Image}:{Tag} with {EnvCount} env vars on {NetworkCount} network(s)",
             step.ContainerName,
             containerId,
             imageName,
             imageTag,
-            step.EnvVars.Count);
+            step.EnvVars.Count,
+            networks.Count);
     }
 
     private async Task UpdateReleaseConfigAsync(DeploymentPlan plan)

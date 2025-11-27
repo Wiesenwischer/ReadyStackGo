@@ -169,6 +169,42 @@ public class DockerComposeParser : IDockerComposeParser
             GlobalEnvVars = new Dictionary<string, string>(resolvedVariables)
         };
 
+        // Process network definitions from compose file
+        // Build a mapping from compose network name to resolved network name
+        var networkMapping = new Dictionary<string, string>();
+
+        if (compose.Networks != null && compose.Networks.Count > 0)
+        {
+            foreach (var (networkName, networkDef) in compose.Networks)
+            {
+                var isExternal = networkDef.External ?? false;
+                // External networks use their name as-is, non-external get prefixed with stack name
+                var resolvedName = isExternal ? networkName : $"{stackName}_{networkName}";
+
+                plan.Networks[networkName] = new NetworkDefinition
+                {
+                    External = isExternal,
+                    ResolvedName = resolvedName
+                };
+                networkMapping[networkName] = resolvedName;
+
+                _logger.LogDebug("Network '{NetworkName}' -> '{ResolvedName}' (external: {External})",
+                    networkName, resolvedName, isExternal);
+            }
+        }
+
+        // If no networks defined, create a default stack network
+        var defaultNetwork = $"{stackName}_default";
+        if (networkMapping.Count == 0)
+        {
+            plan.Networks["default"] = new NetworkDefinition
+            {
+                External = false,
+                ResolvedName = defaultNetwork
+            };
+            networkMapping["default"] = defaultNetwork;
+        }
+
         int order = 0;
 
         // Build dependency graph and determine order
@@ -190,6 +226,32 @@ public class DockerComposeParser : IDockerComposeParser
                 Order = order++
             };
 
+            // Resolve networks for this service
+            if (service.Networks != null && service.Networks.Count > 0)
+            {
+                // Service has explicit network configuration
+                foreach (var network in service.Networks)
+                {
+                    if (networkMapping.TryGetValue(network, out var resolvedNetwork))
+                    {
+                        step.Networks.Add(resolvedNetwork);
+                    }
+                    else
+                    {
+                        // Network referenced but not defined - treat as external
+                        _logger.LogWarning("Service '{Service}' references undefined network '{Network}', treating as external",
+                            serviceName, network);
+                        step.Networks.Add(network);
+                    }
+                }
+            }
+            else
+            {
+                // No networks specified - use the first available network (like Docker Compose does)
+                var firstNetwork = networkMapping.Values.FirstOrDefault() ?? defaultNetwork;
+                step.Networks.Add(firstNetwork);
+            }
+
             // Resolve environment variables
             if (service.Environment != null)
             {
@@ -207,7 +269,7 @@ public class DockerComposeParser : IDockerComposeParser
                     .ToList();
             }
 
-            // Add volumes
+            // Add volumes - prefix named volumes with stack name for isolation
             if (service.Volumes != null)
             {
                 foreach (var volume in service.Volumes)
@@ -216,7 +278,22 @@ public class DockerComposeParser : IDockerComposeParser
                     var parts = resolved.Split(':');
                     if (parts.Length >= 2)
                     {
-                        step.Volumes[parts[0]] = parts[1];
+                        var volumeSource = parts[0];
+                        var volumeTarget = parts[1];
+
+                        // Check if this is a named volume (not a path)
+                        // Named volumes don't start with / or . or contain path separators
+                        if (!volumeSource.StartsWith("/") &&
+                            !volumeSource.StartsWith(".") &&
+                            !volumeSource.StartsWith("~") &&
+                            !volumeSource.Contains("\\") &&
+                            !volumeSource.Contains("/"))
+                        {
+                            // Prefix named volume with stack name for isolation
+                            volumeSource = $"{stackName}_{volumeSource}";
+                        }
+
+                        step.Volumes[volumeSource] = volumeTarget;
                     }
                 }
             }
@@ -230,7 +307,8 @@ public class DockerComposeParser : IDockerComposeParser
             plan.Steps.Add(step);
         }
 
-        _logger.LogInformation("Converted compose file to deployment plan with {StepCount} steps", plan.Steps.Count);
+        _logger.LogInformation("Converted compose file to deployment plan with {StepCount} steps and {NetworkCount} networks",
+            plan.Steps.Count, plan.Networks.Count);
 
         return Task.FromResult(plan);
     }
@@ -494,13 +572,22 @@ public class DockerComposeParser : IDockerComposeParser
                 network.Driver = driver?.ToString();
 
             if (dict.TryGetValue("external", out var external))
-                network.External = external is bool b && b;
+                network.External = ParseBoolValue(external);
 
             if (dict.TryGetValue("driver_opts", out var driverOpts))
                 network.DriverOpts = ParseKeyValuePairs(driverOpts);
         }
 
         return network;
+    }
+
+    private static bool ParseBoolValue(object? value)
+    {
+        if (value is bool b)
+            return b;
+        if (value is string s)
+            return s.Equals("true", StringComparison.OrdinalIgnoreCase);
+        return false;
     }
 
     private string ResolveVariables(string input, Dictionary<string, string> variables)

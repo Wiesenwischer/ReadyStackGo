@@ -418,4 +418,293 @@ services:
         result.Services["app"].HealthCheck!.Timeout.Should().Be("10s");
         result.Services["app"].HealthCheck!.Retries.Should().Be(3);
     }
+
+    [Fact]
+    public async Task ConvertToDeploymentPlanAsync_WithEnvironmentVariables_IncludesEnvVarsInSteps()
+    {
+        // Arrange - mimics WordPress compose file structure
+        var yaml = @"
+version: '3.8'
+services:
+  wordpress:
+    image: wordpress:latest
+    environment:
+      - WORDPRESS_DB_HOST=db
+      - WORDPRESS_DB_USER=${DB_USER}
+      - WORDPRESS_DB_PASSWORD=${DB_PASSWORD}
+      - WORDPRESS_DB_NAME=${DB_NAME}
+";
+        var definition = await _parser.ParseAsync(yaml);
+        var variables = new Dictionary<string, string>
+        {
+            ["DB_USER"] = "wpuser",
+            ["DB_PASSWORD"] = "secret123",
+            ["DB_NAME"] = "wordpress"
+        };
+
+        // Act
+        var plan = await _parser.ConvertToDeploymentPlanAsync(definition, variables, "wordpress-stack");
+
+        // Assert
+        plan.Steps.Should().HaveCount(1);
+        var wpStep = plan.Steps.First();
+
+        // Should have all 4 environment variables
+        wpStep.EnvVars.Should().HaveCount(4);
+
+        // Hardcoded value should be preserved
+        wpStep.EnvVars.Should().ContainKey("WORDPRESS_DB_HOST");
+        wpStep.EnvVars["WORDPRESS_DB_HOST"].Should().Be("db");
+
+        // Variable substitutions should be resolved
+        wpStep.EnvVars.Should().ContainKey("WORDPRESS_DB_USER");
+        wpStep.EnvVars["WORDPRESS_DB_USER"].Should().Be("wpuser");
+
+        wpStep.EnvVars.Should().ContainKey("WORDPRESS_DB_PASSWORD");
+        wpStep.EnvVars["WORDPRESS_DB_PASSWORD"].Should().Be("secret123");
+
+        wpStep.EnvVars.Should().ContainKey("WORDPRESS_DB_NAME");
+        wpStep.EnvVars["WORDPRESS_DB_NAME"].Should().Be("wordpress");
+    }
+
+    #region Network Tests
+
+    [Fact]
+    public async Task ConvertToDeploymentPlanAsync_NoNetworksDefined_CreatesDefaultNetwork()
+    {
+        // Arrange
+        var yaml = @"
+version: '3.8'
+services:
+  web:
+    image: nginx:latest
+";
+        var definition = await _parser.ParseAsync(yaml);
+
+        // Act
+        var plan = await _parser.ConvertToDeploymentPlanAsync(definition, new Dictionary<string, string>(), "mystack");
+
+        // Assert
+        plan.Networks.Should().HaveCount(1);
+        plan.Networks.Should().ContainKey("default");
+        plan.Networks["default"].External.Should().BeFalse();
+        plan.Networks["default"].ResolvedName.Should().Be("mystack_default");
+
+        // Service should be assigned to default network
+        var webStep = plan.Steps.First(s => s.ContextName == "web");
+        webStep.Networks.Should().HaveCount(1);
+        webStep.Networks.Should().Contain("mystack_default");
+    }
+
+    [Fact]
+    public async Task ConvertToDeploymentPlanAsync_WithCustomNetwork_PrefixesWithStackName()
+    {
+        // Arrange
+        var yaml = @"
+version: '3.8'
+services:
+  web:
+    image: nginx:latest
+    networks:
+      - backend
+networks:
+  backend:
+    driver: bridge
+";
+        var definition = await _parser.ParseAsync(yaml);
+
+        // Act
+        var plan = await _parser.ConvertToDeploymentPlanAsync(definition, new Dictionary<string, string>(), "mystack");
+
+        // Assert
+        plan.Networks.Should().HaveCount(1);
+        plan.Networks.Should().ContainKey("backend");
+        plan.Networks["backend"].External.Should().BeFalse();
+        plan.Networks["backend"].ResolvedName.Should().Be("mystack_backend");
+
+        // Service should use prefixed network name
+        var webStep = plan.Steps.First(s => s.ContextName == "web");
+        webStep.Networks.Should().Contain("mystack_backend");
+    }
+
+    [Fact]
+    public async Task ConvertToDeploymentPlanAsync_WithExternalNetwork_UsesNameAsIs()
+    {
+        // Arrange
+        var yaml = @"
+version: '3.8'
+services:
+  web:
+    image: nginx:latest
+    networks:
+      - proxy
+networks:
+  proxy:
+    external: true
+";
+        var definition = await _parser.ParseAsync(yaml);
+
+        // Act
+        var plan = await _parser.ConvertToDeploymentPlanAsync(definition, new Dictionary<string, string>(), "mystack");
+
+        // Assert
+        plan.Networks.Should().HaveCount(1);
+        plan.Networks.Should().ContainKey("proxy");
+        plan.Networks["proxy"].External.Should().BeTrue();
+        plan.Networks["proxy"].ResolvedName.Should().Be("proxy"); // Not prefixed!
+
+        // Service should use original network name
+        var webStep = plan.Steps.First(s => s.ContextName == "web");
+        webStep.Networks.Should().Contain("proxy");
+    }
+
+    [Fact]
+    public async Task ConvertToDeploymentPlanAsync_WithMultipleNetworks_AssignsAllToService()
+    {
+        // Arrange
+        var yaml = @"
+version: '3.8'
+services:
+  web:
+    image: nginx:latest
+    networks:
+      - frontend
+      - backend
+networks:
+  frontend:
+  backend:
+";
+        var definition = await _parser.ParseAsync(yaml);
+
+        // Act
+        var plan = await _parser.ConvertToDeploymentPlanAsync(definition, new Dictionary<string, string>(), "mystack");
+
+        // Assert
+        plan.Networks.Should().HaveCount(2);
+        plan.Networks["frontend"].ResolvedName.Should().Be("mystack_frontend");
+        plan.Networks["backend"].ResolvedName.Should().Be("mystack_backend");
+
+        // Service should be on both networks
+        var webStep = plan.Steps.First(s => s.ContextName == "web");
+        webStep.Networks.Should().HaveCount(2);
+        webStep.Networks.Should().Contain("mystack_frontend");
+        webStep.Networks.Should().Contain("mystack_backend");
+    }
+
+    [Fact]
+    public async Task ConvertToDeploymentPlanAsync_MixedExternalAndInternal_HandlesCorrectly()
+    {
+        // Arrange
+        var yaml = @"
+version: '3.8'
+services:
+  web:
+    image: nginx:latest
+    networks:
+      - internal
+      - shared-proxy
+networks:
+  internal:
+  shared-proxy:
+    external: true
+";
+        var definition = await _parser.ParseAsync(yaml);
+
+        // Act
+        var plan = await _parser.ConvertToDeploymentPlanAsync(definition, new Dictionary<string, string>(), "mystack");
+
+        // Assert
+        plan.Networks.Should().HaveCount(2);
+
+        // Internal network should be prefixed
+        plan.Networks["internal"].External.Should().BeFalse();
+        plan.Networks["internal"].ResolvedName.Should().Be("mystack_internal");
+
+        // External network should NOT be prefixed
+        plan.Networks["shared-proxy"].External.Should().BeTrue();
+        plan.Networks["shared-proxy"].ResolvedName.Should().Be("shared-proxy");
+
+        // Service should have both network names resolved correctly
+        var webStep = plan.Steps.First(s => s.ContextName == "web");
+        webStep.Networks.Should().Contain("mystack_internal");
+        webStep.Networks.Should().Contain("shared-proxy");
+    }
+
+    [Fact]
+    public async Task ConvertToDeploymentPlanAsync_ServiceWithoutNetworks_UsesFirstDefinedNetwork()
+    {
+        // Arrange - db service doesn't specify networks explicitly
+        var yaml = @"
+version: '3.8'
+services:
+  web:
+    image: nginx:latest
+    networks:
+      - backend
+  db:
+    image: postgres:15
+networks:
+  backend:
+";
+        var definition = await _parser.ParseAsync(yaml);
+
+        // Act
+        var plan = await _parser.ConvertToDeploymentPlanAsync(definition, new Dictionary<string, string>(), "mystack");
+
+        // Assert
+        // db service should be assigned to the first available network
+        var dbStep = plan.Steps.First(s => s.ContextName == "db");
+        dbStep.Networks.Should().HaveCount(1);
+        dbStep.Networks.Should().Contain("mystack_backend");
+    }
+
+    [Fact]
+    public async Task ConvertToDeploymentPlanAsync_MultipleStacksGetDifferentNetworks()
+    {
+        // Arrange - same compose, different stack names
+        var yaml = @"
+version: '3.8'
+services:
+  web:
+    image: nginx:latest
+networks:
+  default:
+";
+        var definition = await _parser.ParseAsync(yaml);
+
+        // Act
+        var plan1 = await _parser.ConvertToDeploymentPlanAsync(definition, new Dictionary<string, string>(), "wordpress1");
+        var plan2 = await _parser.ConvertToDeploymentPlanAsync(definition, new Dictionary<string, string>(), "wordpress2");
+
+        // Assert - each stack should have its own isolated network
+        plan1.Networks["default"].ResolvedName.Should().Be("wordpress1_default");
+        plan2.Networks["default"].ResolvedName.Should().Be("wordpress2_default");
+
+        plan1.Steps.First().Networks.Should().Contain("wordpress1_default");
+        plan2.Steps.First().Networks.Should().Contain("wordpress2_default");
+    }
+
+    [Fact]
+    public async Task ConvertToDeploymentPlanAsync_UndefinedNetworkReference_TreatsAsExternal()
+    {
+        // Arrange - service references network not defined in networks section
+        var yaml = @"
+version: '3.8'
+services:
+  web:
+    image: nginx:latest
+    networks:
+      - undefined-net
+";
+        var definition = await _parser.ParseAsync(yaml);
+
+        // Act
+        var plan = await _parser.ConvertToDeploymentPlanAsync(definition, new Dictionary<string, string>(), "mystack");
+
+        // Assert - undefined network should be used as-is (treated as external)
+        var webStep = plan.Steps.First(s => s.ContextName == "web");
+        webStep.Networks.Should().Contain("undefined-net");
+    }
+
+    #endregion
 }
