@@ -94,6 +94,12 @@ public class CreateContainerRequest
     public List<string> Networks { get; set; } = new();
 
     /// <summary>
+    /// Network aliases (DNS names) for this container.
+    /// These allow other containers to reach this one by these names.
+    /// </summary>
+    public List<string> NetworkAliases { get; set; } = new();
+
+    /// <summary>
     /// Labels to apply to the container.
     /// </summary>
     public Dictionary<string, string> Labels { get; set; } = new();

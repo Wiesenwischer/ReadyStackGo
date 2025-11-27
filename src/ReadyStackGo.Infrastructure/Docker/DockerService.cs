@@ -154,7 +154,19 @@ public class DockerService : IDockerService, IDisposable
             }
         };
 
-        // Create container
+        // Create container with network aliases for service name resolution
+        var primaryNetwork = request.Networks.FirstOrDefault() ?? "bridge";
+        var networkingConfig = new NetworkingConfig
+        {
+            EndpointsConfig = new Dictionary<string, EndpointSettings>
+            {
+                [primaryNetwork] = new EndpointSettings
+                {
+                    Aliases = request.NetworkAliases
+                }
+            }
+        };
+
         var createParams = new CreateContainerParameters
         {
             Name = request.Name,
@@ -167,20 +179,25 @@ public class DockerService : IDockerService, IDisposable
                 PortBindings = portBindings,
                 Binds = binds,
                 RestartPolicy = restartPolicy,
-                NetworkMode = request.Networks.FirstOrDefault() ?? "bridge"
-            }
+                NetworkMode = primaryNetwork
+            },
+            NetworkingConfig = networkingConfig
         };
 
         var response = await client.Containers.CreateContainerAsync(createParams, cancellationToken);
 
-        // Connect to additional networks
+        // Connect to additional networks with aliases
         foreach (var network in request.Networks.Skip(1))
         {
             try
             {
                 await client.Networks.ConnectNetworkAsync(network, new NetworkConnectParameters
                 {
-                    Container = response.ID
+                    Container = response.ID,
+                    EndpointConfig = new EndpointSettings
+                    {
+                        Aliases = request.NetworkAliases
+                    }
                 }, cancellationToken);
             }
             catch (Exception ex)
