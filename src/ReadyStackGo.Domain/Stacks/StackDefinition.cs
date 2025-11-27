@@ -46,6 +46,17 @@ public class StackDefinition
     public string? FilePath { get; init; }
 
     /// <summary>
+    /// Additional compose files (e.g., docker-compose.override.yml)
+    /// These will be merged with the main YamlContent during deployment
+    /// </summary>
+    public List<string> AdditionalFiles { get; init; } = new();
+
+    /// <summary>
+    /// Content of additional compose files, keyed by filename
+    /// </summary>
+    public Dictionary<string, string> AdditionalFileContents { get; init; } = new();
+
+    /// <summary>
     /// When this definition was last synced from the source
     /// </summary>
     public DateTime LastSyncedAt { get; init; }
