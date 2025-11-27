@@ -415,3 +415,6 @@ rsgo.*.json
 
 # Manifests (will be in manifests/ folder, but ignore local test manifests)
 *.local.manifest.json
+
+# Claude Code local settings
+.claude/settings.local.json
