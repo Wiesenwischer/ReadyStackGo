@@ -41,11 +41,22 @@ Grober Ausblick auf geplante Versionen und Features.
 - Type Validation (Numbers, Booleans, Strings, Select)
 - Regex Validation für URL-Formate
 
+### v0.9 – Docker Volumes Management
+- Docker Volumes Ansicht (Liste aller Volumes pro Environment)
+- Volume Details (Size, Mount Points, Labels)
+- Volume erstellen/löschen
+- Orphaned Volumes erkennen und aufräumen
+- Volume Backup/Export Funktionalität
+
 ### v1.0 – Production Ready
 - Plugin-System
 - Performance Optimierungen
 - Comprehensive Documentation
 - Security Hardening
+
+### Post v1.0 – Stack Sources Management
+- Stack Sources Management UI (add/remove/configure sources)
+- Git Repository Stack Source Provider
 
 ### Post v2.0 – Advanced Features
 - Multi-Node-Support (mehrere Docker Hosts pro Environment)
