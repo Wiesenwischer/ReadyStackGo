@@ -51,6 +51,11 @@ public interface IDockerService
     /// Gets a container by name in the specified environment.
     /// </summary>
     Task<ContainerDto?> GetContainerByNameAsync(string environmentId, string containerName, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if an image exists locally in the specified environment.
+    /// </summary>
+    Task<bool> ImageExistsAsync(string environmentId, string image, string tag = "latest", CancellationToken cancellationToken = default);
 }
 
 /// <summary>

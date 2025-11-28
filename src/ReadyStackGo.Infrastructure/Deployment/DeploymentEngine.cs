@@ -406,16 +406,36 @@ public class DeploymentEngine : IDeploymentEngine
 
         // Pull image
         var (imageName, imageTag) = ParseImageReference(step.Image, step.Version);
+        var fullImageName = $"{imageName}:{imageTag}";
+        var pullSucceeded = false;
+        string? pullError = null;
 
         try
         {
-            _logger.LogInformation("Pulling image {Image}:{Tag} for container {Container}", imageName, imageTag, step.ContainerName);
+            _logger.LogInformation("Pulling image {Image} for container {Container}", fullImageName, step.ContainerName);
             await _dockerService.PullImageAsync(environmentId, imageName, imageTag);
-            _logger.LogInformation("Successfully pulled image {Image}:{Tag}", imageName, imageTag);
+            _logger.LogInformation("Successfully pulled image {Image}", fullImageName);
+            pullSucceeded = true;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to pull image {Image}:{Tag}, will try to use existing", imageName, imageTag);
+            pullError = ex.Message;
+            _logger.LogWarning(ex, "Failed to pull image {Image}", fullImageName);
+        }
+
+        // If pull failed, check if image exists locally
+        if (!pullSucceeded)
+        {
+            var imageExists = await _dockerService.ImageExistsAsync(environmentId, imageName, imageTag);
+            if (!imageExists)
+            {
+                var errorMessage = $"Failed to pull image '{fullImageName}' and no local copy exists. " +
+                    $"Please ensure the image exists and registry credentials are configured. Error: {pullError}";
+                _logger.LogError(errorMessage);
+                throw new InvalidOperationException(errorMessage);
+            }
+
+            _logger.LogWarning("Using existing local image {Image} (pull failed: {Error})", fullImageName, pullError);
         }
 
         // Determine networks for this container

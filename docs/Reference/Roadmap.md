@@ -24,12 +24,24 @@ Grober Ausblick auf geplante Versionen und Features.
 - Wenn kein Environment: Environment-Übersicht mit Hinweis anzeigen
 - Navigation: Dashboard und environment-abhängige Seiten ausblenden wenn kein Environment existiert/ausgewählt
 
+### v0.4.2 – Default Registry Configuration
+- Standard Docker Registry Credentials konfigurierbar (Docker Hub mit Username/Password)
+- Credentials in `rsgo.registries.json` gespeichert
+- Automatische Verwendung beim Image Pull
+- Fehlerbehandlung bei fehlgeschlagenem Image Pull (Fehler statt stilles Fallback)
+
 ### v0.5 – Multi-User + Database Migration + Security Hardening
 - SQLite-Migration für Multi-User-Support
 - Container Health Monitoring & Rollback
 - RBAC (Role-Based Access Control)
 - Wizard Timeout (5-Minuten-Zeitfenster für Admin-Erstellung nach Serverstart)
 - API-Lockdown nach Timeout-Ablauf (wie Portainer)
+
+### v0.5.1 – Registry Management UI
+- Settings-Seite für Registry-Verwaltung
+- Mehrere Docker Registries konfigurierbar (Name, URL, Username, Password)
+- Registry Credentials per Environment überschreibbar
+- Registry-spezifische Image-Matching-Regeln
 
 ### v0.6 – Release Management
 - Release Management UI

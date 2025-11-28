@@ -457,6 +457,32 @@ public class DockerService : IDockerService, IDisposable
         return container != null ? MapToContainerDto(container) : null;
     }
 
+    public async Task<bool> ImageExistsAsync(string environmentId, string image, string tag = "latest", CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+        var fullImage = $"{image}:{tag}";
+
+        try
+        {
+            var images = await client.Images.ListImagesAsync(
+                new ImagesListParameters
+                {
+                    Filters = new Dictionary<string, IDictionary<string, bool>>
+                    {
+                        ["reference"] = new Dictionary<string, bool> { [fullImage] = true }
+                    }
+                },
+                cancellationToken);
+
+            return images.Any();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Error checking if image {Image} exists", fullImage);
+            return false;
+        }
+    }
+
     private async Task<DockerClient> GetDockerClientAsync(string environmentId)
     {
         // Check cache first
