@@ -7,16 +7,16 @@ Grober Ausblick auf geplante Versionen und Features.
 - **v0.1** – Container Ansicht + Start/Stop
 - **v0.2** – Local Admin + Hardcoded Stack
 - **v0.3** – Wizard + TLS-Bootstrap + Manifest Deploy ✅ (2025-01-19)
+- **v0.4** – Multi-Environment + Docker Compose Deployment ✅ (2025-01-28)
+  - Polymorphe Environment-Typen (Docker Socket)
+  - Docker Compose Stack-Deployment (Portainer-style)
+  - Automatische Environment Variable Detection
+  - Stack Sources System mit rekursiver Discovery
+  - 404 Page, 4-Step Wizard, Environment Management UI
+  - Registry Authentication für Image Pulls
+  - Deployment Warnings bei lokalem Image-Fallback
 
 ## Planned
-
-### v0.4 – Multi-Environment + Simplified Wizard + Docker Compose Deployment
-- Polymorphe Environment-Typen (Docker Socket)
-- Organisationen ohne Environments (optional)
-- Wizard-Vereinfachung (4 Steps → 3 Steps)
-- Docker Compose Stack-Deployment (Portainer-style)
-- Automatische Environment Variable Detection
-- Keine globalen Connection Strings mehr
 
 ### v0.5 – Environment Setup Flow
 - Nach Organization-Setup: Environment-Erstellung als optionaler Schritt
@@ -24,44 +24,38 @@ Grober Ausblick auf geplante Versionen und Features.
 - Wenn kein Environment: Environment-Übersicht mit Hinweis anzeigen
 - Navigation: Dashboard und environment-abhängige Seiten ausblenden wenn kein Environment existiert/ausgewählt
 
-### v0.6 – Default Registry Configuration
-- Standard Docker Registry Credentials konfigurierbar (Docker Hub mit Username/Password)
-- Credentials in `rsgo.registries.json` gespeichert
-- Automatische Verwendung beim Image Pull
-- Fehlerbehandlung bei fehlgeschlagenem Image Pull (Fehler statt stilles Fallback)
-
-### v0.7 – Multi-User + Database Migration + Security Hardening
+### v0.6 – Multi-User + Database Migration + Security Hardening
 - SQLite-Migration für Multi-User-Support
 - Container Health Monitoring & Rollback
 - RBAC (Role-Based Access Control)
 - Wizard Timeout (5-Minuten-Zeitfenster für Admin-Erstellung nach Serverstart)
 - API-Lockdown nach Timeout-Ablauf (wie Portainer)
 
-### v0.8 – Registry Management UI
+### v0.7 – Registry Management UI
 - Settings-Seite für Registry-Verwaltung
 - Mehrere Docker Registries konfigurierbar (Name, URL, Username, Password)
 - Registry Credentials per Environment überschreibbar
 - Registry-spezifische Image-Matching-Regeln
 
-### v0.9 – Release Management
+### v0.8 – Release Management
 - Release Management UI
 - Feature Flags UI
 - Advanced Connection Mode
 - Custom TLS Certificates
 
-### v0.10 – CI/CD & Monitoring
+### v0.9 – CI/CD & Monitoring
 - CI/CD Pipeline Integration
 - Stack Health Dashboard
 - Metrics & Alerting
 - Audit Logs
 
-### v0.11 – Enhanced Stack Format
+### v0.10 – Enhanced Stack Format
 - Custom Manifest Format (enhanced validation)
 - Beide Stack-Formate gleichzeitig unterstützt (Docker Compose + Custom Manifest)
 - Type Validation (Numbers, Booleans, Strings, Select)
 - Regex Validation für URL-Formate
 
-### v0.12 – Docker Volumes Management
+### v0.11 – Docker Volumes Management
 - Docker Volumes Ansicht (Liste aller Volumes pro Environment)
 - Volume Details (Size, Mount Points, Labels)
 - Volume erstellen/löschen
