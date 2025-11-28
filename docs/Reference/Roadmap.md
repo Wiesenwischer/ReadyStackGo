@@ -34,8 +34,7 @@ Grober Ausblick auf geplante Versionen und Features.
 ### v0.7 – Registry Management UI
 - Settings-Seite für Registry-Verwaltung
 - Mehrere Docker Registries konfigurierbar (Name, URL, Username, Password)
-- Registry Credentials per Environment überschreibbar
-- Registry-spezifische Image-Matching-Regeln
+- Systemweite Konfiguration (gilt für alle Environments)
 
 ### v0.8 – Release Management
 - Release Management UI
