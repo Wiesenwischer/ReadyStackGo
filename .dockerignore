@@ -33,3 +33,6 @@ tests/
 
 # Stacks directory is mounted at runtime, not included in image
 stacks/
+
+# Development config files - should not be baked into image
+src/ReadyStackGo.Api/config/
