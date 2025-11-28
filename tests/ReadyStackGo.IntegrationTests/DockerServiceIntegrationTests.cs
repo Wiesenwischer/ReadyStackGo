@@ -1,6 +1,7 @@
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using FluentAssertions;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using ReadyStackGo.Application.Containers;
@@ -68,7 +69,10 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
 
         configStore.GetSystemConfigAsync().Returns(systemConfig);
 
-        _dockerService = new DockerService(configStore, logger);
+        // Create empty configuration for tests
+        var configuration = new ConfigurationBuilder().Build();
+
+        _dockerService = new DockerService(configStore, configuration, logger);
     }
 
     public async Task DisposeAsync()

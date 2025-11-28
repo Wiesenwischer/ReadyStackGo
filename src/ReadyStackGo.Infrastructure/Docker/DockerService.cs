@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using Docker.DotNet;
 using Docker.DotNet.Models;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Containers;
 using ReadyStackGo.Application.Containers.DTOs;
@@ -12,13 +13,15 @@ namespace ReadyStackGo.Infrastructure.Docker;
 public class DockerService : IDockerService, IDisposable
 {
     private readonly IConfigStore _configStore;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<DockerService> _logger;
     private readonly ConcurrentDictionary<string, DockerClient> _clientCache = new();
     private bool _disposed;
 
-    public DockerService(IConfigStore configStore, ILogger<DockerService> logger)
+    public DockerService(IConfigStore configStore, IConfiguration configuration, ILogger<DockerService> logger)
     {
         _configStore = configStore;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -315,31 +318,58 @@ public class DockerService : IDockerService, IDisposable
         {
             // Extract registry from image name
             var registry = GetRegistryFromImage(image);
+            _logger.LogInformation("Looking for credentials for image {Image}, registry: {Registry}", image, registry);
 
             // Read Docker config file
             var configPath = GetDockerConfigPath();
+            _logger.LogInformation("Docker config path: {Path}", configPath);
+
             if (!File.Exists(configPath))
             {
-                _logger.LogDebug("Docker config file not found at {Path}", configPath);
+                _logger.LogWarning("Docker config file not found at {Path}", configPath);
                 return null;
             }
 
             var configJson = File.ReadAllText(configPath);
             var config = JsonSerializer.Deserialize<DockerConfigFile>(configJson);
 
-            if (config?.Auths == null || !config.Auths.TryGetValue(registry, out var auth))
+            // Log available registries
+            if (config?.Auths != null)
             {
-                // Try with https:// prefix
-                if (config?.Auths != null && config.Auths.TryGetValue($"https://{registry}", out auth))
-                {
-                    // Found with https prefix
-                }
-                else
-                {
-                    _logger.LogDebug("No credentials found for registry {Registry}", registry);
-                    return null;
-                }
+                _logger.LogInformation("Available registries in config: {Registries}", string.Join(", ", config.Auths.Keys));
             }
+            else
+            {
+                _logger.LogWarning("No auths section found in Docker config");
+                return null;
+            }
+
+            DockerAuthEntry? auth = null;
+            string? foundRegistry = null;
+
+            // Try exact match first
+            if (config.Auths.TryGetValue(registry, out auth))
+            {
+                foundRegistry = registry;
+            }
+            // Try with https:// prefix
+            else if (config.Auths.TryGetValue($"https://{registry}", out auth))
+            {
+                foundRegistry = $"https://{registry}";
+            }
+            // For Docker Hub, also try without /v1/
+            else if (registry == "https://index.docker.io/v1/" && config.Auths.TryGetValue("https://index.docker.io/v1", out auth))
+            {
+                foundRegistry = "https://index.docker.io/v1";
+            }
+
+            if (auth == null)
+            {
+                _logger.LogWarning("No credentials found for registry {Registry}", registry);
+                return null;
+            }
+
+            _logger.LogInformation("Found credentials for registry {Registry}", foundRegistry);
 
             // Docker stores credentials as base64(username:password)
             if (!string.IsNullOrEmpty(auth.Auth))
@@ -348,6 +378,7 @@ public class DockerService : IDockerService, IDisposable
                 var parts = decoded.Split(':', 2);
                 if (parts.Length == 2)
                 {
+                    _logger.LogInformation("Using credentials for user {Username}", parts[0]);
                     return new AuthConfig
                     {
                         Username = parts[0],
@@ -360,6 +391,7 @@ public class DockerService : IDockerService, IDisposable
             // Fallback to username/password if stored directly
             if (!string.IsNullOrEmpty(auth.Username))
             {
+                _logger.LogInformation("Using direct credentials for user {Username}", auth.Username);
                 return new AuthConfig
                 {
                     Username = auth.Username,
@@ -368,6 +400,7 @@ public class DockerService : IDockerService, IDisposable
                 };
             }
 
+            _logger.LogWarning("Auth entry found but no credentials could be extracted");
             return null;
         }
         catch (Exception ex)
@@ -405,20 +438,48 @@ public class DockerService : IDockerService, IDisposable
     }
 
     /// <summary>
-    /// Get the path to the Docker config file
+    /// Get the path to the Docker config file.
+    /// Checks configuration in this order:
+    /// 1. Docker:ConfigPath from IConfiguration (appsettings.json or environment variable DOCKER__CONFIGPATH)
+    /// 2. DOCKER_CONFIG environment variable (standard Docker convention)
+    /// 3. /root/.docker/config.json on Linux (container environment)
+    /// 4. ~/.docker/config.json (user profile)
     /// </summary>
-    private static string GetDockerConfigPath()
+    private string GetDockerConfigPath()
     {
-        // Check DOCKER_CONFIG env var first
-        var dockerConfig = Environment.GetEnvironmentVariable("DOCKER_CONFIG");
-        if (!string.IsNullOrEmpty(dockerConfig))
+        // 1. Check IConfiguration (supports appsettings.json and env vars like DOCKER__CONFIGPATH)
+        var configuredPath = _configuration["Docker:ConfigPath"];
+        if (!string.IsNullOrEmpty(configuredPath))
         {
-            return Path.Combine(dockerConfig, "config.json");
+            _logger.LogDebug("Using Docker config path from configuration: {Path}", configuredPath);
+            return configuredPath;
         }
 
-        // Default to ~/.docker/config.json
+        // 2. Check DOCKER_CONFIG env var (standard Docker convention)
+        var dockerConfigDir = _configuration["DOCKER_CONFIG"];
+        if (!string.IsNullOrEmpty(dockerConfigDir))
+        {
+            var path = Path.Combine(dockerConfigDir, "config.json");
+            _logger.LogDebug("Using Docker config from DOCKER_CONFIG: {Path}", path);
+            return path;
+        }
+
+        // 3. On Linux, prefer /root/.docker (container environment)
+        if (!OperatingSystem.IsWindows())
+        {
+            var linuxPath = "/root/.docker/config.json";
+            if (File.Exists(linuxPath))
+            {
+                _logger.LogDebug("Using Docker config from Linux root: {Path}", linuxPath);
+                return linuxPath;
+            }
+        }
+
+        // 4. Fallback to user profile (~/.docker/config.json)
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        return Path.Combine(home, ".docker", "config.json");
+        var fallbackPath = Path.Combine(home, ".docker", "config.json");
+        _logger.LogDebug("Using Docker config from user profile: {Path}", fallbackPath);
+        return fallbackPath;
     }
 
     /// <summary>
@@ -426,13 +487,19 @@ public class DockerService : IDockerService, IDisposable
     /// </summary>
     private class DockerConfigFile
     {
+        [System.Text.Json.Serialization.JsonPropertyName("auths")]
         public Dictionary<string, DockerAuthEntry>? Auths { get; set; }
     }
 
     private class DockerAuthEntry
     {
+        [System.Text.Json.Serialization.JsonPropertyName("auth")]
         public string? Auth { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("username")]
         public string? Username { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("password")]
         public string? Password { get; set; }
     }
 

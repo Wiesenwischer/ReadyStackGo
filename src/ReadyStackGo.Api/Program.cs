@@ -60,16 +60,45 @@ public class Program
 
         app.UseHttpsRedirection();
 
-        // Serve static files from wwwroot
+        // Log web root path for debugging
+        var logger = app.Services.GetRequiredService<ILogger<Program>>();
+        logger.LogInformation("WebRootPath: {WebRoot}", app.Environment.WebRootPath);
+        logger.LogInformation("ContentRootPath: {ContentRoot}", app.Environment.ContentRootPath);
+
+        // Serve static files from wwwroot with explicit configuration
+        // This ensures files are served with correct MIME types before hitting the SPA fallback
         app.UseDefaultFiles();
-        app.UseStaticFiles();
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            ServeUnknownFileTypes = false,
+            OnPrepareResponse = ctx =>
+            {
+                // Log static file requests for debugging
+                var path = ctx.File.PhysicalPath;
+                logger.LogDebug("Serving static file: {Path}", path);
+            }
+        });
 
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseFastEndpoints();
 
-        // Fallback to index.html for SPA routing (exclude API routes)
-        app.MapFallbackToFile("{*path:regex(^(?!api/).*$)}", "index.html");
+        // SPA fallback: serve index.html for non-API, non-file routes
+        // This must come after static files middleware so that actual files are served first
+        app.MapFallback(async context =>
+        {
+            // Only serve SPA for non-API routes
+            if (!context.Request.Path.StartsWithSegments("/api"))
+            {
+                context.Response.ContentType = "text/html";
+                await context.Response.SendFileAsync(
+                    Path.Combine(app.Environment.WebRootPath, "index.html"));
+            }
+            else
+            {
+                context.Response.StatusCode = 404;
+            }
+        });
 
         await app.RunAsync();
     }

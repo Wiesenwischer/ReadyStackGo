@@ -4,7 +4,10 @@ using ReadyStackGo.IntegrationTests.Infrastructure;
 namespace ReadyStackGo.IntegrationTests;
 
 /// <summary>
-/// Tests for verifying correct routing behavior for API and SPA routes
+/// Tests for verifying correct routing behavior for API and SPA routes.
+/// Note: Static file serving tests (JS/CSS MIME types) are performed via E2E tests
+/// against the Docker container, as the TestHost doesn't reliably serve static files
+/// from custom wwwroot paths.
 /// </summary>
 public class RoutingIntegrationTests : IAsyncLifetime
 {
@@ -24,6 +27,8 @@ public class RoutingIntegrationTests : IAsyncLifetime
         _client.Dispose();
         await _factory.DisposeAsync();
     }
+
+    #region SPA Fallback Tests
 
     [Theory]
     [InlineData("/nonexistent-page")]
@@ -55,6 +60,21 @@ public class RoutingIntegrationTests : IAsyncLifetime
         Assert.Contains("<!DOCTYPE html>", content, StringComparison.OrdinalIgnoreCase);
     }
 
+    #endregion
+
+    #region API Routing Tests
+
+    [Fact]
+    public async Task ApiRoute_DoesNotReturnSpaFallback()
+    {
+        // Arrange & Act
+        var response = await _client.GetAsync("/api/nonexistent");
+
+        // Assert - API routes should NOT fall back to SPA
+        // They should return a proper API error (404 or similar)
+        Assert.NotEqual(HttpStatusCode.OK, response.StatusCode);
+    }
+
     [Fact]
     public async Task HealthEndpoint_ReturnsOk()
     {
@@ -64,4 +84,6 @@ public class RoutingIntegrationTests : IAsyncLifetime
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    #endregion
 }
