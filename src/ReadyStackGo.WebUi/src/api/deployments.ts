@@ -41,6 +41,7 @@ export interface DeployComposeResponse {
   stackName?: string;
   services: DeployedServiceInfo[];
   errors: string[];
+  warnings: string[];
 }
 
 export interface DeploymentSummary {

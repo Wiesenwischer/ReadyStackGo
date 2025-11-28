@@ -72,5 +72,6 @@ public class DeploymentResult
     public string? StackVersion { get; set; }
     public List<string> DeployedContexts { get; set; } = new();
     public List<string> Errors { get; set; } = new();
+    public List<string> Warnings { get; set; } = new();
     public DateTime DeploymentTime { get; set; }
 }

@@ -168,17 +168,25 @@ public class DeploymentService : IDeploymentService
             _logger.LogInformation("Successfully deployed stack {StackName} with deployment ID {DeploymentId}",
                 request.StackName, deploymentId);
 
+            // Build success message with warning hint
+            var message = $"Successfully deployed {request.StackName}";
+            if (result.Warnings.Count > 0)
+            {
+                message += $" (with {result.Warnings.Count} warning{(result.Warnings.Count > 1 ? "s" : "")})";
+            }
+
             return new DeployComposeResponse
             {
                 Success = true,
-                Message = $"Successfully deployed {request.StackName}",
+                Message = message,
                 DeploymentId = deploymentId,
                 StackName = request.StackName,
                 Services = result.DeployedContexts.Select(c => new DeployedServiceInfo
                 {
                     ServiceName = c,
                     Status = "running"
-                }).ToList()
+                }).ToList(),
+                Warnings = result.Warnings
             };
         }
         catch (Exception ex)

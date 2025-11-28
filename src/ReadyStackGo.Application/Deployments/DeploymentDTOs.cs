@@ -85,6 +85,7 @@ public class DeployComposeResponse
     public string? StackName { get; set; }
     public List<DeployedServiceInfo> Services { get; set; } = new();
     public List<string> Errors { get; set; } = new();
+    public List<string> Warnings { get; set; } = new();
 }
 
 /// <summary>

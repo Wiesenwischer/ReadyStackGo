@@ -21,6 +21,7 @@ export default function DeployComposeModal({ isOpen, onClose, onDeploySuccess, p
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
   const [services, setServices] = useState<string[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [deployWarnings, setDeployWarnings] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -76,6 +77,7 @@ export default function DeployComposeModal({ isOpen, onClose, onDeploySuccess, p
     setVariableValues({});
     setServices([]);
     setWarnings([]);
+    setDeployWarnings([]);
     setError('');
     setIsLoading(false);
   };
@@ -170,11 +172,16 @@ export default function DeployComposeModal({ isOpen, onClose, onDeploySuccess, p
         return;
       }
 
+      // Store any warnings from the deployment
+      setDeployWarnings(response.warnings || []);
       setStep('success');
+
+      // If there are warnings, show them longer before closing
+      const delay = response.warnings?.length > 0 ? 5000 : 2000;
       setTimeout(() => {
         onDeploySuccess();
         handleClose();
-      }, 2000);
+      }, delay);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Deployment failed');
       setStep('error');
@@ -353,7 +360,19 @@ services:
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <p className="text-lg font-medium text-gray-900 dark:text-white">Stack deployed successfully!</p>
+              <p className="text-lg font-medium text-gray-900 dark:text-white">
+                Stack deployed successfully!
+              </p>
+              {deployWarnings.length > 0 && (
+                <div className="mt-4 w-full p-3 text-sm text-yellow-800 bg-yellow-100 rounded-lg dark:bg-yellow-900/30 dark:text-yellow-400">
+                  <p className="font-medium mb-1">Warnings:</p>
+                  <ul className="ml-4 list-disc">
+                    {deployWarnings.map((w, i) => (
+                      <li key={i}>{w}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 

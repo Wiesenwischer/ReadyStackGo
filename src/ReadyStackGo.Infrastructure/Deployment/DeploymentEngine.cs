@@ -143,7 +143,11 @@ public class DeploymentEngine : IDeploymentEngine
             {
                 try
                 {
-                    await DeployStepAsync(environmentId, step, defaultNetwork, stackName);
+                    var warning = await DeployStepAsync(environmentId, step, defaultNetwork, stackName);
+                    if (warning != null)
+                    {
+                        result.Warnings.Add(warning);
+                    }
                     result.DeployedContexts.Add(step.ContextName);
                     _logger.LogInformation("Successfully deployed context {Context}", step.ContextName);
                 }
@@ -384,10 +388,15 @@ public class DeploymentEngine : IDeploymentEngine
         }
     }
 
-    private async Task DeployStepAsync(string environmentId, DeploymentStep step, string defaultNetwork, string stackName)
+    /// <summary>
+    /// Deploys a single step and returns a warning message if a local image fallback was used.
+    /// </summary>
+    private async Task<string?> DeployStepAsync(string environmentId, DeploymentStep step, string defaultNetwork, string stackName)
     {
         _logger.LogInformation("Deploying step {Context} (order: {Order}) in environment {EnvironmentId}",
             step.ContextName, step.Order, environmentId);
+
+        string? warning = null;
 
         // Stop and remove existing container if it exists
         try
@@ -435,6 +444,7 @@ public class DeploymentEngine : IDeploymentEngine
                 throw new InvalidOperationException(errorMessage);
             }
 
+            warning = $"Image '{fullImageName}' could not be pulled - using existing local image. The deployed version may be outdated.";
             _logger.LogWarning("Using existing local image {Image} (pull failed: {Error})", fullImageName, pullError);
         }
 
@@ -475,6 +485,8 @@ public class DeploymentEngine : IDeploymentEngine
             imageTag,
             step.EnvVars.Count,
             networks.Count);
+
+        return warning;
     }
 
     private async Task UpdateReleaseConfigAsync(DeploymentPlan plan)
