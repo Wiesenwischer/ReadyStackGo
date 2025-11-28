@@ -403,11 +403,6 @@ services:
                   </ul>
                 </div>
               )}
-              {autoCloseSeconds !== null && (
-                <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-                  Closing in {autoCloseSeconds} second{autoCloseSeconds !== 1 ? 's' : ''}...
-                </p>
-              )}
             </div>
           )}
 
@@ -478,9 +473,9 @@ services:
                 onDeploySuccess();
                 handleClose();
               }}
-              className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700"
+              className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 min-w-[80px]"
             >
-              OK
+              OK{autoCloseSeconds !== null && ` (${autoCloseSeconds})`}
             </button>
           )}
 
