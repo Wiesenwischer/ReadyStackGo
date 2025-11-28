@@ -17,7 +17,7 @@ public class StackSourceEndpointsIntegrationTests : AuthenticatedTestBase
     public async Task GET_ListStackDefinitions_ReturnsSuccess()
     {
         // Arrange & Act
-        var response = await Client.GetAsync("/api/stack-sources/stacks");
+        var response = await Client.GetAsync("/api/stacks");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -27,7 +27,7 @@ public class StackSourceEndpointsIntegrationTests : AuthenticatedTestBase
     public async Task GET_ListStackDefinitions_ReturnsArrayOfStacks()
     {
         // Arrange & Act
-        var stacks = await Client.GetFromJsonAsync<List<StackDefinitionDto>>("/api/stack-sources/stacks");
+        var stacks = await Client.GetFromJsonAsync<List<StackDefinitionDto>>("/api/stacks");
 
         // Assert
         stacks.Should().NotBeNull();
@@ -38,7 +38,7 @@ public class StackSourceEndpointsIntegrationTests : AuthenticatedTestBase
     public async Task GET_ListStackDefinitions_StacksHaveRequiredProperties()
     {
         // Arrange & Act
-        var stacks = await Client.GetFromJsonAsync<List<StackDefinitionDto>>("/api/stack-sources/stacks");
+        var stacks = await Client.GetFromJsonAsync<List<StackDefinitionDto>>("/api/stacks");
 
         // Assert
         if (stacks != null && stacks.Count > 0)
@@ -59,7 +59,7 @@ public class StackSourceEndpointsIntegrationTests : AuthenticatedTestBase
         using var unauthClient = CreateUnauthenticatedClient();
 
         // Act
-        var response = await unauthClient.GetAsync("/api/stack-sources/stacks");
+        var response = await unauthClient.GetAsync("/api/stacks");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -73,7 +73,7 @@ public class StackSourceEndpointsIntegrationTests : AuthenticatedTestBase
     public async Task GET_GetStackDefinition_ValidId_ReturnsStackDetail()
     {
         // Arrange - first get list of stacks
-        var stacks = await Client.GetFromJsonAsync<List<StackDefinitionDto>>("/api/stack-sources/stacks");
+        var stacks = await Client.GetFromJsonAsync<List<StackDefinitionDto>>("/api/stacks");
         if (stacks == null || stacks.Count == 0)
         {
             // Skip if no stacks available
@@ -83,7 +83,7 @@ public class StackSourceEndpointsIntegrationTests : AuthenticatedTestBase
         var stackId = stacks.First().Id;
 
         // Act
-        var response = await Client.GetAsync($"/api/stack-sources/stacks/{Uri.EscapeDataString(stackId)}");
+        var response = await Client.GetAsync($"/api/stacks/{Uri.EscapeDataString(stackId)}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -101,7 +101,7 @@ public class StackSourceEndpointsIntegrationTests : AuthenticatedTestBase
         var invalidId = "non-existent-stack-id-12345";
 
         // Act
-        var response = await Client.GetAsync($"/api/stack-sources/stacks/{invalidId}");
+        var response = await Client.GetAsync($"/api/stacks/{invalidId}");
 
         // Assert
         response.StatusCode.Should().BeOneOf(HttpStatusCode.NotFound, HttpStatusCode.BadRequest);
@@ -114,7 +114,7 @@ public class StackSourceEndpointsIntegrationTests : AuthenticatedTestBase
         using var unauthClient = CreateUnauthenticatedClient();
 
         // Act
-        var response = await unauthClient.GetAsync("/api/stack-sources/stacks/any-id");
+        var response = await unauthClient.GetAsync("/api/stacks/any-id");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -224,7 +224,7 @@ public class StackSourceEndpointsIntegrationTests : AuthenticatedTestBase
     public async Task GET_GetStackDefinition_IncludesVariablesWithDefaults()
     {
         // Arrange - get a stack with variables
-        var stacks = await Client.GetFromJsonAsync<List<StackDefinitionDto>>("/api/stack-sources/stacks");
+        var stacks = await Client.GetFromJsonAsync<List<StackDefinitionDto>>("/api/stacks");
         var stackWithVars = stacks?.FirstOrDefault(s => s.Variables.Count > 0);
 
         if (stackWithVars == null)
@@ -234,7 +234,7 @@ public class StackSourceEndpointsIntegrationTests : AuthenticatedTestBase
         }
 
         // Act
-        var response = await Client.GetAsync($"/api/stack-sources/stacks/{Uri.EscapeDataString(stackWithVars.Id)}");
+        var response = await Client.GetAsync($"/api/stacks/{Uri.EscapeDataString(stackWithVars.Id)}");
         var detail = await response.Content.ReadFromJsonAsync<StackDefinitionDetailDto>();
 
         // Assert

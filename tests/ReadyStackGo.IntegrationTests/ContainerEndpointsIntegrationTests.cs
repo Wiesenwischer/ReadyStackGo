@@ -20,10 +20,11 @@ public class ContainerEndpointsIntegrationTests : AuthenticatedTestBase
     protected override async Task OnInitializedAsync()
     {
         // Starte einen Test-Container für die API-Tests
+        // Use random host port to avoid conflicts in parallel test runs
         _testContainer = new ContainerBuilder()
             .WithImage("nginx:alpine")
             .WithName($"readystackgo-api-test-{Guid.NewGuid():N}")
-            .WithPortBinding(8081, 80)
+            .WithPortBinding(0, 80) // 0 = random available port
             .Build();
 
         await _testContainer.StartAsync();
@@ -131,14 +132,15 @@ public class ContainerEndpointsIntegrationTests : AuthenticatedTestBase
         var contentLength = response.Content.Headers.ContentLength;
         var responseBody = await response.Content.ReadAsStringAsync();
 
-        // The response should be empty or parseable
+        // The response should be empty or a minimal JSON object
         // If the body is empty, it should not cause JSON parsing errors
-        var isEmptyResponse = response.StatusCode == HttpStatusCode.NoContent
+        var isValidResponse = response.StatusCode == HttpStatusCode.NoContent
                               || contentLength == 0
-                              || string.IsNullOrWhiteSpace(responseBody);
+                              || string.IsNullOrWhiteSpace(responseBody)
+                              || responseBody == "{}"; // Empty JSON object is also valid
 
-        isEmptyResponse.Should().BeTrue(
-            $"Response should be empty for stop container. " +
+        isValidResponse.Should().BeTrue(
+            $"Response should be empty or minimal JSON for stop container. " +
             $"Status: {response.StatusCode}, ContentLength: {contentLength}, Body: '{responseBody}'");
     }
 

@@ -15,7 +15,7 @@ networks:
 
 services:
   identity-api:
-    image: ${REGISTRY:-amssolution}/identityaccess.identityserver:linux-latest
+    image: ${REGISTRY:-amssolution}/identityaccess.identityserver:linux-latest2
     ports:
       - "7614:8080"
     restart: unless-stopped

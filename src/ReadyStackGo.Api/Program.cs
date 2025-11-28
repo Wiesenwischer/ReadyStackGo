@@ -68,8 +68,8 @@ public class Program
         app.UseAuthorization();
         app.UseFastEndpoints();
 
-        // Fallback to index.html for SPA routing
-        app.MapFallbackToFile("index.html");
+        // Fallback to index.html for SPA routing (exclude API routes)
+        app.MapFallbackToFile("{*path:regex(^(?!api/).*$)}", "index.html");
 
         await app.RunAsync();
     }
