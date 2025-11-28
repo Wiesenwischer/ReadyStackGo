@@ -45,16 +45,16 @@ RUN dotnet publish src/ReadyStackGo.Api/ReadyStackGo.Api.csproj \
 # Stage 3: Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 
+# Install curl for healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy published application
 COPY --from=backend-build /app/publish .
 
-# Copy example stacks for default stack source
-COPY examples/ ./examples/
-
-# Create config directory
-RUN mkdir -p /app/config
+# Create directories for config and stacks mount point
+RUN mkdir -p /app/config /app/stacks
 
 # Expose ports
 EXPOSE 8080 8443

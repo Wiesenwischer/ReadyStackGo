@@ -4,6 +4,7 @@ Dieses Dokument beschreibt die Sicherheitsarchitektur von ReadyStackGo.
 
 ## Themen
 
+- [Initial Setup Security](Initial-Setup.md) - Sicherheit während der Ersteinrichtung
 - Authentifizierung (Local + OIDC)
 - Autorisierung (Rollen)
 - JWT Tokens

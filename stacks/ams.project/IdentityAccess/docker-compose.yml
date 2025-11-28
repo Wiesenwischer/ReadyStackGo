@@ -1,0 +1,138 @@
+# Identity Provider for ams.project
+# based on IdentiyServer
+
+name:
+  ams-project-identityaccess
+
+networks:
+  ams-project-identity:
+    name: ams-project-identity-${ENVIRONMENT_NAME:-local}
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.bridge.host_binding_ipv4: "0.0.0.0"
+  ams-project-infra:
+    name: ams-project-infra-${ENVIRONMENT_NAME:-local}
+    external: true
+
+services:
+  identity-api:
+    image: ${REGISTRY:-amssolution}/identityaccess.identityserver:linux-latest
+    ports:
+      - "7614:8080"
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://0.0.0.0:8080;https://0.0.0.0:8443
+      - ConnectionStrings__IdentityAccess=${IDENTITY_ACCESS_DB}
+      - ConnectionStrings__ams=${AMS_DB:-Server=ams-mssql-${ENVIRONMENT_NAME:-local};Database=main;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;}
+      - ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker=${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER:-120}
+      - ExitOnCriticalError=${EXIT_ON_CRITICAL_ERROR:-false}
+      - CultureCode=${CULTURE_CODE:-de-DE}
+      - IdentityServerUrl=http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:7614
+      - Serilog__LogstashUrl=http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      - Serilog__MinimumLevel=${MIN_LOG_LEVEL:-Fatal}      
+      - CertificatePath=${IDENTITY_ACCESS_CERT_PATH:-/etc/ssl/certs/identity-api.pfx}
+      - CertificatePassword=${IDENTITY_ACCESS_CERT_PASSWORD:-P@ssw0rd!}
+      - SERVICE_BUS_CATALOG=${SERVICE_BUS_CATALOG}
+    volumes:
+      - profilePictures:/app/wwwroot/picture
+      - type: bind
+        source: ./certs
+        target: /etc/ssl/certs
+        read_only: true
+    networks:
+      - ams-project-identity
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "${LOG_MAX_SIZE:-5m}"
+        max-file: "${LOG_MAX_FILE:-3}"
+        
+  adminportal:
+    image: ${REGISTRY:-amssolution}/identityaccess.adminportal:linux-latest
+    restart: unless-stopped
+    ports:
+      - "7615:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://0.0.0.0:8080 
+      - ConnectionStrings__IdentityAccess=${IDENTITY_ACCESS_DB}
+      - ConnectionStrings__ams=${AMS_DB:-Server=ams-mssql-${ENVIRONMENT_NAME:-local};Database=main;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;}
+      - ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker=${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER:-120}
+      - ExitOnCriticalError=${EXIT_ON_CRITICAL_ERROR:-false}
+      - CultureCode=${CULTURE_CODE:-de-DE}
+      - IdentityServerUrl=http://identity-api      
+      - Serilog__LogstashUrl=http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      - Serilog__MinimumLevel=${MIN_LOG_LEVEL:-Fatal}      
+      - SERVICE_BUS_CATALOG=${SERVICE_BUS_CATALOG}
+    networks:
+      - ams-project-identity
+      - ams-project-infra
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "${LOG_MAX_SIZE:-5m}"
+        max-file: "${LOG_MAX_FILE:-3}"    
+
+  identityaccess-clienthub:
+    image: ${REGISTRY:-amssolution}/identityaccess.clienthub:linux-latest
+    restart: unless-stopped
+    ports:
+      - "7616:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://0.0.0.0:8080
+      - ConnectionStrings__IdentityAccess=${IDENTITY_ACCESS_DB}
+      - ConnectionStrings__ams=${AMS_DB:-Server=ams-mssql-${ENVIRONMENT_NAME:-local};Database=main;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;}
+      - ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker=${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER:-120}
+      - ExitOnCriticalError=${EXIT_ON_CRITICAL_ERROR:-false}
+      - Serilog__LogstashUrl=http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      - Serilog__MinimumLevel=${MIN_LOG_LEVEL:-Fatal}
+      - SERVICE_BUS_CATALOG=${SERVICE_BUS_CATALOG}
+    networks:
+      - ams-project-identity
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "${LOG_MAX_SIZE:-5m}"
+        max-file: "${LOG_MAX_FILE:-3}"
+
+  identityaccess-emailsender:
+    image: ${REGISTRY:-amssolution}/identityaccess.emailsender:linux-latest
+    restart: unless-stopped
+    ports:
+      - "7617:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://0.0.0.0:80    
+      - ConnectionStrings__IdentityAccess=${IDENTITY_ACCESS_DB}
+      - ConnectionStrings__ams=${AMS_DB:-Server=ams-mssql-${ENVIRONMENT_NAME:-local};Database=main;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;}
+      - ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker=${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER:-120}
+      - ExitOnCriticalError=${EXIT_ON_CRITICAL_ERROR:-false}
+      - CultureCode=${CULTURE_CODE} 
+      - EmailSettings__MailServer=${MAIL_SERVER}
+      - EmailSettings__Port=${MAIL_PORT}
+      - EmailSettings__SenderName=${MAIL_SENDER_NAME}
+      - EmailSettings__Sender=${MAIL_SENDER}
+      - EmailSettings__Password=${MAIL_PASSWORD}
+      - EmailSettings__IsAuthenticationRequired=${MAIL_IS_AUTHENTICATION_REQUIRED}
+      - Serilog__LogstashUrl=http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      - Serilog__MinimumLevel=${MIN_LOG_LEVEL:-Fatal}      
+      - SERVICE_BUS_CATALOG=${SERVICE_BUS_CATALOG}
+    volumes: 
+      - type: bind
+        source: ./certs
+        target: /etc/ssl/certs
+        read_only: false 
+    networks:
+      - ams-project-identity
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "${LOG_MAX_SIZE:-5m}"
+        max-file: "${LOG_MAX_FILE:-3}"    
+
+volumes:
+   profilePictures:

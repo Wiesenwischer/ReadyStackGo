@@ -13,9 +13,11 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - rsgo-config:/app/config
+      - ./stacks:/app/stacks
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
+      - ConfigPath=/app/config
     restart: unless-stopped
     networks:
       - rsgo-net

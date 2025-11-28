@@ -111,6 +111,38 @@ public class ContainerEndpointsIntegrationTests : AuthenticatedTestBase
     }
 
     [Fact]
+    public async Task POST_StopContainer_ReturnsNoContentOrEmptyBody()
+    {
+        // Arrange - Sicherstellen dass Container läuft
+        if (_testContainer!.State != TestcontainersStates.Running)
+        {
+            await _testContainer.StartAsync();
+        }
+        await Task.Delay(1000);
+
+        // Act
+        var response = await Client.PostAsync($"/api/containers/{_testContainer.Id}/stop?environment={EnvironmentId}", null);
+
+        // Assert
+        response.IsSuccessStatusCode.Should().BeTrue();
+
+        // Verify the response is properly handled for empty body scenarios
+        // Either 204 No Content, or 200 with empty body / content-length 0
+        var contentLength = response.Content.Headers.ContentLength;
+        var responseBody = await response.Content.ReadAsStringAsync();
+
+        // The response should be empty or parseable
+        // If the body is empty, it should not cause JSON parsing errors
+        var isEmptyResponse = response.StatusCode == HttpStatusCode.NoContent
+                              || contentLength == 0
+                              || string.IsNullOrWhiteSpace(responseBody);
+
+        isEmptyResponse.Should().BeTrue(
+            $"Response should be empty for stop container. " +
+            $"Status: {response.StatusCode}, ContentLength: {contentLength}, Body: '{responseBody}'");
+    }
+
+    [Fact]
     public async Task GET_Containers_ReturnsCorsHeaders()
     {
         // Act

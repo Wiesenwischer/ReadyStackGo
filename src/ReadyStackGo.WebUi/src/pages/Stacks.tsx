@@ -199,7 +199,7 @@ export default function Stacks() {
                           {stack.name}
                         </h5>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {stack.sourceId}
+                          {stack.relativePath ? `${stack.sourceName} / ${stack.relativePath}` : stack.sourceName}
                         </p>
                       </div>
                       <button
@@ -212,7 +212,7 @@ export default function Stacks() {
                     </div>
 
                     {stack.description && (
-                      <p className="mb-3 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                      <p className="mb-3 text-sm text-gray-600 dark:text-gray-400 whitespace-pre-line line-clamp-2">
                         {stack.description}
                       </p>
                     )}

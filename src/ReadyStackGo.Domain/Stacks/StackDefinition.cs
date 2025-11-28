@@ -46,6 +46,12 @@ public class StackDefinition
     public string? FilePath { get; init; }
 
     /// <summary>
+    /// Relative path from the stack source root (e.g., "examples" or "ams.project")
+    /// Used for display in the UI to show where the stack is located
+    /// </summary>
+    public string? RelativePath { get; init; }
+
+    /// <summary>
     /// Additional compose files (e.g., docker-compose.override.yml)
     /// These will be merged with the main YamlContent during deployment
     /// </summary>

@@ -1,7 +1,6 @@
-version: '3.8'
-
 # Simple Nginx Stack
 # A minimal stack with no configuration - good for testing basic deployment
+version: '3.8'
 
 services:
   web:

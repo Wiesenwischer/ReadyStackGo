@@ -84,11 +84,20 @@ export async function apiPost<T = void>(path: string, body?: unknown): Promise<T
     throw new Error(errorMessage);
   }
 
-  if (response.status === 204 || response.headers.get('content-length') === '0') {
+  // Handle empty responses - check multiple conditions
+  const contentLength = response.headers.get('content-length');
+  if (response.status === 204 || contentLength === '0') {
     return undefined as T;
   }
 
-  return response.json();
+  // For responses that might have empty body without content-length header
+  const text = await response.text();
+  if (!text || text.trim() === '') {
+    return undefined as T;
+  }
+
+  // Parse the text as JSON
+  return JSON.parse(text) as T;
 }
 
 export async function apiPut<T = void>(path: string, body?: unknown): Promise<T> {
@@ -106,11 +115,20 @@ export async function apiPut<T = void>(path: string, body?: unknown): Promise<T>
     throw new Error(`API request failed: ${response.statusText}`);
   }
 
-  if (response.status === 204 || response.headers.get('content-length') === '0') {
+  // Handle empty responses - check multiple conditions
+  const contentLength = response.headers.get('content-length');
+  if (response.status === 204 || contentLength === '0') {
     return undefined as T;
   }
 
-  return response.json();
+  // For responses that might have empty body without content-length header
+  const text = await response.text();
+  if (!text || text.trim() === '') {
+    return undefined as T;
+  }
+
+  // Parse the text as JSON
+  return JSON.parse(text) as T;
 }
 
 export async function apiDelete<T = void>(path: string): Promise<T> {
@@ -127,9 +145,18 @@ export async function apiDelete<T = void>(path: string): Promise<T> {
     throw new Error(`API request failed: ${response.statusText}`);
   }
 
-  if (response.status === 204 || response.headers.get('content-length') === '0') {
+  // Handle empty responses - check multiple conditions
+  const contentLength = response.headers.get('content-length');
+  if (response.status === 204 || contentLength === '0') {
     return undefined as T;
   }
 
-  return response.json();
+  // For responses that might have empty body without content-length header
+  const text = await response.text();
+  if (!text || text.trim() === '') {
+    return undefined as T;
+  }
+
+  // Parse the text as JSON
+  return JSON.parse(text) as T;
 }

@@ -1,7 +1,6 @@
-version: '3.8'
-
 # Whoami Stack
 # Simple HTTP service that returns container info - useful for testing
+version: '3.8'
 
 services:
   whoami:

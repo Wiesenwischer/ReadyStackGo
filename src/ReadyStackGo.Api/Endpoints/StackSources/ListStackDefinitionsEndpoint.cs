@@ -20,12 +20,17 @@ public class ListStackDefinitionsEndpoint : EndpointWithoutRequest<IEnumerable<S
     public override async Task HandleAsync(CancellationToken ct)
     {
         var stacks = await StackSourceService.GetStacksAsync(ct);
+        var sources = await StackSourceService.GetSourcesAsync(ct);
+        var sourceNames = sources.ToDictionary(s => s.Id, s => s.Name);
+
         Response = stacks.Select(s => new StackDefinitionDto
         {
             Id = s.Id,
             SourceId = s.SourceId,
+            SourceName = sourceNames.GetValueOrDefault(s.SourceId, s.SourceId),
             Name = s.Name,
             Description = s.Description,
+            RelativePath = s.RelativePath,
             Services = s.Services,
             Variables = s.Variables.Select(v => new StackVariableDto
             {
@@ -43,8 +48,10 @@ public class StackDefinitionDto
 {
     public required string Id { get; init; }
     public required string SourceId { get; init; }
+    public required string SourceName { get; init; }
     public required string Name { get; init; }
     public string? Description { get; init; }
+    public string? RelativePath { get; init; }
     public List<string> Services { get; init; } = new();
     public List<StackVariableDto> Variables { get; init; } = new();
     public DateTime LastSyncedAt { get; init; }

@@ -2,6 +2,26 @@
 
 Stack Sources allow you to define reusable Docker Compose stack templates that can be deployed to any environment. ReadyStackGo supports loading stacks from local directories with full support for Docker Compose conventions.
 
+## Recursive Directory Search
+
+ReadyStackGo **recursively searches** all subdirectories within a stack source. This allows you to organize your stacks hierarchically:
+
+```
+stacks/
+├── ams.project/                    # Project folder
+│   ├── IdentityAccess/             # Folder-based stack
+│   │   └── docker-compose.yml
+│   └── Messaging/                  # Folder-based stack
+│       └── docker-compose.yml
+├── examples/                       # Category folder
+│   ├── WordPress/                  # Folder-based stack
+│   │   └── docker-compose.yml
+│   └── whoami.yml                  # Single-file stack
+└── redis.yml                       # Single-file stack at root
+```
+
+The **relative path** from the source root is displayed in the UI as `Source / RelativePath` (e.g., `Local / ams.project`).
+
 ## Supported Formats
 
 ReadyStackGo supports two formats for defining stacks:
@@ -14,7 +34,7 @@ Simple stacks can be defined as standalone YAML files:
 examples/
 ├── simple-nginx.yml
 ├── redis.yml
-└── whoami-stack.yml
+└── whoami.yml
 ```
 
 The filename (without extension) becomes the stack name.
@@ -25,13 +45,42 @@ Complex stacks with multiple files should use the folder-based format:
 
 ```
 examples/
-└── wordpress/
+└── WordPress/
     ├── docker-compose.yml           # Required: Main compose file
     ├── docker-compose.override.yml  # Optional: Override file (auto-merged)
     └── .env                         # Optional: Default variable values
 ```
 
 The folder name becomes the stack name.
+
+## Stack Description Extraction
+
+ReadyStackGo automatically extracts descriptions from the first comment block in your compose files:
+
+```yaml
+# IdentityServer Identity Provider
+# Standalone identity provider deployment
+# Usage: docker-compose up -d
+version: '3.8'
+services:
+  identityserver:
+    image: duendesoftware/identityserver:latest
+```
+
+**Extraction Rules:**
+- Comments **at the beginning** of the file are extracted as the description
+- Lines starting with "Usage:" are excluded
+- Maximum **2 lines** are displayed in the UI
+- Lines are joined with newlines (multi-line display)
+- Empty comments and technical markers (like `vim:` or `yaml`) are ignored
+
+**Result in UI:**
+```
+IdentityServer Identity Provider
+Standalone identity provider deployment
+```
+
+**Important:** Comments must appear **before** the `version:` line. Comments placed after `version:` will not be extracted.
 
 ## File Merging
 

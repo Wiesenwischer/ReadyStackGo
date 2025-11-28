@@ -78,9 +78,10 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
         }
 
         // First, look for folder-based stacks (directories containing docker-compose.yml)
+        // Search recursively to support nested folder structures like stacks/ams.project/identityaccess/
         var processedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var directory in Directory.GetDirectories(path))
+        foreach (var directory in Directory.GetDirectories(path, "*", SearchOption.AllDirectories))
         {
             var composeFile = Path.Combine(directory, "docker-compose.yml");
             if (!File.Exists(composeFile))
@@ -92,7 +93,7 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
             {
                 try
                 {
-                    var stack = await LoadStackFromFolderAsync(directory, composeFile, localSource.Id, cancellationToken);
+                    var stack = await LoadStackFromFolderAsync(directory, composeFile, localSource.Id, path, cancellationToken);
                     if (stack != null)
                     {
                         stacks.Add(stack);
@@ -108,12 +109,13 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
         }
 
         // Then, look for standalone YAML files (not in processed folders)
+        // Search recursively to find files in subdirectories like stacks/examples/simple-nginx.yml
         var patterns = localSource.FilePattern.Split(';', StringSplitOptions.RemoveEmptyEntries);
         var files = new List<string>();
 
         foreach (var pattern in patterns)
         {
-            files.AddRange(Directory.GetFiles(path, pattern.Trim(), SearchOption.TopDirectoryOnly));
+            files.AddRange(Directory.GetFiles(path, pattern.Trim(), SearchOption.AllDirectories));
         }
 
         foreach (var file in files.Distinct())
@@ -127,7 +129,7 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
 
             try
             {
-                var stack = await LoadStackFromFileAsync(file, localSource.Id, cancellationToken);
+                var stack = await LoadStackFromFileAsync(file, localSource.Id, path, cancellationToken);
                 if (stack != null)
                 {
                     stacks.Add(stack);
@@ -147,7 +149,7 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
     /// <summary>
     /// Load a stack from a folder containing docker-compose.yml and optional .env/override files
     /// </summary>
-    private async Task<StackDefinition?> LoadStackFromFolderAsync(string folderPath, string composeFile, string sourceId, CancellationToken cancellationToken)
+    private async Task<StackDefinition?> LoadStackFromFolderAsync(string folderPath, string composeFile, string sourceId, string basePath, CancellationToken cancellationToken)
     {
         var yamlContent = await File.ReadAllTextAsync(composeFile, cancellationToken);
 
@@ -155,6 +157,9 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
         {
             return null;
         }
+
+        // Calculate relative path from base (e.g., "examples" or "ams.project")
+        var relativePath = GetRelativePath(folderPath, basePath);
 
         // Stack name is the folder name
         var stackName = Path.GetFileName(folderPath);
@@ -251,6 +256,7 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
             Variables = variables.OrderBy(v => v.Name).ToList(),
             Services = services,
             FilePath = composeFile,
+            RelativePath = relativePath,
             AdditionalFiles = additionalFiles,
             AdditionalFileContents = additionalFileContents,
             LastSyncedAt = DateTime.UtcNow,
@@ -296,7 +302,7 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
         return result;
     }
 
-    private async Task<StackDefinition?> LoadStackFromFileAsync(string filePath, string sourceId, CancellationToken cancellationToken)
+    private async Task<StackDefinition?> LoadStackFromFileAsync(string filePath, string sourceId, string basePath, CancellationToken cancellationToken)
     {
         var yamlContent = await File.ReadAllTextAsync(filePath, cancellationToken);
 
@@ -307,6 +313,10 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
 
         // Extract stack name from filename
         var stackName = Path.GetFileNameWithoutExtension(filePath);
+
+        // Calculate relative path from base (e.g., "examples" for stacks/examples/simple-nginx.yml)
+        var fileDir = Path.GetDirectoryName(filePath);
+        var relativePath = fileDir != null ? GetRelativePathForFile(fileDir, basePath) : null;
 
         // Try to parse YAML to extract services and metadata
         var services = new List<string>();
@@ -347,6 +357,7 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
             Variables = variables,
             Services = services,
             FilePath = filePath,
+            RelativePath = relativePath,
             LastSyncedAt = DateTime.UtcNow,
             Version = version
         };
@@ -355,6 +366,7 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
     private static string? ExtractDescription(string yamlContent)
     {
         // Look for description in first comment block
+        // Skip lines starting with "Usage:" or similar command hints
         var lines = yamlContent.Split('\n');
         var descriptions = new List<string>();
 
@@ -364,7 +376,10 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
             if (trimmed.StartsWith('#'))
             {
                 var comment = trimmed.TrimStart('#').Trim();
-                if (!string.IsNullOrEmpty(comment) && !comment.StartsWith("vim:") && !comment.Contains("yaml"))
+                if (!string.IsNullOrEmpty(comment) &&
+                    !comment.StartsWith("vim:") &&
+                    !comment.Contains("yaml") &&
+                    !comment.StartsWith("Usage:", StringComparison.OrdinalIgnoreCase))
                 {
                     descriptions.Add(comment);
                 }
@@ -375,7 +390,10 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
             }
         }
 
-        return descriptions.Count > 0 ? string.Join(" ", descriptions) : null;
+        // Join with newlines for multi-line display, limit to 2 lines
+        if (descriptions.Count == 0) return null;
+        var limitedDescriptions = descriptions.Take(2);
+        return string.Join("\n", limitedDescriptions);
     }
 
     private static List<StackVariable> ExtractVariables(string yamlContent)
@@ -433,5 +451,77 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
             directory = directory.Parent;
         }
         return null;
+    }
+
+    /// <summary>
+    /// Get the relative path from basePath to targetPath, excluding the final folder name.
+    /// Used for folder-based stacks where the stack folder itself should not be included.
+    /// For example: basePath="/app/stacks", targetPath="/app/stacks/examples/wordpress" returns "examples"
+    /// </summary>
+    private static string? GetRelativePath(string targetPath, string basePath)
+    {
+        try
+        {
+            var baseDir = new DirectoryInfo(basePath);
+            var targetDir = new DirectoryInfo(targetPath);
+
+            // Get the relative path from base to target's parent (excluding the stack folder itself)
+            var targetParent = targetDir.Parent;
+            if (targetParent == null || string.Equals(targetParent.FullName, baseDir.FullName, StringComparison.OrdinalIgnoreCase))
+            {
+                // Target is directly in base path
+                return null;
+            }
+
+            // Calculate relative path
+            var relativePath = Path.GetRelativePath(baseDir.FullName, targetParent.FullName);
+
+            // Don't return "." for same directory
+            if (relativePath == ".")
+            {
+                return null;
+            }
+
+            return relativePath;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Get the relative path from basePath to the file's directory.
+    /// Used for file-based stacks where we want the folder containing the file.
+    /// For example: basePath="/app/stacks", fileDir="/app/stacks/examples" returns "examples"
+    /// </summary>
+    private static string? GetRelativePathForFile(string fileDir, string basePath)
+    {
+        try
+        {
+            var baseDir = new DirectoryInfo(basePath);
+            var targetDir = new DirectoryInfo(fileDir);
+
+            // If file is directly in base path, no relative path
+            if (string.Equals(targetDir.FullName, baseDir.FullName, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            // Calculate relative path directly to the file's directory
+            var relativePath = Path.GetRelativePath(baseDir.FullName, targetDir.FullName);
+
+            // Don't return "." for same directory
+            if (relativePath == ".")
+            {
+                return null;
+            }
+
+            return relativePath;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

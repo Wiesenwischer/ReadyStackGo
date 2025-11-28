@@ -84,9 +84,9 @@ public class StackSourceService : IStackSourceService
             {
                 new LocalDirectoryStackSource
                 {
-                    Id = "examples",
-                    Name = "Example Stacks",
-                    Path = "examples",
+                    Id = "stacks",
+                    Name = "Local",
+                    Path = "stacks",
                     FilePattern = "*.yml;*.yaml",
                     Enabled = true
                 }

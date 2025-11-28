@@ -9,8 +9,10 @@ export interface StackVariable {
 export interface StackDefinition {
   id: string;
   sourceId: string;
+  sourceName: string;
   name: string;
   description?: string;
+  relativePath?: string;
   services: string[];
   variables: StackVariable[];
   lastSyncedAt: string;
