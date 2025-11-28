@@ -24,7 +24,9 @@ export default function DeployComposeModal({ isOpen, onClose, onDeploySuccess, p
   const [deployWarnings, setDeployWarnings] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [autoCloseSeconds, setAutoCloseSeconds] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const autoCloseTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Handle preloaded stack from stack definitions
   useEffect(() => {
@@ -69,7 +71,26 @@ export default function DeployComposeModal({ isOpen, onClose, onDeploySuccess, p
     }
   }, [preloadedStack, isOpen]);
 
+  // Cleanup auto-close timer
+  const clearAutoCloseTimer = () => {
+    if (autoCloseTimerRef.current) {
+      clearInterval(autoCloseTimerRef.current);
+      autoCloseTimerRef.current = null;
+    }
+    setAutoCloseSeconds(null);
+  };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (autoCloseTimerRef.current) {
+        clearInterval(autoCloseTimerRef.current);
+      }
+    };
+  }, []);
+
   const resetModal = () => {
+    clearAutoCloseTimer();
     setStep('upload');
     setYamlContent('');
     setStackName('');
@@ -176,12 +197,21 @@ export default function DeployComposeModal({ isOpen, onClose, onDeploySuccess, p
       setDeployWarnings(response.warnings || []);
       setStep('success');
 
-      // If there are warnings, show them longer before closing
-      const delay = response.warnings?.length > 0 ? 5000 : 2000;
-      setTimeout(() => {
-        onDeploySuccess();
-        handleClose();
-      }, delay);
+      // Start auto-close countdown (10 seconds)
+      const countdownSeconds = 10;
+      setAutoCloseSeconds(countdownSeconds);
+
+      autoCloseTimerRef.current = setInterval(() => {
+        setAutoCloseSeconds(prev => {
+          if (prev === null || prev <= 1) {
+            clearAutoCloseTimer();
+            onDeploySuccess();
+            handleClose();
+            return null;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Deployment failed');
       setStep('error');
@@ -373,6 +403,11 @@ services:
                   </ul>
                 </div>
               )}
+              {autoCloseSeconds !== null && (
+                <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                  Closing in {autoCloseSeconds} second{autoCloseSeconds !== 1 ? 's' : ''}...
+                </p>
+              )}
             </div>
           )}
 
@@ -436,7 +471,20 @@ services:
             </>
           )}
 
-          {(step === 'error') && (
+          {step === 'success' && (
+            <button
+              onClick={() => {
+                clearAutoCloseTimer();
+                onDeploySuccess();
+                handleClose();
+              }}
+              className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700"
+            >
+              OK
+            </button>
+          )}
+
+          {step === 'error' && (
             <button
               onClick={() => setStep('configure')}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
