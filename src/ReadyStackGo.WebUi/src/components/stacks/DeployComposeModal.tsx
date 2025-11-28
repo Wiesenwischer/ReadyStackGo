@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { parseCompose, deployCompose, type EnvironmentVariableInfo } from '../../api/deployments';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { type StackDefinition, getStackDefinitionDetail } from '../../api/stackSources';
+import { type Stack, getStack } from '../../api/stacks';
 
 interface DeployComposeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onDeploySuccess: () => void;
-  preloadedStack?: StackDefinition | null;
+  preloadedStack?: Stack | null;
 }
 
 type Step = 'upload' | 'configure' | 'deploying' | 'success' | 'error';
@@ -34,7 +34,7 @@ export default function DeployComposeModal({ isOpen, onClose, onDeploySuccess, p
           setError('');
 
           // Fetch the full stack details including YAML content
-          const detail = await getStackDefinitionDetail(preloadedStack.id);
+          const detail = await getStack(preloadedStack.id);
 
           setYamlContent(detail.yamlContent);
           setStackName(detail.name);

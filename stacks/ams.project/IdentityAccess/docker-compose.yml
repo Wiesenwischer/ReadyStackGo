@@ -12,9 +12,6 @@ networks:
       com.docker.network.bridge.enable_icc: "true"
       com.docker.network.bridge.enable_ip_masquerade: "true"
       com.docker.network.bridge.host_binding_ipv4: "0.0.0.0"
-  ams-project-infra:
-    name: ams-project-infra-${ENVIRONMENT_NAME:-local}
-    external: true
 
 services:
   identity-api:
@@ -38,10 +35,6 @@ services:
       - SERVICE_BUS_CATALOG=${SERVICE_BUS_CATALOG}
     volumes:
       - profilePictures:/app/wwwroot/picture
-      - type: bind
-        source: ./certs
-        target: /etc/ssl/certs
-        read_only: true
     networks:
       - ams-project-identity
     logging:
@@ -69,7 +62,6 @@ services:
       - SERVICE_BUS_CATALOG=${SERVICE_BUS_CATALOG}
     networks:
       - ams-project-identity
-      - ams-project-infra
     logging:
       driver: "json-file"
       options:
@@ -121,11 +113,6 @@ services:
       - Serilog__LogstashUrl=http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
       - Serilog__MinimumLevel=${MIN_LOG_LEVEL:-Fatal}      
       - SERVICE_BUS_CATALOG=${SERVICE_BUS_CATALOG}
-    volumes: 
-      - type: bind
-        source: ./certs
-        target: /etc/ssl/certs
-        read_only: false 
     networks:
       - ams-project-identity
     logging:

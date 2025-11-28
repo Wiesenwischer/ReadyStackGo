@@ -1,10 +1,25 @@
 using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
-using ReadyStackGo.Application.Stacks.DTOs;
 using ReadyStackGo.IntegrationTests.Infrastructure;
 
 namespace ReadyStackGo.IntegrationTests;
+
+/// <summary>
+/// Response DTO for GET /api/stacks
+/// </summary>
+public class StackResponseDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string SourceId { get; set; } = string.Empty;
+    public string SourceName { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? RelativePath { get; set; }
+    public List<string> Services { get; set; } = new();
+    public DateTime LastSyncedAt { get; set; }
+    public string? Version { get; set; }
+}
 
 public class StackEndpointsIntegrationTests : AuthenticatedTestBase
 {
@@ -14,10 +29,8 @@ public class StackEndpointsIntegrationTests : AuthenticatedTestBase
         var response = await Client.GetAsync("/api/stacks");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var stacks = await response.Content.ReadFromJsonAsync<List<StackDto>>();
+        var stacks = await response.Content.ReadFromJsonAsync<List<StackResponseDto>>();
         stacks.Should().NotBeNull();
-        // After fresh wizard setup, we may not have the demo-stack
-        stacks!.Should().NotBeNull();
     }
 
     [Fact]
@@ -29,20 +42,22 @@ public class StackEndpointsIntegrationTests : AuthenticatedTestBase
     }
 
     [Fact]
-    public async Task POST_DeployStack_WithInvalidId_ReturnsNotFound()
+    public async Task GET_StackSources_ReturnsSourcesList()
     {
-        var response = await Client.PostAsJsonAsync("/api/stacks/invalid-stack/deploy", new { });
+        var response = await Client.GetAsync("/api/stack-sources");
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().NotBeNullOrEmpty();
     }
 
     [Fact]
-    public async Task DELETE_RemoveStack_WhenNotDeployed_SucceedsWithoutError()
+    public async Task POST_SyncSources_ReturnsSuccessResult()
     {
-        // Arrange - try to remove a non-existent stack
-        var response = await Client.DeleteAsync("/api/stacks/nonexistent-stack");
+        var response = await Client.PostAsync("/api/stack-sources/sync", null);
 
-        // Assert - should return NoContent or NotFound
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.NoContent, HttpStatusCode.NotFound);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Contain("success");
     }
 }

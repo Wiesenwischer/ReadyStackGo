@@ -1,20 +1,20 @@
 import { useEffect, useState } from "react";
 import { listDeployments, removeDeployment, type DeploymentSummary } from "../api/deployments";
-import { getStackDefinitions, syncSources, type StackDefinition } from "../api/stackSources";
+import { getStacks, syncSources, type Stack } from "../api/stacks";
 import { useEnvironment } from "../context/EnvironmentContext";
 import DeployComposeModal from "../components/stacks/DeployComposeModal";
 
 export default function Stacks() {
   const { activeEnvironment } = useEnvironment();
   const [deployments, setDeployments] = useState<DeploymentSummary[]>([]);
-  const [stackDefinitions, setStackDefinitions] = useState<StackDefinition[]>([]);
+  const [stacks, setStacks] = useState<Stack[]>([]);
   const [loading, setLoading] = useState(true);
   const [stacksLoading, setStacksLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
-  const [selectedStack, setSelectedStack] = useState<StackDefinition | null>(null);
+  const [selectedStack, setSelectedStack] = useState<Stack | null>(null);
 
   const loadDeployments = async () => {
     if (!activeEnvironment) {
@@ -39,14 +39,14 @@ export default function Stacks() {
     }
   };
 
-  const loadStackDefinitions = async () => {
+  const loadStacks = async () => {
     try {
       setStacksLoading(true);
-      const stacks = await getStackDefinitions();
-      setStackDefinitions(stacks);
+      const data = await getStacks();
+      setStacks(data);
     } catch (err) {
-      console.error("Failed to load stack definitions:", err);
-      // Don't set error for stack definitions as deployments might still work
+      console.error("Failed to load stacks:", err);
+      // Don't set error for stacks as deployments might still work
     } finally {
       setStacksLoading(false);
     }
@@ -56,7 +56,7 @@ export default function Stacks() {
     try {
       setSyncing(true);
       await syncSources();
-      await loadStackDefinitions();
+      await loadStacks();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to sync sources");
     } finally {
@@ -66,7 +66,7 @@ export default function Stacks() {
 
   useEffect(() => {
     loadDeployments();
-    loadStackDefinitions();
+    loadStacks();
   }, [activeEnvironment]);
 
   const handleRemove = async (stackName: string) => {
@@ -83,7 +83,7 @@ export default function Stacks() {
     }
   };
 
-  const handleDeploy = (stack: StackDefinition) => {
+  const handleDeploy = (stack: Stack) => {
     setSelectedStack(stack);
     setIsDeployModalOpen(true);
   };
@@ -179,7 +179,7 @@ export default function Stacks() {
                 Loading available stacks...
               </p>
             </div>
-          ) : stackDefinitions.length === 0 ? (
+          ) : stacks.length === 0 ? (
             <div className="border-t border-stroke px-4 py-8 dark:border-strokedark">
               <p className="text-center text-sm text-gray-600 dark:text-gray-400">
                 No stack definitions available. Click "Sync Sources" to load stacks from configured sources.
@@ -188,7 +188,7 @@ export default function Stacks() {
           ) : (
             <div className="border-t border-stroke p-4 dark:border-strokedark">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {stackDefinitions.map((stack) => (
+                {stacks.map((stack) => (
                   <div
                     key={stack.id}
                     className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50"

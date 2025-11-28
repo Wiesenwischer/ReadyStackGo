@@ -42,10 +42,7 @@ public static class DependencyInjection
         // Docker services
         services.AddSingleton<IDockerService, DockerService>();
 
-        // Stack services
-        services.AddSingleton<IStackService, StackService>();
-
-        // Stack source services (v0.4)
+        // Stack source services
         services.AddSingleton<IStackCache, InMemoryStackCache>();
         services.AddSingleton<IStackSourceProvider, LocalDirectoryStackSourceProvider>();
         services.AddSingleton<IStackSourceService, StackSourceService>();

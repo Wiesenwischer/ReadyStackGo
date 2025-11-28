@@ -6,7 +6,7 @@ export interface StackVariable {
   isRequired: boolean;
 }
 
-export interface StackDefinition {
+export interface Stack {
   id: string;
   sourceId: string;
   sourceName: string;
@@ -17,6 +17,12 @@ export interface StackDefinition {
   variables: StackVariable[];
   lastSyncedAt: string;
   version?: string;
+}
+
+export interface StackDetail extends Stack {
+  yamlContent: string;
+  filePath?: string;
+  additionalFiles?: string[];
 }
 
 export interface StackSource {
@@ -36,10 +42,16 @@ export interface SyncResult {
   warnings: string[];
 }
 
-export async function getStackDefinitions(): Promise<StackDefinition[]> {
-  return apiGet<StackDefinition[]>('/api/stack-sources/stacks');
+// Stack API
+export async function getStacks(): Promise<Stack[]> {
+  return apiGet<Stack[]>('/api/stacks');
 }
 
+export async function getStack(stackId: string): Promise<StackDetail> {
+  return apiGet<StackDetail>(`/api/stacks/${encodeURIComponent(stackId)}`);
+}
+
+// Stack Sources API (admin)
 export async function getStackSources(): Promise<StackSource[]> {
   return apiGet<StackSource[]>('/api/stack-sources');
 }
@@ -48,12 +60,12 @@ export async function syncSources(): Promise<SyncResult> {
   return apiPost<SyncResult>('/api/stack-sources/sync');
 }
 
-export interface StackDefinitionDetail extends StackDefinition {
-  yamlContent: string;
-  filePath?: string;
-  additionalFiles?: string[];
-}
-
-export async function getStackDefinitionDetail(stackId: string): Promise<StackDefinitionDetail> {
-  return apiGet<StackDefinitionDetail>(`/api/stack-sources/stacks/${encodeURIComponent(stackId)}`);
-}
+// Re-export old names for backwards compatibility during migration
+/** @deprecated Use Stack instead */
+export type StackDefinition = Stack;
+/** @deprecated Use StackDetail instead */
+export type StackDefinitionDetail = StackDetail;
+/** @deprecated Use getStacks instead */
+export const getStackDefinitions = getStacks;
+/** @deprecated Use getStack instead */
+export const getStackDefinitionDetail = getStack;

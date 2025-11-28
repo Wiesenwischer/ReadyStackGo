@@ -17,7 +17,7 @@ public class GetDashboardStatsRequest
 
 public class GetDashboardStatsEndpoint : Endpoint<GetDashboardStatsRequest, DashboardStatsDto>
 {
-    public IStackService StackService { get; set; } = null!;
+    public IStackSourceService StackSourceService { get; set; } = null!;
     public IDockerService DockerService { get; set; } = null!;
 
     public override void Configure()
@@ -40,14 +40,16 @@ public class GetDashboardStatsEndpoint : Endpoint<GetDashboardStatsRequest, Dash
 
         try
         {
-            var stacks = await StackService.ListStacksAsync(ct);
+            var stacks = await StackSourceService.GetStacksAsync(ct);
             var containers = await DockerService.ListContainersAsync(environment, ct);
 
             var stats = new DashboardStatsDto
             {
                 TotalStacks = stacks.Count(),
-                DeployedStacks = stacks.Count(s => s.Status == "Running" || s.Status == "Deploying"),
-                NotDeployedStacks = stacks.Count(s => s.Status == "NotDeployed"),
+                // Stack definitions don't have deployment status - they're just definitions
+                // We could track deployed stacks separately in the future
+                DeployedStacks = 0,
+                NotDeployedStacks = stacks.Count(),
                 TotalContainers = containers.Count(),
                 RunningContainers = containers.Count(c => c.State == "running"),
                 StoppedContainers = containers.Count(c => c.State != "running")
