@@ -7,19 +7,19 @@ ReadyStackGo unterstützt das Pullen von Docker Images aus privaten Registries. 
 Beim Deployment eines Stacks versucht ReadyStackGo, die benötigten Images zu pullen. Für private Registries werden Credentials benötigt.
 
 **Reihenfolge der Credential-Suche:**
-1. Konfigurierte Registries in `rsgo.registries.json` (ab v0.4.2)
+1. Konfigurierte Registries in `rsgo.registries.json` (ab v0.6)
 2. Docker Config aus `~/.docker/config.json` (Fallback)
 3. Kein Auth (für öffentliche Images)
 
 ## Fehlerbehandlung
 
-Ab v0.4.1 gilt:
+Ab v0.5 gilt:
 - Wenn ein Image-Pull fehlschlägt und **kein lokales Image** existiert → **Fehler** (Deployment wird abgebrochen)
 - Wenn ein Image-Pull fehlschlägt aber ein **lokales Image existiert** → **Warnung** (lokales Image wird verwendet)
 
 Dies verhindert unbeabsichtigte Deployments mit veralteten Images.
 
-## Aktueller Stand (v0.4.1)
+## Aktueller Stand (v0.5)
 
 ### Docker Config Fallback
 
@@ -44,7 +44,7 @@ services:
     #   - /home/dokkeruser/.docker:/docker-config:ro
 ```
 
-## Geplant: Registry-Konfiguration (v0.4.2)
+## Geplant: Registry-Konfiguration (v0.6)
 
 ### Konfigurationsdatei
 
@@ -94,7 +94,7 @@ ReadyStackGo ordnet Images anhand der `imagePatterns` einer Registry zu:
 2. Image `ghcr.io/myorg/myimage:v1` → Matched `ghcr.io/*` → Registry `ghcr`
 3. Image `nginx:latest` → Kein Match → Default Registry (falls vorhanden) oder Docker Hub public
 
-## Geplant: Registry Management UI (v0.5.1)
+## Geplant: Registry Management UI (v0.8)
 
 Eine Web-Oberfläche zur Verwaltung von Registries:
 

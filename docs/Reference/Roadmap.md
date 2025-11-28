@@ -18,50 +18,50 @@ Grober Ausblick auf geplante Versionen und Features.
 - Automatische Environment Variable Detection
 - Keine globalen Connection Strings mehr
 
-### v0.4.1 – Environment Setup Flow
+### v0.5 – Environment Setup Flow
 - Nach Organization-Setup: Environment-Erstellung als optionaler Schritt
 - Nach Login: Prüfung ob Environment existiert
 - Wenn kein Environment: Environment-Übersicht mit Hinweis anzeigen
 - Navigation: Dashboard und environment-abhängige Seiten ausblenden wenn kein Environment existiert/ausgewählt
 
-### v0.4.2 – Default Registry Configuration
+### v0.6 – Default Registry Configuration
 - Standard Docker Registry Credentials konfigurierbar (Docker Hub mit Username/Password)
 - Credentials in `rsgo.registries.json` gespeichert
 - Automatische Verwendung beim Image Pull
 - Fehlerbehandlung bei fehlgeschlagenem Image Pull (Fehler statt stilles Fallback)
 
-### v0.5 – Multi-User + Database Migration + Security Hardening
+### v0.7 – Multi-User + Database Migration + Security Hardening
 - SQLite-Migration für Multi-User-Support
 - Container Health Monitoring & Rollback
 - RBAC (Role-Based Access Control)
 - Wizard Timeout (5-Minuten-Zeitfenster für Admin-Erstellung nach Serverstart)
 - API-Lockdown nach Timeout-Ablauf (wie Portainer)
 
-### v0.5.1 – Registry Management UI
+### v0.8 – Registry Management UI
 - Settings-Seite für Registry-Verwaltung
 - Mehrere Docker Registries konfigurierbar (Name, URL, Username, Password)
 - Registry Credentials per Environment überschreibbar
 - Registry-spezifische Image-Matching-Regeln
 
-### v0.6 – Release Management
+### v0.9 – Release Management
 - Release Management UI
 - Feature Flags UI
 - Advanced Connection Mode
 - Custom TLS Certificates
 
-### v0.7 – CI/CD & Monitoring
+### v0.10 – CI/CD & Monitoring
 - CI/CD Pipeline Integration
 - Stack Health Dashboard
 - Metrics & Alerting
 - Audit Logs
 
-### v0.8 – Enhanced Stack Format
+### v0.11 – Enhanced Stack Format
 - Custom Manifest Format (enhanced validation)
 - Beide Stack-Formate gleichzeitig unterstützt (Docker Compose + Custom Manifest)
 - Type Validation (Numbers, Booleans, Strings, Select)
 - Regex Validation für URL-Formate
 
-### v0.9 – Docker Volumes Management
+### v0.12 – Docker Volumes Management
 - Docker Volumes Ansicht (Liste aller Volumes pro Environment)
 - Volume Details (Size, Mount Points, Labels)
 - Volume erstellen/löschen
