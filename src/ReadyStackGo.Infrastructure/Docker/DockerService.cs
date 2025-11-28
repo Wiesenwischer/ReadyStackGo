@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using Microsoft.Extensions.Logging;
@@ -279,13 +280,20 @@ public class DockerService : IDockerService, IDisposable
         var fullImage = $"{image}:{tag}";
         _logger.LogInformation("Pulling image {Image} in environment {EnvironmentId}", fullImage, environmentId);
 
+        // Try to get auth config for the registry
+        var authConfig = GetAuthConfigForImage(image);
+        if (authConfig != null)
+        {
+            _logger.LogDebug("Using registry credentials for {Image}", image);
+        }
+
         await client.Images.CreateImageAsync(
             new ImagesCreateParameters
             {
                 FromImage = image,
                 Tag = tag
             },
-            null,
+            authConfig,
             new Progress<JSONMessage>(msg =>
             {
                 if (!string.IsNullOrEmpty(msg.Status))
@@ -296,6 +304,136 @@ public class DockerService : IDockerService, IDisposable
             cancellationToken);
 
         _logger.LogInformation("Pulled image {Image} in environment {EnvironmentId}", fullImage, environmentId);
+    }
+
+    /// <summary>
+    /// Get authentication config for a Docker image from ~/.docker/config.json
+    /// </summary>
+    private AuthConfig? GetAuthConfigForImage(string image)
+    {
+        try
+        {
+            // Extract registry from image name
+            var registry = GetRegistryFromImage(image);
+
+            // Read Docker config file
+            var configPath = GetDockerConfigPath();
+            if (!File.Exists(configPath))
+            {
+                _logger.LogDebug("Docker config file not found at {Path}", configPath);
+                return null;
+            }
+
+            var configJson = File.ReadAllText(configPath);
+            var config = JsonSerializer.Deserialize<DockerConfigFile>(configJson);
+
+            if (config?.Auths == null || !config.Auths.TryGetValue(registry, out var auth))
+            {
+                // Try with https:// prefix
+                if (config?.Auths != null && config.Auths.TryGetValue($"https://{registry}", out auth))
+                {
+                    // Found with https prefix
+                }
+                else
+                {
+                    _logger.LogDebug("No credentials found for registry {Registry}", registry);
+                    return null;
+                }
+            }
+
+            // Docker stores credentials as base64(username:password)
+            if (!string.IsNullOrEmpty(auth.Auth))
+            {
+                var decoded = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(auth.Auth));
+                var parts = decoded.Split(':', 2);
+                if (parts.Length == 2)
+                {
+                    return new AuthConfig
+                    {
+                        Username = parts[0],
+                        Password = parts[1],
+                        ServerAddress = registry
+                    };
+                }
+            }
+
+            // Fallback to username/password if stored directly
+            if (!string.IsNullOrEmpty(auth.Username))
+            {
+                return new AuthConfig
+                {
+                    Username = auth.Username,
+                    Password = auth.Password,
+                    ServerAddress = registry
+                };
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to read Docker credentials for image {Image}", image);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Extract the registry hostname from a Docker image reference.
+    /// Examples:
+    /// - nginx -> docker.io
+    /// - myregistry.com/myimage -> myregistry.com
+    /// - myregistry.com:5000/myimage -> myregistry.com:5000
+    /// </summary>
+    private static string GetRegistryFromImage(string image)
+    {
+        // If no slash, it's a Docker Hub image
+        if (!image.Contains('/'))
+        {
+            return "https://index.docker.io/v1/";
+        }
+
+        var firstPart = image.Split('/')[0];
+
+        // Check if the first part looks like a registry (contains . or :)
+        if (firstPart.Contains('.') || firstPart.Contains(':'))
+        {
+            return firstPart;
+        }
+
+        // Otherwise it's a Docker Hub user/image
+        return "https://index.docker.io/v1/";
+    }
+
+    /// <summary>
+    /// Get the path to the Docker config file
+    /// </summary>
+    private static string GetDockerConfigPath()
+    {
+        // Check DOCKER_CONFIG env var first
+        var dockerConfig = Environment.GetEnvironmentVariable("DOCKER_CONFIG");
+        if (!string.IsNullOrEmpty(dockerConfig))
+        {
+            return Path.Combine(dockerConfig, "config.json");
+        }
+
+        // Default to ~/.docker/config.json
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return Path.Combine(home, ".docker", "config.json");
+    }
+
+    /// <summary>
+    /// Docker config.json structure
+    /// </summary>
+    private class DockerConfigFile
+    {
+        public Dictionary<string, DockerAuthEntry>? Auths { get; set; }
+    }
+
+    private class DockerAuthEntry
+    {
+        public string? Auth { get; set; }
+        public string? Username { get; set; }
+        public string? Password { get; set; }
     }
 
     public async Task<ContainerDto?> GetContainerByNameAsync(string environmentId, string containerName, CancellationToken cancellationToken = default)
