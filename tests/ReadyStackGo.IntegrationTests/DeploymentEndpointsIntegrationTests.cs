@@ -425,7 +425,7 @@ volumes:
     #region Remove Deployment
 
     [Fact]
-    public async Task DELETE_RemoveDeployment_WithInvalidStackName_ReturnsError()
+    public async Task DELETE_RemoveDeployment_WithNonexistentStack_ReturnsSuccess()
     {
         // Arrange
         var environmentId = await CreateTestEnvironment("Remove Deployment Test");
@@ -434,8 +434,9 @@ volumes:
         var response = await Client.DeleteAsync($"/api/deployments/{environmentId}/nonexistent-stack");
 
         // Assert
-        // FastEndpoints ThrowError returns 400 Bad Request
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        // DELETE is idempotent per RFC 7231 - removing a non-existent stack succeeds
+        // (no containers to remove = success with no errors)
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     #endregion
