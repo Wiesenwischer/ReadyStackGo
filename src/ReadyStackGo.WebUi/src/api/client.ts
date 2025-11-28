@@ -56,9 +56,11 @@ export async function apiGet<T>(path: string): Promise<T> {
 }
 
 export async function apiPost<T = void>(path: string, body?: unknown): Promise<T> {
+  // Only include Content-Type header when there's a body to send
+  // FastEndpoints will fail to parse JSON if Content-Type is set but body is empty
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
-    headers: getAuthHeaders(),
+    headers: getAuthHeaders(!!body),
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -101,9 +103,10 @@ export async function apiPost<T = void>(path: string, body?: unknown): Promise<T
 }
 
 export async function apiPut<T = void>(path: string, body?: unknown): Promise<T> {
+  // Only include Content-Type header when there's a body to send
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'PUT',
-    headers: getAuthHeaders(),
+    headers: getAuthHeaders(!!body),
     body: body ? JSON.stringify(body) : undefined,
   });
 
