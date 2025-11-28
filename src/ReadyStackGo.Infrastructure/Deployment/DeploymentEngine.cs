@@ -405,13 +405,13 @@ public class DeploymentEngine : IDeploymentEngine
         }
 
         // Pull image
-        var imageParts = step.Image.Split(':');
-        var imageName = imageParts[0];
-        var imageTag = imageParts.Length > 1 ? imageParts[1] : step.Version;
+        var (imageName, imageTag) = ParseImageReference(step.Image, step.Version);
 
         try
         {
+            _logger.LogInformation("Pulling image {Image}:{Tag} for container {Container}", imageName, imageTag, step.ContainerName);
             await _dockerService.PullImageAsync(environmentId, imageName, imageTag);
+            _logger.LogInformation("Successfully pulled image {Image}:{Tag}", imageName, imageTag);
         }
         catch (Exception ex)
         {
@@ -472,5 +472,40 @@ public class DeploymentEngine : IDeploymentEngine
 
         await _configStore.SaveReleaseConfigAsync(releaseConfig);
         _logger.LogInformation("Updated release configuration for stack {Version}", plan.StackVersion);
+    }
+
+    /// <summary>
+    /// Parse a Docker image reference into name and tag.
+    /// Handles formats like:
+    /// - nginx:latest -> (nginx, latest)
+    /// - nginx -> (nginx, defaultTag)
+    /// - registry.example.com/myimage:v1 -> (registry.example.com/myimage, v1)
+    /// - registry.example.com:5000/myimage:v1 -> (registry.example.com:5000/myimage, v1)
+    /// - registry.example.com:5000/myimage -> (registry.example.com:5000/myimage, defaultTag)
+    /// </summary>
+    private static (string Name, string Tag) ParseImageReference(string image, string defaultTag)
+    {
+        if (string.IsNullOrEmpty(image))
+        {
+            return (image, defaultTag);
+        }
+
+        // Find the last colon that could be a tag separator
+        // A tag separator colon must:
+        // 1. Be after any slash (so registry ports like registry.com:5000/image are not confused)
+        // 2. Not have a slash after it
+        var lastSlash = image.LastIndexOf('/');
+        var lastColon = image.LastIndexOf(':');
+
+        // If there's a colon after the last slash (or no slash), it's a tag separator
+        if (lastColon > lastSlash && lastColon < image.Length - 1)
+        {
+            var name = image[..lastColon];
+            var tag = image[(lastColon + 1)..];
+            return (name, tag);
+        }
+
+        // No tag found, use default
+        return (image, defaultTag);
     }
 }
