@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   readystackgo:
-    image: readystackgo:${TAG:-latest}
+    image: amssolution/readystackgo:${TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile
