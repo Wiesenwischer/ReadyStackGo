@@ -19,7 +19,7 @@ Installation → Ersteinrichtung → Erster Stack
 Führe auf deinem Linux-Server aus:
 
 ```bash
-curl -fsSL https://get.readystackgo.io/install.sh | sudo bash
+curl -fsSL https://readystackgo.pages.dev/install.sh | sudo bash
 ```
 
 Nach erfolgreicher Installation wird die URL angezeigt:

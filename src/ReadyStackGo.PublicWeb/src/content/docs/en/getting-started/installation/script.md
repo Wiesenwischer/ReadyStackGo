@@ -10,13 +10,13 @@ The easiest way is to install with our bootstrap script. This script takes care 
 **Standard installation (Port 8080):**
 
 ```bash
-curl -fsSL https://get.readystackgo.io/install.sh | sudo bash
+curl -fsSL https://readystackgo.pages.dev/install.sh | sudo bash
 ```
 
 **With alternative port:**
 
 ```bash
-curl -fsSL https://get.readystackgo.io/install.sh | sudo bash -s 3000
+curl -fsSL https://readystackgo.pages.dev/install.sh | sudo bash -s 3000
 ```
 
 :::note

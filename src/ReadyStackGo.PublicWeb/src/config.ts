@@ -3,16 +3,16 @@
  * Change these values when the site moves to a new domain
  *
  * NOTE: Markdown files in src/content/docs/ also contain the install URL.
- * When changing the domain, search for "get.readystackgo.io" and update those files too.
+ * When changing the domain, search for "readystackgo.pages.dev" and update those files too.
  */
 
 export const config = {
 	/**
 	 * Base URL for downloads and install scripts
 	 * Set to empty string for dynamic resolution (uses current origin)
-	 * Set to a specific URL to override (e.g., 'https://get.readystackgo.io')
+	 * Set to a specific URL to override (e.g., 'https://readystackgo.pages.dev')
 	 */
-	baseUrl: '',
+	baseUrl: 'https://readystackgo.pages.dev',
 
 	/**
 	 * Install script path (relative to baseUrl)
@@ -25,7 +25,7 @@ export const config = {
  * Uses configured baseUrl or falls back to current origin
  */
 export function getInstallScriptUrl(currentOrigin?: string): string {
-	const base = config.baseUrl || currentOrigin || 'https://get.readystackgo.io';
+	const base = config.baseUrl || currentOrigin || 'https://readystackgo.pages.dev';
 	return `${base}${config.installScriptPath}`;
 }
 

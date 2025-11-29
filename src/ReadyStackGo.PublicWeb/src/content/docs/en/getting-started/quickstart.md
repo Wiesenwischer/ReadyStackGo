@@ -16,7 +16,7 @@ This guide will help you get ReadyStackGo up and running on your server in just 
 Run this command on your server:
 
 ```bash
-curl -fsSL https://get.readystackgo.io/install.sh | sudo bash
+curl -fsSL https://readystackgo.pages.dev/install.sh | sudo bash
 ```
 
 This script automatically:
