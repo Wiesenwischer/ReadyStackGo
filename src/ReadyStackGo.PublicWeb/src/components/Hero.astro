@@ -1,0 +1,71 @@
+---
+import { t, type Lang, getDocsPath } from '../i18n/translations';
+
+interface Props {
+	lang?: Lang;
+}
+
+const { lang = 'de' } = Astro.props;
+---
+
+<section class="relative overflow-hidden bg-gradient-to-b from-gray-100 to-white dark:from-gray-900 dark:to-gray-dark py-20 lg:py-28">
+	<!-- Background decoration -->
+	<div class="absolute inset-0 overflow-hidden">
+		<div class="absolute -top-40 -right-40 w-80 h-80 bg-brand-500/10 rounded-full blur-3xl"></div>
+		<div class="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-light-500/10 rounded-full blur-3xl"></div>
+	</div>
+
+	<div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+		<div class="text-center max-w-3xl mx-auto">
+			<!-- Badge -->
+			<div class="inline-flex items-center gap-2 px-4 py-2 bg-brand-50 dark:bg-brand-500/10 rounded-full mb-6">
+				<span class="w-2 h-2 bg-success-500 rounded-full animate-pulse"></span>
+				<span class="text-theme-sm font-medium text-brand-500">{t(lang, 'hero.badge')}</span>
+			</div>
+
+			<!-- Headline -->
+			<h1 class="text-title-lg sm:text-title-xl lg:text-title-2xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
+				{t(lang, 'hero.title1')}
+				<span class="text-brand-500">{t(lang, 'hero.title2')}</span>
+			</h1>
+
+			<!-- Subheadline -->
+			<p class="text-theme-xl text-gray-500 dark:text-gray-400 mb-10 max-w-2xl mx-auto">
+				{t(lang, 'hero.subtitle')}
+			</p>
+
+			<!-- CTA Buttons -->
+			<div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+				<a
+					href="#installation"
+					class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 bg-brand-500 text-white font-semibold rounded-xl hover:bg-brand-600 transition-all shadow-theme-sm hover:shadow-theme-lg"
+				>
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+					</svg>
+					{t(lang, 'hero.cta.install')}
+				</a>
+				<a
+					href={getDocsPath(lang)}
+					class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 bg-white dark:bg-gray-800 text-gray-700 dark:text-white font-semibold rounded-xl border border-gray-200 dark:border-gray-700 hover:border-brand-500 hover:text-brand-500 transition-all shadow-theme-xs"
+				>
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+					</svg>
+					{t(lang, 'hero.cta.docs')}
+				</a>
+			</div>
+
+			<!-- Quick install command -->
+			<div class="mt-12 max-w-xl mx-auto">
+				<div class="bg-gray-900 rounded-xl p-4 font-mono text-sm text-left overflow-x-auto shadow-theme-lg">
+					<div class="flex items-center gap-2 text-gray-400 mb-2">
+						<span class="text-success-500">$</span>
+						<span>{t(lang, 'hero.quickinstall')}</span>
+					</div>
+					<code class="text-blue-light-500 break-all">curl -fsSL https://get.readystackgo.io/install.sh | sudo bash</code>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>

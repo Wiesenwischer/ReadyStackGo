@@ -1,0 +1,105 @@
+---
+import { t, type Lang, getDocsPath } from '../i18n/translations';
+
+interface Props {
+	lang?: Lang;
+}
+
+const { lang = 'de' } = Astro.props;
+const otherLang = lang === 'de' ? 'en' : 'de';
+---
+
+<header class="sticky top-0 z-99 bg-white/80 backdrop-blur-md border-b border-gray-200 dark:bg-gray-900/80 dark:border-gray-800">
+	<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+		<div class="flex items-center justify-between h-16">
+			<!-- Logo -->
+			<a href={`/${lang}/home/`} class="flex items-center">
+				<img src="/images/logo/readystackgo-logo.png" alt="ReadyStackGo" class="h-10" />
+			</a>
+
+			<!-- Navigation -->
+			<nav class="hidden md:flex items-center gap-8">
+				<a href="#features" class="text-gray-600 hover:text-brand-500 transition-colors text-theme-sm font-medium dark:text-gray-300 dark:hover:text-brand-400">{t(lang, 'header.features')}</a>
+				<a href="#installation" class="text-gray-600 hover:text-brand-500 transition-colors text-theme-sm font-medium dark:text-gray-300 dark:hover:text-brand-400">{t(lang, 'header.installation')}</a>
+				<a href={getDocsPath(lang)} class="text-gray-600 hover:text-brand-500 transition-colors text-theme-sm font-medium dark:text-gray-300 dark:hover:text-brand-400">{t(lang, 'header.docs')}</a>
+			</nav>
+
+			<!-- Controls -->
+			<div class="flex items-center gap-3">
+				<!-- Language Switcher -->
+				<div class="flex items-center gap-1 text-theme-xs">
+					<a
+						href="/de/home/"
+						class={`px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${lang === 'de' ? 'text-brand-500 font-semibold' : 'text-gray-600 dark:text-gray-300'}`}
+						title="Deutsch"
+					>DE</a>
+					<span class="text-gray-300 dark:text-gray-600">|</span>
+					<a
+						href="/en/home/"
+						class={`px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${lang === 'en' ? 'text-brand-500 font-semibold' : 'text-gray-600 dark:text-gray-300'}`}
+						title="English"
+					>EN</a>
+				</div>
+
+				<!-- Dark Mode Toggle -->
+				<button
+					id="theme-toggle"
+					class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors"
+					title="Toggle dark mode"
+				>
+					<!-- Sun icon (shown in dark mode) -->
+					<svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+					</svg>
+					<!-- Moon icon (shown in light mode) -->
+					<svg class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+					</svg>
+				</button>
+
+				<!-- CTA -->
+				<a
+					href="#installation"
+					class="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 bg-brand-500 text-white font-medium rounded-lg hover:bg-brand-600 transition-colors shadow-theme-xs"
+				>
+					{t(lang, 'header.cta')}
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+					</svg>
+				</a>
+			</div>
+		</div>
+	</div>
+</header>
+
+<script>
+	// Dark mode toggle functionality
+	const themeToggle = document.getElementById('theme-toggle');
+
+	// Check for saved preference or system preference
+	const getThemePreference = () => {
+		if (localStorage.getItem('theme')) {
+			return localStorage.getItem('theme');
+		}
+		return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+	};
+
+	// Apply theme
+	const applyTheme = (theme: string) => {
+		if (theme === 'dark') {
+			document.documentElement.classList.add('dark');
+		} else {
+			document.documentElement.classList.remove('dark');
+		}
+		localStorage.setItem('theme', theme);
+	};
+
+	// Initialize
+	applyTheme(getThemePreference());
+
+	// Toggle handler
+	themeToggle?.addEventListener('click', () => {
+		const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+		applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+	});
+</script>

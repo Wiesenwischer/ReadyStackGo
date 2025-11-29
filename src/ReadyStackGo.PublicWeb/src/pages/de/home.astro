@@ -1,0 +1,20 @@
+---
+import LandingLayout from '../../layouts/LandingLayout.astro';
+import Header from '../../components/Header.astro';
+import Hero from '../../components/Hero.astro';
+import Features from '../../components/Features.astro';
+import Installation from '../../components/Installation.astro';
+import Footer from '../../components/Footer.astro';
+
+const lang = 'de';
+---
+
+<LandingLayout title="ReadyStackGo - Docker Stack Deployment leicht gemacht">
+	<Header lang={lang} />
+	<main>
+		<Hero lang={lang} />
+		<Features lang={lang} />
+		<Installation lang={lang} />
+	</main>
+	<Footer lang={lang} />
+</LandingLayout>

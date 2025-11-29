@@ -1,0 +1,41 @@
+---
+import '../styles/tailwind.css';
+
+interface Props {
+	title: string;
+	description?: string;
+}
+
+const { title, description = 'Docker Stack Deployment leicht gemacht' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="de">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="description" content={description} />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<title>{title}</title>
+		<script is:inline>
+			// Apply dark mode immediately to prevent flash
+			(function() {
+				const theme = localStorage.getItem('theme');
+				if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+					document.documentElement.classList.add('dark');
+				}
+			})();
+		</script>
+	</head>
+	<body class="bg-white dark:bg-gray-900">
+		<slot />
+	</body>
+</html>
+
+<style is:global>
+	@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+	html {
+		font-family: 'Inter', sans-serif;
+	}
+</style>
