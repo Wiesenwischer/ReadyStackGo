@@ -1,0 +1,95 @@
+---
+import type { Lang } from '../i18n/translations';
+
+interface Props {
+	lang?: Lang;
+}
+
+const { lang = 'de' } = Astro.props;
+
+const content = {
+	de: {
+		title: 'Datenschutzerklärung',
+		intro: 'Der Schutz Ihrer persönlichen Daten ist uns wichtig. Diese Datenschutzerklärung informiert Sie darüber, wie wir mit Ihren Daten umgehen.',
+		responsibleTitle: 'Verantwortlicher',
+		responsibleText: 'Verantwortlich für die Datenverarbeitung auf dieser Website ist:',
+		hostingTitle: 'Hosting',
+		hostingText: 'Diese Website wird bei Cloudflare Pages gehostet. Beim Besuch der Website werden automatisch technische Daten (z.B. IP-Adresse, Browsertyp, Zugriffszeit) in Server-Logfiles gespeichert. Diese Daten sind für den technischen Betrieb erforderlich und werden nicht mit anderen Datenquellen zusammengeführt. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse am technischen Betrieb).',
+		localStorageTitle: 'Lokale Speicherung',
+		localStorageText: 'Diese Website speichert Ihre Präferenz für den Dark-/Light-Mode im lokalen Speicher (localStorage) Ihres Browsers. Diese Daten verlassen Ihren Browser nicht und werden nicht an uns übermittelt.',
+		noCookiesTitle: 'Keine Cookies',
+		noCookiesText: 'Diese Website verwendet keine Cookies und keine Tracking- oder Analyse-Tools.',
+		rightsTitle: 'Ihre Rechte',
+		rightsText: 'Sie haben das Recht auf Auskunft, Berichtigung, Löschung und Einschränkung der Verarbeitung Ihrer personenbezogenen Daten sowie das Recht auf Datenübertragbarkeit. Bei Fragen wenden Sie sich an:',
+		changesTitle: 'Änderungen',
+		changesText: 'Wir behalten uns vor, diese Datenschutzerklärung bei Bedarf anzupassen.',
+	},
+	en: {
+		title: 'Privacy Policy',
+		intro: 'Protecting your personal data is important to us. This privacy policy informs you about how we handle your data.',
+		responsibleTitle: 'Responsible Party',
+		responsibleText: 'The party responsible for data processing on this website is:',
+		hostingTitle: 'Hosting',
+		hostingText: 'This website is hosted on Cloudflare Pages. When you visit the website, technical data (e.g., IP address, browser type, access time) is automatically stored in server log files. This data is necessary for technical operation and is not combined with other data sources. Legal basis is Art. 6(1)(f) GDPR (legitimate interest in technical operation).',
+		localStorageTitle: 'Local Storage',
+		localStorageText: 'This website stores your dark/light mode preference in your browser\'s local storage. This data does not leave your browser and is not transmitted to us.',
+		noCookiesTitle: 'No Cookies',
+		noCookiesText: 'This website does not use cookies or any tracking or analytics tools.',
+		rightsTitle: 'Your Rights',
+		rightsText: 'You have the right to access, rectification, erasure, and restriction of processing of your personal data, as well as the right to data portability. For questions, please contact:',
+		changesTitle: 'Changes',
+		changesText: 'We reserve the right to update this privacy policy as needed.',
+	},
+};
+
+const c = content[lang];
+---
+
+<section class="py-16 lg:py-20 bg-white dark:bg-gray-900">
+	<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+		<h1 class="text-title-lg font-bold text-gray-900 dark:text-white mb-6">{c.title}</h1>
+
+		<div class="space-y-8 text-gray-600 dark:text-gray-300">
+			<p>{c.intro}</p>
+
+			<div>
+				<h2 class="text-title-sm font-semibold text-gray-900 dark:text-white mb-3">{c.responsibleTitle}</h2>
+				<p class="mb-2">{c.responsibleText}</p>
+				<p>
+					Marcus Dammann<br />
+					Harlerweg 14<br />
+					26969 Butjadingen<br />
+					E-Mail: <a href="mailto:marcus@dammann.io" class="text-brand-500 hover:text-brand-600">marcus@dammann.io</a>
+				</p>
+			</div>
+
+			<div>
+				<h2 class="text-title-sm font-semibold text-gray-900 dark:text-white mb-3">{c.hostingTitle}</h2>
+				<p>{c.hostingText}</p>
+			</div>
+
+			<div>
+				<h2 class="text-title-sm font-semibold text-gray-900 dark:text-white mb-3">{c.localStorageTitle}</h2>
+				<p>{c.localStorageText}</p>
+			</div>
+
+			<div>
+				<h2 class="text-title-sm font-semibold text-gray-900 dark:text-white mb-3">{c.noCookiesTitle}</h2>
+				<p>{c.noCookiesText}</p>
+			</div>
+
+			<div>
+				<h2 class="text-title-sm font-semibold text-gray-900 dark:text-white mb-3">{c.rightsTitle}</h2>
+				<p class="mb-2">{c.rightsText}</p>
+				<p>
+					<a href="mailto:marcus@dammann.io" class="text-brand-500 hover:text-brand-600">marcus@dammann.io</a>
+				</p>
+			</div>
+
+			<div>
+				<h2 class="text-title-sm font-semibold text-gray-900 dark:text-white mb-3">{c.changesTitle}</h2>
+				<p>{c.changesText}</p>
+			</div>
+		</div>
+	</div>
+</section>
