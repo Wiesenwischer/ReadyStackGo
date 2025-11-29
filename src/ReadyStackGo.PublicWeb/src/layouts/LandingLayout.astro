@@ -19,9 +19,22 @@ const { title, description = 'Docker Stack Deployment leicht gemacht' } = Astro.
 		<title>{title}</title>
 		<script is:inline>
 			// Apply dark mode immediately to prevent flash
+			// Sync between Landing Page ('theme') and Starlight ('starlight-theme')
 			(function() {
-				const theme = localStorage.getItem('theme');
-				if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+				const landingTheme = localStorage.getItem('theme');
+				const starlightTheme = localStorage.getItem('starlight-theme');
+
+				// Determine active theme (prefer landing page setting, fallback to starlight, then system)
+				let theme = landingTheme || starlightTheme;
+				if (!theme) {
+					theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+				}
+
+				// Sync both storage keys
+				localStorage.setItem('theme', theme);
+				localStorage.setItem('starlight-theme', theme);
+
+				if (theme === 'dark') {
 					document.documentElement.classList.add('dark');
 				}
 			})();
@@ -33,9 +46,7 @@ const { title, description = 'Docker Stack Deployment leicht gemacht' } = Astro.
 </html>
 
 <style is:global>
-	@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
 	html {
-		font-family: 'Inter', sans-serif;
+		font-family: 'Noto Sans', system-ui, sans-serif;
 	}
 </style>

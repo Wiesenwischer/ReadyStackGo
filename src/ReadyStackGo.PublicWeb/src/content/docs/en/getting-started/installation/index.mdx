@@ -3,7 +3,7 @@ title: Installation
 description: Install ReadyStackGo on your server
 ---
 
-import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import { LinkCard } from '@astrojs/starlight/components';
 
 ReadyStackGo can be installed in several ways. Choose the method that best fits your environment.
 
@@ -20,6 +20,10 @@ Before you begin, ensure your system meets the following requirements:
 | **Network** | Internet access for image downloads |
 | **Permissions** | Root or sudo access |
 
+:::note[ReadyStackGo Only]
+These requirements are for ReadyStackGo itself. The container stacks you deploy will have their own CPU, RAM, and storage requirements – plan for additional resources accordingly.
+:::
+
 :::caution[Unofficial Distributions]
 Debian, CentOS, and Fedora may work but are **not officially supported**. We can only provide limited support for issues with these distributions.
 :::
@@ -28,23 +32,23 @@ Debian, CentOS, and Fedora may work but are **not officially supported**. We can
 
 ## Choose Your Installation Method
 
-<CardGrid>
-  <LinkCard
-    title="Bootstrap Script"
-    description="Recommended – One command installs everything automatically, including Docker if needed."
-    href="/en/getting-started/installation/script/"
-  />
-  <LinkCard
-    title="Docker Run"
-    description="Manual installation with a single docker run command."
-    href="/en/getting-started/installation/docker-run/"
-  />
-  <LinkCard
-    title="Docker Compose"
-    description="Structured configuration with docker-compose.yml for advanced setups."
-    href="/en/getting-started/installation/docker-compose/"
-  />
-</CardGrid>
+<LinkCard
+  title="Bootstrap Script"
+  description="Recommended – One command installs everything automatically, including Docker if needed."
+  href="/en/getting-started/installation/script/"
+/>
+
+<LinkCard
+  title="Docker Run"
+  description="Manual installation with a single docker run command."
+  href="/en/getting-started/installation/docker-run/"
+/>
+
+<LinkCard
+  title="Docker Compose"
+  description="Structured configuration with docker-compose.yml for advanced setups."
+  href="/en/getting-started/installation/docker-compose/"
+/>
 
 ---
 
@@ -58,7 +62,6 @@ http://<server-ip>:8080
 
 On first access, you will be automatically redirected to the **Setup Wizard**.
 
-<CardGrid>
-  <LinkCard title="Initial Setup" description="Configure admin account and organization in the setup wizard." href="/en/getting-started/initial-setup/" />
-  <LinkCard title="First Deployment" description="Deploy your first container stack." href="/en/getting-started/first-deployment/" />
-</CardGrid>
+<LinkCard title="Initial Setup" description="Configure admin account and organization in the setup wizard." href="/en/getting-started/initial-setup/" />
+
+<LinkCard title="First Deployment" description="Deploy your first container stack." href="/en/getting-started/first-deployment/" />

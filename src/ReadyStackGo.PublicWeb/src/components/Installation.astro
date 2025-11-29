@@ -1,11 +1,16 @@
 ---
 import { t, type Lang } from '../i18n/translations';
+import { getInstallCommand, getInstallCommandWithPort, config } from '../config';
 
 interface Props {
 	lang?: Lang;
 }
 
 const { lang = 'de' } = Astro.props;
+
+// Get install commands from config (uses current origin for dynamic URL)
+const installCmd = getInstallCommand(Astro.url.origin);
+const installCmdWithPort = getInstallCommandWithPort(3000, Astro.url.origin);
 
 const content = {
 	de: {
@@ -123,7 +128,7 @@ const c = content[lang];
 						<div class="text-gray-400 mb-1">{c.comment1}</div>
 						<div class="flex items-start gap-2">
 							<span class="text-success-500">$</span>
-							<code class="text-blue-light-500 break-all">curl -fsSL https://get.readystackgo.io/install.sh | sudo bash</code>
+							<code class="text-blue-light-500 break-all">{installCmd}</code>
 						</div>
 					</div>
 
@@ -132,7 +137,7 @@ const c = content[lang];
 						<div class="text-gray-400 mb-1">{c.comment2}</div>
 						<div class="flex items-start gap-2">
 							<span class="text-success-500">$</span>
-							<code class="text-blue-light-500 break-all">curl -fsSL https://get.readystackgo.io/install.sh | sudo bash -s 3000</code>
+							<code class="text-blue-light-500 break-all">{installCmdWithPort}</code>
 						</div>
 					</div>
 

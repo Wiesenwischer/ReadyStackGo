@@ -349,7 +349,7 @@ nav.sidebar a:hover,
 
 nav.sidebar a[aria-current="page"],
 .sidebar a[aria-current="page"] {
-  color: var(--sl-color-accent) !important;
+  color: #ffffff !important;
   font-weight: 600;
 }
 
@@ -484,10 +484,108 @@ starlight-toc a:hover {
   color: var(--sl-color-accent) !important;
 }
 
-/* Search */
+/* ============================================
+   SEARCH - TailAdmin Style
+   ============================================ */
+
+/* Override Pagefind variables at root level */
+:root {
+  --pagefind-ui-primary: #ffffff;
+  --pagefind-ui-text: #ffffff;
+  --pagefind-ui-background: #1e293b;
+  --pagefind-ui-border: #334155;
+  --pagefind-ui-tag: #475569;
+}
+
+/* Search button */
 site-search button {
-  background: var(--sl-color-bg-inline-code) !important;
-  border: 1px solid var(--sl-color-hairline) !important;
+  background: #1e293b !important;
+  border: 1px solid #334155 !important;
+}
+
+/* Search dialog background */
+dialog {
+  background: #1e293b !important;
+  border: 1px solid #334155 !important;
+}
+
+/* Force Pagefind variables in starlight context */
+#starlight__search {
+  --pagefind-ui-primary: #ffffff;
+  --pagefind-ui-text: #ffffff;
+  --pagefind-ui-background: #1e293b;
+  --pagefind-ui-border: #334155;
+  --pagefind-ui-tag: #475569;
+}
+
+/* Pagefind main container */
+[class*="pagefind-ui"] {
+  color: #ffffff !important;
+}
+
+/* Search input */
+[class*="pagefind-ui__search-input"] {
+  color: #ffffff !important;
+  background-color: #0f172a !important;
+  caret-color: #ffffff !important;
+}
+
+[class*="pagefind-ui__search-input"]::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+}
+
+/* Search icon */
+[class*="pagefind-ui__form"]::before {
+  background-color: #94a3b8 !important;
+}
+
+/* Clear button */
+[class*="pagefind-ui__search-clear"] {
+  color: #94a3b8 !important;
+  background-color: #0f172a !important;
+}
+
+/* Result title/link - WHITE */
+[class*="pagefind-ui__result-title"],
+[class*="pagefind-ui__result-link"] {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+/* Result excerpt - light gray */
+[class*="pagefind-ui__result-excerpt"] {
+  color: #cbd5e1 !important;
+}
+
+/* Nested results */
+[class*="pagefind-ui__result-nested"] {
+  color: #cbd5e1 !important;
+}
+
+/* Message */
+[class*="pagefind-ui__message"] {
+  color: #94a3b8 !important;
+}
+
+/* Highlighted matches - blue */
+[class*="pagefind-ui"] mark {
+  color: #60a5fa !important;
+  background-color: rgba(59, 130, 246, 0.3) !important;
+  font-weight: 600 !important;
+}
+
+/* Result backgrounds */
+[class*="pagefind-ui__result-inner"],
+[class*="pagefind-ui__result-title"]:not(:where([class*="pagefind-ui__result-nested"] *)),
+[class*="pagefind-ui__result-nested"] {
+  background-color: #0f172a !important;
+}
+
+/* Hover */
+[class*="pagefind-ui__result-title"]:hover,
+[class*="pagefind-ui__result-nested"]:hover {
+  background-color: #1e3a5f !important;
 }
 
 /* Pagination */
@@ -550,3 +648,11 @@ a.action,
 .action.minimal:hover {
   background-color: var(--sl-color-accent-low) !important;
 }
+
+/* ============================================
+   FIX: Site title link to landing page
+   ============================================ */
+
+/* Override the site-title link href via JavaScript workaround */
+/* Starlight generates: <a href="/de/" class="site-title"> */
+/* We want it to link to "/" instead */

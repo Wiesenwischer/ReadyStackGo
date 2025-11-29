@@ -23,8 +23,9 @@ if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; th
 fi
 
 CONTAINER_NAME="readystackgo"
-IMAGE_NAME="ghcr.io/ams/readystackgo:latest"
-DATA_DIR="/var/readystackgo"
+IMAGE_NAME="amssolution/readystackgo:latest"
+VOLUME_CONFIG="readystackgo-config"
+VOLUME_STACKS="readystackgo-stacks"
 
 echo "Verwendeter Port: $PORT"
 echo ""
@@ -80,9 +81,6 @@ fi
 # 2. Container starten
 # -----------------------------------------------------------
 
-echo "[...] Vorbereitung des Data-Verzeichnisses..."
-mkdir -p $DATA_DIR
-
 echo "[...] Starte Container '$CONTAINER_NAME'..."
 
 # Existierenden Container entfernen
@@ -98,7 +96,8 @@ docker run -d \
   --restart unless-stopped \
   -p $PORT:8080 \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v $DATA_DIR:/data \
+  -v $VOLUME_CONFIG:/app/config \
+  -v $VOLUME_STACKS:/app/stacks \
   $IMAGE_NAME
 
 echo ""

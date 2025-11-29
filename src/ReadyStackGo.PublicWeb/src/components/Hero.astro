@@ -1,11 +1,13 @@
 ---
 import { t, type Lang, getDocsPath } from '../i18n/translations';
+import { getInstallCommand } from '../config';
 
 interface Props {
 	lang?: Lang;
 }
 
 const { lang = 'de' } = Astro.props;
+const installCmd = getInstallCommand(Astro.url.origin);
 ---
 
 <section class="relative overflow-hidden bg-gradient-to-b from-gray-100 to-white dark:from-gray-900 dark:to-gray-dark py-20 lg:py-28">
@@ -63,7 +65,7 @@ const { lang = 'de' } = Astro.props;
 						<span class="text-success-500">$</span>
 						<span>{t(lang, 'hero.quickinstall')}</span>
 					</div>
-					<code class="text-blue-light-500 break-all">curl -fsSL https://get.readystackgo.io/install.sh | sudo bash</code>
+					<code class="text-blue-light-500 break-all">{installCmd}</code>
 				</div>
 			</div>
 		</div>

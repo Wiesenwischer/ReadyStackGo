@@ -14,7 +14,28 @@ export default defineConfig({
 		react(),
 		starlight({
 			title: 'ReadyStackGo',
-			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/ams/readystackgo' }],
+			head: [
+				{
+					tag: 'script',
+					content: `
+						// Sync theme from Landing Page before Starlight loads
+						(function() {
+							const landingTheme = localStorage.getItem('theme');
+							if (landingTheme) {
+								localStorage.setItem('starlight-theme', landingTheme);
+							}
+						})();
+
+						document.addEventListener('DOMContentLoaded', function() {
+							const siteTitle = document.querySelector('.site-title');
+							if (siteTitle) {
+								siteTitle.href = '/';
+							}
+						});
+					`,
+				},
+			],
+			social: [],
 			sidebar: [
 				{ label: 'Willkommen', slug: 'index', translations: { en: 'Welcome' } },
 				{ label: 'Release Notes', slug: 'release-notes' },
@@ -42,13 +63,14 @@ export default defineConfig({
 					translations: { en: 'Documentation' },
 					autogenerate: { directory: 'docs' },
 				},
+				{ label: 'Lizenzen', slug: 'licenses', translations: { en: 'Licenses' } },
 			],
 			defaultLocale: 'de',
 			locales: {
 				de: { label: 'Deutsch', lang: 'de' },
 				en: { label: 'English', lang: 'en' },
 			},
-			customCss: ['./src/styles/tailwind.css'],
+			customCss: ['./src/styles/starlight.css'],
 		}),
 	],
 });
