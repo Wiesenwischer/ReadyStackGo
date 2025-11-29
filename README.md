@@ -54,33 +54,59 @@ ReadyStackGo (RSGO) ist eine selbst gehostete Plattform, um komplexe Microservic
 
 ---
 
-## Quick Start (Konzept)
+## Getting Started
 
-1. **Admin-Container starten**  
-   ```bash
-   docker run -d \
-     --name readystackgo-admin \
-     -p 8443:8443 \
-     -v /var/run/docker.sock:/var/run/docker.sock \
-     -v rsgo-config:/app/config \
-     --restart unless-stopped \
-     your-registry/readystackgo/admin:0.1.0
-   ```
+### Option 1: Docker Run
 
-2. **Wizard im Browser öffnen**  
-   `https://<host>:8443`
+```bash
+docker run -d \
+  --name readystackgo \
+  -p 8080:8080 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v rsgo-config:/app/config \
+  amssolution/readystackgo:latest
+```
 
-3. **Wizard-Schritte durchlaufen**  
-   - Admin-Benutzer anlegen  
-   - Organisation definieren  
-   - Verbindungen setzen (Simple Mode)  
-   - Manifest wählen & installieren  
+> **Hinweis zum Config-Volume:** Das Volume `-v rsgo-config:/app/config` speichert Admin-Credentials, Wizard-Status und Konfiguration persistent. Ohne dieses Volume startet ReadyStackGo bei jedem Container-Neustart frisch mit dem Setup-Wizard – praktisch zum Testen. Volume manuell löschen: `docker volume rm rsgo-config`
 
-4. **Admin-UI nutzen**  
-   - Container-Übersicht  
-   - Releases verwalten  
-   - TLS konfigurieren  
-   - Feature Flags schalten  
+### Option 2: Docker Compose
+
+```bash
+docker compose up -d
+```
+
+> **Frisch starten:** Um den Wizard erneut zu durchlaufen, Volume löschen mit `docker compose down -v`.
+
+### Option 3: Lokale Entwicklung
+
+**Voraussetzungen:**
+- .NET 9.0 SDK
+- Node.js 20+
+- Docker (für Container-Management)
+
+```bash
+# Repository klonen
+git clone https://github.com/amssolution/readystackgo.git
+cd readystackgo
+
+# Backend starten
+cd src/ReadyStackGo.Api
+dotnet run
+
+# Frontend starten (neues Terminal)
+cd src/ReadyStackGo.WebUi
+npm install
+npm run dev
+```
+
+### Nach dem Start
+
+1. **Browser öffnen:** `http://localhost:8080` (Docker) oder `http://localhost:5173` (Entwicklung)
+2. **Setup-Wizard durchlaufen:**
+   - Admin-Benutzer anlegen
+   - Organisation definieren
+   - Docker-Environment konfigurieren
+3. **Stacks deployen** über die Web-UI  
 
 ---
 

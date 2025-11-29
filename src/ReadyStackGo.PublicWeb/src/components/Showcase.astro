@@ -1,0 +1,99 @@
+---
+import type { Lang } from '../i18n/translations';
+
+interface Props {
+	lang?: Lang;
+}
+
+const { lang = 'de' } = Astro.props;
+
+const content = {
+	de: {
+		badge: 'In der Praxis',
+		slogan: 'Schön einfach, einfach schön.',
+		title: 'Entwickelt für echte Business-Anwendungen',
+		description: 'ReadyStackGo wurde mit dem Ziel entwickelt, selbst komplexe und aufwendige Business-Stacks kinderleicht zu installieren und zu warten. Ein Paradebeispiel: <strong>ams.project</strong> von der ams.Solution AG – eine professionelle Multiprojektmanagement-Lösung.',
+		highlight: 'Mit ReadyStackGo ist die Installation von ams.project mit wenigen Klicks erledigt.',
+		cta: 'Mehr über ams.project',
+	},
+	en: {
+		badge: 'In Practice',
+		slogan: 'Beautifully simple, simply beautiful.',
+		title: 'Built for Real Business Applications',
+		description: 'ReadyStackGo was developed with the goal of making even complex and demanding business stacks effortless to install and maintain. A prime example: <strong>ams.project</strong> by ams.Solution AG – a professional multi-project management solution.',
+		highlight: 'With ReadyStackGo, installing ams.project takes just a few clicks.',
+		cta: 'Learn more about ams.project',
+	},
+};
+
+const c = content[lang];
+const amsProjectUrl = 'https://www.ams-erp.com/projektmanagement/';
+---
+
+<section class="py-16 lg:py-20 bg-gradient-to-br from-brand-50 to-blue-light-50 dark:from-brand-900/20 dark:to-blue-light-900/20">
+	<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+		<div class="grid lg:grid-cols-2 gap-12 items-center">
+			<!-- Left: Text content -->
+			<div class="text-center lg:text-left">
+				<!-- Badge -->
+				<span class="inline-flex items-center gap-2 px-4 py-2 bg-brand-100 dark:bg-brand-500/20 rounded-full mb-4">
+					<svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+					</svg>
+					<span class="text-theme-sm font-medium text-brand-600 dark:text-brand-400">{c.badge}</span>
+				</span>
+
+				<!-- Slogan -->
+				<p class="text-theme-xl font-semibold text-brand-500 mb-4 italic">
+					"{c.slogan}"
+				</p>
+
+				<!-- Title -->
+				<h2 class="text-title-md sm:text-title-lg font-bold text-gray-900 dark:text-white mb-6">
+					{c.title}
+				</h2>
+
+				<!-- Description -->
+				<p class="text-gray-600 dark:text-gray-300 text-theme-lg mb-6" set:html={c.description}>
+				</p>
+
+				<!-- Highlight Box -->
+				<div class="inline-flex items-center gap-3 bg-white dark:bg-gray-800 rounded-xl px-6 py-4 shadow-theme-sm mb-6">
+					<svg class="w-6 h-6 text-success-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+					</svg>
+					<span class="text-gray-700 dark:text-gray-200 font-medium">{c.highlight}</span>
+				</div>
+
+				<!-- CTA -->
+				<div>
+					<a
+						href={amsProjectUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="inline-flex items-center gap-2 text-brand-500 hover:text-brand-600 font-medium transition-colors"
+					>
+						{c.cta}
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+						</svg>
+					</a>
+				</div>
+			</div>
+
+			<!-- Right: Image -->
+			<div class="relative">
+				<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-theme-xl p-4 lg:p-6">
+					<img
+						src="/images/showcase/ams-project.png"
+						alt="ams.project - Multiprojektmanagement"
+						class="rounded-lg w-full"
+					/>
+				</div>
+				<!-- Decorative elements -->
+				<div class="absolute -top-4 -right-4 w-24 h-24 bg-brand-500/10 rounded-full blur-2xl"></div>
+				<div class="absolute -bottom-4 -left-4 w-32 h-32 bg-blue-light-500/10 rounded-full blur-2xl"></div>
+			</div>
+		</div>
+	</div>
+</section>

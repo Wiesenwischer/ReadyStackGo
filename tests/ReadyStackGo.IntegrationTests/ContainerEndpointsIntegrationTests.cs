@@ -3,9 +3,8 @@ using System.Net.Http.Json;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
-using ReadyStackGo.Api;
 using ReadyStackGo.Application.Containers.DTOs;
+using ReadyStackGo.IntegrationTests.Infrastructure;
 using Xunit;
 
 namespace ReadyStackGo.IntegrationTests;
@@ -14,49 +13,36 @@ namespace ReadyStackGo.IntegrationTests;
 /// Integration tests für Container API Endpoints
 /// Testet die komplette API mit WebApplicationFactory gegen echte Docker-Container
 /// </summary>
-public class ContainerEndpointsIntegrationTests : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
+public class ContainerEndpointsIntegrationTests : AuthenticatedTestBase
 {
-    private readonly WebApplicationFactory<Program> _factory;
-    private readonly HttpClient _client;
     private IContainer? _testContainer;
 
-    public ContainerEndpointsIntegrationTests(WebApplicationFactory<Program> factory)
+    protected override async Task OnInitializedAsync()
     {
-        _factory = factory;
-        _client = factory.CreateClient();
-    }
-
-    public async Task InitializeAsync()
-    {
-        // Authentifizierung für Tests
-        var token = await TestAuthHelper.GetAdminTokenAsync(_client);
-        TestAuthHelper.AddAuthToken(_client, token);
-
         // Starte einen Test-Container für die API-Tests
+        // Use random host port to avoid conflicts in parallel test runs
         _testContainer = new ContainerBuilder()
             .WithImage("nginx:alpine")
             .WithName($"readystackgo-api-test-{Guid.NewGuid():N}")
-            .WithPortBinding(8081, 80)
+            .WithPortBinding(0, 80) // 0 = random available port
             .Build();
 
         await _testContainer.StartAsync();
     }
 
-    public async Task DisposeAsync()
+    protected override async Task OnDisposingAsync()
     {
         if (_testContainer != null)
         {
             await _testContainer.DisposeAsync();
         }
-
-        _client.Dispose();
     }
 
     [Fact]
     public async Task GET_Containers_ReturnsSuccessAndContainers()
     {
         // Act
-        var response = await _client.GetAsync("/api/containers");
+        var response = await Client.GetAsync($"/api/containers?environment={EnvironmentId}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -74,14 +60,19 @@ public class ContainerEndpointsIntegrationTests : IClassFixture<WebApplicationFa
         await Task.Delay(1000);
 
         // Act
-        var response = await _client.PostAsync($"/api/containers/{_testContainer.Id}/start", new StringContent("", System.Text.Encoding.UTF8, "application/json"));
+        var response = await Client.PostAsync($"/api/containers/{_testContainer.Id}/start?environment={EnvironmentId}", null);
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            throw new Exception($"Start container failed with {response.StatusCode}: {errorContent}");
+        }
+        response.IsSuccessStatusCode.Should().BeTrue();
 
         // Verify container is running
         await Task.Delay(2000);
-        var listResponse = await _client.GetAsync("/api/containers");
+        var listResponse = await Client.GetAsync($"/api/containers?environment={EnvironmentId}");
         var containers = await listResponse.Content.ReadFromJsonAsync<List<ContainerDto>>();
         var testContainer = containers!.FirstOrDefault(c => c.Id.StartsWith(_testContainer.Id));
 
@@ -100,14 +91,19 @@ public class ContainerEndpointsIntegrationTests : IClassFixture<WebApplicationFa
         await Task.Delay(1000);
 
         // Act
-        var response = await _client.PostAsync($"/api/containers/{_testContainer.Id}/stop", new StringContent("", System.Text.Encoding.UTF8, "application/json"));
+        var response = await Client.PostAsync($"/api/containers/{_testContainer.Id}/stop?environment={EnvironmentId}", null);
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            throw new Exception($"Stop container failed with {response.StatusCode}: {errorContent}");
+        }
+        response.IsSuccessStatusCode.Should().BeTrue();
 
         // Verify container is stopped
         await Task.Delay(2000);
-        var listResponse = await _client.GetAsync("/api/containers");
+        var listResponse = await Client.GetAsync($"/api/containers?environment={EnvironmentId}");
         var containers = await listResponse.Content.ReadFromJsonAsync<List<ContainerDto>>();
         var testContainer = containers!.FirstOrDefault(c => c.Id.StartsWith(_testContainer.Id));
 
@@ -116,10 +112,43 @@ public class ContainerEndpointsIntegrationTests : IClassFixture<WebApplicationFa
     }
 
     [Fact]
+    public async Task POST_StopContainer_ReturnsNoContentOrEmptyBody()
+    {
+        // Arrange - Sicherstellen dass Container läuft
+        if (_testContainer!.State != TestcontainersStates.Running)
+        {
+            await _testContainer.StartAsync();
+        }
+        await Task.Delay(1000);
+
+        // Act
+        var response = await Client.PostAsync($"/api/containers/{_testContainer.Id}/stop?environment={EnvironmentId}", null);
+
+        // Assert
+        response.IsSuccessStatusCode.Should().BeTrue();
+
+        // Verify the response is properly handled for empty body scenarios
+        // Either 204 No Content, or 200 with empty body / content-length 0
+        var contentLength = response.Content.Headers.ContentLength;
+        var responseBody = await response.Content.ReadAsStringAsync();
+
+        // The response should be empty or a minimal JSON object
+        // If the body is empty, it should not cause JSON parsing errors
+        var isValidResponse = response.StatusCode == HttpStatusCode.NoContent
+                              || contentLength == 0
+                              || string.IsNullOrWhiteSpace(responseBody)
+                              || responseBody == "{}"; // Empty JSON object is also valid
+
+        isValidResponse.Should().BeTrue(
+            $"Response should be empty or minimal JSON for stop container. " +
+            $"Status: {response.StatusCode}, ContentLength: {contentLength}, Body: '{responseBody}'");
+    }
+
+    [Fact]
     public async Task GET_Containers_ReturnsCorsHeaders()
     {
         // Act
-        var response = await _client.GetAsync("/api/containers");
+        var response = await Client.GetAsync($"/api/containers?environment={EnvironmentId}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);

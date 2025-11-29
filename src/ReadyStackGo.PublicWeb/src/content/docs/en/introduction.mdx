@@ -1,0 +1,105 @@
+---
+title: Introduction
+description: What is ReadyStackGo and why should you use it?
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## What is ReadyStackGo?
+
+ReadyStackGo is a self-hosted platform for managing and deploying Docker Compose stacks. It provides an intuitive web interface to manage container applications on one or more Docker hosts.
+
+## Why ReadyStackGo?
+
+<CardGrid>
+  <Card title="Simple" icon="rocket">
+    No complex configuration. Install, setup, deploy.
+  </Card>
+  <Card title="Self-hosted" icon="server">
+    Full control over your data. No cloud dependency.
+  </Card>
+  <Card title="Docker-native" icon="setting">
+    Works directly with Docker Compose. No proprietary formats.
+  </Card>
+  <Card title="Multi-Environment" icon="laptop">
+    Manage Dev, Staging and Production from one interface.
+  </Card>
+</CardGrid>
+
+---
+
+## Core Concepts
+
+### Environments
+
+An **Environment** represents a Docker host. ReadyStackGo connects via Docker socket to the host and manages containers on it.
+
+```
+Examples:
+- Local Docker (Development)
+- Staging Server
+- Production Server
+```
+
+### Stack Sources
+
+**Stack Sources** define where ReadyStackGo finds stack definitions (docker-compose.yml):
+
+- **Git Repository** - Stacks are loaded from a Git repository
+- **Local Path** - Stacks are located on the same server
+
+### Stacks
+
+A **Stack** is a collection of Docker services that are deployed together. ReadyStackGo uses the standard Docker Compose format.
+
+### Deployments
+
+A **Deployment** is a running stack on an environment. You can:
+
+- Monitor status
+- Start/stop containers
+- View logs
+- Perform updates
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│                ReadyStackGo                      │
+│  ┌─────────────┐  ┌─────────────────────────┐   │
+│  │   Web UI    │  │      API Server         │   │
+│  └─────────────┘  └─────────────────────────┘   │
+│                            │                     │
+│                   ┌────────┴────────┐           │
+│                   │                 │           │
+│              ┌────▼────┐      ┌────▼────┐      │
+│              │ Env 1   │      │ Env 2   │      │
+│              │ (Docker)│      │ (Docker)│      │
+│              └─────────┘      └─────────┘      │
+└─────────────────────────────────────────────────┘
+```
+
+---
+
+## Comparison with Alternatives
+
+| Feature | ReadyStackGo | Portainer | Docker CLI |
+|---------|-------------|-----------|------------|
+| Web UI | ✓ | ✓ | ✗ |
+| Self-hosted | ✓ | ✓ | ✓ |
+| Git Integration | ✓ | ✓ (BE) | ✗ |
+| Multi-Environment | ✓ | ✓ (BE) | ✗ |
+| Free | ✓ | CE limited | ✓ |
+| Docker Compose native | ✓ | ✗ | ✓ |
+
+---
+
+## Next Steps
+
+Ready to get started? Here are your next steps:
+
+1. [Installation](/en/getting-started/installation/) - Install ReadyStackGo
+2. [Initial Setup](/en/getting-started/initial-setup/) - Complete the Setup Wizard
+3. [First Deployment](/en/getting-started/first-deployment/) - Deploy your first container

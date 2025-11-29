@@ -24,4 +24,7 @@ public interface IConfigStore
 
     Task<ReleaseConfig> GetReleaseConfigAsync();
     Task SaveReleaseConfigAsync(ReleaseConfig config);
+
+    Task<DeploymentsConfig> GetDeploymentsConfigAsync();
+    Task SaveDeploymentsConfigAsync(DeploymentsConfig config);
 }

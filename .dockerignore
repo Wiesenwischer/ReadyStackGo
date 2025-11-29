@@ -1,6 +1,5 @@
 **/.classpath
 **/.dockerignore
-**/.env
 **/.git
 **/.gitignore
 **/.project
@@ -14,8 +13,6 @@
 **/azds.yaml
 **/bin
 **/charts
-**/docker-compose*
-**/Dockerfile*
 **/node_modules
 **/npm-debug.log
 **/obj
@@ -28,3 +25,14 @@ tests/
 .git/
 .github/
 *.md
+
+# Exclude docker-compose and .env files at root level only (not in examples/)
+/.env
+/docker-compose*
+/Dockerfile*
+
+# Stacks directory is mounted at runtime, not included in image
+stacks/
+
+# Development config files - should not be baked into image
+src/ReadyStackGo.Api/config/

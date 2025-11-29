@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import {
@@ -7,8 +7,10 @@ import {
   GridIcon,
   HorizontaLDots,
   BoxCubeIcon,
+  PlugInIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
+import { useEnvironment } from "../context/EnvironmentContext";
 import SidebarWidget from "./SidebarWidget";
 
 type NavItem = {
@@ -16,6 +18,7 @@ type NavItem = {
   icon: React.ReactNode;
   path?: string;
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
+  requiresEnvironment?: boolean;
 };
 
 const navItems: NavItem[] = [
@@ -23,16 +26,24 @@ const navItems: NavItem[] = [
     icon: <GridIcon />,
     name: "Dashboard",
     path: "/",
+    requiresEnvironment: true,
   },
   {
     icon: <BoxIcon />,
     name: "Containers",
     path: "/containers",
+    requiresEnvironment: true,
   },
   {
     icon: <BoxCubeIcon />,
     name: "Stacks",
     path: "/stacks",
+    requiresEnvironment: true,
+  },
+  {
+    icon: <PlugInIcon />,
+    name: "Environments",
+    path: "/environments",
   },
 ];
 
@@ -40,7 +51,15 @@ const othersItems: NavItem[] = [];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
+  const { environments } = useEnvironment();
   const location = useLocation();
+
+  const hasEnvironments = environments.length > 0;
+
+  // Filter nav items based on whether environments exist
+  const filteredNavItems = useMemo(() => {
+    return navItems.filter(item => !item.requiresEnvironment || hasEnvironments);
+  }, [hasEnvironments]);
 
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main" | "others";
@@ -233,7 +252,7 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
+      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-[100000] border-r border-gray-200 
         ${
           isExpanded || isMobileOpen
             ? "w-[290px]"
@@ -290,7 +309,7 @@ const AppSidebar: React.FC = () => {
                   </div>
                 )}
               </h2>
-              {renderMenuItems(navItems, "main")}
+              {renderMenuItems(filteredNavItems, "main")}
             </div>
           </div>
         </nav>

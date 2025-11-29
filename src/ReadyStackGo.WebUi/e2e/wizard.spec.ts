@@ -1,9 +1,50 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
 /**
  * E2E Tests for Setup Wizard
- * These tests verify the complete 4-step wizard workflow
+ * These tests verify the complete 4-step wizard workflow (v0.4.1)
+ * Steps: Admin -> Organization -> Environment -> Complete
  */
+
+// Helper functions for wizard steps
+async function completeStep1(page: Page, username?: string) {
+  await page.goto('/wizard');
+  const user = username || `admin${Date.now()}`;
+  await page.fill('input[type="text"]', user);
+  const passwordFields = page.locator('input[type="password"]');
+  await passwordFields.nth(0).fill('TestPassword123!');
+  await passwordFields.nth(1).fill('TestPassword123!');
+  await page.getByRole('button', { name: /Continue/i }).click();
+  await expect(page.getByRole('heading', { name: /Organization Setup/i })).toBeVisible({ timeout: 5000 });
+}
+
+async function completeStep2(page: Page, orgId?: string) {
+  const org = orgId || `org-${Date.now()}`;
+  await page.fill('input[placeholder*="my-company"]', org);
+  await page.fill('input[placeholder*="My Company"]', 'Test Organization');
+  await page.getByRole('button', { name: /Continue/i }).click();
+  // v0.4.1: Now goes to Environment step instead of Complete
+  await expect(page.getByRole('heading', { name: /Configure Environment/i })).toBeVisible({ timeout: 5000 });
+}
+
+async function completeStep3Environment(page: Page, skip = false) {
+  if (skip) {
+    // Skip environment setup
+    await page.getByRole('button', { name: /Skip/i }).click();
+  } else {
+    // Fill environment form
+    const envId = `env-${Date.now()}`;
+    await page.fill('input[placeholder*="local-docker"]', envId);
+    await page.fill('input[placeholder*="Local Docker"]', 'Test Environment');
+    await page.fill('input[placeholder*="/var/run/docker.sock"]', '/var/run/docker.sock');
+    await page.getByRole('button', { name: /Continue/i }).click();
+  }
+  await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
+}
+
+async function completeStep4(page: Page) {
+  await page.getByRole('button', { name: /Complete Setup/i }).click();
+}
 
 test.describe('Setup Wizard', () => {
   test.beforeEach(async ({ page }) => {
@@ -103,7 +144,7 @@ test.describe('Setup Wizard', () => {
     await expect(heading).toBeVisible();
   });
 
-  test('should complete step 2 and move to step 3', async ({ page }) => {
+  test('should complete step 2 and move to step 3 (Environment)', async ({ page }) => {
     await completeStep1(page);
 
     // Fill organization form
@@ -113,8 +154,36 @@ test.describe('Setup Wizard', () => {
     // Submit
     await page.getByRole('button', { name: /Continue/i }).click();
 
-    // Should move to step 3
-    await expect(page.getByRole('heading', { name: /Configure Connections/i })).toBeVisible({ timeout: 5000 });
+    // Should move to step 3 (Environment)
+    await expect(page.getByRole('heading', { name: /Configure Environment/i })).toBeVisible({ timeout: 5000 });
+  });
+
+  test('should complete step 3 (Environment) and move to step 4 (Complete)', async ({ page }) => {
+    await completeStep1(page);
+    await completeStep2(page);
+
+    // Fill environment form
+    const envId = `e2e-env-${Date.now()}`;
+    await page.fill('input[placeholder*="local-docker"]', envId);
+    await page.fill('input[placeholder*="Local Docker"]', 'E2E Test Environment');
+    await page.fill('input[placeholder*="/var/run/docker.sock"]', '/var/run/docker.sock');
+
+    // Submit
+    await page.getByRole('button', { name: /Continue/i }).click();
+
+    // Should move to step 4 (Complete)
+    await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
+  });
+
+  test('should allow skipping environment step', async ({ page }) => {
+    await completeStep1(page);
+    await completeStep2(page);
+
+    // Skip environment setup
+    await page.getByRole('button', { name: /Skip/i }).click();
+
+    // Should move to step 4 (Complete)
+    await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
   });
 
   test('should allow going back from step 2', async ({ page }) => {
@@ -127,31 +196,14 @@ test.describe('Setup Wizard', () => {
     await expect(page.getByRole('heading', { name: /Create Admin Account/i })).toBeVisible();
   });
 
-  test('should complete step 3 and move to step 4', async ({ page }) => {
-    await completeStep1(page);
-    await completeStep2(page);
-
-    // Fill connection strings
-    await page.fill('input[placeholder*="amqp"]', 'amqp://localhost:5672');
-    await page.fill('input[placeholder*="postgres"]', 'Host=localhost;Database=test;Username=user;Password=pass');
-    // EventStore is optional
-
-    // Submit
-    await page.getByRole('button', { name: /Continue/i }).click();
-
-    // Should move to step 4
-    await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
-  });
-
   test('should show configuration summary on step 4', async ({ page }) => {
     await completeStep1(page);
     await completeStep2(page);
-    await completeStep3(page);
+    await completeStep3Environment(page);
 
     // Check summary items
     await expect(page.getByText(/Admin account configured/i)).toBeVisible();
     await expect(page.getByText(/Organization details set/i)).toBeVisible();
-    await expect(page.getByText(/Connection strings configured/i)).toBeVisible();
 
     // Check complete button
     await expect(page.getByRole('button', { name: /Complete Setup/i })).toBeVisible();
@@ -169,7 +221,7 @@ test.describe('Setup Wizard', () => {
     // Check step names
     await expect(page.getByText('Admin')).toBeVisible();
     await expect(page.getByText('Organization')).toBeVisible();
-    await expect(page.getByText('Connections')).toBeVisible();
+    await expect(page.getByText('Environment')).toBeVisible();
     await expect(page.getByText('Complete')).toBeVisible();
   });
 
@@ -195,7 +247,6 @@ test.describe('Setup Wizard', () => {
     await expect(step1Circle).toBeVisible();
 
     await completeStep2(page);
-    await completeStep3(page);
 
     // Multiple steps should show checkmarks
     const completedSteps = page.locator('[class*="bg-brand"]');
@@ -223,12 +274,9 @@ test.describe('Setup Wizard', () => {
   });
 
   test('should display error message on API failure', async ({ page }) => {
-    // This would require mocking the API to return an error
-    // For integration tests, we just verify error display exists in the UI
-
     await page.goto('/wizard');
 
-    // Try to submit with very short password that backend might reject
+    // Try to submit with very short password that backend will reject
     await page.fill('input[type="text"]', 'errortest');
     const passwordFields = page.locator('input[type="password"]');
     await passwordFields.nth(0).fill('abc');
@@ -236,9 +284,38 @@ test.describe('Setup Wizard', () => {
 
     await page.getByRole('button', { name: /Continue/i }).click();
 
-    // Should show some validation error
-    // Either from frontend or backend
-    await page.waitForTimeout(1000);
+    // Should show validation error from backend (password too short)
+    await expect(page.getByText(/Password must be at least 8 characters/i)).toBeVisible({ timeout: 5000 });
+  });
+
+  test('should display username validation error', async ({ page }) => {
+    await page.goto('/wizard');
+
+    // Try to submit with username containing special chars
+    await page.fill('input[type="text"]', 'invalid@user!');
+    const passwordFields = page.locator('input[type="password"]');
+    await passwordFields.nth(0).fill('ValidPassword123!');
+    await passwordFields.nth(1).fill('ValidPassword123!');
+
+    await page.getByRole('button', { name: /Continue/i }).click();
+
+    // Should show validation error
+    await expect(page.getByText(/Username can only contain letters, numbers, and underscores/i)).toBeVisible({ timeout: 5000 });
+  });
+
+  test('should display username length validation error', async ({ page }) => {
+    await page.goto('/wizard');
+
+    // Try to submit with too short username
+    await page.fill('input[type="text"]', 'ab');
+    const passwordFields = page.locator('input[type="password"]');
+    await passwordFields.nth(0).fill('ValidPassword123!');
+    await passwordFields.nth(1).fill('ValidPassword123!');
+
+    await page.getByRole('button', { name: /Continue/i }).click();
+
+    // Should show validation error
+    await expect(page.getByText(/Username must be at least 3 characters/i)).toBeVisible({ timeout: 5000 });
   });
 
   test('should have responsive design on mobile', async ({ page }) => {
@@ -254,28 +331,168 @@ test.describe('Setup Wizard', () => {
     await expect(page.locator('input[type="text"]').first()).toBeVisible();
   });
 
-  // Helper functions
-  async function completeStep1(page: any) {
-    await page.goto('/wizard');
-    await page.fill('input[type="text"]', `admin${Date.now()}`);
-    const passwordFields = page.locator('input[type="password"]');
-    await passwordFields.nth(0).fill('TestPassword123!');
-    await passwordFields.nth(1).fill('TestPassword123!');
-    await page.getByRole('button', { name: /Continue/i }).click();
-    await expect(page.getByRole('heading', { name: /Organization Setup/i })).toBeVisible({ timeout: 5000 });
-  }
+});
 
-  async function completeStep2(page: any) {
-    await page.fill('input[placeholder*="my-company"]', `org-${Date.now()}`);
-    await page.fill('input[placeholder*="My Company"]', 'Test Organization');
-    await page.getByRole('button', { name: /Continue/i }).click();
-    await expect(page.getByRole('heading', { name: /Configure Connections/i })).toBeVisible({ timeout: 5000 });
-  }
+test.describe('Complete Wizard Flow with Environment Step', () => {
+  test('should complete wizard with environment and redirect to login', async ({ page }) => {
+    // Complete all wizard steps including environment
+    await completeStep1(page, `e2e_flow_${Date.now()}`);
+    await completeStep2(page, `flow-org-${Date.now()}`);
+    await completeStep3Environment(page);
+    await completeStep4(page);
 
-  async function completeStep3(page: any) {
-    await page.fill('input[placeholder*="amqp"]', 'amqp://localhost:5672');
-    await page.fill('input[placeholder*="postgres"]', 'Host=localhost;Database=test;Username=user;Password=pass');
+    // Should redirect to login page
+    await page.waitForURL(/\/login/, { timeout: 10000 });
+  });
+
+  test('should complete wizard without environment (skip) and redirect to login', async ({ page }) => {
+    // Complete wizard steps, skip environment
+    await completeStep1(page, `e2e_skip_${Date.now()}`);
+    await completeStep2(page, `skip-org-${Date.now()}`);
+    await completeStep3Environment(page, true); // skip
+    await completeStep4(page);
+
+    // Should redirect to login page
+    await page.waitForURL(/\/login/, { timeout: 10000 });
+  });
+
+  test('should show environment form fields on step 3', async ({ page }) => {
+    await completeStep1(page, `e2e_form_${Date.now()}`);
+    await completeStep2(page, `form-org-${Date.now()}`);
+
+    // Check environment form fields
+    await expect(page.locator('input[placeholder*="local-docker"]')).toBeVisible();
+    await expect(page.locator('input[placeholder*="Local Docker"]')).toBeVisible();
+    await expect(page.locator('input[placeholder*="/var/run/docker.sock"]')).toBeVisible();
+
+    // Check skip button
+    await expect(page.getByRole('button', { name: /Skip/i })).toBeVisible();
+  });
+
+  test('should show validation error for invalid environment ID in wizard', async ({ page }) => {
+    await completeStep1(page, `e2e_valid_${Date.now()}`);
+    await completeStep2(page, `valid-org-${Date.now()}`);
+
+    // Fill with invalid ID (contains spaces)
+    await page.fill('input[placeholder*="local-docker"]', 'invalid id with spaces');
+    await page.fill('input[placeholder*="Local Docker"]', 'Test Environment');
+    await page.fill('input[placeholder*="/var/run/docker.sock"]', '/var/run/docker.sock');
+
+    // Try to submit
+    await page.getByRole('button', { name: /Continue/i }).click();
+
+    // Should stay on environment step
+    await expect(page.getByRole('heading', { name: /Configure Environment/i })).toBeVisible();
+  });
+
+  test('should show validation error for empty socket path in wizard', async ({ page }) => {
+    await completeStep1(page, `e2e_socket_${Date.now()}`);
+    await completeStep2(page, `socket-org-${Date.now()}`);
+
+    // Fill form with empty socket path
+    await page.fill('input[placeholder*="local-docker"]', `env-${Date.now()}`);
+    await page.fill('input[placeholder*="Local Docker"]', 'Test Environment');
+    await page.fill('input[placeholder*="/var/run/docker.sock"]', '');
+
+    // Try to submit
+    await page.getByRole('button', { name: /Continue/i }).click();
+
+    // Should stay on environment step due to required field
+    await expect(page.getByRole('heading', { name: /Configure Environment/i })).toBeVisible();
+  });
+});
+
+test.describe('Wizard Step Organization Validation', () => {
+  test('should display organization ID validation error for invalid characters', async ({ page }) => {
+    await completeStep1(page);
+
+    // Fill with invalid org ID containing special characters
+    await page.fill('input[placeholder*="my-company"]', 'org@invalid!');
+    await page.fill('input[placeholder*="My Company"]', 'Test Org');
+
+    await page.getByRole('button', { name: /Continue/i }).click();
+
+    // Should show validation error
+    await expect(page.getByText(/Organization ID can only contain/i)).toBeVisible({ timeout: 5000 });
+  });
+
+  test('should display organization ID length validation error', async ({ page }) => {
+    await completeStep1(page);
+
+    // Fill with too short org ID
+    await page.fill('input[placeholder*="my-company"]', 'ab');
+    await page.fill('input[placeholder*="My Company"]', 'Test Org');
+
+    await page.getByRole('button', { name: /Continue/i }).click();
+
+    // Should show validation error
+    await expect(page.getByText(/Organization ID must be at least 3 characters/i)).toBeVisible({ timeout: 5000 });
+  });
+
+  test('should display empty organization name error', async ({ page }) => {
+    await completeStep1(page);
+
+    // Fill with empty name
+    await page.fill('input[placeholder*="my-company"]', `valid-org-${Date.now()}`);
+    // Leave name empty (clear default value if any)
+    await page.fill('input[placeholder*="My Company"]', '');
+
+    await page.getByRole('button', { name: /Continue/i }).click();
+
+    // Should show validation error or stay on page
+    await expect(page.getByRole('heading', { name: /Organization Setup/i })).toBeVisible();
+  });
+});
+
+test.describe('Post-Wizard Navigation', () => {
+  test('should access dashboard after complete setup and login', async ({ page }) => {
+    // Complete full wizard with environment
+    const username = `nav_test_${Date.now()}`;
+    await completeStep1(page, username);
+    await completeStep2(page, `nav-org-${Date.now()}`);
+    await completeStep3Environment(page);
+    await completeStep4(page);
+
+    // Wait for login redirect
+    await page.waitForURL(/\/login/, { timeout: 10000 });
+
+    // Login with the created credentials
+    await page.fill('input[type="text"]', username);
+    await page.fill('input[type="password"]', 'TestPassword123!');
+    await page.click('button[type="submit"]');
+
+    // Should redirect to dashboard
+    await page.waitForURL(/\/(dashboard)?$/, { timeout: 10000 });
+
+    // Verify dashboard elements
+    await expect(page.getByText(/Dashboard/i)).toBeVisible();
+  });
+
+  test('should show environment in UI after wizard completion', async ({ page }) => {
+    // Complete full wizard with environment
+    const username = `sidebar_${Date.now()}`;
+    const envName = 'Sidebar Test Env';
+    await completeStep1(page, username);
+    await completeStep2(page, `sidebar-org-${Date.now()}`);
+
+    // Create environment with specific name in step 3
+    await page.fill('input[placeholder*="local-docker"]', `sidebar-env-${Date.now()}`);
+    await page.fill('input[placeholder*="Local Docker"]', envName);
+    await page.fill('input[placeholder*="/var/run/docker.sock"]', '/var/run/docker.sock');
     await page.getByRole('button', { name: /Continue/i }).click();
     await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
-  }
+
+    await completeStep4(page);
+
+    // Wait for login redirect and login
+    await page.waitForURL(/\/login/, { timeout: 10000 });
+    await page.fill('input[type="text"]', username);
+    await page.fill('input[type="password"]', 'TestPassword123!');
+    await page.click('button[type="submit"]');
+
+    await page.waitForURL(/\/(dashboard)?$/, { timeout: 10000 });
+
+    // Environment name should appear somewhere in the UI
+    await expect(page.getByText(envName)).toBeVisible({ timeout: 5000 });
+  });
 });

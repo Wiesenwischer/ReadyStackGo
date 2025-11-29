@@ -26,5 +26,5 @@ public interface IDeploymentEngine
     /// <summary>
     /// Remove all containers from a deployed stack
     /// </summary>
-    Task<DeploymentResult> RemoveStackAsync(string stackVersion);
+    Task<DeploymentResult> RemoveStackAsync(string environmentId, string stackVersion);
 }

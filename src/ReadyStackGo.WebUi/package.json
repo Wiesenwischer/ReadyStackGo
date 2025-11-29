@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:container": "playwright test --config=playwright.container.config.ts",
+    "test:e2e:container:headed": "playwright test --config=playwright.container.config.ts --headed"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.17",

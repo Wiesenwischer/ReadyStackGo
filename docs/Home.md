@@ -9,7 +9,7 @@ Willkommen zur Dokumentation von **ReadyStackGo** – einer selbst gehosteten Pl
 - **Build Pipeline:** [View Latest Build](https://tfsmain.ams.local/tfs/ams/Products/_build?definitionId=ReadyStackGo)
 - **Docker Hub:** [amssolution/readystackgo](https://hub.docker.com/r/amssolution/readystackgo)
 - **Repository:** [Azure DevOps](https://tfsmain.ams.local/tfs/ams/Products/_git/ReadyStackGo)
-- **License:** MIT
+- **License:** Proprietary - Copyright © 2025 ams.Solution AG
 
 ---
 
@@ -99,10 +99,10 @@ Technische Referenz und Spezifikationen
 - [Konfigurationsreferenz](Reference/Configuration-Reference.md)
 - [Manifest-Schema](Reference/Manifest-Schema.md)
 
-### 🗺️ [Roadmap](Roadmap/Roadmap.md)
+### 🗺️ [Roadmap](Reference/Roadmap.md)
 Zukunftspläne und Features
-- [Roadmap](Roadmap/Roadmap.md)
-- [Plugin-System](Roadmap/Plugin-System.md)
+- [Roadmap](Reference/Roadmap.md)
+- [Plugin-System](Reference/Plugin-System.md)
 
 ---
 

@@ -130,53 +130,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### [0.4.0] - Planned
 
 #### Multi-Environment Support
-- **Environments:** Organizations can have multiple environments (Development, Test, Production)
+- **Polymorphic Environment Types:** Docker Socket, Docker API, Docker Agent (Portainer-like)
+- **Organizations without Environments:** Optional environment creation during setup
+- **Environment Management UI:** Create, update, delete environments via Settings
 - **Environment Selector:** UI dropdown to switch between environments
-- **Per-Environment Configuration:**
-  - Independent connection strings (Transport, Persistence, EventStore)
-  - Separate Docker host per environment
-  - Environment-specific deployed stacks and containers
-- **Wizard Update:** Combined Organization + Default Environment setup step
-- **Configuration Files:** Per-environment config files (`rsgo.contexts.{env}.json`)
-- **Migration:** Automatic upgrade from v0.3 single-environment to v0.4 multi-environment
+- **Per-Environment Docker Hosts:** Each environment connects to separate Docker daemon
+- **Environment-Scoped Resources:** Containers and stacks isolated per environment
 
-#### Environment Management
-- Create, update, delete environments via Settings UI
-- Test Docker host connectivity before saving
-- Default environment designation
-- Environment-scoped container and stack views
+#### Simplified Wizard (4 Steps → 3 Steps)
+- **Removed Step 3:** "Configure Connections" removed from wizard
+- **No Mandatory Environments:** Organization can exist without environments
+- New Flow: Admin Account → Organization → Complete
+- Faster onboarding, less complexity
+
+#### Stack-Specific Configuration System (Docker Compose)
+- **Docker Compose Support:** Deploy stacks using standard `docker-compose.yml` files
+- **Automatic Variable Detection:** Parse `${VARIABLE}` syntax from compose files
+- **Deployment-Time Configuration:** Users provide values when deploying stack
+- **Dynamic UI Generation:** Configuration form generated from detected variables
+- **Default Value Support:** Extract defaults from `${VAR:-default}` syntax
+- **Per-Deployment Storage:** `/app/config/deployments/{env}/{stack}.deployment.json`
+- **No Global Connection Strings:** Removed `rsgo.contexts.json`
+- **Portainer-Compatible:** Familiar workflow for existing Portainer users
+
+#### Domain Model Improvements
+- **Organization Aggregate:** Can exist without environments
+- **Environment Entity:** Polymorphic type hierarchy (Strategy Pattern)
+  - `DockerSocketEnvironment` (v0.4 - Unix socket / named pipe - ONLY THIS TYPE in v0.4)
+  - `DockerApiEnvironment` (Post-v1.0 - TCP with TLS)
+  - `DockerAgentEnvironment` (Post-v1.0 - Portainer Edge Agent)
+  - `KubernetesEnvironment` (Post-v1.0 - Future)
+- **JSON Type Discriminator:** `$type` field for polymorphic serialization
+- **Connection Uniqueness:** Enforced via `GetConnectionString()` method
 
 #### API Enhancements
 - `GET /api/environments` - List all environments
 - `POST /api/environments` - Create new environment
 - `PUT /api/environments/{id}` - Update environment
 - `DELETE /api/environments/{id}` - Delete environment
-- Environment query parameter for container/stack endpoints
+- `POST /api/deployments` - Deploy stack with configuration
+- `GET /api/deployments/{id}/configuration` - Get deployment config
 
-#### Limitations (v0.4)
-- Single Docker host per environment (multi-node deferred to v0.5)
-- Simple connection mode only (Advanced mode in future release)
-- Basic Docker host auth (TLS support in v0.5)
+#### Breaking Changes
+- `WizardState.ConnectionsSet` removed (auto-migrated to `Installed`)
+- `rsgo.contexts.json` removed (archived as `.v0.3.backup`)
+- Organization factory method signature changed: `Create(id, name)` (no environment)
+
+#### Migration from v0.3
+- Automatic migration on startup
+- `rsgo.contexts.json` archived and values pre-filled in first deployment
+- No manual intervention required
 
 ### [0.5.0] - Planned
 
-#### Container Deployment
-- Actual stack deployment from manifests
-- Docker network creation and management
+#### Database Migration & Multi-User Support
+- **SQLite Database:** Migrate from JSON file storage to SQLite for better concurrency and ACID transactions
+- **Multi-user support:** Individual user accounts with invitation system
+- User session management and activity tracking
+- Audit logging for all operations
+- Migration tool: `rsgo.system.json` → `readystackgo.db`
+
+#### Container Management Enhancements
 - Container health monitoring
 - Deployment rollback capabilities
-
-#### Multi-Node Support
-- Multiple Docker hosts per environment
-- Load balancing across nodes
-- Node health monitoring
-- Distributed container orchestration
+- Multi-container orchestration improvements
 
 #### Authentication & Authorization
-- Multi-user support
-- OIDC/SSO integration
+- OIDC/SSO integration (optional)
 - Role-based access control (RBAC)
 - Per-environment access permissions
+- API key management
 
 ### [0.6.0] - Planned
 
@@ -205,6 +228,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Container logs aggregation
 - Metrics and alerting
 - Audit logs per environment
+
+### [0.8.0] - Planned
+
+#### Enhanced Stack Format (Custom Manifests)
+- **Custom Manifest Format:** Optional enhanced format with validation
+- **Type Validation:** Numbers, booleans, strings, select fields
+- **Regex Validation:** Enforce URL formats and patterns
+- **Required Fields:** Explicit required field marking
+- **Sensitive Fields:** Password/secret field marking
+- **Documentation:** Display names, descriptions, placeholders
+- **Dual Format Support:** Both Docker Compose and Custom Manifest formats supported
+
+### [1.0.0] - Planned
+
+#### Production Readiness
+- Plugin-System
+- Performance Optimierungen
+- Comprehensive Documentation
+- Security hardening
+- Production-grade deployment options
+
+### Post-v2.0 - Future
+
+#### Multi-Node Support
+- Multi-Node-Support (mehrere Docker Hosts pro Environment)
+- Load balancing across nodes
+- Node health monitoring
+- Distributed container orchestration
+
+#### Additional Environment Types
+- **DockerApiEnvironment:** TCP/HTTP connection with optional TLS
+- **DockerAgentEnvironment:** Portainer Edge Agent support
+- TLS certificate management for Docker API connections
+
+#### Advanced Orchestration
+- Kubernetes Environment Support
+- Advanced networking features
+- Service mesh integration
 
 ---
 

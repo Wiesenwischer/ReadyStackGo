@@ -1,17 +1,25 @@
 import { useEffect, useState } from "react";
 import { containerApi, type Container } from "../api/containers";
+import { useEnvironment } from "../context/EnvironmentContext";
 
 export default function Containers() {
   const [containers, setContainers] = useState<Container[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const { activeEnvironment } = useEnvironment();
 
   const loadContainers = async () => {
+    if (!activeEnvironment) {
+      setContainers([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
-      const data = await containerApi.list();
+      const data = await containerApi.list(activeEnvironment.id);
       setContainers(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load containers");
@@ -22,12 +30,14 @@ export default function Containers() {
 
   useEffect(() => {
     loadContainers();
-  }, []);
+  }, [activeEnvironment]);
 
   const handleStart = async (id: string) => {
+    if (!activeEnvironment) return;
+
     try {
       setActionLoading(id);
-      await containerApi.start(id);
+      await containerApi.start(activeEnvironment.id, id);
       await loadContainers();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start container");
@@ -37,9 +47,11 @@ export default function Containers() {
   };
 
   const handleStop = async (id: string) => {
+    if (!activeEnvironment) return;
+
     try {
       setActionLoading(id);
-      await containerApi.stop(id);
+      await containerApi.stop(activeEnvironment.id, id);
       await loadContainers();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to stop container");
@@ -59,6 +71,37 @@ export default function Containers() {
         }`}
       >
         {state}
+      </span>
+    );
+  };
+
+  const getHealthBadge = (healthStatus: string | undefined) => {
+    if (!healthStatus || healthStatus === "none") return null;
+
+    let colorClasses = "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
+    let icon = "";
+
+    switch (healthStatus.toLowerCase()) {
+      case "healthy":
+        colorClasses = "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+        icon = "\u2713"; // checkmark
+        break;
+      case "unhealthy":
+        colorClasses = "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
+        icon = "\u2717"; // x mark
+        break;
+      case "starting":
+        colorClasses = "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
+        icon = "\u23F3"; // hourglass
+        break;
+    }
+
+    return (
+      <span
+        className={`ml-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${colorClasses}`}
+        title={`Health: ${healthStatus}`}
+      >
+        {icon}
       </span>
     );
   };
@@ -139,6 +182,7 @@ export default function Containers() {
                 </div>
                 <div className="col-span-1 flex items-center">
                   {getStatusBadge(container.state)}
+                  {getHealthBadge(container.healthStatus)}
                 </div>
                 <div className="col-span-1 flex items-center">
                   <p className="text-sm text-black dark:text-white">

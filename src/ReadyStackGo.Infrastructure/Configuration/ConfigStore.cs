@@ -1,12 +1,16 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Configuration;
 using ReadyStackGo.Domain.Configuration;
+using ReadyStackGo.Domain.Organizations;
 
 namespace ReadyStackGo.Infrastructure.Configuration;
 
 /// <summary>
 /// File-based configuration store that manages all rsgo.*.json files
-/// in the /app/config volume
+/// in the /app/config volume.
+///
+/// v0.4: Updated to support polymorphic Environment serialization with $type discriminator.
 /// </summary>
 public class ConfigStore : IConfigStore
 {
@@ -26,7 +30,13 @@ public class ConfigStore : IConfigStore
         _jsonOptions = new JsonSerializerOptions
         {
             WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            // Required for polymorphic Environment serialization
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            // Enable enum serialization as strings (also reads integer values for backwards compatibility)
+            Converters = { new JsonStringEnumConverter() },
+            // Ensure polymorphic type handling is enabled for Environment class hierarchy
+            TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver()
         };
     }
 
@@ -96,6 +106,17 @@ public class ConfigStore : IConfigStore
         await SaveConfigAsync("rsgo.release.json", config);
     }
 
+    public async Task<DeploymentsConfig> GetDeploymentsConfigAsync()
+    {
+        return await LoadConfigAsync<DeploymentsConfig>("rsgo.deployments.json")
+            ?? new DeploymentsConfig();
+    }
+
+    public async Task SaveDeploymentsConfigAsync(DeploymentsConfig config)
+    {
+        await SaveConfigAsync("rsgo.deployments.json", config);
+    }
+
     private async Task<T?> LoadConfigAsync<T>(string fileName) where T : class
     {
         var filePath = Path.Combine(_configPath, fileName);
@@ -108,11 +129,22 @@ public class ConfigStore : IConfigStore
         try
         {
             var json = await File.ReadAllTextAsync(filePath);
+
+            // Handle empty files gracefully
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return null;
+            }
+
             return JsonSerializer.Deserialize<T>(json, _jsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException($"Configuration file '{fileName}' contains invalid JSON. Please check the file format.", ex);
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException($"Failed to load configuration file {fileName}", ex);
+            throw new InvalidOperationException($"Failed to load configuration file '{fileName}': {ex.Message}", ex);
         }
     }
 

@@ -2,22 +2,24 @@
 // In production, API is served from same origin (built into wwwroot)
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
-function getAuthHeaders(): HeadersInit {
+function getAuthHeaders(includeContentType: boolean = true): HeadersInit {
   const token = localStorage.getItem('auth_token');
+  const headers: HeadersInit = {};
+
   if (token) {
-    return {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    };
+    headers['Authorization'] = `Bearer ${token}`;
   }
-  return {
-    'Content-Type': 'application/json',
-  };
+
+  if (includeContentType) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  return headers;
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: getAuthHeaders(),
+    headers: getAuthHeaders(false),
   });
 
   if (!response.ok) {
@@ -25,16 +27,40 @@ export async function apiGet<T>(path: string): Promise<T> {
       // Unauthorized - redirect to login
       window.location.href = '/login';
     }
-    throw new Error(`API request failed: ${response.statusText}`);
+    // Try to get error details from response body
+    let errorMessage = `API request failed: ${response.statusText}`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody.errors) {
+        // FastEndpoints validation error format
+        const messages = Object.values(errorBody.errors).flat();
+        errorMessage = messages.join(', ') || errorMessage;
+      } else if (errorBody.error) {
+        errorMessage = errorBody.error;
+      } else if (errorBody.message) {
+        errorMessage = errorBody.message;
+      }
+    } catch {
+      // Ignore if body is not JSON
+    }
+    throw new Error(errorMessage);
+  }
+
+  // Handle empty responses
+  const contentLength = response.headers.get('content-length');
+  if (response.status === 204 || contentLength === '0') {
+    return undefined as T;
   }
 
   return response.json();
 }
 
 export async function apiPost<T = void>(path: string, body?: unknown): Promise<T> {
+  // Only include Content-Type header when there's a body to send
+  // FastEndpoints will fail to parse JSON if Content-Type is set but body is empty
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
-    headers: getAuthHeaders(),
+    headers: getAuthHeaders(!!body),
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -43,20 +69,44 @@ export async function apiPost<T = void>(path: string, body?: unknown): Promise<T
       // Unauthorized - redirect to login
       window.location.href = '/login';
     }
-    throw new Error(`API request failed: ${response.statusText}`);
+    // Try to get error details from response body
+    let errorMessage = `API request failed: ${response.statusText}`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody.errors) {
+        // FastEndpoints validation error format
+        const messages = Object.values(errorBody.errors).flat();
+        errorMessage = messages.join(', ') || errorMessage;
+      } else if (errorBody.message) {
+        errorMessage = errorBody.message;
+      }
+    } catch {
+      // Ignore if body is not JSON
+    }
+    throw new Error(errorMessage);
   }
 
-  if (response.status === 204 || response.headers.get('content-length') === '0') {
+  // Handle empty responses - check multiple conditions
+  const contentLength = response.headers.get('content-length');
+  if (response.status === 204 || contentLength === '0') {
     return undefined as T;
   }
 
-  return response.json();
+  // For responses that might have empty body without content-length header
+  const text = await response.text();
+  if (!text || text.trim() === '') {
+    return undefined as T;
+  }
+
+  // Parse the text as JSON
+  return JSON.parse(text) as T;
 }
 
 export async function apiPut<T = void>(path: string, body?: unknown): Promise<T> {
+  // Only include Content-Type header when there's a body to send
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'PUT',
-    headers: getAuthHeaders(),
+    headers: getAuthHeaders(!!body),
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -68,17 +118,26 @@ export async function apiPut<T = void>(path: string, body?: unknown): Promise<T>
     throw new Error(`API request failed: ${response.statusText}`);
   }
 
-  if (response.status === 204 || response.headers.get('content-length') === '0') {
+  // Handle empty responses - check multiple conditions
+  const contentLength = response.headers.get('content-length');
+  if (response.status === 204 || contentLength === '0') {
     return undefined as T;
   }
 
-  return response.json();
+  // For responses that might have empty body without content-length header
+  const text = await response.text();
+  if (!text || text.trim() === '') {
+    return undefined as T;
+  }
+
+  // Parse the text as JSON
+  return JSON.parse(text) as T;
 }
 
 export async function apiDelete<T = void>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'DELETE',
-    headers: getAuthHeaders(),
+    headers: getAuthHeaders(false),
   });
 
   if (!response.ok) {
@@ -89,9 +148,18 @@ export async function apiDelete<T = void>(path: string): Promise<T> {
     throw new Error(`API request failed: ${response.statusText}`);
   }
 
-  if (response.status === 204 || response.headers.get('content-length') === '0') {
+  // Handle empty responses - check multiple conditions
+  const contentLength = response.headers.get('content-length');
+  if (response.status === 204 || contentLength === '0') {
     return undefined as T;
   }
 
-  return response.json();
+  // For responses that might have empty body without content-length header
+  const text = await response.text();
+  if (!text || text.trim() === '') {
+    return undefined as T;
+  }
+
+  // Parse the text as JSON
+  return JSON.parse(text) as T;
 }

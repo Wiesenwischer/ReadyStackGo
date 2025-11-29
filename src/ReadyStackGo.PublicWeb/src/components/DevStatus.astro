@@ -1,0 +1,70 @@
+---
+interface Props {
+  lang: 'de' | 'en';
+}
+
+const { lang } = Astro.props;
+
+const content = {
+  de: {
+    badge: 'Frühe Entwicklungsphase',
+    title: 'Projekt in aktiver Entwicklung',
+    description: 'ReadyStackGo befindet sich aktuell in einer frühen Entwicklungsphase. Es gibt noch keinen offiziellen Release. Die Software kann sich jederzeit ändern und ist noch nicht für den produktiven Einsatz geeignet.',
+    points: [
+      'Kein stabiler Release verfügbar',
+      'APIs und Features können sich ändern',
+      'Nicht für Produktivumgebungen empfohlen',
+      'Feedback und Beiträge sind willkommen',
+    ],
+  },
+  en: {
+    badge: 'Early Development',
+    title: 'Project Under Active Development',
+    description: 'ReadyStackGo is currently in an early development phase. There is no official release yet. The software may change at any time and is not yet suitable for production use.',
+    points: [
+      'No stable release available',
+      'APIs and features may change',
+      'Not recommended for production',
+      'Feedback and contributions welcome',
+    ],
+  },
+};
+
+const c = content[lang];
+---
+
+<section class="py-16 bg-warning-50 dark:bg-warning-900/20 border-y border-warning-200 dark:border-warning-800">
+  <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center">
+      <!-- Badge -->
+      <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-warning-100 dark:bg-warning-900/40 text-warning-800 dark:text-warning-200 text-sm font-medium mb-6">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+        </svg>
+        {c.badge}
+      </span>
+
+      <!-- Title -->
+      <h2 class="text-2xl sm:text-3xl font-bold text-warning-900 dark:text-warning-100 mb-4">
+        {c.title}
+      </h2>
+
+      <!-- Description -->
+      <p class="text-lg text-warning-800 dark:text-warning-200 max-w-3xl mx-auto mb-8">
+        {c.description}
+      </p>
+
+      <!-- Points -->
+      <div class="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
+        {c.points.map((point) => (
+          <div class="flex items-center gap-3 text-left bg-white/50 dark:bg-gray-800/50 rounded-lg px-4 py-3">
+            <svg class="w-5 h-5 text-warning-600 dark:text-warning-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span class="text-warning-800 dark:text-warning-200">{point}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+</section>

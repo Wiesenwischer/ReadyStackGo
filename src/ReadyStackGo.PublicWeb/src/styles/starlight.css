@@ -1,0 +1,32 @@
+/*
+ * Starlight Theme - Custom font only
+ * Uses Starlight's default colors for both light and dark mode
+ */
+
+/* Local Noto Sans font */
+@font-face {
+  font-family: 'Noto Sans';
+  src: url('/fonts/NotoSans-Variable.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Noto Sans';
+  src: url('/fonts/NotoSans-Italic-Variable.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Font override only - let Starlight handle all colors */
+:root {
+  --sl-font: 'Noto Sans', system-ui, sans-serif;
+  --sl-font-mono: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
+/* Hide "Auto" (system) option from theme selector - only show Light/Dark */
+starlight-theme-select select option[value="auto"] {
+  display: none;
+}

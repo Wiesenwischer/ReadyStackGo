@@ -1,0 +1,35 @@
+# WordPress with MySQL
+# Production-ready WordPress stack with database backend
+
+version: '3.8'
+
+services:
+  wordpress:
+    image: wordpress:${WORDPRESS_VERSION:-latest}
+    ports:
+      - "${WORDPRESS_PORT:-8080}:80"
+    environment:
+      - WORDPRESS_DB_HOST=db
+      - WORDPRESS_DB_USER=${DB_USER}
+      - WORDPRESS_DB_PASSWORD=${DB_PASSWORD}
+      - WORDPRESS_DB_NAME=${DB_NAME}
+    volumes:
+      - wordpress_data:/var/www/html
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: mysql:${MYSQL_VERSION:-8.0}
+    environment:
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  wordpress_data:
+  db_data:

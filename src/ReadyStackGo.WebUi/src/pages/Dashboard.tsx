@@ -1,28 +1,41 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { dashboardApi, type DashboardStats } from '../api/dashboard';
+import { useEnvironment } from '../context/EnvironmentContext';
 
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { activeEnvironment } = useEnvironment();
 
-  useEffect(() => {
-    fetchStats();
-    const interval = setInterval(fetchStats, 10000);
-    return () => clearInterval(interval);
-  }, []);
+  const fetchStats = useCallback(async () => {
+    if (!activeEnvironment) {
+      setStats(null);
+      setLoading(false);
+      return;
+    }
 
-  const fetchStats = async () => {
     try {
-      const data = await dashboardApi.getStats();
+      const data = await dashboardApi.getStats(activeEnvironment.id);
       setStats(data);
-      setError(null);
+      // Check for error message in successful response
+      if (data.errorMessage) {
+        setError(data.errorMessage);
+      } else {
+        setError(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeEnvironment]);
+
+  useEffect(() => {
+    fetchStats();
+    const interval = setInterval(fetchStats, 10000);
+    return () => clearInterval(interval);
+  }, [fetchStats]);
 
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">

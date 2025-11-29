@@ -1,20 +1,22 @@
-version: '3.8'
-
 services:
-  readystackgo-admin:
+  readystackgo:
+    image: amssolution/readystackgo:${TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: readystackgo-admin
+    container_name: readystackgo
     ports:
       - "8080:8080"
       - "8443:8443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ~/.docker/config.json:/root/.docker/config.json:ro
       - rsgo-config:/app/config
+      - ./stacks:/app/stacks
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
+      - ConfigPath=/app/config
     restart: unless-stopped
     networks:
       - rsgo-net

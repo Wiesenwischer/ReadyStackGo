@@ -1,0 +1,67 @@
+---
+title: Installation
+description: ReadyStackGo auf deinem Server installieren
+---
+
+import { LinkCard } from '@astrojs/starlight/components';
+
+ReadyStackGo kann auf verschiedene Arten installiert werden. Wähle die Methode, die am besten zu deiner Umgebung passt.
+
+## Voraussetzungen
+
+Bevor du mit der Installation beginnst, stelle sicher, dass dein System die folgenden Anforderungen erfüllt:
+
+| Anforderung | Details |
+|-------------|---------|
+| **Betriebssystem** | **Ubuntu 20.04+** (offiziell unterstützt) |
+| **Architektur** | x86_64 (amd64) oder ARM64 |
+| **RAM** | Mindestens 1 GB (2 GB empfohlen) |
+| **Speicherplatz** | Mindestens 5 GB freier Speicher |
+| **Netzwerk** | Internetzugang für Image-Downloads |
+| **Berechtigungen** | Root-Zugriff oder sudo-Berechtigung |
+
+:::note[Nur ReadyStackGo]
+Diese Anforderungen gelten nur für ReadyStackGo selbst. Die Container-Stacks, die du deployen möchtest, haben eigene Anforderungen an CPU, RAM und Speicherplatz – plane entsprechend mehr Ressourcen ein.
+:::
+
+:::caution[Inoffizielle Distributionen]
+Debian, CentOS und Fedora funktionieren möglicherweise, sind aber **nicht offiziell unterstützt**. Bei Problemen mit diesen Distributionen können wir nur eingeschränkten Support bieten.
+:::
+
+---
+
+## Wähle deine Installationsmethode
+
+<LinkCard
+  title="Bootstrap Script"
+  description="Empfohlen – Ein Befehl installiert alles automatisch, inkl. Docker falls nötig."
+  href="/de/getting-started/installation/script/"
+/>
+
+<LinkCard
+  title="Docker Run"
+  description="Manuelle Installation mit einem einzelnen docker run Befehl."
+  href="/de/getting-started/installation/docker-run/"
+/>
+
+<LinkCard
+  title="Docker Compose"
+  description="Strukturierte Konfiguration mit docker-compose.yml für fortgeschrittene Setups."
+  href="/de/getting-started/installation/docker-compose/"
+/>
+
+---
+
+## Nach der Installation
+
+Nach erfolgreicher Installation ist ReadyStackGo erreichbar unter:
+
+```
+http://<server-ip>:8080
+```
+
+Beim ersten Zugriff wirst du automatisch zum **Setup-Wizard** weitergeleitet.
+
+<LinkCard title="Ersteinrichtung" description="Konfiguriere Admin-Account und Organisation im Setup-Wizard." href="/de/getting-started/initial-setup/" />
+
+<LinkCard title="Erster Stack" description="Deploye deinen ersten Container-Stack." href="/de/getting-started/first-deployment/" />

@@ -9,6 +9,17 @@ public record ContainerDto
     public required string Status { get; init; }
     public DateTime Created { get; init; }
     public List<PortDto> Ports { get; init; } = [];
+    public Dictionary<string, string> Labels { get; init; } = new();
+
+    /// <summary>
+    /// Health check status: "healthy", "unhealthy", "starting", or "none"
+    /// </summary>
+    public string HealthStatus { get; init; } = "none";
+
+    /// <summary>
+    /// Number of failing health checks (if any)
+    /// </summary>
+    public int FailingStreak { get; init; } = 0;
 }
 
 public record PortDto

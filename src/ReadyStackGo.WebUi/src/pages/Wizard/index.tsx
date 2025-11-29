@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import WizardLayout from './WizardLayout';
 import AdminStep from './AdminStep';
 import OrganizationStep from './OrganizationStep';
-import ConnectionsStep from './ConnectionsStep';
+import EnvironmentStep from './EnvironmentStep';
 import InstallStep from './InstallStep';
-import { createAdmin, setOrganization, setConnections, installStack, getWizardStatus } from '../../api/wizard';
+import { createAdmin, setOrganization, installStack, getWizardStatus } from '../../api/wizard';
+import { createEnvironment, setDefaultEnvironment } from '../../api/environments';
 
 export default function Wizard() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -19,6 +20,8 @@ export default function Wizard() {
         const status = await getWizardStatus();
 
         // Map backend wizard state to frontend step number
+        // v0.4.1: Added optional Environment step (4 steps total)
+        // Admin -> Organization -> Environment (optional) -> Install
         switch (status.wizardState) {
           case 'NotStarted':
             setCurrentStep(1);
@@ -28,9 +31,6 @@ export default function Wizard() {
             break;
           case 'OrganizationSet':
             setCurrentStep(3);
-            break;
-          case 'ConnectionsSet':
-            setCurrentStep(4);
             break;
           case 'Installed':
             // Wizard completed, redirect to login
@@ -60,8 +60,17 @@ export default function Wizard() {
     setCurrentStep(3);
   };
 
-  const handleConnectionsNext = async (data: { transport: string; persistence: string; eventStore?: string }) => {
-    await setConnections(data);
+  const handleEnvironmentNext = async (data: { id: string; name: string; socketPath: string } | null) => {
+    if (data) {
+      // User wants to create an environment
+      const response = await createEnvironment(data);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to create environment');
+      }
+      // Set it as default
+      await setDefaultEnvironment(data.id);
+    }
+    // Move to install step (whether environment was created or skipped)
     setCurrentStep(4);
   };
 
@@ -94,7 +103,7 @@ export default function Wizard() {
     <WizardLayout currentStep={currentStep} totalSteps={4}>
       {currentStep === 1 && <AdminStep onNext={handleAdminNext} />}
       {currentStep === 2 && <OrganizationStep onNext={handleOrganizationNext} />}
-      {currentStep === 3 && <ConnectionsStep onNext={handleConnectionsNext} />}
+      {currentStep === 3 && <EnvironmentStep onNext={handleEnvironmentNext} />}
       {currentStep === 4 && <InstallStep onInstall={handleInstall} />}
     </WizardLayout>
   );

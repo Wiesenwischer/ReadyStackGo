@@ -1,0 +1,72 @@
+---
+title: Willkommen
+description: Willkommen bei ReadyStackGo - Docker Stack Deployment leicht gemacht
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Willkommen bei **ReadyStackGo** - der modernen Container-Management-Plattform für einfaches Deployment von Docker Compose Stacks.
+
+## Was ist ReadyStackGo?
+
+ReadyStackGo ist eine self-hosted Plattform, mit der du Docker Compose Stacks mit wenigen Klicks deployen und verwalten kannst. Egal ob du einen einzelnen Server oder mehrere Umgebungen verwaltest - ReadyStackGo macht es einfach.
+
+<CardGrid>
+  <Card title="Self-Hosted" icon="server">
+    Volle Kontrolle über deine Daten. Läuft auf deiner eigenen Infrastruktur ohne externe Abhängigkeiten.
+  </Card>
+  <Card title="Ein-Klick Deployments" icon="rocket">
+    Deploye komplexe Container-Stacks mit einem einzigen Klick aus vorgefertigten Templates.
+  </Card>
+  <Card title="Multi-Environment" icon="setting">
+    Verwalte Development, Staging und Production Umgebungen von einer zentralen Oberfläche.
+  </Card>
+  <Card title="Web UI" icon="laptop">
+    Intuitive Weboberfläche für Stack-Management, Monitoring und Konfiguration.
+  </Card>
+</CardGrid>
+
+---
+
+## Schnellstart
+
+Starte ReadyStackGo mit einem einzigen Befehl:
+
+```bash
+curl -fsSL https://readystackgo.pages.dev/install.sh | sudo bash
+```
+
+Nach der Installation ist ReadyStackGo unter `http://localhost:8080` erreichbar.
+
+---
+
+## Nächste Schritte
+
+<CardGrid>
+  <LinkCard
+    title="Einführung"
+    description="Erfahre mehr über die Architektur und Konzepte von ReadyStackGo."
+    href="/de/introduction/"
+  />
+  <LinkCard
+    title="Installation"
+    description="Detaillierte Installationsanleitung für verschiedene Umgebungen."
+    href="/de/getting-started/installation/"
+  />
+  <LinkCard
+    title="Ersteinrichtung"
+    description="Konfiguriere ReadyStackGo nach der Installation."
+    href="/de/getting-started/initial-setup/"
+  />
+  <LinkCard
+    title="Erster Stack"
+    description="Deploye deinen ersten Container-Stack."
+    href="/de/getting-started/first-deployment/"
+  />
+</CardGrid>
+
+---
+
+## Aktuelle Version
+
+Die aktuelle Version ist **1.0.0**. Siehe die [Release Notes](/de/release-notes/) für Details zu neuen Features und Änderungen.

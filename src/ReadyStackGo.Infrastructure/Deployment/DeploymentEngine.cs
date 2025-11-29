@@ -97,15 +97,57 @@ public class DeploymentEngine : IDeploymentEngine
 
             var systemConfig = await _configStore.GetSystemConfigAsync();
 
-            // Ensure Docker network exists
-            await EnsureDockerNetworkAsync(systemConfig.DockerNetwork);
+            // Determine environment ID - use from plan or fall back to default
+            var environmentId = plan.EnvironmentId;
+            if (string.IsNullOrEmpty(environmentId))
+            {
+                // Fall back to default environment
+                var defaultEnv = systemConfig.Organization?.Environments.FirstOrDefault(e => e.IsDefault);
+                environmentId = defaultEnv?.Id;
+
+                if (string.IsNullOrEmpty(environmentId))
+                {
+                    result.Errors.Add("No environment specified and no default environment configured");
+                    result.Success = false;
+                    return result;
+                }
+            }
+
+            // Determine stack name first (needed for network naming)
+            var stackName = plan.StackName ?? plan.StackVersion;
+
+            // Create all non-external networks defined in the plan
+            foreach (var (networkName, networkDef) in plan.Networks)
+            {
+                if (!networkDef.External)
+                {
+                    // Create the network with resolved name (already prefixed with stack name)
+                    await EnsureDockerNetworkAsync(environmentId, networkDef.ResolvedName);
+                }
+                else
+                {
+                    _logger.LogInformation("Network '{NetworkName}' is external, assuming it already exists",
+                        networkDef.ResolvedName);
+                }
+            }
+
+            // Fallback: if no networks defined, create a default stack network
+            var defaultNetwork = $"{stackName}_default";
+            if (plan.Networks.Count == 0)
+            {
+                await EnsureDockerNetworkAsync(environmentId, defaultNetwork);
+            }
 
             // Execute deployment steps in order
             foreach (var step in plan.Steps)
             {
                 try
                 {
-                    await DeployStepAsync(step, systemConfig.DockerNetwork);
+                    var warning = await DeployStepAsync(environmentId, step, defaultNetwork, stackName);
+                    if (warning != null)
+                    {
+                        result.Warnings.Add(warning);
+                    }
                     result.DeployedContexts.Add(step.ContextName);
                     _logger.LogInformation("Successfully deployed context {Context}", step.ContextName);
                 }
@@ -140,7 +182,7 @@ public class DeploymentEngine : IDeploymentEngine
         return await ExecuteDeploymentAsync(plan);
     }
 
-    public async Task<DeploymentResult> RemoveStackAsync(string stackVersion)
+    public async Task<DeploymentResult> RemoveStackAsync(string environmentId, string stackVersion)
     {
         var result = new DeploymentResult
         {
@@ -150,44 +192,58 @@ public class DeploymentEngine : IDeploymentEngine
 
         try
         {
-            _logger.LogInformation("Removing stack version {Version}", stackVersion);
+            _logger.LogInformation("Removing stack version {Version} from environment {EnvironmentId}",
+                stackVersion, environmentId);
 
-            var releaseConfig = await _configStore.GetReleaseConfigAsync();
+            // Get all containers with the rsgo.stack label matching stackVersion
+            var containers = await _dockerService.ListContainersAsync(environmentId);
+            var stackContainers = containers
+                .Where(c => c.Labels.TryGetValue("rsgo.stack", out var stack) && stack == stackVersion)
+                .ToList();
 
-            if (releaseConfig.InstalledStackVersion != stackVersion)
+            if (!stackContainers.Any())
             {
-                result.Errors.Add($"Stack version {stackVersion} is not currently installed");
-                result.Success = false;
-                return result;
+                _logger.LogWarning("No containers found for stack {Version} in environment {EnvironmentId}",
+                    stackVersion, environmentId);
             }
 
-            // Remove all deployed containers
-            foreach (var (contextName, version) in releaseConfig.InstalledContexts)
+            // Remove all containers for this stack
+            foreach (var container in stackContainers)
             {
                 try
                 {
-                    // TODO: Implement container removal when IDockerService has RemoveContainerAsync
-                    // Container name pattern: from manifest
-                    // var containerName = $"{contextName}"; // This should match the containerName from manifest
-                    // await _dockerService.RemoveContainerAsync(containerName);
-                    result.DeployedContexts.Add(contextName);
-                    _logger.LogInformation("Marked container for removal: {Context}", contextName);
+                    _logger.LogInformation("Removing container {Name} ({Id})", container.Name, container.Id);
+                    await _dockerService.RemoveContainerAsync(environmentId, container.Id, force: true);
+
+                    // Extract context name from label
+                    if (container.Labels.TryGetValue("rsgo.context", out var contextName))
+                    {
+                        result.DeployedContexts.Add(contextName);
+                    }
+                    else
+                    {
+                        result.DeployedContexts.Add(container.Name);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to process container for context {Context}", contextName);
-                    result.Errors.Add($"Failed to remove {contextName}: {ex.Message}");
+                    _logger.LogWarning(ex, "Failed to remove container {Name}", container.Name);
+                    result.Errors.Add($"Failed to remove {container.Name}: {ex.Message}");
                 }
             }
 
             // Clear release configuration
-            releaseConfig.InstalledStackVersion = null;
-            releaseConfig.InstalledContexts.Clear();
-            releaseConfig.InstallDate = null;
-            await _configStore.SaveReleaseConfigAsync(releaseConfig);
+            var releaseConfig = await _configStore.GetReleaseConfigAsync();
+            if (releaseConfig.InstalledStackVersion == stackVersion)
+            {
+                releaseConfig.InstalledStackVersion = null;
+                releaseConfig.InstalledContexts.Clear();
+                releaseConfig.InstallDate = null;
+                await _configStore.SaveReleaseConfigAsync(releaseConfig);
+            }
 
             result.Success = result.Errors.Count == 0;
-            _logger.LogInformation("Stack removal completed");
+            _logger.LogInformation("Stack removal completed for {Version}", stackVersion);
         }
         catch (Exception ex)
         {
@@ -316,56 +372,121 @@ public class DeploymentEngine : IDeploymentEngine
         return ordered;
     }
 
-    private async Task EnsureDockerNetworkAsync(string networkName)
+    private async Task EnsureDockerNetworkAsync(string environmentId, string networkName)
     {
         try
         {
-            // Check if network exists by trying to inspect it
-            // If it doesn't exist, create it
-            // This will be implemented based on your DockerService capabilities
-            _logger.LogInformation("Ensuring Docker network {Network} exists", networkName);
+            _logger.LogInformation("Ensuring Docker network {Network} exists in environment {EnvironmentId}",
+                networkName, environmentId);
 
-            // For now, we'll assume the network creation is handled elsewhere
-            // In a full implementation, you'd call: await _dockerService.CreateNetworkAsync(networkName);
+            await _dockerService.EnsureNetworkAsync(environmentId, networkName);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to ensure Docker network {Network}", networkName);
+            _logger.LogWarning(ex, "Failed to ensure Docker network {Network} in environment {EnvironmentId}",
+                networkName, environmentId);
         }
     }
 
-    private async Task DeployStepAsync(DeploymentStep step, string networkName)
+    /// <summary>
+    /// Deploys a single step and returns a warning message if a local image fallback was used.
+    /// </summary>
+    private async Task<string?> DeployStepAsync(string environmentId, DeploymentStep step, string defaultNetwork, string stackName)
     {
-        _logger.LogInformation("Deploying step {Context} (order: {Order})", step.ContextName, step.Order);
+        _logger.LogInformation("Deploying step {Context} (order: {Order}) in environment {EnvironmentId}",
+            step.ContextName, step.Order, environmentId);
+
+        string? warning = null;
 
         // Stop and remove existing container if it exists
-        // TODO: Implement when IDockerService has RemoveContainerAsync
-        // try
-        // {
-        //     await _dockerService.RemoveContainerAsync(step.ContainerName);
-        //     _logger.LogInformation("Removed existing container {Container}", step.ContainerName);
-        // }
-        // catch
-        // {
-        //     // Container doesn't exist, that's fine
-        // }
+        try
+        {
+            var existing = await _dockerService.GetContainerByNameAsync(environmentId, step.ContainerName);
+            if (existing != null)
+            {
+                _logger.LogInformation("Removing existing container {Container}", step.ContainerName);
+                await _dockerService.RemoveContainerAsync(environmentId, existing.Id, force: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "No existing container {Container} to remove", step.ContainerName);
+        }
+
+        // Pull image
+        var (imageName, imageTag) = ParseImageReference(step.Image, step.Version);
+        var fullImageName = $"{imageName}:{imageTag}";
+        var pullSucceeded = false;
+        string? pullError = null;
+
+        try
+        {
+            _logger.LogInformation("Pulling image {Image} for container {Container}", fullImageName, step.ContainerName);
+            await _dockerService.PullImageAsync(environmentId, imageName, imageTag);
+            _logger.LogInformation("Successfully pulled image {Image}", fullImageName);
+            pullSucceeded = true;
+        }
+        catch (Exception ex)
+        {
+            pullError = ex.Message;
+            _logger.LogWarning(ex, "Failed to pull image {Image}", fullImageName);
+        }
+
+        // If pull failed, check if image exists locally
+        if (!pullSucceeded)
+        {
+            var imageExists = await _dockerService.ImageExistsAsync(environmentId, imageName, imageTag);
+            if (!imageExists)
+            {
+                var errorMessage = $"Failed to pull image '{fullImageName}' and no local copy exists. " +
+                    $"Please ensure the image exists and registry credentials are configured. Error: {pullError}";
+                _logger.LogError(errorMessage);
+                throw new InvalidOperationException(errorMessage);
+            }
+
+            warning = $"Image '{fullImageName}' could not be pulled - using existing local image. The deployed version may be outdated.";
+            _logger.LogWarning("Using existing local image {Image} (pull failed: {Error})", fullImageName, pullError);
+        }
+
+        // Determine networks for this container
+        // Use step's networks if specified, otherwise fall back to default network
+        var networks = step.Networks.Count > 0 ? step.Networks : new List<string> { defaultNetwork };
+
+        _logger.LogDebug("Container {Container} will be connected to networks: {Networks}",
+            step.ContainerName, string.Join(", ", networks));
 
         // Create and start container
-        // Note: This is a simplified version. Full implementation would need:
-        // - Pull image if not exists
-        // - Create container with all options (env vars, ports, volumes, network)
-        // - Start container
-        // - Wait for health check if configured
+        // Add service name as network alias so other containers can resolve it by service name
+        var request = new CreateContainerRequest
+        {
+            Name = step.ContainerName,
+            Image = $"{imageName}:{imageTag}",
+            EnvironmentVariables = step.EnvVars,
+            Ports = step.Ports,
+            Volumes = step.Volumes,
+            Networks = networks,
+            NetworkAliases = new List<string> { step.ContextName },
+            Labels = new Dictionary<string, string>
+            {
+                ["rsgo.stack"] = stackName,
+                ["rsgo.context"] = step.ContextName,
+                ["rsgo.environment"] = environmentId
+            },
+            RestartPolicy = "unless-stopped"
+        };
+
+        var containerId = await _dockerService.CreateAndStartContainerAsync(environmentId, request);
 
         _logger.LogInformation(
-            "Would deploy container {Container} from {Image}:{Version} with {EnvCount} env vars",
+            "Deployed container {Container} ({ContainerId}) from {Image}:{Tag} with {EnvCount} env vars on {NetworkCount} network(s)",
             step.ContainerName,
-            step.Image,
-            step.Version,
-            step.EnvVars.Count);
+            containerId,
+            imageName,
+            imageTag,
+            step.EnvVars.Count,
+            networks.Count);
 
-        // TODO: Implement actual container creation via DockerService
-        // await _dockerService.CreateAndStartContainerAsync(...)
+        return warning;
     }
 
     private async Task UpdateReleaseConfigAsync(DeploymentPlan plan)
@@ -383,5 +504,40 @@ public class DeploymentEngine : IDeploymentEngine
 
         await _configStore.SaveReleaseConfigAsync(releaseConfig);
         _logger.LogInformation("Updated release configuration for stack {Version}", plan.StackVersion);
+    }
+
+    /// <summary>
+    /// Parse a Docker image reference into name and tag.
+    /// Handles formats like:
+    /// - nginx:latest -> (nginx, latest)
+    /// - nginx -> (nginx, defaultTag)
+    /// - registry.example.com/myimage:v1 -> (registry.example.com/myimage, v1)
+    /// - registry.example.com:5000/myimage:v1 -> (registry.example.com:5000/myimage, v1)
+    /// - registry.example.com:5000/myimage -> (registry.example.com:5000/myimage, defaultTag)
+    /// </summary>
+    private static (string Name, string Tag) ParseImageReference(string image, string defaultTag)
+    {
+        if (string.IsNullOrEmpty(image))
+        {
+            return (image, defaultTag);
+        }
+
+        // Find the last colon that could be a tag separator
+        // A tag separator colon must:
+        // 1. Be after any slash (so registry ports like registry.com:5000/image are not confused)
+        // 2. Not have a slash after it
+        var lastSlash = image.LastIndexOf('/');
+        var lastColon = image.LastIndexOf(':');
+
+        // If there's a colon after the last slash (or no slash), it's a tag separator
+        if (lastColon > lastSlash && lastColon < image.Length - 1)
+        {
+            var name = image[..lastColon];
+            var tag = image[(lastColon + 1)..];
+            return (name, tag);
+        }
+
+        // No tag found, use default
+        return (image, defaultTag);
     }
 }

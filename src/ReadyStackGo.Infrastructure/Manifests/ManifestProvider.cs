@@ -22,12 +22,28 @@ public class ManifestProvider : IManifestProvider
     {
         _configuration = configuration;
         _logger = logger;
-        _manifestsPath = configuration.GetValue<string>("ManifestsPath") ?? "/app/manifests";
 
-        // Ensure manifests directory exists
-        if (!Directory.Exists(_manifestsPath))
+        var configuredPath = configuration.GetValue<string>("ManifestsPath") ?? "/app/manifests";
+
+        // Try to use configured path, fall back to temp directory if not accessible
+        try
         {
-            Directory.CreateDirectory(_manifestsPath);
+            if (!Directory.Exists(configuredPath))
+            {
+                Directory.CreateDirectory(configuredPath);
+            }
+            _manifestsPath = configuredPath;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Fall back to temp directory if configured path is not accessible
+            _manifestsPath = Path.Combine(Path.GetTempPath(), "ReadyStackGo", "manifests");
+            if (!Directory.Exists(_manifestsPath))
+            {
+                Directory.CreateDirectory(_manifestsPath);
+            }
+            _logger.LogWarning("Cannot access configured manifests path '{ConfiguredPath}', using fallback: {FallbackPath}",
+                configuredPath, _manifestsPath);
         }
 
         _jsonOptions = new JsonSerializerOptions

@@ -1,0 +1,72 @@
+---
+title: Welcome
+description: Welcome to ReadyStackGo - Docker Stack Deployment made easy
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Welcome to **ReadyStackGo** - the modern container management platform for easy deployment of Docker Compose stacks.
+
+## What is ReadyStackGo?
+
+ReadyStackGo is a self-hosted platform that lets you deploy and manage Docker Compose stacks with just a few clicks. Whether you're managing a single server or multiple environments - ReadyStackGo makes it easy.
+
+<CardGrid>
+  <Card title="Self-Hosted" icon="server">
+    Full control over your data. Runs on your own infrastructure without external dependencies.
+  </Card>
+  <Card title="One-Click Deployments" icon="rocket">
+    Deploy complex container stacks with a single click using pre-built templates.
+  </Card>
+  <Card title="Multi-Environment" icon="setting">
+    Manage development, staging, and production environments from a single interface.
+  </Card>
+  <Card title="Web UI" icon="laptop">
+    Intuitive web interface for stack management, monitoring, and configuration.
+  </Card>
+</CardGrid>
+
+---
+
+## Quick Start
+
+Start ReadyStackGo with a single command:
+
+```bash
+curl -fsSL https://readystackgo.pages.dev/install.sh | sudo bash
+```
+
+After installation, ReadyStackGo is available at `http://localhost:8080`.
+
+---
+
+## Next Steps
+
+<CardGrid>
+  <LinkCard
+    title="Introduction"
+    description="Learn more about ReadyStackGo's architecture and concepts."
+    href="/en/introduction/"
+  />
+  <LinkCard
+    title="Installation"
+    description="Detailed installation guide for various environments."
+    href="/en/getting-started/installation/"
+  />
+  <LinkCard
+    title="Initial Setup"
+    description="Configure ReadyStackGo after installation."
+    href="/en/getting-started/initial-setup/"
+  />
+  <LinkCard
+    title="First Deployment"
+    description="Deploy your first container stack."
+    href="/en/getting-started/first-deployment/"
+  />
+</CardGrid>
+
+---
+
+## Current Version
+
+The current version is **1.0.0**. See the [Release Notes](/en/release-notes/) for details on new features and changes.
