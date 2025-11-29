@@ -20,8 +20,12 @@ const { lang = 'de' } = Astro.props;
 			</a>
 
 			<!-- Links -->
-			<nav class="flex items-center gap-8">
+			<nav class="flex items-center gap-6">
 				<a href={getDocsPath(lang)} class="text-gray-400 hover:text-white transition-colors text-theme-sm font-medium">{t(lang, 'footer.docs')}</a>
+				<span class="text-gray-600">|</span>
+				<a href={lang === 'de' ? '/de/datenschutz/' : '/en/privacy/'} class="text-gray-400 hover:text-white transition-colors text-theme-sm font-medium">{t(lang, 'footer.privacy')}</a>
+				<span class="text-gray-600">|</span>
+				<a href={lang === 'de' ? '/de/impressum/' : '/en/imprint/'} class="text-gray-400 hover:text-white transition-colors text-theme-sm font-medium">{t(lang, 'footer.imprint')}</a>
 			</nav>
 		</div>
 	</div>
