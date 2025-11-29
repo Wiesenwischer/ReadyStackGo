@@ -12,8 +12,11 @@ const { lang = 'de' } = Astro.props;
 	<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 		<div class="flex flex-col md:flex-row items-center justify-between gap-6">
 			<!-- Logo -->
-			<a href={`/${lang}/home/`} class="flex items-center">
-				<img src="/images/logo/readystackgo-logo.png" alt="ReadyStackGo" class="h-10" />
+			<a href={`/${lang}/home/`} class="flex items-center gap-3">
+				<img src="/images/logo/readystackgo-icon.png" alt="" class="h-10 w-auto" />
+				<span class="text-xl font-bold">
+					<span class="text-[#00CED1]">Ready</span><span class="text-white">Stack</span><span class="text-[#FF6B35]">Go</span>
+				</span>
 			</a>
 
 			<!-- Links -->
