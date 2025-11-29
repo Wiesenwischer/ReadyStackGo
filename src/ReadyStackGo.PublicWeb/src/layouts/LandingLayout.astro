@@ -1,0 +1,52 @@
+---
+import '../styles/tailwind.css';
+
+interface Props {
+	title: string;
+	description?: string;
+}
+
+const { title, description = 'Docker Stack Deployment leicht gemacht' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="de">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="description" content={description} />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<title>{title}</title>
+		<script is:inline>
+			// Apply dark mode immediately to prevent flash
+			// Sync between Landing Page ('theme') and Starlight ('starlight-theme')
+			(function() {
+				const landingTheme = localStorage.getItem('theme');
+				const starlightTheme = localStorage.getItem('starlight-theme');
+
+				// Determine active theme (prefer landing page setting, fallback to starlight, then system)
+				let theme = landingTheme || starlightTheme;
+				if (!theme) {
+					theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+				}
+
+				// Sync both storage keys
+				localStorage.setItem('theme', theme);
+				localStorage.setItem('starlight-theme', theme);
+
+				if (theme === 'dark') {
+					document.documentElement.classList.add('dark');
+				}
+			})();
+		</script>
+	</head>
+	<body class="bg-white dark:bg-gray-900">
+		<slot />
+	</body>
+</html>
+
+<style is:global>
+	html {
+		font-family: 'Noto Sans', system-ui, sans-serif;
+	}
+</style>

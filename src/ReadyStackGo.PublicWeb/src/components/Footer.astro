@@ -1,0 +1,25 @@
+---
+import { t, type Lang, getDocsPath } from '../i18n/translations';
+
+interface Props {
+	lang?: Lang;
+}
+
+const { lang = 'de' } = Astro.props;
+---
+
+<footer class="bg-gray-900 py-12 border-t border-gray-800">
+	<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+		<div class="flex flex-col md:flex-row items-center justify-between gap-6">
+			<!-- Logo -->
+			<a href={`/${lang}/home/`} class="flex items-center">
+				<img src="/images/logo/readystackgo-logo.png" alt="ReadyStackGo" class="h-10" />
+			</a>
+
+			<!-- Links -->
+			<nav class="flex items-center gap-8">
+				<a href={getDocsPath(lang)} class="text-gray-400 hover:text-white transition-colors text-theme-sm font-medium">{t(lang, 'footer.docs')}</a>
+			</nav>
+		</div>
+	</div>
+</footer>

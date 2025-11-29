@@ -1,0 +1,67 @@
+---
+title: Installation
+description: Install ReadyStackGo on your server
+---
+
+import { LinkCard } from '@astrojs/starlight/components';
+
+ReadyStackGo can be installed in several ways. Choose the method that best fits your environment.
+
+## Prerequisites
+
+Before you begin, ensure your system meets the following requirements:
+
+| Requirement | Details |
+|-------------|---------|
+| **Operating System** | **Ubuntu 20.04+** (officially supported) |
+| **Architecture** | x86_64 (amd64) or ARM64 |
+| **RAM** | Minimum 1 GB (2 GB recommended) |
+| **Storage** | Minimum 5 GB free space |
+| **Network** | Internet access for image downloads |
+| **Permissions** | Root or sudo access |
+
+:::note[ReadyStackGo Only]
+These requirements are for ReadyStackGo itself. The container stacks you deploy will have their own CPU, RAM, and storage requirements – plan for additional resources accordingly.
+:::
+
+:::caution[Unofficial Distributions]
+Debian, CentOS, and Fedora may work but are **not officially supported**. We can only provide limited support for issues with these distributions.
+:::
+
+---
+
+## Choose Your Installation Method
+
+<LinkCard
+  title="Bootstrap Script"
+  description="Recommended – One command installs everything automatically, including Docker if needed."
+  href="/en/getting-started/installation/script/"
+/>
+
+<LinkCard
+  title="Docker Run"
+  description="Manual installation with a single docker run command."
+  href="/en/getting-started/installation/docker-run/"
+/>
+
+<LinkCard
+  title="Docker Compose"
+  description="Structured configuration with docker-compose.yml for advanced setups."
+  href="/en/getting-started/installation/docker-compose/"
+/>
+
+---
+
+## After Installation
+
+After successful installation, ReadyStackGo is accessible at:
+
+```
+http://<server-ip>:8080
+```
+
+On first access, you will be automatically redirected to the **Setup Wizard**.
+
+<LinkCard title="Initial Setup" description="Configure admin account and organization in the setup wizard." href="/en/getting-started/initial-setup/" />
+
+<LinkCard title="First Deployment" description="Deploy your first container stack." href="/en/getting-started/first-deployment/" />
