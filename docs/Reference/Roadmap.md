@@ -15,14 +15,15 @@ Grober Ausblick auf geplante Versionen und Features.
   - 404 Page, 4-Step Wizard, Environment Management UI
   - Registry Authentication für Image Pulls
   - Deployment Warnings bei lokalem Image-Fallback
+- **v0.5** – Environment Setup Flow + PublicWeb ✅ (2025-11-30)
+  - Environment-Erstellung als optionaler Wizard-Schritt
+  - EnvironmentGuard für environment-abhängige Seiten
+  - SetupEnvironment-Seite wenn kein Environment existiert
+  - PublicWeb Landing Page (DE/EN) mit Astro/Starlight
+  - ams.project Showcase, Impressum, Datenschutz
+  - Install-Script mit Docker Hub Image
 
 ## Planned
-
-### v0.5 – Environment Setup Flow
-- Nach Organization-Setup: Environment-Erstellung als optionaler Schritt
-- Nach Login: Prüfung ob Environment existiert
-- Wenn kein Environment: Environment-Übersicht mit Hinweis anzeigen
-- Navigation: Dashboard und environment-abhängige Seiten ausblenden wenn kein Environment existiert/ausgewählt
 
 ### v0.6 – Multi-User + Database Migration + Security Hardening
 - SQLite-Migration für Multi-User-Support
