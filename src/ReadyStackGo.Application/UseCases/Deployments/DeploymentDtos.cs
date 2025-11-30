@@ -100,14 +100,6 @@ public class DeployedServiceInfo
 }
 
 /// <summary>
-/// Request to get deployment status
-/// </summary>
-public class GetDeploymentRequest
-{
-    public required string StackName { get; set; }
-}
-
-/// <summary>
 /// Response with deployment details
 /// </summary>
 public class GetDeploymentResponse
