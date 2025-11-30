@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ReadyStackGo.Application.Auth;
@@ -7,6 +8,9 @@ using ReadyStackGo.Application.Environments;
 using ReadyStackGo.Application.Manifests;
 using ReadyStackGo.Application.Stacks;
 using ReadyStackGo.Application.Wizard;
+using ReadyStackGo.Domain.Identity.Repositories;
+using ReadyStackGo.Domain.Identity.Services;
+using ReadyStackGo.Domain.Access.Repositories;
 using ReadyStackGo.Infrastructure.Auth;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Deployment;
@@ -14,6 +18,9 @@ using ReadyStackGo.Infrastructure.Docker;
 using ReadyStackGo.Infrastructure.Deployments;
 using ReadyStackGo.Infrastructure.Environments;
 using ReadyStackGo.Infrastructure.Manifests;
+using ReadyStackGo.Infrastructure.Persistence;
+using ReadyStackGo.Infrastructure.Persistence.Repositories;
+using ReadyStackGo.Infrastructure.Services;
 using ReadyStackGo.Infrastructure.Stacks;
 using ReadyStackGo.Infrastructure.Stacks.Sources;
 using ReadyStackGo.Infrastructure.Tls;
@@ -58,6 +65,34 @@ public static class DependencyInjection
         // Environment services (v0.4)
         services.AddSingleton<IEnvironmentService, EnvironmentService>();
 
+        // v0.6: SQLite persistence
+        var connectionString = configuration.GetConnectionString("ReadyStackGo")
+            ?? "Data Source=readystackgo.db";
+        services.AddDbContext<ReadyStackGoDbContext>(options =>
+            options.UseSqlite(connectionString));
+
+        // Repositories
+        services.AddScoped<ITenantRepository, TenantRepository>();
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IRoleRepository, RoleRepository>();
+
+        // Password hashing
+        services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
+
+        // Domain Services
+        services.AddScoped<TenantProvisioningService>();
+        services.AddScoped<AuthenticationService>();
+
         return services;
+    }
+
+    /// <summary>
+    /// Ensures the database is created.
+    /// </summary>
+    public static void EnsureDatabaseCreated(this IServiceProvider services)
+    {
+        using var scope = services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ReadyStackGoDbContext>();
+        context.Database.EnsureCreated();
     }
 }
