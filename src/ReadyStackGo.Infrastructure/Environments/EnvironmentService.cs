@@ -2,335 +2,323 @@ using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Environments;
 using ReadyStackGo.Domain.Identity.Repositories;
-using ReadyStackGo.Domain.Organizations;
-using ReadyStackGo.Infrastructure.Configuration;
+using ReadyStackGo.Domain.StackManagement.Aggregates;
+using ReadyStackGo.Domain.StackManagement.Repositories;
+using ReadyStackGo.Domain.StackManagement.ValueObjects;
+using DomainEnvironment = ReadyStackGo.Domain.StackManagement.Aggregates.Environment;
 
 namespace ReadyStackGo.Infrastructure.Environments;
 
 /// <summary>
 /// Service for managing environments within an organization.
-/// v0.4: Only DockerSocketEnvironment is supported.
-/// v0.6: Organization existence check uses SQLite database.
+/// v0.6: Fully migrated to SQLite persistence.
 /// </summary>
 public class EnvironmentService : IEnvironmentService
 {
-    private readonly IConfigStore _configStore;
+    private readonly IEnvironmentRepository _environmentRepository;
     private readonly IOrganizationRepository _organizationRepository;
     private readonly ILogger<EnvironmentService> _logger;
 
     public EnvironmentService(
-        IConfigStore configStore,
+        IEnvironmentRepository environmentRepository,
         IOrganizationRepository organizationRepository,
         ILogger<EnvironmentService> logger)
     {
-        _configStore = configStore;
+        _environmentRepository = environmentRepository;
         _organizationRepository = organizationRepository;
         _logger = logger;
     }
 
-    private bool HasOrganization()
+    public Task<ListEnvironmentsResponse> GetEnvironmentsAsync()
     {
-        return _organizationRepository.GetAll().Any();
-    }
+        var organization = _organizationRepository.GetAll().FirstOrDefault();
 
-    public async Task<ListEnvironmentsResponse> GetEnvironmentsAsync()
-    {
-        var systemConfig = await _configStore.GetSystemConfigAsync();
-
-        // Check SQLite for organization existence, but use ConfigStore for environments (v0.6 transitional)
-        if (!HasOrganization() && systemConfig.Organization == null)
+        if (organization == null)
         {
-            return new ListEnvironmentsResponse
+            return Task.FromResult(new ListEnvironmentsResponse
             {
                 Success = true,
                 Environments = new List<EnvironmentResponse>()
-            };
+            });
         }
 
-        // If org exists in SQLite but environments are in ConfigStore
-        if (systemConfig.Organization == null)
-        {
-            return new ListEnvironmentsResponse
-            {
-                Success = true,
-                Environments = new List<EnvironmentResponse>()
-            };
-        }
-
-        var environments = systemConfig.Organization.Environments
+        var environments = _environmentRepository.GetByOrganization(organization.Id)
             .Select(MapToResponse)
             .ToList();
 
-        return new ListEnvironmentsResponse
+        return Task.FromResult(new ListEnvironmentsResponse
         {
             Success = true,
             Environments = environments
-        };
+        });
     }
 
-    public async Task<EnvironmentResponse?> GetEnvironmentAsync(string environmentId)
+    public Task<EnvironmentResponse?> GetEnvironmentAsync(string environmentId)
     {
-        var systemConfig = await _configStore.GetSystemConfigAsync();
+        if (!Guid.TryParse(environmentId, out var guid))
+        {
+            return Task.FromResult<EnvironmentResponse?>(null);
+        }
 
-        var environment = systemConfig.Organization?.GetEnvironment(environmentId);
+        var environment = _environmentRepository.Get(new EnvironmentId(guid));
 
-        return environment != null ? MapToResponse(environment) : null;
+        return Task.FromResult(environment != null ? MapToResponse(environment) : null);
     }
 
-    public async Task<CreateEnvironmentResponse> CreateEnvironmentAsync(CreateEnvironmentRequest request)
+    public Task<CreateEnvironmentResponse> CreateEnvironmentAsync(CreateEnvironmentRequest request)
     {
         try
         {
-            _logger.LogInformation("Creating environment: {Id} - {Name}", request.Id, request.Name);
+            _logger.LogInformation("Creating environment: {Name}", request.Name);
 
-            // Check SQLite for organization existence
-            if (!HasOrganization())
+            var organization = _organizationRepository.GetAll().FirstOrDefault();
+
+            if (organization == null)
             {
-                return new CreateEnvironmentResponse
+                return Task.FromResult(new CreateEnvironmentResponse
                 {
                     Success = false,
                     Message = "Organization not set. Complete the setup wizard first."
-                };
+                });
             }
 
-            var systemConfig = await _configStore.GetSystemConfigAsync();
-
-            // Create DockerSocketEnvironment (only type supported in v0.4)
-            var environment = new DockerSocketEnvironment
+            // Check for duplicate name
+            var existingByName = _environmentRepository.GetByName(organization.Id, request.Name);
+            if (existingByName != null)
             {
-                Id = request.Id,
-                Name = request.Name,
-                SocketPath = request.SocketPath,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            // Ensure ConfigStore has an Organization object for environment storage
-            // (v0.6 transitional: SQLite has Organization entity, ConfigStore stores environments)
-            if (systemConfig.Organization == null)
-            {
-                var sqliteOrg = _organizationRepository.GetAll().FirstOrDefault();
-                systemConfig.Organization = new Organization
+                return Task.FromResult(new CreateEnvironmentResponse
                 {
-                    Id = sqliteOrg?.Id.ToString() ?? Guid.NewGuid().ToString(),
-                    Name = sqliteOrg?.Name ?? "Default",
-                    CreatedAt = sqliteOrg?.CreatedAt ?? DateTime.UtcNow
-                };
+                    Success = false,
+                    Message = $"Environment with name '{request.Name}' already exists."
+                });
             }
 
-            // Add to organization (validates uniqueness)
-            systemConfig.Organization.AddEnvironment(environment);
+            // Create environment
+            var environmentId = _environmentRepository.NextIdentity();
+            var environment = DomainEnvironment.CreateDockerSocket(
+                environmentId,
+                organization.Id,
+                request.Name,
+                null,
+                request.SocketPath);
 
-            await _configStore.SaveSystemConfigAsync(systemConfig);
+            // Set as default if this is the first environment
+            var existingEnvironments = _environmentRepository.GetByOrganization(organization.Id);
+            if (!existingEnvironments.Any())
+            {
+                environment.SetAsDefault();
+            }
 
-            _logger.LogInformation("Environment created successfully: {Id}", request.Id);
+            _environmentRepository.Add(environment);
+            _environmentRepository.SaveChanges();
 
-            return new CreateEnvironmentResponse
+            _logger.LogInformation("Environment created successfully: {Id}", environmentId);
+
+            return Task.FromResult(new CreateEnvironmentResponse
             {
                 Success = true,
                 Message = "Environment created successfully",
                 Environment = MapToResponse(environment)
-            };
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "Failed to create environment: {Id}", request.Id);
-            return new CreateEnvironmentResponse
-            {
-                Success = false,
-                Message = ex.Message
-            };
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error creating environment: {Id}", request.Id);
-            return new CreateEnvironmentResponse
+            _logger.LogError(ex, "Failed to create environment: {Name}", request.Name);
+            return Task.FromResult(new CreateEnvironmentResponse
             {
                 Success = false,
                 Message = $"Failed to create environment: {ex.Message}"
-            };
+            });
         }
     }
 
-    public async Task<UpdateEnvironmentResponse> UpdateEnvironmentAsync(string environmentId, UpdateEnvironmentRequest request)
+    public Task<UpdateEnvironmentResponse> UpdateEnvironmentAsync(string environmentId, UpdateEnvironmentRequest request)
     {
         try
         {
             _logger.LogInformation("Updating environment: {Id}", environmentId);
 
-            var systemConfig = await _configStore.GetSystemConfigAsync();
-
-            if (systemConfig.Organization == null)
+            if (!Guid.TryParse(environmentId, out var guid))
             {
-                return new UpdateEnvironmentResponse
+                return Task.FromResult(new UpdateEnvironmentResponse
                 {
                     Success = false,
-                    Message = "Organization not set."
-                };
+                    Message = "Invalid environment ID."
+                });
             }
 
-            var environment = systemConfig.Organization.GetEnvironment(environmentId);
+            var environment = _environmentRepository.Get(new EnvironmentId(guid));
 
             if (environment == null)
             {
-                return new UpdateEnvironmentResponse
+                return Task.FromResult(new UpdateEnvironmentResponse
                 {
                     Success = false,
                     Message = $"Environment '{environmentId}' not found."
-                };
+                });
             }
 
-            // Check if new socket path conflicts with another environment
-            var newConnectionString = request.SocketPath;
-            var conflicting = systemConfig.Organization.Environments
-                .FirstOrDefault(e => e.Id != environmentId && e.GetConnectionString() == newConnectionString);
-
-            if (conflicting != null)
+            // Check for duplicate name (exclude current environment)
+            var existingByName = _environmentRepository.GetByName(environment.OrganizationId, request.Name);
+            if (existingByName != null && existingByName.Id != environment.Id)
             {
-                return new UpdateEnvironmentResponse
+                return Task.FromResult(new UpdateEnvironmentResponse
                 {
                     Success = false,
-                    Message = $"Socket path '{request.SocketPath}' is already used by environment '{conflicting.Id}'."
-                };
+                    Message = $"Environment with name '{request.Name}' already exists."
+                });
             }
 
             // Update properties
-            environment.Name = request.Name;
+            environment.UpdateName(request.Name);
+            environment.UpdateConnectionConfig(ConnectionConfig.DockerSocket(request.SocketPath));
 
-            if (environment is DockerSocketEnvironment dockerEnv)
-            {
-                dockerEnv.SocketPath = request.SocketPath;
-            }
-
-            systemConfig.Organization.UpdatedAt = DateTime.UtcNow;
-
-            await _configStore.SaveSystemConfigAsync(systemConfig);
+            _environmentRepository.Update(environment);
+            _environmentRepository.SaveChanges();
 
             _logger.LogInformation("Environment updated successfully: {Id}", environmentId);
 
-            return new UpdateEnvironmentResponse
+            return Task.FromResult(new UpdateEnvironmentResponse
             {
                 Success = true,
                 Message = "Environment updated successfully",
                 Environment = MapToResponse(environment)
-            };
+            });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to update environment: {Id}", environmentId);
-            return new UpdateEnvironmentResponse
+            return Task.FromResult(new UpdateEnvironmentResponse
             {
                 Success = false,
                 Message = $"Failed to update environment: {ex.Message}"
-            };
+            });
         }
     }
 
-    public async Task<DeleteEnvironmentResponse> DeleteEnvironmentAsync(string environmentId)
+    public Task<DeleteEnvironmentResponse> DeleteEnvironmentAsync(string environmentId)
     {
         try
         {
             _logger.LogInformation("Deleting environment: {Id}", environmentId);
 
-            var systemConfig = await _configStore.GetSystemConfigAsync();
-
-            if (systemConfig.Organization == null)
+            if (!Guid.TryParse(environmentId, out var guid))
             {
-                return new DeleteEnvironmentResponse
+                return Task.FromResult(new DeleteEnvironmentResponse
                 {
                     Success = false,
-                    Message = "Organization not set."
-                };
+                    Message = "Invalid environment ID."
+                });
             }
 
-            systemConfig.Organization.RemoveEnvironment(environmentId);
+            var environment = _environmentRepository.Get(new EnvironmentId(guid));
 
-            await _configStore.SaveSystemConfigAsync(systemConfig);
+            if (environment == null)
+            {
+                return Task.FromResult(new DeleteEnvironmentResponse
+                {
+                    Success = false,
+                    Message = $"Environment '{environmentId}' not found."
+                });
+            }
+
+            if (environment.IsDefault)
+            {
+                return Task.FromResult(new DeleteEnvironmentResponse
+                {
+                    Success = false,
+                    Message = "Cannot delete the default environment. Set another environment as default first."
+                });
+            }
+
+            _environmentRepository.Remove(environment);
+            _environmentRepository.SaveChanges();
 
             _logger.LogInformation("Environment deleted successfully: {Id}", environmentId);
 
-            return new DeleteEnvironmentResponse
+            return Task.FromResult(new DeleteEnvironmentResponse
             {
                 Success = true,
                 Message = "Environment deleted successfully"
-            };
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "Failed to delete environment: {Id}", environmentId);
-            return new DeleteEnvironmentResponse
-            {
-                Success = false,
-                Message = ex.Message
-            };
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error deleting environment: {Id}", environmentId);
-            return new DeleteEnvironmentResponse
+            _logger.LogError(ex, "Failed to delete environment: {Id}", environmentId);
+            return Task.FromResult(new DeleteEnvironmentResponse
             {
                 Success = false,
                 Message = $"Failed to delete environment: {ex.Message}"
-            };
+            });
         }
     }
 
-    public async Task<SetDefaultEnvironmentResponse> SetDefaultEnvironmentAsync(string environmentId)
+    public Task<SetDefaultEnvironmentResponse> SetDefaultEnvironmentAsync(string environmentId)
     {
         try
         {
             _logger.LogInformation("Setting default environment: {Id}", environmentId);
 
-            var systemConfig = await _configStore.GetSystemConfigAsync();
-
-            if (systemConfig.Organization == null)
+            if (!Guid.TryParse(environmentId, out var guid))
             {
-                return new SetDefaultEnvironmentResponse
+                return Task.FromResult(new SetDefaultEnvironmentResponse
                 {
                     Success = false,
-                    Message = "Organization not set."
-                };
+                    Message = "Invalid environment ID."
+                });
             }
 
-            systemConfig.Organization.SetDefaultEnvironment(environmentId);
+            var environment = _environmentRepository.Get(new EnvironmentId(guid));
 
-            await _configStore.SaveSystemConfigAsync(systemConfig);
+            if (environment == null)
+            {
+                return Task.FromResult(new SetDefaultEnvironmentResponse
+                {
+                    Success = false,
+                    Message = $"Environment '{environmentId}' not found."
+                });
+            }
+
+            // Unset current default
+            var currentDefault = _environmentRepository.GetDefault(environment.OrganizationId);
+            if (currentDefault != null && currentDefault.Id != environment.Id)
+            {
+                currentDefault.UnsetAsDefault();
+                _environmentRepository.Update(currentDefault);
+            }
+
+            // Set new default
+            environment.SetAsDefault();
+            _environmentRepository.Update(environment);
+            _environmentRepository.SaveChanges();
 
             _logger.LogInformation("Default environment set successfully: {Id}", environmentId);
 
-            return new SetDefaultEnvironmentResponse
+            return Task.FromResult(new SetDefaultEnvironmentResponse
             {
                 Success = true,
                 Message = "Default environment set successfully"
-            };
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "Failed to set default environment: {Id}", environmentId);
-            return new SetDefaultEnvironmentResponse
-            {
-                Success = false,
-                Message = ex.Message
-            };
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error setting default environment: {Id}", environmentId);
-            return new SetDefaultEnvironmentResponse
+            _logger.LogError(ex, "Failed to set default environment: {Id}", environmentId);
+            return Task.FromResult(new SetDefaultEnvironmentResponse
             {
                 Success = false,
                 Message = $"Failed to set default environment: {ex.Message}"
-            };
+            });
         }
     }
 
-    private static EnvironmentResponse MapToResponse(Domain.Organizations.Environment environment)
+    private static EnvironmentResponse MapToResponse(DomainEnvironment environment)
     {
         return new EnvironmentResponse
         {
-            Id = environment.Id,
+            Id = environment.Id.ToString(),
             Name = environment.Name,
-            Type = environment.GetEnvironmentType(),
-            ConnectionString = environment.GetConnectionString(),
+            Type = environment.Type.ToString(),
+            ConnectionString = environment.ConnectionConfig.SocketPath,
             IsDefault = environment.IsDefault,
             CreatedAt = environment.CreatedAt
         };

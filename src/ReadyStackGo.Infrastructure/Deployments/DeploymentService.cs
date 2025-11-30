@@ -1,32 +1,41 @@
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Deployments;
-using ReadyStackGo.Domain.Configuration;
-using ReadyStackGo.Infrastructure.Configuration;
+using ReadyStackGo.Domain.Identity.Repositories;
+using ReadyStackGo.Domain.Identity.ValueObjects;
+using ReadyStackGo.Domain.StackManagement.Aggregates;
+using ReadyStackGo.Domain.StackManagement.Repositories;
+using ReadyStackGo.Domain.StackManagement.ValueObjects;
 using ReadyStackGo.Infrastructure.Deployment;
 
 namespace ReadyStackGo.Infrastructure.Deployments;
 
 /// <summary>
 /// Service for managing Docker Compose stack deployments.
-/// v0.4: Supports deploying stacks to specific environments.
+/// v0.6: Fully migrated to SQLite persistence.
 /// </summary>
 public class DeploymentService : IDeploymentService
 {
     private readonly IDockerComposeParser _composeParser;
     private readonly IDeploymentEngine _deploymentEngine;
-    private readonly IConfigStore _configStore;
+    private readonly IDeploymentRepository _deploymentRepository;
+    private readonly IEnvironmentRepository _environmentRepository;
+    private readonly IUserRepository _userRepository;
     private readonly ILogger<DeploymentService> _logger;
 
     public DeploymentService(
         IDockerComposeParser composeParser,
         IDeploymentEngine deploymentEngine,
-        IConfigStore configStore,
+        IDeploymentRepository deploymentRepository,
+        IEnvironmentRepository environmentRepository,
+        IUserRepository userRepository,
         ILogger<DeploymentService> logger)
     {
         _composeParser = composeParser;
         _deploymentEngine = deploymentEngine;
-        _configStore = configStore;
+        _deploymentRepository = deploymentRepository;
+        _environmentRepository = environmentRepository;
+        _userRepository = userRepository;
         _logger = logger;
     }
 
@@ -91,9 +100,17 @@ public class DeploymentService : IDeploymentService
                 request.StackName, environmentId);
 
             // Validate environment exists
-            var systemConfig = await _configStore.GetSystemConfigAsync();
-            var environment = systemConfig.Organization?.GetEnvironment(environmentId);
+            if (!Guid.TryParse(environmentId, out var envGuid))
+            {
+                return new DeployComposeResponse
+                {
+                    Success = false,
+                    Message = "Invalid environment ID",
+                    Errors = new List<string> { "Invalid environment ID format" }
+                };
+            }
 
+            var environment = _environmentRepository.Get(new EnvironmentId(envGuid));
             if (environment == null)
             {
                 return new DeployComposeResponse
@@ -142,28 +159,34 @@ public class DeploymentService : IDeploymentService
                 };
             }
 
-            // Generate deployment ID
-            var deploymentId = $"{environmentId}-{request.StackName}-{DateTime.UtcNow:yyyyMMddHHmmss}";
+            // Get current user (use first admin for now - TODO: get from authentication context)
+            var currentUser = _userRepository.GetAll().FirstOrDefault();
+            var userId = currentUser?.Id ?? new UserId();
 
-            // Persist deployment record
-            var deploymentsConfig = await _configStore.GetDeploymentsConfigAsync();
-            var deploymentRecord = new DeploymentRecord
-            {
-                StackName = request.StackName,
-                StackVersion = plan.StackVersion,
-                DeploymentId = deploymentId,
-                DeployedAt = DateTime.UtcNow,
-                Status = "running",
-                Services = result.DeployedContexts.Select(c => new DeployedService
-                {
-                    ServiceName = c,
-                    ContainerName = c, // Will be refined when we have container name info
-                    Image = "unknown", // Will be refined when we have image info
-                    Status = "running"
-                }).ToList()
-            };
-            deploymentsConfig.SetDeployment(environmentId, deploymentRecord);
-            await _configStore.SaveDeploymentsConfigAsync(deploymentsConfig);
+            // Create and persist deployment record
+            var deploymentId = _deploymentRepository.NextIdentity();
+            var deployment = Domain.StackManagement.Aggregates.Deployment.Start(
+                deploymentId,
+                new EnvironmentId(envGuid),
+                request.StackName,
+                request.StackName, // Use stack name as project name
+                userId);
+
+            deployment.SetStackVersion(plan.StackVersion ?? "1.0.0");
+
+            // Mark as running with services
+            var deployedServices = result.DeployedContexts.Select(c => new DeployedService(
+                c,
+                null, // Container ID will be populated by container inspection
+                c,    // Container name
+                null, // Image
+                "running"
+            )).ToList();
+
+            deployment.MarkAsRunning(deployedServices);
+
+            _deploymentRepository.Add(deployment);
+            _deploymentRepository.SaveChanges();
 
             _logger.LogInformation("Successfully deployed stack {StackName} with deployment ID {DeploymentId}",
                 request.StackName, deploymentId);
@@ -179,7 +202,7 @@ public class DeploymentService : IDeploymentService
             {
                 Success = true,
                 Message = message,
-                DeploymentId = deploymentId,
+                DeploymentId = deploymentId.ToString(),
                 StackName = request.StackName,
                 Services = result.DeployedContexts.Select(c => new DeployedServiceInfo
                 {
@@ -201,82 +224,101 @@ public class DeploymentService : IDeploymentService
         }
     }
 
-    public async Task<GetDeploymentResponse> GetDeploymentAsync(string environmentId, string stackName)
+    public Task<GetDeploymentResponse> GetDeploymentAsync(string environmentId, string stackName)
     {
         try
         {
             _logger.LogInformation("Getting deployment {StackName} in environment {EnvironmentId}",
                 stackName, environmentId);
 
-            var deploymentsConfig = await _configStore.GetDeploymentsConfigAsync();
-            var deployment = deploymentsConfig.GetDeployment(environmentId, stackName);
+            if (!Guid.TryParse(environmentId, out var envGuid))
+            {
+                return Task.FromResult(new GetDeploymentResponse
+                {
+                    Success = false,
+                    Message = "Invalid environment ID"
+                });
+            }
+
+            var deployment = _deploymentRepository.GetByStackName(new EnvironmentId(envGuid), stackName);
 
             if (deployment == null)
             {
-                return new GetDeploymentResponse
+                return Task.FromResult(new GetDeploymentResponse
                 {
                     Success = false,
                     Message = $"Deployment '{stackName}' not found in environment '{environmentId}'"
-                };
+                });
             }
 
-            return new GetDeploymentResponse
+            return Task.FromResult(new GetDeploymentResponse
             {
                 Success = true,
                 StackName = deployment.StackName,
                 StackVersion = deployment.StackVersion,
-                DeploymentId = deployment.DeploymentId,
-                DeployedAt = deployment.DeployedAt,
-                Status = deployment.Status,
+                DeploymentId = deployment.Id.ToString(),
+                EnvironmentId = environmentId,
+                DeployedAt = deployment.CreatedAt,
+                Status = deployment.Status.ToString(),
                 Services = deployment.Services.Select(s => new DeployedServiceInfo
                 {
                     ServiceName = s.ServiceName,
+                    ContainerId = s.ContainerId,
                     Status = s.Status
                 }).ToList()
-            };
+            });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get deployment {StackName}", stackName);
-            return new GetDeploymentResponse
+            return Task.FromResult(new GetDeploymentResponse
             {
                 Success = false,
                 Message = $"Failed to get deployment: {ex.Message}"
-            };
+            });
         }
     }
 
-    public async Task<ListDeploymentsResponse> ListDeploymentsAsync(string environmentId)
+    public Task<ListDeploymentsResponse> ListDeploymentsAsync(string environmentId)
     {
         try
         {
             _logger.LogInformation("Listing deployments in environment {EnvironmentId}", environmentId);
 
-            var deploymentsConfig = await _configStore.GetDeploymentsConfigAsync();
-            var deployments = deploymentsConfig.GetDeploymentsForEnvironment(environmentId);
+            if (!Guid.TryParse(environmentId, out var envGuid))
+            {
+                // Return empty list with success=true for invalid IDs (backward compatibility)
+                return Task.FromResult(new ListDeploymentsResponse
+                {
+                    Success = true,
+                    Deployments = new List<DeploymentSummary>()
+                });
+            }
 
-            return new ListDeploymentsResponse
+            var deployments = _deploymentRepository.GetByEnvironment(new EnvironmentId(envGuid));
+
+            return Task.FromResult(new ListDeploymentsResponse
             {
                 Success = true,
                 Deployments = deployments.Select(d => new DeploymentSummary
                 {
                     StackName = d.StackName,
                     StackVersion = d.StackVersion,
-                    DeploymentId = d.DeploymentId,
-                    DeployedAt = d.DeployedAt,
-                    Status = d.Status,
+                    DeploymentId = d.Id.ToString(),
+                    DeployedAt = d.CreatedAt,
+                    Status = d.Status.ToString(),
                     ServiceCount = d.Services.Count
                 }).ToList()
-            };
+            });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to list deployments");
-            return new ListDeploymentsResponse
+            return Task.FromResult(new ListDeploymentsResponse
             {
                 Success = false,
                 Deployments = new List<DeploymentSummary>()
-            };
+            });
         }
     }
 
@@ -286,6 +328,16 @@ public class DeploymentService : IDeploymentService
         {
             _logger.LogInformation("Removing deployment {StackName} from environment {EnvironmentId}",
                 stackName, environmentId);
+
+            if (!Guid.TryParse(environmentId, out var envGuid))
+            {
+                return new DeployComposeResponse
+                {
+                    Success = false,
+                    Message = "Invalid environment ID",
+                    Errors = new List<string> { "Invalid environment ID format" }
+                };
+            }
 
             // Remove the stack using the deployment engine
             var result = await _deploymentEngine.RemoveStackAsync(environmentId, stackName);
@@ -300,10 +352,14 @@ public class DeploymentService : IDeploymentService
                 };
             }
 
-            // Remove deployment record from persistence
-            var deploymentsConfig = await _configStore.GetDeploymentsConfigAsync();
-            deploymentsConfig.RemoveDeployment(environmentId, stackName);
-            await _configStore.SaveDeploymentsConfigAsync(deploymentsConfig);
+            // Remove deployment record from database
+            var deployment = _deploymentRepository.GetByStackName(new EnvironmentId(envGuid), stackName);
+            if (deployment != null)
+            {
+                deployment.MarkAsRemoved();
+                _deploymentRepository.Update(deployment);
+                _deploymentRepository.SaveChanges();
+            }
 
             return new DeployComposeResponse
             {

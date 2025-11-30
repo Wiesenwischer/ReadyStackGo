@@ -5,6 +5,7 @@ using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.Identity.Repositories;
 using ReadyStackGo.Domain.Identity.Services;
 using ReadyStackGo.Domain.Access.Repositories;
+using ReadyStackGo.Domain.StackManagement.Repositories;
 using ReadyStackGo.Infrastructure.Auth;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Deployment;
@@ -18,7 +19,6 @@ using ReadyStackGo.Infrastructure.Services;
 using ReadyStackGo.Infrastructure.Stacks;
 using ReadyStackGo.Infrastructure.Stacks.Sources;
 using ReadyStackGo.Infrastructure.Tls;
-using ReadyStackGo.Infrastructure.Wizard;
 
 namespace ReadyStackGo.Infrastructure;
 
@@ -38,7 +38,7 @@ public static class DependencyInjection
 
         // Deployment services
         services.AddSingleton<IDeploymentEngine, DeploymentEngine>();
-        services.AddSingleton<IDeploymentService, DeploymentService>();
+        services.AddScoped<IDeploymentService, DeploymentService>();
 
         // Docker services
         services.AddSingleton<IDockerService, DockerService>();
@@ -52,10 +52,7 @@ public static class DependencyInjection
         services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
         services.AddSingleton<ITokenService, TokenService>();
 
-        // Wizard services
-        services.AddSingleton<IWizardService, WizardService>();
-
-        // Environment services (v0.4, updated for v0.6 SQLite)
+        // Environment services (v0.6 SQLite)
         services.AddScoped<IEnvironmentService, EnvironmentService>();
 
         // v0.6: SQLite persistence
@@ -74,6 +71,8 @@ public static class DependencyInjection
         services.AddScoped<IOrganizationRepository, OrganizationRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
+        services.AddScoped<IEnvironmentRepository, EnvironmentRepository>();
+        services.AddScoped<IDeploymentRepository, DeploymentRepository>();
 
         // Password hashing
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();

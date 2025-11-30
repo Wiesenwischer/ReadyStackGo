@@ -26,21 +26,7 @@ public class SetOrganizationResponse
     public string? Message { get; set; }
 }
 
-// Step 3: Connections Configuration (Simple Mode)
-public class SetConnectionsRequest
-{
-    public required string Transport { get; set; }
-    public required string Persistence { get; set; }
-    public string? EventStore { get; set; }
-}
-
-public class SetConnectionsResponse
-{
-    public bool Success { get; set; }
-    public string? Message { get; set; }
-}
-
-// Step 4: Install Stack
+// Step 3: Install Stack
 public class InstallStackRequest
 {
     public string? ManifestPath { get; set; } // Optional: if not provided, use latest
