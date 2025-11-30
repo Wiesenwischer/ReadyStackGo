@@ -1,14 +1,18 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Environments;
+using MediatR;
+using ReadyStackGo.Application.UseCases.Environments;
+using ReadyStackGo.Application.UseCases.Environments.DeleteEnvironment;
 
 namespace ReadyStackGo.API.Endpoints.Environments;
 
-/// <summary>
-/// DELETE /api/environments/{id} - Delete an environment
-/// </summary>
 public class DeleteEnvironmentEndpoint : EndpointWithoutRequest<DeleteEnvironmentResponse>
 {
-    public IEnvironmentService EnvironmentService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public DeleteEnvironmentEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
@@ -17,8 +21,8 @@ public class DeleteEnvironmentEndpoint : EndpointWithoutRequest<DeleteEnvironmen
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var environmentId = Route<string>("id");
-        var response = await EnvironmentService.DeleteEnvironmentAsync(environmentId!);
+        var environmentId = Route<string>("id")!;
+        var response = await _mediator.Send(new DeleteEnvironmentCommand(environmentId), ct);
 
         if (!response.Success)
         {

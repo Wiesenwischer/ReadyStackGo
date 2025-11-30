@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
-using ReadyStackGo.Application.Deployments;
-using ReadyStackGo.Application.Manifests;
+using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.UseCases.Deployments;
 using ReadyStackGo.Domain.Configuration;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Deployment;

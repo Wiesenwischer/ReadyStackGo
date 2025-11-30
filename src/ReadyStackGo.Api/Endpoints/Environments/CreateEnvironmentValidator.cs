@@ -1,6 +1,6 @@
 using FastEndpoints;
 using FluentValidation;
-using ReadyStackGo.Application.Environments;
+using ReadyStackGo.Application.UseCases.Environments;
 
 namespace ReadyStackGo.API.Endpoints.Environments;
 

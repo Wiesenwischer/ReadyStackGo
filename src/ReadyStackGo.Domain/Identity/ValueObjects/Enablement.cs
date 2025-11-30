@@ -7,9 +7,12 @@ using ReadyStackGo.Domain.Common;
 /// </summary>
 public sealed class Enablement : ValueObject
 {
-    public bool Enabled { get; }
-    public DateTime? StartDate { get; }
-    public DateTime? EndDate { get; }
+    public bool Enabled { get; private set; }
+    public DateTime? StartDate { get; private set; }
+    public DateTime? EndDate { get; private set; }
+
+    // For EF Core
+    private Enablement() { }
 
     private Enablement(bool enabled, DateTime? startDate, DateTime? endDate)
     {

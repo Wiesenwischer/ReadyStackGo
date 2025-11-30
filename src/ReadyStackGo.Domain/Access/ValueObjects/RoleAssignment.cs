@@ -7,10 +7,13 @@ using ReadyStackGo.Domain.Common;
 /// </summary>
 public sealed class RoleAssignment : ValueObject
 {
-    public RoleId RoleId { get; }
-    public ScopeType ScopeType { get; }
-    public string? ScopeId { get; }
-    public DateTime AssignedAt { get; }
+    public RoleId RoleId { get; private set; }
+    public ScopeType ScopeType { get; private set; }
+    public string? ScopeId { get; private set; }
+    public DateTime AssignedAt { get; private set; }
+
+    // For EF Core
+    private RoleAssignment() => RoleId = null!;
 
     public RoleAssignment(RoleId roleId, ScopeType scopeType, string? scopeId, DateTime assignedAt)
     {

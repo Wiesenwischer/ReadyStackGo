@@ -2,6 +2,7 @@ using System.Text;
 using FastEndpoints;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using ReadyStackGo.Application;
 using ReadyStackGo.Infrastructure;
 
 namespace ReadyStackGo.Api;
@@ -13,6 +14,7 @@ public class Program
         var builder = WebApplication.CreateBuilder(args);
 
         // Add services to the container
+        builder.Services.AddApplication();
         builder.Services.AddInfrastructure(builder.Configuration);
         builder.Services.AddFastEndpoints();
 
@@ -48,6 +50,9 @@ public class Program
         });
 
         var app = builder.Build();
+
+        // Initialize SQLite database
+        app.Services.EnsureDatabaseCreated();
 
         // Bootstrap: Generate TLS certificate if not exists
         await BootstrapTlsCertificateAsync(app);

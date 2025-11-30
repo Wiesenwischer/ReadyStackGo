@@ -1,24 +1,26 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Environments;
+using MediatR;
+using ReadyStackGo.Application.UseCases.Environments;
+using ReadyStackGo.Application.UseCases.Environments.ListEnvironments;
 
 namespace ReadyStackGo.API.Endpoints.Environments;
 
-/// <summary>
-/// GET /api/environments - List all environments
-/// </summary>
 public class ListEnvironmentsEndpoint : EndpointWithoutRequest<ListEnvironmentsResponse>
 {
-    public IEnvironmentService EnvironmentService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public ListEnvironmentsEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
         Get("/api/environments");
-        // Requires authentication (default)
     }
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var response = await EnvironmentService.GetEnvironmentsAsync();
-        Response = response;
+        Response = await _mediator.Send(new ListEnvironmentsQuery(), ct);
     }
 }

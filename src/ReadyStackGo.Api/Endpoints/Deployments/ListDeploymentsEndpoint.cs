@@ -1,14 +1,18 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Deployments;
+using MediatR;
+using ReadyStackGo.Application.UseCases.Deployments;
+using ReadyStackGo.Application.UseCases.Deployments.ListDeployments;
 
 namespace ReadyStackGo.API.Endpoints.Deployments;
 
-/// <summary>
-/// GET /api/deployments/{environmentId} - List all deployments in an environment
-/// </summary>
 public class ListDeploymentsEndpoint : EndpointWithoutRequest<ListDeploymentsResponse>
 {
-    public IDeploymentService DeploymentService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public ListDeploymentsEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
@@ -17,9 +21,7 @@ public class ListDeploymentsEndpoint : EndpointWithoutRequest<ListDeploymentsRes
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var environmentId = Route<string>("environmentId");
-        var response = await DeploymentService.ListDeploymentsAsync(environmentId!);
-
-        Response = response;
+        var environmentId = Route<string>("environmentId")!;
+        Response = await _mediator.Send(new ListDeploymentsQuery(environmentId), ct);
     }
 }

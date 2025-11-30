@@ -1,6 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using ReadyStackGo.Application.Stacks;
+using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.Stacks;
 
 namespace ReadyStackGo.Infrastructure.Stacks;

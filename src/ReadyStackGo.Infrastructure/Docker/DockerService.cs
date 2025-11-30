@@ -4,8 +4,8 @@ using Docker.DotNet;
 using Docker.DotNet.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using ReadyStackGo.Application.Containers;
-using ReadyStackGo.Application.Containers.DTOs;
+using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.UseCases.Containers;
 using ReadyStackGo.Infrastructure.Configuration;
 
 namespace ReadyStackGo.Infrastructure.Docker;

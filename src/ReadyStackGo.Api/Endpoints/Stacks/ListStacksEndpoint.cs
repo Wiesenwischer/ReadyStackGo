@@ -1,5 +1,6 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Stacks;
+using MediatR;
+using ReadyStackGo.Application.UseCases.Stacks.ListStacks;
 
 namespace ReadyStackGo.API.Endpoints.Stacks;
 
@@ -8,7 +9,12 @@ namespace ReadyStackGo.API.Endpoints.Stacks;
 /// </summary>
 public class ListStacksEndpoint : EndpointWithoutRequest<IEnumerable<StackDto>>
 {
-    public IStackSourceService StackSourceService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public ListStacksEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
@@ -18,15 +24,13 @@ public class ListStacksEndpoint : EndpointWithoutRequest<IEnumerable<StackDto>>
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var stacks = await StackSourceService.GetStacksAsync(ct);
-        var sources = await StackSourceService.GetSourcesAsync(ct);
-        var sourceNames = sources.ToDictionary(s => s.Id, s => s.Name);
+        var result = await _mediator.Send(new ListStacksQuery(), ct);
 
-        Response = stacks.Select(s => new StackDto
+        Response = result.Stacks.Select(s => new StackDto
         {
             Id = s.Id,
             SourceId = s.SourceId,
-            SourceName = sourceNames.GetValueOrDefault(s.SourceId, s.SourceId),
+            SourceName = s.SourceName,
             Name = s.Name,
             Description = s.Description,
             RelativePath = s.RelativePath,

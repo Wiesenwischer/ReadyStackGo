@@ -1,20 +1,25 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ReadyStackGo.Api;
 using ReadyStackGo.Infrastructure.Configuration;
+using ReadyStackGo.Infrastructure.Persistence;
 
 namespace ReadyStackGo.IntegrationTests.Infrastructure;
 
 /// <summary>
 /// Custom WebApplicationFactory that provides isolated test environments.
 /// Each test class can get a fresh ConfigStore state by using this factory.
+/// Uses in-memory SQLite database for test isolation.
 /// </summary>
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string _testId;
     private readonly string _testConfigPath;
+    private SqliteConnection? _connection;
 
     public CustomWebApplicationFactory()
     {
@@ -44,10 +49,10 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         builder.ConfigureServices(services =>
         {
             // Remove the existing ConfigStore registration
-            var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IConfigStore));
-            if (descriptor != null)
+            var configDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IConfigStore));
+            if (configDescriptor != null)
             {
-                services.Remove(descriptor);
+                services.Remove(configDescriptor);
             }
 
             // Add a test-specific ConfigStore that uses isolated storage
@@ -56,6 +61,29 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 var configuration = sp.GetRequiredService<IConfiguration>();
                 return new ConfigStore(configuration);
             });
+
+            // Remove the existing DbContext registration
+            var dbContextDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<ReadyStackGoDbContext>));
+            if (dbContextDescriptor != null)
+            {
+                services.Remove(dbContextDescriptor);
+            }
+
+            // Create and open SQLite in-memory connection
+            _connection = new SqliteConnection("DataSource=:memory:");
+            _connection.Open();
+
+            // Add in-memory SQLite DbContext
+            services.AddDbContext<ReadyStackGoDbContext>(options =>
+            {
+                options.UseSqlite(_connection);
+            });
+
+            // Build service provider and ensure database is created
+            var sp = services.BuildServiceProvider();
+            using var scope = sp.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ReadyStackGoDbContext>();
+            db.Database.EnsureCreated();
         });
 
         builder.UseEnvironment("Testing");
@@ -65,6 +93,10 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     {
         if (disposing)
         {
+            // Clean up SQLite connection
+            _connection?.Close();
+            _connection?.Dispose();
+
             // Clean up test directory
             if (Directory.Exists(_testConfigPath))
             {

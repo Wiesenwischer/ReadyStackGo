@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
-using ReadyStackGo.Application.Wizard;
-using ReadyStackGo.Application.Wizard.DTOs;
+using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.UseCases.Wizard;
 using ReadyStackGo.Domain.Configuration;
 using ReadyStackGo.Domain.Manifests;
 using ReadyStackGo.Domain.Organizations;

@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using FluentAssertions;
-using ReadyStackGo.Application.Containers.DTOs;
+using ReadyStackGo.Application.UseCases.Containers;
 using ReadyStackGo.IntegrationTests.Infrastructure;
 using Xunit;
 

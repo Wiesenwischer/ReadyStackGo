@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
-using ReadyStackGo.Application.Environments;
+using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.UseCases.Environments;
+using ReadyStackGo.Domain.Identity.Repositories;
 using ReadyStackGo.Domain.Organizations;
 using ReadyStackGo.Infrastructure.Configuration;
 
@@ -8,22 +10,44 @@ namespace ReadyStackGo.Infrastructure.Environments;
 /// <summary>
 /// Service for managing environments within an organization.
 /// v0.4: Only DockerSocketEnvironment is supported.
+/// v0.6: Organization existence check uses SQLite database.
 /// </summary>
 public class EnvironmentService : IEnvironmentService
 {
     private readonly IConfigStore _configStore;
+    private readonly IOrganizationRepository _organizationRepository;
     private readonly ILogger<EnvironmentService> _logger;
 
-    public EnvironmentService(IConfigStore configStore, ILogger<EnvironmentService> logger)
+    public EnvironmentService(
+        IConfigStore configStore,
+        IOrganizationRepository organizationRepository,
+        ILogger<EnvironmentService> logger)
     {
         _configStore = configStore;
+        _organizationRepository = organizationRepository;
         _logger = logger;
+    }
+
+    private bool HasOrganization()
+    {
+        return _organizationRepository.GetAll().Any();
     }
 
     public async Task<ListEnvironmentsResponse> GetEnvironmentsAsync()
     {
         var systemConfig = await _configStore.GetSystemConfigAsync();
 
+        // Check SQLite for organization existence, but use ConfigStore for environments (v0.6 transitional)
+        if (!HasOrganization() && systemConfig.Organization == null)
+        {
+            return new ListEnvironmentsResponse
+            {
+                Success = true,
+                Environments = new List<EnvironmentResponse>()
+            };
+        }
+
+        // If org exists in SQLite but environments are in ConfigStore
         if (systemConfig.Organization == null)
         {
             return new ListEnvironmentsResponse
@@ -59,9 +83,8 @@ public class EnvironmentService : IEnvironmentService
         {
             _logger.LogInformation("Creating environment: {Id} - {Name}", request.Id, request.Name);
 
-            var systemConfig = await _configStore.GetSystemConfigAsync();
-
-            if (systemConfig.Organization == null)
+            // Check SQLite for organization existence
+            if (!HasOrganization())
             {
                 return new CreateEnvironmentResponse
                 {
@@ -69,6 +92,8 @@ public class EnvironmentService : IEnvironmentService
                     Message = "Organization not set. Complete the setup wizard first."
                 };
             }
+
+            var systemConfig = await _configStore.GetSystemConfigAsync();
 
             // Create DockerSocketEnvironment (only type supported in v0.4)
             var environment = new DockerSocketEnvironment
@@ -78,6 +103,19 @@ public class EnvironmentService : IEnvironmentService
                 SocketPath = request.SocketPath,
                 CreatedAt = DateTime.UtcNow
             };
+
+            // Ensure ConfigStore has an Organization object for environment storage
+            // (v0.6 transitional: SQLite has Organization entity, ConfigStore stores environments)
+            if (systemConfig.Organization == null)
+            {
+                var sqliteOrg = _organizationRepository.GetAll().FirstOrDefault();
+                systemConfig.Organization = new Organization
+                {
+                    Id = sqliteOrg?.Id.ToString() ?? Guid.NewGuid().ToString(),
+                    Name = sqliteOrg?.Name ?? "Default",
+                    CreatedAt = sqliteOrg?.CreatedAt ?? DateTime.UtcNow
+                };
+            }
 
             // Add to organization (validates uniqueness)
             systemConfig.Organization.AddEnvironment(environment);

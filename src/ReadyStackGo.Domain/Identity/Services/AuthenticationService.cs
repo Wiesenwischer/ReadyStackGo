@@ -9,16 +9,13 @@ using ReadyStackGo.Domain.Identity.Repositories;
 public class AuthenticationService
 {
     private readonly IUserRepository _userRepository;
-    private readonly ITenantRepository _tenantRepository;
     private readonly IPasswordHasher _passwordHasher;
 
     public AuthenticationService(
         IUserRepository userRepository,
-        ITenantRepository tenantRepository,
         IPasswordHasher passwordHasher)
     {
         _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
-        _tenantRepository = tenantRepository ?? throw new ArgumentNullException(nameof(tenantRepository));
         _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
     }
 
@@ -30,9 +27,6 @@ public class AuthenticationService
     {
         var user = _userRepository.FindByUsername(username);
         if (user == null) return null;
-
-        var tenant = _tenantRepository.Get(user.TenantId);
-        if (tenant == null || !tenant.Active) return null;
 
         if (!user.Enablement.IsEnabled) return null;
 

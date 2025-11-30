@@ -1,15 +1,19 @@
 using FastEndpoints;
+using MediatR;
 using Microsoft.AspNetCore.Http;
-using ReadyStackGo.Application.Deployments;
+using ReadyStackGo.Application.UseCases.Deployments;
+using ReadyStackGo.Application.UseCases.Deployments.GetDeployment;
 
 namespace ReadyStackGo.API.Endpoints.Deployments;
 
-/// <summary>
-/// GET /api/deployments/{environmentId}/{stackName} - Get deployment details
-/// </summary>
 public class GetDeploymentEndpoint : EndpointWithoutRequest<GetDeploymentResponse>
 {
-    public IDeploymentService DeploymentService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public GetDeploymentEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
@@ -18,9 +22,10 @@ public class GetDeploymentEndpoint : EndpointWithoutRequest<GetDeploymentRespons
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var environmentId = Route<string>("environmentId");
-        var stackName = Route<string>("stackName");
-        var response = await DeploymentService.GetDeploymentAsync(environmentId!, stackName!);
+        var environmentId = Route<string>("environmentId")!;
+        var stackName = Route<string>("stackName")!;
+
+        var response = await _mediator.Send(new GetDeploymentQuery(environmentId, stackName), ct);
 
         if (!response.Success)
         {

@@ -1,6 +1,7 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Wizard;
-using ReadyStackGo.Application.Wizard.DTOs;
+using MediatR;
+using ReadyStackGo.Application.UseCases.Wizard.SetConnections;
+using ReadyStackGo.Application.UseCases.Wizard;
 
 namespace ReadyStackGo.API.Endpoints.Wizard;
 
@@ -9,7 +10,12 @@ namespace ReadyStackGo.API.Endpoints.Wizard;
 /// </summary>
 public class SetConnectionsEndpoint : Endpoint<SetConnectionsRequest, SetConnectionsResponse>
 {
-    public IWizardService WizardService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public SetConnectionsEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
@@ -19,13 +25,19 @@ public class SetConnectionsEndpoint : Endpoint<SetConnectionsRequest, SetConnect
 
     public override async Task HandleAsync(SetConnectionsRequest req, CancellationToken ct)
     {
-        var result = await WizardService.SetConnectionsAsync(req);
+        var result = await _mediator.Send(
+            new SetConnectionsCommand(req.Transport, req.Persistence, req.EventStore),
+            ct);
 
         if (!result.Success)
         {
             ThrowError(result.Message ?? "Failed to set connections");
         }
 
-        Response = result;
+        Response = new SetConnectionsResponse
+        {
+            Success = result.Success,
+            Message = result.Message
+        };
     }
 }

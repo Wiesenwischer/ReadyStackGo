@@ -1,20 +1,23 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Containers;
+using MediatR;
+using ReadyStackGo.Application.UseCases.Containers.StartContainer;
 
 namespace ReadyStackGo.API.Endpoints.Containers;
 
 public class StartContainerRequest
 {
-    /// <summary>
-    /// The environment ID where the container is running.
-    /// </summary>
     [QueryParam]
     public string Environment { get; set; } = null!;
 }
 
 public class StartContainerEndpoint : Endpoint<StartContainerRequest, EmptyResponse>
 {
-    public IDockerService DockerService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public StartContainerEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
@@ -32,13 +35,11 @@ public class StartContainerEndpoint : Endpoint<StartContainerRequest, EmptyRespo
 
         var id = Route<string>("id")!;
 
-        try
+        var result = await _mediator.Send(new StartContainerCommand(req.Environment, id), ct);
+
+        if (!result.Success)
         {
-            await DockerService.StartContainerAsync(req.Environment, id, ct);
-        }
-        catch (InvalidOperationException ex)
-        {
-            ThrowError(ex.Message);
+            ThrowError(result.ErrorMessage ?? "Failed to start container");
         }
     }
 }

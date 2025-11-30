@@ -1,8 +1,8 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
-using ReadyStackGo.Application.Containers;
-using ReadyStackGo.Application.Containers.DTOs;
+using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.UseCases.Containers;
 using ReadyStackGo.Domain.Configuration;
 using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Organizations;

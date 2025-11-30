@@ -2,9 +2,9 @@ namespace ReadyStackGo.Infrastructure.Persistence.Configurations;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ReadyStackGo.Domain.Access.ValueObjects;
 using ReadyStackGo.Domain.Identity.Aggregates;
 using ReadyStackGo.Domain.Identity.ValueObjects;
-using ReadyStackGo.Domain.Access.ValueObjects;
 
 public class UserConfiguration : IEntityTypeConfiguration<User>
 {
@@ -21,20 +21,11 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasColumnName("Id")
             .HasMaxLength(36);
 
-        builder.Property(u => u.TenantId)
-            .HasConversion(
-                id => id.Value.ToString(),
-                value => new TenantId(Guid.Parse(value)))
-            .IsRequired()
-            .HasMaxLength(36);
-
-        builder.HasIndex(u => u.TenantId);
-
         builder.Property(u => u.Username)
             .IsRequired()
             .HasMaxLength(50);
 
-        builder.HasIndex(u => new { u.TenantId, u.Username })
+        builder.HasIndex(u => u.Username)
             .IsUnique();
 
         // Email as owned value object

@@ -1,15 +1,19 @@
 using FastEndpoints;
+using MediatR;
 using Microsoft.AspNetCore.Http;
-using ReadyStackGo.Application.Environments;
+using ReadyStackGo.Application.UseCases.Environments;
+using ReadyStackGo.Application.UseCases.Environments.GetEnvironment;
 
 namespace ReadyStackGo.API.Endpoints.Environments;
 
-/// <summary>
-/// GET /api/environments/{id} - Get a specific environment
-/// </summary>
 public class GetEnvironmentEndpoint : EndpointWithoutRequest<EnvironmentResponse>
 {
-    public IEnvironmentService EnvironmentService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public GetEnvironmentEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
@@ -18,8 +22,8 @@ public class GetEnvironmentEndpoint : EndpointWithoutRequest<EnvironmentResponse
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var environmentId = Route<string>("id");
-        var response = await EnvironmentService.GetEnvironmentAsync(environmentId!);
+        var environmentId = Route<string>("id")!;
+        var response = await _mediator.Send(new GetEnvironmentQuery(environmentId), ct);
 
         if (response == null)
         {

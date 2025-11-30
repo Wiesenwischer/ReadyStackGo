@@ -1,14 +1,18 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Environments;
+using MediatR;
+using ReadyStackGo.Application.UseCases.Environments;
+using ReadyStackGo.Application.UseCases.Environments.CreateEnvironment;
 
 namespace ReadyStackGo.API.Endpoints.Environments;
 
-/// <summary>
-/// POST /api/environments - Create a new environment
-/// </summary>
 public class CreateEnvironmentEndpoint : Endpoint<CreateEnvironmentRequest, CreateEnvironmentResponse>
 {
-    public IEnvironmentService EnvironmentService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public CreateEnvironmentEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
@@ -17,7 +21,8 @@ public class CreateEnvironmentEndpoint : Endpoint<CreateEnvironmentRequest, Crea
 
     public override async Task HandleAsync(CreateEnvironmentRequest req, CancellationToken ct)
     {
-        var response = await EnvironmentService.CreateEnvironmentAsync(req);
+        var response = await _mediator.Send(
+            new CreateEnvironmentCommand(req.Id, req.Name, req.SocketPath), ct);
 
         if (!response.Success)
         {

@@ -8,7 +8,10 @@ using ReadyStackGo.Domain.Identity.Services;
 /// </summary>
 public sealed class HashedPassword : ValueObject
 {
-    public string Hash { get; }
+    public string Hash { get; private set; }
+
+    // For EF Core
+    private HashedPassword() => Hash = null!;
 
     private HashedPassword(string hash)
     {

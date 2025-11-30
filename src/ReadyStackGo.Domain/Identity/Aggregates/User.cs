@@ -8,12 +8,13 @@ using ReadyStackGo.Domain.Access.ValueObjects;
 
 /// <summary>
 /// Aggregate root representing a user in the system.
+/// Users are system-wide entities, not scoped to organizations.
+/// Organization membership is handled via RoleAssignments.
 /// </summary>
 public class User : AggregateRoot<UserId>
 {
     private readonly List<RoleAssignment> _roleAssignments = new();
 
-    public TenantId TenantId { get; private set; } = null!;
     public string Username { get; private set; } = null!;
     public EmailAddress Email { get; private set; } = null!;
     public HashedPassword Password { get; private set; } = null!;
@@ -27,37 +28,33 @@ public class User : AggregateRoot<UserId>
 
     private User(
         UserId id,
-        TenantId tenantId,
         string username,
         EmailAddress email,
         HashedPassword password)
     {
         SelfAssertArgumentNotNull(id, "UserId is required.");
-        SelfAssertArgumentNotNull(tenantId, "TenantId is required.");
         SelfAssertArgumentNotEmpty(username, "Username is required.");
         SelfAssertArgumentLength(username, 3, 50, "Username must be 3 to 50 characters.");
         SelfAssertArgumentNotNull(email, "Email is required.");
         SelfAssertArgumentNotNull(password, "Password is required.");
 
         Id = id;
-        TenantId = tenantId;
         Username = username;
         Email = email;
         Password = password;
         Enablement = Enablement.IndefiniteEnablement();
         CreatedAt = DateTime.UtcNow;
 
-        AddDomainEvent(new UserRegistered(Id, TenantId, Username, Email));
+        AddDomainEvent(new UserRegistered(Id, Username, Email));
     }
 
     public static User Register(
         UserId id,
-        TenantId tenantId,
         string username,
         EmailAddress email,
         HashedPassword password)
     {
-        return new User(id, tenantId, username, email, password);
+        return new User(id, username, email, password);
     }
 
     public void AssignRole(RoleAssignment assignment)
@@ -128,5 +125,5 @@ public class User : AggregateRoot<UserId>
             ra.ScopeId == scopeId);
 
     public override string ToString() =>
-        $"User [id={Id}, username={Username}, tenantId={TenantId}]";
+        $"User [id={Id}, username={Username}]";
 }

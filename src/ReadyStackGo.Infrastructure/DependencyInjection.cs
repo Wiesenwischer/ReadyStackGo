@@ -1,13 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using ReadyStackGo.Application.Auth;
-using ReadyStackGo.Application.Containers;
-using ReadyStackGo.Application.Deployments;
-using ReadyStackGo.Application.Environments;
-using ReadyStackGo.Application.Manifests;
-using ReadyStackGo.Application.Stacks;
-using ReadyStackGo.Application.Wizard;
+using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.Identity.Repositories;
 using ReadyStackGo.Domain.Identity.Services;
 using ReadyStackGo.Domain.Access.Repositories;
@@ -57,22 +51,27 @@ public static class DependencyInjection
         // Auth services
         services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
         services.AddSingleton<ITokenService, TokenService>();
-        services.AddSingleton<IAuthService, AuthService>();
 
         // Wizard services
         services.AddSingleton<IWizardService, WizardService>();
 
-        // Environment services (v0.4)
-        services.AddSingleton<IEnvironmentService, EnvironmentService>();
+        // Environment services (v0.4, updated for v0.6 SQLite)
+        services.AddScoped<IEnvironmentService, EnvironmentService>();
 
         // v0.6: SQLite persistence
-        var connectionString = configuration.GetConnectionString("ReadyStackGo")
-            ?? "Data Source=readystackgo.db";
+        // Use ConfigPath-based path if no explicit connection string configured
+        var connectionString = configuration.GetConnectionString("ReadyStackGo");
+        if (string.IsNullOrEmpty(connectionString))
+        {
+            var configPath = configuration["ConfigPath"] ?? "config";
+            var dbPath = Path.Combine(configPath, "readystackgo.db");
+            connectionString = $"Data Source={dbPath}";
+        }
         services.AddDbContext<ReadyStackGoDbContext>(options =>
             options.UseSqlite(connectionString));
 
         // Repositories
-        services.AddScoped<ITenantRepository, TenantRepository>();
+        services.AddScoped<IOrganizationRepository, OrganizationRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
 
@@ -80,7 +79,8 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
 
         // Domain Services
-        services.AddScoped<TenantProvisioningService>();
+        services.AddScoped<SystemAdminRegistrationService>();
+        services.AddScoped<OrganizationProvisioningService>();
         services.AddScoped<AuthenticationService>();
 
         return services;

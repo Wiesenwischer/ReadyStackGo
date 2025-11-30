@@ -25,33 +25,36 @@ public class UserRepository : IUserRepository
         _context.SaveChanges();
     }
 
+    public void Update(User user)
+    {
+        _context.Users.Update(user);
+        _context.SaveChanges();
+    }
+
     public User? Get(UserId id)
     {
+        // Owned types (RoleAssignments) are automatically included
         return _context.Users
-            .Include("_roleAssignments")
             .FirstOrDefault(u => u.Id == id);
     }
 
     public User? FindByUsername(string username)
     {
         return _context.Users
-            .Include("_roleAssignments")
             .FirstOrDefault(u => u.Username == username);
     }
 
     public User? FindByEmail(EmailAddress email)
     {
+        // Compare by email value since EF Core can't compare owned types directly
+        var emailValue = email.Value;
         return _context.Users
-            .Include("_roleAssignments")
-            .FirstOrDefault(u => u.Email == email);
+            .FirstOrDefault(u => u.Email.Value == emailValue);
     }
 
-    public IEnumerable<User> GetByTenant(TenantId tenantId)
+    public IEnumerable<User> GetAll()
     {
-        return _context.Users
-            .Include("_roleAssignments")
-            .Where(u => u.TenantId == tenantId)
-            .ToList();
+        return _context.Users.ToList();
     }
 
     public void Remove(User user)

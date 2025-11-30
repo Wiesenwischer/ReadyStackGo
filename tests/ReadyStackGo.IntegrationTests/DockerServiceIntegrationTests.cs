@@ -4,7 +4,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
-using ReadyStackGo.Application.Containers;
+using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.Configuration;
 using ReadyStackGo.Domain.Organizations;
 using ReadyStackGo.Infrastructure.Configuration;

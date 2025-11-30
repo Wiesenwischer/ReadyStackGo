@@ -9,7 +9,10 @@ public sealed class EmailAddress : ValueObject
 {
     private const string EmailPattern = @"^[\w\.-]+@[\w\.-]+\.\w+$";
 
-    public string Value { get; }
+    public string Value { get; private set; }
+
+    // For EF Core
+    private EmailAddress() => Value = null!;
 
     public EmailAddress(string address)
     {
