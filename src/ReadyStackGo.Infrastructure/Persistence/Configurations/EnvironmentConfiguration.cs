@@ -3,8 +3,8 @@ namespace ReadyStackGo.Infrastructure.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
-using ReadyStackGo.Domain.StackManagement.Aggregates;
-using ReadyStackGo.Domain.StackManagement.ValueObjects;
+using ReadyStackGo.Domain.Deployment.Aggregates;
+using ReadyStackGo.Domain.Deployment.ValueObjects;
 
 /// <summary>
 /// EF Core configuration for Environment aggregate.

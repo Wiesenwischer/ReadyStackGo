@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Configuration;
-using ReadyStackGo.Domain.Configuration;
+using ReadyStackGo.Infrastructure.Configuration;
 
 namespace ReadyStackGo.Infrastructure.Configuration;
 

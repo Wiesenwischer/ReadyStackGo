@@ -3,7 +3,8 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.Stacks;
+using ReadyStackGo.Domain.StackManagement.Aggregates;
+using ReadyStackGo.Domain.StackManagement.ValueObjects;
 using YamlDotNet.Serialization;
 
 namespace ReadyStackGo.Infrastructure.Stacks.Sources;
@@ -26,26 +27,26 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
 
     public bool CanHandle(StackSource source)
     {
-        return source is LocalDirectoryStackSource;
+        return source.Type == StackSourceType.LocalDirectory;
     }
 
     public async Task<IEnumerable<StackDefinition>> LoadStacksAsync(StackSource source, CancellationToken cancellationToken = default)
     {
-        if (source is not LocalDirectoryStackSource localSource)
+        if (source.Type != StackSourceType.LocalDirectory)
         {
-            throw new ArgumentException($"Expected LocalDirectoryStackSource but got {source.GetType().Name}");
+            throw new ArgumentException($"Expected LocalDirectory source but got {source.Type}");
         }
 
         var stacks = new List<StackDefinition>();
 
         // Skip disabled sources
-        if (!localSource.Enabled)
+        if (!source.Enabled)
         {
-            _logger.LogDebug("Stack source {SourceId} is disabled, skipping", localSource.Id);
+            _logger.LogDebug("Stack source {SourceId} is disabled, skipping", source.Id);
             return stacks;
         }
 
-        var path = localSource.Path;
+        var path = source.Path;
 
         // Resolve relative paths
         if (!Path.IsPathRooted(path))
@@ -93,7 +94,7 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
             {
                 try
                 {
-                    var stack = await LoadStackFromFolderAsync(directory, composeFile, localSource.Id, path, cancellationToken);
+                    var stack = await LoadStackFromFolderAsync(directory, composeFile, source.Id.Value, path, cancellationToken);
                     if (stack != null)
                     {
                         stacks.Add(stack);
@@ -110,7 +111,8 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
 
         // Then, look for standalone YAML files (not in processed folders)
         // Search recursively to find files in subdirectories like stacks/examples/simple-nginx.yml
-        var patterns = localSource.FilePattern.Split(';', StringSplitOptions.RemoveEmptyEntries);
+        var filePattern = source.FilePattern ?? "*.yml;*.yaml";
+        var patterns = filePattern.Split(';', StringSplitOptions.RemoveEmptyEntries);
         var files = new List<string>();
 
         foreach (var pattern in patterns)
@@ -129,7 +131,7 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
 
             try
             {
-                var stack = await LoadStackFromFileAsync(file, localSource.Id, path, cancellationToken);
+                var stack = await LoadStackFromFileAsync(file, source.Id.Value, path, cancellationToken);
                 if (stack != null)
                 {
                     stacks.Add(stack);
@@ -223,7 +225,7 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
             if (envDefaults.TryGetValue(variable.Name, out var envDefault))
             {
                 // .env value overrides YAML default (higher priority per Docker Compose)
-                variables[i] = variable with { DefaultValue = envDefault, IsRequired = false };
+                variables[i] = variable.WithDefaultValue(envDefault);
             }
         }
 
@@ -232,13 +234,7 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
         {
             if (!variables.Any(v => v.Name == envVar.Key))
             {
-                variables.Add(new StackVariable
-                {
-                    Name = envVar.Key,
-                    DefaultValue = envVar.Value,
-                    IsRequired = false,
-                    Description = "From .env file"
-                });
+                variables.Add(new StackVariable(envVar.Key, envVar.Value, "From .env file"));
             }
         }
 
@@ -246,22 +242,19 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
         var allContent = yamlContent + string.Join("", additionalFileContents.Values) + string.Join("", envDefaults.Select(kv => $"{kv.Key}={kv.Value}"));
         var version = ComputeHash(allContent);
 
-        return new StackDefinition
-        {
-            Id = $"{sourceId}:{stackName}",
-            SourceId = sourceId,
-            Name = stackName,
-            Description = description,
-            YamlContent = yamlContent,
-            Variables = variables.OrderBy(v => v.Name).ToList(),
-            Services = services,
-            FilePath = composeFile,
-            RelativePath = relativePath,
-            AdditionalFiles = additionalFiles,
-            AdditionalFileContents = additionalFileContents,
-            LastSyncedAt = DateTime.UtcNow,
-            Version = version
-        };
+        return new StackDefinition(
+            sourceId: sourceId,
+            name: stackName,
+            yamlContent: yamlContent,
+            description: description,
+            variables: variables.OrderBy(v => v.Name),
+            services: services,
+            filePath: composeFile,
+            relativePath: relativePath,
+            additionalFiles: additionalFiles,
+            additionalFileContents: additionalFileContents,
+            lastSyncedAt: DateTime.UtcNow,
+            version: version);
     }
 
     /// <summary>
@@ -347,20 +340,17 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
         // Calculate version hash
         var version = ComputeHash(yamlContent);
 
-        return new StackDefinition
-        {
-            Id = $"{sourceId}:{stackName}",
-            SourceId = sourceId,
-            Name = stackName,
-            Description = description,
-            YamlContent = yamlContent,
-            Variables = variables,
-            Services = services,
-            FilePath = filePath,
-            RelativePath = relativePath,
-            LastSyncedAt = DateTime.UtcNow,
-            Version = version
-        };
+        return new StackDefinition(
+            sourceId: sourceId,
+            name: stackName,
+            yamlContent: yamlContent,
+            description: description,
+            variables: variables,
+            services: services,
+            filePath: filePath,
+            relativePath: relativePath,
+            lastSyncedAt: DateTime.UtcNow,
+            version: version);
     }
 
     private static string? ExtractDescription(string yamlContent)
@@ -411,17 +401,12 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
 
             if (!variables.ContainsKey(varName))
             {
-                variables[varName] = new StackVariable
-                {
-                    Name = varName,
-                    DefaultValue = defaultValue,
-                    IsRequired = defaultValue == null
-                };
+                variables[varName] = new StackVariable(varName, defaultValue);
             }
             else if (defaultValue != null && variables[varName].DefaultValue == null)
             {
                 // Update with default if we find one
-                variables[varName] = variables[varName] with { DefaultValue = defaultValue, IsRequired = false };
+                variables[varName] = variables[varName].WithDefaultValue(defaultValue);
             }
         }
 

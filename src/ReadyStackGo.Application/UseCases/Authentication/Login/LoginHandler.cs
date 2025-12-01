@@ -1,9 +1,8 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
-using ReadyStackGo.Domain.Auth;
 using ReadyStackGo.Domain.IdentityAccess.Services;
+using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
 
 namespace ReadyStackGo.Application.UseCases.Authentication.Login;
 
@@ -27,29 +26,20 @@ public class LoginHandler : IRequestHandler<LoginCommand, LoginResult>
     {
         try
         {
-            var domainUser = _authenticationService.Authenticate(request.Username, request.Password);
+            var user = _authenticationService.Authenticate(request.Username, request.Password);
 
-            if (domainUser == null)
+            if (user == null)
             {
                 _logger.LogWarning("Login attempt with invalid credentials for user: {Username}", request.Username);
                 return Task.FromResult(new LoginResult(false, null, null, null, "Invalid username or password"));
             }
 
-            var role = domainUser.HasRole(RoleId.SystemAdmin) ? UserRole.Admin : UserRole.User;
-
-            var user = new User
-            {
-                Username = domainUser.Username,
-                PasswordHash = domainUser.Password.Hash,
-                Role = role,
-                CreatedAt = domainUser.CreatedAt
-            };
-
             var token = _tokenService.GenerateToken(user);
+            var role = user.HasRole(RoleId.SystemAdmin) ? "admin" : "user";
 
             _logger.LogInformation("User logged in successfully: {Username}", user.Username);
 
-            return Task.FromResult(new LoginResult(true, token, user.Username, user.Role, null));
+            return Task.FromResult(new LoginResult(true, token, user.Username, role, null));
         }
         catch (Exception ex)
         {

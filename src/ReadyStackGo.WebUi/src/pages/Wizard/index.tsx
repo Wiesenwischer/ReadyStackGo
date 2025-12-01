@@ -60,15 +60,18 @@ export default function Wizard() {
     setCurrentStep(3);
   };
 
-  const handleEnvironmentNext = async (data: { id: string; name: string; socketPath: string } | null) => {
+  const handleEnvironmentNext = async (data: { name: string; socketPath: string } | null) => {
     if (data) {
       // User wants to create an environment
-      const response = await createEnvironment(data);
+      const response = await createEnvironment({ name: data.name, socketPath: data.socketPath });
       if (!response.success) {
         throw new Error(response.message || 'Failed to create environment');
       }
-      // Set it as default
-      await setDefaultEnvironment(data.id);
+      // Set it as default using the ID from the response (server generates IDs)
+      const environmentId = response.environment?.id;
+      if (environmentId) {
+        await setDefaultEnvironment(environmentId);
+      }
     }
     // Move to install step (whether environment was created or skipped)
     setCurrentStep(4);

@@ -28,7 +28,7 @@ public class GetStackHandler : IRequestHandler<GetStackQuery, GetStackResult?>
         }
 
         var sources = await _stackSourceService.GetSourcesAsync(cancellationToken);
-        var sourceName = sources.FirstOrDefault(s => s.Id == stack.SourceId)?.Name ?? stack.SourceId;
+        var sourceName = sources.FirstOrDefault(s => s.Id.Value == stack.SourceId)?.Name ?? stack.SourceId;
 
         return new GetStackResult(
             stack.Id,
@@ -37,10 +37,10 @@ public class GetStackHandler : IRequestHandler<GetStackQuery, GetStackResult?>
             stack.Name,
             stack.Description,
             mergedYamlContent,
-            stack.Services,
+            stack.Services.ToList(),
             stack.Variables.Select(v => new StackVariableItem(v.Name, v.DefaultValue, v.IsRequired)).ToList(),
             stack.FilePath,
-            stack.AdditionalFiles,
+            stack.AdditionalFiles.ToList(),
             stack.LastSyncedAt,
             stack.Version
         );

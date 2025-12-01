@@ -1,7 +1,8 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
-using ReadyStackGo.Domain.Stacks;
+using ReadyStackGo.Domain.StackManagement.Aggregates;
+using ReadyStackGo.Domain.StackManagement.ValueObjects;
 using ReadyStackGo.Infrastructure.Stacks.Sources;
 
 namespace ReadyStackGo.UnitTests.Stacks;
@@ -414,14 +415,11 @@ services:
 
     private async Task<List<StackDefinition>> LoadStacksAsync()
     {
-        var source = new LocalDirectoryStackSource
-        {
-            Id = "test",
-            Name = "Test",
-            Enabled = true,
-            Path = _tempDir,
-            FilePattern = "*.yml;*.yaml"
-        };
+        var source = StackSource.CreateLocalDirectory(
+            new StackSourceId("test"),
+            "Test",
+            _tempDir,
+            "*.yml;*.yaml");
 
         var stacks = await _provider.LoadStacksAsync(source, CancellationToken.None);
         return stacks.ToList();

@@ -3,9 +3,9 @@ using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Deployments;
 using ReadyStackGo.Domain.IdentityAccess.Repositories;
 using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
-using ReadyStackGo.Domain.StackManagement.Aggregates;
-using ReadyStackGo.Domain.StackManagement.Repositories;
-using ReadyStackGo.Domain.StackManagement.ValueObjects;
+using ReadyStackGo.Domain.Deployment.Aggregates;
+using ReadyStackGo.Domain.Deployment.Repositories;
+using ReadyStackGo.Domain.Deployment.ValueObjects;
 using ReadyStackGo.Infrastructure.Deployment;
 
 namespace ReadyStackGo.Infrastructure.Deployments;
@@ -165,7 +165,7 @@ public class DeploymentService : IDeploymentService
 
             // Create and persist deployment record
             var deploymentId = _deploymentRepository.NextIdentity();
-            var deployment = Domain.StackManagement.Aggregates.Deployment.Start(
+            var deployment = Domain.Deployment.Aggregates.Deployment.Start(
                 deploymentId,
                 new EnvironmentId(envGuid),
                 request.StackName,

@@ -1,4 +1,4 @@
-using ReadyStackGo.Domain.Auth;
+using ReadyStackGo.Domain.IdentityAccess.Aggregates;
 
 namespace ReadyStackGo.Application.Services;
 

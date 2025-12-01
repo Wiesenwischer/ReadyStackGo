@@ -16,7 +16,6 @@ public class CreateEnvironmentHandler : IRequestHandler<CreateEnvironmentCommand
     {
         var createRequest = new CreateEnvironmentRequest
         {
-            Id = request.Id,
             Name = request.Name,
             SocketPath = request.SocketPath
         };

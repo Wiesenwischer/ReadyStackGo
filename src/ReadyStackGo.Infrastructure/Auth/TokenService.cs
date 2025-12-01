@@ -4,7 +4,8 @@ using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.Auth;
+using ReadyStackGo.Domain.IdentityAccess.Aggregates;
+using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
 
 namespace ReadyStackGo.Infrastructure.Auth;
 
@@ -19,10 +20,13 @@ public class TokenService : ITokenService
 
     public string GenerateToken(User user)
     {
+        // Determine role from user's role assignments
+        var role = user.HasRole(RoleId.SystemAdmin) ? "admin" : "user";
+
         var claims = new[]
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Username),
-            new Claim(ClaimTypes.Role, user.Role),
+            new Claim(ClaimTypes.Role, role),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 

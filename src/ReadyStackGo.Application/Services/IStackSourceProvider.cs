@@ -1,4 +1,5 @@
-using ReadyStackGo.Domain.Stacks;
+using ReadyStackGo.Domain.StackManagement.Aggregates;
+using ReadyStackGo.Domain.StackManagement.ValueObjects;
 
 namespace ReadyStackGo.Application.Services;
 

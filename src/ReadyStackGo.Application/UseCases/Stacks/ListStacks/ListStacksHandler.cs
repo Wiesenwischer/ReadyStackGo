@@ -16,7 +16,7 @@ public class ListStacksHandler : IRequestHandler<ListStacksQuery, ListStacksResu
     {
         var stacks = await _stackSourceService.GetStacksAsync(cancellationToken);
         var sources = await _stackSourceService.GetSourcesAsync(cancellationToken);
-        var sourceNames = sources.ToDictionary(s => s.Id, s => s.Name);
+        var sourceNames = sources.ToDictionary(s => s.Id.Value, s => s.Name);
 
         var items = stacks.Select(s => new StackListItem(
             s.Id,
@@ -25,7 +25,7 @@ public class ListStacksHandler : IRequestHandler<ListStacksQuery, ListStacksResu
             s.Name,
             s.Description,
             s.RelativePath,
-            s.Services,
+            s.Services.ToList(),
             s.Variables.Select(v => new StackVariableItem(v.Name, v.DefaultValue, v.IsRequired)).ToList(),
             s.LastSyncedAt,
             s.Version

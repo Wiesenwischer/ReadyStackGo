@@ -1,9 +1,9 @@
 namespace ReadyStackGo.Infrastructure.Persistence.Repositories;
 
 using Microsoft.EntityFrameworkCore;
-using ReadyStackGo.Domain.StackManagement.Aggregates;
-using ReadyStackGo.Domain.StackManagement.Repositories;
-using ReadyStackGo.Domain.StackManagement.ValueObjects;
+using ReadyStackGo.Domain.Deployment.Aggregates;
+using ReadyStackGo.Domain.Deployment.Repositories;
+using ReadyStackGo.Domain.Deployment.ValueObjects;
 
 /// <summary>
 /// SQLite implementation of IDeploymentRepository.
@@ -34,15 +34,15 @@ public class DeploymentRepository : IDeploymentRepository
 
     public Deployment? Get(DeploymentId id)
     {
+        // Owned entities (Services) are loaded automatically by EF Core
         return _context.Deployments
-            .Include("_services")
             .FirstOrDefault(d => d.Id == id);
     }
 
     public IEnumerable<Deployment> GetByEnvironment(EnvironmentId environmentId)
     {
+        // Owned entities (Services) are loaded automatically by EF Core
         return _context.Deployments
-            .Include("_services")
             .Where(d => d.EnvironmentId == environmentId)
             .OrderByDescending(d => d.CreatedAt)
             .ToList();
@@ -50,8 +50,8 @@ public class DeploymentRepository : IDeploymentRepository
 
     public Deployment? GetByStackName(EnvironmentId environmentId, string stackName)
     {
+        // Owned entities (Services) are loaded automatically by EF Core
         return _context.Deployments
-            .Include("_services")
             .FirstOrDefault(d => d.EnvironmentId == environmentId && d.StackName == stackName);
     }
 

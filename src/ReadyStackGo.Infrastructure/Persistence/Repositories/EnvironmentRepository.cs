@@ -2,9 +2,9 @@ namespace ReadyStackGo.Infrastructure.Persistence.Repositories;
 
 using Microsoft.EntityFrameworkCore;
 using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
-using ReadyStackGo.Domain.StackManagement.Aggregates;
-using ReadyStackGo.Domain.StackManagement.Repositories;
-using ReadyStackGo.Domain.StackManagement.ValueObjects;
+using ReadyStackGo.Domain.Deployment.Aggregates;
+using ReadyStackGo.Domain.Deployment.Repositories;
+using ReadyStackGo.Domain.Deployment.ValueObjects;
 
 /// <summary>
 /// SQLite implementation of IEnvironmentRepository.

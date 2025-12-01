@@ -1,4 +1,4 @@
-using ReadyStackGo.Domain.Manifests;
+using ReadyStackGo.Infrastructure.Manifests;
 
 namespace ReadyStackGo.Infrastructure.Manifests;
 

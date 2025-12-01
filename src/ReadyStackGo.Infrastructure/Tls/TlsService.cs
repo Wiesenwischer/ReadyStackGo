@@ -2,7 +2,6 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using ReadyStackGo.Domain.Configuration;
 using ReadyStackGo.Infrastructure.Configuration;
 
 namespace ReadyStackGo.Infrastructure.Tls;

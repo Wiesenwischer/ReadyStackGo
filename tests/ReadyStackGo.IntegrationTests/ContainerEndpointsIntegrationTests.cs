@@ -124,8 +124,12 @@ public class ContainerEndpointsIntegrationTests : AuthenticatedTestBase
         // Act
         var response = await Client.PostAsync($"/api/containers/{_testContainer.Id}/stop?environment={EnvironmentId}", null);
 
-        // Assert
-        response.IsSuccessStatusCode.Should().BeTrue();
+        // Assert - Get error details if failed
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            response.IsSuccessStatusCode.Should().BeTrue($"Status: {response.StatusCode}, Body: {errorBody}");
+        }
 
         // Verify the response is properly handled for empty body scenarios
         // Either 204 No Content, or 200 with empty body / content-length 0

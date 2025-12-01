@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.IdentityAccess.Repositories;
 using ReadyStackGo.Domain.IdentityAccess.Services;
-using ReadyStackGo.Domain.StackManagement.Repositories;
+using ReadyStackGo.Domain.Deployment.Repositories;
 using ReadyStackGo.Infrastructure.Auth;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Deployment;

@@ -1,5 +1,4 @@
-using ReadyStackGo.Domain.Deployment;
-using ReadyStackGo.Domain.Manifests;
+using ReadyStackGo.Application.UseCases.Deployments;
 
 namespace ReadyStackGo.Application.Services;
 

@@ -6,8 +6,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Containers;
-using ReadyStackGo.Domain.StackManagement.Repositories;
-using ReadyStackGo.Domain.StackManagement.ValueObjects;
+using ReadyStackGo.Domain.Deployment.Repositories;
+using ReadyStackGo.Domain.Deployment.ValueObjects;
 
 namespace ReadyStackGo.Infrastructure.Docker;
 

@@ -2,7 +2,7 @@ namespace ReadyStackGo.Infrastructure.Persistence;
 
 using Microsoft.EntityFrameworkCore;
 using ReadyStackGo.Domain.IdentityAccess.Aggregates;
-using ReadyStackGo.Domain.StackManagement.Aggregates;
+using ReadyStackGo.Domain.Deployment.Aggregates;
 
 /// <summary>
 /// EF Core DbContext for ReadyStackGo persistence.

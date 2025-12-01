@@ -20,8 +20,8 @@ public class SyncStackSourcesHandler : IRequestHandler<SyncStackSourcesCommand, 
             result.Success,
             result.StacksLoaded,
             result.SourcesSynced,
-            result.Errors,
-            result.Warnings
+            result.Errors.ToList(),
+            result.Warnings.ToList()
         );
     }
 }

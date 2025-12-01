@@ -3,17 +3,16 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Containers;
-using ReadyStackGo.Domain.Configuration;
-using ReadyStackGo.Domain.Deployment;
+using ReadyStackGo.Application.Dtos;
+using ReadyStackGo.Domain.Deployment.Repositories;
+using ReadyStackGo.Domain.Deployment.ValueObjects;
 using ReadyStackGo.Domain.IdentityAccess.Aggregates;
 using ReadyStackGo.Domain.IdentityAccess.Repositories;
 using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
-using ReadyStackGo.Domain.StackManagement.Repositories;
-using ReadyStackGo.Domain.StackManagement.ValueObjects;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Deployment;
 using Xunit;
-using DomainEnvironment = ReadyStackGo.Domain.StackManagement.Aggregates.Environment;
+using DomainEnvironment = ReadyStackGo.Domain.Deployment.Aggregates.Environment;
 
 namespace ReadyStackGo.UnitTests;
 
