@@ -1,6 +1,7 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Wizard;
-using ReadyStackGo.Application.Wizard.DTOs;
+using MediatR;
+using ReadyStackGo.Application.UseCases.Administration.RegisterSystemAdmin;
+using ReadyStackGo.Application.UseCases.Wizard;
 
 namespace ReadyStackGo.API.Endpoints.Wizard;
 
@@ -9,23 +10,35 @@ namespace ReadyStackGo.API.Endpoints.Wizard;
 /// </summary>
 public class CreateAdminEndpoint : Endpoint<CreateAdminRequest, CreateAdminResponse>
 {
-    public IWizardService WizardService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public CreateAdminEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
         Post("/api/wizard/admin");
-        AllowAnonymous(); // Wizard endpoints are accessible before auth setup
+        AllowAnonymous();
     }
 
     public override async Task HandleAsync(CreateAdminRequest req, CancellationToken ct)
     {
-        var result = await WizardService.CreateAdminAsync(req);
+        var result = await _mediator.Send(
+            new RegisterSystemAdminCommand(req.Username, req.Password),
+            ct);
 
         if (!result.Success)
         {
-            ThrowError(result.Message ?? "Failed to create admin user");
+            ThrowError(result.ErrorMessage ?? "Failed to create admin");
+            return;
         }
 
-        Response = result;
+        Response = new CreateAdminResponse
+        {
+            Success = true,
+            Message = "Admin user created successfully"
+        };
     }
 }

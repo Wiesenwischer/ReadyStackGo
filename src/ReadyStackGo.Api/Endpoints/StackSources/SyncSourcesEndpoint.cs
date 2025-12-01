@@ -1,5 +1,6 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Stacks;
+using MediatR;
+using ReadyStackGo.Application.UseCases.StackSources.SyncStackSources;
 
 namespace ReadyStackGo.API.Endpoints.StackSources;
 
@@ -8,7 +9,12 @@ namespace ReadyStackGo.API.Endpoints.StackSources;
 /// </summary>
 public class SyncSourcesEndpoint : EndpointWithoutRequest<SyncSourcesResponse>
 {
-    public IStackSourceService StackSourceService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public SyncSourcesEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
@@ -18,7 +24,7 @@ public class SyncSourcesEndpoint : EndpointWithoutRequest<SyncSourcesResponse>
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var result = await StackSourceService.SyncAllAsync(ct);
+        var result = await _mediator.Send(new SyncStackSourcesCommand(), ct);
 
         Response = new SyncSourcesResponse
         {

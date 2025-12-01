@@ -1,23 +1,27 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using ReadyStackGo.Application.Auth;
-using ReadyStackGo.Application.Containers;
-using ReadyStackGo.Application.Deployments;
-using ReadyStackGo.Application.Environments;
-using ReadyStackGo.Application.Manifests;
-using ReadyStackGo.Application.Stacks;
-using ReadyStackGo.Application.Wizard;
-using ReadyStackGo.Infrastructure.Auth;
+using ReadyStackGo.Application.Services;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.IdentityAccess.Roles;
+using ReadyStackGo.Domain.IdentityAccess.Users;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.IdentityAccess.Users;
+using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Infrastructure.Authentication;
 using ReadyStackGo.Infrastructure.Configuration;
-using ReadyStackGo.Infrastructure.Deployment;
+using ReadyStackGo.Infrastructure.Services;
 using ReadyStackGo.Infrastructure.Docker;
-using ReadyStackGo.Infrastructure.Deployments;
-using ReadyStackGo.Infrastructure.Environments;
+using ReadyStackGo.Infrastructure.Services;
+using ReadyStackGo.Infrastructure.Services;
 using ReadyStackGo.Infrastructure.Manifests;
+using ReadyStackGo.Infrastructure.DataAccess;
+using ReadyStackGo.Infrastructure.DataAccess.Repositories;
+using ReadyStackGo.Infrastructure.Services;
 using ReadyStackGo.Infrastructure.Stacks;
 using ReadyStackGo.Infrastructure.Stacks.Sources;
 using ReadyStackGo.Infrastructure.Tls;
-using ReadyStackGo.Infrastructure.Wizard;
 
 namespace ReadyStackGo.Infrastructure;
 
@@ -27,6 +31,7 @@ public static class DependencyInjection
     {
         // Configuration services
         services.AddSingleton<IConfigStore, ConfigStore>();
+        services.AddSingleton<ISystemConfigService, SystemConfigService>();
 
         // TLS services
         services.AddSingleton<ITlsService, TlsService>();
@@ -36,11 +41,13 @@ public static class DependencyInjection
         services.AddSingleton<IDockerComposeParser, DockerComposeParser>();
 
         // Deployment services
-        services.AddSingleton<IDeploymentEngine, DeploymentEngine>();
-        services.AddSingleton<IDeploymentService, DeploymentService>();
+        // v0.6: DeploymentEngine is Scoped because it depends on Scoped repositories
+        services.AddScoped<IDeploymentEngine, DeploymentEngine>();
+        services.AddScoped<IDeploymentService, DeploymentService>();
 
         // Docker services
-        services.AddSingleton<IDockerService, DockerService>();
+        // v0.6: DockerService is Scoped because it depends on Scoped IEnvironmentRepository
+        services.AddScoped<IDockerService, DockerService>();
 
         // Stack source services
         services.AddSingleton<IStackCache, InMemoryStackCache>();
@@ -50,14 +57,47 @@ public static class DependencyInjection
         // Auth services
         services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
         services.AddSingleton<ITokenService, TokenService>();
-        services.AddSingleton<IAuthService, AuthService>();
 
-        // Wizard services
-        services.AddSingleton<IWizardService, WizardService>();
+        // Environment services (v0.6 SQLite)
+        services.AddScoped<IEnvironmentService, EnvironmentService>();
 
-        // Environment services (v0.4)
-        services.AddSingleton<IEnvironmentService, EnvironmentService>();
+        // v0.6: SQLite persistence
+        // Use ConfigPath-based path if no explicit connection string configured
+        var connectionString = configuration.GetConnectionString("ReadyStackGo");
+        if (string.IsNullOrEmpty(connectionString))
+        {
+            var configPath = configuration["ConfigPath"] ?? "config";
+            var dbPath = Path.Combine(configPath, "readystackgo.db");
+            connectionString = $"Data Source={dbPath}";
+        }
+        services.AddDbContext<ReadyStackGoDbContext>(options =>
+            options.UseSqlite(connectionString));
+
+        // Repositories
+        services.AddScoped<IOrganizationRepository, OrganizationRepository>();
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IRoleRepository, RoleRepository>();
+        services.AddScoped<IEnvironmentRepository, EnvironmentRepository>();
+        services.AddScoped<IDeploymentRepository, DeploymentRepository>();
+
+        // Password hashing
+        services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
+
+        // Domain Services
+        services.AddScoped<SystemAdminRegistrationService>();
+        services.AddScoped<OrganizationProvisioningService>();
+        services.AddScoped<AuthenticationService>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Ensures the database is created.
+    /// </summary>
+    public static void EnsureDatabaseCreated(this IServiceProvider services)
+    {
+        using var scope = services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ReadyStackGoDbContext>();
+        context.Database.EnsureCreated();
     }
 }

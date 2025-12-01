@@ -13,7 +13,6 @@ import { useEnvironment } from "../context/EnvironmentContext";
 export default function SetupEnvironment() {
   const { environments, isLoading, refreshEnvironments } = useEnvironment();
   const [formData, setFormData] = useState<CreateEnvironmentRequest>({
-    id: "local-docker",
     name: "Local Docker",
     socketPath: "", // Will be set from API
   });
@@ -114,25 +113,7 @@ export default function SetupEnvironment() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Environment ID
-              </label>
-              <input
-                type="text"
-                value={formData.id}
-                onChange={(e) => setFormData({ ...formData, id: e.target.value })}
-                placeholder="local-docker"
-                required
-                pattern="^[a-zA-Z0-9_-]+$"
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:text-white"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Unique identifier (letters, numbers, underscores, hyphens)
-              </p>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Display Name
+                Environment Name
               </label>
               <input
                 type="text"

@@ -1,20 +1,23 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Containers;
+using MediatR;
+using ReadyStackGo.Application.UseCases.Containers.StopContainer;
 
 namespace ReadyStackGo.API.Endpoints.Containers;
 
 public class StopContainerRequest
 {
-    /// <summary>
-    /// The environment ID where the container is running.
-    /// </summary>
     [QueryParam]
     public string Environment { get; set; } = null!;
 }
 
 public class StopContainerEndpoint : Endpoint<StopContainerRequest, EmptyResponse>
 {
-    public IDockerService DockerService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public StopContainerEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
@@ -32,13 +35,11 @@ public class StopContainerEndpoint : Endpoint<StopContainerRequest, EmptyRespons
 
         var id = Route<string>("id")!;
 
-        try
+        var result = await _mediator.Send(new StopContainerCommand(req.Environment, id), ct);
+
+        if (!result.Success)
         {
-            await DockerService.StopContainerAsync(req.Environment, id, ct);
-        }
-        catch (InvalidOperationException ex)
-        {
-            ThrowError(ex.Message);
+            ThrowError(result.ErrorMessage ?? "Failed to stop container");
         }
     }
 }

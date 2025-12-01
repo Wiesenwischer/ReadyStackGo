@@ -1,14 +1,18 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Deployments;
+using MediatR;
+using ReadyStackGo.Application.UseCases.Deployments;
+using ReadyStackGo.Application.UseCases.Deployments.DeployCompose;
 
 namespace ReadyStackGo.API.Endpoints.Deployments;
 
-/// <summary>
-/// POST /api/deployments/{environmentId} - Deploy a Docker Compose stack
-/// </summary>
 public class DeployComposeEndpoint : Endpoint<DeployComposeRequest, DeployComposeResponse>
 {
-    public IDeploymentService DeploymentService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public DeployComposeEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
@@ -17,10 +21,11 @@ public class DeployComposeEndpoint : Endpoint<DeployComposeRequest, DeployCompos
 
     public override async Task HandleAsync(DeployComposeRequest req, CancellationToken ct)
     {
-        var environmentId = Route<string>("environmentId");
-        var response = await DeploymentService.DeployComposeAsync(environmentId!, req);
+        var environmentId = Route<string>("environmentId")!;
 
-        // Return 400 if environment not found, otherwise return the response
+        var response = await _mediator.Send(
+            new DeployComposeCommand(environmentId, req.StackName, req.YamlContent, req.Variables), ct);
+
         if (!response.Success && response.Message?.Contains("not found") == true)
         {
             ThrowError(response.Message);

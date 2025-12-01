@@ -1,6 +1,7 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Wizard;
-using ReadyStackGo.Application.Wizard.DTOs;
+using MediatR;
+using ReadyStackGo.Application.UseCases.Organizations.ProvisionOrganization;
+using ReadyStackGo.Application.UseCases.Wizard;
 
 namespace ReadyStackGo.API.Endpoints.Wizard;
 
@@ -9,23 +10,35 @@ namespace ReadyStackGo.API.Endpoints.Wizard;
 /// </summary>
 public class SetOrganizationEndpoint : Endpoint<SetOrganizationRequest, SetOrganizationResponse>
 {
-    public IWizardService WizardService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public SetOrganizationEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
         Post("/api/wizard/organization");
-        AllowAnonymous(); // Wizard endpoints are accessible before auth setup
+        AllowAnonymous();
     }
 
     public override async Task HandleAsync(SetOrganizationRequest req, CancellationToken ct)
     {
-        var result = await WizardService.SetOrganizationAsync(req);
+        var result = await _mediator.Send(
+            new ProvisionOrganizationCommand(req.Name, req.Name),
+            ct);
 
         if (!result.Success)
         {
-            ThrowError(result.Message ?? "Failed to set organization");
+            ThrowError(result.ErrorMessage ?? "Failed to create organization");
+            return;
         }
 
-        Response = result;
+        Response = new SetOrganizationResponse
+        {
+            Success = true,
+            Message = "Organization set successfully"
+        };
     }
 }

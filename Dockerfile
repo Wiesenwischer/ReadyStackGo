@@ -53,8 +53,8 @@ WORKDIR /app
 # Copy published application
 COPY --from=backend-build /app/publish .
 
-# Create directories for config and stacks mount point
-RUN mkdir -p /app/config /app/stacks
+# Create directories for config, data (SQLite), and stacks mount points
+RUN mkdir -p /app/config /app/data /app/stacks
 
 # Expose ports
 EXPOSE 8080 8443
