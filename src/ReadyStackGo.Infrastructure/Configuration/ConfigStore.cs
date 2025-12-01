@@ -2,15 +2,25 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Configuration;
 using ReadyStackGo.Domain.Configuration;
-using ReadyStackGo.Domain.Organizations;
 
 namespace ReadyStackGo.Infrastructure.Configuration;
 
 /// <summary>
-/// File-based configuration store that manages all rsgo.*.json files
+/// File-based configuration store that manages static rsgo.*.json files
 /// in the /app/config volume.
 ///
-/// v0.4: Updated to support polymorphic Environment serialization with $type discriminator.
+/// v0.6: Reduced to static configuration only.
+/// - Organization and environments: Moved to SQLite (IOrganizationRepository, IEnvironmentRepository)
+/// - Users and roles: Moved to SQLite (IUserRepository, IRoleRepository)
+/// - Deployments: Moved to SQLite (IDeploymentRepository)
+/// - Security: Moved to SQLite (User authentication)
+///
+/// Remaining in JSON files:
+/// - rsgo.system.json: BaseUrl, ports, network, wizard state
+/// - rsgo.tls.json: TLS certificate configuration
+/// - rsgo.contexts.json: Legacy connection strings (deprecated, to be removed in v0.7)
+/// - rsgo.features.json: Feature flags
+/// - rsgo.release.json: Release/version information
 /// </summary>
 public class ConfigStore : IConfigStore
 {
@@ -49,17 +59,6 @@ public class ConfigStore : IConfigStore
     public async Task SaveSystemConfigAsync(SystemConfig config)
     {
         await SaveConfigAsync("rsgo.system.json", config);
-    }
-
-    public async Task<SecurityConfig> GetSecurityConfigAsync()
-    {
-        return await LoadConfigAsync<SecurityConfig>("rsgo.security.json")
-            ?? new SecurityConfig();
-    }
-
-    public async Task SaveSecurityConfigAsync(SecurityConfig config)
-    {
-        await SaveConfigAsync("rsgo.security.json", config);
     }
 
     public async Task<TlsConfig> GetTlsConfigAsync()
@@ -104,17 +103,6 @@ public class ConfigStore : IConfigStore
     public async Task SaveReleaseConfigAsync(ReleaseConfig config)
     {
         await SaveConfigAsync("rsgo.release.json", config);
-    }
-
-    public async Task<DeploymentsConfig> GetDeploymentsConfigAsync()
-    {
-        return await LoadConfigAsync<DeploymentsConfig>("rsgo.deployments.json")
-            ?? new DeploymentsConfig();
-    }
-
-    public async Task SaveDeploymentsConfigAsync(DeploymentsConfig config)
-    {
-        await SaveConfigAsync("rsgo.deployments.json", config);
     }
 
     private async Task<T?> LoadConfigAsync<T>(string fileName) where T : class

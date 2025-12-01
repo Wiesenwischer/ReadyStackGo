@@ -2,7 +2,10 @@ using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.Configuration;
 using ReadyStackGo.Domain.Deployment;
+using ReadyStackGo.Domain.Identity.Repositories;
 using ReadyStackGo.Domain.Manifests;
+using ReadyStackGo.Domain.StackManagement.Repositories;
+using ReadyStackGo.Domain.StackManagement.ValueObjects;
 using ReadyStackGo.Infrastructure.Configuration;
 
 namespace ReadyStackGo.Infrastructure.Deployment;
@@ -10,20 +13,27 @@ namespace ReadyStackGo.Infrastructure.Deployment;
 /// <summary>
 /// Deployment engine that orchestrates stack deployments based on manifests
 /// Implements the deployment pipeline from specification chapter 8
+/// v0.6: Uses SQLite repositories for Organization/Environment data
 /// </summary>
 public class DeploymentEngine : IDeploymentEngine
 {
     private readonly IConfigStore _configStore;
     private readonly IDockerService _dockerService;
+    private readonly IOrganizationRepository _organizationRepository;
+    private readonly IEnvironmentRepository _environmentRepository;
     private readonly ILogger<DeploymentEngine> _logger;
 
     public DeploymentEngine(
         IConfigStore configStore,
         IDockerService dockerService,
+        IOrganizationRepository organizationRepository,
+        IEnvironmentRepository environmentRepository,
         ILogger<DeploymentEngine> logger)
     {
         _configStore = configStore;
         _dockerService = dockerService;
+        _organizationRepository = organizationRepository;
+        _environmentRepository = environmentRepository;
         _logger = logger;
     }
 
@@ -37,12 +47,14 @@ public class DeploymentEngine : IDeploymentEngine
         };
 
         // Load configurations
-        var systemConfig = await _configStore.GetSystemConfigAsync();
         var contextsConfig = await _configStore.GetContextsConfigAsync();
         var featuresConfig = await _configStore.GetFeaturesConfigAsync();
 
+        // Get organization from SQLite
+        var organization = _organizationRepository.GetAll().FirstOrDefault();
+
         // Generate global environment variables
-        plan.GlobalEnvVars = GenerateGlobalEnvVars(systemConfig, featuresConfig, manifest);
+        plan.GlobalEnvVars = GenerateGlobalEnvVars(organization, featuresConfig, manifest);
 
         // Create deployment steps from manifest contexts
         var steps = new List<DeploymentStep>();
@@ -95,15 +107,17 @@ public class DeploymentEngine : IDeploymentEngine
         {
             _logger.LogInformation("Starting deployment of stack version {Version}", plan.StackVersion);
 
-            var systemConfig = await _configStore.GetSystemConfigAsync();
-
             // Determine environment ID - use from plan or fall back to default
             var environmentId = plan.EnvironmentId;
             if (string.IsNullOrEmpty(environmentId))
             {
-                // Fall back to default environment
-                var defaultEnv = systemConfig.Organization?.Environments.FirstOrDefault(e => e.IsDefault);
-                environmentId = defaultEnv?.Id;
+                // Fall back to default environment from SQLite
+                var organization = _organizationRepository.GetAll().FirstOrDefault();
+                if (organization != null)
+                {
+                    var defaultEnv = _environmentRepository.GetDefault(organization.Id);
+                    environmentId = defaultEnv?.Id.ToString();
+                }
 
                 if (string.IsNullOrEmpty(environmentId))
                 {
@@ -256,17 +270,17 @@ public class DeploymentEngine : IDeploymentEngine
     }
 
     private Dictionary<string, string> GenerateGlobalEnvVars(
-        SystemConfig systemConfig,
+        Domain.Identity.Aggregates.Organization? organization,
         FeaturesConfig featuresConfig,
         ReleaseManifest manifest)
     {
         var envVars = new Dictionary<string, string>();
 
-        // System variables
-        if (systemConfig.Organization != null)
+        // System variables from SQLite organization
+        if (organization != null)
         {
-            envVars["RSGO_ORG_ID"] = systemConfig.Organization.Id;
-            envVars["RSGO_ORG_NAME"] = systemConfig.Organization.Name;
+            envVars["RSGO_ORG_ID"] = organization.Id.ToString();
+            envVars["RSGO_ORG_NAME"] = organization.Name;
         }
         envVars["RSGO_STACK_VERSION"] = manifest.StackVersion;
 

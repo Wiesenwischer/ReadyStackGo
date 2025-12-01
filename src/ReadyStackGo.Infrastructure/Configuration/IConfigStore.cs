@@ -10,9 +10,6 @@ public interface IConfigStore
     Task<SystemConfig> GetSystemConfigAsync();
     Task SaveSystemConfigAsync(SystemConfig config);
 
-    Task<SecurityConfig> GetSecurityConfigAsync();
-    Task SaveSecurityConfigAsync(SecurityConfig config);
-
     Task<TlsConfig> GetTlsConfigAsync();
     Task SaveTlsConfigAsync(TlsConfig config);
 
@@ -24,7 +21,4 @@ public interface IConfigStore
 
     Task<ReleaseConfig> GetReleaseConfigAsync();
     Task SaveReleaseConfigAsync(ReleaseConfig config);
-
-    Task<DeploymentsConfig> GetDeploymentsConfigAsync();
-    Task SaveDeploymentsConfigAsync(DeploymentsConfig config);
 }

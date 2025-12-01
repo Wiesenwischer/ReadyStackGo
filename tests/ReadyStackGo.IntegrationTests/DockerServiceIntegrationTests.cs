@@ -5,11 +5,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.Configuration;
-using ReadyStackGo.Domain.Organizations;
-using ReadyStackGo.Infrastructure.Configuration;
+using ReadyStackGo.Domain.Identity.ValueObjects;
+using ReadyStackGo.Domain.StackManagement.Repositories;
+using ReadyStackGo.Domain.StackManagement.ValueObjects;
 using ReadyStackGo.Infrastructure.Docker;
 using Xunit;
+using DomainEnvironment = ReadyStackGo.Domain.StackManagement.Aggregates.Environment;
 
 namespace ReadyStackGo.IntegrationTests;
 
@@ -21,7 +22,8 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
 {
     private IContainer? _testContainer;
     private DockerService? _dockerService;
-    private const string TestEnvironmentId = "test-env";
+    private static readonly EnvironmentId TestEnvironmentId = EnvironmentId.Create();
+    private static readonly OrganizationId TestOrganizationId = OrganizationId.Create();
 
     public async Task InitializeAsync()
     {
@@ -36,43 +38,29 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
 
         await _testContainer.StartAsync();
 
-        // Create mock config store that returns a test environment
-        var configStore = Substitute.For<IConfigStore>();
+        // Create mock environment repository
+        var environmentRepository = Substitute.For<IEnvironmentRepository>();
         var logger = Substitute.For<ILogger<DockerService>>();
 
-        // Setup system config with test environment
+        // Setup environment with test Docker socket
         var socketPath = OperatingSystem.IsWindows()
             ? "npipe://./pipe/docker_engine"
             : "unix:///var/run/docker.sock";
 
-        var testEnv = new DockerSocketEnvironment
-        {
-            Id = TestEnvironmentId,
-            Name = "Test Environment",
-            SocketPath = socketPath,
-            IsDefault = true,
-            CreatedAt = DateTime.UtcNow
-        };
+        var testEnv = DomainEnvironment.CreateDockerSocket(
+            TestEnvironmentId,
+            TestOrganizationId,
+            "Test Environment",
+            "Test environment for integration tests",
+            socketPath);
+        testEnv.SetAsDefault();
 
-        var org = new Organization
-        {
-            Id = "test-org",
-            Name = "Test Organization",
-            CreatedAt = DateTime.UtcNow
-        };
-        org.AddEnvironment(testEnv);
-
-        var systemConfig = new SystemConfig
-        {
-            Organization = org
-        };
-
-        configStore.GetSystemConfigAsync().Returns(systemConfig);
+        environmentRepository.Get(TestEnvironmentId).Returns(testEnv);
 
         // Create empty configuration for tests
         var configuration = new ConfigurationBuilder().Build();
 
-        _dockerService = new DockerService(configStore, configuration, logger);
+        _dockerService = new DockerService(environmentRepository, configuration, logger);
     }
 
     public async Task DisposeAsync()
@@ -89,7 +77,7 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
     public async Task ListContainersAsync_ShouldReturnContainers()
     {
         // Act
-        var containers = await _dockerService!.ListContainersAsync(TestEnvironmentId);
+        var containers = await _dockerService!.ListContainersAsync(TestEnvironmentId.ToString());
 
         // Assert
         containers.Should().NotBeNull();
@@ -103,13 +91,13 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
         await _testContainer!.StopAsync();
 
         // Act
-        await _dockerService!.StartContainerAsync(TestEnvironmentId, _testContainer.Id);
+        await _dockerService!.StartContainerAsync(TestEnvironmentId.ToString(), _testContainer.Id);
 
         // Wait a bit for container to start
         await Task.Delay(2000);
 
         // Assert
-        var containers = await _dockerService.ListContainersAsync(TestEnvironmentId);
+        var containers = await _dockerService.ListContainersAsync(TestEnvironmentId.ToString());
         var testContainer = containers.FirstOrDefault(c => c.Id.StartsWith(_testContainer.Id));
 
         testContainer.Should().NotBeNull();
@@ -126,13 +114,13 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
         }
 
         // Act
-        await _dockerService!.StopContainerAsync(TestEnvironmentId, _testContainer.Id);
+        await _dockerService!.StopContainerAsync(TestEnvironmentId.ToString(), _testContainer.Id);
 
         // Wait a bit for container to stop
         await Task.Delay(2000);
 
         // Assert
-        var containers = await _dockerService.ListContainersAsync(TestEnvironmentId);
+        var containers = await _dockerService.ListContainersAsync(TestEnvironmentId.ToString());
         var testContainer = containers.FirstOrDefault(c => c.Id.StartsWith(_testContainer.Id));
 
         testContainer.Should().NotBeNull();
@@ -143,7 +131,7 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
     public async Task ListContainersAsync_ShouldReturnContainerWithCorrectProperties()
     {
         // Act
-        var containers = await _dockerService!.ListContainersAsync(TestEnvironmentId);
+        var containers = await _dockerService!.ListContainersAsync(TestEnvironmentId.ToString());
         var testContainer = containers.FirstOrDefault(c => c.Id.StartsWith(_testContainer!.Id));
 
         // Assert

@@ -1,19 +1,11 @@
-using ReadyStackGo.Domain.Organizations;
-
 namespace ReadyStackGo.Domain.Configuration;
 
 /// <summary>
 /// System configuration stored in rsgo.system.json.
-/// Contains the organization aggregate with its environments.
+/// v0.6: Organization and Environments are now stored in SQLite, not in this config file.
 /// </summary>
 public class SystemConfig
 {
-    /// <summary>
-    /// The organization with its environments.
-    /// Null until wizard step 2 is completed.
-    /// </summary>
-    public Organization? Organization { get; set; }
-
     /// <summary>
     /// Base URL for the application
     /// </summary>

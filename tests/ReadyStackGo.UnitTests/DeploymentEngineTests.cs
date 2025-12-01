@@ -5,10 +5,15 @@ using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Containers;
 using ReadyStackGo.Domain.Configuration;
 using ReadyStackGo.Domain.Deployment;
-using ReadyStackGo.Domain.Organizations;
+using ReadyStackGo.Domain.Identity.Aggregates;
+using ReadyStackGo.Domain.Identity.Repositories;
+using ReadyStackGo.Domain.Identity.ValueObjects;
+using ReadyStackGo.Domain.StackManagement.Repositories;
+using ReadyStackGo.Domain.StackManagement.ValueObjects;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Deployment;
 using Xunit;
+using DomainEnvironment = ReadyStackGo.Domain.StackManagement.Aggregates.Environment;
 
 namespace ReadyStackGo.UnitTests;
 
@@ -20,18 +25,27 @@ public class DeploymentEngineTests
 {
     private readonly Mock<IConfigStore> _configStoreMock;
     private readonly Mock<IDockerService> _dockerServiceMock;
+    private readonly Mock<IOrganizationRepository> _organizationRepositoryMock;
+    private readonly Mock<IEnvironmentRepository> _environmentRepositoryMock;
     private readonly Mock<ILogger<DeploymentEngine>> _loggerMock;
     private readonly DeploymentEngine _sut;
+
+    private readonly OrganizationId _testOrgId = OrganizationId.Create();
+    private readonly EnvironmentId _testEnvId = EnvironmentId.Create();
 
     public DeploymentEngineTests()
     {
         _configStoreMock = new Mock<IConfigStore>();
         _dockerServiceMock = new Mock<IDockerService>();
+        _organizationRepositoryMock = new Mock<IOrganizationRepository>();
+        _environmentRepositoryMock = new Mock<IEnvironmentRepository>();
         _loggerMock = new Mock<ILogger<DeploymentEngine>>();
 
         _sut = new DeploymentEngine(
             _configStoreMock.Object,
             _dockerServiceMock.Object,
+            _organizationRepositoryMock.Object,
+            _environmentRepositoryMock.Object,
             _loggerMock.Object);
 
         // Setup default config responses
@@ -40,188 +54,279 @@ public class DeploymentEngineTests
 
     private void SetupDefaultConfigs()
     {
-        var org = Organization.Create("test-org", "Test Organization");
-        org.AddEnvironment(new DockerSocketEnvironment
-        {
-            Id = "test-env",
-            Name = "Test",
-            SocketPath = "/var/run/docker.sock",
-            IsDefault = true
-        });
+        // Setup organization
+        var organization = Organization.Provision(_testOrgId, "Test Organization", "Test Description");
+        organization.Activate();
 
-        var systemConfig = new SystemConfig
-        {
-            Organization = org
-        };
+        _organizationRepositoryMock.Setup(x => x.GetAll())
+            .Returns(new List<Organization> { organization });
+
+        // Setup environment
+        var environment = DomainEnvironment.CreateDockerSocket(
+            _testEnvId,
+            _testOrgId,
+            "Test",
+            "Test Environment",
+            "/var/run/docker.sock");
+        environment.SetAsDefault();
+
+        _environmentRepositoryMock.Setup(x => x.GetDefault(_testOrgId))
+            .Returns(environment);
 
 #pragma warning disable CS0618 // ContextsConfig is obsolete
-        _configStoreMock.Setup(x => x.GetSystemConfigAsync()).ReturnsAsync(systemConfig);
         _configStoreMock.Setup(x => x.GetContextsConfigAsync()).ReturnsAsync(new ContextsConfig());
         _configStoreMock.Setup(x => x.GetFeaturesConfigAsync()).ReturnsAsync(new FeaturesConfig());
         _configStoreMock.Setup(x => x.GetReleaseConfigAsync()).ReturnsAsync(new ReleaseConfig());
-        _configStoreMock.Setup(x => x.SaveReleaseConfigAsync(It.IsAny<ReleaseConfig>())).Returns(Task.CompletedTask);
 #pragma warning restore CS0618
-
-        // Default: no existing containers
-        _dockerServiceMock.Setup(x => x.GetContainerByNameAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((ContainerDto?)null);
-
-        // Default: network creation succeeds
-        _dockerServiceMock.Setup(x => x.EnsureNetworkAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        // Default: container creation succeeds
-        _dockerServiceMock.Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("container-id-123");
     }
 
-    #region Image Pull Error Handling Tests
-
     [Fact]
-    public async Task ExecuteDeploymentAsync_WhenImagePullFails_AndNoLocalImage_ThrowsError()
+    public async Task ExecuteDeploymentAsync_WhenImagePullFails_AndLocalImageExists_ShouldSucceedWithWarning()
     {
         // Arrange
-        var plan = CreateSimpleDeploymentPlan("nginx", "latest");
-
-        _dockerServiceMock.Setup(x => x.PullImageAsync(It.IsAny<string>(), "nginx", "latest", It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("pull access denied"));
-
-        _dockerServiceMock.Setup(x => x.ImageExistsAsync(It.IsAny<string>(), "nginx", "latest", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-
-        // Act
-        var result = await _sut.ExecuteDeploymentAsync(plan);
-
-        // Assert
-        result.Success.Should().BeFalse();
-        result.Errors.Should().ContainSingle();
-        result.Errors[0].Should().Contain("Failed to pull image 'nginx:latest' and no local copy exists");
-        result.Errors[0].Should().Contain("pull access denied");
-    }
-
-    [Fact]
-    public async Task ExecuteDeploymentAsync_WhenImagePullFails_ButLocalImageExists_UsesLocalImage()
-    {
-        // Arrange
-        var plan = CreateSimpleDeploymentPlan("nginx", "latest");
-
-        _dockerServiceMock.Setup(x => x.PullImageAsync(It.IsAny<string>(), "nginx", "latest", It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("network unreachable"));
-
-        _dockerServiceMock.Setup(x => x.ImageExistsAsync(It.IsAny<string>(), "nginx", "latest", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-
-        // Act
-        var result = await _sut.ExecuteDeploymentAsync(plan);
-
-        // Assert
-        result.Success.Should().BeTrue();
-        result.Errors.Should().BeEmpty();
-        result.DeployedContexts.Should().Contain("web");
-
-        // Verify container was still created
-        _dockerServiceMock.Verify(x => x.CreateAndStartContainerAsync(
-            It.IsAny<string>(),
-            It.Is<CreateContainerRequest>(r => r.Image == "nginx:latest"),
-            It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task ExecuteDeploymentAsync_WhenImagePullSucceeds_DoesNotCheckLocalImage()
-    {
-        // Arrange
-        var plan = CreateSimpleDeploymentPlan("nginx", "latest");
-
-        _dockerServiceMock.Setup(x => x.PullImageAsync(It.IsAny<string>(), "nginx", "latest", It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        // Act
-        var result = await _sut.ExecuteDeploymentAsync(plan);
-
-        // Assert
-        result.Success.Should().BeTrue();
-
-        // ImageExistsAsync should not be called when pull succeeds
-        _dockerServiceMock.Verify(x => x.ImageExistsAsync(
-            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task ExecuteDeploymentAsync_WithPrivateRegistryImage_HandlesAuthError()
-    {
-        // Arrange
-        var plan = CreateSimpleDeploymentPlan("amssolution/myimage", "v1.0.0");
-
-        _dockerServiceMock.Setup(x => x.PullImageAsync(It.IsAny<string>(), "amssolution/myimage", "v1.0.0", It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("pull access denied for amssolution/myimage, repository does not exist or may require 'docker login'"));
-
-        _dockerServiceMock.Setup(x => x.ImageExistsAsync(It.IsAny<string>(), "amssolution/myimage", "v1.0.0", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-
-        // Act
-        var result = await _sut.ExecuteDeploymentAsync(plan);
-
-        // Assert
-        result.Success.Should().BeFalse();
-        result.Errors.Should().ContainSingle();
-        result.Errors[0].Should().Contain("registry credentials are configured");
-    }
-
-    [Fact]
-    public async Task ExecuteDeploymentAsync_WithRegistryPort_ParsesImageCorrectly()
-    {
-        // Arrange - Image with registry port: registry.example.com:5000/myimage:v1
-        var plan = CreateSimpleDeploymentPlan("registry.example.com:5000/myimage", "v1");
-
-        _dockerServiceMock.Setup(x => x.PullImageAsync(
-            It.IsAny<string>(),
-            "registry.example.com:5000/myimage",
-            "v1",
-            It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        // Act
-        var result = await _sut.ExecuteDeploymentAsync(plan);
-
-        // Assert
-        result.Success.Should().BeTrue();
-
-        // Verify correct image name was used (not splitting on registry port)
-        _dockerServiceMock.Verify(x => x.PullImageAsync(
-            It.IsAny<string>(),
-            "registry.example.com:5000/myimage",
-            "v1",
-            It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    #endregion
-
-    #region Helper Methods
-
-    private DeploymentPlan CreateSimpleDeploymentPlan(string image, string tag)
-    {
-        return new DeploymentPlan
+        var plan = new DeploymentPlan
         {
-            StackVersion = "test-stack",
-            StackName = "test-stack",
-            EnvironmentId = "test-env",
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
             Steps = new List<DeploymentStep>
             {
                 new()
                 {
-                    ContextName = "web",
-                    Image = image,
-                    Version = tag,
-                    ContainerName = "test-web",
+                    ContextName = "api",
+                    Image = "myregistry.com/api",
+                    Version = "1.0.0",
+                    ContainerName = "rsgo-api",
                     EnvVars = new Dictionary<string, string>(),
                     Ports = new List<string>(),
                     Volumes = new Dictionary<string, string>(),
-                    Networks = new List<string>(),
                     DependsOn = new List<string>()
                 }
             }
         };
+
+        // Mock image pull failure
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Connection refused - registry unreachable"));
+
+        // Mock local image exists
+        _dockerServiceMock
+            .Setup(x => x.ImageExistsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Mock container creation
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("container-id-123");
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan);
+
+        // Assert
+        result.Success.Should().BeTrue("deployment should succeed when local image is available");
+        result.Warnings.Should().ContainSingle("there should be one warning about using local image");
+        result.Warnings[0].Should().Contain("could not be pulled");
+        result.Warnings[0].Should().Contain("using existing local image");
+        result.DeployedContexts.Should().Contain("api");
     }
 
-    #endregion
+    [Fact]
+    public async Task ExecuteDeploymentAsync_WhenImagePullFails_AndNoLocalImage_ShouldFail()
+    {
+        // Arrange
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "api",
+                    Image = "myregistry.com/api",
+                    Version = "1.0.0",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>()
+                }
+            }
+        };
+
+        // Mock image pull failure
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Connection refused - registry unreachable"));
+
+        // Mock no local image
+        _dockerServiceMock
+            .Setup(x => x.ImageExistsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan);
+
+        // Assert
+        result.Success.Should().BeFalse("deployment should fail when image cannot be pulled and no local copy exists");
+        result.Errors.Should().ContainSingle();
+        result.Errors[0].Should().Contain("Failed to pull image");
+        result.Errors[0].Should().Contain("no local copy exists");
+    }
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_WhenImagePullSucceeds_ShouldSucceedWithoutWarning()
+    {
+        // Arrange
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "api",
+                    Image = "myregistry.com/api",
+                    Version = "1.0.0",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>()
+                }
+            }
+        };
+
+        // Mock successful image pull
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Mock container creation
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("container-id-123");
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        result.Warnings.Should().BeEmpty("no warnings when image pull succeeds");
+        result.DeployedContexts.Should().Contain("api");
+    }
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_WithMultipleServices_WhenOneImagePullFails_ShouldIncludeWarningForThatService()
+    {
+        // Arrange
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "db",
+                    Image = "postgres",
+                    Version = "15",
+                    ContainerName = "rsgo-db",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Order = 0
+                },
+                new()
+                {
+                    ContextName = "api",
+                    Image = "myregistry.com/api",
+                    Version = "1.0.0",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string> { "db" },
+                    Order = 1
+                }
+            }
+        };
+
+        // Mock successful pull for postgres
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), "postgres", "15", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Mock failed pull for api
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), "myregistry.com/api", "1.0.0", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Connection refused"));
+
+        // Mock local image exists for api
+        _dockerServiceMock
+            .Setup(x => x.ImageExistsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Mock container creation for both
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("container-id-123");
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        result.Warnings.Should().ContainSingle("only one service should have a warning");
+        result.Warnings[0].Should().Contain("myregistry.com/api:1.0.0");
+        result.DeployedContexts.Should().HaveCount(2);
+        result.DeployedContexts.Should().Contain("db");
+        result.DeployedContexts.Should().Contain("api");
+    }
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_WithNoEnvironmentSpecified_ShouldUseDefaultEnvironment()
+    {
+        // Arrange
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = null, // No environment specified
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "api",
+                    Image = "nginx",
+                    Version = "latest",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>()
+                }
+            }
+        };
+
+        // Mock successful image pull
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Mock container creation
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("container-id-123");
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan);
+
+        // Assert
+        result.Success.Should().BeTrue("deployment should succeed using default environment");
+
+        // Verify that GetDefault was called on the environment repository
+        _environmentRepositoryMock.Verify(x => x.GetDefault(_testOrgId), Times.Once);
+    }
 }

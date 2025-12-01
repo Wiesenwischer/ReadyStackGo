@@ -37,11 +37,13 @@ public static class DependencyInjection
         services.AddSingleton<IDockerComposeParser, DockerComposeParser>();
 
         // Deployment services
-        services.AddSingleton<IDeploymentEngine, DeploymentEngine>();
+        // v0.6: DeploymentEngine is Scoped because it depends on Scoped repositories
+        services.AddScoped<IDeploymentEngine, DeploymentEngine>();
         services.AddScoped<IDeploymentService, DeploymentService>();
 
         // Docker services
-        services.AddSingleton<IDockerService, DockerService>();
+        // v0.6: DockerService is Scoped because it depends on Scoped IEnvironmentRepository
+        services.AddScoped<IDockerService, DockerService>();
 
         // Stack source services
         services.AddSingleton<IStackCache, InMemoryStackCache>();
