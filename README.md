@@ -1,10 +1,9 @@
 # ReadyStackGo
 
-[![Build Status](https://tfsmain.ams.local/tfs/ams/Products/_apis/build/status%2FReadyStackGo?branchName=develop)](https://tfsmain.ams.local/tfs/ams/Products/_build/latest?definitionId=&branchName=develop)
-[![Tests](https://img.shields.io/azure-devops/tests/ams/Products/ReadyStackGo/develop)](https://tfsmain.ams.local/tfs/ams/Products/_build/latest?definitionId=&branchName=develop)
-[![Docker Hub](https://img.shields.io/docker/v/amssolution/readystackgo?label=docker&logo=docker)](https://hub.docker.com/r/amssolution/readystackgo)
-[![Docker Image Size](https://img.shields.io/docker/image-size/amssolution/readystackgo/latest)](https://hub.docker.com/r/amssolution/readystackgo)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/Wiesenwischer/ReadyStackGo/actions/workflows/ci.yml/badge.svg)](https://github.com/Wiesenwischer/ReadyStackGo/actions/workflows/ci.yml)
+[![Docker Hub](https://img.shields.io/docker/v/wiesenwischer/readystackgo?label=docker&logo=docker)](https://hub.docker.com/r/wiesenwischer/readystackgo)
+[![Docker Image Size](https://img.shields.io/docker/image-size/wiesenwischer/readystackgo/latest)](https://hub.docker.com/r/wiesenwischer/readystackgo)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 [![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev/)
 
@@ -64,7 +63,7 @@ docker run -d \
   -p 8080:8080 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v rsgo-config:/app/config \
-  amssolution/readystackgo:latest
+  wiesenwischer/readystackgo:latest
 ```
 
 > **Hinweis zum Config-Volume:** Das Volume `-v rsgo-config:/app/config` speichert Admin-Credentials, Wizard-Status und Konfiguration persistent. Ohne dieses Volume startet ReadyStackGo bei jedem Container-Neustart frisch mit dem Setup-Wizard – praktisch zum Testen. Volume manuell löschen: `docker volume rm rsgo-config`
@@ -86,8 +85,8 @@ docker compose up -d
 
 ```bash
 # Repository klonen
-git clone https://github.com/amssolution/readystackgo.git
-cd readystackgo
+git clone https://github.com/Wiesenwischer/ReadyStackGo.git
+cd ReadyStackGo
 
 # Backend starten
 cd src/ReadyStackGo.Api
@@ -106,7 +105,7 @@ npm run dev
    - Admin-Benutzer anlegen
    - Organisation definieren
    - Docker-Environment konfigurieren
-3. **Stacks deployen** über die Web-UI  
+3. **Stacks deployen** über die Web-UI
 
 ---
 
@@ -138,7 +137,7 @@ Die ausführliche Dokumentation findest du im Ordner [`docs/`](./docs):
 - [Roadmap](./docs/Roadmap/Roadmap.md) – Zukunftspläne
 
 ### Vollständige Dokumentation
-Siehe [Dokumentations-Übersicht](./docs/Home.md) für die vollständige Übersicht.  
+Siehe [Dokumentations-Übersicht](./docs/Home.md) für die vollständige Übersicht.
 
 ---
 
@@ -150,4 +149,4 @@ Siehe [Contributing Guide](./docs/Development/Contributing.md).
 
 ## Lizenz
 
-Lizenztext nach Bedarf ergänzen (z. B. MIT, Apache 2.0 etc.).
+[MIT License](LICENSE.md) - Copyright (c) 2025 Marcus Dammann
