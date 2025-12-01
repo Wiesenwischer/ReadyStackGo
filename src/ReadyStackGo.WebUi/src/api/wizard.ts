@@ -99,3 +99,18 @@ export async function setConnections(request: SetConnectionsRequest): Promise<Se
 export async function installStack(request: InstallStackRequest = {}): Promise<InstallStackResponse> {
   return apiPost<InstallStackResponse>('/api/wizard/install', request);
 }
+
+/** Response from starting a new setup window */
+export interface StartNewWindowResponse {
+  success: boolean;
+  message: string;
+  timeout?: WizardTimeoutInfo;
+}
+
+/**
+ * Start a new 5-minute wizard setup window.
+ * Call this after a timeout to begin a new setup attempt.
+ */
+export async function startNewWindow(): Promise<StartNewWindowResponse> {
+  return apiPost<StartNewWindowResponse>('/api/wizard/start-window', {});
+}

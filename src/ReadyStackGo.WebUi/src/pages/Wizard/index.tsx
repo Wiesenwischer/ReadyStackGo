@@ -5,7 +5,7 @@ import AdminStep from './AdminStep';
 import OrganizationStep from './OrganizationStep';
 import EnvironmentStep from './EnvironmentStep';
 import InstallStep from './InstallStep';
-import { createAdmin, setOrganization, installStack, getWizardStatus, type WizardTimeoutInfo } from '../../api/wizard';
+import { createAdmin, setOrganization, installStack, getWizardStatus, startNewWindow, type WizardTimeoutInfo } from '../../api/wizard';
 import { createEnvironment, setDefaultEnvironment } from '../../api/environments';
 
 export default function Wizard() {
@@ -137,7 +137,22 @@ export default function Wizard() {
             Click the button below to start a new setup window.
           </p>
           <button
-            onClick={reloadWizardState}
+            onClick={async () => {
+              setIsLoading(true);
+              try {
+                // Explicitly start a new setup window
+                const response = await startNewWindow();
+                if (response.success && response.timeout) {
+                  setTimeout(response.timeout);
+                  setIsTimedOut(false);
+                  setCurrentStep(1);
+                }
+              } catch (error) {
+                console.error('Failed to start new window:', error);
+              } finally {
+                setIsLoading(false);
+              }
+            }}
             className="px-6 py-3 bg-brand-600 text-white font-medium rounded-lg hover:bg-brand-700 transition-colors"
           >
             Start New Setup
