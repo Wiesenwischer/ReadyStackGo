@@ -12,9 +12,9 @@ using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
-using ReadyStackGo.Infrastructure.Deployment;
+using ReadyStackGo.Infrastructure.Services;
 
-namespace ReadyStackGo.Infrastructure.Deployments;
+namespace ReadyStackGo.Infrastructure.Services;
 
 /// <summary>
 /// Service for managing Docker Compose stack deployments.

@@ -2,7 +2,7 @@ namespace ReadyStackGo.IntegrationTests.Infrastructure;
 
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using ReadyStackGo.Infrastructure.Persistence;
+using ReadyStackGo.Infrastructure.DataAccess;
 
 /// <summary>
 /// Test fixture providing an isolated SQLite in-memory database for integration tests.

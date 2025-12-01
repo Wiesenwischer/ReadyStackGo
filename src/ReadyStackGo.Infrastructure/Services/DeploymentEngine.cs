@@ -11,7 +11,7 @@ using ReadyStackGo.Domain.IdentityAccess.Users;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Manifests;
 
-namespace ReadyStackGo.Infrastructure.Deployment;
+namespace ReadyStackGo.Infrastructure.Services;
 
 /// <summary>
 /// Deployment engine that orchestrates stack deployments based on manifests

@@ -1,4 +1,4 @@
-namespace ReadyStackGo.Infrastructure.Persistence.Repositories;
+namespace ReadyStackGo.Infrastructure.DataAccess.Repositories;
 
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Roles;

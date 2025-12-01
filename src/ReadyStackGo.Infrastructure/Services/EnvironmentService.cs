@@ -5,7 +5,7 @@ using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.Deployment.Environments;
 using DomainEnvironment = ReadyStackGo.Domain.Deployment.Environments.Environment;
 
-namespace ReadyStackGo.Infrastructure.Environments;
+namespace ReadyStackGo.Infrastructure.Services;
 
 /// <summary>
 /// Service for managing environments within an organization.

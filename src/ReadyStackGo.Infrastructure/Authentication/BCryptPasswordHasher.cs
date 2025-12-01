@@ -1,4 +1,4 @@
-namespace ReadyStackGo.Infrastructure.Services;
+namespace ReadyStackGo.Infrastructure.Authentication;
 
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Users;

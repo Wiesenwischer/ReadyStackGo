@@ -8,7 +8,7 @@ using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Infrastructure.Configuration;
-using ReadyStackGo.Infrastructure.Deployment;
+using ReadyStackGo.Infrastructure.Services;
 using Xunit;
 using DomainEnvironment = ReadyStackGo.Domain.Deployment.Environments.Environment;
 

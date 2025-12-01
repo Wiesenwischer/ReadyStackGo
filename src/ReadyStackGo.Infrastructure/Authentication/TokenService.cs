@@ -10,7 +10,7 @@ using ReadyStackGo.Domain.IdentityAccess.Users;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Users;
 
-namespace ReadyStackGo.Infrastructure.Auth;
+namespace ReadyStackGo.Infrastructure.Authentication;
 
 public class TokenService : ITokenService
 {

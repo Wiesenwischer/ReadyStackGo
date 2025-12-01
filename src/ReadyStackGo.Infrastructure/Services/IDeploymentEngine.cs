@@ -1,7 +1,7 @@
 using ReadyStackGo.Application.UseCases.Deployments;
 using ReadyStackGo.Infrastructure.Manifests;
 
-namespace ReadyStackGo.Infrastructure.Deployment;
+namespace ReadyStackGo.Infrastructure.Services;
 
 /// <summary>
 /// Service for deploying stacks based on manifests

@@ -1,4 +1,4 @@
-namespace ReadyStackGo.Infrastructure.Auth;
+namespace ReadyStackGo.Infrastructure.Authentication;
 
 public class JwtSettings
 {

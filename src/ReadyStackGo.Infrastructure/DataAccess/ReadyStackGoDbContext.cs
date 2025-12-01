@@ -1,4 +1,4 @@
-namespace ReadyStackGo.Infrastructure.Persistence;
+namespace ReadyStackGo.Infrastructure.DataAccess;
 
 using Microsoft.EntityFrameworkCore;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;

@@ -6,7 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ReadyStackGo.Api;
 using ReadyStackGo.Infrastructure.Configuration;
-using ReadyStackGo.Infrastructure.Persistence;
+using ReadyStackGo.Infrastructure.DataAccess;
 
 namespace ReadyStackGo.IntegrationTests.Infrastructure;
 

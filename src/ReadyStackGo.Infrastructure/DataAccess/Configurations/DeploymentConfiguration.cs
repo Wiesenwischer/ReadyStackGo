@@ -1,4 +1,4 @@
-namespace ReadyStackGo.Infrastructure.Persistence.Configurations;
+namespace ReadyStackGo.Infrastructure.DataAccess.Configurations;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
