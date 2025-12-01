@@ -69,6 +69,16 @@ public sealed class Permission : ValueObject
         public static Permission Delete => new("StackSources", "Delete");
     }
 
+    public static class Stacks
+    {
+        public static Permission Read => new("Stacks", "Read");
+    }
+
+    public static class Dashboard
+    {
+        public static Permission Read => new("Dashboard", "Read");
+    }
+
     protected override IEnumerable<object?> GetEqualityComponents()
     {
         yield return Resource;

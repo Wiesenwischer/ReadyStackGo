@@ -38,7 +38,7 @@ public class UserRepository : IUserRepository
 
     public User? Get(UserId id)
     {
-        // Owned types (RoleAssignments) are automatically included
+        // RoleAssignments are auto-included via UserConfiguration.AutoInclude()
         return _context.Users
             .FirstOrDefault(u => u.Id == id);
     }

@@ -1,5 +1,6 @@
 using FastEndpoints;
 using MediatR;
+using ReadyStackGo.Api.Authorization;
 using ReadyStackGo.Application.UseCases.Environments.TestConnection;
 
 namespace ReadyStackGo.API.Endpoints.Environments;
@@ -7,6 +8,9 @@ namespace ReadyStackGo.API.Endpoints.Environments;
 public class TestConnectionRequest
 {
     public string DockerHost { get; set; } = null!;
+
+    // RBAC scope fields
+    public string? OrganizationId { get; set; }
 }
 
 public class TestConnectionResponse
@@ -16,6 +20,11 @@ public class TestConnectionResponse
     public string? DockerVersion { get; set; }
 }
 
+/// <summary>
+/// POST /api/environments/test-connection - Test Docker connection.
+/// Accessible by: SystemAdmin, OrganizationOwner.
+/// </summary>
+[RequirePermission("Environments", "Create")]
 public class TestConnectionEndpoint : Endpoint<TestConnectionRequest, TestConnectionResponse>
 {
     private readonly IMediator _mediator;
@@ -29,6 +38,7 @@ public class TestConnectionEndpoint : Endpoint<TestConnectionRequest, TestConnec
     {
         Post("/api/environments/test-connection");
         Description(b => b.WithTags("Environments"));
+        PreProcessor<RbacPreProcessor<TestConnectionRequest>>();
     }
 
     public override async Task HandleAsync(TestConnectionRequest req, CancellationToken ct)

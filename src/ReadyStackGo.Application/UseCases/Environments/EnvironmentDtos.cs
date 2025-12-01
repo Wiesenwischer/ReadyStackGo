@@ -20,6 +20,9 @@ public class CreateEnvironmentRequest
 {
     public required string Name { get; set; }
     public required string SocketPath { get; set; }
+
+    // RBAC scope fields
+    public string? OrganizationId { get; set; }
 }
 
 /// <summary>
@@ -39,6 +42,10 @@ public class UpdateEnvironmentRequest
 {
     public required string Name { get; set; }
     public required string SocketPath { get; set; }
+
+    // RBAC scope fields
+    public string? OrganizationId { get; set; }
+    public string? EnvironmentId { get; set; }
 }
 
 /// <summary>

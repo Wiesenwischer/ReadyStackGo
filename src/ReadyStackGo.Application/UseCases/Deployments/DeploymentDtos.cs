@@ -324,6 +324,10 @@ public class ParseComposeRequest
     /// The YAML content of the docker-compose file
     /// </summary>
     public required string YamlContent { get; set; }
+
+    // RBAC scope fields
+    public string? OrganizationId { get; set; }
+    public string? EnvironmentId { get; set; }
 }
 
 /// <summary>
@@ -385,6 +389,11 @@ public class DeployComposeRequest
     /// Resolved environment variable values
     /// </summary>
     public Dictionary<string, string> Variables { get; set; } = new();
+
+    /// <summary>
+    /// Target environment ID (set from route parameter for RBAC).
+    /// </summary>
+    public string? EnvironmentId { get; set; }
 }
 
 /// <summary>

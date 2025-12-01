@@ -73,6 +73,8 @@ public class Role : AggregateRoot<RoleId>
             Permission.StackSources.Read,
             Permission.StackSources.Update,
             Permission.StackSources.Delete,
+            Permission.Stacks.Read,
+            Permission.Dashboard.Read,
         });
 
     public static Role Operator => new(
@@ -88,6 +90,8 @@ public class Role : AggregateRoot<RoleId>
             Permission.Deployments.Delete,
             Permission.Environments.Read,
             Permission.StackSources.Read,
+            Permission.Stacks.Read,
+            Permission.Dashboard.Read,
         });
 
     public static Role Viewer => new(
@@ -100,6 +104,8 @@ public class Role : AggregateRoot<RoleId>
             Permission.Deployments.Read,
             Permission.Environments.Read,
             Permission.StackSources.Read,
+            Permission.Stacks.Read,
+            Permission.Dashboard.Read,
         });
 
     public static IEnumerable<Role> GetAll()

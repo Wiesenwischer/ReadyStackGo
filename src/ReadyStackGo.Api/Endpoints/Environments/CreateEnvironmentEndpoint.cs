@@ -1,10 +1,16 @@
 using FastEndpoints;
 using MediatR;
+using ReadyStackGo.Api.Authorization;
 using ReadyStackGo.Application.UseCases.Environments;
 using ReadyStackGo.Application.UseCases.Environments.CreateEnvironment;
 
 namespace ReadyStackGo.API.Endpoints.Environments;
 
+/// <summary>
+/// Creates a new environment. Requires Environments.Create permission.
+/// Accessible by: SystemAdmin, OrganizationOwner.
+/// </summary>
+[RequirePermission("Environments", "Create")]
 public class CreateEnvironmentEndpoint : Endpoint<CreateEnvironmentRequest, CreateEnvironmentResponse>
 {
     private readonly IMediator _mediator;
@@ -17,6 +23,7 @@ public class CreateEnvironmentEndpoint : Endpoint<CreateEnvironmentRequest, Crea
     public override void Configure()
     {
         Post("/api/environments");
+        PreProcessor<RbacPreProcessor<CreateEnvironmentRequest>>();
     }
 
     public override async Task HandleAsync(CreateEnvironmentRequest req, CancellationToken ct)

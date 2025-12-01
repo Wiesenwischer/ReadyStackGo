@@ -1,13 +1,16 @@
 using FastEndpoints;
 using MediatR;
+using ReadyStackGo.Api.Authorization;
 using ReadyStackGo.Application.UseCases.Stacks.ListStacks;
 
 namespace ReadyStackGo.API.Endpoints.Stacks;
 
 /// <summary>
-/// GET /api/stacks - List all stacks from all sources
+/// GET /api/stacks - List all stacks from all sources.
+/// Accessible by: SystemAdmin, OrganizationOwner, Operator, Viewer (scoped).
 /// </summary>
-public class ListStacksEndpoint : EndpointWithoutRequest<IEnumerable<StackDto>>
+[RequirePermission("Stacks", "Read")]
+public class ListStacksEndpoint : Endpoint<EmptyRequest, IEnumerable<StackDto>>
 {
     private readonly IMediator _mediator;
 
@@ -19,10 +22,10 @@ public class ListStacksEndpoint : EndpointWithoutRequest<IEnumerable<StackDto>>
     public override void Configure()
     {
         Get("/api/stacks");
-        Roles("admin", "operator");
+        PreProcessor<RbacPreProcessor<EmptyRequest>>();
     }
 
-    public override async Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(EmptyRequest req, CancellationToken ct)
     {
         var result = await _mediator.Send(new ListStacksQuery(), ct);
 

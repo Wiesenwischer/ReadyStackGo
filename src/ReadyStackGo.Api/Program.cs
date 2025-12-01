@@ -23,6 +23,10 @@ public class Program
         builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
+                // Disable claim mapping to preserve original JWT claim names
+                // This allows us to use "roles" claim without ASP.NET Core transforming it
+                options.MapInboundClaims = false;
+
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,

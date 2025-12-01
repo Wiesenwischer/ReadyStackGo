@@ -58,6 +58,7 @@ public static class DependencyInjection
         // Auth services
         services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
         services.AddSingleton<ITokenService, TokenService>();
+        services.AddSingleton<IRbacService, RbacService>();
 
         // Environment services (v0.6 SQLite)
         services.AddScoped<IEnvironmentService, EnvironmentService>();

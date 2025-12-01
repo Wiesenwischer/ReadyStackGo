@@ -1,5 +1,6 @@
 using FastEndpoints;
 using MediatR;
+using ReadyStackGo.Api.Authorization;
 using ReadyStackGo.Application.UseCases.Containers.StopContainer;
 
 namespace ReadyStackGo.API.Endpoints.Containers;
@@ -8,8 +9,18 @@ public class StopContainerRequest
 {
     [QueryParam]
     public string Environment { get; set; } = null!;
+
+    /// <summary>
+    /// Environment ID for RBAC scope check (alias for Environment).
+    /// </summary>
+    public string? EnvironmentId => Environment;
 }
 
+/// <summary>
+/// Stops a container. Requires Deployments.Update permission.
+/// Accessible by: SystemAdmin, OrganizationOwner, Operator (scoped).
+/// </summary>
+[RequirePermission("Deployments", "Update")]
 public class StopContainerEndpoint : Endpoint<StopContainerRequest, EmptyResponse>
 {
     private readonly IMediator _mediator;
@@ -22,7 +33,7 @@ public class StopContainerEndpoint : Endpoint<StopContainerRequest, EmptyRespons
     public override void Configure()
     {
         Post("/api/containers/{id}/stop");
-        Roles("admin", "operator");
+        PreProcessor<RbacPreProcessor<StopContainerRequest>>();
         Description(b => b.WithTags("Containers"));
     }
 

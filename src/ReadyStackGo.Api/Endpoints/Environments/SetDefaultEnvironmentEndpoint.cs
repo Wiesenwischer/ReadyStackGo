@@ -1,11 +1,17 @@
 using FastEndpoints;
 using MediatR;
+using ReadyStackGo.Api.Authorization;
 using ReadyStackGo.Application.UseCases.Environments;
 using ReadyStackGo.Application.UseCases.Environments.SetDefaultEnvironment;
 
 namespace ReadyStackGo.API.Endpoints.Environments;
 
-public class SetDefaultEnvironmentEndpoint : EndpointWithoutRequest<SetDefaultEnvironmentResponse>
+/// <summary>
+/// POST /api/environments/{id}/default - Set an environment as default.
+/// Accessible by: SystemAdmin, OrganizationOwner.
+/// </summary>
+[RequirePermission("Environments", "Update")]
+public class SetDefaultEnvironmentEndpoint : Endpoint<EmptyRequest, SetDefaultEnvironmentResponse>
 {
     private readonly IMediator _mediator;
 
@@ -17,9 +23,10 @@ public class SetDefaultEnvironmentEndpoint : EndpointWithoutRequest<SetDefaultEn
     public override void Configure()
     {
         Post("/api/environments/{id}/default");
+        PreProcessor<RbacPreProcessor<EmptyRequest>>();
     }
 
-    public override async Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(EmptyRequest req, CancellationToken ct)
     {
         var environmentId = Route<string>("id")!;
         var response = await _mediator.Send(new SetDefaultEnvironmentCommand(environmentId), ct);

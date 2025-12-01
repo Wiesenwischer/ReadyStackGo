@@ -1,5 +1,6 @@
 using FastEndpoints;
 using MediatR;
+using ReadyStackGo.Api.Authorization;
 using ReadyStackGo.Application.UseCases.Containers;
 using ReadyStackGo.Application.UseCases.Containers.ListContainers;
 
@@ -9,8 +10,18 @@ public class ListContainersRequest
 {
     [QueryParam]
     public string Environment { get; set; } = null!;
+
+    /// <summary>
+    /// Environment ID for RBAC scope check (alias for Environment).
+    /// </summary>
+    public string? EnvironmentId => Environment;
 }
 
+/// <summary>
+/// Lists containers. Requires Deployments.Read permission.
+/// Accessible by: SystemAdmin, OrganizationOwner, Operator, Viewer (scoped).
+/// </summary>
+[RequirePermission("Deployments", "Read")]
 public class ListContainersEndpoint : Endpoint<ListContainersRequest, IEnumerable<ContainerDto>>
 {
     private readonly IMediator _mediator;
@@ -23,7 +34,7 @@ public class ListContainersEndpoint : Endpoint<ListContainersRequest, IEnumerabl
     public override void Configure()
     {
         Get("/api/containers");
-        Roles("admin", "operator");
+        PreProcessor<RbacPreProcessor<ListContainersRequest>>();
         Description(b => b.WithTags("Containers"));
     }
 

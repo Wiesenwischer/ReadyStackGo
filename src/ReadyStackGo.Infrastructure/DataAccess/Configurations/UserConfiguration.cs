@@ -72,9 +72,12 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsConcurrencyToken();
 
         // Role assignments stored in separate table
+        // Note: OwnsMany with separate table requires explicit Include() or AutoInclude()
+        // UsePropertyAccessMode ensures EF Core writes to the private backing field
         builder.OwnsMany(u => u.RoleAssignments, ra =>
         {
             ra.ToTable("UserRoles");
+            ra.UsePropertyAccessMode(PropertyAccessMode.Field);
 
             ra.WithOwner().HasForeignKey("UserId");
 
@@ -105,6 +108,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             ra.HasIndex("UserId", "RoleId", "ScopeType", "ScopeId")
                 .IsUnique();
         });
+
+        // Ensure RoleAssignments are always loaded with User
+        builder.Navigation(u => u.RoleAssignments).AutoInclude();
 
         // Ignore domain events - they're not persisted
         builder.Ignore(u => u.DomainEvents);

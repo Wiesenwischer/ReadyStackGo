@@ -1,13 +1,16 @@
 using FastEndpoints;
 using MediatR;
 using Microsoft.AspNetCore.Http;
+using ReadyStackGo.Api.Authorization;
 using ReadyStackGo.Application.UseCases.Stacks.GetStack;
 
 namespace ReadyStackGo.API.Endpoints.Stacks;
 
 /// <summary>
-/// GET /api/stacks/{id} - Get a specific stack by ID
+/// GET /api/stacks/{id} - Get a specific stack by ID.
+/// Accessible by: SystemAdmin, OrganizationOwner, Operator, Viewer (scoped).
 /// </summary>
+[RequirePermission("Stacks", "Read")]
 public class GetStackEndpoint : Endpoint<GetStackRequest, StackDetailDto>
 {
     private readonly IMediator _mediator;
@@ -20,7 +23,7 @@ public class GetStackEndpoint : Endpoint<GetStackRequest, StackDetailDto>
     public override void Configure()
     {
         Get("/api/stacks/{Id}");
-        Roles("admin", "operator");
+        PreProcessor<RbacPreProcessor<GetStackRequest>>();
     }
 
     public override async Task HandleAsync(GetStackRequest req, CancellationToken ct)

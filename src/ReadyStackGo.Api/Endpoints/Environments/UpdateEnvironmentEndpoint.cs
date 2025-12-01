@@ -1,10 +1,16 @@
 using FastEndpoints;
 using MediatR;
+using ReadyStackGo.Api.Authorization;
 using ReadyStackGo.Application.UseCases.Environments;
 using ReadyStackGo.Application.UseCases.Environments.UpdateEnvironment;
 
 namespace ReadyStackGo.API.Endpoints.Environments;
 
+/// <summary>
+/// PUT /api/environments/{id} - Update an environment.
+/// Accessible by: SystemAdmin, OrganizationOwner.
+/// </summary>
+[RequirePermission("Environments", "Update")]
 public class UpdateEnvironmentEndpoint : Endpoint<UpdateEnvironmentRequest, UpdateEnvironmentResponse>
 {
     private readonly IMediator _mediator;
@@ -17,6 +23,7 @@ public class UpdateEnvironmentEndpoint : Endpoint<UpdateEnvironmentRequest, Upda
     public override void Configure()
     {
         Put("/api/environments/{id}");
+        PreProcessor<RbacPreProcessor<UpdateEnvironmentRequest>>();
     }
 
     public override async Task HandleAsync(UpdateEnvironmentRequest req, CancellationToken ct)
