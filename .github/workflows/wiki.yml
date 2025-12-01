@@ -30,52 +30,91 @@ jobs:
           # Clear existing wiki content (except .git)
           find wiki -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
 
-          # Copy docs to wiki
-          cp -r docs/* wiki/
+          # Copy docs to wiki (flatten structure for GitHub Wiki)
+          # GitHub Wiki doesn't support subdirectories well, so we prefix filenames
 
-          # Create Home.md from README or docs index
-          if [ -f "docs/README.md" ]; then
-            cp docs/README.md wiki/Home.md
-          elif [ -f "docs/index.md" ]; then
-            cp docs/index.md wiki/Home.md
-          else
-            cat > wiki/Home.md << 'EOF'
-          # ReadyStackGo Documentation
-
-          Welcome to the ReadyStackGo Wiki!
-
-          ## Contents
-
-          - [Architecture](Architecture/)
-          - [Configuration](Configuration/)
-          - [Specifications](Specifications/)
-          - [Release Notes](Release-Notes/)
-
-          ## Quick Links
-
-          - [GitHub Repository](https://github.com/Wiesenwischer/ReadyStackGo)
-          - [Public Website](https://readystackgo.io)
-          EOF
+          # Copy Home.md directly
+          if [ -f "docs/Home.md" ]; then
+            cp docs/Home.md wiki/Home.md
           fi
 
-          # Generate sidebar from folder structure
-          cat > wiki/_Sidebar.md << 'EOF'
-          ### Documentation
+          # Copy all other markdown files with folder prefix
+          find docs -name "*.md" ! -name "Home.md" ! -name ".wiki-config.md" | while read file; do
+            # Get relative path from docs/
+            rel_path="${file#docs/}"
+            # Convert path to wiki-friendly name (Architecture/Overview.md -> Architecture-Overview.md)
+            wiki_name=$(echo "$rel_path" | sed 's|/|-|g')
+            cp "$file" "wiki/$wiki_name"
+          done
 
-          - [[Home]]
+      - name: Generate Sidebar
+        run: |
+          cat > wiki/_Sidebar.md << 'EOF'
+          ### ReadyStackGo Wiki
+
+          **[[Home]]**
+
+          ---
+
+          **Getting Started**
+          - [[Overview|Getting-Started-Overview]]
+          - [[Installation|Getting-Started-Installation]]
+          - [[Quick Start|Getting-Started-Quick-Start]]
 
           **Architecture**
-          - [[Overview|Architecture/Overview]]
-          - [[Components|Architecture/Components]]
+          - [[Overview|Architecture-Overview]]
+          - [[Components|Architecture-Components]]
+          - [[Container Lifecycle|Architecture-Container-Lifecycle]]
+          - [[Deployment Engine|Architecture-Deployment-Engine]]
 
           **Configuration**
-          - [[Config Files|Configuration/Config-Files]]
+          - [[Overview|Configuration-Overview]]
+          - [[Config Files|Configuration-Config-Files]]
+          - [[Manifest Specification|Configuration-Manifest-Specification]]
+          - [[Registries|Configuration-Registries]]
+          - [[Feature Flags|Configuration-Feature-Flags]]
 
-          **Specifications**
-          - [[v0.6 Multi-User|Specifications/v0.6-sqlite-multiuser]]
+          **Security**
+          - [[Overview|Security-Overview]]
+          - [[Initial Setup|Security-Initial-Setup]]
+          - [[Authentication|Security-Authentication]]
+          - [[Authorization|Security-Authorization]]
+          - [[TLS Configuration|Security-TLS-Configuration]]
+
+          **Setup Wizard**
+          - [[Wizard Flow|Setup-Wizard-Wizard-Flow]]
+
+          **Development**
+          - [[Setup Environment|Development-Setup-Environment]]
+          - [[Coding Guidelines|Development-Coding-Guidelines]]
+          - [[Testing|Development-Testing]]
+          - [[Contributing|Development-Contributing]]
+
+          **Operations**
+          - [[Release Management|Operations-Release-Management]]
+          - [[Updates|Operations-Updates]]
+          - [[Troubleshooting|Operations-Troubleshooting]]
+
+          **CI/CD**
+          - [[Pipeline Integration|CI-CD-Pipeline-Integration]]
 
           **Reference**
-          - [[Release Notes]]
+          - [[Roadmap|Reference-Roadmap]]
+          - [[API Reference|Reference-API-Reference]]
+          - [[Configuration Reference|Reference-Configuration-Reference]]
+          - [[Manifest Schema|Reference-Manifest-Schema]]
+          - [[Multi-Environment|Reference-Multi-Environment]]
+          - [[Stack Sources|Reference-Stack-Sources]]
+          - [[Plugin System|Reference-Plugin-System]]
+          - [[Technical Specification|Reference-Technical-Specification]]
+          - [[Full Specification|Reference-Full-Specification]]
+
+          **Specifications**
+          - [[v0.6 SQLite Multi-User|Specifications-v0.6-sqlite-multiuser]]
+
+          **Release Notes**
+          - [[v0.4.0|Release-Notes-v0.4.0]]
+          - [[v0.3.0|Release-Notes-v0.3.0]]
           EOF
 
       - name: Push to wiki
