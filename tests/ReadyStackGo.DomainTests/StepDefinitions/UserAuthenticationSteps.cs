@@ -3,9 +3,13 @@ namespace ReadyStackGo.DomainTests.StepDefinitions;
 using FluentAssertions;
 using Reqnroll;
 using ReadyStackGo.DomainTests.Support;
-using ReadyStackGo.Domain.IdentityAccess.Aggregates;
-using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
-using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.IdentityAccess.Roles;
+using ReadyStackGo.Domain.IdentityAccess.Users;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.IdentityAccess.Users;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.IdentityAccess.Users;
 
 [Binding]
 public class UserAuthenticationSteps

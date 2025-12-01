@@ -1,11 +1,9 @@
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Environments;
-using ReadyStackGo.Domain.IdentityAccess.Repositories;
-using ReadyStackGo.Domain.Deployment.Aggregates;
-using ReadyStackGo.Domain.Deployment.Repositories;
-using ReadyStackGo.Domain.Deployment.ValueObjects;
-using DomainEnvironment = ReadyStackGo.Domain.Deployment.Aggregates.Environment;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.Deployment.Environments;
+using DomainEnvironment = ReadyStackGo.Domain.Deployment.Environments.Environment;
 
 namespace ReadyStackGo.Infrastructure.Environments;
 

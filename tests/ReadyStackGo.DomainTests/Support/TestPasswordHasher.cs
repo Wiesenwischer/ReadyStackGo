@@ -1,6 +1,7 @@
 namespace ReadyStackGo.DomainTests.Support;
 
-using ReadyStackGo.Domain.IdentityAccess.Services;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.IdentityAccess.Users;
 
 /// <summary>
 /// Simple password hasher for testing purposes.

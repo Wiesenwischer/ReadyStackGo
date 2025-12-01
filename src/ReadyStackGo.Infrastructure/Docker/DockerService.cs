@@ -6,8 +6,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Containers;
-using ReadyStackGo.Domain.Deployment.Repositories;
-using ReadyStackGo.Domain.Deployment.ValueObjects;
+using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Environments;
 
 namespace ReadyStackGo.Infrastructure.Docker;
 
@@ -484,7 +486,7 @@ public class DockerService : IDockerService, IDisposable
         }
 
         // 4. Fallback to user profile (~/.docker/config.json)
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var home = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
         var fallbackPath = Path.Combine(home, ".docker", "config.json");
         _logger.LogDebug("Using Docker config from user profile: {Path}", fallbackPath);
         return fallbackPath;

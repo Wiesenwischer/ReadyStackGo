@@ -1,11 +1,17 @@
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Deployments;
-using ReadyStackGo.Domain.IdentityAccess.Repositories;
-using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
-using ReadyStackGo.Domain.Deployment.Aggregates;
-using ReadyStackGo.Domain.Deployment.Repositories;
-using ReadyStackGo.Domain.Deployment.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.IdentityAccess.Roles;
+using ReadyStackGo.Domain.IdentityAccess.Users;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.IdentityAccess.Users;
+using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Infrastructure.Deployment;
 
 namespace ReadyStackGo.Infrastructure.Deployments;
@@ -165,7 +171,7 @@ public class DeploymentService : IDeploymentService
 
             // Create and persist deployment record
             var deploymentId = _deploymentRepository.NextIdentity();
-            var deployment = Domain.Deployment.Aggregates.Deployment.Start(
+            var deployment = Domain.Deployment.Deployments.Deployment.Start(
                 deploymentId,
                 new EnvironmentId(envGuid),
                 request.StackName,

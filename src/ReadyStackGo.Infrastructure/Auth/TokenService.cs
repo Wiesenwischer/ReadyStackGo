@@ -4,8 +4,11 @@ using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.IdentityAccess.Aggregates;
-using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.IdentityAccess.Roles;
+using ReadyStackGo.Domain.IdentityAccess.Users;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.IdentityAccess.Users;
 
 namespace ReadyStackGo.Infrastructure.Auth;
 

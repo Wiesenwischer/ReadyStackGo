@@ -5,12 +5,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
-using ReadyStackGo.Domain.Deployment.Repositories;
-using ReadyStackGo.Domain.Deployment.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Infrastructure.Docker;
 using Xunit;
-using DomainEnvironment = ReadyStackGo.Domain.Deployment.Aggregates.Environment;
+using DomainEnvironment = ReadyStackGo.Domain.Deployment.Environments.Environment;
 
 namespace ReadyStackGo.IntegrationTests;
 

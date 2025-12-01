@@ -1,5 +1,4 @@
-using ReadyStackGo.Domain.StackManagement.Aggregates;
-using ReadyStackGo.Domain.StackManagement.ValueObjects;
+using ReadyStackGo.Domain.StackManagement.StackSources;
 
 namespace ReadyStackGo.Application.Services;
 
@@ -26,12 +25,12 @@ public interface IStackSourceService
     /// <summary>
     /// Sync all enabled sources
     /// </summary>
-    Task<Domain.StackManagement.Repositories.SyncResult> SyncAllAsync(CancellationToken cancellationToken = default);
+    Task<SyncResult> SyncAllAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Sync a specific source
     /// </summary>
-    Task<Domain.StackManagement.Repositories.SyncResult> SyncSourceAsync(string sourceId, CancellationToken cancellationToken = default);
+    Task<SyncResult> SyncSourceAsync(string sourceId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get all stacks from the cache

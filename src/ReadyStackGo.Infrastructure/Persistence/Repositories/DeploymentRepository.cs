@@ -1,9 +1,12 @@
 namespace ReadyStackGo.Infrastructure.Persistence.Repositories;
 
 using Microsoft.EntityFrameworkCore;
-using ReadyStackGo.Domain.Deployment.Aggregates;
-using ReadyStackGo.Domain.Deployment.Repositories;
-using ReadyStackGo.Domain.Deployment.ValueObjects;
+using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Environments;
 
 /// <summary>
 /// SQLite implementation of IDeploymentRepository.

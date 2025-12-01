@@ -1,7 +1,7 @@
 using MediatR;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.StackManagement.Aggregates;
-using ReadyStackGo.Domain.StackManagement.ValueObjects;
+using ReadyStackGo.Domain.StackManagement.StackSources;
+using ReadyStackGo.Domain.StackManagement.StackSources;
 
 namespace ReadyStackGo.Application.UseCases.StackSources.ListStackSources;
 

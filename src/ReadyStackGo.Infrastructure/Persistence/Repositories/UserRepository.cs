@@ -1,9 +1,14 @@
 namespace ReadyStackGo.Infrastructure.Persistence.Repositories;
 
 using Microsoft.EntityFrameworkCore;
-using ReadyStackGo.Domain.IdentityAccess.Aggregates;
-using ReadyStackGo.Domain.IdentityAccess.Repositories;
-using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.IdentityAccess.Roles;
+using ReadyStackGo.Domain.IdentityAccess.Users;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.IdentityAccess.Roles;
+using ReadyStackGo.Domain.IdentityAccess.Users;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.IdentityAccess.Users;
 
 /// <summary>
 /// SQLite-backed implementation of IUserRepository.

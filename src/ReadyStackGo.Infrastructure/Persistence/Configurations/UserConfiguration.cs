@@ -2,8 +2,11 @@ namespace ReadyStackGo.Infrastructure.Persistence.Configurations;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using ReadyStackGo.Domain.IdentityAccess.Aggregates;
-using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.IdentityAccess.Roles;
+using ReadyStackGo.Domain.IdentityAccess.Users;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.IdentityAccess.Users;
 
 public class UserConfiguration : IEntityTypeConfiguration<User>
 {

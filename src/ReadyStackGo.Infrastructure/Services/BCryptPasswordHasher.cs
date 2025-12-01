@@ -1,6 +1,7 @@
 namespace ReadyStackGo.Infrastructure.Services;
 
-using ReadyStackGo.Domain.IdentityAccess.Services;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.IdentityAccess.Users;
 
 /// <summary>
 /// BCrypt-based password hasher for production use.

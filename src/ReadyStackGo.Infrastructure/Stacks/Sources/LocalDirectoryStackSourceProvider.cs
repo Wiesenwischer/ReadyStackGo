@@ -3,8 +3,8 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.StackManagement.Aggregates;
-using ReadyStackGo.Domain.StackManagement.ValueObjects;
+using ReadyStackGo.Domain.StackManagement.StackSources;
+using ReadyStackGo.Domain.StackManagement.StackSources;
 using YamlDotNet.Serialization;
 
 namespace ReadyStackGo.Infrastructure.Stacks.Sources;

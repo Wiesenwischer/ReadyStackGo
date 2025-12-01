@@ -1,4 +1,4 @@
-using ReadyStackGo.Domain.StackManagement.ValueObjects;
+using ReadyStackGo.Domain.StackManagement.StackSources;
 
 namespace ReadyStackGo.Application.Services;
 

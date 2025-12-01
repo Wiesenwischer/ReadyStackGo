@@ -1,8 +1,8 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
-using ReadyStackGo.Domain.StackManagement.Aggregates;
-using ReadyStackGo.Domain.StackManagement.ValueObjects;
+using ReadyStackGo.Domain.StackManagement.StackSources;
+using ReadyStackGo.Domain.StackManagement.StackSources;
 using ReadyStackGo.Infrastructure.Stacks.Sources;
 
 namespace ReadyStackGo.UnitTests.Stacks;
