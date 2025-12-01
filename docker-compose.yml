@@ -1,6 +1,6 @@
 services:
   readystackgo:
-    image: amssolution/readystackgo:${TAG:-latest}
+    image: wiesenwischer/readystackgo:${TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile
