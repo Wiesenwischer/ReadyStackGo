@@ -1,6 +1,5 @@
 using MediatR;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
-using ReadyStackGo.Domain.IdentityAccess.Users;
+using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Roles;
 using ReadyStackGo.Domain.IdentityAccess.Users;
@@ -11,16 +10,19 @@ public class CompleteWizardHandler : IRequestHandler<CompleteWizardCommand, Comp
 {
     private readonly IUserRepository _userRepository;
     private readonly IOrganizationRepository _organizationRepository;
+    private readonly ISystemConfigService _systemConfigService;
 
     public CompleteWizardHandler(
         IUserRepository userRepository,
-        IOrganizationRepository organizationRepository)
+        IOrganizationRepository organizationRepository,
+        ISystemConfigService systemConfigService)
     {
         _userRepository = userRepository;
         _organizationRepository = organizationRepository;
+        _systemConfigService = systemConfigService;
     }
 
-    public Task<CompleteWizardResult> Handle(CompleteWizardCommand request, CancellationToken cancellationToken)
+    public async Task<CompleteWizardResult> Handle(CompleteWizardCommand request, CancellationToken cancellationToken)
     {
         // Validate wizard state - must have admin and organization
         var hasAdmin = _userRepository.GetAll()
@@ -28,31 +30,34 @@ public class CompleteWizardHandler : IRequestHandler<CompleteWizardCommand, Comp
 
         if (!hasAdmin)
         {
-            return Task.FromResult(new CompleteWizardResult(
+            return new CompleteWizardResult(
                 false,
                 null,
                 new List<string>(),
                 new List<string> { "System administrator must be created first" }
-            ));
+            );
         }
 
         var hasOrganization = _organizationRepository.GetAll().Any();
         if (!hasOrganization)
         {
-            return Task.FromResult(new CompleteWizardResult(
+            return new CompleteWizardResult(
                 false,
                 null,
                 new List<string>(),
                 new List<string> { "Organization must be set first" }
-            ));
+            );
         }
 
+        // Persist wizard completion state to SystemConfig
+        await _systemConfigService.SetWizardStateAsync(WizardState.Installed);
+
         // Wizard is complete - all prerequisites are met
-        return Task.FromResult(new CompleteWizardResult(
+        return new CompleteWizardResult(
             true,
             "v0.6.0",
             new List<string>(),
             new List<string>()
-        ));
+        );
     }
 }

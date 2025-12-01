@@ -1,8 +1,7 @@
 namespace ReadyStackGo.Application.UseCases.Wizard.GetWizardStatus;
 
 using MediatR;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
-using ReadyStackGo.Domain.IdentityAccess.Users;
+using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Roles;
 using ReadyStackGo.Domain.IdentityAccess.Users;
@@ -11,44 +10,64 @@ public class GetWizardStatusHandler : IRequestHandler<GetWizardStatusQuery, Wiza
 {
     private readonly IUserRepository _userRepository;
     private readonly IOrganizationRepository _organizationRepository;
+    private readonly ISystemConfigService _systemConfigService;
 
     public GetWizardStatusHandler(
         IUserRepository userRepository,
-        IOrganizationRepository organizationRepository)
+        IOrganizationRepository organizationRepository,
+        ISystemConfigService systemConfigService)
     {
         _userRepository = userRepository;
         _organizationRepository = organizationRepository;
+        _systemConfigService = systemConfigService;
     }
 
-    public Task<WizardStatusResult> Handle(GetWizardStatusQuery request, CancellationToken cancellationToken)
+    public async Task<WizardStatusResult> Handle(GetWizardStatusQuery request, CancellationToken cancellationToken)
     {
+        // First check the persisted wizard state from SystemConfig
+        var wizardState = await _systemConfigService.GetWizardStateAsync();
+
+        // If wizard is marked as Installed, trust that state
+        if (wizardState == WizardState.Installed)
+        {
+            var defaultPath = GetDefaultDockerSocketPath();
+            return new WizardStatusResult("Installed", true, defaultPath);
+        }
+
+        // Otherwise derive state from database content
         var hasAdmin = _userRepository.GetAll()
             .Any(u => u.RoleAssignments.Any(r => r.RoleId == RoleId.SystemAdmin));
 
-        var organizations = _organizationRepository.GetAll().ToList();
-        var hasOrganization = organizations.Any();
+        var hasOrganization = _organizationRepository.GetAll().Any();
 
-        string wizardState;
+        string wizardStateString;
         if (!hasAdmin)
         {
-            wizardState = "NotStarted";
+            wizardStateString = "NotStarted";
         }
         else if (!hasOrganization)
         {
-            wizardState = "AdminCreated";
+            wizardStateString = "AdminCreated";
         }
         else
         {
-            wizardState = "Installed";
+            // Organization exists - show Environment step (optional)
+            // User must explicitly complete the wizard via /api/wizard/install
+            wizardStateString = "OrganizationSet";
         }
 
-        var defaultDockerSocketPath = OperatingSystem.IsWindows()
+        var defaultDockerSocketPath = GetDefaultDockerSocketPath();
+
+        return new WizardStatusResult(
+            wizardStateString,
+            wizardStateString == "Installed",
+            defaultDockerSocketPath);
+    }
+
+    private static string GetDefaultDockerSocketPath()
+    {
+        return OperatingSystem.IsWindows()
             ? "npipe://./pipe/docker_engine"
             : "unix:///var/run/docker.sock";
-
-        return Task.FromResult(new WizardStatusResult(
-            wizardState,
-            wizardState == "Installed",
-            defaultDockerSocketPath));
     }
 }

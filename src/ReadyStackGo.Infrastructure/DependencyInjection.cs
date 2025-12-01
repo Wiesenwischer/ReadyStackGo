@@ -31,6 +31,7 @@ public static class DependencyInjection
     {
         // Configuration services
         services.AddSingleton<IConfigStore, ConfigStore>();
+        services.AddSingleton<ISystemConfigService, SystemConfigService>();
 
         // TLS services
         services.AddSingleton<ITlsService, TlsService>();

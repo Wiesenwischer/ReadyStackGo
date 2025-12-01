@@ -12,11 +12,13 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ~/.docker/config.json:/root/.docker/config.json:ro
       - rsgo-config:/app/config
+      - rsgo-data:/app/data
       - ./stacks:/app/stacks
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
       - ConfigPath=/app/config
+      - ConnectionStrings__ReadyStackGo=Data Source=/app/data/readystackgo.db
     restart: unless-stopped
     networks:
       - rsgo-net
@@ -61,6 +63,8 @@ services:
 volumes:
   rsgo-config:
     name: rsgo-config
+  rsgo-data:
+    name: rsgo-data
   rsgo-config-dev:
     name: rsgo-config-dev
 
