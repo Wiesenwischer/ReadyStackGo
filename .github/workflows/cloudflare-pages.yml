@@ -1,0 +1,42 @@
+name: Deploy PublicWeb to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/ReadyStackGo.PublicWeb/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: src/ReadyStackGo.PublicWeb/package-lock.json
+
+      - name: Install dependencies
+        working-directory: src/ReadyStackGo.PublicWeb
+        run: npm ci
+
+      - name: Build
+        working-directory: src/ReadyStackGo.PublicWeb
+        run: npm run build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: readystackgo
+          directory: src/ReadyStackGo.PublicWeb/dist
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
