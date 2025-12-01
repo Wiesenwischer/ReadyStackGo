@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  NODE_VERSION: '20.x'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for GitVersion
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: src/ReadyStackGo.WebUi/package-lock.json
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v1
+        with:
+          versionSpec: '5.x'
+
+      - name: Determine Version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v1
+        with:
+          useConfigFile: true
+
+      - name: Display Version
+        run: |
+          echo "SemVer: ${{ steps.gitversion.outputs.semVer }}"
+          echo "MajorMinorPatch: ${{ steps.gitversion.outputs.majorMinorPatch }}"
+
+      - name: Restore .NET dependencies
+        run: dotnet restore
+
+      - name: Build .NET
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Run Unit Tests
+        run: dotnet test tests/ReadyStackGo.UnitTests/ReadyStackGo.UnitTests.csproj --configuration Release --no-build --verbosity normal
+
+      - name: Run Integration Tests
+        run: dotnet test tests/ReadyStackGo.IntegrationTests/ReadyStackGo.IntegrationTests.csproj --configuration Release --no-build --verbosity normal
+
+      - name: Run Domain Tests
+        run: dotnet test tests/ReadyStackGo.DomainTests/ReadyStackGo.DomainTests.csproj --configuration Release --no-build --verbosity normal
+
+      - name: Install frontend dependencies
+        working-directory: src/ReadyStackGo.WebUi
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: src/ReadyStackGo.WebUi
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: |
+            src/ReadyStackGo.Api/bin/Release/
+            src/ReadyStackGo.Api/wwwroot/
+          retention-days: 7
