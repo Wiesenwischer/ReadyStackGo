@@ -28,7 +28,7 @@ export default function SetupEnvironment() {
         const socketPath = status.defaultDockerSocketPath || "unix:///var/run/docker.sock";
         setDefaultSocketPath(socketPath);
         setFormData(prev => ({ ...prev, socketPath }));
-      } catch (err) {
+      } catch {
         // Fallback to Linux default if API fails
         const fallback = "unix:///var/run/docker.sock";
         setDefaultSocketPath(fallback);

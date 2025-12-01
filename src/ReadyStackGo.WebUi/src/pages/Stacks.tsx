@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { listDeployments, removeDeployment, type DeploymentSummary } from "../api/deployments";
 import { getStacks, syncSources, type Stack } from "../api/stacks";
 import { useEnvironment } from "../context/EnvironmentContext";
@@ -16,7 +16,7 @@ export default function Stacks() {
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
   const [selectedStack, setSelectedStack] = useState<Stack | null>(null);
 
-  const loadDeployments = async () => {
+  const loadDeployments = useCallback(async () => {
     if (!activeEnvironment) {
       setDeployments([]);
       setLoading(false);
@@ -37,9 +37,9 @@ export default function Stacks() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeEnvironment]);
 
-  const loadStacks = async () => {
+  const loadStacks = useCallback(async () => {
     try {
       setStacksLoading(true);
       const data = await getStacks();
@@ -50,7 +50,7 @@ export default function Stacks() {
     } finally {
       setStacksLoading(false);
     }
-  };
+  }, []);
 
   const handleSync = async () => {
     try {
@@ -67,7 +67,7 @@ export default function Stacks() {
   useEffect(() => {
     loadDeployments();
     loadStacks();
-  }, [activeEnvironment]);
+  }, [loadDeployments, loadStacks]);
 
   const handleRemove = async (stackName: string) => {
     if (!activeEnvironment) return;
