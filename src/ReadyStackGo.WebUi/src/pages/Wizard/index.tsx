@@ -1,54 +1,71 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import WizardLayout from './WizardLayout';
 import AdminStep from './AdminStep';
 import OrganizationStep from './OrganizationStep';
 import EnvironmentStep from './EnvironmentStep';
 import InstallStep from './InstallStep';
-import { createAdmin, setOrganization, installStack, getWizardStatus } from '../../api/wizard';
+import { createAdmin, setOrganization, installStack, getWizardStatus, type WizardTimeoutInfo } from '../../api/wizard';
 import { createEnvironment, setDefaultEnvironment } from '../../api/environments';
 
 export default function Wizard() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const [timeout, setTimeout] = useState<WizardTimeoutInfo | null>(null);
+  const [isTimedOut, setIsTimedOut] = useState(false);
   const navigate = useNavigate();
 
-  // Load wizard state on mount to continue where user left off
-  useEffect(() => {
-    const loadWizardState = async () => {
-      try {
-        const status = await getWizardStatus();
+  // Handle wizard timeout - show timeout message
+  const handleTimeout = useCallback(() => {
+    setIsTimedOut(true);
+  }, []);
 
-        // Map backend wizard state to frontend step number
-        // v0.4.1: Added optional Environment step (4 steps total)
-        // Admin -> Organization -> Environment (optional) -> Install
-        switch (status.wizardState) {
-          case 'NotStarted':
-            setCurrentStep(1);
-            break;
-          case 'AdminCreated':
-            setCurrentStep(2);
-            break;
-          case 'OrganizationSet':
-            setCurrentStep(3);
-            break;
-          case 'Installed':
-            // Wizard completed, redirect to login
-            navigate('/login');
-            return;
-          default:
-            setCurrentStep(1);
-        }
-      } catch (error) {
-        console.error('Failed to load wizard state:', error);
-        setCurrentStep(1);
-      } finally {
-        setIsLoading(false);
+  // Reload wizard state (after timeout or refresh)
+  const reloadWizardState = useCallback(async () => {
+    setIsLoading(true);
+    setIsTimedOut(false);
+    try {
+      const status = await getWizardStatus();
+      setTimeout(status.timeout ?? null);
+
+      // Check if timed out on server side
+      if (status.timeout?.isTimedOut) {
+        setIsTimedOut(true);
+        return;
       }
-    };
 
-    loadWizardState();
+      // Map backend wizard state to frontend step number
+      // v0.4.1: Added optional Environment step (4 steps total)
+      // Admin -> Organization -> Environment (optional) -> Install
+      switch (status.wizardState) {
+        case 'NotStarted':
+          setCurrentStep(1);
+          break;
+        case 'AdminCreated':
+          setCurrentStep(2);
+          break;
+        case 'OrganizationSet':
+          setCurrentStep(3);
+          break;
+        case 'Installed':
+          // Wizard completed, redirect to login
+          navigate('/login');
+          return;
+        default:
+          setCurrentStep(1);
+      }
+    } catch (error) {
+      console.error('Failed to load wizard state:', error);
+      setCurrentStep(1);
+    } finally {
+      setIsLoading(false);
+    }
   }, [navigate]);
+
+  // Load wizard state on mount
+  useEffect(() => {
+    reloadWizardState();
+  }, [reloadWizardState]);
 
   const handleAdminNext = async (data: { username: string; password: string }) => {
     await createAdmin(data);
@@ -102,8 +119,41 @@ export default function Wizard() {
     );
   }
 
+  // Show timeout message
+  if (isTimedOut) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-white dark:bg-gray-900">
+        <div className="text-center max-w-md p-8">
+          <div className="mb-6">
+            <svg className="w-16 h-16 mx-auto text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">
+            Setup Window Expired
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            The 5-minute setup window has expired. Any partial configuration has been reset.
+            Click the button below to start a new setup window.
+          </p>
+          <button
+            onClick={reloadWizardState}
+            className="px-6 py-3 bg-brand-600 text-white font-medium rounded-lg hover:bg-brand-700 transition-colors"
+          >
+            Start New Setup
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <WizardLayout currentStep={currentStep} totalSteps={4}>
+    <WizardLayout
+      currentStep={currentStep}
+      totalSteps={4}
+      timeout={timeout}
+      onTimeout={handleTimeout}
+    >
       {currentStep === 1 && <AdminStep onNext={handleAdminNext} />}
       {currentStep === 2 && <OrganizationStep onNext={handleOrganizationNext} />}
       {currentStep === 3 && <EnvironmentStep onNext={handleEnvironmentNext} />}

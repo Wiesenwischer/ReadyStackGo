@@ -40,4 +40,10 @@ public class SystemConfig
     /// Installed version of the application
     /// </summary>
     public string? InstalledVersion { get; set; }
+
+    /// <summary>
+    /// Timestamp when the wizard window was first opened (server start or first access).
+    /// Used for wizard timeout enforcement (5-minute window like Portainer).
+    /// </summary>
+    public DateTime? WizardStartedAt { get; set; }
 }

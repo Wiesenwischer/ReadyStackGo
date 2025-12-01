@@ -1,5 +1,6 @@
 using FastEndpoints;
 using MediatR;
+using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Organizations.ProvisionOrganization;
 using ReadyStackGo.Application.UseCases.Wizard;
 
@@ -11,10 +12,12 @@ namespace ReadyStackGo.API.Endpoints.Wizard;
 public class SetOrganizationEndpoint : Endpoint<SetOrganizationRequest, SetOrganizationResponse>
 {
     private readonly IMediator _mediator;
+    private readonly IWizardTimeoutService _wizardTimeoutService;
 
-    public SetOrganizationEndpoint(IMediator mediator)
+    public SetOrganizationEndpoint(IMediator mediator, IWizardTimeoutService wizardTimeoutService)
     {
         _mediator = mediator;
+        _wizardTimeoutService = wizardTimeoutService;
     }
 
     public override void Configure()
@@ -25,6 +28,14 @@ public class SetOrganizationEndpoint : Endpoint<SetOrganizationRequest, SetOrgan
 
     public override async Task HandleAsync(SetOrganizationRequest req, CancellationToken ct)
     {
+        // Check if wizard has timed out
+        if (await _wizardTimeoutService.IsTimedOutAsync())
+        {
+            await _wizardTimeoutService.ResetTimeoutAsync();
+            ThrowError("Wizard timeout expired. Please refresh and start again.");
+            return;
+        }
+
         var result = await _mediator.Send(
             new ProvisionOrganizationCommand(req.Name, req.Name),
             ct);

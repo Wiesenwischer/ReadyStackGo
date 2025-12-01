@@ -32,6 +32,7 @@ public static class DependencyInjection
         // Configuration services
         services.AddSingleton<IConfigStore, ConfigStore>();
         services.AddSingleton<ISystemConfigService, SystemConfigService>();
+        services.AddSingleton<IWizardTimeoutService, WizardTimeoutService>();
 
         // TLS services
         services.AddSingleton<ITlsService, TlsService>();

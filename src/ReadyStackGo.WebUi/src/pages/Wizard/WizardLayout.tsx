@@ -1,12 +1,16 @@
 import { type ReactNode } from 'react';
+import type { WizardTimeoutInfo } from '../../api/wizard';
+import WizardCountdown from '../../components/wizard/WizardCountdown';
 
 interface WizardLayoutProps {
   currentStep: number;
   totalSteps: number;
   children: ReactNode;
+  timeout?: WizardTimeoutInfo | null;
+  onTimeout?: () => void;
 }
 
-export default function WizardLayout({ currentStep, children }: WizardLayoutProps) {
+export default function WizardLayout({ currentStep, children, timeout, onTimeout }: WizardLayoutProps) {
   // v0.4: 4 steps (Admin, Organization, Environment, Complete)
   const steps = [
     { number: 1, name: 'Admin', description: 'Create admin user' },
@@ -27,6 +31,12 @@ export default function WizardLayout({ currentStep, children }: WizardLayoutProp
             <p className="text-gray-500 dark:text-gray-400">
               Let's get your system configured in a few easy steps
             </p>
+            {/* Timeout Countdown */}
+            {timeout && onTimeout && !timeout.isTimedOut && (
+              <div className="mt-4 flex justify-center">
+                <WizardCountdown timeout={timeout} onTimeout={onTimeout} />
+              </div>
+            )}
           </div>
 
           {/* Step Progress Indicator */}

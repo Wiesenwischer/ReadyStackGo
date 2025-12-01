@@ -52,4 +52,35 @@ public class WizardStatusResponse
     /// Linux/macOS: "unix:///var/run/docker.sock"
     /// </summary>
     public string DefaultDockerSocketPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Timeout information for the wizard window.
+    /// </summary>
+    public WizardTimeoutDto? Timeout { get; set; }
+}
+
+/// <summary>
+/// Timeout information for the wizard setup window.
+/// </summary>
+public class WizardTimeoutDto
+{
+    /// <summary>
+    /// Whether the wizard window has timed out.
+    /// </summary>
+    public bool IsTimedOut { get; set; }
+
+    /// <summary>
+    /// Remaining seconds until timeout. Null if already timed out.
+    /// </summary>
+    public int? RemainingSeconds { get; set; }
+
+    /// <summary>
+    /// When the timeout window expires (UTC).
+    /// </summary>
+    public DateTime? ExpiresAt { get; set; }
+
+    /// <summary>
+    /// The configured timeout duration in seconds.
+    /// </summary>
+    public int TimeoutSeconds { get; set; }
 }

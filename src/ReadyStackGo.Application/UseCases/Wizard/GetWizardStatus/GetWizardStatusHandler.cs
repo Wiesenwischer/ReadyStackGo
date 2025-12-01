@@ -1,6 +1,7 @@
 namespace ReadyStackGo.Application.UseCases.Wizard.GetWizardStatus;
 
 using MediatR;
+using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Roles;
@@ -11,30 +12,51 @@ public class GetWizardStatusHandler : IRequestHandler<GetWizardStatusQuery, Wiza
     private readonly IUserRepository _userRepository;
     private readonly IOrganizationRepository _organizationRepository;
     private readonly ISystemConfigService _systemConfigService;
+    private readonly IWizardTimeoutService _wizardTimeoutService;
+    private readonly ILogger<GetWizardStatusHandler> _logger;
 
     public GetWizardStatusHandler(
         IUserRepository userRepository,
         IOrganizationRepository organizationRepository,
-        ISystemConfigService systemConfigService)
+        ISystemConfigService systemConfigService,
+        IWizardTimeoutService wizardTimeoutService,
+        ILogger<GetWizardStatusHandler> logger)
     {
         _userRepository = userRepository;
         _organizationRepository = organizationRepository;
         _systemConfigService = systemConfigService;
+        _wizardTimeoutService = wizardTimeoutService;
+        _logger = logger;
     }
 
     public async Task<WizardStatusResult> Handle(GetWizardStatusQuery request, CancellationToken cancellationToken)
     {
+        var defaultDockerSocketPath = GetDefaultDockerSocketPath();
+
         // First check the persisted wizard state from SystemConfig
         var wizardState = await _systemConfigService.GetWizardStateAsync();
 
-        // If wizard is marked as Installed, trust that state
+        // If wizard is marked as Installed, trust that state (no timeout applies)
         if (wizardState == WizardState.Installed)
         {
-            var defaultPath = GetDefaultDockerSocketPath();
-            return new WizardStatusResult("Installed", true, defaultPath);
+            return new WizardStatusResult("Installed", true, defaultDockerSocketPath);
         }
 
-        // Otherwise derive state from database content
+        // Get timeout info - this also initializes the timeout window on first access
+        var timeoutInfo = await _wizardTimeoutService.GetTimeoutInfoAsync();
+
+        // Check if wizard has timed out
+        if (timeoutInfo.IsTimedOut)
+        {
+            _logger.LogWarning("Wizard timeout reached. Resetting wizard state.");
+            await _wizardTimeoutService.ResetTimeoutAsync();
+
+            // Return fresh state after reset
+            var freshTimeoutInfo = await _wizardTimeoutService.GetTimeoutInfoAsync();
+            return new WizardStatusResult("NotStarted", false, defaultDockerSocketPath, freshTimeoutInfo);
+        }
+
+        // Derive state from database content
         var hasAdmin = _userRepository.GetAll()
             .Any(u => u.RoleAssignments.Any(r => r.RoleId == RoleId.SystemAdmin));
 
@@ -56,12 +78,11 @@ public class GetWizardStatusHandler : IRequestHandler<GetWizardStatusQuery, Wiza
             wizardStateString = "OrganizationSet";
         }
 
-        var defaultDockerSocketPath = GetDefaultDockerSocketPath();
-
         return new WizardStatusResult(
             wizardStateString,
-            wizardStateString == "Installed",
-            defaultDockerSocketPath);
+            false,
+            defaultDockerSocketPath,
+            timeoutInfo);
     }
 
     private static string GetDefaultDockerSocketPath()

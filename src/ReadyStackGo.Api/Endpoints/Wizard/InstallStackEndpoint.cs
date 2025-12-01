@@ -1,5 +1,6 @@
 using FastEndpoints;
 using MediatR;
+using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Wizard.CompleteWizard;
 using ReadyStackGo.Application.UseCases.Wizard;
 
@@ -11,10 +12,12 @@ namespace ReadyStackGo.API.Endpoints.Wizard;
 public class InstallStackEndpoint : Endpoint<InstallStackRequest, InstallStackResponse>
 {
     private readonly IMediator _mediator;
+    private readonly IWizardTimeoutService _wizardTimeoutService;
 
-    public InstallStackEndpoint(IMediator mediator)
+    public InstallStackEndpoint(IMediator mediator, IWizardTimeoutService wizardTimeoutService)
     {
         _mediator = mediator;
+        _wizardTimeoutService = wizardTimeoutService;
     }
 
     public override void Configure()
@@ -25,7 +28,21 @@ public class InstallStackEndpoint : Endpoint<InstallStackRequest, InstallStackRe
 
     public override async Task HandleAsync(InstallStackRequest req, CancellationToken ct)
     {
+        // Check if wizard has timed out
+        if (await _wizardTimeoutService.IsTimedOutAsync())
+        {
+            await _wizardTimeoutService.ResetTimeoutAsync();
+            ThrowError("Wizard timeout expired. Please refresh and start again.");
+            return;
+        }
+
         var result = await _mediator.Send(new CompleteWizardCommand(req.ManifestPath), ct);
+
+        // Clear timeout tracking on successful completion
+        if (result.Success)
+        {
+            await _wizardTimeoutService.ClearTimeoutAsync();
+        }
 
         Response = new InstallStackResponse
         {

@@ -31,7 +31,16 @@ public class GetWizardStatusEndpoint : EndpointWithoutRequest<WizardStatusRespon
         {
             WizardState = result.WizardState,
             IsCompleted = result.IsCompleted,
-            DefaultDockerSocketPath = result.DefaultDockerSocketPath
+            DefaultDockerSocketPath = result.DefaultDockerSocketPath,
+            Timeout = result.Timeout != null
+                ? new WizardTimeoutDto
+                {
+                    IsTimedOut = result.Timeout.IsTimedOut,
+                    RemainingSeconds = result.Timeout.RemainingSeconds,
+                    ExpiresAt = result.Timeout.ExpiresAt,
+                    TimeoutSeconds = result.Timeout.TimeoutSeconds
+                }
+                : null
         };
     }
 }
