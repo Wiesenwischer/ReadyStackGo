@@ -28,15 +28,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: ''
-
-      - name: Cache npm dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('src/ReadyStackGo.WebUi/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          cache: 'npm'
+          cache-dependency-path: 'src/ReadyStackGo.WebUi/package-lock.json'
 
       - name: Install GitVersion
         uses: gittools/actions/gitversion/setup@v1
