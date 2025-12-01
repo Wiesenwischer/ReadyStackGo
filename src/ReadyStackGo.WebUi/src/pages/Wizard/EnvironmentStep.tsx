@@ -2,11 +2,10 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { getWizardStatus } from '../../api/wizard';
 
 interface EnvironmentStepProps {
-  onNext: (data: { id: string; name: string; socketPath: string } | null) => Promise<void>;
+  onNext: (data: { name: string; socketPath: string } | null) => Promise<void>;
 }
 
 export default function EnvironmentStep({ onNext }: EnvironmentStepProps) {
-  const [id, setId] = useState('local');
   const [name, setName] = useState('Local Docker');
   const [socketPath, setSocketPath] = useState('');
   const [error, setError] = useState('');
@@ -32,20 +31,8 @@ export default function EnvironmentStep({ onNext }: EnvironmentStepProps) {
     e.preventDefault();
     setError('');
 
-    // Validation
-    if (id.length < 2) {
-      setError('Environment ID must be at least 2 characters long');
-      return;
-    }
-
     if (name.length < 2) {
       setError('Environment name must be at least 2 characters long');
-      return;
-    }
-
-    // Validate ID format (only lowercase letters, numbers, hyphens, underscores)
-    if (!/^[a-z0-9_-]+$/.test(id)) {
-      setError('Environment ID can only contain lowercase letters, numbers, hyphens, and underscores');
       return;
     }
 
@@ -56,7 +43,7 @@ export default function EnvironmentStep({ onNext }: EnvironmentStepProps) {
 
     setIsLoading(true);
     try {
-      await onNext({ id, name, socketPath });
+      await onNext({ name, socketPath });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create environment');
     } finally {
@@ -97,26 +84,7 @@ export default function EnvironmentStep({ onNext }: EnvironmentStepProps) {
 
           <div>
             <label className="block mb-2.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Environment ID <span className="text-error-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={id}
-              onChange={(e) => setId(e.target.value.toLowerCase())}
-              placeholder="local"
-              required
-              minLength={2}
-              pattern="[a-z0-9_-]+"
-              className="w-full h-12.5 px-4 py-3 text-sm bg-transparent border border-gray-300 rounded-lg shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 dark:border-gray-700 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-600"
-            />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Technical identifier (lowercase letters, numbers, hyphens, underscores)
-            </p>
-          </div>
-
-          <div>
-            <label className="block mb-2.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Display Name <span className="text-error-500">*</span>
+              Environment Name <span className="text-error-500">*</span>
             </label>
             <input
               type="text"

@@ -11,7 +11,6 @@ export interface EnvironmentResponse {
 }
 
 export interface CreateEnvironmentRequest {
-  id: string;
   name: string;
   socketPath: string;
 }

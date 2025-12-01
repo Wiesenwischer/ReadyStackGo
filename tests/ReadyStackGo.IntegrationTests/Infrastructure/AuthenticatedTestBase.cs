@@ -125,20 +125,14 @@ public abstract class AuthenticatedTestBase : IAsyncLifetime
     private async Task CreateDefaultEnvironmentAsync()
     {
         // Create a default Docker socket environment for tests
-        var testId = Guid.NewGuid().ToString("N")[..8];
-        EnvironmentId = $"env-{testId}";
-
         var socketPath = OperatingSystem.IsWindows()
             ? "npipe://./pipe/docker_engine"
             : "unix:///var/run/docker.sock";
 
         var envRequest = new
         {
-            id = EnvironmentId,
-            name = $"Test Environment {testId}",
-            type = "docker-socket",
-            socketPath = socketPath,
-            isDefault = true
+            name = $"Test Environment {Guid.NewGuid().ToString("N")[..8]}",
+            socketPath = socketPath
         };
 
         var response = await Client.PostAsJsonAsync("/api/environments", envRequest);
@@ -148,7 +142,15 @@ public abstract class AuthenticatedTestBase : IAsyncLifetime
             var content = await response.Content.ReadAsStringAsync();
             throw new InvalidOperationException($"Failed to create environment: {response.StatusCode} - {content}");
         }
+
+        // Extract the actual environment ID from the response
+        var envResponse = await response.Content.ReadFromJsonAsync<CreateEnvironmentApiResponse>();
+        EnvironmentId = envResponse?.Environment?.Id
+            ?? throw new InvalidOperationException("No environment ID in response");
     }
+
+    private record CreateEnvironmentApiResponse(bool Success, EnvironmentApiResponse? Environment);
+    private record EnvironmentApiResponse(string Id, string Name);
 
     /// <summary>
     /// Creates a new HTTP client without authentication

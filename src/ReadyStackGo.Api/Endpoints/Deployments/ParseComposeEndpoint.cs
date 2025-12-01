@@ -1,23 +1,34 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Deployments;
+using MediatR;
+using ReadyStackGo.Api.Authorization;
+using ReadyStackGo.Application.UseCases.Deployments;
+using ReadyStackGo.Application.UseCases.Deployments.ParseCompose;
 
 namespace ReadyStackGo.API.Endpoints.Deployments;
 
 /// <summary>
-/// POST /api/deployments/parse - Parse a Docker Compose file and detect variables
+/// POST /api/deployments/parse - Parse a Docker Compose file.
+/// Accessible by: SystemAdmin, OrganizationOwner, Operator (scoped).
 /// </summary>
+[RequirePermission("Deployments", "Create")]
 public class ParseComposeEndpoint : Endpoint<ParseComposeRequest, ParseComposeResponse>
 {
-    public IDeploymentService DeploymentService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public ParseComposeEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
         Post("/api/deployments/parse");
+        PreProcessor<RbacPreProcessor<ParseComposeRequest>>();
     }
 
     public override async Task HandleAsync(ParseComposeRequest req, CancellationToken ct)
     {
-        var response = await DeploymentService.ParseComposeAsync(req);
+        var response = await _mediator.Send(new ParseComposeCommand(req.YamlContent), ct);
 
         if (!response.Success)
         {

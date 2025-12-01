@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { containerApi, type Container } from "../api/containers";
 import { useEnvironment } from "../context/EnvironmentContext";
 
@@ -9,7 +9,7 @@ export default function Containers() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const { activeEnvironment } = useEnvironment();
 
-  const loadContainers = async () => {
+  const loadContainers = useCallback(async () => {
     if (!activeEnvironment) {
       setContainers([]);
       setLoading(false);
@@ -26,11 +26,11 @@ export default function Containers() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeEnvironment]);
 
   useEffect(() => {
     loadContainers();
-  }, [activeEnvironment]);
+  }, [loadContainers]);
 
   const handleStart = async (id: string) => {
     if (!activeEnvironment) return;

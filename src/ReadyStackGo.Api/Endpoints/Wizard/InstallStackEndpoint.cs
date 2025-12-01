@@ -1,34 +1,50 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Wizard;
-using ReadyStackGo.Application.Wizard.DTOs;
+using MediatR;
+using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.UseCases.Wizard.CompleteWizard;
+using ReadyStackGo.Application.UseCases.Wizard;
 
 namespace ReadyStackGo.API.Endpoints.Wizard;
 
 /// <summary>
-/// POST /api/wizard/install - Step 4: Install stack from manifest
+/// POST /api/wizard/install - Step 3: Complete wizard setup
 /// </summary>
 public class InstallStackEndpoint : Endpoint<InstallStackRequest, InstallStackResponse>
 {
-    public IWizardService WizardService { get; set; } = null!;
+    private readonly IMediator _mediator;
+    private readonly IWizardTimeoutService _wizardTimeoutService;
+
+    public InstallStackEndpoint(IMediator mediator, IWizardTimeoutService wizardTimeoutService)
+    {
+        _mediator = mediator;
+        _wizardTimeoutService = wizardTimeoutService;
+    }
 
     public override void Configure()
     {
         Post("/api/wizard/install");
-        AllowAnonymous(); // Wizard endpoints are accessible before auth setup
+        AllowAnonymous();
+        PreProcessor<WizardTimeoutPreProcessor<InstallStackRequest>>();
     }
 
     public override async Task HandleAsync(InstallStackRequest req, CancellationToken ct)
     {
-        var result = await WizardService.InstallStackAsync(req);
+        // Timeout check is handled by WizardTimeoutPreProcessor
 
-        if (!result.Success)
+        var result = await _mediator.Send(new CompleteWizardCommand(req.ManifestPath), ct);
+
+        // Clear timeout tracking on successful completion
+        if (result.Success)
         {
-            var errorMessage = result.Errors.Count > 0
-                ? string.Join(", ", result.Errors)
-                : "Failed to install stack";
-            ThrowError(errorMessage);
+            await _wizardTimeoutService.ClearTimeoutAsync();
         }
 
-        Response = result;
+        Response = new InstallStackResponse
+        {
+            Success = result.Success,
+            StackVersion = result.StackVersion,
+            DeployedContexts = result.DeployedContexts,
+            Errors = result.Errors
+        };
     }
 }

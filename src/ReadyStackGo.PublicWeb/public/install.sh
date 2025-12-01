@@ -23,7 +23,7 @@ if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; th
 fi
 
 CONTAINER_NAME="readystackgo"
-IMAGE_NAME="amssolution/readystackgo:latest"
+IMAGE_NAME="wiesenwischer/readystackgo:latest"
 VOLUME_CONFIG="readystackgo-config"
 VOLUME_STACKS="readystackgo-stacks"
 

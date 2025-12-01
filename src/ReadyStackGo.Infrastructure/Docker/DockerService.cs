@@ -4,23 +4,33 @@ using Docker.DotNet;
 using Docker.DotNet.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using ReadyStackGo.Application.Containers;
-using ReadyStackGo.Application.Containers.DTOs;
-using ReadyStackGo.Infrastructure.Configuration;
+using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.UseCases.Containers;
+using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Environments;
 
 namespace ReadyStackGo.Infrastructure.Docker;
 
+/// <summary>
+/// Docker service for container management.
+/// v0.6: Migrated to use IEnvironmentRepository instead of ConfigStore for environment resolution.
+/// </summary>
 public class DockerService : IDockerService, IDisposable
 {
-    private readonly IConfigStore _configStore;
+    private readonly IEnvironmentRepository _environmentRepository;
     private readonly IConfiguration _configuration;
     private readonly ILogger<DockerService> _logger;
     private readonly ConcurrentDictionary<string, DockerClient> _clientCache = new();
     private bool _disposed;
 
-    public DockerService(IConfigStore configStore, IConfiguration configuration, ILogger<DockerService> logger)
+    public DockerService(
+        IEnvironmentRepository environmentRepository,
+        IConfiguration configuration,
+        ILogger<DockerService> logger)
     {
-        _configStore = configStore;
+        _environmentRepository = environmentRepository;
         _configuration = configuration;
         _logger = logger;
     }
@@ -476,7 +486,7 @@ public class DockerService : IDockerService, IDisposable
         }
 
         // 4. Fallback to user profile (~/.docker/config.json)
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var home = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
         var fallbackPath = Path.Combine(home, ".docker", "config.json");
         _logger.LogDebug("Using Docker config from user profile: {Path}", fallbackPath);
         return fallbackPath;
@@ -550,30 +560,29 @@ public class DockerService : IDockerService, IDisposable
         }
     }
 
-    private async Task<DockerClient> GetDockerClientAsync(string environmentId)
+    private Task<DockerClient> GetDockerClientAsync(string environmentId)
     {
         // Check cache first
         if (_clientCache.TryGetValue(environmentId, out var cachedClient))
         {
-            return cachedClient;
+            return Task.FromResult(cachedClient);
         }
 
-        // Load environment configuration
-        var systemConfig = await _configStore.GetSystemConfigAsync();
-
-        if (systemConfig.Organization == null)
+        // Parse environment ID
+        if (!Guid.TryParse(environmentId, out var envGuid))
         {
-            throw new InvalidOperationException("Organization not configured. Complete the setup wizard first.");
+            throw new InvalidOperationException($"Invalid environment ID format: '{environmentId}'");
         }
 
-        var environment = systemConfig.Organization.GetEnvironment(environmentId);
+        // Load environment from SQLite repository
+        var environment = _environmentRepository.Get(new EnvironmentId(envGuid));
 
         if (environment == null)
         {
             throw new InvalidOperationException($"Environment '{environmentId}' not found.");
         }
 
-        var connectionString = environment.GetConnectionString();
+        var connectionString = environment.ConnectionConfig.SocketPath;
         var uri = ParseDockerUri(connectionString);
 
         _logger.LogDebug("Creating Docker client for environment {EnvironmentId} with URI {Uri}", environmentId, uri);
@@ -583,7 +592,7 @@ public class DockerService : IDockerService, IDisposable
         // Cache the client
         _clientCache[environmentId] = client;
 
-        return client;
+        return Task.FromResult(client);
     }
 
     private static Uri ParseDockerUri(string connectionString)

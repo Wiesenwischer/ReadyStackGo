@@ -1,24 +1,33 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Stacks;
+using MediatR;
+using ReadyStackGo.Api.Authorization;
+using ReadyStackGo.Application.UseCases.StackSources.SyncStackSources;
 
 namespace ReadyStackGo.API.Endpoints.StackSources;
 
 /// <summary>
-/// Sync all stack sources to refresh the cache
+/// POST /api/stack-sources/sync - Sync all stack sources to refresh the cache.
+/// Accessible by: SystemAdmin only.
 /// </summary>
-public class SyncSourcesEndpoint : EndpointWithoutRequest<SyncSourcesResponse>
+[RequireSystemAdmin]
+public class SyncSourcesEndpoint : Endpoint<EmptyRequest, SyncSourcesResponse>
 {
-    public IStackSourceService StackSourceService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public SyncSourcesEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
         Post("/api/stack-sources/sync");
-        Roles("admin");
+        PreProcessor<RbacPreProcessor<EmptyRequest>>();
     }
 
-    public override async Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(EmptyRequest req, CancellationToken ct)
     {
-        var result = await StackSourceService.SyncAllAsync(ct);
+        var result = await _mediator.Send(new SyncStackSourcesCommand(), ct);
 
         Response = new SyncSourcesResponse
         {

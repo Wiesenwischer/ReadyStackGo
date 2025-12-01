@@ -28,7 +28,6 @@ public class AuthEndpointsIntegrationTests : IAsyncLifetime
         var testId = Guid.NewGuid().ToString("N")[..8];
         _adminUsername = $"admin_{testId}";
         _adminPassword = "TestPassword123!";
-        _environmentId = $"env-{testId}";
 
         // Step 1: Create admin
         var adminRequest = new { username = _adminUsername, password = _adminPassword };
@@ -57,17 +56,22 @@ public class AuthEndpointsIntegrationTests : IAsyncLifetime
 
         var envRequest = new
         {
-            id = _environmentId,
             name = $"Test Environment {testId}",
-            type = "docker-socket",
-            socketPath = socketPath,
-            isDefault = true
+            socketPath = socketPath
         };
-        await _client.PostAsJsonAsync("/api/environments", envRequest);
+        var envResponse = await _client.PostAsJsonAsync("/api/environments", envRequest);
+
+        // v0.6: Extract the actual environment ID from the response
+        var envResult = await envResponse.Content.ReadFromJsonAsync<CreateEnvironmentApiResponse>();
+        _environmentId = envResult?.Environment?.Id
+            ?? throw new InvalidOperationException("No environment ID in response");
 
         // Clear auth for subsequent tests
         _client.DefaultRequestHeaders.Authorization = null;
     }
+
+    private record CreateEnvironmentApiResponse(bool Success, EnvironmentApiResponse? Environment);
+    private record EnvironmentApiResponse(string Id, string Name);
 
     public async Task DisposeAsync()
     {

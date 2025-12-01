@@ -1,32 +1,39 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Stacks;
+using MediatR;
+using ReadyStackGo.Api.Authorization;
+using ReadyStackGo.Application.UseCases.Stacks.ListStacks;
 
 namespace ReadyStackGo.API.Endpoints.Stacks;
 
 /// <summary>
-/// GET /api/stacks - List all stacks from all sources
+/// GET /api/stacks - List all stacks from all sources.
+/// Accessible by: SystemAdmin, OrganizationOwner, Operator, Viewer (scoped).
 /// </summary>
-public class ListStacksEndpoint : EndpointWithoutRequest<IEnumerable<StackDto>>
+[RequirePermission("Stacks", "Read")]
+public class ListStacksEndpoint : Endpoint<EmptyRequest, IEnumerable<StackDto>>
 {
-    public IStackSourceService StackSourceService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public ListStacksEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
         Get("/api/stacks");
-        Roles("admin", "operator");
+        PreProcessor<RbacPreProcessor<EmptyRequest>>();
     }
 
-    public override async Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(EmptyRequest req, CancellationToken ct)
     {
-        var stacks = await StackSourceService.GetStacksAsync(ct);
-        var sources = await StackSourceService.GetSourcesAsync(ct);
-        var sourceNames = sources.ToDictionary(s => s.Id, s => s.Name);
+        var result = await _mediator.Send(new ListStacksQuery(), ct);
 
-        Response = stacks.Select(s => new StackDto
+        Response = result.Stacks.Select(s => new StackDto
         {
             Id = s.Id,
             SourceId = s.SourceId,
-            SourceName = sourceNames.GetValueOrDefault(s.SourceId, s.SourceId),
+            SourceName = s.SourceName,
             Name = s.Name,
             Description = s.Description,
             RelativePath = s.RelativePath,

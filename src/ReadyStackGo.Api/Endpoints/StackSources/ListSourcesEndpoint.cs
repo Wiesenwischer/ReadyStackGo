@@ -1,63 +1,43 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Stacks;
-using ReadyStackGo.Domain.Stacks;
+using MediatR;
+using ReadyStackGo.Api.Authorization;
+using ReadyStackGo.Application.UseCases.StackSources.ListStackSources;
 
 namespace ReadyStackGo.API.Endpoints.StackSources;
 
 /// <summary>
-/// List all configured stack sources
+/// GET /api/stack-sources - List all configured stack sources.
+/// Accessible by: SystemAdmin, OrganizationOwner, Operator, Viewer (scoped).
 /// </summary>
-public class ListSourcesEndpoint : EndpointWithoutRequest<IEnumerable<StackSourceDto>>
+[RequirePermission("StackSources", "Read")]
+public class ListSourcesEndpoint : Endpoint<EmptyRequest, IEnumerable<StackSourceDto>>
 {
-    public IStackSourceService StackSourceService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public ListSourcesEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
         Get("/api/stack-sources");
-        Roles("admin", "operator");
+        PreProcessor<RbacPreProcessor<EmptyRequest>>();
     }
 
-    public override async Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(EmptyRequest req, CancellationToken ct)
     {
-        var sources = await StackSourceService.GetSourcesAsync(ct);
-        Response = sources.Select(s => new StackSourceDto
+        var result = await _mediator.Send(new ListStackSourcesQuery(), ct);
+
+        Response = result.Sources.Select(s => new StackSourceDto
         {
             Id = s.Id,
             Name = s.Name,
-            Type = s switch
-            {
-                LocalDirectoryStackSource => "local-directory",
-                GitRepositoryStackSource => "git-repository",
-                CompositeStackSource => "composite",
-                _ => "unknown"
-            },
+            Type = s.Type,
             Enabled = s.Enabled,
             LastSyncedAt = s.LastSyncedAt,
-            Details = GetSourceDetails(s)
+            Details = s.Details
         });
-    }
-
-    private static Dictionary<string, string> GetSourceDetails(StackSource source)
-    {
-        return source switch
-        {
-            LocalDirectoryStackSource local => new Dictionary<string, string>
-            {
-                ["path"] = local.Path,
-                ["filePattern"] = local.FilePattern
-            },
-            GitRepositoryStackSource git => new Dictionary<string, string>
-            {
-                ["repositoryUrl"] = git.Url,
-                ["branch"] = git.Branch,
-                ["path"] = git.Path
-            },
-            CompositeStackSource composite => new Dictionary<string, string>
-            {
-                ["sourceCount"] = composite.Sources.Count.ToString()
-            },
-            _ => new Dictionary<string, string>()
-        };
     }
 }
 

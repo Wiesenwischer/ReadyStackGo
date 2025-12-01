@@ -185,7 +185,7 @@ public class WizardEndpointsIntegrationTests : IAsyncLifetime
 
         var installResult = await response.Content.ReadFromJsonAsync<InstallStackResponse>();
         installResult!.Success.Should().BeTrue();
-        installResult.StackVersion.Should().Be("v0.4.0");
+        installResult.StackVersion.Should().Be("v0.6.0");
     }
 
     [Fact]

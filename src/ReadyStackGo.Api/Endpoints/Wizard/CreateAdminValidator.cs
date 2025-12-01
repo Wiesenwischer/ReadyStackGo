@@ -1,6 +1,6 @@
 using FastEndpoints;
 using FluentValidation;
-using ReadyStackGo.Application.Wizard.DTOs;
+using ReadyStackGo.Application.UseCases.Wizard;
 
 namespace ReadyStackGo.API.Endpoints.Wizard;
 

@@ -6,10 +6,10 @@ Willkommen zur Dokumentation von **ReadyStackGo** – einer selbst gehosteten Pl
 
 ## Project Status
 
-- **Build Pipeline:** [View Latest Build](https://tfsmain.ams.local/tfs/ams/Products/_build?definitionId=ReadyStackGo)
-- **Docker Hub:** [amssolution/readystackgo](https://hub.docker.com/r/amssolution/readystackgo)
-- **Repository:** [Azure DevOps](https://tfsmain.ams.local/tfs/ams/Products/_git/ReadyStackGo)
-- **License:** Proprietary - Copyright © 2025 ams.Solution AG
+- **CI/CD:** [GitHub Actions](https://github.com/Wiesenwischer/ReadyStackGo/actions)
+- **Docker Hub:** [wiesenwischer/readystackgo](https://hub.docker.com/r/wiesenwischer/readystackgo)
+- **Repository:** [GitHub](https://github.com/Wiesenwischer/ReadyStackGo)
+- **License:** MIT - Copyright © 2025 Marcus Dammann
 
 ---
 

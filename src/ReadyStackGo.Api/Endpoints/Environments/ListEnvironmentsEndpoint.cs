@@ -1,24 +1,33 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Environments;
+using MediatR;
+using ReadyStackGo.Api.Authorization;
+using ReadyStackGo.Application.UseCases.Environments;
+using ReadyStackGo.Application.UseCases.Environments.ListEnvironments;
 
 namespace ReadyStackGo.API.Endpoints.Environments;
 
 /// <summary>
-/// GET /api/environments - List all environments
+/// GET /api/environments - List all environments.
+/// Accessible by: SystemAdmin, OrganizationOwner, Operator, Viewer (scoped).
 /// </summary>
-public class ListEnvironmentsEndpoint : EndpointWithoutRequest<ListEnvironmentsResponse>
+[RequirePermission("Environments", "Read")]
+public class ListEnvironmentsEndpoint : Endpoint<EmptyRequest, ListEnvironmentsResponse>
 {
-    public IEnvironmentService EnvironmentService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public ListEnvironmentsEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
         Get("/api/environments");
-        // Requires authentication (default)
+        PreProcessor<RbacPreProcessor<EmptyRequest>>();
     }
 
-    public override async Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(EmptyRequest req, CancellationToken ct)
     {
-        var response = await EnvironmentService.GetEnvironmentsAsync();
-        Response = response;
+        Response = await _mediator.Send(new ListEnvironmentsQuery(), ct);
     }
 }

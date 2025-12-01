@@ -1,25 +1,43 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Deployments;
+using MediatR;
+using ReadyStackGo.Api.Authorization;
+using ReadyStackGo.Application.UseCases.Deployments;
+using ReadyStackGo.Application.UseCases.Deployments.ListDeployments;
 
 namespace ReadyStackGo.API.Endpoints.Deployments;
 
-/// <summary>
-/// GET /api/deployments/{environmentId} - List all deployments in an environment
-/// </summary>
-public class ListDeploymentsEndpoint : EndpointWithoutRequest<ListDeploymentsResponse>
+public class ListDeploymentsRequest
 {
-    public IDeploymentService DeploymentService { get; set; } = null!;
+    /// <summary>
+    /// Environment ID for RBAC scope check (from route).
+    /// </summary>
+    public string? EnvironmentId { get; set; }
+}
+
+/// <summary>
+/// Lists deployments in an environment. Requires Deployments.Read permission.
+/// Accessible by: SystemAdmin, OrganizationOwner, Operator, Viewer (scoped).
+/// </summary>
+[RequirePermission("Deployments", "Read")]
+public class ListDeploymentsEndpoint : Endpoint<ListDeploymentsRequest, ListDeploymentsResponse>
+{
+    private readonly IMediator _mediator;
+
+    public ListDeploymentsEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
         Get("/api/deployments/{environmentId}");
+        PreProcessor<RbacPreProcessor<ListDeploymentsRequest>>();
     }
 
-    public override async Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(ListDeploymentsRequest req, CancellationToken ct)
     {
-        var environmentId = Route<string>("environmentId");
-        var response = await DeploymentService.ListDeploymentsAsync(environmentId!);
-
-        Response = response;
+        var environmentId = Route<string>("environmentId")!;
+        req.EnvironmentId = environmentId;
+        Response = await _mediator.Send(new ListDeploymentsQuery(environmentId), ct);
     }
 }
