@@ -1,24 +1,36 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Environments;
+using MediatR;
+using ReadyStackGo.Api.Authorization;
+using ReadyStackGo.Application.UseCases.Environments;
+using ReadyStackGo.Application.UseCases.Environments.UpdateEnvironment;
 
 namespace ReadyStackGo.API.Endpoints.Environments;
 
 /// <summary>
-/// PUT /api/environments/{id} - Update an environment
+/// PUT /api/environments/{id} - Update an environment.
+/// Accessible by: SystemAdmin, OrganizationOwner.
 /// </summary>
+[RequirePermission("Environments", "Update")]
 public class UpdateEnvironmentEndpoint : Endpoint<UpdateEnvironmentRequest, UpdateEnvironmentResponse>
 {
-    public IEnvironmentService EnvironmentService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public UpdateEnvironmentEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
         Put("/api/environments/{id}");
+        PreProcessor<RbacPreProcessor<UpdateEnvironmentRequest>>();
     }
 
     public override async Task HandleAsync(UpdateEnvironmentRequest req, CancellationToken ct)
     {
-        var environmentId = Route<string>("id");
-        var response = await EnvironmentService.UpdateEnvironmentAsync(environmentId!, req);
+        var environmentId = Route<string>("id")!;
+        var response = await _mediator.Send(
+            new UpdateEnvironmentCommand(environmentId, req.Name, req.SocketPath), ct);
 
         if (!response.Success)
         {

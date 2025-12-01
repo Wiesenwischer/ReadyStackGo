@@ -1,6 +1,7 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Wizard;
-using ReadyStackGo.Application.Wizard.DTOs;
+using MediatR;
+using ReadyStackGo.Application.UseCases.Wizard.GetWizardStatus;
+using ReadyStackGo.Application.UseCases.Wizard;
 
 namespace ReadyStackGo.API.Endpoints.Wizard;
 
@@ -9,17 +10,38 @@ namespace ReadyStackGo.API.Endpoints.Wizard;
 /// </summary>
 public class GetWizardStatusEndpoint : EndpointWithoutRequest<WizardStatusResponse>
 {
-    public IWizardService WizardService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public GetWizardStatusEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
         Get("/api/wizard/status");
-        AllowAnonymous(); // Wizard endpoints are accessible before auth setup
+        AllowAnonymous();
     }
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var status = await WizardService.GetWizardStatusAsync();
-        Response = status;
+        var result = await _mediator.Send(new GetWizardStatusQuery(), ct);
+
+        Response = new WizardStatusResponse
+        {
+            WizardState = result.WizardState,
+            IsCompleted = result.IsCompleted,
+            DefaultDockerSocketPath = result.DefaultDockerSocketPath,
+            Timeout = result.Timeout != null
+                ? new WizardTimeoutDto
+                {
+                    IsTimedOut = result.Timeout.IsTimedOut,
+                    IsLocked = result.Timeout.IsLocked,
+                    RemainingSeconds = result.Timeout.RemainingSeconds,
+                    ExpiresAt = result.Timeout.ExpiresAt,
+                    TimeoutSeconds = result.Timeout.TimeoutSeconds
+                }
+                : null
+        };
     }
 }

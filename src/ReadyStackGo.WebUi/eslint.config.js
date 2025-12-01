@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', '.vite', 'node_modules']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -18,6 +18,12 @@ export default defineConfig([
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
+    },
+    rules: {
+      // Allow exporting hooks alongside components in context files
+      'react-refresh/only-export-components': ['warn', { allowExportNames: ['use*'] }],
+      // Disable the setState-in-effect rule that has false positives
+      'react-hooks/set-state-in-effect': 'off',
     },
   },
 ])

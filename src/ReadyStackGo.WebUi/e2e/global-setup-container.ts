@@ -1,11 +1,12 @@
-import { FullConfig } from '@playwright/test';
+import type { FullConfig } from '@playwright/test';
 
 /**
  * Global setup for Container E2E tests
  * The container should already be running with its own config volume mounted.
  * This setup just waits for the API to be ready.
  */
-async function globalSetup(config: FullConfig) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function globalSetup(_config: FullConfig) {
   const baseURL = process.env.E2E_BASE_URL || 'http://localhost:8080';
   const maxRetries = 30; // 30 * 2s = 60s timeout
   const retryDelay = 2000;
@@ -19,7 +20,7 @@ async function globalSetup(config: FullConfig) {
         console.log('Container API is ready!');
         return;
       }
-    } catch (error) {
+    } catch {
       // Container not ready yet, retry
     }
 

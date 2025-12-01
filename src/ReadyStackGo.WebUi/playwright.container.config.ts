@@ -5,7 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
  * This runs tests against the Docker container, which is how the app is deployed.
  *
  * Usage:
- *   1. Start container: docker run -d -p 8080:8080 -v $(pwd)/config:/app/config amssolution/readystackgo:latest
+ *   1. Start container: docker run -d -p 8080:8080 -v $(pwd)/config:/app/config wiesenwischer/readystackgo:latest
  *   2. Run tests: npx playwright test --config=playwright.container.config.ts
  *
  * Or with custom URL:

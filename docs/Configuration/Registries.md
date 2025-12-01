@@ -31,7 +31,7 @@ Die einfachste Methode ist das Mounten der Docker-Config-Datei in den Container:
 ```yaml
 services:
   readystackgo:
-    image: amssolution/readystackgo:latest
+    image: wiesenwischer/readystackgo:latest
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ~/.docker/config.json:/root/.docker/config.json:ro

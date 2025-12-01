@@ -1,7 +1,8 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
-using ReadyStackGo.Domain.Stacks;
+using ReadyStackGo.Domain.StackManagement.StackSources;
+using ReadyStackGo.Domain.StackManagement.StackSources;
 using ReadyStackGo.Infrastructure.Stacks.Sources;
 
 namespace ReadyStackGo.UnitTests.Stacks;
@@ -787,14 +788,12 @@ services:
 ";
         await File.WriteAllTextAsync(Path.Combine(_tempDir, "test.yml"), stackContent);
 
-        var source = new LocalDirectoryStackSource
-        {
-            Id = "disabled",
-            Name = "Disabled Source",
-            Enabled = false,
-            Path = _tempDir,
-            FilePattern = "*.yml"
-        };
+        var source = StackSource.CreateLocalDirectory(
+            new StackSourceId("disabled"),
+            "Disabled Source",
+            _tempDir,
+            "*.yml");
+        source.Disable();
 
         // Act
         var stacks = await _provider.LoadStacksAsync(source, CancellationToken.None);
@@ -807,16 +806,13 @@ services:
 
     #region Helper Methods
 
-    private static LocalDirectoryStackSource CreateLocalSource(string path)
+    private static StackSource CreateLocalSource(string path)
     {
-        return new LocalDirectoryStackSource
-        {
-            Id = "test-source",
-            Name = "Test Source",
-            Enabled = true,
-            Path = path,
-            FilePattern = "*.yml;*.yaml"
-        };
+        return StackSource.CreateLocalDirectory(
+            new StackSourceId("test-source"),
+            "Test Source",
+            path,
+            "*.yml;*.yaml");
     }
 
     #endregion

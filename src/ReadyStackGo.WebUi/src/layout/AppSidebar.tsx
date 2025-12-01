@@ -77,27 +77,30 @@ const AppSidebar: React.FC = () => {
   );
 
   useEffect(() => {
-    let submenuMatched = false;
+    let matchedSubmenu: { type: "main" | "others"; index: number } | null = null;
+
     ["main", "others"].forEach((menuType) => {
       const items = menuType === "main" ? navItems : othersItems;
       items.forEach((nav, index) => {
         if (nav.subItems) {
           nav.subItems.forEach((subItem) => {
             if (isActive(subItem.path)) {
-              setOpenSubmenu({
+              matchedSubmenu = {
                 type: menuType as "main" | "others",
                 index,
-              });
-              submenuMatched = true;
+              };
             }
           });
         }
       });
     });
 
-    if (!submenuMatched) {
-      setOpenSubmenu(null);
-    }
+    setOpenSubmenu((prev) => {
+      // Only update if the value actually changed
+      if (matchedSubmenu === null && prev === null) return prev;
+      if (matchedSubmenu && prev && matchedSubmenu.type === prev.type && matchedSubmenu.index === prev.index) return prev;
+      return matchedSubmenu;
+    });
   }, [location, isActive]);
 
   useEffect(() => {

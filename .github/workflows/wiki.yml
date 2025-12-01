@@ -1,0 +1,92 @@
+name: Sync Wiki from Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout wiki
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync docs to wiki
+        run: |
+          # Clear existing wiki content (except .git)
+          find wiki -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+
+          # Copy docs to wiki
+          cp -r docs/* wiki/
+
+          # Create Home.md from README or docs index
+          if [ -f "docs/README.md" ]; then
+            cp docs/README.md wiki/Home.md
+          elif [ -f "docs/index.md" ]; then
+            cp docs/index.md wiki/Home.md
+          else
+            cat > wiki/Home.md << 'EOF'
+          # ReadyStackGo Documentation
+
+          Welcome to the ReadyStackGo Wiki!
+
+          ## Contents
+
+          - [Architecture](Architecture/)
+          - [Configuration](Configuration/)
+          - [Specifications](Specifications/)
+          - [Release Notes](Release-Notes/)
+
+          ## Quick Links
+
+          - [GitHub Repository](https://github.com/Wiesenwischer/ReadyStackGo)
+          - [Public Website](https://readystackgo.io)
+          EOF
+          fi
+
+          # Generate sidebar from folder structure
+          cat > wiki/_Sidebar.md << 'EOF'
+          ### Documentation
+
+          - [[Home]]
+
+          **Architecture**
+          - [[Overview|Architecture/Overview]]
+          - [[Components|Architecture/Components]]
+
+          **Configuration**
+          - [[Config Files|Configuration/Config-Files]]
+
+          **Specifications**
+          - [[v0.6 Multi-User|Specifications/v0.6-sqlite-multiuser]]
+
+          **Reference**
+          - [[Release Notes]]
+          EOF
+
+      - name: Push to wiki
+        working-directory: wiki
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Sync documentation from main branch"
+            git push
+          fi

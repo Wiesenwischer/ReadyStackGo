@@ -1,4 +1,4 @@
-import { FullConfig } from '@playwright/test';
+import type { FullConfig } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -10,7 +10,8 @@ const __dirname = path.dirname(__filename);
  * Global setup for Playwright E2E tests
  * Copies test fixtures to the API config directory
  */
-async function globalSetup(config: FullConfig) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function globalSetup(_config: FullConfig) {
   const fixturesDir = path.join(__dirname, 'fixtures', 'config');
   const configDir = path.join(__dirname, '..', '..', 'ReadyStackGo.Api', 'config');
 

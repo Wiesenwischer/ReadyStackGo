@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
-using ReadyStackGo.Application.Dashboard.DTOs;
+using ReadyStackGo.Application.UseCases.Dashboard;
 using ReadyStackGo.IntegrationTests.Infrastructure;
 
 namespace ReadyStackGo.IntegrationTests;

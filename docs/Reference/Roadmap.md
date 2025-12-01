@@ -27,15 +27,16 @@ Grober Ausblick auf geplante Versionen und Features.
 
 ### v0.6 – Multi-User + Database Migration + Security Hardening
 - SQLite-Migration für Multi-User-Support
-- Container Health Monitoring & Rollback
+- Container Health Monitoring (Status, Health, RestartCount)
 - RBAC (Role-Based Access Control)
 - Wizard Timeout (5-Minuten-Zeitfenster für Admin-Erstellung nach Serverstart)
 - API-Lockdown nach Timeout-Ablauf (wie Portainer)
 
-### v0.7 – Registry Management UI
+### v0.7 – Registry Management UI + Rollback
 - Settings-Seite für Registry-Verwaltung
 - Mehrere Docker Registries konfigurierbar (Name, URL, Username, Password)
 - Systemweite Konfiguration (gilt für alle Environments)
+- Deployment Rollback (vorherige Stack-Version wiederherstellen)
 
 ### v0.8 – Release Management
 - Release Management UI

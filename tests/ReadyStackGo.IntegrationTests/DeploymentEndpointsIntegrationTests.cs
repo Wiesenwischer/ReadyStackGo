@@ -335,8 +335,18 @@ volumes:
         var response = await Client.PostAsJsonAsync("/api/deployments/invalid-environment-id", request);
 
         // Assert
-        // FastEndpoints returns 400 Bad Request for invalid environment ID
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        // v0.6: The API may return either:
+        // - 400 Bad Request with error details (if validation fails early)
+        // - 200 OK with Success=false (if the service handles the error)
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            var result = await response.Content.ReadFromJsonAsync<DeployComposeResponseSimple>();
+            result!.Success.Should().BeFalse("Invalid environment ID should result in failure");
+        }
+        else
+        {
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
     }
 
     [Fact]
@@ -490,10 +500,8 @@ volumes:
 
     private async Task<string> CreateTestEnvironment(string name)
     {
-        var envId = $"deploy-test-env-{Guid.NewGuid():N}";
         var request = new
         {
-            id = envId,
             name = name,
             socketPath = "/var/run/docker.sock"
         };

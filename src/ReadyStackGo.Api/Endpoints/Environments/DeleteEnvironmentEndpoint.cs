@@ -1,24 +1,44 @@
 using FastEndpoints;
-using ReadyStackGo.Application.Environments;
+using MediatR;
+using ReadyStackGo.Api.Authorization;
+using ReadyStackGo.Application.UseCases.Environments;
+using ReadyStackGo.Application.UseCases.Environments.DeleteEnvironment;
 
 namespace ReadyStackGo.API.Endpoints.Environments;
 
-/// <summary>
-/// DELETE /api/environments/{id} - Delete an environment
-/// </summary>
-public class DeleteEnvironmentEndpoint : EndpointWithoutRequest<DeleteEnvironmentResponse>
+public class DeleteEnvironmentRequest
 {
-    public IEnvironmentService EnvironmentService { get; set; } = null!;
+    /// <summary>
+    /// Environment ID for RBAC scope check (from route).
+    /// </summary>
+    public string? EnvironmentId { get; set; }
+}
+
+/// <summary>
+/// Deletes an environment. Requires Environments.Delete permission.
+/// Accessible by: SystemAdmin, OrganizationOwner.
+/// </summary>
+[RequirePermission("Environments", "Delete")]
+public class DeleteEnvironmentEndpoint : Endpoint<DeleteEnvironmentRequest, DeleteEnvironmentResponse>
+{
+    private readonly IMediator _mediator;
+
+    public DeleteEnvironmentEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
         Delete("/api/environments/{id}");
+        PreProcessor<RbacPreProcessor<DeleteEnvironmentRequest>>();
     }
 
-    public override async Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(DeleteEnvironmentRequest req, CancellationToken ct)
     {
-        var environmentId = Route<string>("id");
-        var response = await EnvironmentService.DeleteEnvironmentAsync(environmentId!);
+        var environmentId = Route<string>("id")!;
+        req.EnvironmentId = environmentId;
+        var response = await _mediator.Send(new DeleteEnvironmentCommand(environmentId), ct);
 
         if (!response.Success)
         {

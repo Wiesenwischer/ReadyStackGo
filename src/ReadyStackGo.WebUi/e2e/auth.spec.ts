@@ -133,7 +133,7 @@ test.describe('Authentication', () => {
 
     // Intercept the API call to see what happens
     let apiCallMade = false;
-    let apiResponse: any = null;
+    let apiResponse: { status: number; statusText: string; url: string; body?: string } | null = null;
 
     page.on('response', async response => {
       if (response.url().includes('/api/auth/login')) {
@@ -147,7 +147,7 @@ test.describe('Authentication', () => {
         try {
           const body = await response.text();
           apiResponse.body = body;
-        } catch (e) {
+        } catch {
           apiResponse.body = 'Could not read body';
         }
       }

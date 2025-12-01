@@ -4,7 +4,7 @@
 1. Vision & Goals
 2. System Overview
 3. High-Level Architecture Diagram
-4. Component Breakdown
+4. Layered Architecture
 5. Request Flow
 6. Deployment Engine
 7. Wizard Engine
@@ -15,14 +15,14 @@
 
 ## 1. Vision & Goals
 
-ReadyStackGo ist eine selbst gehostete Plattform, die die Bereitstellung und Verwaltung komplexer Microservice-Stacks auf Basis von Docker extrem vereinfacht.  
+ReadyStackGo ist eine selbst gehostete Plattform, die die Bereitstellung und Verwaltung komplexer Microservice-Stacks auf Basis von Docker extrem vereinfacht.
 Statt direkter Arbeit mit `docker run`, Compose, Swarm oder Kubernetes erhalten Betreiber:
 
 - einen **einzigen Admin-Container**,
 - eine geführte **Wizard-Ersteinrichtung**,
 - eine **Admin-Web-UI**,
-- **Manifest-basierte Deployments** für komplette Stacks,
-- klar strukturierte **Config-Files** zur Anpassung.
+- **Docker Compose-basierte Deployments** für komplette Stacks,
+- klar strukturierte **Konfiguration** (SQLite + JSON).
 
 Ziel: Einfache, wiederholbare, sichere Deployments in On-Prem- und isolierten Umgebungen.
 
@@ -33,10 +33,11 @@ Ziel: Einfache, wiederholbare, sichere Deployments in On-Prem- und isolierten Um
 Auf hoher Ebene besteht ReadyStackGo aus:
 
 - dem **Admin-Container** (ReadyStackGo selbst),
-- dem **Docker-Host**,
-- den **Kontext-Containern** (Fachdomänen, BFFs, Gateways),
-- einem persistenten **Config-Volume (`rsgo-config`)**,
-- optional einem **Manifeste-Speicher** (z. B. lokales Verzeichnis, Git-Repo, Artifact-Feed).
+- dem **Docker-Host** (oder mehrere via Docker API),
+- den **Stack-Containern** (Fachdomänen, BFFs, Gateways),
+- einer **SQLite-Datenbank** für dynamische Daten,
+- **JSON-Konfigurationsdateien** für statische Einstellungen,
+- optional einem **Stack-Sources-Verzeichnis** (lokale Stacks, später Git).
 
 ---
 
@@ -50,31 +51,29 @@ flowchart LR
             UI["Web UI (React + Tailwind)"]
             WZ["Setup Wizard"]
             DE["Deployment Engine"]
-            CFG["Config Store (rsgo-config)"]
+            DB[("SQLite DB")]
+            CFG["Config Store (JSON)"]
             TLS["TLS Engine"]
-            MP["Manifest Provider"]
+            SS["Stack Sources"]
         end
 
         DK[["Docker Engine
 /var/run/docker.sock"]]
 
-        subgraph Stack["AMS Stack (Kontexte)"]
-            GW["edge-gateway"]
-            BFFd["bff-desktop"]
-            BFFw["bff-web"]
-            P["project-api"]
-            M["memo-api"]
-            D["discussion-api"]
-            ID["identity-api"]
+        subgraph Stack["Deployed Stack"]
+            S1["service-1"]
+            S2["service-2"]
+            S3["service-3"]
         end
     end
 
     UI --> API
     WZ --> API
     API --> DE
+    API --> DB
     API --> CFG
     API --> TLS
-    API --> MP
+    API --> SS
 
     DE --> DK
     DK --> Stack
@@ -82,47 +81,61 @@ flowchart LR
 
 ---
 
-## 4. Component Breakdown
+## 4. Layered Architecture
 
-### 4.1 Admin-Container
+ReadyStackGo folgt einer **Clean Architecture** mit Domain-Driven Design (DDD):
 
-- **API (FastEndpoints)**  
-  - stellt alle Endpunkte unter `/api/v1` bereit  
-  - nutzt den Dispatcher, um Commands/Queries auszuführen  
+```
+┌────────────────────────────────────────────────────────────────┐
+│                        API Layer                                │
+│              (FastEndpoints, Controllers, DTOs)                 │
+├────────────────────────────────────────────────────────────────┤
+│                    Application Layer                            │
+│         (UseCases, Commands, Queries, MediatR)                  │
+├────────────────────────────────────────────────────────────────┤
+│                      Domain Layer                               │
+│     (Aggregates, Entities, Value Objects, Domain Services)      │
+├────────────────────────────────────────────────────────────────┤
+│                   Infrastructure Layer                          │
+│  (EF Core, Repositories, Docker Service, External Services)     │
+└────────────────────────────────────────────────────────────────┘
+```
 
-- **Web UI (React + Tailwind + TailAdmin)**  
-  - Wizard-UI  
-  - Admin-Dashboard  
-  - Konfigurationsseiten (TLS, Features, Contexts, Releases)  
+### Domain Layer (`ReadyStackGo.Domain`)
 
-- **Deployment Engine**  
-  - erzeugt Deployment-Pläne aus Manifesten  
-  - orchestriert `stop → remove → create → start` der Kontext-Container  
+Enthält die Geschäftslogik, unabhängig von Infrastruktur:
 
-- **Config Store**  
-  - liest/schreibt `rsgo.*.json` im Volume `rsgo-config`  
-  - stark typisierte Config-Modelle  
+- **SharedKernel**: AggregateRoot, Entity, ValueObject, DomainEvent
+- **IdentityAccess**: Organization, User, Role (Bounded Context)
+- **Deployment**: Environment, Deployment (Bounded Context)
+- **StackManagement**: StackSource, StackDefinition (Bounded Context)
 
-- **TLS Engine**  
-  - erzeugt Self-Signed-Zertifikate beim Bootstrap  
-  - validiert & installiert Custom-PFX-Zertifikate  
+### Application Layer (`ReadyStackGo.Application`)
 
-- **Manifest Provider**  
-  - liest Release-Manifeste (Stack-Definitionen)  
-  - validiert Schema-Versionen  
+Orchestriert die Geschäftslogik über UseCases:
 
----
+- **CQRS-Pattern** mit MediatR
+- **UseCases**: Commands (zustandsändernd) und Queries (lesend)
+- **Service Interfaces**: Abstraktion der Infrastruktur
 
-### 4.2 Kontext-Container
+### Infrastructure Layer (`ReadyStackGo.Infrastructure`)
 
-- Fachdienste: `project`, `memo`, `discussion`, `identity`, …  
-- BFFs: `bff-desktop`, `bff-web`  
-- Gateway: `edge-gateway` (terminiert TLS nach außen)
+Implementiert technische Belange:
 
-Alle werden über das gemeinsame Docker-Netzwerk `rsgo-net` verbunden und erhalten:
+- **DataAccess**: EF Core DbContext, Repositories, SQLite
+- **Authentication**: JWT Token Service, BCrypt Password Hasher
+- **Configuration**: JSON-basierter ConfigStore
+- **Docker**: Docker Engine Integration via Docker.DotNet
+- **Services**: DeploymentEngine, DeploymentService
+- **Stacks**: Stack Source Provider, Cache
 
-- `RSGO_*`-EnvVars (Features, Verbindungen, Organisation, Stack-Version)
-- optional zusätzliche EnvVars aus dem Manifest
+### API Layer (`ReadyStackGo.Api`)
+
+HTTP-Schnittstelle:
+
+- **FastEndpoints** für REST-APIs
+- **Authentication/Authorization** Middleware
+- **Request/Response** DTOs
 
 ---
 
@@ -135,18 +148,18 @@ sequenceDiagram
     participant User as Admin User
     participant UI as RSGO Web UI
     participant API as RSGO API
-    participant DISP as Dispatcher
-    participant APP as Application Layer
-    participant INF as DockerService/ConfigStore
+    participant MED as MediatR
+    participant APP as UseCase Handler
+    participant INF as Infrastructure Services
 
     User->>UI: Klickt auf "Liste Container"
     UI->>API: GET /api/v1/containers
-    API->>DISP: Query(ListContainersQuery)
-    DISP->>APP: Handle(ListContainersQuery)
+    API->>MED: Send(ListContainersQuery)
+    MED->>APP: Handle(ListContainersQuery)
     APP->>INF: dockerService.ListAsync()
     INF-->>APP: ContainerInfo[]
-    APP-->>DISP: Ergebnis
-    DISP-->>API: ContainerInfo[]
+    APP-->>MED: Ergebnis
+    MED-->>API: ContainerInfo[]
     API-->>UI: JSON-Response
     UI-->>User: Tabelle mit Containern
 ```
@@ -161,25 +174,48 @@ sequenceDiagram
 sequenceDiagram
     participant Admin as Admin UI
     participant API as RSGO API
-    participant ENG as Deployment Engine
-    participant MP as Manifest Provider
-    participant CFG as Config Store
+    participant MED as MediatR
+    participant SVC as DeploymentService
+    participant ENG as DeploymentEngine
     participant DK as Docker Engine
 
-    Admin->>API: POST /releases/4.3.0/install
-    API->>ENG: InstallStackCommand(4.3.0)
-    ENG->>MP: LoadVersionAsync("4.3.0")
-    MP-->>ENG: ReleaseManifest
-    ENG->>CFG: Load System/Contexts/Features
-    CFG-->>ENG: Config Models
-    ENG->>ENG: Generate DeploymentPlan
-    loop for each context
-        ENG->>DK: Stop/Remove/Create/Start Container
+    Admin->>API: POST /api/v1/deployments
+    API->>MED: Send(DeployComposeCommand)
+    MED->>SVC: Handle(DeployComposeCommand)
+    SVC->>ENG: GenerateDeploymentPlanAsync()
+    ENG-->>SVC: DeploymentPlan
+    SVC->>ENG: ExecuteDeploymentAsync(plan)
+    loop for each service
+        ENG->>DK: Pull Image
+        ENG->>DK: Create Container
+        ENG->>DK: Start Container
         DK-->>ENG: OK/Fehler
     end
-    ENG->>CFG: Save updated rsgo.release.json
-    ENG-->>API: InstallResult
+    ENG-->>SVC: DeploymentResult
+    SVC-->>MED: Result
+    MED-->>API: DeploymentResult
     API-->>Admin: success / errorCode
+```
+
+### 6.2 DeploymentPlan Struktur
+
+Der DeploymentEngine generiert einen Plan basierend auf:
+
+- Docker Compose YAML (geparst)
+- Environment-Variablen aus Feature-Flags
+- Organization-spezifische Einstellungen
+- Service-Abhängigkeiten (depends_on)
+
+```csharp
+public class DeploymentPlan
+{
+    public string StackVersion { get; set; }
+    public string? EnvironmentId { get; set; }
+    public string? StackName { get; set; }
+    public Dictionary<string, string> GlobalEnvVars { get; set; }
+    public List<DeploymentStep> Steps { get; set; }
+    public Dictionary<string, NetworkDefinition> Networks { get; set; }
+}
 ```
 
 ---
@@ -193,16 +229,19 @@ stateDiagram-v2
     [*] --> NotStarted
     NotStarted --> AdminCreated: POST /wizard/admin
     AdminCreated --> OrganizationSet: POST /wizard/organization
-    OrganizationSet --> ConnectionsSet: POST /wizard/connections
-    ConnectionsSet --> Installed: POST /wizard/install
-    Installed --> [*]
+    OrganizationSet --> EnvironmentCreated: POST /wizard/environment
+    EnvironmentCreated --> Completed: POST /wizard/complete
+    Completed --> [*]
 ```
 
-Jeder Übergang:
+Der Wizard:
 
-- validiert die Eingaben  
-- schreibt eine oder mehrere `rsgo.*.json` Dateien  
-- aktualisiert `wizardState` in `rsgo.system.json`
+1. Erstellt den **SystemAdmin** User (erster User im System)
+2. Erstellt die **Organization**
+3. Erstellt das **Default Environment** (Docker Socket)
+4. Markiert den Wizard als abgeschlossen
+
+Alle Daten werden in **SQLite** persistiert, der Wizard-Status in `rsgo.system.json`.
 
 ---
 
@@ -213,13 +252,14 @@ Jeder Übergang:
 ```mermaid
 flowchart LR
     UI["Admin UI"] --> API["RSGO API"]
-    API --> AUTH["Auth Layer"]
-    AUTH --> CFG["rsgo.security.json"]
+    API --> AUTH["JWT Auth"]
+    AUTH --> DB[("SQLite Users")]
     AUTH --> JWT["JWT Tokens"]
 ```
 
-- Local Auth (Default): Username/Passwort → JWT  
-- Später OIDC: Weiterleitung zum externen Identity Provider  
+- **Local Auth**: Username/Passwort → BCrypt → JWT Token
+- **Roles**: SystemAdmin, OrgOwner, Operator, Viewer
+- **Scopes**: Global, Organization, Environment
 
 ### 8.2 TLS Flow
 
@@ -228,29 +268,42 @@ sequenceDiagram
     participant C as Customer Admin (Browser)
     participant A as RSGO Admin-Container
     participant T as TLS Engine
-    participant G as edge-gateway Container
 
     C->>A: https://host:8443 (Wizard)
     A->>T: Check rsgo.tls.json
     T-->>A: Self-Signed OK
-    Note over A,G: Nach Wizard-Installation:
-    A->>G: Deploy edge-gateway with mounted PFX
-    C->>G: https://host:8443 (Gateway)
+    Note over A: Nach Wizard-Installation:
+    Note over A: Optional: Custom Certificate Upload
 ```
 
 ---
 
 ## 9. Multi-Node & Future Scaling
 
-Auch wenn v1 primär Single-Node ist, ist die Architektur vorbereitet auf:
+Auch wenn v0.6 primär Single-Node ist, ist die Architektur vorbereitet auf:
 
-- mehrere Docker-Hosts (Nodes)  
-- Rollen pro Node (`gateway`, `compute`, `storage`)  
-- Node-Zuordnung pro Kontext im Manifest  
+- mehrere **Docker-Hosts** (via Docker API statt Socket)
+- **Environment-basierte** Trennung (Production, Staging, Dev)
+- **EnvironmentType**: DockerSocket, DockerApi, (future: DockerSwarm, Kubernetes)
 
-Das wird über `rsgo.nodes.json` und einen abstrahierten `IDockerService` pro Node umgesetzt.
+Das wird über das `Environment`-Aggregate gesteuert:
+
+```csharp
+public enum EnvironmentType
+{
+    DockerSocket = 0,  // Lokaler Docker Socket
+    DockerApi = 1      // Remote Docker API
+}
+```
 
 ---
 
-Fazit:  
+## Fazit
+
 ReadyStackGo ist so aufgebaut, dass es heute einfache Single-Host-Installationen elegant löst, und morgen zu einer vollwertigen, erweiterbaren On-Prem-Orchestrierungsplattform wachsen kann.
+
+Die **DDD-Architektur** ermöglicht:
+- Klare Trennung von Geschäftslogik und Infrastruktur
+- Testbare Domain-Logik
+- Erweiterbare Bounded Contexts
+- Einfache Migration zu anderen Datenbanken bei Bedarf

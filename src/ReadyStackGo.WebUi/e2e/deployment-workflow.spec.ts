@@ -186,8 +186,8 @@ services:
 
     // If there are deployments, headers should be visible
     const stackNameHeader = headerRow.getByText('Stack Name');
-    const statusHeader = headerRow.getByText('Status');
-    const actionsHeader = headerRow.getByText('Actions');
+    void headerRow.getByText('Status');
+    void headerRow.getByText('Actions');
 
     // Either should have headers or "No deployments" message
     const hasStackNameHeader = await stackNameHeader.isVisible().catch(() => false);

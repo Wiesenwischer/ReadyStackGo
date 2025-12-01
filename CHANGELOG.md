@@ -7,6 +7,111 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.0] - 2024-12-01
+
+### Added
+
+#### Multi-User Support & DDD Architecture
+- **SQLite Database** for persistent storage (replaces JSON files for dynamic data)
+- **Domain-Driven Design** with Bounded Contexts:
+  - **IdentityAccess:** Users, Organizations, Roles, Permissions
+  - **Deployment:** Environments, Deployments, DeployedServices
+  - **StackManagement:** Stack Sources, Stack Definitions
+- **Role-based Access Control (RBAC)**
+  - SystemAdmin, OrganizationAdmin, Deployer, Viewer roles
+  - Permission-based authorization
+- **Clean Architecture** implementation:
+  - Domain layer with Aggregates, Entities, Value Objects
+  - Application layer with UseCases and MediatR CQRS
+  - Infrastructure layer with EF Core repositories
+
+#### Application Layer
+- **MediatR** for Command/Query separation
+- **UseCases** pattern for all operations:
+  - Authentication (Login, RegisterSystemAdmin)
+  - Organizations (ProvisionOrganization)
+  - Environments (CRUD operations)
+  - Deployments (Deploy, List, Remove)
+  - Stacks (List, Get with parsed compose files)
+  - Wizard (GetStatus, CompleteWizard)
+
+#### Infrastructure & DevOps
+- **GitHub Actions** workflows:
+  - CI: Build & test on push/PR
+  - Docker: Build and push to ghcr.io with SBOM
+  - Release Drafter: Auto-generate release notes from PR labels
+  - Licenses: Auto-update third-party license reports
+- **SBOM generation** for container images
+- **Build provenance attestation**
+
+#### Testing
+- **Reqnroll** (SpecFlow successor) for BDD domain tests
+- Integration tests for SQLite repositories
+- Updated test infrastructure for DDD patterns
+
+### Changed
+
+#### Data Storage
+- **Migrated from JSON to SQLite** for:
+  - Users and authentication
+  - Organizations
+  - Environments
+  - Deployments
+- JSON files retained only for static configuration:
+  - `rsgo.system.json` (wizard state, base URL)
+  - `rsgo.tls.json` (TLS configuration)
+  - `rsgo.features.json` (feature flags)
+  - `rsgo.release.json` (version info)
+
+#### Architecture
+- Domain layer restructured with proper Aggregate boundaries
+- Renamed `Common` to `SharedKernel`
+- Application services moved to Infrastructure where appropriate
+- `ISystemConfigService` added as Application port for wizard state
+
+### Fixed
+- **Wizard skip bug:** Environment step no longer skipped after organization setup
+- Wizard state now properly persisted to SystemConfig
+
+### Breaking Changes
+- Database schema change (new SQLite database required)
+- API response formats updated for new DTOs
+- Configuration file structure simplified
+
+---
+
+## [0.5.0] - 2024-11-20
+
+### Added
+- Multi-Environment support
+- Environment management UI
+- Docker socket connection testing
+- Environment selector in UI
+
+### Changed
+- Improved deployment engine
+- Better error handling in API endpoints
+
+---
+
+## [0.4.0] - 2024-11-10
+
+### Added
+- Simplified wizard (4 steps → 3 steps)
+- Stack-specific configuration system
+- Docker Compose variable detection
+- Per-deployment configuration storage
+
+### Changed
+- Removed mandatory environment requirement
+- Organizations can exist without environments
+
+### Removed
+- `rsgo.contexts.json` (connection strings now per-deployment)
+- `WizardState.ConnectionsSet` step
+
+---
+
 ## [0.3.0] - 2025-01-19
 
 ### Added
@@ -269,6 +374,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[0.3.0]: https://github.com/yourorg/readystackgo/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/yourorg/readystackgo/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/yourorg/readystackgo/releases/tag/v0.1.0
+[0.6.0]: https://github.com/Wiesenwischer/ReadyStackGo/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/Wiesenwischer/ReadyStackGo/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/Wiesenwischer/ReadyStackGo/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/Wiesenwischer/ReadyStackGo/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/Wiesenwischer/ReadyStackGo/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/Wiesenwischer/ReadyStackGo/releases/tag/v0.1.0

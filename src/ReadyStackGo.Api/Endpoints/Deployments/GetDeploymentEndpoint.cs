@@ -1,26 +1,35 @@
 using FastEndpoints;
+using MediatR;
 using Microsoft.AspNetCore.Http;
-using ReadyStackGo.Application.Deployments;
+using ReadyStackGo.Api.Authorization;
+using ReadyStackGo.Application.UseCases.Deployments;
+using ReadyStackGo.Application.UseCases.Deployments.GetDeployment;
 
 namespace ReadyStackGo.API.Endpoints.Deployments;
 
 /// <summary>
-/// GET /api/deployments/{environmentId}/{stackName} - Get deployment details
+/// GET /api/deployments/{environmentId}/{stackName} - Get a specific deployment.
+/// Accessible by: SystemAdmin, OrganizationOwner, Operator, Viewer (scoped).
 /// </summary>
-public class GetDeploymentEndpoint : EndpointWithoutRequest<GetDeploymentResponse>
+[RequirePermission("Deployments", "Read")]
+public class GetDeploymentEndpoint : Endpoint<GetDeploymentRequest, GetDeploymentResponse>
 {
-    public IDeploymentService DeploymentService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public GetDeploymentEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
         Get("/api/deployments/{environmentId}/{stackName}");
+        PreProcessor<RbacPreProcessor<GetDeploymentRequest>>();
     }
 
-    public override async Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(GetDeploymentRequest req, CancellationToken ct)
     {
-        var environmentId = Route<string>("environmentId");
-        var stackName = Route<string>("stackName");
-        var response = await DeploymentService.GetDeploymentAsync(environmentId!, stackName!);
+        var response = await _mediator.Send(new GetDeploymentQuery(req.EnvironmentId, req.StackName), ct);
 
         if (!response.Success)
         {
@@ -29,4 +38,10 @@ public class GetDeploymentEndpoint : EndpointWithoutRequest<GetDeploymentRespons
 
         Response = response;
     }
+}
+
+public class GetDeploymentRequest
+{
+    public string EnvironmentId { get; set; } = string.Empty;
+    public string StackName { get; set; } = string.Empty;
 }

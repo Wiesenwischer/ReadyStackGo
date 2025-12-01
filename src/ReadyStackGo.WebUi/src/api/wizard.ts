@@ -2,11 +2,29 @@ import { apiGet, apiPost } from './client';
 
 // Wizard DTOs matching the backend
 // v0.4: ConnectionsSet removed from wizard states
+// v0.6: Added timeout tracking with permanent lock
+
+/** Timeout information for the wizard setup window */
+export interface WizardTimeoutInfo {
+  /** Whether the wizard window has timed out */
+  isTimedOut: boolean;
+  /** Whether the wizard is permanently locked (requires container restart) */
+  isLocked: boolean;
+  /** Remaining seconds until timeout. Null if already timed out */
+  remainingSeconds: number | null;
+  /** When the timeout window expires (UTC ISO string) */
+  expiresAt: string | null;
+  /** The configured timeout duration in seconds */
+  timeoutSeconds: number;
+}
+
 export interface WizardStatusResponse {
   wizardState: 'NotStarted' | 'AdminCreated' | 'OrganizationSet' | 'Installed';
   isCompleted: boolean;
   /** Default Docker socket path for the server's OS (e.g., "npipe://./pipe/docker_engine" for Windows) */
   defaultDockerSocketPath: string;
+  /** Timeout information for the wizard window (v0.6) */
+  timeout?: WizardTimeoutInfo;
 }
 
 export interface CreateAdminRequest {

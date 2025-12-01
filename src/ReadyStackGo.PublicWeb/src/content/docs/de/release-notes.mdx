@@ -1,0 +1,77 @@
+---
+title: Release Notes
+description: Änderungen und neue Features in ReadyStackGo
+---
+
+import { LinkCard } from '@astrojs/starlight/components';
+
+<LinkCard
+  title="Vollständiges Changelog auf GitHub"
+  description="Detaillierte Änderungshistorie aller Versionen"
+  href="https://github.com/Wiesenwischer/ReadyStackGo/blob/main/CHANGELOG.md"
+/>
+
+## Version 0.6.0
+
+*Veröffentlicht: Dezember 2024*
+
+### Multi-User Support & DDD-Architektur
+
+Diese Version führt eine komplett neue Architektur ein:
+
+- **SQLite-Datenbank** für persistente Speicherung
+- **Domain-Driven Design** mit Bounded Contexts
+- **Rollenbasierte Zugriffskontrolle (RBAC)**
+
+### Neue Features
+
+- **Benutzer & Rollen**
+  - Mehrere Benutzer pro Organisation
+  - SystemAdmin, OrganizationAdmin, Deployer, Viewer Rollen
+  - Berechtigungsbasierte Autorisierung
+
+- **GitHub Actions Integration**
+  - CI/CD Workflows
+  - Automatische Docker Image Builds
+  - SBOM-Generierung für Container
+
+### Änderungen
+
+- Migration von JSON-Dateien zu SQLite
+- Neue DDD-Architektur mit Clean Architecture
+- Verbesserte API-Struktur mit MediatR
+
+---
+
+## Version 0.5.0
+
+*Veröffentlicht: November 2024*
+
+### Multi-Environment Support
+
+- Verwaltung mehrerer Docker-Hosts
+- Environment-Auswahl in der UI
+- Verbindungstest für Docker-Sockets
+
+---
+
+## Version 0.4.0
+
+*Veröffentlicht: November 2024*
+
+### Vereinfachter Wizard
+
+- 3-Schritt Setup (statt 4)
+- Stack-spezifische Konfiguration
+- Docker Compose Variablen-Erkennung
+
+---
+
+## Roadmap
+
+Geplante Features für zukünftige Versionen:
+
+- **v0.7** - CI/CD Integration & Webhooks
+- **v0.8** - Erweiterte Stack-Formate
+- **v1.0** - Production Readiness
+- **v2.0+** - Kubernetes Support

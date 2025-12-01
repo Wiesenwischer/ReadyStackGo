@@ -2,6 +2,7 @@ using System.Text;
 using FastEndpoints;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using ReadyStackGo.Application;
 using ReadyStackGo.Infrastructure;
 
 namespace ReadyStackGo.Api;
@@ -13,6 +14,7 @@ public class Program
         var builder = WebApplication.CreateBuilder(args);
 
         // Add services to the container
+        builder.Services.AddApplication();
         builder.Services.AddInfrastructure(builder.Configuration);
         builder.Services.AddFastEndpoints();
 
@@ -21,6 +23,10 @@ public class Program
         builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
+                // Disable claim mapping to preserve original JWT claim names
+                // This allows us to use "roles" claim without ASP.NET Core transforming it
+                options.MapInboundClaims = false;
+
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
@@ -49,8 +55,14 @@ public class Program
 
         var app = builder.Build();
 
+        // Initialize SQLite database
+        app.Services.EnsureDatabaseCreated();
+
         // Bootstrap: Generate TLS certificate if not exists
         await BootstrapTlsCertificateAsync(app);
+
+        // Initialize wizard timeout (timer starts at container startup, not browser access)
+        await InitializeWizardTimeoutAsync(app);
 
         // Configure the HTTP request pipeline
         if (app.Environment.IsDevelopment())
@@ -101,6 +113,18 @@ public class Program
         });
 
         await app.RunAsync();
+    }
+
+    /// <summary>
+    /// Initialize wizard timeout window at application startup.
+    /// The 5-minute timer starts when the container starts, not when the user first accesses the UI.
+    /// </summary>
+    private static async Task InitializeWizardTimeoutAsync(WebApplication app)
+    {
+        using var scope = app.Services.CreateScope();
+        var timeoutService = scope.ServiceProvider.GetRequiredService<ReadyStackGo.Application.Services.IWizardTimeoutService>();
+
+        await timeoutService.InitializeOnStartupAsync();
     }
 
     /// <summary>

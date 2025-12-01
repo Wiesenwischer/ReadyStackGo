@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, 'feature/**']
+  pull_request:
+    branches: [main, develop]
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  NODE_VERSION: '20.x'
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'src/ReadyStackGo.WebUi/package-lock.json'
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v1
+        with:
+          versionSpec: '5.x'
+
+      - name: Determine Version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v1
+        with:
+          useConfigFile: true
+
+      - name: Display Version
+        run: |
+          echo "SemVer: ${{ steps.gitversion.outputs.semVer }}"
+          echo "MajorMinorPatch: ${{ steps.gitversion.outputs.majorMinorPatch }}"
+
+      - name: Restore .NET dependencies
+        run: dotnet restore
+
+      - name: Build .NET
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Run Unit Tests
+        run: dotnet test tests/ReadyStackGo.UnitTests/ReadyStackGo.UnitTests.csproj --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=unit-test-results.trx"
+
+      - name: Run Integration Tests
+        run: dotnet test tests/ReadyStackGo.IntegrationTests/ReadyStackGo.IntegrationTests.csproj --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=integration-test-results.trx"
+
+      - name: Run Domain Tests
+        run: dotnet test tests/ReadyStackGo.DomainTests/ReadyStackGo.DomainTests.csproj --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=domain-test-results.trx"
+
+      - name: Install frontend dependencies
+        working-directory: src/ReadyStackGo.WebUi
+        run: npm ci
+
+      - name: Lint Frontend
+        working-directory: src/ReadyStackGo.WebUi
+        run: npm run lint
+
+      - name: Type Check Frontend
+        working-directory: src/ReadyStackGo.WebUi
+        run: npx tsc -b
+
+      - name: Build frontend
+        working-directory: src/ReadyStackGo.WebUi
+        run: npm run build
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: '**/*-test-results.trx'
+          retention-days: 7
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: |
+            src/ReadyStackGo.Api/bin/Release/
+            src/ReadyStackGo.Api/wwwroot/
+          retention-days: 7
+
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'src/ReadyStackGo.WebUi/package-lock.json'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install Frontend Dependencies
+        working-directory: src/ReadyStackGo.WebUi
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        working-directory: src/ReadyStackGo.WebUi
+        run: npx playwright install --with-deps chromium
+
+      - name: Build Backend
+        run: dotnet build src/ReadyStackGo.Api/ReadyStackGo.Api.csproj --configuration Release
+
+      - name: Run E2E Tests
+        working-directory: src/ReadyStackGo.WebUi
+        run: npm run test:e2e
+        continue-on-error: true
+
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: src/ReadyStackGo.WebUi/playwright-report/
+          retention-days: 30

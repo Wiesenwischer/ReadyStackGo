@@ -1,13 +1,31 @@
 using FastEndpoints;
+using MediatR;
 using Microsoft.AspNetCore.Http;
-using ReadyStackGo.Application.Auth;
-using ReadyStackGo.Application.Auth.DTOs;
+using ReadyStackGo.Application.UseCases.Authentication.Login;
 
 namespace ReadyStackGo.API.Endpoints.Auth;
 
+public class LoginRequest
+{
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+}
+
+public class LoginResponse
+{
+    public string Token { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string Role { get; set; } = string.Empty;
+}
+
 public class LoginEndpoint : Endpoint<LoginRequest, LoginResponse>
 {
-    public IAuthService AuthService { get; set; } = null!;
+    private readonly IMediator _mediator;
+
+    public LoginEndpoint(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
 
     public override void Configure()
     {
@@ -17,14 +35,19 @@ public class LoginEndpoint : Endpoint<LoginRequest, LoginResponse>
 
     public override async Task HandleAsync(LoginRequest req, CancellationToken ct)
     {
-        var result = await AuthService.LoginAsync(req);
+        var result = await _mediator.Send(new LoginCommand(req.Username, req.Password), ct);
 
-        if (result is null)
+        if (!result.Success)
         {
-            ThrowError("Invalid username or password", StatusCodes.Status401Unauthorized);
+            ThrowError(result.ErrorMessage ?? "Invalid username or password", StatusCodes.Status401Unauthorized);
             return;
         }
 
-        Response = result;
+        Response = new LoginResponse
+        {
+            Token = result.Token!,
+            Username = result.Username!,
+            Role = result.Role!
+        };
     }
 }

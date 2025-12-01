@@ -1,7 +1,10 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using ReadyStackGo.Application.Stacks;
-using ReadyStackGo.Domain.Stacks;
+using ReadyStackGo.Application.Services;
+using ReadyStackGo.Domain.StackManagement.StackSources;
+using ReadyStackGo.Domain.StackManagement.StackSources;
+using ReadyStackGo.Domain.StackManagement.StackSources;
+using ReadyStackGo.Infrastructure.Stacks.Configuration;
 
 namespace ReadyStackGo.Infrastructure.Stacks;
 
@@ -14,7 +17,7 @@ public class StackSourceService : IStackSourceService
     private readonly IStackCache _cache;
     private readonly IEnumerable<IStackSourceProvider> _providers;
     private readonly string _configPath;
-    private List<StackSource> _sources = new();
+    private List<StackSourceEntry> _sourceEntries = new();
     private bool _initialized;
     private readonly SemaphoreSlim _initLock = new(1, 1);
 
@@ -66,13 +69,13 @@ public class StackSourceService : IStackSourceService
                 PropertyNameCaseInsensitive = true
             });
 
-            _sources = config?.Sources ?? new List<StackSource>();
-            _logger.LogInformation("Loaded {Count} stack sources from configuration", _sources.Count);
+            _sourceEntries = config?.Sources ?? new List<StackSourceEntry>();
+            _logger.LogInformation("Loaded {Count} stack sources from configuration", _sourceEntries.Count);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load stack source configuration");
-            _sources = new List<StackSource>();
+            _sourceEntries = new List<StackSourceEntry>();
         }
     }
 
@@ -80,9 +83,9 @@ public class StackSourceService : IStackSourceService
     {
         var defaultConfig = new StackSourceConfig
         {
-            Sources = new List<StackSource>
+            Sources = new List<StackSourceEntry>
             {
-                new LocalDirectoryStackSource
+                new LocalDirectorySourceEntry
                 {
                     Id = "stacks",
                     Name = "Local",
@@ -105,7 +108,7 @@ public class StackSourceService : IStackSourceService
 
     private async Task SaveConfigurationAsync(CancellationToken cancellationToken)
     {
-        var config = new StackSourceConfig { Sources = _sources };
+        var config = new StackSourceConfig { Sources = _sourceEntries };
         var json = JsonSerializer.Serialize(config, new JsonSerializerOptions
         {
             WriteIndented = true,
@@ -119,39 +122,94 @@ public class StackSourceService : IStackSourceService
     public async Task<IEnumerable<StackSource>> GetSourcesAsync(CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken);
-        return _sources.ToList();
+        return _sourceEntries.Select(ConvertToStackSource).ToList();
+    }
+
+    private static StackSource ConvertToStackSource(StackSourceEntry entry)
+    {
+        var id = new StackSourceId(entry.Id);
+
+        return entry switch
+        {
+            LocalDirectorySourceEntry local => StackSource.CreateLocalDirectory(
+                id,
+                local.Name,
+                local.Path,
+                local.FilePattern),
+
+            GitRepositorySourceEntry git => StackSource.CreateGitRepository(
+                id,
+                git.Name,
+                git.GitUrl,
+                git.Branch,
+                git.Path,
+                git.FilePattern),
+
+            _ => throw new NotSupportedException($"Unknown source entry type: {entry.GetType().Name}")
+        };
     }
 
     public async Task<StackSource> AddSourceAsync(StackSource source, CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken);
 
-        if (_sources.Any(s => s.Id == source.Id))
+        if (_sourceEntries.Any(s => s.Id == source.Id.Value))
         {
             throw new InvalidOperationException($"Source with ID '{source.Id}' already exists");
         }
 
-        _sources.Add(source);
+        var entry = ConvertToSourceEntry(source);
+        _sourceEntries.Add(entry);
         await SaveConfigurationAsync(cancellationToken);
 
         // Sync the new source
-        await SyncSourceAsync(source.Id, cancellationToken);
+        await SyncSourceAsync(source.Id.Value, cancellationToken);
 
         _logger.LogInformation("Added new stack source: {SourceId} ({SourceName})", source.Id, source.Name);
         return source;
+    }
+
+    private static StackSourceEntry ConvertToSourceEntry(StackSource source)
+    {
+        return source.Type switch
+        {
+            StackSourceType.LocalDirectory => new LocalDirectorySourceEntry
+            {
+                Id = source.Id.Value,
+                Name = source.Name,
+                Path = source.Path!,
+                FilePattern = source.FilePattern ?? "*.yml;*.yaml",
+                Enabled = source.Enabled,
+                LastSyncedAt = source.LastSyncedAt
+            },
+
+            StackSourceType.GitRepository => new GitRepositorySourceEntry
+            {
+                Id = source.Id.Value,
+                Name = source.Name,
+                GitUrl = source.GitUrl!,
+                Branch = source.GitBranch ?? "main",
+                Path = source.Path,
+                FilePattern = source.FilePattern ?? "*.yml;*.yaml",
+                Enabled = source.Enabled,
+                LastSyncedAt = source.LastSyncedAt
+            },
+
+            _ => throw new NotSupportedException($"Unknown source type: {source.Type}")
+        };
     }
 
     public async Task RemoveSourceAsync(string sourceId, CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken);
 
-        var source = _sources.FirstOrDefault(s => s.Id == sourceId);
-        if (source == null)
+        var entry = _sourceEntries.FirstOrDefault(s => s.Id == sourceId);
+        if (entry == null)
         {
             throw new InvalidOperationException($"Source with ID '{sourceId}' not found");
         }
 
-        _sources.Remove(source);
+        _sourceEntries.Remove(entry);
         _cache.RemoveBySource(sourceId);
         await SaveConfigurationAsync(cancellationToken);
 
@@ -162,80 +220,77 @@ public class StackSourceService : IStackSourceService
     {
         await EnsureInitializedAsync(cancellationToken);
 
-        var result = new SyncResult
-        {
-            Success = true,
-            StacksLoaded = 0,
-            SourcesSynced = 0
-        };
+        var totalStacksLoaded = 0;
+        var sourcesSynced = 0;
+        var errors = new List<string>();
+        var warnings = new List<string>();
+        var success = true;
 
-        foreach (var source in _sources.Where(s => s.Enabled))
+        foreach (var entry in _sourceEntries.Where(s => s.Enabled))
         {
             try
             {
-                var sourceResult = await SyncSourceInternalAsync(source, cancellationToken);
-                result.StacksLoaded += sourceResult.StacksLoaded;
-                result.SourcesSynced++;
-                result.Warnings.AddRange(sourceResult.Warnings);
+                var sourceResult = await SyncSourceInternalAsync(entry, cancellationToken);
+                totalStacksLoaded += sourceResult.StacksLoaded;
+                sourcesSynced++;
+                warnings.AddRange(sourceResult.Warnings);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to sync source {SourceId}", source.Id);
-                result.Errors.Add($"Failed to sync '{source.Name}': {ex.Message}");
-                result.Success = false;
+                _logger.LogError(ex, "Failed to sync source {SourceId}", entry.Id);
+                errors.Add($"Failed to sync '{entry.Name}': {ex.Message}");
+                success = false;
             }
         }
 
         _logger.LogInformation("Synced {SourceCount} sources, loaded {StackCount} stacks",
-            result.SourcesSynced, result.StacksLoaded);
+            sourcesSynced, totalStacksLoaded);
 
-        return result;
+        return new SyncResult
+        {
+            Success = success,
+            StacksLoaded = totalStacksLoaded,
+            SourcesSynced = sourcesSynced,
+            Errors = errors,
+            Warnings = warnings
+        };
     }
 
     public async Task<SyncResult> SyncSourceAsync(string sourceId, CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken);
 
-        var source = _sources.FirstOrDefault(s => s.Id == sourceId);
-        if (source == null)
+        var entry = _sourceEntries.FirstOrDefault(s => s.Id == sourceId);
+        if (entry == null)
         {
-            return new SyncResult
-            {
-                Success = false,
-                Errors = { $"Source with ID '{sourceId}' not found" }
-            };
+            return SyncResult.Failed($"Source with ID '{sourceId}' not found");
         }
 
         try
         {
-            return await SyncSourceInternalAsync(source, cancellationToken);
+            return await SyncSourceInternalAsync(entry, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to sync source {SourceId}", sourceId);
-            return new SyncResult
-            {
-                Success = false,
-                Errors = { ex.Message }
-            };
+            return SyncResult.Failed(ex.Message);
         }
     }
 
-    private async Task<SyncResult> SyncSourceInternalAsync(StackSource source, CancellationToken cancellationToken)
+    private async Task<SyncResult> SyncSourceInternalAsync(StackSourceEntry entry, CancellationToken cancellationToken)
     {
-        var result = new SyncResult { Success = true, SourcesSynced = 1 };
+        // Convert to domain type for provider
+        var source = ConvertToStackSource(entry);
 
         // Find provider for this source type
         var provider = _providers.FirstOrDefault(p => p.CanHandle(source));
         if (provider == null)
         {
-            result.Success = false;
-            result.Errors.Add($"No provider found for source type: {source.GetType().Name}");
-            return result;
+            return SyncResult.Failed($"No provider found for source type: {entry.GetType().Name}");
         }
 
         // Clear existing stacks from this source
-        _cache.RemoveBySource(source.Id);
+        _cache.RemoveBySource(entry.Id);
 
         // Load stacks from source
         var stacks = await provider.LoadStacksAsync(source, cancellationToken);
@@ -245,12 +300,11 @@ public class StackSourceService : IStackSourceService
         _cache.SetMany(stackList);
 
         // Update source sync time
-        source.LastSyncedAt = DateTime.UtcNow;
+        entry.LastSyncedAt = DateTime.UtcNow;
 
-        result.StacksLoaded = stackList.Count;
-        _logger.LogDebug("Synced {Count} stacks from source {SourceId}", stackList.Count, source.Id);
+        _logger.LogDebug("Synced {Count} stacks from source {SourceId}", stackList.Count, entry.Id);
 
-        return result;
+        return SyncResult.Successful(stackList.Count, 1);
     }
 
     public async Task<IEnumerable<StackDefinition>> GetStacksAsync(CancellationToken cancellationToken = default)
@@ -264,12 +318,4 @@ public class StackSourceService : IStackSourceService
         await EnsureInitializedAsync(cancellationToken);
         return _cache.Get(stackId);
     }
-}
-
-/// <summary>
-/// Configuration file structure for stack sources
-/// </summary>
-internal class StackSourceConfig
-{
-    public List<StackSource> Sources { get; set; } = new();
 }
