@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Environments;
-using ReadyStackGo.Domain.Identity.Repositories;
+using ReadyStackGo.Domain.IdentityAccess.Repositories;
 using ReadyStackGo.Domain.StackManagement.Aggregates;
 using ReadyStackGo.Domain.StackManagement.Repositories;
 using ReadyStackGo.Domain.StackManagement.ValueObjects;

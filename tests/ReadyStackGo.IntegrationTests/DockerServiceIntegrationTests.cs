@@ -5,7 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.Identity.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
 using ReadyStackGo.Domain.StackManagement.Repositories;
 using ReadyStackGo.Domain.StackManagement.ValueObjects;
 using ReadyStackGo.Infrastructure.Docker;

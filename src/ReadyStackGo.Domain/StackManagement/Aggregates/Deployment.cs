@@ -1,7 +1,7 @@
 namespace ReadyStackGo.Domain.StackManagement.Aggregates;
 
 using ReadyStackGo.Domain.Common;
-using ReadyStackGo.Domain.Identity.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
 using ReadyStackGo.Domain.StackManagement.Events;
 using ReadyStackGo.Domain.StackManagement.ValueObjects;
 

@@ -1,10 +1,10 @@
 namespace ReadyStackGo.DomainTests.Support;
 
-using ReadyStackGo.Domain.Identity.Aggregates;
-using ReadyStackGo.Domain.Identity.Services;
-using ReadyStackGo.Domain.Identity.ValueObjects;
-using ReadyStackGo.Domain.Access.Aggregates;
-using ReadyStackGo.Domain.Access.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.Aggregates;
+using ReadyStackGo.Domain.IdentityAccess.Services;
+using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.Aggregates;
+using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
 
 /// <summary>
 /// Shared test context for Reqnroll scenarios.

@@ -1,8 +1,8 @@
 namespace ReadyStackGo.IntegrationTests.DataAccess;
 
 using FluentAssertions;
-using ReadyStackGo.Domain.Identity.Aggregates;
-using ReadyStackGo.Domain.Identity.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.Aggregates;
+using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
 using ReadyStackGo.Infrastructure.Persistence.Repositories;
 using ReadyStackGo.IntegrationTests.Infrastructure;
 

@@ -1,9 +1,9 @@
 namespace ReadyStackGo.Application.UseCases.Organizations.ProvisionOrganization;
 
 using MediatR;
-using ReadyStackGo.Domain.Access.ValueObjects;
-using ReadyStackGo.Domain.Identity.Repositories;
-using ReadyStackGo.Domain.Identity.Services;
+using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.Repositories;
+using ReadyStackGo.Domain.IdentityAccess.Services;
 
 public class ProvisionOrganizationHandler : IRequestHandler<ProvisionOrganizationCommand, ProvisionOrganizationResult>
 {

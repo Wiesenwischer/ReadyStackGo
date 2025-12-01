@@ -1,6 +1,6 @@
 using MediatR;
-using ReadyStackGo.Domain.Access.ValueObjects;
-using ReadyStackGo.Domain.Identity.Repositories;
+using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.Repositories;
 
 namespace ReadyStackGo.Application.UseCases.Wizard.CompleteWizard;
 

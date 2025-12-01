@@ -1,9 +1,9 @@
 namespace ReadyStackGo.Infrastructure.Persistence.Repositories;
 
 using Microsoft.EntityFrameworkCore;
-using ReadyStackGo.Domain.Identity.Aggregates;
-using ReadyStackGo.Domain.Identity.Repositories;
-using ReadyStackGo.Domain.Identity.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.Aggregates;
+using ReadyStackGo.Domain.IdentityAccess.Repositories;
+using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
 
 /// <summary>
 /// SQLite-backed implementation of IOrganizationRepository.

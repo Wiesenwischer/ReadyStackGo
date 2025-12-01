@@ -1,8 +1,8 @@
 namespace ReadyStackGo.Infrastructure.Persistence.Repositories;
 
-using ReadyStackGo.Domain.Access.Aggregates;
-using ReadyStackGo.Domain.Access.Repositories;
-using ReadyStackGo.Domain.Access.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.Aggregates;
+using ReadyStackGo.Domain.IdentityAccess.Repositories;
+using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
 
 /// <summary>
 /// In-memory implementation of IRoleRepository.

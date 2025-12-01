@@ -1,8 +1,8 @@
 namespace ReadyStackGo.Application.UseCases.Wizard.GetWizardStatus;
 
 using MediatR;
-using ReadyStackGo.Domain.Access.ValueObjects;
-using ReadyStackGo.Domain.Identity.Repositories;
+using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.Repositories;
 
 public class GetWizardStatusHandler : IRequestHandler<GetWizardStatusQuery, WizardStatusResult>
 {

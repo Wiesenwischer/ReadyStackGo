@@ -3,9 +3,9 @@ namespace ReadyStackGo.DomainTests.StepDefinitions;
 using FluentAssertions;
 using Reqnroll;
 using ReadyStackGo.DomainTests.Support;
-using ReadyStackGo.Domain.Identity.Aggregates;
-using ReadyStackGo.Domain.Identity.ValueObjects;
-using ReadyStackGo.Domain.Access.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.Aggregates;
+using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
 
 [Binding]
 public class OrganizationProvisioningSteps

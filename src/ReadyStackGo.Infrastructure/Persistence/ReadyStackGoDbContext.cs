@@ -1,8 +1,7 @@
 namespace ReadyStackGo.Infrastructure.Persistence;
 
 using Microsoft.EntityFrameworkCore;
-using ReadyStackGo.Domain.Identity.Aggregates;
-using ReadyStackGo.Domain.Access.Aggregates;
+using ReadyStackGo.Domain.IdentityAccess.Aggregates;
 using ReadyStackGo.Domain.StackManagement.Aggregates;
 
 /// <summary>

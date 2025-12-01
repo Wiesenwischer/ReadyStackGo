@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.Configuration;
 using ReadyStackGo.Domain.Deployment;
-using ReadyStackGo.Domain.Identity.Repositories;
+using ReadyStackGo.Domain.IdentityAccess.Repositories;
 using ReadyStackGo.Domain.Manifests;
 using ReadyStackGo.Domain.StackManagement.Repositories;
 using ReadyStackGo.Domain.StackManagement.ValueObjects;
@@ -270,7 +270,7 @@ public class DeploymentEngine : IDeploymentEngine
     }
 
     private Dictionary<string, string> GenerateGlobalEnvVars(
-        Domain.Identity.Aggregates.Organization? organization,
+        Domain.IdentityAccess.Aggregates.Organization? organization,
         FeaturesConfig featuresConfig,
         ReleaseManifest manifest)
     {

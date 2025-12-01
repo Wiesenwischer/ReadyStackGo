@@ -1,8 +1,8 @@
 namespace ReadyStackGo.DomainTests.Support;
 
-using ReadyStackGo.Domain.Identity.Aggregates;
-using ReadyStackGo.Domain.Identity.Repositories;
-using ReadyStackGo.Domain.Identity.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.Aggregates;
+using ReadyStackGo.Domain.IdentityAccess.Repositories;
+using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
 
 /// <summary>
 /// In-memory implementation of ITenantRepository for testing.

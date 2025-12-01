@@ -1,7 +1,7 @@
 namespace ReadyStackGo.Infrastructure.Persistence.Repositories;
 
 using Microsoft.EntityFrameworkCore;
-using ReadyStackGo.Domain.Identity.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
 using ReadyStackGo.Domain.StackManagement.Aggregates;
 using ReadyStackGo.Domain.StackManagement.Repositories;
 using ReadyStackGo.Domain.StackManagement.ValueObjects;

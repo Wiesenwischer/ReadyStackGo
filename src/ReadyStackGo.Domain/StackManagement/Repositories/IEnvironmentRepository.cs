@@ -1,6 +1,6 @@
 namespace ReadyStackGo.Domain.StackManagement.Repositories;
 
-using ReadyStackGo.Domain.Identity.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
 using ReadyStackGo.Domain.StackManagement.Aggregates;
 using ReadyStackGo.Domain.StackManagement.ValueObjects;
 

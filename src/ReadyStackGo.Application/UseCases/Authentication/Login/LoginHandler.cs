@@ -1,9 +1,9 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.Access.ValueObjects;
+using ReadyStackGo.Domain.IdentityAccess.ValueObjects;
 using ReadyStackGo.Domain.Auth;
-using ReadyStackGo.Domain.Identity.Services;
+using ReadyStackGo.Domain.IdentityAccess.Services;
 
 namespace ReadyStackGo.Application.UseCases.Authentication.Login;
 

@@ -1,7 +1,7 @@
 namespace ReadyStackGo.Application.UseCases.Administration.RegisterSystemAdmin;
 
 using MediatR;
-using ReadyStackGo.Domain.Identity.Services;
+using ReadyStackGo.Domain.IdentityAccess.Services;
 
 public class RegisterSystemAdminHandler : IRequestHandler<RegisterSystemAdminCommand, RegisterSystemAdminResult>
 {
