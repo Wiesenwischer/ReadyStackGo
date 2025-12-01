@@ -3,11 +3,7 @@ using ReadyStackGo.Application.UseCases.Deployments;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
-using ReadyStackGo.Domain.Deployment.Deployments;
-using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
-using ReadyStackGo.Domain.IdentityAccess.Roles;
-using ReadyStackGo.Domain.IdentityAccess.Users;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Manifests;
 
@@ -50,7 +46,6 @@ public class DeploymentEngine : IDeploymentEngine
         };
 
         // Load configurations
-        var contextsConfig = await _configStore.GetContextsConfigAsync();
         var featuresConfig = await _configStore.GetFeaturesConfigAsync();
 
         // Get organization from SQLite
@@ -84,9 +79,6 @@ public class DeploymentEngine : IDeploymentEngine
                     step.EnvVars[key] = value;
                 }
             }
-
-            // Add connection strings based on mode
-            AddConnectionEnvVars(step, contextName, contextsConfig);
 
             steps.Add(step);
         }
@@ -307,40 +299,6 @@ public class DeploymentEngine : IDeploymentEngine
         }
 
         return envVars;
-    }
-
-    private void AddConnectionEnvVars(
-        DeploymentStep step,
-        string contextName,
-        ContextsConfig contextsConfig)
-    {
-        if (contextsConfig.Mode == ConnectionMode.Simple && contextsConfig.GlobalConnections != null)
-        {
-            // Simple mode: use global connections
-            step.EnvVars["RSGO_CONNECTION_transport"] = contextsConfig.GlobalConnections.Transport;
-            step.EnvVars["RSGO_CONNECTION_persistence"] = contextsConfig.GlobalConnections.Persistence;
-            if (!string.IsNullOrWhiteSpace(contextsConfig.GlobalConnections.EventStore))
-            {
-                step.EnvVars["RSGO_CONNECTION_eventStore"] = contextsConfig.GlobalConnections.EventStore;
-            }
-        }
-        else if (contextsConfig.Mode == ConnectionMode.Advanced &&
-                 contextsConfig.Contexts.TryGetValue(contextName, out var contextConnections))
-        {
-            // Advanced mode: use context-specific connections
-            if (!string.IsNullOrWhiteSpace(contextConnections.Transport))
-            {
-                step.EnvVars["RSGO_CONNECTION_transport"] = contextConnections.Transport;
-            }
-            if (!string.IsNullOrWhiteSpace(contextConnections.Persistence))
-            {
-                step.EnvVars["RSGO_CONNECTION_persistence"] = contextConnections.Persistence;
-            }
-            if (!string.IsNullOrWhiteSpace(contextConnections.EventStore))
-            {
-                step.EnvVars["RSGO_CONNECTION_eventStore"] = contextConnections.EventStore;
-            }
-        }
     }
 
     private List<DeploymentStep> OrderStepsByDependencies(

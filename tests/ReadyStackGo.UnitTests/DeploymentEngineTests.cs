@@ -70,11 +70,8 @@ public class DeploymentEngineTests
         _environmentRepositoryMock.Setup(x => x.GetDefault(_testOrgId))
             .Returns(environment);
 
-#pragma warning disable CS0618 // ContextsConfig is obsolete
-        _configStoreMock.Setup(x => x.GetContextsConfigAsync()).ReturnsAsync(new ContextsConfig());
         _configStoreMock.Setup(x => x.GetFeaturesConfigAsync()).ReturnsAsync(new FeaturesConfig());
         _configStoreMock.Setup(x => x.GetReleaseConfigAsync()).ReturnsAsync(new ReleaseConfig());
-#pragma warning restore CS0618
     }
 
     [Fact]

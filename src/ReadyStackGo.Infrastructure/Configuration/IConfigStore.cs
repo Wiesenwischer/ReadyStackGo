@@ -1,5 +1,3 @@
-using ReadyStackGo.Infrastructure.Configuration;
-
 namespace ReadyStackGo.Infrastructure.Configuration;
 
 /// <summary>
@@ -12,9 +10,6 @@ public interface IConfigStore
 
     Task<TlsConfig> GetTlsConfigAsync();
     Task SaveTlsConfigAsync(TlsConfig config);
-
-    Task<ContextsConfig> GetContextsConfigAsync();
-    Task SaveContextsConfigAsync(ContextsConfig config);
 
     Task<FeaturesConfig> GetFeaturesConfigAsync();
     Task SaveFeaturesConfigAsync(FeaturesConfig config);

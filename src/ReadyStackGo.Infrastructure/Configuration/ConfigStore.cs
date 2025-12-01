@@ -1,7 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Configuration;
-using ReadyStackGo.Infrastructure.Configuration;
 
 namespace ReadyStackGo.Infrastructure.Configuration;
 
@@ -18,7 +17,6 @@ namespace ReadyStackGo.Infrastructure.Configuration;
 /// Remaining in JSON files:
 /// - rsgo.system.json: BaseUrl, ports, network, wizard state
 /// - rsgo.tls.json: TLS certificate configuration
-/// - rsgo.contexts.json: Legacy connection strings (deprecated, to be removed in v0.7)
 /// - rsgo.features.json: Feature flags
 /// - rsgo.release.json: Release/version information
 /// </summary>
@@ -70,17 +68,6 @@ public class ConfigStore : IConfigStore
     public async Task SaveTlsConfigAsync(TlsConfig config)
     {
         await SaveConfigAsync("rsgo.tls.json", config);
-    }
-
-    public async Task<ContextsConfig> GetContextsConfigAsync()
-    {
-        return await LoadConfigAsync<ContextsConfig>("rsgo.contexts.json")
-            ?? new ContextsConfig();
-    }
-
-    public async Task SaveContextsConfigAsync(ContextsConfig config)
-    {
-        await SaveConfigAsync("rsgo.contexts.json", config);
     }
 
     public async Task<FeaturesConfig> GetFeaturesConfigAsync()
