@@ -57,6 +57,9 @@ public class Program
         // Bootstrap: Generate TLS certificate if not exists
         await BootstrapTlsCertificateAsync(app);
 
+        // Initialize wizard timeout (timer starts at container startup, not browser access)
+        await InitializeWizardTimeoutAsync(app);
+
         // Configure the HTTP request pipeline
         if (app.Environment.IsDevelopment())
         {
@@ -106,6 +109,18 @@ public class Program
         });
 
         await app.RunAsync();
+    }
+
+    /// <summary>
+    /// Initialize wizard timeout window at application startup.
+    /// The 5-minute timer starts when the container starts, not when the user first accesses the UI.
+    /// </summary>
+    private static async Task InitializeWizardTimeoutAsync(WebApplication app)
+    {
+        using var scope = app.Services.CreateScope();
+        var timeoutService = scope.ServiceProvider.GetRequiredService<ReadyStackGo.Application.Services.IWizardTimeoutService>();
+
+        await timeoutService.InitializeOnStartupAsync();
     }
 
     /// <summary>

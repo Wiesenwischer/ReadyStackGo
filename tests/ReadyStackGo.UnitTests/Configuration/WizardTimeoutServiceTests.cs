@@ -15,6 +15,9 @@ public class WizardTimeoutServiceTests
 
     public WizardTimeoutServiceTests()
     {
+        // Reset static flag before each test
+        WizardTimeoutService.ResetStartupFlag();
+
         _configStoreMock = new Mock<IConfigStore>();
         _loggerMock = new Mock<ILogger<WizardTimeoutService>>();
         _systemConfig = new SystemConfig();
@@ -52,6 +55,7 @@ public class WizardTimeoutServiceTests
 
         // Assert
         result.IsTimedOut.Should().BeFalse();
+        result.IsLocked.Should().BeFalse();
         result.StartedAt.Should().BeNull();
         result.ExpiresAt.Should().BeNull();
         result.RemainingSeconds.Should().BeNull();
@@ -71,6 +75,7 @@ public class WizardTimeoutServiceTests
 
         // Assert
         result.IsTimedOut.Should().BeFalse();
+        result.IsLocked.Should().BeFalse();
         result.StartedAt.Should().NotBeNull();
         result.StartedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
         result.ExpiresAt.Should().NotBeNull();
@@ -96,12 +101,13 @@ public class WizardTimeoutServiceTests
 
         // Assert
         result.IsTimedOut.Should().BeFalse();
+        result.IsLocked.Should().BeFalse();
         result.StartedAt.Should().Be(startedAt);
         result.RemainingSeconds.Should().BeInRange(170, 185); // About 3 minutes remaining
     }
 
     [Fact]
-    public async Task GetTimeoutInfoAsync_WhenTimeoutExpired_ReturnsTimedOut()
+    public async Task GetTimeoutInfoAsync_WhenTimeoutExpired_ReturnsTimedOutAndSetsLock()
     {
         // Arrange
         var startedAt = DateTime.UtcNow.AddMinutes(-10); // Started 10 minutes ago
@@ -114,6 +120,26 @@ public class WizardTimeoutServiceTests
 
         // Assert
         result.IsTimedOut.Should().BeTrue();
+        result.IsLocked.Should().BeTrue();
+        result.RemainingSeconds.Should().BeNull();
+        _systemConfig.IsWizardLocked.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetTimeoutInfoAsync_WhenLocked_ReturnsLockedState()
+    {
+        // Arrange
+        _systemConfig.WizardState = WizardState.NotStarted;
+        _systemConfig.IsWizardLocked = true;
+        _systemConfig.WizardStartedAt = DateTime.UtcNow.AddMinutes(-10);
+        var service = CreateService();
+
+        // Act
+        var result = await service.GetTimeoutInfoAsync();
+
+        // Assert
+        result.IsTimedOut.Should().BeTrue();
+        result.IsLocked.Should().BeTrue();
         result.RemainingSeconds.Should().BeNull();
     }
 
@@ -148,19 +174,64 @@ public class WizardTimeoutServiceTests
     }
 
     [Fact]
-    public async Task ResetTimeoutAsync_ResetsStateAndClearsTimestamp()
+    public async Task IsLockedAsync_WhenLocked_ReturnsTrue()
+    {
+        // Arrange
+        _systemConfig.IsWizardLocked = true;
+        var service = CreateService();
+
+        // Act
+        var result = await service.IsLockedAsync();
+
+        // Assert
+        result.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task IsLockedAsync_WhenNotLocked_ReturnsFalse()
+    {
+        // Arrange
+        _systemConfig.IsWizardLocked = false;
+        var service = CreateService();
+
+        // Act
+        var result = await service.IsLockedAsync();
+
+        // Assert
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ResetTimeoutAsync_WhenLocked_DoesNotReset()
     {
         // Arrange
         _systemConfig.WizardState = WizardState.AdminCreated;
+        _systemConfig.IsWizardLocked = true;
         _systemConfig.WizardStartedAt = DateTime.UtcNow.AddMinutes(-10);
         var service = CreateService();
 
         // Act
         await service.ResetTimeoutAsync();
 
-        // Assert
+        // Assert - lock cannot be reset via API
+        _systemConfig.IsWizardLocked.Should().BeTrue();
+        _configStoreMock.Verify(x => x.SaveSystemConfigAsync(It.IsAny<SystemConfig>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ResetTimeoutAsync_WhenNotLocked_ResetsPartialState()
+    {
+        // Arrange
+        _systemConfig.WizardState = WizardState.AdminCreated;
+        _systemConfig.IsWizardLocked = false;
+        _systemConfig.WizardStartedAt = DateTime.UtcNow;
+        var service = CreateService();
+
+        // Act
+        await service.ResetTimeoutAsync();
+
+        // Assert - only wizard state is reset, not the lock
         _systemConfig.WizardState.Should().Be(WizardState.NotStarted);
-        _systemConfig.WizardStartedAt.Should().BeNull();
         _configStoreMock.Verify(x => x.SaveSystemConfigAsync(It.IsAny<SystemConfig>()), Times.Once);
     }
 
@@ -181,11 +252,12 @@ public class WizardTimeoutServiceTests
     }
 
     [Fact]
-    public async Task ClearTimeoutAsync_ClearsTimestamp()
+    public async Task ClearTimeoutAsync_ClearsTimestampAndLock()
     {
         // Arrange
         _systemConfig.WizardState = WizardState.Installed;
         _systemConfig.WizardStartedAt = DateTime.UtcNow;
+        _systemConfig.IsWizardLocked = true;
         var service = CreateService();
 
         // Act
@@ -193,6 +265,7 @@ public class WizardTimeoutServiceTests
 
         // Assert
         _systemConfig.WizardStartedAt.Should().BeNull();
+        _systemConfig.IsWizardLocked.Should().BeFalse();
         _configStoreMock.Verify(x => x.SaveSystemConfigAsync(It.IsAny<SystemConfig>()), Times.Once);
     }
 
@@ -201,6 +274,7 @@ public class WizardTimeoutServiceTests
     {
         // Arrange
         _systemConfig.WizardStartedAt = null;
+        _systemConfig.IsWizardLocked = false;
         var service = CreateService();
 
         // Act
@@ -231,5 +305,54 @@ public class WizardTimeoutServiceTests
         // Assert
         result.TimeoutSeconds.Should().Be(60);
         result.RemainingSeconds.Should().BeLessThanOrEqualTo(60);
+    }
+
+    [Fact]
+    public async Task InitializeOnStartupAsync_WhenWizardCompleted_DoesNotInitialize()
+    {
+        // Arrange
+        _systemConfig.WizardState = WizardState.Installed;
+        var service = CreateService();
+
+        // Act
+        await service.InitializeOnStartupAsync();
+
+        // Assert
+        _configStoreMock.Verify(x => x.SaveSystemConfigAsync(It.IsAny<SystemConfig>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task InitializeOnStartupAsync_WhenNotCompleted_InitializesTimeout()
+    {
+        // Arrange
+        _systemConfig.WizardState = WizardState.NotStarted;
+        _systemConfig.WizardStartedAt = null;
+        var service = CreateService();
+
+        // Act
+        await service.InitializeOnStartupAsync();
+
+        // Assert
+        _systemConfig.WizardStartedAt.Should().NotBeNull();
+        _systemConfig.WizardStartedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        _systemConfig.IsWizardLocked.Should().BeFalse();
+        _configStoreMock.Verify(x => x.SaveSystemConfigAsync(It.IsAny<SystemConfig>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task InitializeOnStartupAsync_ClearsPreviousLock()
+    {
+        // Arrange - simulates container restart after previous timeout
+        _systemConfig.WizardState = WizardState.NotStarted;
+        _systemConfig.IsWizardLocked = true;
+        _systemConfig.WizardStartedAt = DateTime.UtcNow.AddMinutes(-10);
+        var service = CreateService();
+
+        // Act
+        await service.InitializeOnStartupAsync();
+
+        // Assert - container restart clears the lock
+        _systemConfig.IsWizardLocked.Should().BeFalse();
+        _systemConfig.WizardStartedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
     }
 }

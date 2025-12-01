@@ -42,8 +42,14 @@ public class SystemConfig
     public string? InstalledVersion { get; set; }
 
     /// <summary>
-    /// Timestamp when the wizard window was first opened (server start or first access).
-    /// Used for wizard timeout enforcement (5-minute window like Portainer).
+    /// Timestamp when the wizard window was first opened (server start).
+    /// Used for wizard timeout enforcement (5-minute window).
     /// </summary>
     public DateTime? WizardStartedAt { get; set; }
+
+    /// <summary>
+    /// Whether the wizard has been permanently locked due to timeout.
+    /// Once locked, can only be reset by restarting the container (clears in-memory state).
+    /// </summary>
+    public bool IsWizardLocked { get; set; }
 }

@@ -2,12 +2,14 @@ import { apiGet, apiPost } from './client';
 
 // Wizard DTOs matching the backend
 // v0.4: ConnectionsSet removed from wizard states
-// v0.6: Added timeout tracking
+// v0.6: Added timeout tracking with permanent lock
 
 /** Timeout information for the wizard setup window */
 export interface WizardTimeoutInfo {
   /** Whether the wizard window has timed out */
   isTimedOut: boolean;
+  /** Whether the wizard is permanently locked (requires container restart) */
+  isLocked: boolean;
   /** Remaining seconds until timeout. Null if already timed out */
   remainingSeconds: number | null;
   /** When the timeout window expires (UTC ISO string) */
@@ -98,19 +100,4 @@ export async function setConnections(request: SetConnectionsRequest): Promise<Se
 
 export async function installStack(request: InstallStackRequest = {}): Promise<InstallStackResponse> {
   return apiPost<InstallStackResponse>('/api/wizard/install', request);
-}
-
-/** Response from starting a new setup window */
-export interface StartNewWindowResponse {
-  success: boolean;
-  message: string;
-  timeout?: WizardTimeoutInfo;
-}
-
-/**
- * Start a new 5-minute wizard setup window.
- * Call this after a timeout to begin a new setup attempt.
- */
-export async function startNewWindow(): Promise<StartNewWindowResponse> {
-  return apiPost<StartNewWindowResponse>('/api/wizard/start-window', {});
 }

@@ -70,6 +70,11 @@ public class WizardTimeoutDto
     public bool IsTimedOut { get; set; }
 
     /// <summary>
+    /// Whether the wizard is permanently locked (requires container restart).
+    /// </summary>
+    public bool IsLocked { get; set; }
+
+    /// <summary>
     /// Remaining seconds until timeout. Null if already timed out.
     /// </summary>
     public int? RemainingSeconds { get; set; }

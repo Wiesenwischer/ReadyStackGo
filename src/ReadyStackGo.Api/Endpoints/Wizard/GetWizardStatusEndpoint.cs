@@ -36,6 +36,7 @@ public class GetWizardStatusEndpoint : EndpointWithoutRequest<WizardStatusRespon
                 ? new WizardTimeoutDto
                 {
                     IsTimedOut = result.Timeout.IsTimedOut,
+                    IsLocked = result.Timeout.IsLocked,
                     RemainingSeconds = result.Timeout.RemainingSeconds,
                     ExpiresAt = result.Timeout.ExpiresAt,
                     TimeoutSeconds = result.Timeout.TimeoutSeconds
