@@ -6,40 +6,46 @@ description: Änderungen und neue Features in ReadyStackGo
 import { LinkCard } from '@astrojs/starlight/components';
 
 <LinkCard
-  title="Vollständiges Changelog auf GitHub"
-  description="Detaillierte Änderungshistorie aller Versionen"
-  href="https://github.com/Wiesenwischer/ReadyStackGo/blob/main/CHANGELOG.md"
+title="Vollständiges Changelog auf GitHub"
+description="Detaillierte Änderungshistorie aller Versionen"
+href="https://github.com/Wiesenwischer/ReadyStackGo/blob/main/CHANGELOG.md"
 />
+
 
 ## Version 0.6.0
 
 *Veröffentlicht: Dezember 2024*
 
-### Multi-User Support & DDD-Architektur
+### Added
 
-Diese Version führt eine komplett neue Architektur ein:
+#### Multi-User Support & DDD Architecture
+- **SQLite Database** for persistent storage (replaces JSON files for dynamic data)
+- **Domain-Driven Design** with Bounded Contexts:
+- **IdentityAccess:** Users, Organizations, Roles, Permissions
+- **Deployment:** Environments, Deployments, DeployedServices
+- **StackManagement:** Stack Sources, Stack Definitions
+- **Role-based Access Control (RBAC)**
+- SystemAdmin, OrganizationAdmin, Deployer, Viewer roles
+- Permission-based authorization
+- **Clean Architecture** implementation:
+- Domain layer with Aggregates, Entities, Value Objects
+- Application layer with UseCases and MediatR CQRS
+- Infrastructure layer with EF Core repositories
 
-- **SQLite-Datenbank** für persistente Speicherung
-- **Domain-Driven Design** mit Bounded Contexts
-- **Rollenbasierte Zugriffskontrolle (RBAC)**
+#### Application Layer
+- **MediatR** for Command/Query separation
+- **UseCases** pattern for all operations:
+- Authentication (Login, RegisterSystemAdmin)
+- Organizations (ProvisionOrganization)
+- Environments (CRUD operations)
+- Deployments (Deploy, List, Remove)
+- Stacks (List, Get with parsed compose files)
+- Wizard (GetStatus, CompleteWizard)
 
-### Neue Features
-
-- **Benutzer & Rollen**
-  - Mehrere Benutzer pro Organisation
-  - SystemAdmin, OrganizationAdmin, Deployer, Viewer Rollen
-  - Berechtigungsbasierte Autorisierung
-
-- **GitHub Actions Integration**
-  - CI/CD Workflows
-  - Automatische Docker Image Builds
-  - SBOM-Generierung für Container
-
-### Änderungen
-
-- Migration von JSON-Dateien zu SQLite
-- Neue DDD-Architektur mit Clean Architecture
-- Verbesserte API-Struktur mit MediatR
+#### Infrastructure & DevOps
+- **GitHub Actions** workflows:
+- CI: Build & test on push/PR
+- Docker: Build and push to ghcr.io with SBOM
 
 ---
 
@@ -47,11 +53,17 @@ Diese Version führt eine komplett neue Architektur ein:
 
 *Veröffentlicht: November 2024*
 
-### Multi-Environment Support
+### Added
+- Multi-Environment support
+- Environment management UI
+- Docker socket connection testing
+- Environment selector in UI
 
-- Verwaltung mehrerer Docker-Hosts
-- Environment-Auswahl in der UI
-- Verbindungstest für Docker-Sockets
+### Changed
+- Improved deployment engine
+- Better error handling in API endpoints
+
+---
 
 ---
 
@@ -59,11 +71,73 @@ Diese Version führt eine komplett neue Architektur ein:
 
 *Veröffentlicht: November 2024*
 
-### Vereinfachter Wizard
+### Added
+- Simplified wizard (4 steps → 3 steps)
+- Stack-specific configuration system
+- Docker Compose variable detection
+- Per-deployment configuration storage
 
-- 3-Schritt Setup (statt 4)
-- Stack-spezifische Konfiguration
-- Docker Compose Variablen-Erkennung
+### Changed
+- Removed mandatory environment requirement
+- Organizations can exist without environments
+
+### Removed
+- `rsgo.contexts.json` (connection strings now per-deployment)
+- `WizardState.ConnectionsSet` step
+
+---
+
+---
+
+## Version 0.3.0
+
+*Veröffentlicht: Januar 2025*
+
+### Added
+
+#### Setup Wizard
+- 4-step guided setup wizard for initial configuration
+- Step 1: Create Admin Account (username, password with BCrypt hashing)
+- Step 2: Organization Setup (organization ID and name)
+- Step 3: Configure Connections (Simple mode: Transport, Persistence, EventStore)
+- Step 4: Complete Setup (review and finalize)
+- Wizard state persistence across browser sessions
+- Automatic redirect to wizard if not completed
+- Automatic redirect to dashboard when wizard is complete
+- Dark mode support for wizard UI
+- Fully responsive wizard design
+
+#### Configuration System
+- File-based configuration using JSON files in `/app/config/`
+- `ConfigStore` service for async configuration management
+- Configuration files:
+- `rsgo.system.json` - System state and wizard progress
+- `rsgo.security.json` - Admin credentials and security settings
+- `rsgo.contexts.json` - Connection strings for bounded contexts
+- `rsgo.tls.json` - TLS certificate configuration
+- Automatic directory creation for config files
+- Thread-safe configuration operations
+
+#### TLS Bootstrap
+- Automatic self-signed certificate generation on first startup
+- RSA 2048-bit certificate generation
+- Certificate stored in `/app/config/tls/selfsigned.pfx`
+- Secure password generation and storage
+
+---
+
+## Version 0.2.0
+
+- 2024-12-XX
+
+### Added
+- Basic admin dashboard
+- Container listing and management
+- JWT authentication
+- Dark mode support
+- Hardcoded admin user for development
+
+---
 
 ---
 
@@ -71,7 +145,12 @@ Diese Version führt eine komplett neue Architektur ein:
 
 Geplante Features für zukünftige Versionen:
 
-- **v0.7** - CI/CD Integration & Webhooks
-- **v0.8** - Erweiterte Stack-Formate
-- **v1.0** - Production Readiness
-- **v2.0+** - Kubernetes Support
+- **v0.7** - RSGo Manifest Format (eigenes Format mit Docker Compose Import)
+- **v0.8** - Health Monitoring + Rollback
+- **v0.9** - Registry Management + Git Stack Sources
+- **v0.10** - Release & TLS Management
+- **v0.11** - Metrics & Audit
+- **v0.12** - Docker Volumes Management
+- **v0.13** - CI/CD Integration
+- **v0.14** - Multi-User Support
+- **v1.0** - Production Ready
