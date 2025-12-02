@@ -1,7 +1,4 @@
----
-title: GitHub Workflows
-description: Übersicht der CI/CD Workflows in ReadyStackGo
----
+# GitHub Workflows
 
 ReadyStackGo verwendet GitHub Actions für Continuous Integration und Deployment. Alle Workflows befinden sich im Verzeichnis `.github/workflows/`.
 
@@ -108,7 +105,7 @@ Generiert Lizenzinformationen für alle Dependencies:
 Synchronisiert die `/docs` Ordnerstruktur mit dem GitHub Wiki:
 
 - Kopiert alle Docs-Dateien ins Wiki
-- Generiert `Home.md` als Startseite
+- Flacht Ordnerstruktur ab (z.B. `Architecture/Overview.md` → `Architecture-Overview.md`)
 - Generiert `_Sidebar.md` für Navigation
 - Committet und pusht automatisch
 
