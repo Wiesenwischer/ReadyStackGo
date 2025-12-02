@@ -97,6 +97,7 @@ jobs:
 
           **CI/CD**
           - [[Pipeline Integration|CI-CD-Pipeline-Integration]]
+          - [[Workflows|CI-CD-Workflows]]
 
           **Reference**
           - [[Roadmap|Reference-Roadmap]]
