@@ -15,11 +15,13 @@ Grober Ausblick auf geplante Versionen und Features.
   - 404 Page, 4-Step Wizard, Environment Management UI
   - Registry Authentication für Image Pulls
   - Deployment Warnings bei lokalem Image-Fallback
-- **v0.5** – Environment Setup Flow ✅
-  - Nach Organization-Setup: Environment-Erstellung als optionaler Schritt
-  - Nach Login: Prüfung ob Environment existiert
-  - Wenn kein Environment: Environment-Übersicht mit Hinweis anzeigen
-  - Navigation: Dashboard und environment-abhängige Seiten ausblenden wenn kein Environment existiert/ausgewählt
+- **v0.5** – Environment Setup Flow + PublicWeb ✅ (2025-11-30)
+  - Environment-Erstellung als optionaler Wizard-Schritt
+  - EnvironmentGuard für environment-abhängige Seiten
+  - SetupEnvironment-Seite wenn kein Environment existiert
+  - PublicWeb Landing Page (DE/EN) mit Astro/Starlight
+  - ams.project Showcase, Impressum, Datenschutz
+  - Install-Script mit Docker Hub Image
 - **v0.6** – Security Hardening ✅ (2025-12-01)
   - RBAC (Role-Based Access Control)
   - Wizard Timeout (5-Minuten-Zeitfenster für Admin-Erstellung nach Serverstart)
@@ -27,57 +29,55 @@ Grober Ausblick auf geplante Versionen und Features.
 
 ## Planned
 
-### v0.7 – Multi-User + Health Monitoring
-- SQLite-Migration für Multi-User-Support
-- Container Health Monitoring (Status, Health, RestartCount)
+### v0.7 – RSGo Manifest Format
+- Spezifikation für eigenes Manifest-Format
+- Docker Compose Import (Konvertierung beim Import)
+- Type Validation (Number, Boolean, String, Select)
+- Regex Validation für Eingabefelder
 
-### v0.8 – Registry Management UI + Rollback
-- Settings-Seite für Registry-Verwaltung
-- Mehrere Docker Registries konfigurierbar (Name, URL, Username, Password)
-- Systemweite Konfiguration (gilt für alle Environments)
+### v0.8 – Health Monitoring + Rollback
+- Container Health Monitoring (Status, Health, RestartCount)
+- Stack Health Dashboard
 - Deployment Rollback (vorherige Stack-Version wiederherstellen)
 
-### v0.9 – Release Management
+### v0.9 – Registry Management + Git Stack Sources
+- Settings-Seite für Registry-Verwaltung
+- Mehrere Docker Registries konfigurierbar (Name, URL, Username, Password)
+- GitRepository StackSourceProvider (Stacks aus Git-Repos laden)
+
+### v0.10 – Release & TLS Management
 - Release Management UI
-- Feature Flags UI
-- Advanced Connection Mode
 - Custom TLS Certificates
 
-### v0.10 – CI/CD & Monitoring
-- CI/CD Pipeline Integration
-- Stack Health Dashboard
+### v0.11 – Metrics & Audit
 - Metrics & Alerting
 - Audit Logs
-
-### v0.11 – Enhanced Stack Format
-- Custom Manifest Format (enhanced validation)
-- Beide Stack-Formate gleichzeitig unterstützt (Docker Compose + Custom Manifest)
-- Type Validation (Numbers, Booleans, Strings, Select)
-- Regex Validation für URL-Formate
 
 ### v0.12 – Docker Volumes Management
 - Docker Volumes Ansicht (Liste aller Volumes pro Environment)
 - Volume Details (Size, Mount Points, Labels)
 - Volume erstellen/löschen
-- Orphaned Volumes erkennen und aufräumen
-- Volume Backup/Export Funktionalität
+- Orphaned Volumes erkennen
+
+### v0.13 – CI/CD Integration
+- Webhooks für externe CI/CD Systeme
+- API für automatisierte Deployments
+
+### v0.14 – Multi-User Support
+- User Management UI
+- Benutzer anlegen/bearbeiten
+- Password Reset Flow
 
 ### v1.0 – Production Ready
 - Dokumentation überarbeiten und vervollständigen
 - Code Cleanup und Refactorings
-- Docker Hub Dokumentation (Overview Page mit README.md)
-- Wiki überarbeiten und aktualisieren
-- SBOM (Software Bill of Materials) generieren
-- Plugin-System
 - Performance Optimierungen
-- Security Hardening
 
-### Post v1.0 – Stack Sources Management
-- Stack Sources Management UI (add/remove/configure sources)
-- Git Repository Stack Source Provider
+## Post v1.0
 
-### Post v2.0 – Advanced Features
+### Future Features
+- Feature Flags UI
+- Advanced Connection Mode
+- Plugin-System
 - Multi-Node-Support (mehrere Docker Hosts pro Environment)
-- Zusätzliche Environment-Typen (DockerApi mit TLS, DockerAgent)
 - Kubernetes Environment Support
-- Advanced Networking Features
