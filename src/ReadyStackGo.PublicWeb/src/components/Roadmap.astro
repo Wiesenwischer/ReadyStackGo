@@ -1,6 +1,6 @@
 ---
 // Fetch roadmap from GitHub at build time
-const response = await fetch('https://raw.githubusercontent.com/Wiesenwischer/ReadyStackGo/main/ROADMAP.md');
+const response = await fetch('https://raw.githubusercontent.com/Wiesenwischer/ReadyStackGo/main/docs/Reference/Roadmap.md');
 const markdown = await response.text();
 
 interface Props {
@@ -31,10 +31,31 @@ function parseRoadmap(md: string): RoadmapItem[] {
   const items: RoadmapItem[] = [];
   const lines = md.split('\n');
   let currentItem: RoadmapItem | null = null;
+  let inPlannedSection = false;
+  let inPostSection = false;
 
   for (const line of lines) {
-    // Match version headers like "## v1.0 - Production Readiness"
-    const headerMatch = line.match(/^## (v[\d.]+)\s*-\s*(.+)$/);
+    // Detect "## Planned" section
+    if (line.match(/^## Planned/)) {
+      inPlannedSection = true;
+      continue;
+    }
+    // Detect "## Post v1.0" or similar end sections
+    if (line.match(/^## (Post|Released)/)) {
+      if (inPlannedSection && currentItem) {
+        items.push(currentItem);
+        currentItem = null;
+      }
+      inPlannedSection = false;
+      inPostSection = line.includes('Post');
+      continue;
+    }
+
+    // Only parse items in Planned or Post sections
+    if (!inPlannedSection && !inPostSection) continue;
+
+    // Match version headers like "### v0.7 – RSGo Manifest Format"
+    const headerMatch = line.match(/^### (v[\d.]+)\s*[–-]\s*(.+)$/);
     if (headerMatch) {
       if (currentItem) {
         items.push(currentItem);
@@ -81,7 +102,7 @@ const roadmapItems = parseRoadmap(markdown);
 </div>
 
 <p class="roadmap-source">
-  <a href="https://github.com/Wiesenwischer/ReadyStackGo/blob/main/ROADMAP.md" target="_blank" rel="noopener">
+  <a href="https://github.com/Wiesenwischer/ReadyStackGo/blob/main/docs/Reference/Roadmap.md" target="_blank" rel="noopener">
     {t.viewSource} ↗
   </a>
 </p>
