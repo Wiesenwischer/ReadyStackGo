@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.0] - 2025-12-03
+
+### Added
+- Fully automated release workflow
+- Version calculation from PR labels
+- CHANGELOG and PublicWeb release notes auto-update in PR
+- Example stacks bundled in Docker image
+
+### Changed
+- Deploy PublicWeb on every release (tag trigger)
+
+---
+
 ## [0.6.1] - 2025-12-03
 
 ### Bug Fixes
