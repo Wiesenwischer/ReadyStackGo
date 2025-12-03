@@ -26,7 +26,21 @@ public class SetOrganizationResponse
     public string? Message { get; set; }
 }
 
-// Step 3: Install Stack
+// Step 3: Environment Setup (optional)
+public class SetEnvironmentRequest
+{
+    public required string Name { get; set; }
+    public required string SocketPath { get; set; }
+}
+
+public class SetEnvironmentResponse
+{
+    public bool Success { get; set; }
+    public string? Message { get; set; }
+    public string? EnvironmentId { get; set; }
+}
+
+// Step 4: Install Stack
 public class InstallStackRequest
 {
     public string? ManifestPath { get; set; } // Optional: if not provided, use latest

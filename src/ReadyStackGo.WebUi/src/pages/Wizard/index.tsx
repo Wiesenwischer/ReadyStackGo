@@ -5,8 +5,7 @@ import AdminStep from './AdminStep';
 import OrganizationStep from './OrganizationStep';
 import EnvironmentStep from './EnvironmentStep';
 import InstallStep from './InstallStep';
-import { createAdmin, setOrganization, installStack, getWizardStatus, type WizardTimeoutInfo } from '../../api/wizard';
-import { createEnvironment, setDefaultEnvironment } from '../../api/environments';
+import { createAdmin, setOrganization, setEnvironment, installStack, getWizardStatus, type WizardTimeoutInfo } from '../../api/wizard';
 
 export default function Wizard() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -86,15 +85,11 @@ export default function Wizard() {
 
   const handleEnvironmentNext = async (data: { name: string; socketPath: string } | null) => {
     if (data) {
-      // User wants to create an environment
-      const response = await createEnvironment({ name: data.name, socketPath: data.socketPath });
+      // User wants to create an environment - use wizard endpoint (no auth required)
+      // The backend automatically sets the first environment as default
+      const response = await setEnvironment({ name: data.name, socketPath: data.socketPath });
       if (!response.success) {
         throw new Error(response.message || 'Failed to create environment');
-      }
-      // Set it as default using the ID from the response (server generates IDs)
-      const environmentId = response.environment?.id;
-      if (environmentId) {
-        await setDefaultEnvironment(environmentId);
       }
     }
     // Move to install step (whether environment was created or skipped)
