@@ -22,17 +22,17 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://0.0.0.0:8080;https://0.0.0.0:8443
-      - ConnectionStrings__IdentityAccess=${IDENTITY_ACCESS_DB}
-      - ConnectionStrings__ams=${AMS_DB:-Server=ams-mssql-${ENVIRONMENT_NAME:-local};Database=main;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;}
+      - ConnectionStrings__IdentityAccess=${IDENTITY_ACCESS_DB:-Server=ams-mssql;Database=AMS01-Identity;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;}
+      - ConnectionStrings__ams=${AMS_DB:-Server=ams-mssql;Database=AMS01;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;}
       - ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker=${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER:-120}
       - ExitOnCriticalError=${EXIT_ON_CRITICAL_ERROR:-false}
       - CultureCode=${CULTURE_CODE:-de-DE}
-      - IdentityServerUrl=http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:7614
-      - Serilog__LogstashUrl=http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      - IdentityServerUrl=http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP:-host.docker.internal}:7614
+      - Serilog__LogstashUrl=http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP:-host.docker.internal}:8080
       - Serilog__MinimumLevel=${MIN_LOG_LEVEL:-Fatal}      
       - CertificatePath=${IDENTITY_ACCESS_CERT_PATH:-/etc/ssl/certs/identity-api.pfx}
       - CertificatePassword=${IDENTITY_ACCESS_CERT_PASSWORD:-P@ssw0rd!}
-      - SERVICE_BUS_CATALOG=${SERVICE_BUS_CATALOG}
+      - SERVICE_BUS_CATALOG=${SERVICE_BUS_CATALOG:-AMS01}
     volumes:
       - profilePictures:/app/wwwroot/picture
     networks:
@@ -51,15 +51,15 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://0.0.0.0:8080 
-      - ConnectionStrings__IdentityAccess=${IDENTITY_ACCESS_DB}
-      - ConnectionStrings__ams=${AMS_DB:-Server=ams-mssql-${ENVIRONMENT_NAME:-local};Database=main;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;}
+      - ConnectionStrings__IdentityAccess=${IDENTITY_ACCESS_DB:-Server=ams-mssql;Database=AMS01-Identity;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;}
+      - ConnectionStrings__ams=${AMS_DB:-Server=ams-mssql;Database=AMS01;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;}
       - ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker=${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER:-120}
       - ExitOnCriticalError=${EXIT_ON_CRITICAL_ERROR:-false}
       - CultureCode=${CULTURE_CODE:-de-DE}
       - IdentityServerUrl=http://identity-api:8080      
-      - Serilog__LogstashUrl=http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      - Serilog__LogstashUrl=http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP:-host.docker.internal}:8080
       - Serilog__MinimumLevel=${MIN_LOG_LEVEL:-Fatal}      
-      - SERVICE_BUS_CATALOG=${SERVICE_BUS_CATALOG}
+      - SERVICE_BUS_CATALOG=${SERVICE_BUS_CATALOG:-AMS01}
     networks:
       - ams-project-identity
     logging:
@@ -76,13 +76,13 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://0.0.0.0:8080
-      - ConnectionStrings__IdentityAccess=${IDENTITY_ACCESS_DB}
-      - ConnectionStrings__ams=${AMS_DB:-Server=ams-mssql-${ENVIRONMENT_NAME:-local};Database=main;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;}
+      - ConnectionStrings__IdentityAccess=${IDENTITY_ACCESS_DB:-Server=ams-mssql;Database=AMS01-Identity;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;}
+      - ConnectionStrings__ams=${AMS_DB:-Server=ams-mssql;Database=AMS01;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;}
       - ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker=${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER:-120}
       - ExitOnCriticalError=${EXIT_ON_CRITICAL_ERROR:-false}
-      - Serilog__LogstashUrl=http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      - Serilog__LogstashUrl=http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP:-host.docker.internal}:8080
       - Serilog__MinimumLevel=${MIN_LOG_LEVEL:-Fatal}
-      - SERVICE_BUS_CATALOG=${SERVICE_BUS_CATALOG}
+      - SERVICE_BUS_CATALOG=${SERVICE_BUS_CATALOG:-AMS01}
     networks:
       - ams-project-identity
     logging:
@@ -99,20 +99,20 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://0.0.0.0:80    
-      - ConnectionStrings__IdentityAccess=${IDENTITY_ACCESS_DB}
-      - ConnectionStrings__ams=${AMS_DB:-Server=ams-mssql-${ENVIRONMENT_NAME:-local};Database=main;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;}
+      - ConnectionStrings__IdentityAccess=${IDENTITY_ACCESS_DB:-Server=ams-mssql;Database=AMS01-Identity;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;}
+      - ConnectionStrings__ams=${AMS_DB:-Server=ams-mssql;Database=AMS01;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;}
       - ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker=${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER:-120}
       - ExitOnCriticalError=${EXIT_ON_CRITICAL_ERROR:-false}
-      - CultureCode=${CULTURE_CODE} 
-      - EmailSettings__MailServer=${MAIL_SERVER}
-      - EmailSettings__Port=${MAIL_PORT}
-      - EmailSettings__SenderName=${MAIL_SENDER_NAME}
-      - EmailSettings__Sender=${MAIL_SENDER}
-      - EmailSettings__Password=${MAIL_PASSWORD}
-      - EmailSettings__IsAuthenticationRequired=${MAIL_IS_AUTHENTICATION_REQUIRED}
-      - Serilog__LogstashUrl=http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      - CultureCode=${CULTURE_CODE:-de-DE}
+      - EmailSettings__MailServer=${MAIL_SERVER:-host.docker.internal}
+      - EmailSettings__Port=${MAIL_PORT:-25}
+      - EmailSettings__SenderName=${MAIL_SENDER_NAME:-ams.project}
+      - EmailSettings__Sender=${MAIL_SENDER:-noreply@host.docker.internal}
+      - EmailSettings__Password=${MAIL_PASSWORD:-}
+      - EmailSettings__IsAuthenticationRequired=${MAIL_IS_AUTHENTICATION_REQUIRED:-false}
+      - Serilog__LogstashUrl=http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP:-host.docker.internal}:8080
       - Serilog__MinimumLevel=${MIN_LOG_LEVEL:-Fatal}      
-      - SERVICE_BUS_CATALOG=${SERVICE_BUS_CATALOG}
+      - SERVICE_BUS_CATALOG=${SERVICE_BUS_CATALOG:-AMS01}
     networks:
       - ams-project-identity
     logging:
