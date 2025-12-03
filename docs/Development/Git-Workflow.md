@@ -118,23 +118,42 @@ Nur verwenden wenn Production akut betroffen ist!
 
 ---
 
-## Release erstellen
+## Release erstellen (automatisch)
 
-Wenn `develop` bereit für ein Release ist:
+Der Release-Prozess ist vollständig automatisiert. Nach dem Merge eines PRs in `main`:
+
+```
+PR merge nach main ──► Release Drafter ──► Tag erstellen ──► CHANGELOG update ──► GitHub Release ──► Docker Build
+                              │
+                              └── Version aus PR-Labels ermittelt
+```
+
+### Ablauf
 
 1. **PR erstellen**: `develop` → `main`
+   - Labels prüfen/setzen (bestimmt die Version)
+   - Mindestens ein Label für Kategorisierung
 
-2. **Nach Merge**: Tag erstellen
-   ```bash
-   git checkout main
-   git pull origin main
-   git tag v0.7.0
-   git push origin v0.7.0
-   ```
+2. **PR mergen**: Nach Review den PR mergen
 
-3. Der Docker Workflow baut automatisch:
-   - `latest` Tag (von `main`)
-   - Version Tag (z.B. `0.7.0`)
+3. **Automatisch passiert dann**:
+   - Release Drafter ermittelt die Version aus Labels
+   - Git Tag wird erstellt (`v0.7.0`)
+   - `CHANGELOG.md` wird aktualisiert
+   - GitHub Release wird veröffentlicht
+   - Docker Workflow baut Images:
+     - `latest` Tag (von `main`)
+     - Version Tag (z.B. `0.7.0`)
+
+### Version-Bestimmung durch Labels
+
+| PR Labels | Version-Bump | Beispiel |
+|-----------|--------------|----------|
+| `breaking` oder `major` | Major | 0.6.0 → 1.0.0 |
+| `feature` oder `enhancement` | Minor | 0.6.0 → 0.7.0 |
+| `bug`, `fix`, `docs`, etc. | Patch | 0.6.0 → 0.6.1 |
+
+> **Wichtig:** Setze mindestens ein Label auf den PR, damit die Version korrekt berechnet wird!
 
 ---
 
@@ -249,6 +268,29 @@ MAJOR.MINOR.PATCH
 |---------|----------|----------|
 | Push auf `main`/`develop` | CI | Build + Tests |
 | CI erfolgreich auf `main`/`develop` | Docker | Image auf Docker Hub |
+| Push auf `main` | Release Drafter | Tag + CHANGELOG + GitHub Release |
 | Tag `v*` | Docker | Image mit Version-Tag |
 | Push auf `main` (docs/) | Wiki Sync | GitHub Wiki aktualisiert |
 | Push auf `main` (PublicWeb/) | Cloudflare | PublicWeb deployed |
+| CHANGELOG.md geändert | Sync Changelog | PublicWeb Release Notes aktualisiert |
+
+### Release Workflow im Detail
+
+```
+PR mit Labels ──► merge nach main
+                      │
+                      ▼
+              Release Drafter
+                      │
+        ┌─────────────┼─────────────┐
+        ▼             ▼             ▼
+   CHANGELOG.md    Git Tag    GitHub Release
+   aktualisiert   erstellt    veröffentlicht
+                      │
+                      ▼
+               Docker Workflow
+                      │
+           ┌─────────┴─────────┐
+           ▼                   ▼
+      latest Tag         vX.Y.Z Tag
+```

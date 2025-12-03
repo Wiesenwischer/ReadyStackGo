@@ -12,14 +12,138 @@ permissions:
   pull-requests: write
 
 jobs:
+  # Job 1: Update draft on PRs (for autolabeler) and on push to main
   update_release_draft:
     permissions:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.drafter.outputs.tag_name }}
+      version: ${{ steps.drafter.outputs.resolved_version }}
+      body: ${{ steps.drafter.outputs.body }}
+      id: ${{ steps.drafter.outputs.id }}
     steps:
       - uses: release-drafter/release-drafter@v6
+        id: drafter
         with:
           config-name: release-drafter.yml
+          # Keep as draft - we'll publish in the next job after tagging
+          publish: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Job 2: On push to main, create tag, update CHANGELOG, and publish release
+  publish_release:
+    needs: update_release_draft
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Get version info
+        id: version
+        run: |
+          VERSION="${{ needs.update_release_draft.outputs.version }}"
+          TAG_NAME="${{ needs.update_release_draft.outputs.tag_name }}"
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+
+          # Check if tag already exists
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+            echo "Tag $TAG_NAME already exists, skipping tag creation"
+          else
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
+            echo "Will create tag $TAG_NAME"
+          fi
+
+      - name: Update CHANGELOG.md
+        if: steps.version.outputs.tag_exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG_NAME="${{ steps.version.outputs.tag_name }}"
+          TODAY=$(date +%Y-%m-%d)
+
+          # Get release body from draft
+          RELEASE_BODY='${{ needs.update_release_draft.outputs.body }}'
+
+          # Create new CHANGELOG entry
+          NEW_ENTRY="## [$VERSION] - $TODAY
+
+          $RELEASE_BODY
+          "
+
+          # Check if CHANGELOG.md exists
+          if [ -f CHANGELOG.md ]; then
+            # Insert new entry after the header (first ## line or after first blank line after title)
+            # Find the line number of the first version entry
+            FIRST_VERSION_LINE=$(grep -n "^## \[" CHANGELOG.md | head -1 | cut -d: -f1)
+
+            if [ -n "$FIRST_VERSION_LINE" ]; then
+              # Insert before the first version entry
+              head -n $((FIRST_VERSION_LINE - 1)) CHANGELOG.md > CHANGELOG.tmp
+              echo "" >> CHANGELOG.tmp
+              echo "$NEW_ENTRY" >> CHANGELOG.tmp
+              tail -n +$FIRST_VERSION_LINE CHANGELOG.md >> CHANGELOG.tmp
+              mv CHANGELOG.tmp CHANGELOG.md
+            else
+              # No version entries yet, append to end
+              echo "" >> CHANGELOG.md
+              echo "$NEW_ENTRY" >> CHANGELOG.md
+            fi
+          else
+            # Create new CHANGELOG
+            cat > CHANGELOG.md << 'HEADER'
+          # Changelog
+
+          All notable changes to this project will be documented in this file.
+
+          The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+          and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+          HEADER
+            echo "$NEW_ENTRY" >> CHANGELOG.md
+          fi
+
+          echo "Updated CHANGELOG.md with version $VERSION"
+          cat CHANGELOG.md | head -50
+
+      - name: Commit CHANGELOG changes
+        if: steps.version.outputs.tag_exists == 'false'
+        run: |
+          git add CHANGELOG.md
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "docs: Update CHANGELOG for ${{ steps.version.outputs.tag_name }}"
+            git push origin main
+          fi
+
+      - name: Create and push tag
+        if: steps.version.outputs.tag_exists == 'false'
+        run: |
+          TAG_NAME="${{ steps.version.outputs.tag_name }}"
+          git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
+          git push origin "$TAG_NAME"
+          echo "Created and pushed tag $TAG_NAME"
+
+      - name: Publish GitHub Release
+        if: steps.version.outputs.tag_exists == 'false'
+        uses: release-drafter/release-drafter@v6
+        with:
+          config-name: release-drafter.yml
+          publish: true
+          tag: ${{ steps.version.outputs.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
