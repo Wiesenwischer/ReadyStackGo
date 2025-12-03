@@ -90,13 +90,41 @@ jobs:
 
       - name: Update CHANGELOG.md
         id: changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.calc_version.outputs.version }}"
           TAG_NAME="${{ steps.calc_version.outputs.tag_name }}"
           TODAY=$(date +%Y-%m-%d)
 
-          # Get release body from draft
+          # Get release body from draft, fallback to PR title if empty
           RELEASE_BODY='${{ needs.update_release_draft.outputs.body }}'
+
+          if [ -z "$RELEASE_BODY" ] || [ "$RELEASE_BODY" = "null" ]; then
+            # Use PR title and body as fallback
+            PR_TITLE="${{ github.event.pull_request.title }}"
+            PR_BODY=$(gh pr view ${{ github.event.pull_request.number }} --json body -q '.body')
+
+            # Get labels for categorization
+            LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name' | tr '\n' ' ')
+
+            # Determine category from labels
+            if echo "$LABELS" | grep -qE "bug|fix"; then
+              CATEGORY="### Bug Fixes"
+            elif echo "$LABELS" | grep -qE "feature|enhancement"; then
+              CATEGORY="### Added"
+            elif echo "$LABELS" | grep -qE "documentation|docs"; then
+              CATEGORY="### Documentation"
+            else
+              CATEGORY="### Changes"
+            fi
+
+            RELEASE_BODY=$(printf "%s\n- %s" "$CATEGORY" "$PR_TITLE")
+
+            if [ -n "$PR_BODY" ] && [ "$PR_BODY" != "null" ]; then
+              RELEASE_BODY=$(printf "%s\n\n%s" "$RELEASE_BODY" "$PR_BODY")
+            fi
+          fi
 
           # Check if this version already exists in CHANGELOG
           if grep -q "## \[$VERSION\]" CHANGELOG.md 2>/dev/null; then
