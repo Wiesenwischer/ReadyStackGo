@@ -1,79 +1,79 @@
-# Konfigurationsübersicht
+# Configuration Overview
 
-ReadyStackGo verwendet ein strukturiertes Konfigurationssystem, das auf JSON-Dateien basiert und im persistenten Volume `rsgo-config` gespeichert wird.
+ReadyStackGo uses a structured configuration system based on JSON files, stored in the persistent volume `rsgo-config`.
 
-## Konfigurationsprinzipien
+## Configuration Principles
 
-### 1. Deklarativ
-Alle Konfiguration ist deklarativ in JSON-Dateien beschrieben.
+### 1. Declarative
+All configuration is declaratively described in JSON files.
 
-### 2. Versioniert
-Konfigurationsdateien werden zusammen mit dem Stack versioniert.
+### 2. Versioned
+Configuration files are versioned together with the stack.
 
-### 3. Validiert
-Jede Konfiguration wird gegen ein Schema validiert.
+### 3. Validated
+Each configuration is validated against a schema.
 
 ### 4. Persistent
-Alle Konfigurationen werden im Docker Volume `rsgo-config` persistiert.
+All configurations are persisted in the Docker volume `rsgo-config`.
 
-## Konfigurationsdateien
+## Configuration Files
 
-ReadyStackGo verwendet mehrere spezialisierte Konfigurationsdateien, alle mit dem Präfix `rsgo.`:
+ReadyStackGo uses several specialized configuration files, all with the prefix `rsgo.`:
 
 ### [`rsgo.system.json`](Config-Files.md#rsgo-system-json)
-System- und Organisationskonfiguration
-- Organisation (ID, Name)
-- Netzwerkkonfiguration
+System and organization configuration
+- Organization (ID, Name)
+- Network configuration
 - Ports (HTTP, HTTPS)
 - Base URL
-- Wizard-Status
-- Deployment-Modus
+- Wizard status
+- Deployment mode
 
 ### [`rsgo.security.json`](Config-Files.md#rsgo-security-json)
-Sicherheits- und Authentifizierungskonfiguration
-- Lokale Admin-Benutzer
-- Passwort-Hashes
-- JWT-Konfiguration
-- OIDC-Provider (zukünftig)
-- Rollen und Berechtigungen
+Security and authentication configuration
+- Local admin users
+- Password hashes
+- JWT configuration
+- OIDC providers (future)
+- Roles and permissions
 
 ### [`rsgo.tls.json`](Config-Files.md#rsgo-tls-json)
-TLS-Konfiguration
-- TLS-Modus (SelfSigned/Custom)
-- Zertifikatspfad
+TLS configuration
+- TLS mode (SelfSigned/Custom)
+- Certificate path
 - Ports
-- HTTP-Redirect-Einstellungen
+- HTTP redirect settings
 
 ### [`rsgo.contexts.json`](Config-Files.md#rsgo-contexts-json)
-Kontext- und Verbindungskonfiguration
-- Verbindungsmodus (Simple/Advanced)
-- Globale Connection Strings
-- Kontextspezifische Verbindungen
-- Kontext-Metadaten
+Context and connection configuration
+- Connection mode (Simple/Advanced)
+- Global connection strings
+- Context-specific connections
+- Context metadata
 
 ### [`rsgo.features.json`](Config-Files.md#rsgo-features-json)
-Feature-Flags
-- Globale Feature-Schalter
-- True/False-Werte
-- Werden als `RSGO_FEATURE_*` EnvVars übergeben
+Feature flags
+- Global feature switches
+- True/False values
+- Passed as `RSGO_FEATURE_*` environment variables
 
 ### [`rsgo.release.json`](Config-Files.md#rsgo-release-json)
-Release-Status
-- Installierte Stack-Version
-- Kontext-Versionen
-- Installationsdatum
-- Deployment-Historie
+Release status
+- Installed stack version
+- Context versions
+- Installation date
+- Deployment history
 
-### [`rsgo.nodes.json`](Config-Files.md#rsgo-nodes-json) (Zukünftig)
-Multi-Node-Konfiguration
-- Node-Definitionen
-- Node-Rollen
-- Remote-Docker-Hosts
+### [`rsgo.nodes.json`](Config-Files.md#rsgo-nodes-json) (Future)
+Multi-node configuration
+- Node definitions
+- Node roles
+- Remote Docker hosts
 
-## Konfigurationsmodi
+## Configuration Modes
 
-### Simple Mode (Standard)
-Alle Kontexte nutzen die gleichen globalen Verbindungen:
+### Simple Mode (Default)
+All contexts use the same global connections:
 ```json
 {
   "mode": "Simple",
@@ -86,7 +86,7 @@ Alle Kontexte nutzen die gleichen globalen Verbindungen:
 ```
 
 ### Advanced Mode
-Jeder Kontext kann individuelle Verbindungen haben:
+Each context can have individual connections:
 ```json
 {
   "mode": "Advanced",
@@ -101,9 +101,9 @@ Jeder Kontext kann individuelle Verbindungen haben:
 }
 ```
 
-## Konfigurationsspeicherort
+## Configuration Location
 
-Alle Konfigurationsdateien befinden sich im Docker Volume:
+All configuration files are located in the Docker volume:
 ```
 /app/config/
 ├── rsgo.system.json
@@ -117,42 +117,42 @@ Alle Konfigurationsdateien befinden sich im Docker Volume:
     └── self-signed.pfx
 ```
 
-## Konfiguration zur Laufzeit
+## Runtime Configuration
 
-### Lesen
+### Reading
 ```csharp
 var systemConfig = await configStore.LoadSystemConfigAsync();
 ```
 
-### Schreiben
+### Writing
 ```csharp
 await configStore.SaveSystemConfigAsync(systemConfig);
 ```
 
-### Validierung
-Alle Konfigurationen werden automatisch validiert:
-- JSON-Schema-Validierung
-- Business-Rule-Validierung
-- Abhängigkeits-Validierung
+### Validation
+All configurations are automatically validated:
+- JSON schema validation
+- Business rule validation
+- Dependency validation
 
 ## Environment Variables
 
-Aus den Konfigurationsdateien werden automatisch Environment Variables für die Container generiert:
+Environment variables are automatically generated from configuration files for containers:
 
-### System-Variables
+### System Variables
 ```bash
-RSGO_ORG_ID=kunde-a
-RSGO_ORG_NAME=Kunde A GmbH
+RSGO_ORG_ID=customer-a
+RSGO_ORG_NAME=Customer A Inc.
 RSGO_STACK_VERSION=4.3.0
 ```
 
-### Feature-Variables
+### Feature Variables
 ```bash
 RSGO_FEATURE_newColorTheme=true
 RSGO_FEATURE_discussionV2=false
 ```
 
-### Connection-Variables
+### Connection Variables
 ```bash
 RSGO_CONNECTION_transport=amqp://rabbitmq:5672
 RSGO_CONNECTION_persistence=Server=sql;Database=ams
@@ -161,14 +161,14 @@ RSGO_CONNECTION_eventStore=esdb://eventstore:2113
 
 ## Best Practices
 
-1. **Nicht manuell editieren**: Verwenden Sie die Admin-UI oder API
-2. **Backups erstellen**: Volume `rsgo-config` regelmäßig sichern
-3. **Simple Mode bevorzugen**: Nur bei Bedarf zu Advanced wechseln
-4. **Secrets extern**: Passwörter in Secrets-Management-Systemen
-5. **Versionierung**: Konfigurationsänderungen dokumentieren
+1. **Do not edit manually**: Use the Admin UI or API
+2. **Create backups**: Regularly backup the `rsgo-config` volume
+3. **Prefer Simple Mode**: Only switch to Advanced when needed
+4. **External secrets**: Store passwords in secrets management systems
+5. **Versioning**: Document configuration changes
 
-## Nächste Schritte
+## Next Steps
 
-- [Config-Dateien im Detail](Config-Files.md)
-- [Manifest-Spezifikation](Manifest-Specification.md)
+- [Config Files in Detail](Config-Files.md)
+- [Manifest Specification](Manifest-Specification.md)
 - [Feature Flags](Feature-Flags.md)

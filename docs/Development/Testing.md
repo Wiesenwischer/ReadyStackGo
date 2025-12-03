@@ -1,3 +1,3 @@
 # Testing
 
-Dokumentation zum Testing folgt.
+Documentation for testing coming soon.

@@ -1,5 +1,5 @@
-# Autorisierung
+# Authorization
 
-Dokumentation zur Autorisierung folgt.
+Documentation for authorization coming soon.
 
-Siehe auch: [Security Overview](Overview.md)
+See also: [Security Overview](Overview.md)

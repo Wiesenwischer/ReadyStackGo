@@ -1,19 +1,19 @@
 # Quick Start
 
-Diese Anleitung führt Sie durch die schnellste Methode, um ReadyStackGo zu starten.
+This guide walks you through the fastest way to get ReadyStackGo up and running.
 
-## Voraussetzungen
+## Prerequisites
 
-Stellen Sie sicher, dass Docker installiert ist:
+Make sure Docker is installed:
 
 ```bash
 docker --version
-# Docker version 20.10.0 oder höher
+# Docker version 20.10.0 or higher
 ```
 
-## Schritt 1: Admin-Container starten
+## Step 1: Start the Admin Container
 
-Starten Sie den ReadyStackGo Admin-Container:
+Start the ReadyStackGo admin container:
 
 ```bash
 docker run -d \
@@ -25,92 +25,92 @@ docker run -d \
   your-registry/readystackgo/admin:0.1.0
 ```
 
-### Parameter-Erklärung
+### Parameter Explanation
 
-- `-p 8443:8443` - HTTPS-Port für die Web-UI
-- `-v /var/run/docker.sock:/var/run/docker.sock` - Docker-Socket-Zugriff
-- `-v rsgo-config:/app/config` - Persistente Konfiguration
-- `--restart unless-stopped` - Automatischer Neustart
+- `-p 8443:8443` - HTTPS port for the web UI
+- `-v /var/run/docker.sock:/var/run/docker.sock` - Docker socket access
+- `-v rsgo-config:/app/config` - Persistent configuration
+- `--restart unless-stopped` - Automatic restart
 
-## Schritt 2: Web-UI öffnen
+## Step 2: Open the Web UI
 
-Öffnen Sie im Browser:
+Open in your browser:
 
 ```
-https://<ihre-server-ip>:8443
+https://<your-server-ip>:8443
 ```
 
-**Hinweis**: Beim ersten Start wird ein Self-Signed-Zertifikat verwendet. Akzeptieren Sie die Sicherheitswarnung im Browser.
+**Note**: On first start, a self-signed certificate is used. Accept the security warning in your browser.
 
-## Schritt 3: Setup-Wizard durchlaufen
+## Step 3: Complete the Setup Wizard
 
-Der Wizard führt Sie durch 4 Schritte:
+The wizard guides you through 4 steps:
 
-### 1. Admin-Benutzer anlegen
-- **Benutzername**: z.B. `admin`
-- **Passwort**: Sicheres Passwort wählen
+### 1. Create Admin User
+- **Username**: e.g., `admin`
+- **Password**: Choose a secure password
 
-### 2. Organisation definieren
-- **ID**: Technische ID (z.B. `kunde-a`)
-- **Name**: Anzeigename (z.B. `Kunde A GmbH`)
+### 2. Define Organization
+- **ID**: Technical ID (e.g., `customer-a`)
+- **Name**: Display name (e.g., `Customer A Inc.`)
 
-### 3. Verbindungen konfigurieren (Simple Mode)
-- **Transport**: Connection String für Message Queue
-- **Persistence**: Datenbank-Connection String
-- **EventStore**: EventStore-Connection String (optional)
+### 3. Configure Connections (Simple Mode)
+- **Transport**: Connection string for message queue
+- **Persistence**: Database connection string
+- **EventStore**: EventStore connection string (optional)
 
-Beispiele:
+Examples:
 ```
 Transport: amqp://rabbitmq:5672
 Persistence: Server=sqlserver;Database=ams;User=sa;Password=***
 EventStore: esdb://eventstore:2113
 ```
 
-### 4. Stack installieren
-- Manifest auswählen (z.B. `v4.3.0`)
-- Installation starten
-- Warten bis alle Container gestartet sind
+### 4. Install Stack
+- Select manifest (e.g., `v4.3.0`)
+- Start installation
+- Wait until all containers are started
 
-## Schritt 4: Anmelden
+## Step 4: Log In
 
-Nach erfolgreicher Installation:
+After successful installation:
 
-1. Wizard wird beendet
-2. Login-Seite erscheint
-3. Mit Admin-Credentials anmelden
+1. Wizard ends
+2. Login page appears
+3. Log in with admin credentials
 
-## Fertig!
+## Done!
 
-Sie können nun:
+You can now:
 
-- ✅ Container-Status einsehen
-- ✅ Feature Flags verwalten
-- ✅ TLS-Zertifikat hochladen
-- ✅ Updates durchführen
+- View container status
+- Manage feature flags
+- Upload TLS certificate
+- Perform updates
 
-## Nächste Schritte
+## Next Steps
 
-- [Installation (detailliert)](Installation.md)
+- [Installation (detailed)](Installation.md)
 - [Wizard Flow](../Setup-Wizard/Wizard-Flow.md)
 - [Configuration](../Configuration/Config-Files.md)
 
 ## Troubleshooting
 
-### Container startet nicht
+### Container won't start
 ```bash
 docker logs readystackgo-admin
 ```
 
-### Port bereits belegt
-Ändern Sie den Port-Mapping:
+### Port already in use
+Change the port mapping:
 ```bash
 -p 9443:8443
 ```
 
 ### Docker Socket Permission denied
-Stellen Sie sicher, dass der Docker-Socket zugänglich ist:
+Make sure the Docker socket is accessible:
 ```bash
 sudo chmod 666 /var/run/docker.sock
 ```
 
-Weitere Hilfe: [Troubleshooting](../Operations/Troubleshooting.md)
+More help: [Troubleshooting](../Operations/Troubleshooting.md)

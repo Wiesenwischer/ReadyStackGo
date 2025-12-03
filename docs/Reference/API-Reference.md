@@ -1,3 +1,5 @@
-# API-Referenz
+# API Reference
 
-API-Referenz folgt.
+Complete API reference coming soon.
+
+See also: [Technical Specification](./Technical-Specification.md) for detailed endpoint documentation.

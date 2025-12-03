@@ -1,3 +1,3 @@
 # Updates
 
-Dokumentation zu Updates folgt.
+Documentation for updates coming soon.

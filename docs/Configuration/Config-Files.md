@@ -1,39 +1,39 @@
 # Config Files (`rsgo.*.json`)
 
-Dieses Dokument beschreibt alle zentralen Config-Dateien, die durch den Admin-Container verwaltet werden.
+This document describes all central config files managed by the admin container.
 
-## Übersicht v0.6
+## Overview v0.6
 
-Mit v0.6 wurde die Konfiguration grundlegend überarbeitet:
+With v0.6, the configuration was fundamentally revised:
 
-| Speicher | Datentyp | Beschreibung |
-|----------|----------|--------------|
-| **SQLite** | Dynamische Daten | Organizations, Users, Environments, Deployments |
-| **JSON** | Statische Konfiguration | System-Einstellungen, TLS, Features, Release-Info |
+| Storage | Data Type | Description |
+|---------|-----------|-------------|
+| **SQLite** | Dynamic data | Organizations, Users, Environments, Deployments |
+| **JSON** | Static configuration | System settings, TLS, Features, Release info |
 
-### Aktuelle JSON-Dateien
+### Current JSON Files
 
-| Datei | Beschreibung |
-|-------|--------------|
-| `rsgo.system.json` | Wizard-Status, BaseUrl, Ports, Netzwerk |
-| `rsgo.tls.json` | TLS-Zertifikate und -Modus |
+| File | Description |
+|------|-------------|
+| `rsgo.system.json` | Wizard status, BaseUrl, Ports, Network |
+| `rsgo.tls.json` | TLS certificates and mode |
 | `rsgo.features.json` | Feature Flags |
-| `rsgo.release.json` | Installierte Stack-Version |
+| `rsgo.release.json` | Installed stack version |
 
-### Entfernte Dateien (seit v0.6)
+### Removed Files (since v0.6)
 
-| Datei | Ersetzt durch |
-|-------|---------------|
-| ~~`rsgo.security.json`~~ | SQLite: Users-Tabelle |
-| ~~`rsgo.organization.json`~~ | SQLite: Organizations-Tabelle |
-| ~~`rsgo.contexts.json`~~ | Entfernt (obsolet seit v0.4) |
-| ~~`rsgo.connections.json`~~ | Entfernt (obsolet seit v0.4) |
+| File | Replaced by |
+|------|-------------|
+| ~~`rsgo.security.json`~~ | SQLite: Users table |
+| ~~`rsgo.organization.json`~~ | SQLite: Organizations table |
+| ~~`rsgo.contexts.json`~~ | Removed (obsolete since v0.4) |
+| ~~`rsgo.connections.json`~~ | Removed (obsolete since v0.4) |
 
 ---
 
 ## rsgo.system.json
 
-Speichert System-Einstellungen und Wizard-Status.
+Stores system settings and wizard status.
 
 ```json
 {
@@ -46,14 +46,14 @@ Speichert System-Einstellungen und Wizard-Status.
 }
 ```
 
-### Felder
+### Fields
 
-| Feld | Typ | Beschreibung |
-|------|-----|--------------|
-| `baseUrl` | string | Basis-URL für die Admin-UI |
-| `httpPort` | int | HTTP-Port (Standard: 8080) |
-| `httpsPort` | int | HTTPS-Port (Standard: 8443) |
-| `networkName` | string | Docker-Netzwerk für Container |
+| Field | Type | Description |
+|-------|------|-------------|
+| `baseUrl` | string | Base URL for the admin UI |
+| `httpPort` | int | HTTP port (default: 8080) |
+| `httpsPort` | int | HTTPS port (default: 8443) |
+| `networkName` | string | Docker network for containers |
 | `wizardState` | enum | NotStarted, AdminCreated, OrganizationSet, EnvironmentCreated, Completed |
 | `deploymentMode` | enum | SingleNode, MultiNode |
 
@@ -61,7 +61,7 @@ Speichert System-Einstellungen und Wizard-Status.
 
 ## rsgo.tls.json
 
-Definiert TLS-Modus und Zertifikatspfade.
+Defines TLS mode and certificate paths.
 
 ```json
 {
@@ -72,20 +72,20 @@ Definiert TLS-Modus und Zertifikatspfade.
 }
 ```
 
-### Felder
+### Fields
 
-| Feld | Typ | Beschreibung |
-|------|-----|--------------|
+| Field | Type | Description |
+|-------|------|-------------|
 | `mode` | enum | SelfSigned, Custom, None |
-| `certificatePath` | string | Pfad zum PFX-Zertifikat |
-| `certificatePassword` | string | Passwort für PFX (verschlüsselt) |
-| `customCertificateThumbprint` | string? | Thumbprint eines Custom-Zertifikats |
+| `certificatePath` | string | Path to PFX certificate |
+| `certificatePassword` | string | Password for PFX (encrypted) |
+| `customCertificateThumbprint` | string? | Thumbprint of a custom certificate |
 
 ---
 
 ## rsgo.features.json
 
-Globale Feature Flags, die als Umgebungsvariablen an Container übergeben werden.
+Global feature flags passed as environment variables to containers.
 
 ```json
 {
@@ -97,9 +97,9 @@ Globale Feature Flags, die als Umgebungsvariablen an Container übergeben werden
 }
 ```
 
-### Verwendung
+### Usage
 
-Feature Flags werden als `RSGO_FEATURE_<NAME>` Environment-Variablen an deployte Container übergeben:
+Feature flags are passed as `RSGO_FEATURE_<NAME>` environment variables to deployed containers:
 
 ```bash
 RSGO_FEATURE_AUDIT_LOGGING=true
@@ -110,7 +110,7 @@ RSGO_FEATURE_ADVANCED_SEARCH=false
 
 ## rsgo.release.json
 
-Enthält Informationen über die installierte Stack-Version.
+Contains information about the installed stack version.
 
 ```json
 {
@@ -124,19 +124,19 @@ Enthält Informationen über die installierte Stack-Version.
 }
 ```
 
-### Felder
+### Fields
 
-| Feld | Typ | Beschreibung |
-|------|-----|--------------|
-| `installedStackVersion` | string? | Installierte Stack-Version |
-| `installDate` | DateTime? | Zeitpunkt der Installation |
-| `installedContexts` | Dictionary | Service-Name → Version |
+| Field | Type | Description |
+|-------|------|-------------|
+| `installedStackVersion` | string? | Installed stack version |
+| `installDate` | DateTime? | Installation timestamp |
+| `installedContexts` | Dictionary | Service name → Version |
 
 ---
 
-## Speicherort
+## Storage Location
 
-Alle JSON-Dateien befinden sich im Config-Volume:
+All JSON files are located in the config volume:
 
 ```
 /app/config/
@@ -146,7 +146,7 @@ Alle JSON-Dateien befinden sich im Config-Volume:
 └── rsgo.release.json
 ```
 
-Im Docker-Container wird dieses Verzeichnis typischerweise als Volume gemountet:
+In the Docker container, this directory is typically mounted as a volume:
 
 ```yaml
 volumes:
@@ -155,30 +155,30 @@ volumes:
 
 ---
 
-## SQLite-Datenbank (v0.6)
+## SQLite Database (v0.6)
 
-Die dynamischen Daten werden in einer SQLite-Datenbank gespeichert:
+Dynamic data is stored in a SQLite database:
 
 ```
 /app/data/readystackgo.db
 ```
 
-### Tabellen
+### Tables
 
-| Tabelle | Beschreibung |
-|---------|--------------|
-| `Organizations` | Organizations mit Name, Beschreibung, Status |
-| `Users` | Benutzer mit Username, Email, Password-Hash, Enablement |
-| `UserRoleAssignments` | Rollen-Zuweisungen mit Scope |
-| `Environments` | Docker-Environments (Socket/API) |
-| `Deployments` | Deployment-History |
-| `DeployedServices` | Services pro Deployment |
+| Table | Description |
+|-------|-------------|
+| `Organizations` | Organizations with name, description, status |
+| `Users` | Users with username, email, password hash, enablement |
+| `UserRoleAssignments` | Role assignments with scope |
+| `Environments` | Docker environments (Socket/API) |
+| `Deployments` | Deployment history |
+| `DeployedServices` | Services per deployment |
 
 ---
 
 ## ConfigStore Interface
 
-Der Zugriff auf JSON-Konfigurationen erfolgt über `IConfigStore`:
+Access to JSON configurations is through `IConfigStore`:
 
 ```csharp
 public interface IConfigStore
@@ -203,12 +203,12 @@ public interface IConfigStore
 
 ---
 
-## Migration von älteren Versionen
+## Migration from Older Versions
 
-### Von v0.5 zu v0.6
+### From v0.5 to v0.6
 
-1. `rsgo.security.json` → SQLite Users-Tabelle
-2. `rsgo.organization.json` → SQLite Organizations-Tabelle
-3. `rsgo.contexts.json` → Entfernt (war bereits obsolet)
+1. `rsgo.security.json` → SQLite Users table
+2. `rsgo.organization.json` → SQLite Organizations table
+3. `rsgo.contexts.json` → Removed (was already obsolete)
 
-Die Migration erfolgt automatisch beim ersten Start von v0.6.
+Migration happens automatically on first start of v0.6.

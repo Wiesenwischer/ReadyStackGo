@@ -1,20 +1,20 @@
 # Developer Setup Guide
 
-Dieses Dokument beschreibt, wie du ReadyStackGo lokal entwickeln und ausführen kannst.
+This document describes how to develop and run ReadyStackGo locally.
 
 ---
 
-## 1. Voraussetzungen
+## 1. Prerequisites
 
 - **.NET 9 SDK**
 - **Node.js 20+**
-- **npm** oder **pnpm**
-- **Docker** (Linux, Docker Desktop oder remote Engine)
-- Ein Editor deiner Wahl (z. B. Rider, VS Code)
+- **npm** or **pnpm**
+- **Docker** (Linux, Docker Desktop, or remote engine)
+- An editor of your choice (e.g., Rider, VS Code)
 
 ---
 
-## 2. Repository klonen
+## 2. Clone Repository
 
 ```bash
 git clone <repo-url> readystackgo
@@ -23,7 +23,7 @@ cd readystackgo
 
 ---
 
-## 3. Backend bauen
+## 3. Build Backend
 
 ```bash
 cd src/ReadyStackGo.Api
@@ -33,7 +33,7 @@ dotnet build
 
 ---
 
-## 4. Frontend bauen
+## 4. Build Frontend
 
 ```bash
 cd src/ReadyStackGo.WebUi
@@ -41,19 +41,19 @@ npm install
 npm run dev
 ```
 
-Für ein Production-Build:
+For a production build:
 
 ```bash
 npm run build
 ```
 
-Das gebaute Frontend kann dann als statischer Inhalt vom Admin-Container ausgeliefert werden.
+The built frontend can then be served as static content from the admin container.
 
 ---
 
-## 5. Admin-Container lokal starten
+## 5. Start Admin Container Locally
 
-Beispiel (Linux / WSL):
+Example (Linux / WSL):
 
 ```bash
 docker build -t rsgo-admin:dev -f docker/ReadyStackGo.Admin.Dockerfile .
@@ -65,11 +65,11 @@ docker run -d \
   rsgo-admin:dev
 ```
 
-Danach im Browser:
+Then in browser:
 
-- `https://localhost:8443` öffnen
-- Self-Signed-Zertifikat temporär akzeptieren
-- Wizard durchlaufen
+- Open `https://localhost:8443`
+- Temporarily accept self-signed certificate
+- Complete the wizard
 
 ---
 
@@ -77,25 +77,25 @@ Danach im Browser:
 
 ### Backend (API)
 
-- Projekt `ReadyStackGo.Api` starten
-- Startprofil so konfigurieren, dass Kestrel auf z. B. Port 5001 läuft
-- Optional HTTPS aktivieren
+- Start project `ReadyStackGo.Api`
+- Configure launch profile so Kestrel runs on e.g., port 5001
+- Optionally enable HTTPS
 
 ### Frontend
 
-- `npm run dev` ausführen
-- UI unter `http://localhost:5173` (oder ähnlichem Port) öffnen
-- API-Proxy konfigurieren (Dev-Proxy auf `https://localhost:5001`)
+- Run `npm run dev`
+- Open UI at `http://localhost:5173` (or similar port)
+- Configure API proxy (dev proxy to `https://localhost:5001`)
 
 ---
 
-## 7. Tests ausführen
+## 7. Run Tests
 
 ```bash
 dotnet test
 ```
 
-Frontend-Tests (sofern vorhanden):
+Frontend tests (if available):
 
 ```bash
 npm test
@@ -105,7 +105,7 @@ npm test
 
 ## 8. Docker Cleanup
 
-Zum Entfernen der Dev-Umgebung:
+To remove the dev environment:
 
 ```bash
 docker stop rsgo-admin-dev
@@ -115,4 +115,4 @@ docker volume rm rsgo-config-dev
 
 ---
 
-Damit ist deine Entwicklungsumgebung bereit, um an ReadyStackGo zu arbeiten 🚀
+Your development environment is now ready to work on ReadyStackGo!

@@ -1,43 +1,43 @@
 # GitHub Workflows
 
-ReadyStackGo verwendet GitHub Actions für Continuous Integration und Deployment. Alle Workflows befinden sich im Verzeichnis `.github/workflows/`.
+ReadyStackGo uses GitHub Actions for Continuous Integration and Deployment. All workflows are located in the `.github/workflows/` directory.
 
 ## CI (ci.yml)
 
-**Trigger:** Push auf `main`, `develop`, `feature/**` und Pull Requests
+**Trigger:** Push to `main`, `develop`, `feature/**` and Pull Requests
 
-Der Hauptworkflow für Continuous Integration:
+The main workflow for Continuous Integration:
 
 ### Build & Test Job
-- .NET 9.0 Build und Restore
-- Unit Tests, Integration Tests, Domain Tests
-- Frontend: npm install, ESLint, TypeScript Check, Build
-- GitVersion für automatische Versionierung
-- Artefakte: Test-Results und Build-Output
+- .NET 9.0 build and restore
+- Unit tests, integration tests, domain tests
+- Frontend: npm install, ESLint, TypeScript check, build
+- GitVersion for automatic versioning
+- Artifacts: Test results and build output
 
 ### E2E Tests Job
-- Playwright-basierte End-to-End Tests
-- Läuft nach erfolgreichem Build & Test
-- Artefakte: Playwright Report (30 Tage)
+- Playwright-based end-to-end tests
+- Runs after successful build & test
+- Artifacts: Playwright report (30 days)
 
 ---
 
 ## Docker Build (docker.yml)
 
-**Trigger:** Tag `v*` (bei jedem Release)
+**Trigger:** Tag `v*` (on every release)
 
-Baut und pusht Docker Images zu Docker Hub:
+Builds and pushes Docker images to Docker Hub:
 
-- Multi-Platform Build (linux/amd64, linux/arm64)
-- Automatische Versionierung via GitVersion
-- SBOM (Software Bill of Materials) Generierung
-- Image Tags:
+- Multi-platform build (linux/amd64, linux/arm64)
+- Automatic versioning via GitVersion
+- SBOM (Software Bill of Materials) generation
+- Image tags:
   - `latest`
-  - Semantische Version (z.B. `0.7.3`)
-  - Minor Version (z.B. `0.7`)
-- Aktualisiert Docker Hub README
+  - Semantic version (e.g., `0.7.3`)
+  - Minor version (e.g., `0.7`)
+- Updates Docker Hub README
 
-**Benötigte Secrets:**
+**Required Secrets:**
 - `DOCKERHUB_USERNAME`
 - `DOCKERHUB_TOKEN`
 
@@ -45,38 +45,38 @@ Baut und pusht Docker Images zu Docker Hub:
 
 ## Docker Dev Build (docker-dev.yml)
 
-**Trigger:** Nach erfolgreichem CI-Workflow auf `develop`
+**Trigger:** After successful CI workflow on `develop`
 
-Baut und pusht Dev-Images zu GitHub Container Registry (ghcr.io):
+Builds and pushes dev images to GitHub Container Registry (ghcr.io):
 
-- Multi-Platform Build (linux/amd64, linux/arm64)
-- Image Tag: `develop` (wird bei jedem Build überschrieben)
-- Git Commit SHA als Label (`org.opencontainers.image.revision`)
+- Multi-platform build (linux/amd64, linux/arm64)
+- Image tag: `develop` (overwritten on each build)
+- Git commit SHA as label (`org.opencontainers.image.revision`)
 
 **Image:** `ghcr.io/wiesenwischer/readystackgo:develop`
 
-**Commit SHA auslesen:**
+**Read commit SHA:**
 ```bash
 docker inspect ghcr.io/wiesenwischer/readystackgo:develop \
   --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
 ```
 
-**Keine zusätzlichen Secrets erforderlich** (nutzt `GITHUB_TOKEN`)
+**No additional secrets required** (uses `GITHUB_TOKEN`)
 
 ---
 
 ## Cloudflare Pages (cloudflare-pages.yml)
 
-**Trigger:** Tag `v*` (bei jedem Release), oder manuell
+**Trigger:** Tag `v*` (on every release), or manually
 
-Deployed die PublicWeb Dokumentationsseite zu Cloudflare Pages:
+Deploys the PublicWeb documentation site to Cloudflare Pages:
 
-- Node.js 20 Setup
-- npm ci und Build (Astro/Starlight)
-- Deploy zu Cloudflare Pages
-- Release Notes werden zur Build-Zeit von GitHub API geholt
+- Node.js 20 setup
+- npm ci and build (Astro/Starlight)
+- Deploy to Cloudflare Pages
+- Release notes are fetched from GitHub API at build time
 
-**Benötigte Secrets:**
+**Required Secrets:**
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 
@@ -84,52 +84,52 @@ Deployed die PublicWeb Dokumentationsseite zu Cloudflare Pages:
 
 ## Release Drafter (release-drafter.yml)
 
-**Trigger:** Push auf `main` und Pull Requests
+**Trigger:** Push to `main` and Pull Requests
 
-Erstellt Release-Drafts die manuell veröffentlicht werden:
+Creates release drafts that are manually published:
 
-- **Bei PRs:** Aktualisiert Draft Release, setzt Labels via Autolabeler
-- **Bei Push auf main:** Aktualisiert Draft (kein Auto-Publish)
-- Kategorisiert Änderungen (Features, Bug Fixes, etc.)
-- Generiert Release Notes aus PR-Titeln
-- Berechnet Version aus PR-Labels (major/minor/patch)
-- **Manuell "Publish release" klicken** → Tag wird erstellt → Docker + Cloudflare triggern
-- Konfiguration in `.github/release-drafter.yml`
+- **On PRs:** Updates draft release, sets labels via autolabeler
+- **On push to main:** Updates draft (no auto-publish)
+- Categorizes changes (Features, Bug Fixes, etc.)
+- Generates release notes from PR titles
+- Calculates version from PR labels (major/minor/patch)
+- **Manually click "Publish release"** → Tag is created → Docker + Cloudflare trigger
+- Configuration in `.github/release-drafter.yml`
 
 ---
 
 ## Third-Party Licenses (licenses.yml)
 
-**Trigger:** Push auf `main`/`develop` bei Änderungen an `*.csproj` oder `package.json`, oder manuell
+**Trigger:** Push to `main`/`develop` on changes to `*.csproj` or `package.json`, or manually
 
-Generiert Lizenzinformationen für alle Dependencies:
+Generates license information for all dependencies:
 
-- .NET Dependencies via `dotnet-project-licenses`
-- npm Dependencies via `license-checker`
-- Erstellt `THIRD-PARTY-LICENSES.md`
-- Erstellt automatisch einen Pull Request
+- .NET dependencies via `dotnet-project-licenses`
+- npm dependencies via `license-checker`
+- Creates `THIRD-PARTY-LICENSES.md`
+- Automatically creates a pull request
 
-**Voraussetzung:** Repository-Einstellung "Allow GitHub Actions to create and approve pull requests" muss aktiviert sein.
+**Prerequisite:** Repository setting "Allow GitHub Actions to create and approve pull requests" must be enabled.
 
 ---
 
 ## Wiki Sync (wiki.yml)
 
-**Trigger:** Push auf `main` bei Änderungen in `docs/**`, oder manuell
+**Trigger:** Push to `main` on changes in `docs/**`, or manually
 
-Synchronisiert die `/docs` Ordnerstruktur mit dem GitHub Wiki:
+Synchronizes the `/docs` folder structure with the GitHub Wiki:
 
-- Kopiert alle Docs-Dateien ins Wiki
-- Flacht Ordnerstruktur ab (z.B. `Architecture/Overview.md` → `Architecture-Overview.md`)
-- Generiert `_Sidebar.md` für Navigation
-- Committet und pusht automatisch
+- Copies all docs files to wiki
+- Flattens folder structure (e.g., `Architecture/Overview.md` → `Architecture-Overview.md`)
+- Generates `_Sidebar.md` for navigation
+- Commits and pushes automatically
 
 ---
 
-## Workflow-Abhängigkeiten
+## Workflow Dependencies
 
 ```
-Push zu main/develop
+Push to main/develop
        │
        ▼
     ┌─────┐
@@ -142,26 +142,26 @@ Push zu main/develop
   │  (ghcr.io) │
   └────────────┘
 
-Push zu main
+Push to main
        │
-       ├──► Release Drafter (Draft aktualisieren)
+       ├──► Release Drafter (update draft)
        │
-       └──► Wiki Sync (wenn docs/ geändert)
+       └──► Wiki Sync (if docs/ changed)
 
-Manuell "Publish release" klicken
+Manually click "Publish release"
        │
-       └──► Tag v* wird erstellt
+       └──► Tag v* is created
                  │
-                 ├──► Docker (Version-Tag)
+                 ├──► Docker (version tag)
                  └──► Cloudflare Pages
 ```
 
-## Secrets-Übersicht
+## Secrets Overview
 
-| Secret | Verwendung |
-|--------|------------|
+| Secret | Usage |
+|--------|-------|
 | `DOCKERHUB_USERNAME` | Docker Hub Login |
 | `DOCKERHUB_TOKEN` | Docker Hub Access Token |
 | `CLOUDFLARE_API_TOKEN` | Cloudflare Pages API Token |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Account ID |
-| `GITHUB_TOKEN` | Automatisch von GitHub bereitgestellt |
+| `GITHUB_TOKEN` | Automatically provided by GitHub |
