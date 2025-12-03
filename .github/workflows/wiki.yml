@@ -86,6 +86,7 @@ jobs:
 
           **Development**
           - [[Setup Environment|Development-Setup-Environment]]
+          - [[Git Workflow|Development-Git-Workflow]]
           - [[Coding Guidelines|Development-Coding-Guidelines]]
           - [[Testing|Development-Testing]]
           - [[Contributing|Development-Contributing]]

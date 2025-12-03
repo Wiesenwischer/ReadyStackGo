@@ -25,6 +25,7 @@ fi
 CONTAINER_NAME="readystackgo"
 IMAGE_NAME="wiesenwischer/readystackgo:latest"
 VOLUME_CONFIG="readystackgo-config"
+VOLUME_DATA="readystackgo-data"
 VOLUME_STACKS="readystackgo-stacks"
 
 echo "Verwendeter Port: $PORT"
@@ -97,6 +98,7 @@ docker run -d \
   -p $PORT:8080 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v $VOLUME_CONFIG:/app/config \
+  -v $VOLUME_DATA:/app/data \
   -v $VOLUME_STACKS:/app/stacks \
   $IMAGE_NAME
 
