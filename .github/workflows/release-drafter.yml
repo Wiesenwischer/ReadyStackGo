@@ -53,49 +53,18 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Calculate version from labels
-        id: calc_version
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          # Get PR labels
-          LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name' | tr '\n' ' ')
-          echo "PR Labels: $LABELS"
-
-          # Get current version from latest git tag (single source of truth)
-          CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0")
-          echo "Current version (from tag): $CURRENT_VERSION"
-
-          # Parse version parts
-          MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
-          MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
-          PATCH=$(echo $CURRENT_VERSION | cut -d. -f3)
-
-          # Determine version bump based on labels
-          if echo "$LABELS" | grep -qE "breaking|major"; then
-            MAJOR=$((MAJOR + 1))
-            MINOR=0
-            PATCH=0
-          elif echo "$LABELS" | grep -qE "feature|enhancement"; then
-            MINOR=$((MINOR + 1))
-            PATCH=0
-          else
-            PATCH=$((PATCH + 1))
-          fi
-
-          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
-          echo "New version: $NEW_VERSION"
-          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "tag_name=v$NEW_VERSION" >> $GITHUB_OUTPUT
-
       - name: Update CHANGELOG.md
         id: changelog
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION="${{ steps.calc_version.outputs.version }}"
-          TAG_NAME="${{ steps.calc_version.outputs.tag_name }}"
+          # Use Release Drafter's resolved version (single source of truth)
+          VERSION="${{ needs.update_release_draft.outputs.version }}"
+          TAG_NAME="${{ needs.update_release_draft.outputs.tag_name }}"
           TODAY=$(date +%Y-%m-%d)
+
+          echo "Version from Release Drafter: $VERSION"
+          echo "Tag: $TAG_NAME"
 
           # Get release body from draft, fallback to PR title if empty
           RELEASE_BODY='${{ needs.update_release_draft.outputs.body }}'
