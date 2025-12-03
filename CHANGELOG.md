@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+
+
+## [0.7.2] - 2025-12-03
+
+### Bug Fixes
+- Release: v0.7.1 - Docker build fix
+
+Fix: Include stacks directory in Docker build context
+
+## [0.7.1] - 2025-12-03
+
+
+
 ## [0.7.0] - 2025-12-03
 
 ### Added
