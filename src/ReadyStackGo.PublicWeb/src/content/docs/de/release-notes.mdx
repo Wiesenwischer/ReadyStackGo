@@ -12,6 +12,42 @@ href="https://github.com/Wiesenwischer/ReadyStackGo/blob/main/CHANGELOG.md"
 />
 
 
+## Version 0.7.2
+
+*Veröffentlicht: Dezember 2025*
+
+### Bug Fixes
+- Release: v0.7.1 - Docker build fix
+
+Fix: Include stacks directory in Docker build context
+
+---
+
+## Version 0.7.1
+
+*Veröffentlicht: Dezember 2025*
+
+
+
+---
+
+## Version 0.7.0
+
+*Veröffentlicht: Dezember 2025*
+
+### Added
+- Fully automated release workflow
+- Version calculation from PR labels
+- CHANGELOG and PublicWeb release notes auto-update in PR
+- Example stacks bundled in Docker image
+
+### Changed
+- Deploy PublicWeb on every release (tag trigger)
+
+---
+
+---
+
 ## Version 0.6.1
 
 *Veröffentlicht: Dezember 2025*
@@ -63,83 +99,6 @@ href="https://github.com/Wiesenwischer/ReadyStackGo/blob/main/CHANGELOG.md"
 - **GitHub Actions** workflows:
 - CI: Build & test on push/PR
 - Docker: Build and push to ghcr.io with SBOM
-
----
-
-## Version 0.5.0
-
-*Veröffentlicht: November 2024*
-
-### Added
-- Multi-Environment support
-- Environment management UI
-- Docker socket connection testing
-- Environment selector in UI
-
-### Changed
-- Improved deployment engine
-- Better error handling in API endpoints
-
----
-
----
-
-## Version 0.4.0
-
-*Veröffentlicht: November 2024*
-
-### Added
-- Simplified wizard (4 steps → 3 steps)
-- Stack-specific configuration system
-- Docker Compose variable detection
-- Per-deployment configuration storage
-
-### Changed
-- Removed mandatory environment requirement
-- Organizations can exist without environments
-
-### Removed
-- `rsgo.contexts.json` (connection strings now per-deployment)
-- `WizardState.ConnectionsSet` step
-
----
-
----
-
-## Version 0.3.0
-
-*Veröffentlicht: Januar 2025*
-
-### Added
-
-#### Setup Wizard
-- 4-step guided setup wizard for initial configuration
-- Step 1: Create Admin Account (username, password with BCrypt hashing)
-- Step 2: Organization Setup (organization ID and name)
-- Step 3: Configure Connections (Simple mode: Transport, Persistence, EventStore)
-- Step 4: Complete Setup (review and finalize)
-- Wizard state persistence across browser sessions
-- Automatic redirect to wizard if not completed
-- Automatic redirect to dashboard when wizard is complete
-- Dark mode support for wizard UI
-- Fully responsive wizard design
-
-#### Configuration System
-- File-based configuration using JSON files in `/app/config/`
-- `ConfigStore` service for async configuration management
-- Configuration files:
-- `rsgo.system.json` - System state and wizard progress
-- `rsgo.security.json` - Admin credentials and security settings
-- `rsgo.contexts.json` - Connection strings for bounded contexts
-- `rsgo.tls.json` - TLS certificate configuration
-- Automatic directory creation for config files
-- Thread-safe configuration operations
-
-#### TLS Bootstrap
-- Automatic self-signed certificate generation on first startup
-- RSA 2048-bit certificate generation
-- Certificate stored in `/app/config/tls/selfsigned.pfx`
-- Secure password generation and storage
 
 ---
 

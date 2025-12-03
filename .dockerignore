@@ -31,8 +31,7 @@ tests/
 /docker-compose*
 /Dockerfile*
 
-# Stacks directory is mounted at runtime, not included in image
-stacks/
+# Stacks directory is now included in image (copied to volume on first mount)
 
 # Development config files - should not be baked into image
 src/ReadyStackGo.Api/config/
