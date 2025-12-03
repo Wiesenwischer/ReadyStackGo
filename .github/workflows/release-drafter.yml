@@ -1,0 +1,33 @@
+name: Release Drafter
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, reopened, synchronize, labeled]
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-drafter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: release-drafter/release-drafter@v6
+        id: drafter
+        with:
+          config-name: release-drafter.yml
+          # Publish release when pushing to main (after PR merge)
+          publish: ${{ github.event_name == 'push' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Show draft info
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "Next version will be: ${{ steps.drafter.outputs.resolved_version }}"
+          echo "Tag: ${{ steps.drafter.outputs.tag_name }}"
