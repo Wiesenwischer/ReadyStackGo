@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.6.0] - 2024-12-01
+## [0.6.1] - 2025-12-03
+
+### Bug Fixes
+- Fix SQLite database path configuration (use /app/data instead of /app/config)
+- Fix wizard environment creation requiring authentication
+
+### Changes
+- Add `/api/wizard/environment` endpoint with anonymous access
+- Add separate data volume in install.sh
+- Add Git workflow documentation
+
+---
+
+## [0.6.0] - 2025-12-01
 
 ### Added
 
