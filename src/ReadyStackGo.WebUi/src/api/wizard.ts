@@ -47,6 +47,17 @@ export interface SetOrganizationResponse {
   message?: string;
 }
 
+export interface SetEnvironmentRequest {
+  name: string;
+  socketPath: string;
+}
+
+export interface SetEnvironmentResponse {
+  success: boolean;
+  message?: string;
+  environmentId?: string;
+}
+
 /**
  * @deprecated v0.4: Global connection strings are replaced by stack-specific configuration.
  * This type is kept for backwards compatibility and will be removed in v0.5.
@@ -88,6 +99,10 @@ export async function createAdmin(request: CreateAdminRequest): Promise<CreateAd
 
 export async function setOrganization(request: SetOrganizationRequest): Promise<SetOrganizationResponse> {
   return apiPost<SetOrganizationResponse>('/api/wizard/organization', request);
+}
+
+export async function setEnvironment(request: SetEnvironmentRequest): Promise<SetEnvironmentResponse> {
+  return apiPost<SetEnvironmentResponse>('/api/wizard/environment', request);
 }
 
 /**
