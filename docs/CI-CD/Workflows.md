@@ -24,7 +24,7 @@ Der Hauptworkflow für Continuous Integration:
 
 ## Docker Build (docker.yml)
 
-**Trigger:** Nach erfolgreichem CI-Workflow auf `main`/`develop`, oder bei Tags (`v*`)
+**Trigger:** Tag `v*` (bei jedem Release)
 
 Baut und pusht Docker Images zu Docker Hub:
 
@@ -32,9 +32,9 @@ Baut und pusht Docker Images zu Docker Hub:
 - Automatische Versionierung via GitVersion
 - SBOM (Software Bill of Materials) Generierung
 - Image Tags:
-  - `latest` (nur main/tags)
-  - `develop` (nur develop Branch)
-  - Semantische Version (z.B. `0.6.1`)
+  - `latest`
+  - Semantische Version (z.B. `0.7.3`)
+  - Minor Version (z.B. `0.7`)
 - Aktualisiert Docker Hub README
 
 **Benötigte Secrets:**
@@ -43,15 +43,38 @@ Baut und pusht Docker Images zu Docker Hub:
 
 ---
 
+## Docker Dev Build (docker-dev.yml)
+
+**Trigger:** Nach erfolgreichem CI-Workflow auf `develop`
+
+Baut und pusht Dev-Images zu GitHub Container Registry (ghcr.io):
+
+- Multi-Platform Build (linux/amd64, linux/arm64)
+- Image Tag: `develop` (wird bei jedem Build überschrieben)
+- Git Commit SHA als Label (`org.opencontainers.image.revision`)
+
+**Image:** `ghcr.io/wiesenwischer/readystackgo:develop`
+
+**Commit SHA auslesen:**
+```bash
+docker inspect ghcr.io/wiesenwischer/readystackgo:develop \
+  --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+```
+
+**Keine zusätzlichen Secrets erforderlich** (nutzt `GITHUB_TOKEN`)
+
+---
+
 ## Cloudflare Pages (cloudflare-pages.yml)
 
-**Trigger:** Push auf `main` bei Änderungen in `src/ReadyStackGo.PublicWeb/**`, oder manuell
+**Trigger:** Tag `v*` (bei jedem Release), oder manuell
 
 Deployed die PublicWeb Dokumentationsseite zu Cloudflare Pages:
 
 - Node.js 20 Setup
 - npm ci und Build (Astro/Starlight)
 - Deploy zu Cloudflare Pages
+- Release Notes werden zur Build-Zeit von GitHub API geholt
 
 **Benötigte Secrets:**
 - `CLOUDFLARE_API_TOKEN`
@@ -61,25 +84,16 @@ Deployed die PublicWeb Dokumentationsseite zu Cloudflare Pages:
 
 ## Release Drafter (release-drafter.yml)
 
-**Trigger:** Push auf `main` und Pull Requests
+**Trigger:** Push auf `main` (published Release) und Pull Requests (Draft aktualisieren)
 
-Erstellt automatisch Release-Entwürfe basierend auf PR-Labels:
+Automatisiert den gesamten Release-Prozess:
 
+- **Bei PRs:** Aktualisiert Draft Release, setzt Labels via Autolabeler
+- **Bei Push auf main:** Veröffentlicht das Release mit Tag
 - Kategorisiert Änderungen (Features, Bug Fixes, etc.)
 - Generiert Release Notes aus PR-Titeln
+- Berechnet Version aus PR-Labels (major/minor/patch)
 - Konfiguration in `.github/release-drafter.yml`
-
----
-
-## Sync Changelog (sync-changelog.yml)
-
-**Trigger:** Push auf `main` bei Änderungen an `CHANGELOG.md`, oder manuell
-
-Synchronisiert CHANGELOG.md mit den PublicWeb Release Notes:
-
-- Parst CHANGELOG.md (Keep a Changelog Format)
-- Generiert Release Notes für DE und EN
-- Erstellt automatisch einen Pull Request
 
 ---
 
@@ -120,21 +134,22 @@ Push zu main/develop
     ┌─────┐
     │ CI  │ ─────────────────────┐
     └──┬──┘                      │
-       │ (success)               │
-       ▼                         ▼
-  ┌─────────┐             ┌────────────┐
-  │ Docker  │             │ E2E Tests  │
-  └─────────┘             └────────────┘
+       │ (success, develop)      ▼
+       ▼                  ┌────────────┐
+  ┌────────────┐          │ E2E Tests  │
+  │ Docker Dev │          └────────────┘
+  │  (ghcr.io) │
+  └────────────┘
 
-Push zu main (docs änderungen)
+Push zu main
        │
-       ├──► Wiki Sync
+       ├──► Release Drafter (published Release + Tag)
+       │           │
+       │           └──► Tag v* triggert:
+       │                    ├──► Docker (Version-Tag)
+       │                    └──► Cloudflare Pages
        │
-       └──► Cloudflare Pages (wenn PublicWeb geändert)
-
-Push zu main (CHANGELOG.md)
-       │
-       └──► Sync Changelog
+       └──► Wiki Sync (wenn docs/ geändert)
 ```
 
 ## Secrets-Übersicht
