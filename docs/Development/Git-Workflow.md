@@ -123,7 +123,7 @@ Nur verwenden wenn Production akut betroffen ist!
 Der Release-Prozess ist vollständig automatisiert. Nach dem Merge eines PRs in `main`:
 
 ```
-PR merge nach main ──► Release Drafter ──► Tag erstellen ──► CHANGELOG update ──► GitHub Release ──► Docker Build
+PR merge nach main ──► Release Drafter published ──► Tag erstellt ──► Docker Build + PublicWeb Deploy
                               │
                               └── Version aus PR-Labels ermittelt
 ```
@@ -138,12 +138,11 @@ PR merge nach main ──► Release Drafter ──► Tag erstellen ──► C
 
 3. **Automatisch passiert dann**:
    - Release Drafter ermittelt die Version aus Labels
-   - Git Tag wird erstellt (`v0.7.0`)
-   - `CHANGELOG.md` wird aktualisiert
-   - GitHub Release wird veröffentlicht
+   - GitHub Release wird veröffentlicht (mit Tag)
    - Docker Workflow baut Images:
      - `latest` Tag (von `main`)
      - Version Tag (z.B. `0.7.0`)
+   - PublicWeb wird deployed (holt Release Notes von GitHub API)
 
 ### Version-Bestimmung durch Labels
 
@@ -267,12 +266,11 @@ MAJOR.MINOR.PATCH
 | Trigger | Workflow | Ergebnis |
 |---------|----------|----------|
 | Push auf `main`/`develop` | CI | Build + Tests |
-| CI erfolgreich auf `main`/`develop` | Docker | Image auf Docker Hub |
-| Push auf `main` | Release Drafter | Tag + CHANGELOG + GitHub Release |
-| Tag `v*` | Docker | Image mit Version-Tag |
+| CI erfolgreich auf `develop` | Docker Dev | Image auf ghcr.io (`develop`) |
+| Push auf `main` | Release Drafter | GitHub Release veröffentlicht |
+| Tag `v*` | Docker | Image auf Docker Hub (`latest`, `0.7.3`, `0.7`) |
+| Tag `v*` | Cloudflare | PublicWeb deployed |
 | Push auf `main` (docs/) | Wiki Sync | GitHub Wiki aktualisiert |
-| Push auf `main` (PublicWeb/) | Cloudflare | PublicWeb deployed |
-| CHANGELOG.md geändert | Sync Changelog | PublicWeb Release Notes aktualisiert |
 
 ### Release Workflow im Detail
 
@@ -282,15 +280,19 @@ PR mit Labels ──► merge nach main
                       ▼
               Release Drafter
                       │
-        ┌─────────────┼─────────────┐
-        ▼             ▼             ▼
-   CHANGELOG.md    Git Tag    GitHub Release
-   aktualisiert   erstellt    veröffentlicht
-                      │
-                      ▼
-               Docker Workflow
-                      │
            ┌─────────┴─────────┐
            ▼                   ▼
-      latest Tag         vX.Y.Z Tag
+       Git Tag          GitHub Release
+       erstellt         veröffentlicht
+           │
+           ▼
+    ┌──────┴──────┐
+    ▼             ▼
+ Docker       Cloudflare
+ Workflow       Pages
+    │             │
+    ▼             ▼
+ Images       PublicWeb
+(Docker Hub) (Release Notes
+             von GitHub API)
 ```
