@@ -1,3 +1,3 @@
-# Entwicklungsumgebung einrichten
+# Setting up Development Environment
 
-Dokumentation zur Entwicklungsumgebung folgt.
+Documentation for development environment coming soon.

@@ -1,12 +1,12 @@
-# Komponenten
+# Components
 
-ReadyStackGo besteht aus mehreren klar getrennten Komponenten, die im Zusammenspiel den gesamten Stack verwalten.
+ReadyStackGo consists of several clearly separated components that work together to manage the entire stack.
 
-## Übersicht
+## Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                ReadyStackGo Admin-Container                      │
+│                ReadyStackGo Admin Container                      │
 │  ┌─────────┐  ┌─────────┐  ┌──────────────┐                     │
 │  │ Web UI  │  │   API   │  │    Wizard    │                     │
 │  └────┬────┘  └────┬────┘  └──────┬───────┘                     │
@@ -43,23 +43,23 @@ ReadyStackGo besteht aus mehreren klar getrennten Komponenten, die im Zusammensp
 
 ---
 
-## Domain Layer Komponenten
+## Domain Layer Components
 
 ### SharedKernel
 
-Grundlegende DDD Building Blocks:
+Basic DDD Building Blocks:
 
-| Klasse | Beschreibung |
-|--------|--------------|
-| `AggregateRoot<TId>` | Basisklasse für Aggregate Roots mit Domain Events |
-| `Entity<TId>` | Basisklasse für Entities mit Identity |
-| `ValueObject` | Basisklasse für unveränderliche Value Objects |
-| `DomainEvent` | Basisklasse für Domain Events |
-| `AssertionConcern` | Validierungs-Hilfsmethoden |
+| Class | Description |
+|-------|-------------|
+| `AggregateRoot<TId>` | Base class for Aggregate Roots with Domain Events |
+| `Entity<TId>` | Base class for Entities with Identity |
+| `ValueObject` | Base class for immutable Value Objects |
+| `DomainEvent` | Base class for Domain Events |
+| `AssertionConcern` | Validation helper methods |
 
 ### IdentityAccess Context
 
-Bounded Context für Identitäts- und Zugriffsverwaltung:
+Bounded Context for identity and access management:
 
 ```
 IdentityAccess/
@@ -81,7 +81,7 @@ IdentityAccess/
 │   └── SystemAdminRegistrationService.cs  # Domain Service
 │
 └── Roles/                   # Role Aggregate
-    ├── Role.cs              # Aggregate mit Built-in Rollen
+    ├── Role.cs              # Aggregate with Built-in Roles
     ├── RoleId.cs            # Typed ID
     ├── Permission.cs        # Value Object
     ├── ScopeType.cs         # Enum (Global, Organization, Environment)
@@ -90,7 +90,7 @@ IdentityAccess/
 
 ### Deployment Context
 
-Bounded Context für Deployment-Management:
+Bounded Context for deployment management:
 
 ```
 Deployment/
@@ -111,7 +111,7 @@ Deployment/
 
 ### StackManagement Context
 
-Bounded Context für Stack-Quellenverwaltung:
+Bounded Context for stack source management:
 
 ```
 StackManagement/
@@ -119,7 +119,7 @@ StackManagement/
     ├── StackSource.cs              # Aggregate Root
     ├── StackSourceId.cs            # Typed ID
     ├── StackSourceType.cs          # Enum (LocalDirectory, GitRepository)
-    ├── StackDefinition.cs          # Value Object (Stack-Metadaten)
+    ├── StackDefinition.cs          # Value Object (Stack Metadata)
     ├── StackVariable.cs            # Value Object
     ├── IStackSourceRepository.cs
     └── IStackDefinitionRepository.cs
@@ -127,11 +127,11 @@ StackManagement/
 
 ---
 
-## Application Layer Komponenten
+## Application Layer Components
 
-### UseCases nach Domäne
+### UseCases by Domain
 
-| Domäne | Commands | Queries |
+| Domain | Commands | Queries |
 |--------|----------|---------|
 | **Administration** | RegisterSystemAdmin | - |
 | **Authentication** | Login | - |
@@ -146,24 +146,24 @@ StackManagement/
 
 ### Service Interfaces
 
-Abstraktion der Infrastruktur für Dependency Inversion:
+Infrastructure abstraction for Dependency Inversion:
 
-| Interface | Beschreibung |
-|-----------|--------------|
-| `IDockerService` | Docker Engine Abstraktion (Container, Images, Networks) |
-| `IDockerComposeParser` | Parst Docker Compose YAML |
-| `IDeploymentService` | High-Level Deployment-Orchestrierung |
-| `IEnvironmentService` | Environment-Management |
-| `IStackSourceService` | Stack Source Synchronisation |
-| `IStackSourceProvider` | Provider Pattern für verschiedene Source-Typen |
-| `IStackCache` | In-Memory Cache für Stack-Definitionen |
-| `ITokenService` | JWT Token Generation |
+| Interface | Description |
+|-----------|-------------|
+| `IDockerService` | Docker Engine abstraction (Containers, Images, Networks) |
+| `IDockerComposeParser` | Parses Docker Compose YAML |
+| `IDeploymentService` | High-level deployment orchestration |
+| `IEnvironmentService` | Environment management |
+| `IStackSourceService` | Stack source synchronization |
+| `IStackSourceProvider` | Provider pattern for different source types |
+| `IStackCache` | In-memory cache for stack definitions |
+| `ITokenService` | JWT token generation |
 
 ---
 
-## Infrastructure Layer Komponenten
+## Infrastructure Layer Components
 
-### DataAccess (SQLite mit EF Core)
+### DataAccess (SQLite with EF Core)
 
 ```
 DataAccess/
@@ -173,10 +173,10 @@ DataAccess/
 │   ├── UserConfiguration.cs
 │   ├── EnvironmentConfiguration.cs
 │   └── DeploymentConfiguration.cs
-└── Repositories/                # Repository Implementierungen
+└── Repositories/                # Repository Implementations
     ├── OrganizationRepository.cs
     ├── UserRepository.cs
-    ├── RoleRepository.cs        # In-Memory (Built-in Rollen)
+    ├── RoleRepository.cs        # In-Memory (Built-in Roles)
     ├── EnvironmentRepository.cs
     └── DeploymentRepository.cs
 ```
@@ -187,17 +187,17 @@ DataAccess/
 Authentication/
 ├── BCryptPasswordHasher.cs      # IPasswordHasher Implementation
 ├── TokenService.cs              # ITokenService Implementation (JWT)
-└── JwtSettings.cs               # JWT Konfiguration (aus appsettings.json)
+└── JwtSettings.cs               # JWT Configuration (from appsettings.json)
 ```
 
-### Configuration (JSON-basiert)
+### Configuration (JSON-based)
 
-Nur noch für statische Konfiguration:
+Only for static configuration:
 
 ```
 Configuration/
 ├── IConfigStore.cs              # Interface
-├── ConfigStore.cs               # JSON-Dateien im /app/config Volume
+├── ConfigStore.cs               # JSON files in /app/config volume
 ├── SystemConfig.cs              # rsgo.system.json
 ├── TlsConfig.cs                 # rsgo.tls.json
 ├── FeaturesConfig.cs            # rsgo.features.json
@@ -226,7 +226,7 @@ Docker/
 Services/
 ├── IDeploymentEngine.cs         # Interface
 ├── DeploymentEngine.cs          # Deployment Plan Generation & Execution
-├── DeploymentService.cs         # High-Level Orchestrierung
+├── DeploymentService.cs         # High-Level Orchestration
 └── EnvironmentService.cs        # Environment Operations
 ```
 
@@ -239,7 +239,7 @@ Stacks/
 ├── Configuration/
 │   └── StackSourceConfig.cs     # appsettings.json Binding
 └── Sources/
-    └── LocalDirectoryStackSourceProvider.cs  # Lokale Stacks
+    └── LocalDirectoryStackSourceProvider.cs  # Local Stacks
 ```
 
 ### Manifests
@@ -249,7 +249,7 @@ Manifests/
 ├── IManifestProvider.cs
 ├── ManifestProvider.cs          # Release Manifest Loading
 ├── ReleaseManifest.cs           # Manifest Model
-└── DockerComposeParser.cs       # YAML zu DeploymentPlan
+└── DockerComposeParser.cs       # YAML to DeploymentPlan
 ```
 
 ### TLS
@@ -262,33 +262,33 @@ Tls/
 
 ---
 
-## API Layer Komponenten
+## API Layer Components
 
 ### Web UI (Frontend)
-- **Technologie**: React + TypeScript + Tailwind CSS
+- **Technology**: React + TypeScript + Tailwind CSS
 - **Features**:
-  - Setup-Wizard
-  - Dashboard mit Container-Übersicht
-  - Stack-Deployments
-  - Environment-Management
-  - Feature-Flags-Verwaltung
-  - TLS-Konfiguration
+  - Setup Wizard
+  - Dashboard with container overview
+  - Stack deployments
+  - Environment management
+  - Feature flags management
+  - TLS configuration
 
 ### API Layer
-- **Technologie**: ASP.NET Core + FastEndpoints
-- **Verantwortlichkeiten**:
-  - REST-Endpunkte unter `/api/v1/*`
-  - JWT-Authentifizierung
-  - Input-Validierung
-  - MediatR Dispatch zu UseCases
+- **Technology**: ASP.NET Core + FastEndpoints
+- **Responsibilities**:
+  - REST endpoints under `/api/v1/*`
+  - JWT authentication
+  - Input validation
+  - MediatR dispatch to UseCases
 
 ---
 
 ## Managed Containers
 
-### Vom Benutzer deployte Stacks
+### User-Deployed Stacks
 
-Die von ReadyStackGo verwalteten Container werden mit Labels versehen:
+Containers managed by ReadyStackGo are labeled:
 
 ```
 Labels:
@@ -297,28 +297,28 @@ Labels:
   rsgo.environment: "env-id-guid"
 ```
 
-Diese Labels ermöglichen:
-- Gruppierung nach Stack
-- Identifikation von Services
-- Zuordnung zu Environments
+These labels enable:
+- Grouping by stack
+- Identification of services
+- Assignment to environments
 
 ---
 
-## Kommunikation zwischen Komponenten
+## Communication Between Components
 
-### Innerhalb des Admin-Containers
+### Within the Admin Container
 
 ```
 Web UI → API → MediatR → UseCase Handler → Domain/Infrastructure Services
 ```
 
-### Mit Docker Engine
+### With Docker Engine
 
 ```
 Infrastructure (DockerService) → Docker Socket/API → Docker Engine
 ```
 
-### Datenfluss
+### Data Flow
 
 ```
                     ┌─────────────┐
@@ -346,7 +346,7 @@ Infrastructure (DockerService) → Docker Socket/API → Docker Engine
 
 ## Dependency Injection
 
-Alle Komponenten werden über ASP.NET Core Dependency Injection registriert:
+All components are registered via ASP.NET Core Dependency Injection:
 
 ```csharp
 // Domain Services
@@ -377,7 +377,7 @@ services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(DependencyInj
 
 ---
 
-## Nächste Schritte
+## Next Steps
 
 - [Container Lifecycle](Container-Lifecycle.md)
 - [Deployment Engine](Deployment-Engine.md)

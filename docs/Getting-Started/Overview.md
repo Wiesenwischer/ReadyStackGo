@@ -1,60 +1,60 @@
-# Getting Started - Übersicht
+# Getting Started - Overview
 
-ReadyStackGo ist eine selbst gehostete Plattform zur einfachen Installation, Aktualisierung und Verwaltung komplexer Microservice-Stacks auf Basis von Docker.
+ReadyStackGo is a self-hosted platform for easy installation, updating, and management of complex microservice stacks based on Docker.
 
-## Was ist ReadyStackGo?
+## What is ReadyStackGo?
 
-ReadyStackGo (RSGO) löst das Problem der komplexen Bereitstellung von Microservice-Architekturen in On-Premise-Umgebungen. Statt manueller Docker-Commands, komplexer Compose-Dateien oder Kubernetes-Konfigurationen erhalten Sie:
+ReadyStackGo (RSGO) solves the problem of complex deployment of microservice architectures in on-premise environments. Instead of manual Docker commands, complex Compose files, or Kubernetes configurations, you get:
 
-- ✅ **Einen einzigen Admin-Container**, der den gesamten Stack verwaltet
-- ✅ **Einen geführten Setup-Wizard** für die Erstinstallation
-- ✅ **Eine moderne Web-UI** zur Verwaltung
-- ✅ **Manifest-basierte Deployments** für reproduzierbare Installationen
+- **A single admin container** that manages the entire stack
+- **A guided setup wizard** for initial installation
+- **A modern web UI** for management
+- **Manifest-based deployments** for reproducible installations
 
-## Für wen ist ReadyStackGo?
+## Who is ReadyStackGo for?
 
-### On-Premise-Kunden
-Kunden, die Software in ihren eigenen Rechenzentren betreiben und eine einfache Installationslösung benötigen.
+### On-Premise Customers
+Customers who operate software in their own data centers and need a simple installation solution.
 
-### Partner & Reseller
-Partner, die Software-Stacks für ihre Kunden installieren und warten müssen.
+### Partners & Resellers
+Partners who need to install and maintain software stacks for their customers.
 
-### Entwicklungsteams
-Teams, die identische Umgebungen für Entwicklung, Testing und Produktion benötigen.
+### Development Teams
+Teams that need identical environments for development, testing, and production.
 
 ### Edge & IoT
-Installationen in isolierten oder eingeschränkten Netzwerkumgebungen.
+Installations in isolated or restricted network environments.
 
-## Kernkonzepte
+## Core Concepts
 
-### Admin-Container
-Der zentrale Container, der alle anderen Container verwaltet. Er ist der einzige Container, den Sie manuell starten müssen.
+### Admin Container
+The central container that manages all other containers. It is the only container you need to start manually.
 
-### Manifeste
-Deklarative Beschreibungen des gewünschten Zustands eines Software-Stacks. Manifeste definieren, welche Container in welchen Versionen deployt werden sollen.
+### Manifests
+Declarative descriptions of the desired state of a software stack. Manifests define which containers should be deployed in which versions.
 
-### Setup-Wizard
-Ein geführter Installationsassistent, der die Ersteinrichtung vereinfacht (Admin-Benutzer, Organisation, Verbindungen, Installation).
+### Setup Wizard
+A guided installation assistant that simplifies the initial setup (admin user, organization, connections, installation).
 
 ### Feature Flags
-Kontextübergreifende Schalter zur Aktivierung/Deaktivierung fachlicher Funktionen.
+Cross-context switches for enabling/disabling functional features.
 
-## Technische Voraussetzungen
+## Technical Requirements
 
-- **Docker Engine** (Version 20.10 oder höher)
-- **Linux, Windows oder macOS** mit Docker-Unterstützung
-- **Zugriff auf Docker Socket** (`/var/run/docker.sock`)
+- **Docker Engine** (version 20.10 or higher)
+- **Linux, Windows, or macOS** with Docker support
+- **Access to Docker Socket** (`/var/run/docker.sock`)
 - **Ports**: 8080 (HTTP), 8443 (HTTPS)
-- Optional: **Eigenes TLS-Zertifikat** (sonst Self-Signed)
+- Optional: **Custom TLS certificate** (otherwise self-signed)
 
-## Nächste Schritte
+## Next Steps
 
-1. [Quick Start](Quick-Start.md) - Schnellstart-Anleitung
-2. [Installation](Installation.md) - Detaillierte Installationsanleitung
-3. [Setup Wizard](../Setup-Wizard/Wizard-Flow.md) - Wizard-Durchlauf
+1. [Quick Start](Quick-Start.md) - Quick start guide
+2. [Installation](Installation.md) - Detailed installation guide
+3. [Setup Wizard](../Setup-Wizard/Wizard-Flow.md) - Wizard walkthrough
 
-## Hilfreiche Ressourcen
+## Helpful Resources
 
-- [Architecture Overview](../Architecture/Overview.md) - Systemarchitektur
-- [Configuration](../Configuration/Config-Files.md) - Konfigurationsdateien
-- [Security](../Security/Overview.md) - Sicherheitskonzepte
+- [Architecture Overview](../Architecture/Overview.md) - System architecture
+- [Configuration](../Configuration/Config-Files.md) - Configuration files
+- [Security](../Security/Overview.md) - Security concepts

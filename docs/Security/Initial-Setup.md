@@ -1,94 +1,94 @@
 # Initial Setup Security
 
-Dieses Dokument beschreibt das Sicherheitskonzept während der erstmaligen Einrichtung von ReadyStackGo.
+This document describes the security concept during the initial setup of ReadyStackGo.
 
-## Überblick
+## Overview
 
-Bei der ersten Installation ist ReadyStackGo noch nicht konfiguriert und hat keinen Admin-Benutzer. Die Wizard-Endpoints müssen daher ohne Authentifizierung zugänglich sein, um die initiale Einrichtung zu ermöglichen.
+During the first installation, ReadyStackGo is not yet configured and has no admin user. The wizard endpoints must therefore be accessible without authentication to enable initial setup.
 
-## Aktueller Sicherheitsmechanismus (v0.4)
+## Current Security Mechanism (v0.4)
 
-### State-basierte Validierung
+### State-based Validation
 
-Der Wizard durchläuft definierte Zustände, die verhindern, dass Schritte übersprungen oder wiederholt werden:
+The wizard goes through defined states that prevent steps from being skipped or repeated:
 
-| State | Beschreibung | Erlaubte Aktion |
-|-------|-------------|-----------------|
-| `NotStarted` | Keine Konfiguration vorhanden | Admin erstellen |
-| `AdminCreated` | Admin existiert, aber keine Organisation | Organisation setzen |
-| `OrganizationSet` | Organisation konfiguriert | Wizard abschließen |
-| `Installed` | Wizard abgeschlossen | Keine Wizard-Aktionen |
+| State | Description | Allowed Action |
+|-------|-------------|----------------|
+| `NotStarted` | No configuration present | Create admin |
+| `AdminCreated` | Admin exists but no organization | Set organization |
+| `OrganizationSet` | Organization configured | Complete wizard |
+| `Installed` | Wizard completed | No wizard actions |
 
-### Endpoint-Schutz
+### Endpoint Protection
 
-- **Während des Wizards**: Endpoints sind anonym zugänglich (`AllowAnonymous`)
-- **Nach Abschluss**: Wizard-Endpoints geben Fehler zurück, da der State nicht mehr passt
-- **Normale API**: Erfordert JWT-Authentifizierung
+- **During wizard**: Endpoints are anonymously accessible (`AllowAnonymous`)
+- **After completion**: Wizard endpoints return errors since the state no longer matches
+- **Normal API**: Requires JWT authentication
 
-### Einschränkungen
+### Limitations
 
-- Kein Zeitfenster-Limit für die Ersteinrichtung
-- Theoretisch kann ein Angreifer bei ungesicherter Netzwerkumgebung den ersten Admin erstellen
-- Keine IP-Bindung oder Setup-Token-Mechanismus
+- No time window limit for initial setup
+- Theoretically, an attacker could create the first admin in an unsecured network environment
+- No IP binding or setup token mechanism
 
-## Empfohlene Best Practices (v0.4)
+## Recommended Best Practices (v0.4)
 
-### Netzwerksicherheit
+### Network Security
 
-1. **Lokale Installation**: ReadyStackGo zunächst nur lokal (localhost/127.0.0.1) zugänglich machen
-2. **VPN/Firewall**: Bei Remote-Installation sicherstellen, dass nur autorisierte Clients Zugriff haben
-3. **Schnelle Einrichtung**: Wizard unmittelbar nach der Installation abschließen
+1. **Local installation**: Initially make ReadyStackGo only accessible locally (localhost/127.0.0.1)
+2. **VPN/Firewall**: For remote installation, ensure only authorized clients have access
+3. **Quick setup**: Complete wizard immediately after installation
 
-### Docker-Deployment
+### Docker Deployment
 
 ```bash
-# Option 1: Nur localhost binden während der Einrichtung
+# Option 1: Bind only to localhost during setup
 docker run -p 127.0.0.1:5259:5259 readystackgo
 
-# Option 2: Mit VPN/Firewall-geschütztem Netzwerk
+# Option 2: With VPN/firewall protected network
 docker run -p 5259:5259 readystackgo
-# Sicherstellen, dass Port 5259 nur aus vertrauenswürdigen Netzwerken erreichbar ist
+# Ensure port 5259 is only reachable from trusted networks
 ```
 
-## Vergleich mit Portainer
+## Comparison with Portainer
 
 | Feature | ReadyStackGo (v0.4) | Portainer |
 |---------|---------------------|-----------|
-| Anonyme Wizard-Endpoints | Ja | Ja |
-| State-Validierung | Ja | Ja |
-| Zeitfenster-Limit | Nein | Ja (5 Minuten) |
-| API-Lockdown nach Timeout | Nein | Ja |
-| Setup-Token | Nein | Nein |
+| Anonymous wizard endpoints | Yes | Yes |
+| State validation | Yes | Yes |
+| Time window limit | No | Yes (5 minutes) |
+| API lockdown after timeout | No | Yes |
+| Setup token | No | No |
 
-## Geplante Verbesserungen (v0.5+)
+## Planned Improvements (v0.5+)
 
-### Wizard Timeout (geplant für v0.5)
+### Wizard Timeout (planned for v0.5)
 
-- **5-Minuten-Zeitfenster** für die Admin-Erstellung nach Serverstart
-- Nach Ablauf: API-Blockierung bis zum Neustart
-- Status-Endpoint bleibt erreichbar für Timeout-Anzeige
+- **5-minute time window** for admin creation after server start
+- After expiration: API blocking until restart
+- Status endpoint remains accessible for timeout display
 
-### Weitere geplante Features
+### Other Planned Features
 
-- **IP-Whitelist**: Nur bestimmte IPs können während Setup zugreifen
-- **Secure Restart**: Möglichkeit, das Zeitfenster durch authentifizierten Neustart zu verlängern
-- **Audit-Logging**: Protokollierung aller Setup-Versuche
+- **IP Whitelist**: Only certain IPs can access during setup
+- **Secure Restart**: Ability to extend time window through authenticated restart
+- **Audit Logging**: Logging of all setup attempts
 
-## Technische Details
+## Technical Details
 
-### Wizard-Endpoints
+### Wizard Endpoints
 
 ```
-POST /api/wizard/admin        - Admin-Benutzer erstellen
-POST /api/wizard/organization - Organisation setzen
-POST /api/wizard/install      - Wizard abschließen
-GET  /api/wizard/status       - Wizard-Status abfragen
+POST /api/wizard/admin        - Create admin user
+POST /api/wizard/organization - Set organization
+POST /api/wizard/install      - Complete wizard
+GET  /api/wizard/status       - Query wizard status
 ```
 
-### State-Prüfung
+### State Checking
 
 ```csharp
-// Beispiel: Admin kann nur erstellt werden wenn State = NotStarted
+// Example: Admin can only be created when State = NotStarted
 if (systemConfig.WizardState != WizardState.NotStarted)
 {
     return new CreateAdminResponse
@@ -99,9 +99,9 @@ if (systemConfig.WizardState != WizardState.NotStarted)
 }
 ```
 
-## Sicherheitsempfehlungen
+## Security Recommendations
 
-1. **Sofortige Einrichtung**: Wizard direkt nach Installation abschließen
-2. **Netzwerkisolation**: Während der Einrichtung Zugriff beschränken
-3. **TLS aktivieren**: Nach der Einrichtung HTTPS konfigurieren
-4. **Regelmäßige Updates**: ReadyStackGo aktuell halten für Security-Patches
+1. **Immediate setup**: Complete wizard right after installation
+2. **Network isolation**: Restrict access during setup
+3. **Enable TLS**: Configure HTTPS after setup
+4. **Regular updates**: Keep ReadyStackGo up to date for security patches

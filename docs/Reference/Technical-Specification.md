@@ -1,33 +1,33 @@
 
-# ReadyStackGo – Technische Spezifikation
+# ReadyStackGo – Technical Specification
 
-## Inhaltsverzeichnis
-1. API-Übersicht  
-2. Endpunkt-Spezifikation  
-3. Datenmodelle  
-4. Commands & Queries  
-5. Services & Schnittstellen  
-6. Wizard API & State Machine  
-7. Deployment Engine – Ablauf  
-8. Manifest-Schema (formal)  
-9. Docker-Integration  
-10. UI-API-Contract
+## Table of Contents
+1. API Overview
+2. Endpoint Specification
+3. Data Models
+4. Commands & Queries
+5. Services & Interfaces
+6. Wizard API & State Machine
+7. Deployment Engine – Process
+8. Manifest Schema (formal)
+9. Docker Integration
+10. UI-API Contract
 
 ---
 
-# 1. API-Übersicht
+# 1. API Overview
 
-ReadyStackGo stellt eine klar definierte HTTP-API bereit.  
-Alle Endpunkte sind unter `/api/v1/` erreichbar.
+ReadyStackGo provides a clearly defined HTTP API.
+All endpoints are accessible under `/api/v1/`.
 
-### Authentifizierung
-- Während Wizard: **keine Auth**
-- Danach:  
-  - Local Login (JWT oder Cookie)  
-  - Optional OIDC  
-  - Rollen: `admin`, `operator`
+### Authentication
+- During Wizard: **no auth**
+- After that:
+  - Local Login (JWT or Cookie)
+  - Optional OIDC
+  - Roles: `admin`, `operator`
 
-### Standard-Response
+### Standard Response
 ```json
 {
   "success": true,
@@ -36,37 +36,37 @@ Alle Endpunkte sind unter `/api/v1/` erreichbar.
 }
 ```
 
-### Fehler-Response
+### Error Response
 ```json
 {
   "success": false,
-  "message": "Fehlerbeschreibung",
+  "message": "Error description",
   "errorCode": "XYZ_ERROR"
 }
 ```
 
 
-# 2. Endpunkt-Spezifikation
+# 2. Endpoint Specification
 
-Dieses Kapitel beschreibt **alle API-Endpunkte** im Detail.  
-Jeder Endpunkt enthält:
+This chapter describes **all API endpoints** in detail.
+Each endpoint contains:
 
-- Pfad  
-- Methode  
-- Rollenberechtigung  
-- Request-Body  
-- Response-Body  
-- Fehlercodes  
+- Path
+- Method
+- Role authorization
+- Request Body
+- Response Body
+- Error codes
 
 ---
 
-## 2.1 Container-Endpunkte
+## 2.1 Container Endpoints
 
 ### **GET /api/v1/containers**
-Listet alle Container des Hosts.
+Lists all containers on the host.
 
-**Rollen:** admin, operator  
-**Auth:** erforderlich  
+**Roles:** admin, operator
+**Auth:** required
 **Response:**
 ```json
 {
@@ -89,33 +89,33 @@ Listet alle Container des Hosts.
 ---
 
 ### **POST /api/v1/containers/start**
-Startet einen Container.
+Starts a container.
 
 **Body:**
 ```json
 { "id": "string" }
 ```
 
-**Rollen:** admin, operator
+**Roles:** admin, operator
 
 ---
 
 ### **POST /api/v1/containers/stop**
-Stoppt einen Container.
+Stops a container.
 
 **Body:**
 ```json
 { "id": "string" }
 ```
 
-**Rollen:** admin, operator
+**Roles:** admin, operator
 
 ---
 
 ## 2.2 Wizard API
 
 ### **GET /api/v1/wizard/status**
-Liefert den aktuellen Status des Setup-Wizards.
+Returns the current status of the Setup Wizard.
 
 ```json
 {
@@ -129,7 +129,7 @@ Liefert den aktuellen Status des Setup-Wizards.
 ---
 
 ### **POST /api/v1/wizard/admin**
-Legt den ersten Admin-Benutzer an.
+Creates the first admin user.
 
 **Body:**
 ```json
@@ -139,7 +139,7 @@ Legt den ersten Admin-Benutzer an.
 }
 ```
 
-Antwort:
+Response:
 ```json
 { "success": true }
 ```
@@ -147,7 +147,7 @@ Antwort:
 ---
 
 ### **POST /api/v1/wizard/organization**
-Legt die Organisation an.
+Creates the organization.
 
 **Body:**
 ```json
@@ -160,7 +160,7 @@ Legt die Organisation an.
 ---
 
 ### **POST /api/v1/wizard/connections**
-Setzt globale Verbindungen.
+Sets global connections.
 
 ```json
 {
@@ -173,9 +173,9 @@ Setzt globale Verbindungen.
 ---
 
 ### **POST /api/v1/wizard/install**
-Installiert den Stack anhand eines Manifests.
+Installs the stack based on a manifest.
 
-Antwort:
+Response:
 ```json
 {
   "success": true,
@@ -190,19 +190,19 @@ Antwort:
 ## 2.3 Release Management
 
 ### **GET /api/v1/releases**
-Listet alle verfügbaren Manifeste.
+Lists all available manifests.
 
 ---
 
 ### **GET /api/v1/releases/current**
-Liefert den installierten Stand.
+Returns the installed state.
 
 ---
 
 ### **POST /api/v1/releases/{version}/install**
-Installiert das angegebene Manifest.
+Installs the specified manifest.
 
-Fehlercodes:
+Error codes:
 - `MANIFEST_NOT_FOUND`
 - `DEPLOYMENT_FAILED`
 - `INCOMPATIBLE_VERSION`
@@ -214,10 +214,10 @@ Fehlercodes:
 ### TLS
 
 #### **GET /api/v1/admin/tls**
-Zeigt TLS-Status an.
+Shows TLS status.
 
 #### **POST /api/v1/admin/tls/upload**
-Upload eines Custom-Zertifikats (multipart).
+Upload of a custom certificate (multipart).
 
 ---
 
@@ -237,7 +237,7 @@ Simple/Advanced Mode.
 
 ---
 
-### Security (optional später)
+### Security (optional later)
 
 #### **POST /api/v1/admin/security/oidc**
 #### **POST /api/v1/admin/security/local-admin**
@@ -246,21 +246,21 @@ Simple/Advanced Mode.
 
 
 
-# 3. Datenmodelle (Domain & DTO)
+# 3. Data Models (Domain & DTO)
 
-Dieses Kapitel enthält alle **Datenmodelle**, die ReadyStackGo benötigt.  
-Sie sind in drei Kategorien aufgeteilt:
+This chapter contains all **data models** that ReadyStackGo needs.
+They are divided into three categories:
 
-- **Domain-Modelle** – interne Geschäftsobjekte  
-- **DTOs** – API-Ein- und Ausgabe  
-- **Config-Modelle** – Objekte, die JSON-Konfigurationsdateien repräsentieren  
+- **Domain Models** – internal business objects
+- **DTOs** – API input and output
+- **Config Models** – objects representing JSON configuration files
 
 ---
 
-## 3.1 Domain Modelle
+## 3.1 Domain Models
 
 ### **ContainerInfo**
-Repräsentiert einen Docker-Container auf dem Host.
+Represents a Docker container on the host.
 
 ```csharp
 public sealed class ContainerInfo
@@ -284,7 +284,7 @@ public sealed class PortMapping
 ---
 
 ### **ReleaseStatus**
-Repräsentiert die aktuell installierte Version.
+Represents the currently installed version.
 
 ```csharp
 public sealed class ReleaseStatus
@@ -298,7 +298,7 @@ public sealed class ReleaseStatus
 ---
 
 ### **DeploymentPlan**
-Beschreibt, welche Schritte nötig sind, um ein Manifest zu installieren.
+Describes what steps are necessary to install a manifest.
 
 ```csharp
 public sealed class DeploymentPlan
@@ -457,20 +457,20 @@ public sealed class ReleaseFile
 
 # 4. Commands & Queries
 
-ReadyStackGo verwendet ein **Dispatcher Pattern** anstelle von MediatR.  
-Alle Aktionen laufen über:
+ReadyStackGo uses a **Dispatcher Pattern** instead of MediatR.
+All actions run through:
 
-- **Commands** (schreiben/zustandsverändernd)
-- **Queries** (lesen)
+- **Commands** (write/state-changing)
+- **Queries** (read)
 
-Jeder Command/Query wird über den `IDispatcher` ausgeführt.
+Each Command/Query is executed via the `IDispatcher`.
 
 ---
 
 ## 4.1 Commands
 
 ### **StartContainerCommand**
-Startet einen Docker-Container.
+Starts a Docker container.
 
 ```csharp
 public sealed record StartContainerCommand(string Id) : ICommand<bool>;
@@ -478,12 +478,12 @@ public sealed record StartContainerCommand(string Id) : ICommand<bool>;
 
 #### Handler:
 ```csharp
-public sealed class StartContainerHandler 
+public sealed class StartContainerHandler
     : ICommandHandler<StartContainerCommand, bool>
 {
     private readonly IDockerService _docker;
 
-    public StartContainerHandler(IDockerService docker) 
+    public StartContainerHandler(IDockerService docker)
         => _docker = docker;
 
     public Task<bool> HandleAsync(StartContainerCommand cmd, CancellationToken ct)
@@ -501,20 +501,20 @@ public sealed record StopContainerCommand(string Id) : ICommand<bool>;
 ---
 
 ### **InstallStackCommand**
-Installiert ein Manifest.
+Installs a manifest.
 
 ```csharp
 public sealed record InstallStackCommand(string StackVersion)
     : ICommand<InstallResultDto>;
 ```
 
-Handler führt aus:
+Handler executes:
 
-1. Manifest laden  
-2. Version prüfen  
-3. DeploymentPlan erzeugen  
-4. Deployment ausführen  
-5. rsgo.release.json aktualisieren  
+1. Load manifest
+2. Check version
+3. Generate DeploymentPlan
+4. Execute deployment
+5. Update rsgo.release.json
 
 ---
 
@@ -530,7 +530,7 @@ public sealed record ListContainersQuery(bool IncludeStopped)
 
 ### **GetReleaseStatusQuery**
 ```csharp
-public sealed record GetReleaseStatusQuery() 
+public sealed record GetReleaseStatusQuery()
     : IQuery<ReleaseStatus>;
 ```
 
@@ -548,7 +548,7 @@ public interface IDispatcher
 
 ---
 
-## 4.4 Dispatcher Implementierung
+## 4.4 Dispatcher Implementation
 
 ```csharp
 public sealed class Dispatcher : IDispatcher
@@ -576,28 +576,28 @@ public sealed class Dispatcher : IDispatcher
 
 ---
 
-## 4.5 Vorteile des Dispatchers
+## 4.5 Advantages of the Dispatcher
 
-- keine Reflection-Magic wie MediatR
-- volle Kompilierbarkeit aller Handler
-- transparente Auflösung per DI
-- eigene Policies / Pipelines leicht integrierbar
-- 100% kompatibel mit FastEndpoints
+- no reflection magic like MediatR
+- full compilability of all handlers
+- transparent resolution via DI
+- own policies / pipelines easily integratable
+- 100% compatible with FastEndpoints
 
 ---
 
 
 
-# 5. Services & Schnittstellen
+# 5. Services & Interfaces
 
-Dieses Kapitel beschreibt die wichtigsten internen Services von ReadyStackGo.  
-Jeder Service folgt dem Interface-First-Prinzip und hat eine klar definierte Verantwortung.
+This chapter describes the most important internal services of ReadyStackGo.
+Each service follows the interface-first principle and has a clearly defined responsibility.
 
 ---
 
 # 5.1 IDockerService
 
-Abstrahiert die Docker API.
+Abstracts the Docker API.
 
 ```csharp
 public interface IDockerService
@@ -629,7 +629,7 @@ public sealed class ContainerCreateModel
 
 # 5.2 IConfigStore
 
-Verwaltet alle Config-Dateien (rsgo-config Volume).
+Manages all config files (rsgo-config Volume).
 
 ```csharp
 public interface IConfigStore
@@ -654,13 +654,13 @@ public interface IConfigStore
 }
 ```
 
-**Umsetzung:** Dateien werden immer komplett ersetzt (Write-All), niemals gepatcht.
+**Implementation:** Files are always completely replaced (Write-All), never patched.
 
 ---
 
 # 5.3 ITlsService
 
-Erzeugt Zertifikate, prüft Zertifikate und lädt Custom-Zertifikate.
+Creates certificates, validates certificates, and loads custom certificates.
 
 ```csharp
 public interface ITlsService
@@ -685,7 +685,7 @@ public sealed class TlsGenerateResult
 
 # 5.4 IManifestProvider
 
-Lädt Release-Manifeste und validiert deren Schema.
+Loads release manifests and validates their schema.
 
 ```csharp
 public interface IManifestProvider
@@ -700,7 +700,7 @@ public interface IManifestProvider
 
 # 5.5 IDeploymentEngine
 
-Führt ein Manifest vollständig aus.
+Executes a manifest completely.
 
 ```csharp
 public interface IDeploymentEngine
@@ -724,7 +724,7 @@ public sealed class DeploymentResult
 
 # 5.6 IEnvVarService
 
-Generiert Environment-Variablen für jeden Kontext.
+Generates environment variables for each context.
 
 ```csharp
 public interface IEnvVarService
@@ -736,24 +736,24 @@ public interface IEnvVarService
 }
 ```
 
-Das Ergebnis setzt sich zusammen aus:
+The result consists of:
 
-- system variables  
-- feature flags  
-- context connections  
-- manifest env overrides  
+- system variables
+- feature flags
+- context connections
+- manifest env overrides
 
 ---
 
 # 5.7 IWebhookService (Future)
 
-Wird für CI/CD-Trigger und externe Events genutzt.
+Will be used for CI/CD triggers and external events.
 
 ---
 
-# 5.8 IService Locator (verboten)
+# 5.8 IService Locator (forbidden)
 
-ReadyStackGo nutzt konsequent DI und niemals einen globalen Service Locator.
+ReadyStackGo consistently uses DI and never a global Service Locator.
 
 ---
 
@@ -761,24 +761,24 @@ ReadyStackGo nutzt konsequent DI und niemals einen globalen Service Locator.
 
 # 6. Wizard API & State Machine
 
-Der ReadyStackGo-Wizard basiert vollständig auf einer klar definierten **State Machine**.  
-Die API steuert ausschließlich Übergänge dieser State Machine.
+The ReadyStackGo Wizard is based entirely on a clearly defined **State Machine**.
+The API controls exclusively transitions of this state machine.
 
 ---
 
 ## 6.1 Wizard States
 
-Der Wizard kennt folgende Zustände:
+The Wizard knows the following states:
 
-| State | Beschreibung |
-|-------|--------------|
-| `NotStarted` | rsgo.config existiert nicht oder ist leer |
-| `AdminCreated` | Der Administrator wurde angelegt |
-| `OrganizationSet` | Organisation wurde definiert |
-| `ConnectionsSet` | Verbindungen wurden gespeichert |
-| `Installed` | Stack ist installiert, Wizard deaktiviert |
+| State | Description |
+|-------|-------------|
+| `NotStarted` | rsgo.config does not exist or is empty |
+| `AdminCreated` | The administrator was created |
+| `OrganizationSet` | Organization was defined |
+| `ConnectionsSet` | Connections were saved |
+| `Installed` | Stack is installed, Wizard deactivated |
 
-Alle Zustände werden in `rsgo.system.json` gespeichert:
+All states are stored in `rsgo.system.json`:
 
 ```json
 {
@@ -788,146 +788,146 @@ Alle Zustände werden in `rsgo.system.json` gespeichert:
 
 ---
 
-## 6.2 Zustandslogik
+## 6.2 State Logic
 
-### Startbedingungen:
-- Wizard ist aktiv, wenn `wizardState != Installed`
+### Start Conditions:
+- Wizard is active when `wizardState != Installed`
 
-### Übergänge:
+### Transitions:
 
 ```
 NotStarted → AdminCreated → OrganizationSet → ConnectionsSet → Installed
 ```
 
-### Ungültige Übergänge erzeugen Fehler:
+### Invalid transitions generate errors:
 
-- z. B. `ConnectionsSet → AdminCreated` ist verboten
+- e.g., `ConnectionsSet → AdminCreated` is forbidden
 
 ---
 
-## 6.3 API-Endpunkte des Wizards
+## 6.3 Wizard API Endpoints
 
 ### 1. **GET /api/v1/wizard/status**
-Gibt den aktuellen Zustand zurück.
+Returns the current state.
 
 ---
 
 ### 2. **POST /api/v1/wizard/admin**
-Legt den ersten Admin an.
+Creates the first admin.
 
-Validierungen:
-- Username darf nicht leer sein
-- Passwort muss Mindestlänge erfüllen
+Validations:
+- Username must not be empty
+- Password must meet minimum length
 
-Ergebnis:
+Result:
 - wizardState = `AdminCreated`
 
 ---
 
 ### 3. **POST /api/v1/wizard/organization**
-Speichert:
+Saves:
 
-- Organization ID  
-- Organization Name  
+- Organization ID
+- Organization Name
 
-Ergebnis:
+Result:
 - wizardState = `OrganizationSet`
 
 ---
 
 ### 4. **POST /api/v1/wizard/connections**
-Speichert die grundlegenden Verbindungen:
+Saves the basic connections:
 
 - Transport
 - Persistence
 - EventStore (optional)
 
-Ergebnis:
+Result:
 - wizardState = `ConnectionsSet`
 
 ---
 
 ### 5. **POST /api/v1/wizard/install**
-Installiert den vollständigen Stack.
+Installs the complete stack.
 
-Ablauf:
-1. Manifest auswählen
-2. Deploymentplan erzeugen
-3. Deployment Engine ausführen
-4. Release-Datei speichern
+Process:
+1. Select manifest
+2. Generate deployment plan
+3. Execute Deployment Engine
+4. Save release file
 5. wizardState = `Installed`
 
 ---
 
-## 6.4 Wizard Fehlercodes
+## 6.4 Wizard Error Codes
 
-| Code | Bedeutung |
-|------|-----------|
-| `WIZARD_INVALID_STATE` | API wurde im falschen Zustand aufgerufen |
-| `WIZARD_ALREADY_COMPLETED` | Wizard ist bereits abgeschlossen |
-| `WIZARD_STEP_INCOMPLETE` | Vorheriger Schritt fehlt |
-| `DEPLOYMENT_FAILED` | Manifest konnte nicht installiert werden |
-
----
-
-## 6.5 Beispiel: Request Flow
-
-1. Benutzer öffnet `/wizard`  
-2. UI ruft: `GET /wizard/status`  
-3. Anzeige des aktuellen Schritts  
-4. Benutzer sendet Formulardaten  
-5. API speichert Config  
-6. Wizard geht zum nächsten Schritt  
-
-Nach Schritt 5:
-- Weiterleitung zur Login-Seite
+| Code | Meaning |
+|------|---------|
+| `WIZARD_INVALID_STATE` | API was called in wrong state |
+| `WIZARD_ALREADY_COMPLETED` | Wizard is already completed |
+| `WIZARD_STEP_INCOMPLETE` | Previous step missing |
+| `DEPLOYMENT_FAILED` | Manifest could not be installed |
 
 ---
 
-## 6.6 Wizard UI (für spätere Implementierung)
+## 6.5 Example: Request Flow
 
-4-seitiger Stepper:
+1. User opens `/wizard`
+2. UI calls: `GET /wizard/status`
+3. Display current step
+4. User submits form data
+5. API saves config
+6. Wizard goes to next step
 
-1. Admin  
-2. Organisation  
-3. Verbindungen  
+After step 5:
+- Redirect to login page
+
+---
+
+## 6.6 Wizard UI (for later implementation)
+
+4-page stepper:
+
+1. Admin
+2. Organization
+3. Connections
 4. Installation
 
-Wizard ist **Fullscreen**, um Ablenkungen zu vermeiden.
+Wizard is **Fullscreen** to avoid distractions.
 
 ---
 
 
 
-# 7. Deployment Engine – Ablauf (Detail)
+# 7. Deployment Engine – Process (Detail)
 
-Die Deployment Engine ist der zentrale Mechanismus, mit dem ReadyStackGo  
-einen vollständigen Stack anhand eines Release-Manifests installiert, aktualisiert  
-oder validiert. Dieses Kapitel beschreibt die komplette interne Logik.
-
----
-
-## 7.1 Gesamtüberblick (High-Level Flow)
-
-Der Ablauf einer Installation erfolgt in 10 Schritten:
-
-1. Manifest laden  
-2. Versions- und Schema-Prüfung  
-3. Alte Containerliste sammeln  
-4. DeploymentPlan erzeugen  
-5. Docker Netzwerk sicherstellen  
-6. Kontextweise Aktionen ausführen  
-7. Gateway zuletzt deployen  
-8. Healthchecks durchführen (optional / später)  
-9. Release-Datei aktualisieren  
-10. Ergebnis an API zurückgeben
+The Deployment Engine is the central mechanism with which ReadyStackGo
+installs, updates, or validates a complete stack based on a release manifest.
+This chapter describes the complete internal logic.
 
 ---
 
-## 7.2 Erzeugung des DeploymentPlans
+## 7.1 Overview (High-Level Flow)
 
-Der DeploymentPlan beschreibt exakt alle Operationen, die notwendig sind,  
-um das Release zu installieren. Beispiel:
+The installation process runs in 10 steps:
+
+1. Load manifest
+2. Version and schema check
+3. Collect old container list
+4. Generate DeploymentPlan
+5. Ensure Docker network
+6. Execute context-wise actions
+7. Deploy gateway last
+8. Perform health checks (optional / later)
+9. Update release file
+10. Return result to API
+
+---
+
+## 7.2 DeploymentPlan Generation
+
+The DeploymentPlan describes exactly all operations necessary
+to install the release. Example:
 
 ```json
 [
@@ -938,41 +938,41 @@ um das Release zu installieren. Beispiel:
 ]
 ```
 
-### Regeln:
+### Rules:
 
-- Jeder Kontext wird vollständig ersetzt → kein In-Place Update  
-- Gateway-Kontext immer als letzter Schritt  
-- Interne Kontexte zuerst  
-- Exposed Ports nur am Gateway  
+- Each context is completely replaced → no in-place updates
+- Gateway context always as last step
+- Internal contexts first
+- Exposed ports only on Gateway
 
 ---
 
-## 7.3 Docker Netzwerk
+## 7.3 Docker Network
 
-Vor jedem Deployment wird sichergestellt, dass das Netzwerk existiert:
+Before each deployment, it is ensured that the network exists:
 
 ```csharp
 await _docker.NetworkEnsureExistsAsync(system.DockerNetwork);
 ```
 
-Name:  
+Name:
 ```
 rsgo-net
 ```
 
-Alle Container werden darin gestartet.
+All containers are started in it.
 
 ---
 
-## 7.4 EnvVar Generierung
+## 7.4 EnvVar Generation
 
-Für jeden Kontext ruft die Engine:
+For each context, the Engine calls:
 
 ```csharp
 var env = await _envVarService.GenerateForContextAsync(contextName, manifest);
 ```
 
-Dieses Objekt enthält:
+This object contains:
 
 - `RSGO_ORG_ID`
 - `RSGO_STACK_VERSION`
@@ -980,11 +980,11 @@ Dieses Objekt enthält:
 - `RSGO_CONNECTION_*`
 - Manifest Overrides
 
-Beispiel:
+Example:
 
 ```json
 {
-  "RSGO_ORG_ID": "kunde-a",
+  "RSGO_ORG_ID": "customer-a",
   "RSGO_CONNECTION_persistence": "Server=sql;Database=ams",
   "ROUTE_PROJECT": "http://ams-project"
 }
@@ -992,24 +992,24 @@ Beispiel:
 
 ---
 
-## 7.5 Container Lifecycle – technische Schritte
+## 7.5 Container Lifecycle – Technical Steps
 
 ### **1. Stop**
-Stoppt laufende Container.
+Stops running containers.
 
 ```csharp
 await _docker.StopAsync(containerName);
 ```
 
 ### **2. Remove**
-Entfernt Container vollständig.
+Completely removes containers.
 
 ```csharp
 await _docker.RemoveAsync(containerName);
 ```
 
 ### **3. Create**
-Erstellt Container anhand des Manifests.
+Creates container based on manifest.
 
 ```csharp
 await _docker.CreateAndStartAsync(new ContainerCreateModel {
@@ -1022,7 +1022,7 @@ await _docker.CreateAndStartAsync(new ContainerCreateModel {
 ```
 
 ### **4. Start**
-Startet Container (falls nicht automatisch gestartet).
+Starts container (if not auto-started).
 
 ```csharp
 await _docker.StartAsync(containerName);
@@ -1032,13 +1032,13 @@ await _docker.StartAsync(containerName);
 
 ## 7.6 Gateway Deployment (Special Handling)
 
-Der Gateway-Kontext ist besonders:
+The Gateway context is special:
 
-- bekommt TLS-Parameter
-- ist öffentlich erreichbar
-- wird daher **immer zuletzt** deployed
+- gets TLS parameters
+- is publicly accessible
+- is therefore **always deployed last**
 
-### Beispiel:
+### Example:
 
 ```json
 "gateway": {
@@ -1049,43 +1049,43 @@ Der Gateway-Kontext ist besonders:
 }
 ```
 
-Der Container wird mit diesen Ports erstellt:
+The container is created with these ports:
 
-- **exposed:** 8080  
-- **published:** 8443  
+- **exposed:** 8080
+- **published:** 8443
 
 ---
 
-## 7.7 Fehlerbehandlung
+## 7.7 Error Handling
 
 ### Hard failures
-Stoppen das Deployment vollständig:
+Stop the deployment completely:
 
-- Image kann nicht geladen werden  
-- Container kann nicht erstellt werden  
-- Netzwerkfehler  
-- Manifest ungültig  
+- Image cannot be loaded
+- Container cannot be created
+- Network error
+- Manifest invalid
 
 Error Codes:
 
-| Code | Beschreibung |
-|------|--------------|
-| `DEPLOYMENT_FAILED` | Allgemeiner Fehler |
-| `DOCKER_NETWORK_ERROR` | Netzwerk konnte nicht erzeugt werden |
-| `CONTAINER_START_FAILED` | Container kann nicht starten |
-| `INVALID_MANIFEST` | Schema ungültig |
+| Code | Description |
+|------|-------------|
+| `DEPLOYMENT_FAILED` | General error |
+| `DOCKER_NETWORK_ERROR` | Network could not be created |
+| `CONTAINER_START_FAILED` | Container cannot start |
+| `INVALID_MANIFEST` | Schema invalid |
 
 ### Soft failures
-Nur Warnungen (später in der UI sichtbar):
+Only warnings (visible later in UI):
 
-- Healthcheck nicht OK  
-- Container benötigt länger zum Starten  
+- Health check not OK
+- Container takes longer to start
 
 ---
 
-## 7.8 Release-Datei aktualisieren
+## 7.8 Update Release File
 
-Nach erfolgreicher Installation:
+After successful installation:
 
 ```json
 {
@@ -1101,9 +1101,9 @@ Nach erfolgreicher Installation:
 
 ---
 
-## 7.9 Rückgabe an API
+## 7.9 Return to API
 
-Ergebnis:
+Result:
 
 ```json
 {
@@ -1114,31 +1114,31 @@ Ergebnis:
 }
 ```
 
-Bei Fehler:
+On error:
 
 ```json
 {
   "success": false,
   "errorCode": "DEPLOYMENT_FAILED",
-  "message": "Container 'project' konnte nicht gestartet werden."
+  "message": "Container 'project' could not be started."
 }
 ```
 
 ---
 
-# → Ende von Block 7/20
+# → End of Block 7/20
 
 
-# 8. Manifest-Schema (formal)
+# 8. Manifest Schema (formal)
 
-Ein Manifest ist die zentrale Datei, welche den gesamten zu installierenden Stack beschreibt.  
-Dieses Kapitel definiert das **vollständige JSON-Schema**, welches ReadyStackGo für Manifeste verwendet.
+A manifest is the central file that describes the entire stack to be installed.
+This chapter defines the **complete JSON Schema** that ReadyStackGo uses for manifests.
 
 ---
 
-## 8.1 Hauptstruktur
+## 8.1 Main Structure
 
-Ein Manifest besteht aus folgenden Hauptelementen:
+A manifest consists of the following main elements:
 
 ```json
 {
@@ -1155,7 +1155,7 @@ Ein Manifest besteht aus folgenden Hauptelementen:
 
 ---
 
-## 8.2 JSON Schema (komplett)
+## 8.2 JSON Schema (complete)
 
 ```json
 {
@@ -1248,7 +1248,7 @@ Ein Manifest besteht aus folgenden Hauptelementen:
 
 ---
 
-## 8.3 Beispielmanifest (komplett & kommentiert)
+## 8.3 Example Manifest (complete & commented)
 
 ```json
 {
@@ -1294,20 +1294,20 @@ Ein Manifest besteht aus folgenden Hauptelementen:
 
   "metadata": {
     "description": "Full AMS Release 4.3.0",
-    "notes": "Dieses Release enthält das neue Dashboard."
+    "notes": "This release contains the new dashboard."
   }
 }
 ```
 
 ---
 
-## 8.4 Schema-Versionierung
+## 8.4 Schema Versioning
 
-### Regeln:
-1. **schemaVersion** steigt nur, wenn Manifest-Struktur geändert wurde.  
-2. Backwards-Kompatibilität wird möglichst erhalten.  
-3. Alte Manifeste dürfen weiterhin installiert werden.  
-4. Bei inkompatiblen Versionen wird Installation verweigert:
+### Rules:
+1. **schemaVersion** only increases when manifest structure changed.
+2. Backwards compatibility is preserved where possible.
+3. Old manifests may still be installed.
+4. With incompatible versions, installation is refused:
 
 ```json
 {
@@ -1318,14 +1318,14 @@ Ein Manifest besteht aus folgenden Hauptelementen:
 
 ---
 
-## 8.5 Manifest-Speicherorte
+## 8.5 Manifest Storage Locations
 
-ReadyStackGo sucht Manifeste:
+ReadyStackGo searches for manifests:
 
-1. **/manifests im Admin-Container**
-2. später: über eine Registry (z. B. GitHub Releases, Azure DevOps Artifact Feed)
+1. **/manifests in the Admin container**
+2. later: via a registry (e.g., GitHub Releases, Azure DevOps Artifact Feed)
 
-Der Name entspricht der Stack-Version:
+The name corresponds to the stack version:
 
 ```
 manifest-4.3.0.json
@@ -1334,58 +1334,58 @@ manifest-4.4.1.json
 
 ---
 
-# → Ende von Block 8/20
+# → End of Block 8/20
 
 
-# 9. Docker-Integration (Detail)
+# 9. Docker Integration (Detail)
 
-ReadyStackGo integriert sich direkt in den Docker-Host des Kunden.  
-Dies geschieht ausschließlich über den **Docker Socket**, der als Volume  
-in den Admin-Container gemountet wird:
+ReadyStackGo integrates directly with the customer's Docker host.
+This happens exclusively via the **Docker Socket**, which is mounted as a volume
+into the Admin container:
 
 ```
 -v /var/run/docker.sock:/var/run/docker.sock
 ```
 
-Dadurch erhält ReadyStackGo:
+This gives ReadyStackGo:
 
-- vollen Zugriff auf Container  
-- vollen Zugriff auf Images  
-- Zugriff auf Netzwerke  
-- Zugriff auf Logs  
-- Zugriff auf Events  
+- full access to containers
+- full access to images
+- access to networks
+- access to logs
+- access to events
 
-Dies ist notwendig, um Stacks vollständig steuern zu können.
+This is necessary to fully control stacks.
 
 ---
 
-## 9.1 Docker.DotNet Bibliothek
+## 9.1 Docker.DotNet Library
 
-ReadyStackGo nutzt die offizielle Bibliothek:
+ReadyStackGo uses the official library:
 
 ```xml
 <PackageReference Include="Docker.DotNet" Version="3.125.5" />
 ```
 
-Diese kommuniziert direkt mit dem Docker Socket via HTTP.
+This communicates directly with the Docker Socket via HTTP.
 
 ---
 
-## 9.2 Container Lifecycle intern
+## 9.2 Container Lifecycle internally
 
-Für jeden Kontext-Container werden folgende Schritte ausgeführt:
+For each context container, the following steps are executed:
 
-### 1. Container stoppen
+### 1. Stop container
 ```csharp
 await client.Containers.StopContainerAsync(id, new ContainerStopParameters());
 ```
 
-### 2. Container entfernen
+### 2. Remove container
 ```csharp
 await client.Containers.RemoveContainerAsync(id, new ContainerRemoveParameters { Force = true });
 ```
 
-### 3. Container erstellen
+### 3. Create container
 ```csharp
 await client.Containers.CreateContainerAsync(new CreateContainerParameters {
     Image = model.Image,
@@ -1398,16 +1398,16 @@ await client.Containers.CreateContainerAsync(new CreateContainerParameters {
 });
 ```
 
-### 4. Container starten
+### 4. Start container
 ```csharp
 await client.Containers.StartContainerAsync(id, null);
 ```
 
 ---
 
-## 9.3 Netzwerkverwaltung
+## 9.3 Network Management
 
-### Erstellen oder sicherstellen:
+### Create or ensure:
 
 ```csharp
 await client.Networks.CreateNetworkAsync(new NetworksCreateParameters {
@@ -1415,13 +1415,13 @@ await client.Networks.CreateNetworkAsync(new NetworksCreateParameters {
 });
 ```
 
-Falls bereits vorhanden, wird stillschweigend weitergemacht.
+If already present, it silently continues.
 
 ---
 
 ## 9.4 Ports & Mappings
 
-Interne Ports werden immer gesetzt:
+Internal ports are always set:
 
 ```json
 "ports": [
@@ -1429,7 +1429,7 @@ Interne Ports werden immer gesetzt:
 ]
 ```
 
-Gateway setzt zusätzlich öffentliche Ports:
+Gateway additionally sets public ports:
 
 ```json
 "ports": [
@@ -1441,7 +1441,7 @@ Gateway setzt zusätzlich öffentliche Ports:
 
 ## 9.5 Logs
 
-ReadyStackGo kann später Live-Logs streamen:
+ReadyStackGo can later stream live logs:
 
 ```csharp
 await client.Containers.GetContainerLogsAsync(id, false, new ContainerLogsParameters {
@@ -1451,76 +1451,76 @@ await client.Containers.GetContainerLogsAsync(id, false, new ContainerLogsParame
 });
 ```
 
-Dies ist jedoch nicht Teil von Version 1.0.
+This is not part of version 1.0.
 
 ---
 
 ## 9.6 Docker Events (Future)
 
-Docker Events ermöglichen:
+Docker Events enable:
 
-- Erkennung von Container-Crashes  
-- Monitoring  
-- Auto-Healing später  
+- Detection of container crashes
+- Monitoring
+- Auto-Healing later
 
-Wird in einer späteren Version eingebaut.
-
----
-
-## 9.7 Sicherheitsaspekte
-
-Der Zugriff auf den Docker Socket ist potentiell gefährlich.  
-Daher wichtig:
-
-- Admin-Container wird über HTTPS abgesichert  
-- Login-Rollen steuern Zugriff  
-- Kein direkter Shell-Zugriff  
-- Container können nicht exec'd werden  
+Will be built into a later version.
 
 ---
 
-# → Ende von Block 9/20
+## 9.7 Security Aspects
+
+Access to the Docker Socket is potentially dangerous.
+Therefore important:
+
+- Admin container is secured via HTTPS
+- Login roles control access
+- No direct shell access
+- Containers cannot be exec'd
+
+---
+
+# → End of Block 9/20
 
 
 # 10. UI–API Contract
 
-Dieses Kapitel definiert den vollständigen **Vertrag zwischen dem React-Frontend (Tailwind + TailAdmin)**  
-und der ReadyStackGo API.  
+This chapter defines the complete **contract between the React frontend (Tailwind + TailAdmin)**
+and the ReadyStackGo API.
 
-Die UI arbeitet **strictly typed** über TypeScript-Interfaces, die exakt den DTOs der API entsprechen.
-
----
-
-# 10.1 Grundprinzip: Thin Client, Thick Server
-
-Die UI:
-
-- enthält **keine Logik**, die Systemzustände mutiert  
-- ruft ausschließlich definierte Endpunkte auf  
-- reagiert nur auf die Wizard-State Machine  
-- liest Container-Status, Release-Infos, Features, TLS-Infos usw.  
-
-Die API enthält **100% der Geschäftslogik**.
+The UI works **strictly typed** via TypeScript interfaces that exactly match the API DTOs.
 
 ---
 
-# 10.2 HTTP-Konventionen
+# 10.1 Basic Principle: Thin Client, Thick Server
 
-Alle Endpunkte:
+The UI:
 
-- pfadbasiert (`/api/v1/...`)
-- Rückgabeformat: JSON
-- Fehler als:
+- contains **no logic** that mutates system states
+- only calls defined endpoints
+- only reacts to the Wizard State Machine
+- reads container status, release info, features, TLS info, etc.
+
+The API contains **100% of the business logic**.
+
+---
+
+# 10.2 HTTP Conventions
+
+All endpoints:
+
+- path-based (`/api/v1/...`)
+- return format: JSON
+- errors as:
 
 ```json
 {
   "success": false,
   "errorCode": "XYZ",
-  "message": "Fehlerbeschreibung"
+  "message": "Error description"
 }
 ```
 
-UI muss **errorCode** interpretieren, nicht message.
+UI must interpret **errorCode**, not message.
 
 ---
 
@@ -1551,7 +1551,7 @@ export interface PortMappingDto {
 
 ```ts
 export interface WizardStatusDto {
-  state: 
+  state:
     | "NotStarted"
     | "AdminCreated"
     | "OrganizationSet"
@@ -1622,9 +1622,9 @@ Response:
 
 ## 10.4.2 Wizard Calls
 
-Alle Wizard-Calls haben **keine Rückgabedaten** außer success.
+All Wizard calls have **no return data** except success.
 
-Beispiel:
+Example:
 
 ```ts
 POST /api/v1/wizard/admin
@@ -1636,90 +1636,90 @@ POST /api/v1/wizard/admin
 
 ---
 
-# 10.5 UI Seitenstruktur
+# 10.5 UI Page Structure
 
 ## 10.5.1 Login Page
 
 - Username
-- Passwort
+- Password
 - POST /auth/login
-- Token speichern im LocalStorage oder Cookie
+- Store token in LocalStorage or Cookie
 
 ---
 
 ## 10.5.2 Dashboard
 
-Die UI ruft:
+The UI calls:
 
-- `/api/v1/containers`  
-- `/api/v1/releases/current`  
+- `/api/v1/containers`
+- `/api/v1/releases/current`
 
-und zeigt:
+and shows:
 
-- Container Status  
-- Stack Version  
-- Actions (nur admin)  
+- Container Status
+- Stack Version
+- Actions (admin only)
 
 ---
 
 ## 10.5.3 Containers Page
 
-Aktionen:
+Actions:
 
 - start/stop (operator, admin)
-- logs (später)
+- logs (later)
 - details
 
 ---
 
 ## 10.5.4 Releases Page
 
-Aktionen:
+Actions:
 
-- Versionen laden (`GET /releases`)
+- Load versions (`GET /releases`)
 - Installation (`POST /releases/{version}/install`)
 
 ---
 
 ## 10.5.5 Feature Flags Page
 
-- Liste aller Features
-- Toggle-Switch
+- List of all features
+- Toggle switch
 - POST `/admin/features`
 
 ---
 
 ## 10.5.6 TLS Page
 
-- Anzeige des TLS-Status
-- Zertifikats-Upload (PFX)
+- Display TLS status
+- Certificate upload (PFX)
 - POST `/admin/tls/upload`
 
 ---
 
 ## 10.5.7 Contexts Page
 
-- Simple/Advanced Mode Schalter
-- Globale Verbindungen
-- Kontext-Overrides
+- Simple/Advanced Mode switch
+- Global connections
+- Context overrides
 
 ---
 
-# 10.6 Validierungsregeln (Frontend)
+# 10.6 Validation Rules (Frontend)
 
-Das Frontend führt **nur minimale Validierung** durch:
+The frontend performs **only minimal validation**:
 
-- Pflichtfelder prüfen
-- Formatprüfung (z. B. Port = Zahl)
-- Feedback anzeigen bei Fehlern
+- Check required fields
+- Format validation (e.g., Port = number)
+- Show feedback on errors
 
-Alle tiefergehenden Regeln liegen in der API.
+All deeper rules lie in the API.
 
 ---
 
-# 10.7 Fehlerbehandlung
+# 10.7 Error Handling
 
-Die UI prüft:
+The UI checks:
 
 ```ts
 if (!response.success) {
@@ -1735,49 +1735,49 @@ if (!response.success) {
 
 ---
 
-# 10.8 Wizard UI Logik
+# 10.8 Wizard UI Logic
 
-### Regeln:
+### Rules:
 
-- UI zeigt immer den Schritt basierend auf `/wizard/status`
-- keine Navigation durch den Benutzer möglich
-- keine Rücksprünge
-- nach Installation → Redirect `/login`
+- UI always shows the step based on `/wizard/status`
+- no navigation by user possible
+- no going back
+- after installation → Redirect `/login`
 
 ---
 
 # 10.9 UI State Management
 
-Empfehlung:
+Recommendation:
 
-- Zustand über React Query / Zustand als "server state"
-- minimale Verwendung von Redux oder Context API
-- UI ist vollständig API-getrieben
-
----
-
-# → Ende von Block 10/20
-
-
-# 11. Authentifizierung & Autorisierung (Technische Details)
-
-Dieses Kapitel beschreibt die komplette technische Implementierung der Sicherheitsschicht von ReadyStackGo.
+- State via React Query / Zustand as "server state"
+- minimal use of Redux or Context API
+- UI is fully API-driven
 
 ---
 
-# 11.1 Authentifizierungsmodi
+# → End of Block 10/20
 
-ReadyStackGo unterstützt zwei Hauptmodi:
+
+# 11. Authentication & Authorization (Technical Details)
+
+This chapter describes the complete technical implementation of the security layer of ReadyStackGo.
+
+---
+
+# 11.1 Authentication Modes
+
+ReadyStackGo supports two main modes:
 
 1. **Local Authentication (Default)**
-2. **OpenID Connect – externer Identity Provider (später aktivierbar)**
+2. **OpenID Connect – external Identity Provider (activatable later)**
 
 ---
 
 ## 11.1.1 Local Authentication
 
-Der erste Benutzer (Admin) wird im Wizard angelegt.
-Daten werden in `rsgo.security.json` gespeichert.
+The first user (Admin) is created in the Wizard.
+Data is stored in `rsgo.security.json`.
 
 ### Password Hash Format
 
@@ -1789,12 +1789,12 @@ Daten werden in `rsgo.security.json` gespeichert.
 }
 ```
 
-Empfohlener Algorithmus:
+Recommended algorithm:
 
-- PBKDF2-HMAC-SHA256  
-- Iterationen: 210.000  
-- Salt: 16–32 Bytes zufällig  
-- Hash: 32–64 Bytes
+- PBKDF2-HMAC-SHA256
+- Iterations: 210,000
+- Salt: 16-32 bytes random
+- Hash: 32-64 bytes
 
 ---
 
@@ -1815,7 +1815,7 @@ POST /api/v1/auth/login
 
 ---
 
-## 11.1.3 JWT Aufbau
+## 11.1.3 JWT Structure
 
 Header:
 ```json
@@ -1835,23 +1835,23 @@ Claims:
 ```
 
 Secret:
-- lokal gespeichert in `rsgo.security.json` oder intern generiert  
-- später austauschbar über Admin UI  
+- stored locally in `rsgo.security.json` or generated internally
+- exchangeable later via Admin UI
 
 ---
 
-# 11.2 Rollenmodell
+# 11.2 Role Model
 
-Es gibt zwei Rollen:
+There are two roles:
 
-| Rolle     | Beschreibung |
-|-----------|--------------|
-| **admin** | Vollzugriff auf alle Funktionen |
-| **operator** | Darf Container starten/stoppen |
+| Role     | Description |
+|----------|-------------|
+| **admin** | Full access to all functions |
+| **operator** | Can start/stop containers |
 
 ---
 
-## 11.2.1 Rollen-Definition in Config
+## 11.2.1 Role Definition in Config
 
 ```json
 {
@@ -1872,9 +1872,9 @@ Es gibt zwei Rollen:
 
 ---
 
-# 11.3 Autorisierung in Endpoints
+# 11.3 Authorization in Endpoints
 
-Jeder Endpoint definiert Rollen explizit:
+Each endpoint defines roles explicitly:
 
 ```csharp
 public override void Configure()
@@ -1884,21 +1884,21 @@ public override void Configure()
 }
 ```
 
-### Wizard-Endpoints:
-- keine Authentifizierung  
-- nicht erreichbar nach Abschluss des Wizards  
+### Wizard Endpoints:
+- no authentication
+- not accessible after Wizard completion
 
 ---
 
-# 11.4 Externer Identity Provider (OIDC)
+# 11.4 External Identity Provider (OIDC)
 
-ReadyStackGo kann später über OIDC angebunden werden an:
+ReadyStackGo can later be connected via OIDC to:
 
-- Keycloak  
-- ams.identity  
-- Azure AD (später)  
+- Keycloak
+- ams.identity
+- Azure AD (later)
 
-### Konfigurationsstruktur:
+### Configuration Structure:
 
 ```json
 {
@@ -1913,19 +1913,19 @@ ReadyStackGo kann später über OIDC angebunden werden an:
 }
 ```
 
-### Ablauf (zukünftig)
+### Process (future)
 
-1. UI → Redirect zum IdP  
-2. Login erfolgt beim IdP  
-3. Token → ReadyStackGo  
-4. Rollen extrahieren aus Claims  
-5. Zugriff gewähren / verweigern  
+1. UI → Redirect to IdP
+2. Login happens at IdP
+3. Token → ReadyStackGo
+4. Extract roles from claims
+5. Grant / deny access
 
 ---
 
 # 11.5 Local Admin Fallback
 
-Konfigurierbar:
+Configurable:
 
 ```json
 {
@@ -1933,80 +1933,80 @@ Konfigurierbar:
 }
 ```
 
-Wenn aktiviert:
+When enabled:
 
-- Wenn IdP offline ist, bleibt lokaler Admin loginfähig  
-- Falls deaktiviert → *nur* IdP erlaubt Logins  
+- If IdP is offline, local admin remains login-capable
+- If disabled → *only* IdP allows logins
 
 ---
 
 # 11.6 HTTP Security
 
-### HTTPS wird durch Gateway bereitgestellt
+### HTTPS is provided by Gateway
 
-Gateway erhält:
-- Zertifikat
-- HTTPS-Port
-- Exposed-Port
+Gateway receives:
+- Certificate
+- HTTPS Port
+- Exposed Port
 
-Intern kommuniziert alles über HTTP.
+Internally everything communicates via HTTP.
 
-### Admin-Container selbst:
-- kann per HTTPS erreichbar sein (für Setup)
-- terminiert TLS bei sich selbst im Wizard-Modus  
+### Admin container itself:
+- can be accessible via HTTPS (for setup)
+- terminates TLS on itself in Wizard mode
 
 ---
 
 # 11.7 Security Headers
 
-Alle Responses enthalten:
+All responses contain:
 
 - `X-Frame-Options: DENY`
 - `X-Content-Type-Options: nosniff`
 - `X-XSS-Protection: 1`
-- `Strict-Transport-Security` (falls https)
+- `Strict-Transport-Security` (if https)
 
 ---
 
 # 11.8 Anti-CSRF
 
-Wenn JWT per Cookie:
-- UI sendet X-CSRF-Header  
-- Server prüft Token im Header und Cookie  
+When JWT via Cookie:
+- UI sends X-CSRF-Header
+- Server checks token in header and cookie
 
-Aktuell: JWT via LocalStorage empfohlen.
+Currently: JWT via LocalStorage recommended.
 
 ---
 
 # 11.9 Rate Limiting (Future)
 
-Geplant:
-- Default: 100 requests/min pro IP  
-- Admin-Endpunkte restriktiver  
+Planned:
+- Default: 100 requests/min per IP
+- Admin endpoints more restrictive
 
 ---
 
-# → Ende von Block 11/20
+# → End of Block 11/20
 
 
-# 12. Logging, Monitoring & Fehlerdiagnose
+# 12. Logging, Monitoring & Diagnostics
 
-Dieses Kapitel beschreibt das Logging- und Monitoring-Konzept von ReadyStackGo,  
-sowie wie Fehler erfasst, gespeichert und der UI bereitgestellt werden.
+This chapter describes the logging and monitoring concept of ReadyStackGo,
+as well as how errors are captured, stored, and provided to the UI.
 
 ---
 
-# 12.1 Logging im Admin-Container
+# 12.1 Logging in Admin Container
 
-ReadyStackGo nutzt standardmäßig:
+ReadyStackGo uses by default:
 
 - **Microsoft.Extensions.Logging**
-- Ausgabe an **Console**
-- Ausgabe an **FileLog** (optional, später)
-- Strukturierte Logs über **Serilog** (planned)
-- Log-Level konfigurierbar
+- Output to **Console**
+- Output to **FileLog** (optional, later)
+- Structured Logs via **Serilog** (planned)
+- Log level configurable
 
-Standard-Loglevel:
+Standard log levels:
 
 ```
 Information
@@ -2017,15 +2017,15 @@ Critical
 
 ---
 
-## 12.1.1 Log-Speicherort
+## 12.1.1 Log Storage Location
 
-Per Default:
+By default:
 
 ```
 /app/logs/rsgo-admin.log
 ```
 
-Rotierende Logs (geplant):
+Rotating logs (planned):
 
 - `rsgo-admin.log`
 - `rsgo-admin.log.1`
@@ -2033,15 +2033,15 @@ Rotierende Logs (geplant):
 
 ---
 
-# 12.2 Logging im Deploymentprozess
+# 12.2 Logging in Deployment Process
 
-Während des Deployments:
+During deployment:
 
-- jeder Schritt wird geloggt
-- Fehler werden zusätzlich in ein separates Deployment-Log geschrieben
-- UI kann später Deployment-Logs abrufen
+- each step is logged
+- errors are additionally written to a separate deployment log
+- UI can later retrieve deployment logs
 
-Beispiel-Logeintrag:
+Example log entry:
 
 ```
 [INFO] [Deployment] Starting context 'project' (image registry/ams.project-api:6.4.0)
@@ -2052,25 +2052,25 @@ Beispiel-Logeintrag:
 
 # 12.3 UI Log Streaming (Future Feature)
 
-Später soll folgende API existieren:
+Later the following API should exist:
 
 ```
 GET /api/v1/containers/{id}/logs?follow=true
 ```
 
-Diese streamt:
+This streams:
 
 - stdout
 - stderr
 
 ---
 
-# 12.4 Ereignisprotokoll (Event Log)
+# 12.4 Event Log
 
-Ein internes EventLog speichert:
+An internal EventLog stores:
 
-| Timestamp | Kategorie | Ereignis |
-|----------|-----------|----------|
+| Timestamp | Category | Event |
+|-----------|----------|-------|
 | 2025-03-11 08:12 | Deploy | Install stackVersion=4.3.0 |
 | 2025-03-11 08:14 | TLS | Custom certificate uploaded |
 | 2025-03-12 09:20 | Auth | Login failed for user admin |
@@ -2083,26 +2083,26 @@ GET /api/v1/admin/events
 
 ---
 
-# 12.5 Fehlercodes (global)
+# 12.5 Error Codes (global)
 
-Jeder Fehler erhält einen eindeutigen Code, z. B.:
+Each error receives a unique code, e.g.:
 
-| Code | Beschreibung |
-|------|--------------|
-| `DEPLOYMENT_FAILED` | Fehler im Deploymentprozess |
-| `INVALID_MANIFEST` | Manifest fehlerhaft |
-| `SCHEMA_INCOMPATIBLE` | Manifest-Schema nicht kompatibel |
-| `WIZARD_INVALID_STATE` | Wizard wurde in falscher Phase aufgerufen |
-| `DOCKER_NETWORK_ERROR` | Docker Netzwerkfehler |
-| `CONTAINER_START_FAILED` | Container konnte nicht starten |
-| `AUTH_FAILED` | Login ungültig |
-| `TLS_INVALID` | Zertifikat ungültig |
+| Code | Description |
+|------|-------------|
+| `DEPLOYMENT_FAILED` | Error in deployment process |
+| `INVALID_MANIFEST` | Manifest faulty |
+| `SCHEMA_INCOMPATIBLE` | Manifest schema not compatible |
+| `WIZARD_INVALID_STATE` | Wizard was called in wrong phase |
+| `DOCKER_NETWORK_ERROR` | Docker network error |
+| `CONTAINER_START_FAILED` | Container could not start |
+| `AUTH_FAILED` | Login invalid |
+| `TLS_INVALID` | Certificate invalid |
 
 ---
 
-# 12.6 Fehlerbehandlung im Code
+# 12.6 Error Handling in Code
 
-Beispiel für Deployment:
+Example for Deployment:
 
 ```csharp
 try
@@ -2121,54 +2121,53 @@ catch (Exception ex)
 
 ---
 
-# 12.7 Healthchecks (Future)
+# 12.7 Health Checks (Future)
 
-Geplant:
+Planned:
 
-- `/health` Endpunkte der Dienste regelmäßig prüfen
-- Ergebnisse in der UI anzeigen
-- Optionale Alerts im Admin-UI
-
----
-
-# → Ende von Block 12/20
-
-
-# 13. Deployment-Pläne & Reihenfolge-Logik (Tiefe Details)
-
-Dieses Kapitel beschreibt die interne Logik, mit der ReadyStackGo bestimmt,
-**in welcher Reihenfolge Container installiert, entfernt, oder aktualisiert werden**.
-
-Dies ist entscheidend, damit der Stack deterministisch, sicher und vorhersagbar
-ausgerollt werden kann.
+- Regularly check `/health` endpoints of services
+- Display results in UI
+- Optional alerts in Admin UI
 
 ---
 
-# 13.1 Grundprinzipien
+# → End of Block 12/20
 
-ReadyStackGo verfolgt folgende Regeln:
 
-1. **Jeder Kontext wird vollständig ersetzt**  
-   → niemals „in-place updates“, niemals diff-basierte Änderungen.
+# 13. Deployment Plans & Order Logic (Deep Details)
 
-2. **Kontexte ohne externe Ports zuerst**  
-   → interne APIs, Worker, Service-Bus-Listener, EventStore, Identity, …
+This chapter describes the internal logic with which ReadyStackGo determines
+**in what order containers are installed, removed, or updated**.
 
-3. **Gateways immer zuletzt**  
-   → damit die öffentlichen Endpunkte erst online gehen, wenn die internen Dienste laufen.
-
-4. **Start-Reihenfolge folgt den Abhängigkeiten (dependsOn)**  
-   → z. B.: BFF → Project API → Identity  
-   → ansonsten deterministische Alphabet-Sortierung.
-
-5. Fehler stoppen den gesamten Vorgang  
-   → kein „teilweise installiert“.
+This is crucial so that the stack can be rolled out deterministically, safely, and predictably.
 
 ---
 
-# 13.2 Bestimmung der Reihenfolge
+# 13.1 Basic Principles
 
-Algorithmus in Pseudocode:
+ReadyStackGo follows these rules:
+
+1. **Each context is completely replaced**
+   → never "in-place updates", never diff-based changes.
+
+2. **Contexts without external ports first**
+   → internal APIs, workers, service bus listeners, EventStore, Identity, ...
+
+3. **Gateways always last**
+   → so that public endpoints only go online when internal services are running.
+
+4. **Start order follows dependencies (dependsOn)**
+   → e.g.: BFF → Project API → Identity
+   → otherwise deterministic alphabetical sorting.
+
+5. Errors stop the entire process
+   → no "partially installed".
+
+---
+
+# 13.2 Determining the Order
+
+Algorithm in pseudocode:
 
 ```
 contexts = manifest.contexts
@@ -2187,9 +2186,9 @@ move gateway to end
 
 ---
 
-# 13.3 Beispiel
+# 13.3 Example
 
-Manifestausschnitt:
+Manifest excerpt:
 
 ```json
 "contexts": {
@@ -2200,25 +2199,25 @@ Manifestausschnitt:
 }
 ```
 
-Installationsreihenfolge:
+Installation order:
 
-1. identity  
-2. project  
-3. bffDesktop  
-4. edge-gateway  
+1. identity
+2. project
+3. bffDesktop
+4. edge-gateway
 
 ---
 
-# 13.4 DeploymentAction-Erzeugung
+# 13.4 DeploymentAction Generation
 
-Für jeden Dienst werden 4 Schritte erzeugt:
+For each service, 4 steps are generated:
 
-1. **stop**  
-2. **remove**  
-3. **create**  
+1. **stop**
+2. **remove**
+3. **create**
 4. **start**
 
-Beispiel:
+Example:
 
 ```json
 [
@@ -2231,39 +2230,39 @@ Beispiel:
 
 ---
 
-# 13.5 Ports & Zugriffe
+# 13.5 Ports & Access
 
-Interne Kontexte:
+Internal contexts:
 
-- setzen keine public ports  
-- setzen nur „private“ Container-Ports (Exposed Ports)
+- set no public ports
+- set only "private" container ports (Exposed Ports)
 
 Gateway:
 
-- setzt private port → interner HTTP-Port (z. B. 8080)
-- setzt public port → HTTPS-Port (z. B. 8443)
+- sets private port → internal HTTP port (e.g., 8080)
+- sets public port → HTTPS port (e.g., 8443)
 
 ---
 
-# 13.6 Validierung vor Deployment
+# 13.6 Validation Before Deployment
 
-Vor dem Deployment werden geprüft:
+Before deployment, the following are checked:
 
-1. **Alle Container-Images verfügbar?**  
-2. **Wird der publicPort bereits benutzt?**  
-3. **Schema-Version kompatibel?**  
-4. **Funktionieren die Connection Strings?** (Basic Regex-Level)  
-5. **Gateway-Kontext existiert?**
+1. **All container images available?**
+2. **Is the publicPort already in use?**
+3. **Schema version compatible?**
+4. **Connection strings working?** (Basic Regex level)
+5. **Gateway context exists?**
 
 ---
 
-# 13.7 Umgang mit Abhängigkeiten
+# 13.7 Handling Dependencies
 
-Der Algorithmus erlaubt:
+The algorithm allows:
 
-- direkte Dependencies (1 Ebene)
-- tiefe Dependencies (mehrere Ebenen)
-- Zyklen werden erkannt und werfen Fehler:
+- direct dependencies (1 level)
+- deep dependencies (multiple levels)
+- cycles are detected and throw error:
 
 ```
 errorCode: "MANIFEST_DEPENDENCY_CYCLE"
@@ -2271,53 +2270,53 @@ errorCode: "MANIFEST_DEPENDENCY_CYCLE"
 
 ---
 
-# 13.8 Parallelisierung (Future Optimization)
+# 13.8 Parallelization (Future Optimization)
 
-Potenzielle Optimierungen:
+Potential optimizations:
 
-- interne Dienste parallel starten  
-- externe Dienste sequentiell  
-- Gateway immer nach allen anderen
+- start internal services in parallel
+- external services sequentially
+- Gateway always after all others
 
-Diese Optimierung wird für spätere Versionen eingeplant.
-
----
-
-# 13.9 Fehler während der Reihenfolge-Auswertung
-
-Fehlercodes:
-
-| Code | Bedeutung |
-|------|-----------|
-| `MANIFEST_DEPENDENCY_MISSING` | Ein dependsOn-Verweis zeigt auf einen unbekannten Kontext |
-| `MANIFEST_DEPENDENCY_CYCLE` | Ein zyklisches Abhängigkeitsverhältnis wurde erkannt |
-| `MANIFEST_GATEWAY_INVALID` | Der definierte Gateway-Kontext existiert nicht |
+This optimization is planned for later versions.
 
 ---
 
-# → Ende von Block 13/20
+# 13.9 Errors During Order Evaluation
 
+Error codes:
 
-# 14. Multi-Node Architektur (Planung & Spezifikation für v1.0+)
-
-Auch wenn ReadyStackGo zunächst **Single-Node** arbeitet, ist das gesamte System  
-von Anfang an so entworfen, dass eine erweiterte **Multi-Node-Infrastruktur**  
-darauf aufbauen kann. Dieses Kapitel beschreibt den geplanten Funktionsumfang  
-und die technischen Anforderungen für zukünftige Cluster-Fähigkeit.
+| Code | Meaning |
+|------|---------|
+| `MANIFEST_DEPENDENCY_MISSING` | A dependsOn reference points to unknown context |
+| `MANIFEST_DEPENDENCY_CYCLE` | A cyclic dependency was detected |
+| `MANIFEST_GATEWAY_INVALID` | The defined gateway context does not exist |
 
 ---
 
-# 14.1 Ziele der Multi-Node Umsetzung
+# → End of Block 13/20
 
-1. **Verteilung einzelner Kontexte** auf unterschiedliche Maschinen  
-2. **Rollenbasierte Node-Zuweisung**  
-   - Gateway-Node  
-   - Compute-Node  
-   - Storage-Node  
-3. **Zentrales Management** weiterhin über den Admin-Container  
-4. **Keine Abhängigkeit von Kubernetes oder Swarm**  
-5. **Volle Offline-Fähigkeit**  
-6. **Erweiterbare Node-Konfiguration** über `rsgo.nodes.json`
+
+# 14. Multi-Node Architecture (Planning & Specification for v1.0+)
+
+Even though ReadyStackGo initially works **Single-Node**, the entire system
+is designed from the start so that an extended **Multi-Node infrastructure**
+can build upon it. This chapter describes the planned feature scope
+and technical requirements for future cluster capability.
+
+---
+
+# 14.1 Goals of Multi-Node Implementation
+
+1. **Distribution of individual contexts** to different machines
+2. **Role-based node assignment**
+   - Gateway Node
+   - Compute Node
+   - Storage Node
+3. **Central management** still via the Admin container
+4. **No dependency on Kubernetes or Swarm**
+5. **Full offline capability**
+6. **Extensible node configuration** via `rsgo.nodes.json`
 
 ---
 
@@ -2346,20 +2345,20 @@ und die technischen Anforderungen für zukünftige Cluster-Fähigkeit.
 
 ---
 
-# 14.3 Node-Rollen
+# 14.3 Node Roles
 
-| Rolle | Bedeutung |
-|--------|----------|
-| `default` | Standardnode, auf dem alles laufen darf |
-| `gateway` | Node für edge-gateway und public API |
-| `compute` | Node für rechenintensive Kontexte |
-| `storage` | Node für z. B. eventstore, db-proxy etc. |
+| Role | Meaning |
+|------|---------|
+| `default` | Standard node, everything may run on it |
+| `gateway` | Node for edge-gateway and public API |
+| `compute` | Node for compute-intensive contexts |
+| `storage` | Node for e.g., eventstore, db-proxy etc. |
 
 ---
 
-# 14.4 Deployment-Strategie im Multi-Node-Modus
+# 14.4 Deployment Strategy in Multi-Node Mode
 
-Für jeden Kontext im Manifest:
+For each context in the manifest:
 
 ```json
 "contexts": {
@@ -2369,7 +2368,7 @@ Für jeden Kontext im Manifest:
 }
 ```
 
-Der Deployment-Algorithmus macht:
+The deployment algorithm does:
 
 ```
 node = findNodeWithRole(context.nodeRole)
@@ -2381,13 +2380,13 @@ deploy(context) on dockerService
 
 # 14.5 Docker Remote API
 
-Remote Nodes benötigen:
+Remote Nodes need:
 
-- Docker Engine mit aktiviertem TCP Listener **oder**
-- SSH Tunnel (geplant)  
-- TLS gesicherte Verbindungen
+- Docker Engine with activated TCP Listener **or**
+- SSH Tunnel (planned)
+- TLS secured connections
 
-Beispiel:
+Example:
 
 ```
 tcp://host:2376
@@ -2397,48 +2396,48 @@ tcp://host:2376
 
 # 14.6 Node Discovery (Future)
 
-Optionale Mechanismen:
+Optional mechanisms:
 
-- mDNS Autodiscovery  
-- Node-Herzschlag  
-- Cluster-Status Anzeige in der UI  
-
----
-
-# 14.7 Einschränkungen in v1.0
-
-- Wizard unterstützt nur einen Node  
-- Node-Management erst ab v1.1  
-- Keine automatische Lastverteilung  
-- Keine selbstheilenden Container  
+- mDNS Autodiscovery
+- Node heartbeat
+- Cluster status display in UI
 
 ---
 
-# → Ende von Block 14/20
+# 14.7 Limitations in v1.0
 
-
-# 15. CI/CD Integration (Build, Release, Deployment-Automation)
-
-Dieses Kapitel beschreibt, wie ReadyStackGo vollständig in moderne CI/CD-Pipelines  
-(Azure DevOps, GitHub Actions, GitLab CI) integriert werden kann.  
-Dies ist essenziell für automatisierte Releases, Pre-Releases und QA-Deployments.
+- Wizard supports only one node
+- Node management only from v1.1
+- No automatic load balancing
+- No self-healing containers
 
 ---
 
-# 15.1 Zielsetzung der CI/CD-Integration
+# → End of Block 14/20
 
-1. **Automatisierte Builds aller Kontext-Container**
-2. **Automatisiertes Tagging nach SemVer (x.y.z)**
-3. **Automatisiertes Pushen zu Docker Hub oder eigener Registry**
-4. **Automatisierte Erstellung des Release-Manifests**
-5. **Automatisiertes Bereitstellen von Pre-Releases**
-6. **Trigger für ReadyStackGo-Installationen auf Entwicklungsservern**
+
+# 15. CI/CD Integration (Build, Release, Deployment Automation)
+
+This chapter describes how ReadyStackGo can be fully integrated into modern CI/CD pipelines
+(Azure DevOps, GitHub Actions, GitLab CI).
+This is essential for automated releases, pre-releases, and QA deployments.
 
 ---
 
-# 15.2 Anforderungen an jedes Kontext-Repository
+# 15.1 Goals of CI/CD Integration
 
-Jeder Microservice-Kontext (z. B. Project, Memo, Discussion) benötigt:
+1. **Automated builds of all context containers**
+2. **Automated tagging according to SemVer (x.y.z)**
+3. **Automated pushing to Docker Hub or own registry**
+4. **Automated creation of release manifest**
+5. **Automated provision of pre-releases**
+6. **Trigger for ReadyStackGo installations on development servers**
+
+---
+
+# 15.2 Requirements for Each Context Repository
+
+Each microservice context (e.g., Project, Memo, Discussion) needs:
 
 ```
 /build
@@ -2446,7 +2445,7 @@ Jeder Microservice-Kontext (z. B. Project, Memo, Discussion) benötigt:
     version.txt
 ```
 
-`version.txt` enthält:
+`version.txt` contains:
 
 ```
 6.4.0
@@ -2454,11 +2453,11 @@ Jeder Microservice-Kontext (z. B. Project, Memo, Discussion) benötigt:
 
 ---
 
-# 15.3 Pipeline-Schritte (Azure DevOps Beispiel)
+# 15.3 Pipeline Steps (Azure DevOps Example)
 
-### 1. Version bestimmen
-- Lese `version.txt`
-- erhöhe Patch-Version oder Release-Version autom.
+### 1. Determine version
+- Read `version.txt`
+- Increment patch version or release version automatically
 
 ### 2. Docker Build
 
@@ -2474,24 +2473,24 @@ docker push registry/ams.project-api:$(VERSION)
 
 ### 4. Manifest Update
 
-Ein Skript erzeugt/aktualisiert:
+A script creates/updates:
 
 ```
 manifest-$(STACK_VERSION).json
 ```
 
-mit neuen Container-Versionen.
+with new container versions.
 
-### 5. Publish Artefakt
+### 5. Publish Artifact
 
-- Manifest wird als Build-Artefakt veröffentlicht
-- Optional direkt in ReadyStackGo-Verzeichnis kopiert
+- Manifest is published as build artifact
+- Optionally copied directly to ReadyStackGo directory
 
 ---
 
 # 15.4 Pre-Release Support
 
-Pre-Release Container werden mit Tags versehen:
+Pre-release containers are tagged with:
 
 ```
 6.4.0-alpha.1
@@ -2499,7 +2498,7 @@ Pre-Release Container werden mit Tags versehen:
 6.4.0-rc.1
 ```
 
-Manifest kann diese Versionen referenzieren, z. B.:
+Manifest can reference these versions, e.g.:
 
 ```json
 "version": "6.4.0-beta.2"
@@ -2507,32 +2506,32 @@ Manifest kann diese Versionen referenzieren, z. B.:
 
 ---
 
-# 15.5 Trigger für Entwicklungsserver
+# 15.5 Trigger for Development Servers
 
-Azure DevOps Pipeline kann nach erfolgreichem Build:
+Azure DevOps Pipeline can after successful build:
 
-1. eine **Webhook-URL** von ReadyStackGo aufrufen:
+1. call a **Webhook URL** of ReadyStackGo:
 ```
 POST /api/v1/hooks/deploy
 { "version": "4.3.0-alpha.7" }
 ```
 
-2. ReadyStackGo lädt das Manifest  
-3. Deployment startet automatisch  
+2. ReadyStackGo loads the manifest
+3. Deployment starts automatically
 
-Dies ist optional und nur im Dev-Modus möglich.
+This is optional and only possible in dev mode.
 
 ---
 
-# 15.6 Release-Manifesterzeugung (Detail)
+# 15.6 Release Manifest Generation (Detail)
 
-Ein PowerShell- oder Node.js-Skript erzeugt automatisch:
+A PowerShell or Node.js script automatically generates:
 
 - `manifest-<stackVersion>.json`
 - `changelog`
 - `schemaVersion`
 
-Die Struktur:
+The structure:
 
 ```json
 {
@@ -2546,40 +2545,40 @@ Die Struktur:
 
 ---
 
-# 15.7 Automatisierte QA-Deployments
+# 15.7 Automated QA Deployments
 
-Ein QA-Server kann eine spezielle Webseite bereitstellen:
+A QA server can provide a special webpage:
 
-- „Deploy latest pre-release“
-- „Deploy specific version“
-- „Rollback last version“
+- "Deploy latest pre-release"
+- "Deploy specific version"
+- "Rollback last version"
 
-Diese verwendet ReadyStackGo als Backend.
-
----
-
-# 15.8 Sicherheitsaspekte in CI/CD
-
-- Zugriff auf Registry über Service Connection
-- Webhooks signiert mit Secret Token
-- ReadyStackGo validiert Origin
+This uses ReadyStackGo as backend.
 
 ---
 
-# → Ende von Block 15/20
+# 15.8 Security Aspects in CI/CD
 
-
-# 16. Fehlercodes, Exceptions & Rückgabestandards (Deep Spec)
-
-Dieses Kapitel beschreibt das vollständige Fehler- und Rückgabemodell  
-für ReadyStackGo. Ziel ist eine **konsequente, maschinenlesbare Definition**,  
-die sowohl UI, als auch externe Tools wie CI/CD eindeutig verarbeiten können.
+- Access to registry via Service Connection
+- Webhooks signed with Secret Token
+- ReadyStackGo validates Origin
 
 ---
 
-# 16.1 Allgemeiner Response-Standard
+# → End of Block 15/20
 
-Jede API-Antwort folgt exakt diesem Format:
+
+# 16. Error Codes, Exceptions & Return Standards (Deep Spec)
+
+This chapter describes the complete error and return model
+for ReadyStackGo. The goal is a **consistent, machine-readable definition**
+that both UI and external tools like CI/CD can process unambiguously.
+
+---
+
+# 16.1 General Response Standard
+
+Every API response follows exactly this format:
 
 ```json
 {
@@ -2590,95 +2589,95 @@ Jede API-Antwort folgt exakt diesem Format:
 }
 ```
 
-Bei Fehlern:
+On errors:
 
 ```json
 {
   "success": false,
   "data": null,
   "errorCode": "XYZ_ERROR",
-  "message": "Menschlich lesbare Beschreibung"
+  "message": "Human-readable description"
 }
 ```
 
-Die UI **interpretiert errorCode, nicht message**.
+The UI **interprets errorCode, not message**.
 
 ---
 
-# 16.2 Universelle Fehlercodes
+# 16.2 Universal Error Codes
 
-Diese Fehlercodes sind API-weit gültig:
+These error codes are valid API-wide:
 
-| Code | Bedeutung |
-|------|-----------|
-| `UNKNOWN_ERROR` | Fallback für unerwartete Fehler |
-| `INVALID_REQUEST` | Payload ungültig, Pflichtfelder fehlen |
-| `UNAUTHORIZED` | Kein Token vorhanden |
-| `FORBIDDEN` | Rolle hat kein Recht |
-| `NOT_FOUND` | Ressource existiert nicht |
-| `OPERATION_NOT_ALLOWED` | Aktion in diesem Zustand nicht erlaubt |
-
----
-
-# 16.3 Wizard-bezogene Fehler
-
-| Code | Beschreibung |
-|------|--------------|
-| `WIZARD_INVALID_STATE` | Schritt darf aktuell nicht ausgeführt werden |
-| `WIZARD_ALREADY_COMPLETED` | Wizard bereits abgeschlossen |
-| `WIZARD_STEP_INCOMPLETE` | Vorheriger Schritt fehlt |
-| `WIZARD_ORG_INVALID` | Organisation ungültig |
-| `WIZARD_CONNECTIONS_INVALID` | Verbindungsangaben ungültig |
+| Code | Meaning |
+|------|---------|
+| `UNKNOWN_ERROR` | Fallback for unexpected errors |
+| `INVALID_REQUEST` | Payload invalid, required fields missing |
+| `UNAUTHORIZED` | No token present |
+| `FORBIDDEN` | Role has no permission |
+| `NOT_FOUND` | Resource does not exist |
+| `OPERATION_NOT_ALLOWED` | Action not allowed in this state |
 
 ---
 
-# 16.4 Manifest- / Release-bezogene Fehler
+# 16.3 Wizard-related Errors
 
-| Code | Beschreibung |
+| Code | Description |
 |------|-------------|
-| `INVALID_MANIFEST` | JSON nicht parsebar oder strukturell falsch |
-| `MANIFEST_NOT_FOUND` | Version existiert nicht |
-| `SCHEMA_INCOMPATIBLE` | Manifest-Schema zu alt/neu |
-| `MANIFEST_DEPENDENCY_MISSING` | dependsOn verweist auf unbekannten Kontext |
-| `MANIFEST_DEPENDENCY_CYCLE` | Zirkuläre Abhängigkeit |
-| `MANIFEST_GATEWAY_INVALID` | Gateway-Kontext fehlt oder ungültig |
+| `WIZARD_INVALID_STATE` | Step may not be executed currently |
+| `WIZARD_ALREADY_COMPLETED` | Wizard already completed |
+| `WIZARD_STEP_INCOMPLETE` | Previous step missing |
+| `WIZARD_ORG_INVALID` | Organization invalid |
+| `WIZARD_CONNECTIONS_INVALID` | Connection details invalid |
 
 ---
 
-# 16.5 Deployment-Fehler
+# 16.4 Manifest/Release-related Errors
 
-| Code | Bedeutung |
-|------|-----------|
-| `DEPLOYMENT_FAILED` | Allgemeiner Fehler im Deployment |
-| `DOCKER_NETWORK_ERROR` | Netzwerkaufnahme fehlgeschlagen |
-| `CONTAINER_CREATE_FAILED` | Container konnte nicht erzeugt werden |
-| `CONTAINER_START_FAILED` | Container konnte nicht gestartet werden |
-| `IMAGE_PULL_FAILED` | Image konnte nicht geladen werden |
-
----
-
-# 16.6 TLS / Zertifikatsfehler
-
-| Code | Bedeutung |
-|------|-----------|
-| `TLS_INVALID` | Zertifikat ungültig |
-| `TLS_INSTALL_FAILED` | Upload/Installation fehlgeschlagen |
-| `TLS_MODE_UNSUPPORTED` | Modus nicht unterstützt |
+| Code | Description |
+|------|-------------|
+| `INVALID_MANIFEST` | JSON not parseable or structurally wrong |
+| `MANIFEST_NOT_FOUND` | Version does not exist |
+| `SCHEMA_INCOMPATIBLE` | Manifest schema too old/new |
+| `MANIFEST_DEPENDENCY_MISSING` | dependsOn references unknown context |
+| `MANIFEST_DEPENDENCY_CYCLE` | Circular dependency |
+| `MANIFEST_GATEWAY_INVALID` | Gateway context missing or invalid |
 
 ---
 
-# 16.7 Auth-Fehler
+# 16.5 Deployment Errors
 
-| Code | Bedeutung |
-|------|-----------|
-| `AUTH_FAILED` | Falscher Benutzer oder Passwort |
-| `OIDC_CONFIG_INVALID` | OIDC-Angaben ungültig |
-| `TOKEN_EXPIRED` | JWT abgelaufen |
-| `TOKEN_INVALID` | JWT ungültig oder manipuliert |
+| Code | Meaning |
+|------|---------|
+| `DEPLOYMENT_FAILED` | General deployment error |
+| `DOCKER_NETWORK_ERROR` | Network creation failed |
+| `CONTAINER_CREATE_FAILED` | Container could not be created |
+| `CONTAINER_START_FAILED` | Container could not be started |
+| `IMAGE_PULL_FAILED` | Image could not be loaded |
 
 ---
 
-# 16.8 Fehlerbehandlung in der API (Beispiel)
+# 16.6 TLS/Certificate Errors
+
+| Code | Meaning |
+|------|---------|
+| `TLS_INVALID` | Certificate invalid |
+| `TLS_INSTALL_FAILED` | Upload/installation failed |
+| `TLS_MODE_UNSUPPORTED` | Mode not supported |
+
+---
+
+# 16.7 Auth Errors
+
+| Code | Meaning |
+|------|---------|
+| `AUTH_FAILED` | Wrong user or password |
+| `OIDC_CONFIG_INVALID` | OIDC details invalid |
+| `TOKEN_EXPIRED` | JWT expired |
+| `TOKEN_INVALID` | JWT invalid or manipulated |
+
+---
+
+# 16.8 Error Handling in API (Example)
 
 ```csharp
 try
@@ -2700,9 +2699,9 @@ catch (Exception ex)
 
 ---
 
-# 16.9 Fehlerbehandlung in der UI
+# 16.9 Error Handling in UI
 
-Beispiel für TypeScript:
+Example for TypeScript:
 
 ```ts
 if (!res.success) {
@@ -2713,50 +2712,50 @@ if (!res.success) {
             toast.error(res.message);
             break;
         default:
-            toast.error("Ein unerwarteter Fehler ist aufgetreten.");
+            toast.error("An unexpected error occurred.");
     }
 }
 ```
 
 ---
 
-# 16.10 Mapping der Fehlercodes auf HTTP Status Codes
+# 16.10 Mapping Error Codes to HTTP Status Codes
 
-| HTTP Code | Wann? |
+| HTTP Code | When? |
 |-----------|-------|
-| `200` | Erfolg |
-| `400` | Client-seitiger Fehler (z.B. invalid manifest) |
-| `401` | Kein Login |
-| `403` | Falsche Rolle |
-| `404` | Ressource nicht gefunden |
-| `500` | Unerwarteter Fehler |
+| `200` | Success |
+| `400` | Client-side error (e.g., invalid manifest) |
+| `401` | No login |
+| `403` | Wrong role |
+| `404` | Resource not found |
+| `500` | Unexpected error |
 
 ---
 
-# → Ende von Block 16/20
+# → End of Block 16/20
 
 
-# 17. ReadyStackGo Admin-Container Architektur (Runtime Internals)
+# 17. ReadyStackGo Admin Container Architecture (Runtime Internals)
 
-Dieses Kapitel beschreibt, wie der ReadyStackGo-Admin-Container intern aufgebaut ist,  
-wie er startet, welche Prozesse laufen und welche Module sich gegenseitig aufrufen.
+This chapter describes how the ReadyStackGo Admin container is structured internally,
+how it starts, what processes run, and which modules call each other.
 
 ---
 
-# 17.1 Startprozess des Containers
+# 17.1 Container Startup Process
 
-Beim Start des Containers passiert folgendes:
+When the container starts, the following happens:
 
 1. **Configuration Bootstrap**
-   - Prüfen, ob `/app/config/rsgo.system.json` existiert
-   - Falls nicht → Wizard-Modus
+   - Check if `/app/config/rsgo.system.json` exists
+   - If not → Wizard mode
 
 2. **TLS Bootstrap**
-   - Wenn kein Zertifikat existiert
-   - → Self-Signed generieren
-   - → rsgo.tls.json erstellen
+   - If no certificate exists
+   - → Generate Self-Signed
+   - → Create rsgo.tls.json
 
-3. **Dependency Injection aufbauen**
+3. **Build Dependency Injection**
    - DockerService
    - ConfigStore
    - TLSService
@@ -2764,17 +2763,17 @@ Beim Start des Containers passiert folgendes:
    - DeploymentEngine
    - EnvVarService
 
-4. **API starten**
-   - FastEndpoints initialisieren
-   - Static Files (React UI) bereitstellen
+4. **Start API**
+   - Initialize FastEndpoints
+   - Serve Static Files (React UI)
 
-5. **Wizard oder Login starten**
-   - Wizard UI, falls wizardState != Installed
-   - sonst Admin-Login UI
+5. **Start Wizard or Login**
+   - Wizard UI if wizardState != Installed
+   - otherwise Admin Login UI
 
 ---
 
-# 17.2 Ordnerstruktur im Container
+# 17.2 Folder Structure in Container
 
 ```
 /app
@@ -2786,14 +2785,14 @@ Beim Start des Containers passiert folgendes:
     /logs
 ```
 
-### Dazu kommt das Host-Mount:
+### Additionally the host mount:
 ```
-/var/run/docker.sock    <-- Docker API Zugriff
+/var/run/docker.sock    <-- Docker API Access
 ```
 
 ---
 
-# 17.3 Architekturdiagramm (Textform)
+# 17.3 Architecture Diagram (Text form)
 
 ```
 +-----------------------+
@@ -2818,12 +2817,12 @@ Beim Start des Containers passiert folgendes:
 
 ---
 
-# 17.4 API-Schicht
+# 17.4 API Layer
 
-Implementiert mit:
+Implemented with:
 
 - FastEndpoints
-- Filters für Auth
+- Filters for Auth
 - Global Error Middleware
 - Logging
 
@@ -2833,16 +2832,16 @@ Implementiert mit:
 
 ---
 
-# 17.5 Application-Schicht
+# 17.5 Application Layer
 
-Besteht aus:
+Consists of:
 
 - Commands
 - Queries
-- Handlern
-- Policies (z. B. Reihenfolge, Manifest-Logik)
+- Handlers
+- Policies (e.g., order, manifest logic)
 
-Beispielstruktur:
+Example structure:
 
 ```
 Application/
@@ -2857,13 +2856,13 @@ Application/
 
 ---
 
-# 17.6 Domain-Schicht
+# 17.6 Domain Layer
 
-- rein objektorientiert
-- komplett unabhängig vom System
-- keine Docker-Abhängigkeiten
+- purely object-oriented
+- completely independent of the system
+- no Docker dependencies
 
-Beispiel:
+Example:
 
 ```
 Domain/
@@ -2876,49 +2875,49 @@ Domain/
 
 ---
 
-# 17.7 Infrastructure-Schicht
+# 17.7 Infrastructure Layer
 
-Enthält Implementierungen für:
+Contains implementations for:
 
 - DockerService
 - TlsService
 - FileConfigStore
 - ManifestProvider
 
-Kommunikation:
+Communication:
 - DockerService → Docker.DotNet
-- FileConfigStore → JSON-Dateien
+- FileConfigStore → JSON files
 - TLSService → System.Security.Cryptography
 
 ---
 
-# 17.8 Runtime Prozesse
+# 17.8 Runtime Processes
 
-Der Admin-Container enthält folgende Hintergrundprozesse (geplant):
+The Admin container contains the following background processes (planned):
 
-## 1. Manifest-Watcher
-- prüft, ob neue Manifeste verfügbar sind
-- lädt neue Versionen automatisch (für Pre-Release-Modus)
+## 1. Manifest Watcher
+- checks if new manifests are available
+- loads new versions automatically (for pre-release mode)
 
 ## 2. Container Health Watcher
-- prüft Container-Status
-- markiert „unhealthy“
-- API zeigt Zustand an
+- checks container status
+- marks "unhealthy"
+- API shows state
 
 ## 3. Log Rotator
-- verwaltet Log-Dateien im Volume
+- manages log files in volume
 
 ---
 
-# 17.9 Garbage Collection von alten Containern
+# 17.9 Garbage Collection of Old Containers
 
-Nach Installationen:
+After installations:
 
-- Alte Container → entfernt
-- Alte Images → optional entfernt
-- Dangling Volumes → optional entfernt
+- Old containers → removed
+- Old images → optionally removed
+- Dangling volumes → optionally removed
 
-Optionaler Cleanup-Modus:
+Optional cleanup mode:
 
 ```
 POST /api/v1/admin/system/cleanup
@@ -2928,39 +2927,39 @@ POST /api/v1/admin/system/cleanup
 
 # 17.10 Memory & Performance
 
-Admin-Container Ressourcenverbrauch:
+Admin container resource consumption:
 
-- CPU: ~1–2% im Leerlauf
-- RAM: 100–150 MB
-- Storage: abhängig von Logs & Config (~10 MB)
+- CPU: ~1-2% idle
+- RAM: 100-150 MB
+- Storage: depends on logs & config (~10 MB)
 
-Deploymentprozess kann kurzzeitig mehr CPU nutzen.
-
----
-
-# → Ende von Block 17/20
-
-
-# 18. TLS/SSL-System (Deep Dive)
-
-Dieses Kapitel beschreibt die komplette TLS/SSL-Implementierung von ReadyStackGo –  
-einschließlich Zertifikatserstellung, Validierung, Austausch und Integration in den Gateway-Kontext.
+Deployment process can briefly use more CPU.
 
 ---
 
-# 18.1 Grundprinzipien
+# → End of Block 17/20
 
-1. **TLS wird zentral in ReadyStackGo konfiguriert.**  
-2. **Der Gateway-Kontext terminiert den TLS-Traffic.**  
-3. Der Admin-Container nutzt TLS **nur im Wizard**, um ein sicheres Setup zu gewährleisten.  
-4. Installation beginnt immer mit einem **Self-Signed-Zertifikat** (Default).  
-5. Ein **Custom-Zertifikat** kann später über die UI importiert werden (PFX).
+
+# 18. TLS/SSL System (Deep Dive)
+
+This chapter describes the complete TLS/SSL implementation of ReadyStackGo –
+including certificate creation, validation, exchange, and integration into the gateway context.
 
 ---
 
-# 18.2 TLS-Konfigurationsdatei: rsgo.tls.json
+# 18.1 Basic Principles
 
-Beispiel:
+1. **TLS is configured centrally in ReadyStackGo.**
+2. **The Gateway context terminates TLS traffic.**
+3. The Admin container uses TLS **only in Wizard** to ensure secure setup.
+4. Installation always starts with a **Self-Signed certificate** (Default).
+5. A **Custom certificate** can be imported later via the UI (PFX).
+
+---
+
+# 18.2 TLS Configuration File: rsgo.tls.json
+
+Example:
 
 ```json
 {
@@ -2972,21 +2971,21 @@ Beispiel:
 }
 ```
 
-Erläuterung:
+Explanation:
 
-| Feld | Bedeutung |
-|------|-----------|
-| mode | SelfSigned oder Custom |
-| certificatePath | Pfad zur PFX-Datei |
-| certificatePassword | Passwort der PFX |
-| httpsPort | Port, an dem der Gateway TLS terminiert |
-| terminatingContext | Kontextname des Gateways |
+| Field | Meaning |
+|-------|---------|
+| mode | SelfSigned or Custom |
+| certificatePath | Path to PFX file |
+| certificatePassword | Password of PFX |
+| httpsPort | Port where Gateway terminates TLS |
+| terminatingContext | Context name of Gateway |
 
 ---
 
-# 18.3 Self-Signed-Zertifikat erstellen
+# 18.3 Create Self-Signed Certificate
 
-Das Self-Signed-Zertifikat wird beim ersten Start erzeugt:
+The Self-Signed certificate is generated on first start:
 
 ```csharp
 public async Task<TlsGenerateResult> GenerateSelfSignedAsync(string cn)
@@ -3020,32 +3019,32 @@ public async Task<TlsGenerateResult> GenerateSelfSignedAsync(string cn)
 
 ---
 
-# 18.4 Custom-Zertifikate (Upload über UI)
+# 18.4 Custom Certificates (Upload via UI)
 
-UI sendet eine multipart Anfrage:
+UI sends a multipart request:
 
 ```
 POST /api/v1/admin/tls/upload
 ```
 
-Backend prüft:
+Backend checks:
 
-1. Ist Datei PFX?  
-2. Passwort korrekt?  
-3. Zertifikat gültig?  
-4. Enthält private keys?  
+1. Is file PFX?
+2. Password correct?
+3. Certificate valid?
+4. Contains private keys?
 
-Bei Erfolg:
+On success:
 
-- Datei nach `/app/certs/custom.pfx`
+- File to `/app/certs/custom.pfx`
 - `rsgo.tls.json` → mode = "Custom"
-- Gateway-Container wird bei nächster Installation mit Custom-Zertifikat gestartet
+- Gateway container is started with custom certificate on next installation
 
 ---
 
-# 18.5 Gateway TLS-Integration
+# 18.5 Gateway TLS Integration
 
-Der Gateway-Kontext wird im Manifest so beschrieben:
+The Gateway context is described in the manifest like this:
 
 ```json
 "gateway": {
@@ -3056,7 +3055,7 @@ Der Gateway-Kontext wird im Manifest so beschrieben:
 }
 ```
 
-Beim Erstellen des Containers werden die Zertifikatsdateien gemountet:
+When creating the container, certificate files are mounted:
 
 ```csharp
 HostConfig = new HostConfig {
@@ -3067,7 +3066,7 @@ HostConfig = new HostConfig {
 }
 ```
 
-Der Gateway liest:
+The Gateway reads:
 
 ```
 /tls/config.json
@@ -3076,65 +3075,64 @@ Der Gateway liest:
 
 ---
 
-# 18.6 Zertifikatrotation
+# 18.6 Certificate Rotation
 
-Wechsel von Self-Signed zu Custom erfolgt:
+Switch from Self-Signed to Custom happens:
 
-1. Upload  
-2. Validierung  
-3. rsgo.tls.json aktualisieren  
-4. Nächstes Deployment nutzt Custom-Zertifikat  
+1. Upload
+2. Validation
+3. Update rsgo.tls.json
+4. Next deployment uses custom certificate
 
-**Keine Downtime**, da Zertifikat erst beim Neustart des Gateways aktiv wird.
+**No downtime**, as certificate only becomes active on Gateway restart.
 
 ---
 
-# 18.7 Zertifikatsvalidierung
+# 18.7 Certificate Validation
 
-Der Admin-Container prüft:
+The Admin container checks:
 
-- Ablaufdatum
-- Private Key vorhanden
+- Expiration date
+- Private key present
 - KeyUsage = DigitalSignature + KeyEncipherment
-- SAN-Einträge vorhanden?
+- SAN entries present?
 
-UI zeigt Warnungen an:
+UI shows warnings:
 
 ```
-Zertifikat läuft in 23 Tagen ab.
+Certificate expires in 23 days.
 ```
 
 ---
 
-# 18.8 TLS-Fehlercodes
+# 18.8 TLS Error Codes
 
-| Code | Beschreibung |
+| Code | Description |
 |------|-------------|
-| `TLS_INVALID` | Zertifikat konnte nicht validiert werden |
-| `TLS_NO_PRIVATE_KEY` | PFX enthält keinen privaten Schlüssel |
-| `TLS_PASSWORD_WRONG` | Passwort für PFX falsch |
-| `TLS_INSTALL_FAILED` | Datei konnte nicht gespeichert werden |
+| `TLS_INVALID` | Certificate could not be validated |
+| `TLS_NO_PRIVATE_KEY` | PFX contains no private key |
+| `TLS_PASSWORD_WRONG` | Password for PFX wrong |
+| `TLS_INSTALL_FAILED` | File could not be saved |
 
 ---
 
-# 18.9 Zukunft: ACME/Let's Encrypt Integration (optional)
+# 18.9 Future: ACME/Let's Encrypt Integration (optional)
 
-Geplant:
+Planned:
 
 - ACME Challenge via Gateway
-- Domain-Validierung
+- Domain validation
 - Auto-Renewal
 
 ---
 
-# → Ende von Block 18/20
+# → End of Block 18/20
 
 
-# 19. ReadyStackGo-Konfigurationssystem (rsgo-config Volume)
+# 19. ReadyStackGo Configuration System (rsgo-config Volume)
 
-Dieses Kapitel beschreibt das vollständige **Konfigurationssystem** von ReadyStackGo.  
-Alle Konfigurationen liegen zentral im `rsgo-config`-Volume, das beim Start des  
-Admin-Containers gemountet wird:
+This chapter describes the complete **configuration system** of ReadyStackGo.
+All configurations are centrally located in the `rsgo-config` volume, which is mounted when starting the Admin container:
 
 ```
 -v rsgo-config:/app/config
@@ -3142,7 +3140,7 @@ Admin-Containers gemountet wird:
 
 ---
 
-# 19.1 Struktur des rsgo-config Volumes
+# 19.1 Structure of rsgo-config Volume
 
 ```
 /app/config
@@ -3156,13 +3154,13 @@ Admin-Containers gemountet wird:
     custom-files/ (future)
 ```
 
-Jede Datei hat einen klar definierten Zweck.
+Each file has a clearly defined purpose.
 
 ---
 
 # 19.2 rsgo.system.json
 
-Zentrale Systemkonfiguration:
+Central system configuration:
 
 ```json
 {
@@ -3172,17 +3170,17 @@ Zentrale Systemkonfiguration:
 }
 ```
 
-Felder:
+Fields:
 
-- `wizardState` → steuert Wizard  
-- `dockerNetwork` → Netzwerkname  
-- `stackVersion` → installierte Version  
+- `wizardState` → controls Wizard
+- `dockerNetwork` → network name
+- `stackVersion` → installed version
 
 ---
 
 # 19.3 rsgo.security.json
 
-Speichert alle Security-relevanten Daten:
+Stores all security-relevant data:
 
 ```json
 {
@@ -3203,7 +3201,7 @@ Speichert alle Security-relevanten Daten:
 
 # 19.4 rsgo.tls.json
 
-Beschreibung in Block 18. Wichtig:
+Description in Block 18. Important:
 
 ```json
 {
@@ -3219,7 +3217,7 @@ Beschreibung in Block 18. Wichtig:
 
 # 19.5 rsgo.contexts.json
 
-Globale und kontextabhängige Verbindungsparameter:
+Global and context-dependent connection parameters:
 
 ```json
 {
@@ -3241,10 +3239,10 @@ Globale und kontextabhängige Verbindungsparameter:
 }
 ```
 
-UI zeigt:
+UI shows:
 
-- Simple Mode: nur „global“ sichtbar  
-- Advanced Mode: „contexts“ mit Overrides  
+- Simple Mode: only "global" visible
+- Advanced Mode: "contexts" with overrides
 
 ---
 
@@ -3261,13 +3259,13 @@ Feature Flags:
 }
 ```
 
-Kontextübergreifend!
+Cross-context!
 
 ---
 
 # 19.7 rsgo.release.json
 
-Speichert die aktuell installierte Version:
+Stores the currently installed version:
 
 ```json
 {
@@ -3284,7 +3282,7 @@ Speichert die aktuell installierte Version:
 
 # 19.8 rsgo.nodes.json (Future)
 
-Für Multi-Node-Fähigkeit:
+For multi-node capability:
 
 ```json
 {
@@ -3301,25 +3299,25 @@ Für Multi-Node-Fähigkeit:
 
 ---
 
-# 19.9 Änderungen an Config-Dateien
+# 19.9 Changes to Config Files
 
-Konzept:
+Concept:
 
-- **niemals patchen**, immer vollständige Datei ersetzen  
-- alle Writes über `IConfigStore.SaveAsync()`  
-- atomare Writes (temp → replace)
+- **never patch**, always replace complete file
+- all writes via `IConfigStore.SaveAsync()`
+- atomic writes (temp → replace)
 
 ---
 
-# 19.10 UI Synchronisation
+# 19.10 UI Synchronization
 
-Die Admin UI lädt alle Dateien über:
+The Admin UI loads all files via:
 
 ```
 GET /api/v1/admin/config
 ```
 
-Antwort:
+Response:
 
 ```json
 {
@@ -3331,257 +3329,69 @@ Antwort:
 }
 ```
 
-Änderungen erfolgen über dedizierte Endpunkte.
+Changes happen via dedicated endpoints.
 
 ---
 
-# 19.11 Validierungslogik
+# 19.11 Validation Logic
 
-- UI validiert nur Grundstruktur  
-- API validiert Werte (regex, required, constraints)  
-- Deployment verweigert Installation bei ungültiger Config  
+- UI validates only basic structure
+- API validates values (regex, required, constraints)
+- Deployment refuses installation with invalid config
 
 ---
 
 # 19.12 Backup & Restore (Future)
 
-Geplant:
+Planned:
 
 ```
 GET /api/v1/admin/config/backup
 POST /api/v1/admin/config/restore
 ```
 
-Komplette ZIP mit allen Dateien.
+Complete ZIP with all files.
 
 ---
 
-# → Ende von Block 19/20
+# → End of Block 19/20
 
 
-# 19. Standard-Configfiles (rsgo.*.json) – Vollständige Spezifikation
+# 20. Future Architecture, Extensibility & Plugin System (Outlook)
 
-ReadyStackGo speichert Systemzustände, Verbindungen, Security-Infos und TLS-Daten
-in einer Reihe klar definierter JSON-Konfigurationsdateien im Volume:
-
-```
-/app/config  (Volume: rsgo-config)
-```
-
-Dieses Kapitel beschreibt jede Datei vollständig.
+This final chapter describes how ReadyStackGo can be extended in the future –
+modular, scalable, and open to customer-specific or community-driven extensions.
 
 ---
 
-# 19.1 Übersicht der Dateien
+# 20.1 Future Vision
 
-| Datei | Beschreibung |
-|-------|--------------|
-| rsgo.system.json | Wizard-State, Netzwerkname, Stack-Info |
-| rsgo.security.json | Benutzer, Passwörter, JWT Secret |
-| rsgo.tls.json | TLS-Einstellungen, Zertifikate |
-| rsgo.connections.json | Globale Verbindungen (Transport, Persistence, EventStore) |
-| rsgo.contexts.json | Kontext-spezifische Overrides |
-| rsgo.features.json | Feature Flags |
-| rsgo.release.json | Installierte Stack-Version |
-
----
-
-# 19.2 rsgo.system.json
-
-Beispiel:
-
-```json
-{
-  "wizardState": "Installed",
-  "organization": {
-    "id": "kunde-a",
-    "name": "Kunde A GmbH"
-  },
-  "dockerNetwork": "rsgo-net",
-  "stackInstalled": true
-}
-```
-
-### Felder
-
-| Feld | Meaning |
-|------|---------|
-| wizardState | aktueller Wizard-Status |
-| organization | Organisation, unter der der Stack läuft |
-| dockerNetwork | Name des Docker Netzwerks |
-| stackInstalled | ob der Stack bereits installiert wurde |
-
----
-
-# 19.3 rsgo.security.json
-
-```json
-{
-  "users": [
-    {
-      "username": "admin",
-      "passwordHash": "base64",
-      "passwordSalt": "base64",
-      "role": "admin"
-    }
-  ],
-  "jwtSecret": "F38719...==",
-  "localAdminFallbackEnabled": true,
-  "oidc": {
-    "enabled": false,
-    "authority": "",
-    "clientId": "",
-    "clientSecret": "",
-    "roleClaim": "role",
-    "adminRole": "rsgo-admin",
-    "operatorRole": "rsgo-operator"
-  }
-}
-```
-
----
-
-# 19.4 rsgo.tls.json
-
-```json
-{
-  "mode": "SelfSigned",
-  "certificatePath": "/app/certs/selfsigned.pfx",
-  "certificatePassword": "r$go123!",
-  "httpsPort": 8443,
-  "terminatingContext": "edge-gateway"
-}
-```
-
----
-
-# 19.5 rsgo.connections.json
-
-```json
-{
-  "transport": "Server=sql;Database=ams;User=sa;Password=xyz",
-  "persistence": "Server=sql;Database=ams;User=sa;Password=xyz",
-  "eventStore": "esdb://eventstore:2113?tls=false"
-}
-```
-
----
-
-# 19.6 rsgo.contexts.json
-
-```json
-{
-  "mode": "simple",
-  "contexts": {
-    "project": {
-      "transport": "Server=sql;Database=ams",
-      "persistence": "Server=sql;Database=ams",
-      "additionalConnections": []
-    },
-    "memo": {},
-    "discussion": {}
-  }
-}
-```
-
-### mode
-
-| Modus | Bedeutung |
-|-------|-----------|
-| simple | alle Kontexte nutzen globale Verbindungen |
-| advanced | jeder Kontext kann eigene Verbindungen nutzen |
-
----
-
-# 19.7 rsgo.features.json
-
-```json
-{
-  "features": {
-    "newColorTheme": true,
-    "discussionV2": false,
-    "extraLogging": true
-  }
-}
-```
-
----
-
-# 19.8 rsgo.release.json
-
-```json
-{
-  "installedStackVersion": "4.3.0",
-  "installedContexts": {
-    "project": "6.4.0",
-    "memo": "4.1.3",
-    "discussion": "3.5.9"
-  },
-  "installDate": "2025-02-12T10:22:00Z"
-}
-```
-
----
-
-# 19.9 Validierungsregeln für alle Dateien
-
-- fehlende Dateien → werden neu erstellt  
-- ungültiges JSON → Fehler `INVALID_CONFIG_FILE`  
-- unvollständige Werte → Default-Werte setzen  
-- alle Dateien werden **vollständig ersetzt**, niemals gepatcht  
-
----
-
-# 19.10 Backup-Konzept (geplant)
-
-Später werden automatische Backups im Volume erstellt:
-
-- `rsgo.system.json.bak`  
-- `rsgo.tls.json.bak`  
-- usw.
-
-inkl. Wiederherstellungsfunktion.
-
----
-
-# → Ende von Block 19/20
-
-
-# 20. Zukunftsarchitektur, Erweiterbarkeit & Plugin-System (Ausblick)
-
-Dieses letzte Kapitel beschreibt, wie ReadyStackGo in der Zukunft erweitert werden kann –  
-modular, skalierbar und offen für kundenspezifische oder Community-getriebene Erweiterungen.
-
----
-
-# 20.1 Zukunftsvision
-
-ReadyStackGo ist nicht nur ein Deployment-Tool, sondern ein  
-**modularer Plattform-Kern**, der langfristig folgende Funktionen unterstützt:
+ReadyStackGo is not just a deployment tool, but a
+**modular platform core** that will support the following functions long-term:
 
 - Multi-Node Cluster
 - Auto-Healing
 - High Availability
 - Canary Deployments
 - Blue/Green Deployments
-- Organisationen mit mehreren Umgebungen
-- Plugin-System für individuelle Erweiterungen
+- Organizations with multiple environments
+- Plugin system for individual extensions
 - Monitoring & Metrics
 - API Gateway Routing Editor
 
 ---
 
-# 20.2 Plugin-System – Entwurf
+# 20.2 Plugin System – Design
 
-ReadyStackGo soll ein Plugin-System erhalten, das es erlaubt:
+ReadyStackGo will receive a plugin system that allows:
 
-- eigene Endpoints hinzuzufügen  
-- eigene Menüs im UI einzubinden  
-- eigene Deployment-Schritte auszuführen  
-- zusätzliche Kontextvariablen bereitzustellen  
-- externe Tools anzubinden (EventStore, Grafana etc.)
+- adding own endpoints
+- embedding own menus in UI
+- executing own deployment steps
+- providing additional context variables
+- connecting external tools (EventStore, Grafana etc.)
 
-## 20.2.1 Plugin-Verzeichnis
+## 20.2.1 Plugin Directory
 
 ```
 /app/plugins
@@ -3611,7 +3421,7 @@ ReadyStackGo soll ein Plugin-System erhalten, das es erlaubt:
 
 ---
 
-## 20.2.3 Plugin Startup Class (Beispiel)
+## 20.2.3 Plugin Startup Class (Example)
 
 ```csharp
 public class ProjectInsightsPlugin : IRsgoPlugin
@@ -3632,27 +3442,27 @@ public class ProjectInsightsPlugin : IRsgoPlugin
 
 ---
 
-## 20.2.4 Plugin Loader Ablauf
+## 20.2.4 Plugin Loader Process
 
-1. Scannt `/app/plugins`  
-2. Lädt Assemblies  
-3. Findet alle Klassen, die `IRsgoPlugin` implementieren  
-4. Führt `ConfigureServices` aus  
-5. Führt `ConfigureApi` aus  
-6. UI lädt automatisch zusätzliche Menüpunkte
+1. Scans `/app/plugins`
+2. Loads assemblies
+3. Finds all classes implementing `IRsgoPlugin`
+4. Executes `ConfigureServices`
+5. Executes `ConfigureApi`
+6. UI automatically loads additional menu items
 
 ---
 
-# 20.3 Deployment-Plugins
+# 20.3 Deployment Plugins
 
-Später möglich:
+Later possible:
 
-- Pre-Deployment Hooks  
-- Post-Deployment Hooks  
-- Custom Healthchecks  
-- Custom EnvVar Provider  
+- Pre-Deployment Hooks
+- Post-Deployment Hooks
+- Custom Health Checks
+- Custom EnvVar Provider
 
-Beispiel:
+Example:
 
 ```json
 {
@@ -3665,116 +3475,116 @@ Beispiel:
 
 ---
 
-# 20.4 Telemetrie & Monitoring (Zukunft)
+# 20.4 Telemetry & Monitoring (Future)
 
-Geplant:
+Planned:
 
-- Integration von Prometheus  
-- Integration von Grafana Dashboards  
-- EventStore Monitoring  
+- Integration of Prometheus
+- Integration of Grafana Dashboards
+- EventStore Monitoring
 - Container Health Dashboard
 
-Datenpunkte:
+Data points:
 
-- CPU/RAM pro Container  
-- Startzeit  
-- Crash Count  
-- Restart Count  
-- Deployment-Dauer  
+- CPU/RAM per container
+- Start time
+- Crash count
+- Restart count
+- Deployment duration
 
 ---
 
-# 20.5 Organisationen & Umgebungen (Future Version)
+# 20.5 Organizations & Environments (Future Version)
 
-Später soll es möglich sein, pro Organisation:
+Later it should be possible, per organization:
 
-- mehrere Umgebungen zu definieren  
-- pro Umgebung eigene Releases zu haben  
+- to define multiple environments
+- to have own releases per environment
 
-Beispiel:
+Example:
 
 ```
-/orgs/kunde-a/dev
-/orgs/kunde-a/test
-/orgs/kunde-a/prod
+/orgs/customer-a/dev
+/orgs/customer-a/test
+/orgs/customer-a/prod
 ```
 
-Jede Umgebung besitzt eigene:
+Each environment has its own:
 
-- TLS Einstellungen  
-- Manifeste  
-- Kontexte  
-- Feature Flags  
-
----
-
-# 20.6 Erweiterung der Wizard-Funktionen (Future)
-
-Neue Wizard-Schritte sind denkbar:
-
-- Environment Setup (dev/test/prod)  
-- Node Discovery  
-- Storage Setup (SQL, EventStore, Redis)  
-- Lizenzverwaltung  
+- TLS settings
+- Manifests
+- Contexts
+- Feature flags
 
 ---
 
-# 20.7 Erweiterung der Deployment Engine
+# 20.6 Extension of Wizard Functions (Future)
 
-Mögliche künftige Features:
+New Wizard steps are conceivable:
+
+- Environment Setup (dev/test/prod)
+- Node Discovery
+- Storage Setup (SQL, EventStore, Redis)
+- License Management
+
+---
+
+# 20.7 Extension of Deployment Engine
+
+Possible future features:
 
 ### 1. Live Rollbacks
-Container werden nicht vollständig gelöscht, sondern nach fehlgeschlagenem Deployment automatisch zurückgerollt.
+Containers are not completely deleted, but automatically rolled back after failed deployment.
 
 ### 2. Blue/Green Deployments
-- zwei Partitionen („blue“ und „green“)
-- Gateway wechselt zwischen diesen
+- two partitions ("blue" and "green")
+- Gateway switches between them
 
 ### 3. Canary Deployments
-- kleiner Prozentsatz des Traffics geht auf neue Version  
-- Monitoring entscheidet über Freigabe
+- small percentage of traffic goes to new version
+- Monitoring decides on release
 
 ---
 
-# 20.8 Erweiterung der UI
+# 20.8 Extension of UI
 
-Neue Module sollen entstehen können:
+New modules can be created:
 
-- Routing Editor für Gateway  
-- Live Logs  
-- System Dashboard  
-- Cluster Topologie Visualisierung  
+- Routing Editor for Gateway
+- Live Logs
+- System Dashboard
+- Cluster Topology Visualization
 - Audit Logs
 
 ---
 
-# 20.9 Erweiterung der Configfiles
+# 20.9 Extension of Config Files
 
-Geplant:
+Planned:
 
-- `rsgo.nodes.json` → Multi-Node  
-- `rsgo.environments.json` → dev/test/prod  
-- `rsgo.plugins.json` → Plugin-Management  
-- `rsgo.metrics.json` → Metrik-Konfiguration  
-
----
-
-# 20.10 Fazit
-
-ReadyStackGo ist bereits als Version 1.0 vollständig funktionsfähig,  
-aber gleichzeitig als Plattform für langfristige Erweiterungen ausgelegt.
-
-Diese solide Grundlage macht es möglich, dass:
-
-- Claude  
-- du selbst  
-- dein Team  
-- die Community  
-
-ReadyStackGo zu einer **vollständigen On-Premises Container-Plattform** ausbauen kann –
-vergleichbar mit Portainer, aber **maßgeschneidert** für eure Microservice-Architektur.
+- `rsgo.nodes.json` → Multi-Node
+- `rsgo.environments.json` → dev/test/prod
+- `rsgo.plugins.json` → Plugin Management
+- `rsgo.metrics.json` → Metrics Configuration
 
 ---
 
-# → Ende von Block 20/20  
-**Technische Spezifikation vollständig!**
+# 20.10 Conclusion
+
+ReadyStackGo is already fully functional as version 1.0,
+but is also designed as a platform for long-term extensions.
+
+This solid foundation makes it possible that:
+
+- Claude
+- you yourself
+- your team
+- the community
+
+can develop ReadyStackGo into a **complete on-premises container platform** –
+comparable to Portainer, but **tailored** to your microservice architecture.
+
+---
+
+# → End of Block 20/20
+**Technical Specification complete!**

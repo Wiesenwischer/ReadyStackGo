@@ -1,5 +1,5 @@
-# Manifest-Schema
+# Manifest Schema
 
-Vollständiges Manifest-Schema folgt.
+Complete Manifest Schema coming soon.
 
-Siehe auch: [Manifest Specification](../Configuration/Manifest-Specification.md)
+See also: [Manifest Specification](../Configuration/Manifest-Specification.md)

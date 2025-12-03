@@ -1,107 +1,107 @@
 # Git Workflow
 
-Dieses Dokument beschreibt den Git-Workflow für die Entwicklung von ReadyStackGo.
+This document describes the Git workflow for developing ReadyStackGo.
 
 ## Branches
 
-| Branch | Zweck | Deployment |
-|--------|-------|------------|
-| `main` | Production-ready Code | Docker Hub (`latest`) |
-| `develop` | Aktuelle Entwicklung | Docker Hub (`develop`) |
-| `feature/*` | Neue Features | - |
+| Branch | Purpose | Deployment |
+|--------|---------|------------|
+| `main` | Production-ready code | Docker Hub (`latest`) |
+| `develop` | Current development | Docker Hub (`develop`) |
+| `feature/*` | New features | - |
 | `bugfix/*` | Bugfixes | - |
-| `hotfix/*` | Dringende Production-Fixes | - |
+| `hotfix/*` | Urgent production fixes | - |
 
 ## Workflows
 
-### Feature entwickeln
+### Developing a Feature
 
 ```
-develop ──► feature/xyz ──► PR nach develop ──► (später) Release nach main
+develop ──► feature/xyz ──► PR to develop ──► (later) Release to main
 ```
 
-1. **Branch erstellen** von `develop`:
+1. **Create branch** from `develop`:
    ```bash
    git checkout develop
    git pull origin develop
-   git checkout -b feature/mein-feature
+   git checkout -b feature/my-feature
    ```
 
-2. **Entwickeln und committen**:
+2. **Develop and commit**:
    ```bash
    git add .
-   git commit -m "Add: Beschreibung des Features"
+   git commit -m "Add: Description of the feature"
    ```
 
-3. **Push und PR erstellen**:
+3. **Push and create PR**:
    ```bash
-   git push origin feature/mein-feature
+   git push origin feature/my-feature
    ```
-   → PR nach `develop` erstellen
+   → Create PR to `develop`
 
-4. **Nach Review**: PR mergen in `develop`
+4. **After review**: Merge PR into `develop`
 
 ---
 
-### Bugfix (nicht dringend)
+### Bugfix (not urgent)
 
 ```
-develop ──► bugfix/xyz ──► PR nach develop ──► (später) Release nach main
+develop ──► bugfix/xyz ──► PR to develop ──► (later) Release to main
 ```
 
-1. **Branch erstellen** von `develop`:
+1. **Create branch** from `develop`:
    ```bash
    git checkout develop
    git pull origin develop
-   git checkout -b bugfix/mein-bugfix
+   git checkout -b bugfix/my-bugfix
    ```
 
-2. **Fix entwickeln und committen**:
+2. **Develop fix and commit**:
    ```bash
    git add .
-   git commit -m "Fix: Beschreibung des Bugs"
+   git commit -m "Fix: Description of the bug"
    ```
 
-3. **Push und PR erstellen**:
+3. **Push and create PR**:
    ```bash
-   git push origin bugfix/mein-bugfix
+   git push origin bugfix/my-bugfix
    ```
-   → PR nach `develop` erstellen
+   → Create PR to `develop`
 
-4. **Nach Review**: PR mergen in `develop`
+4. **After review**: Merge PR into `develop`
 
 ---
 
-### Hotfix (dringend, Production betroffen)
+### Hotfix (urgent, production affected)
 
 ```
-main ──► hotfix/xyz ──► PR nach main ──► Tag erstellen ──► merge zurück nach develop
+main ──► hotfix/xyz ──► PR to main ──► Create tag ──► merge back to develop
 ```
 
-Nur verwenden wenn Production akut betroffen ist!
+Only use when production is acutely affected!
 
-1. **Branch erstellen** von `main`:
+1. **Create branch** from `main`:
    ```bash
    git checkout main
    git pull origin main
-   git checkout -b hotfix/kritischer-bug
+   git checkout -b hotfix/critical-bug
    ```
 
-2. **Fix entwickeln und committen**:
+2. **Develop fix and commit**:
    ```bash
    git add .
-   git commit -m "Hotfix: Beschreibung des kritischen Bugs"
+   git commit -m "Hotfix: Description of the critical bug"
    ```
 
-3. **Push und PR erstellen**:
+3. **Push and create PR**:
    ```bash
-   git push origin hotfix/kritischer-bug
+   git push origin hotfix/critical-bug
    ```
-   → PR nach `main` erstellen
+   → Create PR to `main`
 
-4. **Nach Review**: PR mergen in `main`
+4. **After review**: Merge PR into `main`
 
-5. **Tag erstellen** (Patch-Version):
+5. **Create tag** (patch version):
    ```bash
    git checkout main
    git pull origin main
@@ -109,7 +109,7 @@ Nur verwenden wenn Production akut betroffen ist!
    git push origin v0.6.1
    ```
 
-6. **Zurück nach develop mergen**:
+6. **Merge back to develop**:
    ```bash
    git checkout develop
    git merge main
@@ -118,125 +118,125 @@ Nur verwenden wenn Production akut betroffen ist!
 
 ---
 
-## Release erstellen (Draft + manuell Publish)
+## Creating a Release (Draft + manual Publish)
 
-PRs werden gesammelt und können gebündelt released werden:
+PRs are collected and can be released bundled:
 
 ```
-PR merge nach main ──► Release Drafter Draft ──► (weitere PRs) ──► Manuell Publish ──► Docker + PublicWeb
+PR merge to main ──► Release Drafter Draft ──► (more PRs) ──► Manual Publish ──► Docker + PublicWeb
                               │                                           │
-                              └── Version aus PR-Labels berechnet ────────┘
+                              └── Version calculated from PR labels ──────┘
 ```
 
-### Ablauf
+### Process
 
-1. **PRs erstellen und mergen**: `develop` → `main`
-   - Labels setzen (bestimmt die Version)
-   - Mehrere PRs können gesammelt werden
+1. **Create and merge PRs**: `develop` → `main`
+   - Set labels (determines the version)
+   - Multiple PRs can be collected
 
-2. **Draft prüfen**: GitHub → Releases → Draft ansehen
-   - Alle PRs seit letztem Release sind aufgelistet
-   - Version wird automatisch berechnet
+2. **Check draft**: GitHub → Releases → View draft
+   - All PRs since last release are listed
+   - Version is automatically calculated
 
-3. **Release veröffentlichen**: "Publish release" klicken
-   - Tag wird erstellt
-   - Docker Workflow baut Images
-   - PublicWeb wird deployed
+3. **Publish release**: Click "Publish release"
+   - Tag is created
+   - Docker workflow builds images
+   - PublicWeb is deployed
 
-### Vorteile
+### Benefits
 
-- **Bündeln**: Mehrere PRs in einem Release
-- **Kontrolle**: Doku-Änderungen lösen kein Release aus
-- **Keine manuelle Version**: Wird automatisch berechnet
-- **Kein manueller Tag**: Wird beim Publish erstellt
+- **Bundle**: Multiple PRs in one release
+- **Control**: Doc changes don't trigger a release
+- **No manual version**: Automatically calculated
+- **No manual tag**: Created on publish
 
-### Version-Bestimmung durch Labels
+### Version Determination by Labels
 
-| PR Labels | Version-Bump | Beispiel |
-|-----------|--------------|----------|
-| `breaking` oder `major` | Major | 0.6.0 → 1.0.0 |
-| `feature` oder `enhancement` | Minor | 0.6.0 → 0.7.0 |
+| PR Labels | Version Bump | Example |
+|-----------|--------------|---------|
+| `breaking` or `major` | Major | 0.6.0 → 1.0.0 |
+| `feature` or `enhancement` | Minor | 0.6.0 → 0.7.0 |
 | `bug`, `fix`, `docs`, etc. | Patch | 0.6.0 → 0.6.1 |
 
-> **Wichtig:** Setze mindestens ein Label auf den PR, damit die Version korrekt berechnet wird!
+> **Important:** Set at least one label on the PR so the version is calculated correctly!
 
 ---
 
 ## PR Labels
 
-Labels werden für Release Notes und Versionierung verwendet. Der **Autolabeler** setzt Labels automatisch basierend auf Branch-Namen und Dateien.
+Labels are used for release notes and versioning. The **autolabeler** sets labels automatically based on branch names and files.
 
-> **Wichtig:** Labels werden auf **PRs** gesetzt, nicht auf Commits!
-> Der Autolabeler prüft den **Branch-Namen des PRs**, nicht die Commits darin.
+> **Important:** Labels are set on **PRs**, not on commits!
+> The autolabeler checks the **PR's branch name**, not the commits within it.
 
-### Warum Branches wichtig sind
+### Why Branches Matter
 
 ```
-❌ FALSCH: Direkt auf develop committen
-develop ──► commit ──► PR nach main
+❌ WRONG: Commit directly to develop
+develop ──► commit ──► PR to main
                             │
-                            └── Kein Label! (Branch ist "develop", nicht "bugfix/*")
+                            └── No label! (Branch is "develop", not "bugfix/*")
 
-✅ RICHTIG: Feature/Bugfix Branch verwenden
-develop ──► bugfix/xyz ──► PR nach develop ──► PR nach main
+✅ RIGHT: Use feature/bugfix branch
+develop ──► bugfix/xyz ──► PR to develop ──► PR to main
                                 │
-                                └── Label "bug" (automatisch)
+                                └── Label "bug" (automatic)
 ```
 
-### Automatische Labels (Autolabeler)
+### Automatic Labels (Autolabeler)
 
-| Branch-Pattern | Label |
+| Branch Pattern | Label |
 |----------------|-------|
 | `feature/*` | `feature` |
 | `fix/*`, `bugfix/*`, `hotfix/*` | `bug` |
 
-| Dateien | Label |
-|---------|-------|
+| Files | Label |
+|-------|-------|
 | `*.md`, `docs/**` | `documentation` |
 | `package*.json`, `*.csproj` | `dependencies` |
 
-### Manuelle Labels
+### Manual Labels
 
-Falls der Autolabeler nicht greift (z.B. PR von `develop` → `main`), setze das passende Label **manuell** auf den PR:
+If the autolabeler doesn't work (e.g., PR from `develop` → `main`), set the appropriate label **manually** on the PR:
 
-| Label | Verwendung | Version-Bump |
-|-------|------------|--------------|
-| `feature` / `enhancement` | Neues Feature | Minor (0.6.0 → 0.7.0) |
+| Label | Usage | Version Bump |
+|-------|-------|--------------|
+| `feature` / `enhancement` | New feature | Minor (0.6.0 → 0.7.0) |
 | `bug` / `bugfix` / `fix` | Bugfix | Patch (0.6.0 → 0.6.1) |
-| `security` | Sicherheitsfix | - |
-| `documentation` / `docs` | Nur Doku | Patch |
-| `chore` / `maintenance` / `refactor` | Wartung | Patch |
-| `dependencies` | Dependency Updates | - |
-| `breaking` / `major` | Breaking Change | Major (0.x → 1.0) |
-| `skip-changelog` | Nicht in Release Notes | - |
+| `security` | Security fix | - |
+| `documentation` / `docs` | Docs only | Patch |
+| `chore` / `maintenance` / `refactor` | Maintenance | Patch |
+| `dependencies` | Dependency updates | - |
+| `breaking` / `major` | Breaking change | Major (0.x → 1.0) |
+| `skip-changelog` | Not in release notes | - |
 
-### Beispiel PR
+### Example PR
 
 ```
 Branch:   bugfix/fix-data-volume
-Titel:    Fix: SQLite database path configuration
-Labels:   bug (automatisch durch Autolabeler)
+Title:    Fix: SQLite database path configuration
+Labels:   bug (automatic via autolabeler)
 ```
 
-→ Erscheint in Release Notes unter "🐛 Bug Fixes"
-→ Version-Bump: Patch
+→ Appears in release notes under "Bug Fixes"
+→ Version bump: Patch
 
 ---
 
-## Commit Message Konventionen
+## Commit Message Conventions
 
-| Prefix | Verwendung |
-|--------|------------|
-| `Add:` | Neues Feature |
+| Prefix | Usage |
+|--------|-------|
+| `Add:` | New feature |
 | `Fix:` | Bugfix |
-| `Hotfix:` | Kritischer Production-Fix |
-| `Update:` | Verbesserung/Änderung |
-| `Remove:` | Entfernung von Code/Features |
-| `Refactor:` | Code-Refactoring (keine Funktionsänderung) |
-| `Docs:` | Dokumentation |
-| `Test:` | Tests hinzufügen/ändern |
+| `Hotfix:` | Critical production fix |
+| `Update:` | Improvement/change |
+| `Remove:` | Removal of code/features |
+| `Refactor:` | Code refactoring (no functional change) |
+| `Docs:` | Documentation |
+| `Test:` | Add/change tests |
 
-**Beispiele:**
+**Examples:**
 ```
 Add: User Management UI
 Fix: Database path not using DataPath configuration
@@ -248,9 +248,9 @@ Docs: Add Git workflow documentation
 
 ---
 
-## Versionierung (SemVer)
+## Versioning (SemVer)
 
-ReadyStackGo verwendet [Semantic Versioning](https://semver.org/):
+ReadyStackGo uses [Semantic Versioning](https://semver.org/):
 
 ```
 MAJOR.MINOR.PATCH
@@ -260,28 +260,28 @@ MAJOR.MINOR.PATCH
   └────────────── Breaking Changes (0.x.x → 1.0.0)
 ```
 
-**GitVersion** ermittelt die Version automatisch basierend auf:
-- Branch-Name
+**GitVersion** determines the version automatically based on:
+- Branch name
 - Tags
-- Commit-Historie
+- Commit history
 
 ---
 
 ## CI/CD Pipeline
 
-| Trigger | Workflow | Ergebnis |
-|---------|----------|----------|
-| Push auf `main`/`develop` | CI | Build + Tests |
-| CI erfolgreich auf `develop` | Docker Dev | Image auf ghcr.io (`develop`) |
-| Push auf `main` | Release Drafter | GitHub Release veröffentlicht |
-| Tag `v*` | Docker | Image auf Docker Hub (`latest`, `0.7.3`, `0.7`) |
+| Trigger | Workflow | Result |
+|---------|----------|--------|
+| Push to `main`/`develop` | CI | Build + Tests |
+| CI successful on `develop` | Docker Dev | Image on ghcr.io (`develop`) |
+| Push to `main` | Release Drafter | GitHub Release published |
+| Tag `v*` | Docker | Image on Docker Hub (`latest`, `0.7.3`, `0.7`) |
 | Tag `v*` | Cloudflare | PublicWeb deployed |
-| Push auf `main` (docs/) | Wiki Sync | GitHub Wiki aktualisiert |
+| Push to `main` (docs/) | Wiki Sync | GitHub Wiki updated |
 
-### Release Workflow im Detail
+### Release Workflow in Detail
 
 ```
-PR mit Labels ──► merge nach main
+PR with labels ──► merge to main
                       │
                       ▼
               Release Drafter
@@ -289,7 +289,7 @@ PR mit Labels ──► merge nach main
            ┌─────────┴─────────┐
            ▼                   ▼
        Git Tag          GitHub Release
-       erstellt         veröffentlicht
+       created          published
            │
            ▼
     ┌──────┴──────┐
@@ -300,5 +300,5 @@ PR mit Labels ──► merge nach main
     ▼             ▼
  Images       PublicWeb
 (Docker Hub) (Release Notes
-             von GitHub API)
+             from GitHub API)
 ```

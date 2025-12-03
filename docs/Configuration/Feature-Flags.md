@@ -1,14 +1,14 @@
 # Feature Flags
 
-Feature Flags ermöglichen die dynamische Aktivierung/Deaktivierung fachlicher Funktionen ohne Code-Deployment.
+Feature flags enable dynamic activation/deactivation of functional features without code deployment.
 
-## Konzept
+## Concept
 
-Feature Flags sind **kontextübergreifende** Schalter, die:
-- Zentral in `rsgo.features.json` definiert werden
-- Als Environment Variables an alle Container übergeben werden
-- Zur Laufzeit von den Services ausgewertet werden
-- Ohne Neudeployment geändert werden können
+Feature flags are **cross-context** switches that:
+- Are centrally defined in `rsgo.features.json`
+- Are passed as environment variables to all containers
+- Are evaluated at runtime by services
+- Can be changed without redeployment
 
 ## Definition
 
@@ -23,8 +23,8 @@ Feature Flags sind **kontextübergreifende** Schalter, die:
 }
 ```
 
-### Als Environment Variables
-Diese Konfiguration wird an Container übergeben als:
+### As Environment Variables
+This configuration is passed to containers as:
 ```bash
 RSGO_FEATURE_newColorTheme=true
 RSGO_FEATURE_discussionV2=false
@@ -33,7 +33,7 @@ RSGO_FEATURE_advancedSearch=true
 RSGO_FEATURE_betaFeatures=false
 ```
 
-## Verwendung im Code
+## Usage in Code
 
 ### Backend (C#)
 ```csharp
@@ -50,7 +50,7 @@ public class ProjectService
     {
         var project = await _repository.GetAsync(id);
 
-        // Feature Flag prüfen
+        // Check feature flag
         if (_config.GetValue<bool>("RSGO_FEATURE_advancedSearch"))
         {
             project.SearchMetadata = await _searchService.GetMetadataAsync(id);
@@ -63,17 +63,17 @@ public class ProjectService
 
 ### Frontend (TypeScript/React)
 ```typescript
-// Feature Flags vom Backend laden
+// Load feature flags from backend
 const features = await api.getFeatureFlags();
 
-// Komponente konditional rendern
+// Conditionally render component
 {features.newColorTheme && <NewThemeComponent />}
 {!features.newColorTheme && <LegacyThemeComponent />}
 ```
 
-## Manifest-Integration
+## Manifest Integration
 
-Feature Flags können im Manifest Standardwerte haben:
+Feature flags can have default values in the manifest:
 
 ```json
 {
@@ -82,31 +82,31 @@ Feature Flags können im Manifest Standardwerte haben:
   "features": {
     "newColorTheme": {
       "default": true,
-      "description": "Neues UI-Theme mit verbesserter UX"
+      "description": "New UI theme with improved UX"
     },
     "discussionV2": {
       "default": false,
-      "description": "Neue Diskussions-API (Beta)"
+      "description": "New discussion API (Beta)"
     }
   }
 }
 ```
 
-Diese Defaults werden beim Deployment in `rsgo.features.json` übernommen, können aber später vom Admin überschrieben werden.
+These defaults are applied to `rsgo.features.json` during deployment but can be overridden by the admin later.
 
-## Admin-UI
+## Admin UI
 
-Die Admin-UI bietet eine Verwaltungsseite für Feature Flags:
+The admin UI provides a management page for feature flags:
 
-### Übersichtsseite
-| Feature          | Aktiv | Beschreibung                  | Aktion   |
-|------------------|-------|-------------------------------|----------|
-| newColorTheme    | ✅    | Neues UI-Theme                | Toggle   |
-| discussionV2     | ❌    | Neue Diskussions-API (Beta)   | Toggle   |
-| memoRichEditor   | ✅    | Rich Text Editor für Memos    | Toggle   |
-| advancedSearch   | ✅    | Erweiterte Suchfunktionen     | Toggle   |
+### Overview Page
+| Feature          | Active | Description                   | Action   |
+|------------------|--------|-------------------------------|----------|
+| newColorTheme    | Yes    | New UI theme                  | Toggle   |
+| discussionV2     | No     | New discussion API (Beta)     | Toggle   |
+| memoRichEditor   | Yes    | Rich text editor for memos    | Toggle   |
+| advancedSearch   | Yes    | Advanced search features      | Toggle   |
 
-### Toggle-Aktion
+### Toggle Action
 ```
 POST /api/v1/features/newColorTheme/toggle
 ```
@@ -120,9 +120,9 @@ Response:
 }
 ```
 
-## API-Endpunkte
+## API Endpoints
 
-### Feature Flags abrufen
+### Get Feature Flags
 ```http
 GET /api/v1/features
 ```
@@ -136,7 +136,7 @@ Response:
 }
 ```
 
-### Feature Flag setzen
+### Set Feature Flag
 ```http
 PUT /api/v1/features/discussionV2
 Content-Type: application/json
@@ -146,49 +146,49 @@ Content-Type: application/json
 }
 ```
 
-### Feature Flag löschen
+### Delete Feature Flag
 ```http
 DELETE /api/v1/features/oldFeature
 ```
 
 ## Best Practices
 
-### 1. Klare Benennung
+### 1. Clear Naming
 ```
-✅ newColorTheme
-✅ discussionV2
-❌ feature1
-❌ temp
+Good: newColorTheme
+Good: discussionV2
+Bad: feature1
+Bad: temp
 ```
 
-### 2. Dokumentation
-Immer eine Beschreibung im Manifest angeben:
+### 2. Documentation
+Always provide a description in the manifest:
 ```json
 "features": {
   "newFeature": {
     "default": false,
-    "description": "Was macht dieses Feature?"
+    "description": "What does this feature do?"
   }
 }
 ```
 
 ### 3. Cleanup
-Alte/ungenutzte Feature Flags regelmäßig entfernen.
+Regularly remove old/unused feature flags.
 
 ### 4. Testing
-Feature Flags in Tests berücksichtigen:
+Consider feature flags in tests:
 ```csharp
 [Theory]
 [InlineData(true)]
 [InlineData(false)]
 public async Task TestWithFeatureFlag(bool featureEnabled)
 {
-    // Test beide Szenarien
+    // Test both scenarios
 }
 ```
 
 ### 5. Monitoring
-Loggen Sie Feature-Flag-Nutzung:
+Log feature flag usage:
 ```csharp
 _logger.LogInformation(
     "Feature {Feature} is {Status}",
@@ -197,32 +197,32 @@ _logger.LogInformation(
 );
 ```
 
-## Anwendungsfälle
+## Use Cases
 
-### 1. Schrittweise Rollouts
-Neues Feature zunächst deaktiviert deployen, später aktivieren.
+### 1. Gradual Rollouts
+Deploy new feature initially disabled, enable later.
 
-### 2. A/B-Testing
-Verschiedene Implementierungen parallel testen.
+### 2. A/B Testing
+Test different implementations in parallel.
 
 ### 3. Kill Switch
-Feature bei Problemen schnell deaktivieren ohne Rollback.
+Quickly disable feature in case of problems without rollback.
 
-### 4. Kundenseitiges Customizing
-Kunden können Features nach Bedarf aktivieren.
+### 4. Customer-side Customization
+Customers can enable features as needed.
 
-### 5. Beta-Features
-Experimentelle Features für Early Adopters.
+### 5. Beta Features
+Experimental features for early adopters.
 
-## Limitierungen
+## Limitations
 
-- **Keine granulare Steuerung**: Feature Flags sind global, nicht pro Benutzer/Rolle
-- **Kein Percentage Rollout**: Entweder an oder aus, keine 50% der Benutzer
-- **Keine Zeitsteuerung**: Keine automatische Aktivierung zu bestimmten Zeiten
+- **No granular control**: Feature flags are global, not per user/role
+- **No percentage rollout**: Either on or off, not 50% of users
+- **No time control**: No automatic activation at specific times
 
-Diese Features sind für zukünftige Versionen geplant.
+These features are planned for future versions.
 
-## Nächste Schritte
+## Next Steps
 
 - [Configuration Overview](Overview.md)
 - [Config Files](Config-Files.md)

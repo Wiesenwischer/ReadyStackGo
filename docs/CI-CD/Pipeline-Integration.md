@@ -1,13 +1,13 @@
 # CI/CD Integration
 
-ReadyStackGo ist darauf ausgelegt, in einen vollautomatisierten Build- und Release-Prozess eingebunden zu werden.
+ReadyStackGo is designed to be integrated into a fully automated build and release process.
 
 ## Use Cases
 
-- Automatischer Build von Kontext-Containern
-- Automatisches Tagging (`x.y.z`, `-alpha`, `-beta`)
-- Erzeugung von Manifesten
-- Triggern von Deployments auf einem Dev-/QA-Server
+- Automatic build of context containers
+- Automatic tagging (`x.y.z`, `-alpha`, `-beta`)
+- Manifest generation
+- Triggering deployments on a dev/QA server
 
 ---
 
