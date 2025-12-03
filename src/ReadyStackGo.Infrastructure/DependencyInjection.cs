@@ -64,12 +64,12 @@ public static class DependencyInjection
         services.AddScoped<IEnvironmentService, EnvironmentService>();
 
         // v0.6: SQLite persistence
-        // Use ConfigPath-based path if no explicit connection string configured
+        // Use DataPath for database, separate from config files
         var connectionString = configuration.GetConnectionString("ReadyStackGo");
         if (string.IsNullOrEmpty(connectionString))
         {
-            var configPath = configuration["ConfigPath"] ?? "config";
-            var dbPath = Path.Combine(configPath, "readystackgo.db");
+            var dataPath = configuration["DataPath"] ?? "data";
+            var dbPath = Path.Combine(dataPath, "readystackgo.db");
             connectionString = $"Data Source={dbPath}";
         }
         services.AddDbContext<ReadyStackGoDbContext>(options =>
