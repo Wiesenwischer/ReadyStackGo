@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 
+## [0.7.3](https://github.com/Wiesenwischer/ReadyStackGo/compare/v0.7.2...v0.7.3) (2025-12-03)
+
+
+### Bug Fixes
+
+* Use git tag as single source for version ([65fb712](https://github.com/Wiesenwischer/ReadyStackGo/commit/65fb7128ec9043608952ee18a7147886fb6da232))
+
 ## [] - 2025-12-03
 
 ### Bug Fixes
