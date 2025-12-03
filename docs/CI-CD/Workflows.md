@@ -84,15 +84,16 @@ Deployed die PublicWeb Dokumentationsseite zu Cloudflare Pages:
 
 ## Release Drafter (release-drafter.yml)
 
-**Trigger:** Push auf `main` (published Release) und Pull Requests (Draft aktualisieren)
+**Trigger:** Push auf `main` und Pull Requests
 
-Automatisiert den gesamten Release-Prozess:
+Erstellt Release-Drafts die manuell veröffentlicht werden:
 
 - **Bei PRs:** Aktualisiert Draft Release, setzt Labels via Autolabeler
-- **Bei Push auf main:** Veröffentlicht das Release mit Tag
+- **Bei Push auf main:** Aktualisiert Draft (kein Auto-Publish)
 - Kategorisiert Änderungen (Features, Bug Fixes, etc.)
 - Generiert Release Notes aus PR-Titeln
 - Berechnet Version aus PR-Labels (major/minor/patch)
+- **Manuell "Publish release" klicken** → Tag wird erstellt → Docker + Cloudflare triggern
 - Konfiguration in `.github/release-drafter.yml`
 
 ---
@@ -143,13 +144,16 @@ Push zu main/develop
 
 Push zu main
        │
-       ├──► Release Drafter (published Release + Tag)
-       │           │
-       │           └──► Tag v* triggert:
-       │                    ├──► Docker (Version-Tag)
-       │                    └──► Cloudflare Pages
+       ├──► Release Drafter (Draft aktualisieren)
        │
        └──► Wiki Sync (wenn docs/ geändert)
+
+Manuell "Publish release" klicken
+       │
+       └──► Tag v* wird erstellt
+                 │
+                 ├──► Docker (Version-Tag)
+                 └──► Cloudflare Pages
 ```
 
 ## Secrets-Übersicht
