@@ -62,9 +62,9 @@ jobs:
           LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name' | tr '\n' ' ')
           echo "PR Labels: $LABELS"
 
-          # Get current version from CHANGELOG
-          CURRENT_VERSION=$(grep -oP '## \[\K[0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | head -1 || echo "0.0.0")
-          echo "Current version: $CURRENT_VERSION"
+          # Get current version from latest git tag (single source of truth)
+          CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0")
+          echo "Current version (from tag): $CURRENT_VERSION"
 
           # Parse version parts
           MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)

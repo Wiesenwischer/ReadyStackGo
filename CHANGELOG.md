@@ -7,18 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-
-
 ## [0.7.2] - 2025-12-03
 
 ### Bug Fixes
-- Release: v0.7.1 - Docker build fix
+- Include stacks directory in Docker build context
+- Use PR title as fallback for empty release body in workflow
 
-Fix: Include stacks directory in Docker build context
+### Changed
+- Version now derived from latest git tag (single source of truth)
 
-## [0.7.1] - 2025-12-03
-
-
+---
 
 ## [0.7.0] - 2025-12-03
 
