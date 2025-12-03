@@ -56,6 +56,9 @@ COPY --from=backend-build /app/publish .
 # Create directories for config, data (SQLite), and stacks mount points
 RUN mkdir -p /app/config /app/data /app/stacks
 
+# Copy example stacks (copied to volume on first mount)
+COPY stacks/ /app/stacks/
+
 # Expose ports
 EXPOSE 8080 8443
 
