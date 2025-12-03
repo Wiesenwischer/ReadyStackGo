@@ -142,6 +142,23 @@ Wenn `develop` bereit für ein Release ist:
 
 Labels werden für Release Notes und Versionierung verwendet. Der **Autolabeler** setzt Labels automatisch basierend auf Branch-Namen und Dateien.
 
+> **Wichtig:** Labels werden auf **PRs** gesetzt, nicht auf Commits!
+> Der Autolabeler prüft den **Branch-Namen des PRs**, nicht die Commits darin.
+
+### Warum Branches wichtig sind
+
+```
+❌ FALSCH: Direkt auf develop committen
+develop ──► commit ──► PR nach main
+                            │
+                            └── Kein Label! (Branch ist "develop", nicht "bugfix/*")
+
+✅ RICHTIG: Feature/Bugfix Branch verwenden
+develop ──► bugfix/xyz ──► PR nach develop ──► PR nach main
+                                │
+                                └── Label "bug" (automatisch)
+```
+
 ### Automatische Labels (Autolabeler)
 
 | Branch-Pattern | Label |
@@ -156,7 +173,7 @@ Labels werden für Release Notes und Versionierung verwendet. Der **Autolabeler*
 
 ### Manuelle Labels
 
-Falls der Autolabeler nicht greift, setze das passende Label manuell:
+Falls der Autolabeler nicht greift (z.B. PR von `develop` → `main`), setze das passende Label **manuell** auf den PR:
 
 | Label | Verwendung | Version-Bump |
 |-------|------------|--------------|
