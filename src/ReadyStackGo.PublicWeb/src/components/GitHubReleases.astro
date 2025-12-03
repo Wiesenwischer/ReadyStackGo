@@ -1,0 +1,85 @@
+---
+// Fetch GitHub releases at build time
+const response = await fetch('https://api.github.com/repos/Wiesenwischer/ReadyStackGo/releases?per_page=20');
+const releases = await response.json();
+
+// Filter out drafts and prereleases
+const publishedReleases = releases.filter((r: any) => !r.draft && !r.prerelease);
+
+interface Props {
+  lang?: 'en' | 'de';
+}
+
+const { lang = 'en' } = Astro.props;
+
+const labels = {
+  en: {
+    released: 'Released',
+    viewOnGithub: 'View on GitHub',
+  },
+  de: {
+    released: 'Veröffentlicht',
+    viewOnGithub: 'Auf GitHub ansehen',
+  }
+};
+
+const t = labels[lang];
+
+function formatDate(dateString: string, locale: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString(locale === 'de' ? 'de-DE' : 'en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+}
+---
+
+{publishedReleases.map((release: any) => (
+  <div class="release">
+    <h2 id={release.tag_name}>
+      <a href={`#${release.tag_name}`}>{release.name || release.tag_name}</a>
+      <code class="tag">{release.tag_name}</code>
+    </h2>
+    <p class="release-meta">
+      <em>{t.released}: {formatDate(release.published_at, lang)}</em>
+      {' · '}
+      <a href={release.html_url} target="_blank" rel="noopener">{t.viewOnGithub} ↗</a>
+    </p>
+    <div class="release-body" set:html={release.body?.replace(/\n/g, '<br/>') || ''} />
+    <hr />
+  </div>
+))}
+
+<style>
+  .release {
+    margin-bottom: 2rem;
+  }
+  .release h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .release h2 .tag {
+    font-size: 0.65em;
+    font-weight: normal;
+    padding: 0.2em 0.5em;
+    background: var(--sl-color-gray-6);
+    border-radius: 4px;
+    color: var(--sl-color-gray-2);
+  }
+  .release-meta {
+    color: var(--sl-color-gray-3);
+    font-size: 0.9rem;
+    margin-top: -0.5rem;
+  }
+  .release-body {
+    margin-top: 1rem;
+  }
+  hr {
+    margin-top: 2rem;
+    border: none;
+    border-top: 1px solid var(--sl-color-gray-5);
+  }
+</style>

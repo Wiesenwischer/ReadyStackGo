@@ -4,109 +4,20 @@ description: Changes and new features in ReadyStackGo
 ---
 
 import { LinkCard } from '@astrojs/starlight/components';
+import GitHubReleases from '../../../components/GitHubReleases.astro';
 
 <LinkCard
 title="Full Changelog on GitHub"
-description="Detailed change history of all versions"
-href="https://github.com/Wiesenwischer/ReadyStackGo/blob/main/CHANGELOG.md"
+description="View all releases on GitHub"
+href="https://github.com/Wiesenwischer/ReadyStackGo/releases"
 />
 
-
-## Version 0.7.2
-
-*Released: December 2025*
-
-### Bug Fixes
-- Release: v0.7.1 - Docker build fix
-
-Fix: Include stacks directory in Docker build context
-
----
-
-## Version 0.7.1
-
-*Released: December 2025*
-
-
-
----
-
-## Version 0.7.0
-
-*Released: December 2025*
-
-### Added
-- Fully automated release workflow
-- Version calculation from PR labels
-- CHANGELOG and PublicWeb release notes auto-update in PR
-- Example stacks bundled in Docker image
-
-### Changed
-- Deploy PublicWeb on every release (tag trigger)
-
----
-
----
-
-## Version 0.6.1
-
-*Released: December 2025*
-
-### Bug Fixes
-- Fix SQLite database path configuration (use /app/data instead of /app/config)
-- Fix wizard environment creation requiring authentication
-
-### Changes
-- Add `/api/wizard/environment` endpoint with anonymous access
-- Add separate data volume in install.sh
-- Add Git workflow documentation
-
----
-
----
-
-## Version 0.6.0
-
-*Released: December 2025*
-
-### Added
-
-#### Multi-User Support & DDD Architecture
-- **SQLite Database** for persistent storage (replaces JSON files for dynamic data)
-- **Domain-Driven Design** with Bounded Contexts:
-- **IdentityAccess:** Users, Organizations, Roles, Permissions
-- **Deployment:** Environments, Deployments, DeployedServices
-- **StackManagement:** Stack Sources, Stack Definitions
-- **Role-based Access Control (RBAC)**
-- SystemAdmin, OrganizationAdmin, Deployer, Viewer roles
-- Permission-based authorization
-- **Clean Architecture** implementation:
-- Domain layer with Aggregates, Entities, Value Objects
-- Application layer with UseCases and MediatR CQRS
-- Infrastructure layer with EF Core repositories
-
-#### Application Layer
-- **MediatR** for Command/Query separation
-- **UseCases** pattern for all operations:
-- Authentication (Login, RegisterSystemAdmin)
-- Organizations (ProvisionOrganization)
-- Environments (CRUD operations)
-- Deployments (Deploy, List, Remove)
-- Stacks (List, Get with parsed compose files)
-- Wizard (GetStatus, CompleteWizard)
-
-#### Infrastructure & DevOps
-- **GitHub Actions** workflows:
-- CI: Build & test on push/PR
-- Docker: Build and push to ghcr.io with SBOM
-
----
+<GitHubReleases lang="en" />
 
 ## Roadmap
 
 Planned features for future versions:
 
-- **v0.7** - CI/CD Integration & Webhooks
 - **v0.8** - Enhanced Stack Formats
 - **v1.0** - Production Readiness
 - **v2.0+** - Kubernetes Support

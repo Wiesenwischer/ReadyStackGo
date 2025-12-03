@@ -2,9 +2,6 @@ name: Deploy PublicWeb to Cloudflare Pages
 
 on:
   push:
-    branches: [main]
-    paths:
-      - 'src/ReadyStackGo.PublicWeb/**'
     tags:
       - 'v*'
   workflow_dispatch:
