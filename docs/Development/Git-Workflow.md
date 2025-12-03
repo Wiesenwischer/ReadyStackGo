@@ -118,31 +118,37 @@ Nur verwenden wenn Production akut betroffen ist!
 
 ---
 
-## Release erstellen (automatisch)
+## Release erstellen (Draft + manuell Publish)
 
-Der Release-Prozess ist vollständig automatisiert. Nach dem Merge eines PRs in `main`:
+PRs werden gesammelt und können gebündelt released werden:
 
 ```
-PR merge nach main ──► Release Drafter published ──► Tag erstellt ──► Docker Build + PublicWeb Deploy
-                              │
-                              └── Version aus PR-Labels ermittelt
+PR merge nach main ──► Release Drafter Draft ──► (weitere PRs) ──► Manuell Publish ──► Docker + PublicWeb
+                              │                                           │
+                              └── Version aus PR-Labels berechnet ────────┘
 ```
 
 ### Ablauf
 
-1. **PR erstellen**: `develop` → `main`
-   - Labels prüfen/setzen (bestimmt die Version)
-   - Mindestens ein Label für Kategorisierung
+1. **PRs erstellen und mergen**: `develop` → `main`
+   - Labels setzen (bestimmt die Version)
+   - Mehrere PRs können gesammelt werden
 
-2. **PR mergen**: Nach Review den PR mergen
+2. **Draft prüfen**: GitHub → Releases → Draft ansehen
+   - Alle PRs seit letztem Release sind aufgelistet
+   - Version wird automatisch berechnet
 
-3. **Automatisch passiert dann**:
-   - Release Drafter ermittelt die Version aus Labels
-   - GitHub Release wird veröffentlicht (mit Tag)
-   - Docker Workflow baut Images:
-     - `latest` Tag (von `main`)
-     - Version Tag (z.B. `0.7.0`)
-   - PublicWeb wird deployed (holt Release Notes von GitHub API)
+3. **Release veröffentlichen**: "Publish release" klicken
+   - Tag wird erstellt
+   - Docker Workflow baut Images
+   - PublicWeb wird deployed
+
+### Vorteile
+
+- **Bündeln**: Mehrere PRs in einem Release
+- **Kontrolle**: Doku-Änderungen lösen kein Release aus
+- **Keine manuelle Version**: Wird automatisch berechnet
+- **Kein manueller Tag**: Wird beim Publish erstellt
 
 ### Version-Bestimmung durch Labels
 

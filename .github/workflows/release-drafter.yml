@@ -21,8 +21,8 @@ jobs:
         id: drafter
         with:
           config-name: release-drafter.yml
-          # Publish release when pushing to main (after PR merge)
-          publish: ${{ github.event_name == 'push' }}
+          # Draft only - manually publish when ready
+          publish: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
