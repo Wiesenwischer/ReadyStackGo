@@ -1,5 +1,5 @@
 # Coding Guidelines
 
-Dokumentation zu Coding Guidelines folgt.
+Documentation for coding guidelines coming soon.
 
-Siehe auch: [Contributing](Contributing.md)
+See also: [Contributing](Contributing.md)

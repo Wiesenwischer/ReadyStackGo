@@ -1,83 +1,97 @@
 # Roadmap
 
-Grober Ausblick auf geplante Versionen und Features.
+Rough outlook on planned versions and features.
 
 ## Released
 
-- **v0.1** – Container Ansicht + Start/Stop
+- **v0.1** – Container View + Start/Stop
 - **v0.2** – Local Admin + Hardcoded Stack
-- **v0.3** – Wizard + TLS-Bootstrap + Manifest Deploy ✅ (2025-01-19)
-- **v0.4** – Multi-Environment + Docker Compose Deployment ✅ (2025-01-28)
-  - Polymorphe Environment-Typen (Docker Socket)
-  - Docker Compose Stack-Deployment (Portainer-style)
-  - Automatische Environment Variable Detection
-  - Stack Sources System mit rekursiver Discovery
+- **v0.3** – Wizard + TLS Bootstrap + Manifest Deploy (2025-01-19)
+- **v0.4** – Multi-Environment + Docker Compose Deployment (2025-01-28)
+  - Polymorphic Environment Types (Docker Socket)
+  - Docker Compose Stack Deployment (Portainer-style)
+  - Automatic Environment Variable Detection
+  - Stack Sources System with Recursive Discovery
   - 404 Page, 4-Step Wizard, Environment Management UI
-  - Registry Authentication für Image Pulls
-  - Deployment Warnings bei lokalem Image-Fallback
-- **v0.5** – Environment Setup Flow + PublicWeb ✅ (2025-11-30)
-  - Environment-Erstellung als optionaler Wizard-Schritt
-  - EnvironmentGuard für environment-abhängige Seiten
-  - SetupEnvironment-Seite wenn kein Environment existiert
-  - PublicWeb Landing Page (DE/EN) mit Astro/Starlight
-  - ams.project Showcase, Impressum, Datenschutz
-  - Install-Script mit Docker Hub Image
-- **v0.6** – Security Hardening ✅ (2025-12-01)
+  - Registry Authentication for Image Pulls
+  - Deployment Warnings for Local Image Fallback
+- **v0.5** – Environment Setup Flow + PublicWeb (2025-11-30)
+  - Environment Creation as Optional Wizard Step
+  - EnvironmentGuard for Environment-Dependent Pages
+  - SetupEnvironment Page When No Environment Exists
+  - PublicWeb Landing Page (DE/EN) with Astro/Starlight
+  - ams.project Showcase, Legal Notice, Privacy Policy
+  - Install Script with Docker Hub Image
+- **v0.6** – DDD Architecture + Security Hardening (2025-12-01)
+  - SQLite Database for Persistent Storage
+  - Domain-Driven Design with Bounded Contexts
+  - Clean Architecture Implementation
+  - MediatR for Command/Query Separation
   - RBAC (Role-Based Access Control)
-  - Wizard Timeout (5-Minuten-Zeitfenster für Admin-Erstellung nach Serverstart)
-  - API-Lockdown nach Timeout-Ablauf (wie Portainer)
+  - Wizard Timeout (5-Minute Time Window for Admin Creation After Server Start)
+  - API Lockdown After Timeout Expiration (like Portainer)
+- **v0.7** – Automated Release Workflow (2025-12-03)
+  - Fully Automated Release Workflow with GitHub Actions
+  - PublicWeb Deployment on Every Release
+- **v0.8** – Simplified Release Management (2025-12-03)
+  - Simplified Release Workflow
+  - GitHub-based Release Notes Integration
+- **v0.9** – Dev Builds + Example Stacks (2025-12-03)
+  - Draft-only Releases with Manual Publish
+  - Docker Dev Builds on ghcr.io
+  - Example Stacks Included in Docker Image
 
 ## Planned
 
-### v0.7 – RSGo Manifest Format
-- Spezifikation für eigenes Manifest-Format
-- Docker Compose Import (Konvertierung beim Import)
+### v0.10 – RSGo Manifest Format
+- Specification for Custom Manifest Format
+- Docker Compose Import (Conversion on Import)
 - Type Validation (Number, Boolean, String, Select)
-- Regex Validation für Eingabefelder
+- Regex Validation for Input Fields
 
-### v0.8 – Health Monitoring + Rollback
+### v0.11 – Health Monitoring + Rollback
 - Container Health Monitoring (Status, Health, RestartCount)
 - Stack Health Dashboard
-- Deployment Rollback (vorherige Stack-Version wiederherstellen)
+- Deployment Rollback (Restore Previous Stack Version)
 
-### v0.9 – Registry Management + Git Stack Sources
-- Settings-Seite für Registry-Verwaltung
-- Mehrere Docker Registries konfigurierbar (Name, URL, Username, Password)
-- GitRepository StackSourceProvider (Stacks aus Git-Repos laden)
+### v0.12 – Registry Management + Git Stack Sources
+- Settings Page for Registry Management
+- Multiple Docker Registries Configurable (Name, URL, Username, Password)
+- GitRepository StackSourceProvider (Load Stacks from Git Repos)
 
-### v0.10 – Release & TLS Management
+### v0.13 – Release & TLS Management
 - Release Management UI
 - Custom TLS Certificates
 
-### v0.11 – Metrics & Audit
+### v0.14 – Metrics & Audit
 - Metrics & Alerting
 - Audit Logs
 
-### v0.12 – Docker Volumes Management
-- Docker Volumes Ansicht (Liste aller Volumes pro Environment)
+### v0.15 – Docker Volumes Management
+- Docker Volumes View (List All Volumes per Environment)
 - Volume Details (Size, Mount Points, Labels)
-- Volume erstellen/löschen
-- Orphaned Volumes erkennen
+- Create/Delete Volumes
+- Detect Orphaned Volumes
 
-### v0.13 – CI/CD Integration
-- Webhooks für externe CI/CD Systeme
-- API für automatisierte Deployments
+### v0.16 – CI/CD Integration
+- Webhooks for External CI/CD Systems
+- API for Automated Deployments
 
-### v0.14 – Multi-User Support
+### v0.17 – Multi-User Support
 - User Management UI
-- Benutzer anlegen/bearbeiten
+- Create/Edit Users
 - Password Reset Flow
 
 ### v1.0 – Production Ready
-- Dokumentation überarbeiten und vervollständigen
-- Code Cleanup und Refactorings
-- Performance Optimierungen
+- Review and Complete Documentation
+- Code Cleanup and Refactoring
+- Performance Optimizations
 
 ## Post v1.0
 
 ### Future Features
 - Feature Flags UI
 - Advanced Connection Mode
-- Plugin-System
-- Multi-Node-Support (mehrere Docker Hosts pro Environment)
+- Plugin System
+- Multi-Node Support (Multiple Docker Hosts per Environment)
 - Kubernetes Environment Support

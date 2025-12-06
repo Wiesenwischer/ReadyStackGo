@@ -1,13 +1,13 @@
 # Plugin System
 
-Geplantes Plugin-System zur Erweiterung von ReadyStackGo.
+Planned plugin system for extending ReadyStackGo.
 
-## Ziele
+## Goals
 
-- Neue Menüpunkte und Seiten in der UI
-- Zusätzliche APIs
-- Deployment-Hooks
-- Metriken/Monitoring-Integrationen
+- New menu items and pages in the UI
+- Additional APIs
+- Deployment hooks
+- Metrics/Monitoring integrations
 
 ---
 

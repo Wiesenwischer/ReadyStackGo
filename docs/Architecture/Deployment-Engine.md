@@ -1,23 +1,23 @@
 # Deployment Engine
 
-Die Deployment Engine ist das Herzstück von ReadyStackGo.  
-Sie übersetzt Manifeste in konkrete Docker-Aktionen.
+The Deployment Engine is the heart of ReadyStackGo.
+It translates manifests into concrete Docker actions.
 
-## Inhalt
-1. Ziele
+## Contents
+1. Goals
 2. Input/Output
-3. Ablaufdiagramm
+3. Flow Diagram
 4. DeploymentPlan
-5. Fehlerbehandlung
+5. Error Handling
 
 ---
 
-## 1. Ziele
+## 1. Goals
 
-- Deterministische Deployments
-- Klarer, nachvollziehbarer Plan
-- Kein „Hidden Magic“
-- Volle Transparenz über jeden Schritt
+- Deterministic deployments
+- Clear, traceable plan
+- No "hidden magic"
+- Full transparency over every step
 
 ---
 
@@ -26,44 +26,44 @@ Sie übersetzt Manifeste in konkrete Docker-Aktionen.
 **Input**:
 
 - ReleaseManifest
-- System-/Context-/Feature-Config
+- System/Context/Feature Config
 
 **Output**:
 
 - DeploymentResult (Success/Failure)
-- Aktualisierte `rsgo.release.json`
+- Updated `rsgo.release.json`
 
 ---
 
-## 3. Ablaufdiagramm
+## 3. Flow Diagram
 
 ```mermaid
 flowchart TD
-    A[API: InstallStackCommand] --> B[Manifest laden]
-    B --> C[Configs laden]
-    C --> D[DeploymentPlan generieren]
+    A[API: InstallStackCommand] --> B[Load Manifest]
+    B --> C[Load Configs]
+    C --> D[Generate DeploymentPlan]
     D --> E[Container stop/remove/create/start]
-    E --> F[Release-Datei schreiben]
-    F --> G[Result zurück an API]
+    E --> F[Write Release File]
+    F --> G[Result back to API]
 ```
 
 ---
 
 ## 4. DeploymentPlan
 
-Der Plan besteht aus Aktionen:
+The plan consists of actions:
 
 - `stop`
 - `remove`
 - `create`
 - `start`
 
-Für jeden Kontext.
+For each context.
 
 ---
 
-## 5. Fehlerbehandlung
+## 5. Error Handling
 
-- Fehler → `DEPLOYMENT_FAILED`
-- Details im Log
-- UI zeigt Klartext + errorCode an
+- Error → `DEPLOYMENT_FAILED`
+- Details in log
+- UI shows plain text + errorCode

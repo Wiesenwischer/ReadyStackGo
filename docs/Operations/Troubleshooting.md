@@ -1,3 +1,3 @@
 # Troubleshooting
 
-Dokumentation zum Troubleshooting folgt.
+Documentation for troubleshooting coming soon.

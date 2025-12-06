@@ -1,5 +1,5 @@
-# Konfigurationsreferenz
+# Configuration Reference
 
-Vollständige Konfigurationsreferenz folgt.
+Complete configuration reference coming soon.
 
-Siehe auch: [Config Files](../Configuration/Config-Files.md)
+See also: [Config Files](../Configuration/Config-Files.md)

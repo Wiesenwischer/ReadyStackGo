@@ -1,39 +1,38 @@
 # Security Architecture
 
-Dieses Dokument beschreibt die Sicherheitsarchitektur von ReadyStackGo.
+This document describes the security architecture of ReadyStackGo.
 
-## Themen
+## Topics
 
-- [Initial Setup Security](Initial-Setup.md) - Sicherheit während der Ersteinrichtung
-- Authentifizierung (Local + OIDC)
-- Autorisierung (Rollen)
+- [Initial Setup Security](Initial-Setup.md) - Security during initial setup
+- Authentication (Local + OIDC)
+- Authorization (Roles)
 - JWT Tokens
 - TLS
-- Konfigurationsschutz
+- Configuration Protection
 
 ---
 
-## Authentifizierung
+## Authentication
 
-- Lokaler Admin (Wizard)
-- Später OIDC (Keycloak, ams.identity, etc.)
+- Local Admin (Wizard)
+- Later OIDC (Keycloak, ams.identity, etc.)
 
 ---
 
-## Rollen
+## Roles
 
 - `admin`
 - `operator`
 
-Rollen steuern Zugriff auf Endpunkte.
+Roles control access to endpoints.
 
 ---
 
 ## Tokens
 
-JWT-basiert, mit Claims:
+JWT-based, with claims:
 
 - `sub`
 - `role`
 - `exp`
-
