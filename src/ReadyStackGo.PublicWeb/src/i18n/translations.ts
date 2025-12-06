@@ -24,7 +24,7 @@ export const translations = {
 		'hero.title1': 'Docker Stacks deployen',
 		'hero.title2': ' mit einem Klick',
 		'hero.subtitle':
-			'ReadyStackGo macht Docker Compose Deployments einfach. Installiere mit einem Befehl, verwalte Stacks über eine intuitive Web-Oberfläche.',
+			'ReadyStackGo macht Container-Deployments einfach. Nutze das leistungsstarke RSGo Manifest Format oder importiere bestehende Docker Compose Dateien.',
 		'hero.cta.install': 'Installation starten',
 		'hero.cta.docs': 'Dokumentation',
 		'hero.quickinstall': 'Schnellinstallation:',
@@ -49,6 +49,17 @@ export const translations = {
 		'features.git.desc': 'Lade Stack-Definitionen direkt aus Git-Repositories. Automatische Updates möglich.',
 		'features.logs.title': 'Echtzeit Logs',
 		'features.logs.desc': 'Verfolge Container-Logs in Echtzeit für schnelles Debugging und Monitoring.',
+		'features.multistack.title': 'Multi-Stack Produkte',
+		'features.multistack.desc': 'Definiere komplexe Produkte mit mehreren Stacks und gemeinsamen Variablen in einem Manifest.',
+		'features.editors.title': 'Intelligente Editoren',
+		'features.editors.desc': 'Spezialisierte UI-Editoren für Variablentypen wie Connection Strings, Ports und Passwörter.',
+		'features.manifest.title': 'RSGo Manifest Format',
+		'features.manifest.desc': 'Leistungsstarkes Stack-Format mit Typisierung, Validierung und Docker Compose Import.',
+
+		// Feature Pages
+		'featurepage.multistack.subtitle': 'Definiere komplexe Anwendungen mit mehreren Docker Stacks und gemeinsamen Variablen in einem einzigen Manifest.',
+		'featurepage.editors.subtitle': 'Spezialisierte UI-Komponenten für verschiedene Variablentypen - von Connection Strings bis Port-Konfigurationen.',
+		'featurepage.manifest.subtitle': 'Ein flexibles, typisiertes Format für Stack-Definitionen mit Validierung, Metadaten und Docker Compose Kompatibilität.',
 
 		// Installation
 		'install.title': 'In Sekunden einsatzbereit',
@@ -93,7 +104,7 @@ export const translations = {
 		'hero.title1': 'Deploy Docker Stacks',
 		'hero.title2': ' with One Click',
 		'hero.subtitle':
-			'ReadyStackGo makes Docker Compose deployments easy. Install with one command, manage stacks through an intuitive web interface.',
+			'ReadyStackGo makes container deployments easy. Use the powerful RSGo Manifest format or import existing Docker Compose files.',
 		'hero.cta.install': 'Start Installation',
 		'hero.cta.docs': 'Documentation',
 		'hero.quickinstall': 'Quick Install:',
@@ -118,6 +129,17 @@ export const translations = {
 		'features.git.desc': 'Load stack definitions directly from Git repositories. Automatic updates available.',
 		'features.logs.title': 'Real-time Logs',
 		'features.logs.desc': 'Follow container logs in real-time for quick debugging and monitoring.',
+		'features.multistack.title': 'Multi-Stack Products',
+		'features.multistack.desc': 'Define complex products with multiple stacks and shared variables in one manifest.',
+		'features.editors.title': 'Smart Editors',
+		'features.editors.desc': 'Specialized UI editors for variable types like connection strings, ports and passwords.',
+		'features.manifest.title': 'RSGo Manifest Format',
+		'features.manifest.desc': 'Powerful stack format with type validation, rich metadata and Docker Compose import.',
+
+		// Feature Pages
+		'featurepage.multistack.subtitle': 'Define complex applications with multiple Docker Stacks and shared variables in a single manifest.',
+		'featurepage.editors.subtitle': 'Specialized UI components for different variable types - from connection strings to port configurations.',
+		'featurepage.manifest.subtitle': 'A flexible, typed format for stack definitions with validation, metadata and Docker Compose compatibility.',
 
 		// Installation
 		'install.title': 'Ready in Seconds',

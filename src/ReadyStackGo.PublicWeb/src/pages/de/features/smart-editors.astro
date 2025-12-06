@@ -1,0 +1,112 @@
+---
+import LandingLayout from '../../../layouts/LandingLayout.astro';
+import Header from '../../../components/Header.astro';
+import FeaturePage from '../../../components/FeaturePage.astro';
+import Footer from '../../../components/Footer.astro';
+
+const lang = 'de';
+const icon = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"></path>`;
+---
+
+<LandingLayout title="Intelligente Editoren - ReadyStackGo">
+	<Header lang={lang} />
+	<main class="flex-1">
+		<FeaturePage
+			lang={lang}
+			titleKey="features.editors.title"
+			subtitleKey="featurepage.editors.subtitle"
+			icon={icon}
+		>
+			<h2>Typisierte Variablen-Editoren</h2>
+			<p>
+				Jeder Variablentyp im RSGo Manifest Format hat einen spezialisierten Editor,
+				der die Eingabe vereinfacht und Fehler verhindert. Keine manuellen Tippfehler mehr
+				bei komplexen Konfigurationswerten!
+			</p>
+
+			<h2>Unterstützte Variablentypen</h2>
+
+			<div class="grid md:grid-cols-2 gap-4 my-6">
+				<div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+					<h4 class="font-semibold text-gray-900 dark:text-white mb-2">Basis-Typen</h4>
+					<ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">String</code> - Texteingabe</li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">Number</code> - Numerische Werte</li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">Boolean</code> - Toggle-Schalter</li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">Password</code> - Verdeckte Eingabe</li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">Port</code> - Port-Validierung</li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">Select</code> - Dropdown-Auswahl</li>
+					</ul>
+				</div>
+				<div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+					<h4 class="font-semibold text-gray-900 dark:text-white mb-2">Connection String Typen</h4>
+					<ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">SqlServerConnectionString</code></li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">PostgresConnectionString</code></li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">MySqlConnectionString</code></li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">MongoConnectionString</code></li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">RedisConnectionString</code></li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">EventStoreConnectionString</code></li>
+					</ul>
+				</div>
+			</div>
+
+			<h2>Connection String Builder</h2>
+			<p>
+				Für jeden Datenbank-Typ gibt es einen spezialisierten Builder-Dialog:
+			</p>
+
+			<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4 my-6">
+				<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">SQL Server Builder Features:</h4>
+				<ul class="text-brand-700 dark:text-brand-400 space-y-1">
+					<li>Server und Port getrennt konfigurieren</li>
+					<li>Windows-Authentifizierung oder SQL-Login</li>
+					<li>Erweiterte Optionen (Encrypt, TrustServerCertificate, MARS)</li>
+					<li>Live-Vorschau des Connection Strings</li>
+					<li><strong>Test Connection:</strong> Direkt aus dem Dialog heraus testen</li>
+				</ul>
+			</div>
+
+			<h2>Validierung in Echtzeit</h2>
+			<p>
+				Alle Editoren validieren die Eingabe in Echtzeit:
+			</p>
+			<ul>
+				<li><strong>Port:</strong> Nur gültige Portnummern (1-65535)</li>
+				<li><strong>Number:</strong> Optional mit Min/Max-Grenzen</li>
+				<li><strong>Required:</strong> Pflichtfelder werden markiert</li>
+				<li><strong>Pattern:</strong> Reguläre Ausdrücke für komplexe Validierung</li>
+			</ul>
+
+			<h2>Beispiel im Manifest</h2>
+			<pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto"><code>{`variables:
+  - name: DATABASE_CONNECTION
+    type: SqlServerConnectionString
+    description: SQL Server Verbindung
+    required: true
+    group: database
+
+  - name: REDIS_URL
+    type: RedisConnectionString
+    description: Redis Cache Server
+    default: redis://localhost:6379
+
+  - name: WEB_PORT
+    type: Port
+    description: HTTP Port
+    default: "8080"
+    validation:
+      min: 1024
+      max: 65535`}</code></pre>
+
+			<h2>Vorteile</h2>
+			<ul>
+				<li><strong>Benutzerfreundlich:</strong> Keine Syntax-Kenntnisse erforderlich</li>
+				<li><strong>Fehlervermeidung:</strong> Validierung vor dem Deployment</li>
+				<li><strong>Produktivität:</strong> Schnellere Konfiguration</li>
+				<li><strong>Dokumentation:</strong> Integrierte Hilfe und Beschreibungen</li>
+			</ul>
+		</FeaturePage>
+	</main>
+	<Footer lang={lang} />
+</LandingLayout>
