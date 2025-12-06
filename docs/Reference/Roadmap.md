@@ -22,15 +22,24 @@ Rough outlook on planned versions and features.
   - PublicWeb Landing Page (DE/EN) with Astro/Starlight
   - ams.project Showcase, Legal Notice, Privacy Policy
   - Install Script with Docker Hub Image
-- **v0.6** – Security Hardening (2025-12-01)
+- **v0.6** – DDD Architecture + Security Hardening (2025-12-01)
+  - SQLite Database for Persistent Storage
+  - Domain-Driven Design with Bounded Contexts
+  - Clean Architecture Implementation
+  - MediatR for Command/Query Separation
   - RBAC (Role-Based Access Control)
   - Wizard Timeout (5-Minute Time Window for Admin Creation After Server Start)
   - API Lockdown After Timeout Expiration (like Portainer)
-- **v0.7 - v0.9** – CI/CD Improvements (2025-12-03)
+- **v0.7** – Automated Release Workflow (2025-12-03)
+  - Fully Automated Release Workflow with GitHub Actions
+  - PublicWeb Deployment on Every Release
+- **v0.8** – Simplified Release Management (2025-12-03)
+  - Simplified Release Workflow
+  - GitHub-based Release Notes Integration
+- **v0.9** – Dev Builds + Example Stacks (2025-12-03)
   - Draft-only Releases with Manual Publish
   - Docker Dev Builds on ghcr.io
-  - Dynamic Release Notes and Roadmap on PublicWeb
-  - Example Stacks in Docker Image
+  - Example Stacks Included in Docker Image
 
 ## Planned
 
