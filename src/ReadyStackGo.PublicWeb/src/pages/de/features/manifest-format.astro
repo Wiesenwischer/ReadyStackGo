@@ -1,0 +1,133 @@
+---
+import LandingLayout from '../../../layouts/LandingLayout.astro';
+import Header from '../../../components/Header.astro';
+import FeaturePage from '../../../components/FeaturePage.astro';
+import Footer from '../../../components/Footer.astro';
+
+const lang = 'de';
+const icon = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>`;
+---
+
+<LandingLayout title="RSGo Manifest Format - ReadyStackGo">
+	<Header lang={lang} />
+	<main class="flex-1">
+		<FeaturePage
+			lang={lang}
+			titleKey="features.manifest.title"
+			subtitleKey="featurepage.manifest.subtitle"
+			icon={icon}
+		>
+			<h2>Was ist das RSGo Manifest Format?</h2>
+			<p>
+				Das RSGo Manifest Format ist ein YAML-basiertes Konfigurationsformat, das speziell
+				für ReadyStackGo entwickelt wurde. Es erweitert die Möglichkeiten von Docker Compose
+				um Typisierung, Validierung, Metadaten und Multi-Stack Unterstützung.
+			</p>
+
+			<h2>Grundstruktur</h2>
+			<pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto"><code>{`# RSGo Manifest v0.10
+product:
+  name: my-application
+  displayName: My Application
+  description: A sample application
+  version: 1.0.0
+  author: Your Name
+  tags: [web, database]
+
+stacks:
+  - name: app
+    composeFile: docker-compose.yml
+    variables:
+      - name: APP_PORT
+        type: Port
+        description: Application port
+        default: "8080"
+        required: true`}</code></pre>
+
+			<h2>Produkt-Metadaten</h2>
+			<p>
+				Im Gegensatz zu Docker Compose können RSGo Manifeste reichhaltige Metadaten enthalten:
+			</p>
+			<ul>
+				<li><strong>displayName:</strong> Anzeigename in der UI</li>
+				<li><strong>description:</strong> Ausführliche Beschreibung</li>
+				<li><strong>version:</strong> Versionsnummer nach SemVer</li>
+				<li><strong>author:</strong> Autor oder Organisation</li>
+				<li><strong>tags:</strong> Kategorisierung für Suche und Filter</li>
+				<li><strong>icon:</strong> Custom Icon für die UI</li>
+			</ul>
+
+			<h2>Typisierte Variablen</h2>
+			<p>
+				Variablen haben explizite Typen mit automatischer UI-Generierung:
+			</p>
+
+			<div class="overflow-x-auto my-6">
+				<table class="min-w-full bg-white dark:bg-gray-800 rounded-lg">
+					<thead class="bg-gray-50 dark:bg-gray-700">
+						<tr>
+							<th class="px-4 py-2 text-left text-sm font-medium text-gray-900 dark:text-white">Typ</th>
+							<th class="px-4 py-2 text-left text-sm font-medium text-gray-900 dark:text-white">UI-Element</th>
+							<th class="px-4 py-2 text-left text-sm font-medium text-gray-900 dark:text-white">Validierung</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-gray-200 dark:divide-gray-600">
+						<tr><td class="px-4 py-2 text-sm"><code>String</code></td><td class="px-4 py-2 text-sm">Textfeld</td><td class="px-4 py-2 text-sm">Pattern, Min/Max Länge</td></tr>
+						<tr><td class="px-4 py-2 text-sm"><code>Number</code></td><td class="px-4 py-2 text-sm">Zahlenfeld</td><td class="px-4 py-2 text-sm">Min/Max Wert</td></tr>
+						<tr><td class="px-4 py-2 text-sm"><code>Boolean</code></td><td class="px-4 py-2 text-sm">Toggle</td><td class="px-4 py-2 text-sm">-</td></tr>
+						<tr><td class="px-4 py-2 text-sm"><code>Password</code></td><td class="px-4 py-2 text-sm">Passwortfeld</td><td class="px-4 py-2 text-sm">Min Länge</td></tr>
+						<tr><td class="px-4 py-2 text-sm"><code>Port</code></td><td class="px-4 py-2 text-sm">Port-Eingabe</td><td class="px-4 py-2 text-sm">1-65535</td></tr>
+						<tr><td class="px-4 py-2 text-sm"><code>Select</code></td><td class="px-4 py-2 text-sm">Dropdown</td><td class="px-4 py-2 text-sm">Optionsliste</td></tr>
+						<tr><td class="px-4 py-2 text-sm"><code>SqlServerConnectionString</code></td><td class="px-4 py-2 text-sm">Builder-Dialog</td><td class="px-4 py-2 text-sm">Format, Test</td></tr>
+					</tbody>
+				</table>
+			</div>
+
+			<h2>Docker Compose Import</h2>
+			<p>
+				Bestehende Docker Compose Dateien können einfach importiert werden:
+			</p>
+
+			<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4 my-6">
+				<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">Import-Features:</h4>
+				<ul class="text-brand-700 dark:text-brand-400 space-y-1">
+					<li>Automatische Erkennung von Environment-Variablen</li>
+					<li>Typ-Inferenz aus Variablennamen (z.B. *_PORT wird zu Port-Typ)</li>
+					<li>Connection String Erkennung (z.B. SQL Server, PostgreSQL)</li>
+					<li>Beibehaltung der originalen Compose-Struktur</li>
+				</ul>
+			</div>
+
+			<h2>Variablen-Gruppen</h2>
+			<p>
+				Variablen können in logische Gruppen organisiert werden:
+			</p>
+			<pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto"><code>{`variables:
+  - name: DB_HOST
+    type: String
+    group: database
+    order: 1
+
+  - name: DB_PORT
+    type: Port
+    group: database
+    order: 2
+
+  - name: API_KEY
+    type: Password
+    group: authentication
+    order: 1`}</code></pre>
+
+			<h2>Vorteile gegenüber Docker Compose</h2>
+			<ul>
+				<li><strong>Typsicherheit:</strong> Explizite Typen statt nur Strings</li>
+				<li><strong>Validierung:</strong> Werte werden vor dem Deployment geprüft</li>
+				<li><strong>UI-Integration:</strong> Automatische Formular-Generierung</li>
+				<li><strong>Multi-Stack:</strong> Mehrere Stacks in einem Produkt</li>
+				<li><strong>Metadaten:</strong> Reichhaltige Produktinformationen</li>
+				<li><strong>Kompatibilität:</strong> Bestehende Compose-Dateien importierbar</li>
+			</ul>
+		</FeaturePage>
+	</main>
+	<Footer lang={lang} />
+</LandingLayout>

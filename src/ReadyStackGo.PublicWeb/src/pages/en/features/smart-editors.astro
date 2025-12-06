@@ -1,0 +1,112 @@
+---
+import LandingLayout from '../../../layouts/LandingLayout.astro';
+import Header from '../../../components/Header.astro';
+import FeaturePage from '../../../components/FeaturePage.astro';
+import Footer from '../../../components/Footer.astro';
+
+const lang = 'en';
+const icon = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"></path>`;
+---
+
+<LandingLayout title="Smart Editors - ReadyStackGo">
+	<Header lang={lang} />
+	<main class="flex-1">
+		<FeaturePage
+			lang={lang}
+			titleKey="features.editors.title"
+			subtitleKey="featurepage.editors.subtitle"
+			icon={icon}
+		>
+			<h2>Typed Variable Editors</h2>
+			<p>
+				Each variable type in the RSGo Manifest Format has a specialized editor
+				that simplifies input and prevents errors. No more manual typos
+				in complex configuration values!
+			</p>
+
+			<h2>Supported Variable Types</h2>
+
+			<div class="grid md:grid-cols-2 gap-4 my-6">
+				<div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+					<h4 class="font-semibold text-gray-900 dark:text-white mb-2">Basic Types</h4>
+					<ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">String</code> - Text input</li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">Number</code> - Numeric values</li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">Boolean</code> - Toggle switch</li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">Password</code> - Hidden input</li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">Port</code> - Port validation</li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">Select</code> - Dropdown selection</li>
+					</ul>
+				</div>
+				<div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+					<h4 class="font-semibold text-gray-900 dark:text-white mb-2">Connection String Types</h4>
+					<ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">SqlServerConnectionString</code></li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">PostgresConnectionString</code></li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">MySqlConnectionString</code></li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">MongoConnectionString</code></li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">RedisConnectionString</code></li>
+						<li><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">EventStoreConnectionString</code></li>
+					</ul>
+				</div>
+			</div>
+
+			<h2>Connection String Builder</h2>
+			<p>
+				Each database type has a specialized builder dialog:
+			</p>
+
+			<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4 my-6">
+				<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">SQL Server Builder Features:</h4>
+				<ul class="text-brand-700 dark:text-brand-400 space-y-1">
+					<li>Configure server and port separately</li>
+					<li>Windows Authentication or SQL Login</li>
+					<li>Advanced options (Encrypt, TrustServerCertificate, MARS)</li>
+					<li>Live preview of the connection string</li>
+					<li><strong>Test Connection:</strong> Test directly from the dialog</li>
+				</ul>
+			</div>
+
+			<h2>Real-time Validation</h2>
+			<p>
+				All editors validate input in real-time:
+			</p>
+			<ul>
+				<li><strong>Port:</strong> Only valid port numbers (1-65535)</li>
+				<li><strong>Number:</strong> Optional with min/max constraints</li>
+				<li><strong>Required:</strong> Required fields are marked</li>
+				<li><strong>Pattern:</strong> Regular expressions for complex validation</li>
+			</ul>
+
+			<h2>Example in Manifest</h2>
+			<pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto"><code>{`variables:
+  - name: DATABASE_CONNECTION
+    type: SqlServerConnectionString
+    description: SQL Server connection
+    required: true
+    group: database
+
+  - name: REDIS_URL
+    type: RedisConnectionString
+    description: Redis cache server
+    default: redis://localhost:6379
+
+  - name: WEB_PORT
+    type: Port
+    description: HTTP port
+    default: "8080"
+    validation:
+      min: 1024
+      max: 65535`}</code></pre>
+
+			<h2>Benefits</h2>
+			<ul>
+				<li><strong>User-friendly:</strong> No syntax knowledge required</li>
+				<li><strong>Error prevention:</strong> Validation before deployment</li>
+				<li><strong>Productivity:</strong> Faster configuration</li>
+				<li><strong>Documentation:</strong> Integrated help and descriptions</li>
+			</ul>
+		</FeaturePage>
+	</main>
+	<Footer lang={lang} />
+</LandingLayout>

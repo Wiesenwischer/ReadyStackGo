@@ -7,6 +7,31 @@ interface Props {
 
 const { lang = 'de' } = Astro.props;
 
+// Highlighted/new features (shown first with special styling)
+const highlightedFeatures = [
+	{
+		icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>`,
+		titleKey: 'features.manifest.title' as const,
+		descKey: 'features.manifest.desc' as const,
+		badge: 'NEW',
+		link: `/${lang}/features/manifest-format`,
+	},
+	{
+		icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>`,
+		titleKey: 'features.multistack.title' as const,
+		descKey: 'features.multistack.desc' as const,
+		badge: 'NEW',
+		link: `/${lang}/features/multi-stack`,
+	},
+	{
+		icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"></path>`,
+		titleKey: 'features.editors.title' as const,
+		descKey: 'features.editors.desc' as const,
+		badge: 'NEW',
+		link: `/${lang}/features/smart-editors`,
+	},
+];
+
 const features = [
 	{
 		icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path>`,
@@ -54,7 +79,33 @@ const features = [
 			</p>
 		</div>
 
-		<!-- Features grid -->
+		<!-- Highlighted new features -->
+		<div class="grid md:grid-cols-3 gap-6 mb-12">
+			{highlightedFeatures.map((feature) => (
+				<a href={feature.link} class="group relative p-8 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 shadow-lg hover:shadow-2xl hover:scale-[1.02] transition-all duration-300">
+					<span class="absolute top-4 right-4 px-2 py-1 text-xs font-bold bg-white text-brand-600 rounded-full">
+						{feature.badge}
+					</span>
+					<div class="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center mb-6">
+						<svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" set:html={feature.icon} />
+					</div>
+					<h3 class="text-theme-xl font-semibold text-white mb-3">
+						{t(lang, feature.titleKey)}
+					</h3>
+					<p class="text-white/80">
+						{t(lang, feature.descKey)}
+					</p>
+					<div class="mt-4 flex items-center text-white/90 text-sm font-medium group-hover:text-white">
+						{lang === 'de' ? 'Mehr erfahren' : 'Learn more'}
+						<svg class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+						</svg>
+					</div>
+				</a>
+			))}
+		</div>
+
+		<!-- Standard features grid -->
 		<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
 			{features.map((feature) => (
 				<div class="group p-8 rounded-2xl bg-gray-50 dark:bg-gray-800 hover:bg-brand-500 hover:shadow-theme-xl transition-all duration-300">
