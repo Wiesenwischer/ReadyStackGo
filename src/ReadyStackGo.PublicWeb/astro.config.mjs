@@ -63,6 +63,14 @@ export default defineConfig({
 					translations: { en: 'Documentation' },
 					autogenerate: { directory: 'docs' },
 				},
+				{
+					label: 'Referenz',
+					translations: { en: 'Reference' },
+					items: [
+						{ label: 'RSGo Manifest Format', slug: 'reference/manifest-format' },
+						{ label: 'Variable Types', slug: 'reference/variable-types', translations: { de: 'Variablentypen' } },
+					],
+				},
 				{ label: 'Lizenzen', slug: 'licenses', translations: { en: 'Licenses' } },
 			],
 			defaultLocale: 'de',
