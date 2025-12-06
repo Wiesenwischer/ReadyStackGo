@@ -1,33 +1,33 @@
-# Docker Registry Konfiguration
+# Docker Registry Configuration
 
-ReadyStackGo unterstützt das Pullen von Docker Images aus privaten Registries. Diese Seite beschreibt die verschiedenen Möglichkeiten zur Konfiguration von Registry-Credentials.
+ReadyStackGo supports pulling Docker images from private registries. This page describes the different options for configuring registry credentials.
 
-## Übersicht
+## Overview
 
-Beim Deployment eines Stacks versucht ReadyStackGo, die benötigten Images zu pullen. Für private Registries werden Credentials benötigt.
+When deploying a stack, ReadyStackGo attempts to pull the required images. Credentials are needed for private registries.
 
-**Reihenfolge der Credential-Suche (v0.5):**
-1. `Docker:ConfigPath` aus IConfiguration (appsettings.json oder `DOCKER__CONFIGPATH` Environment Variable)
-2. `DOCKER_CONFIG` Environment Variable (Standard Docker Convention)
-3. `/root/.docker/config.json` (Linux Container)
-4. `~/.docker/config.json` (User Profile Fallback)
-5. Kein Auth (für öffentliche Images)
+**Order of credential search (v0.5):**
+1. `Docker:ConfigPath` from IConfiguration (appsettings.json or `DOCKER__CONFIGPATH` environment variable)
+2. `DOCKER_CONFIG` environment variable (standard Docker convention)
+3. `/root/.docker/config.json` (Linux container)
+4. `~/.docker/config.json` (user profile fallback)
+5. No auth (for public images)
 
-## Fehlerbehandlung
+## Error Handling
 
-Ab v0.5 gilt:
-- Wenn ein Image-Pull fehlschlägt und **kein lokales Image** existiert → **Fehler** (Deployment wird abgebrochen)
-- Wenn ein Image-Pull fehlschlägt aber ein **lokales Image existiert** → **Warnung** (lokales Image wird verwendet)
+As of v0.5:
+- If an image pull fails and **no local image** exists → **Error** (deployment is aborted)
+- If an image pull fails but a **local image exists** → **Warning** (local image is used)
 
-Dies verhindert unbeabsichtigte Deployments mit veralteten Images.
+This prevents unintended deployments with outdated images.
 
-## Aktueller Stand (v0.5)
+## Current State (v0.5)
 
-### Docker Config Mount (empfohlen)
+### Docker Config Mount (recommended)
 
-Die einfachste Methode ist das Mounten der Docker-Config-Datei in den Container:
+The simplest method is mounting the Docker config file into the container:
 
-**Docker Compose Beispiel:**
+**Docker Compose Example:**
 ```yaml
 services:
   readystackgo:
@@ -45,14 +45,14 @@ services:
       - "8080:8080"
 ```
 
-**Wichtig:**
-- Die Datei muss nach `/root/.docker/config.json` gemountet werden (nicht in ein anderes Verzeichnis)
-- Das `:ro` Flag macht den Mount read-only (empfohlen für Sicherheit)
-- Der User auf dem Host muss vorher `docker login` ausgeführt haben
+**Important:**
+- The file must be mounted to `/root/.docker/config.json` (not to a different directory)
+- The `:ro` flag makes the mount read-only (recommended for security)
+- The user on the host must have run `docker login` beforehand
 
-### Konfiguration über IConfiguration
+### Configuration via IConfiguration
 
-Alternativ kann der Pfad zur Docker-Config über IConfiguration gesetzt werden:
+Alternatively, the path to the Docker config can be set via IConfiguration:
 
 **Via Environment Variable:**
 ```yaml
@@ -71,7 +71,7 @@ environment:
 
 ### DOCKER_CONFIG Environment Variable
 
-Die Standard Docker Convention wird ebenfalls unterstützt:
+The standard Docker convention is also supported:
 
 ```yaml
 environment:
@@ -80,11 +80,11 @@ volumes:
   - ~/.docker:/docker-config:ro
 ```
 
-**Hinweis:** `DOCKER_CONFIG` zeigt auf das Verzeichnis, nicht die Datei. ReadyStackGo fügt automatisch `/config.json` hinzu.
+**Note:** `DOCKER_CONFIG` points to the directory, not the file. ReadyStackGo automatically appends `/config.json`.
 
-## Unterstützte Registries
+## Supported Registries
 
-ReadyStackGo erkennt automatisch die richtige Registry anhand des Image-Namens:
+ReadyStackGo automatically detects the correct registry based on the image name:
 
 | Image | Registry |
 |-------|----------|
@@ -94,11 +94,11 @@ ReadyStackGo erkennt automatisch die richtige Registry anhand des Image-Namens:
 | `myregistry.azurecr.io/image` | Azure Container Registry (`myregistry.azurecr.io`) |
 | `localhost:5000/image` | Local Registry (`localhost:5000`) |
 
-## Geplant: Registry-Konfiguration (v0.6)
+## Planned: Registry Configuration (v0.6)
 
-### Konfigurationsdatei
+### Configuration File
 
-Registries werden in `rsgo.registries.json` konfiguriert:
+Registries will be configured in `rsgo.registries.json`:
 
 ```json
 {
@@ -124,67 +124,67 @@ Registries werden in `rsgo.registries.json` konfiguriert:
 }
 ```
 
-### Felder
+### Fields
 
-| Feld | Beschreibung |
-|------|-------------|
-| `id` | Eindeutige ID der Registry |
-| `name` | Anzeigename |
-| `url` | Registry URL (ohne Protokoll für custom, mit Protokoll für Docker Hub) |
-| `username` | Benutzername |
-| `password` | Passwort (Base64-encoded) |
-| `isDefault` | Wird für alle Images verwendet, die keinem Pattern entsprechen |
-| `imagePatterns` | Glob-Patterns für Image-Matching (z.B. `amssolution/*`, `ghcr.io/myorg/*`) |
+| Field | Description |
+|-------|-------------|
+| `id` | Unique ID of the registry |
+| `name` | Display name |
+| `url` | Registry URL (without protocol for custom, with protocol for Docker Hub) |
+| `username` | Username |
+| `password` | Password (Base64-encoded) |
+| `isDefault` | Used for all images that don't match any pattern |
+| `imagePatterns` | Glob patterns for image matching (e.g., `amssolution/*`, `ghcr.io/myorg/*`) |
 
-### Image-Matching
+### Image Matching
 
-ReadyStackGo ordnet Images anhand der `imagePatterns` einer Registry zu:
+ReadyStackGo assigns images to a registry based on `imagePatterns`:
 
-1. Image `amssolution/identityaccess:latest` → Matched `amssolution/*` → Registry `dockerhub-ams`
-2. Image `ghcr.io/myorg/myimage:v1` → Matched `ghcr.io/*` → Registry `ghcr`
-3. Image `nginx:latest` → Kein Match → Default Registry (falls vorhanden) oder Docker Hub public
+1. Image `amssolution/identityaccess:latest` → Matches `amssolution/*` → Registry `dockerhub-ams`
+2. Image `ghcr.io/myorg/myimage:v1` → Matches `ghcr.io/*` → Registry `ghcr`
+3. Image `nginx:latest` → No match → Default registry (if available) or Docker Hub public
 
-## Geplant: Registry Management UI (v0.8)
+## Planned: Registry Management UI (v0.8)
 
-Eine Web-Oberfläche zur Verwaltung von Registries:
+A web interface for managing registries:
 
 - **Settings → Registries**
-  - Liste aller konfigurierten Registries
-  - Hinzufügen/Bearbeiten/Löschen
-  - Test-Button zum Prüfen der Credentials
-  - Default-Registry festlegen
+  - List of all configured registries
+  - Add/Edit/Delete
+  - Test button to verify credentials
+  - Set default registry
 
-## Sicherheitshinweise
+## Security Notes
 
-- Passwörter werden Base64-encoded gespeichert (nicht verschlüsselt)
-- Die Konfigurationsdatei sollte nur für den ReadyStackGo-Prozess lesbar sein
-- Verwende `:ro` für read-only Mounts
-- Für höhere Sicherheit: Environment-Variablen oder Secret Management verwenden (geplant für spätere Versionen)
+- Passwords are stored Base64-encoded (not encrypted)
+- The configuration file should only be readable by the ReadyStackGo process
+- Use `:ro` for read-only mounts
+- For higher security: use environment variables or secret management (planned for future versions)
 
 ## Troubleshooting
 
-### "pull access denied" Fehler
+### "pull access denied" Error
 
 ```
 Failed to pull image 'amssolution/myimage:latest' and no local copy exists.
 Error: pull access denied for amssolution/myimage, repository does not exist or may require 'docker login'
 ```
 
-**Ursachen:**
-1. Keine Registry-Credentials konfiguriert
-2. Falsche Credentials
-3. Image existiert nicht in der Registry
-4. Docker-Config nicht korrekt gemountet
+**Causes:**
+1. No registry credentials configured
+2. Wrong credentials
+3. Image doesn't exist in the registry
+4. Docker config not correctly mounted
 
-**Lösungen:**
-1. `docker login` auf dem Host ausführen
-2. Docker-Config korrekt mounten (siehe oben)
-3. Image-Namen prüfen
-4. Logs prüfen für Details zur Credential-Suche
+**Solutions:**
+1. Run `docker login` on the host
+2. Mount Docker config correctly (see above)
+3. Verify image name
+4. Check logs for credential search details
 
-### Docker Config wird nicht gefunden
+### Docker Config Not Found
 
-Wenn ReadyStackGo die Docker-Config nicht findet, prüfe die Logs:
+If ReadyStackGo can't find the Docker config, check the logs:
 
 ```
 Looking for credentials for image amssolution/myimage, registry: https://index.docker.io/v1/
@@ -192,14 +192,14 @@ Docker config path: /root/.docker/config.json
 Docker config file not found at /root/.docker/config.json
 ```
 
-**Lösungen:**
-1. Volume-Mount hinzufügen: `~/.docker/config.json:/root/.docker/config.json:ro`
-2. Prüfen ob `~/.docker/config.json` auf dem Host existiert
-3. `DOCKER__CONFIGPATH` Environment Variable setzen
+**Solutions:**
+1. Add volume mount: `~/.docker/config.json:/root/.docker/config.json:ro`
+2. Verify `~/.docker/config.json` exists on host
+3. Set `DOCKER__CONFIGPATH` environment variable
 
-### Credentials werden nicht erkannt
+### Credentials Not Recognized
 
-Wenn die Config gefunden aber keine Credentials erkannt werden:
+If the config is found but no credentials are recognized:
 
 ```
 Available registries in config: https://index.docker.io/v1/
@@ -207,14 +207,14 @@ Found credentials for registry https://index.docker.io/v1/
 Using credentials for user myuser
 ```
 
-Falls diese Zeilen **nicht** erscheinen:
-1. Prüfen ob der Registry-Key in der config.json korrekt ist
-2. Docker Hub verwendet `https://index.docker.io/v1/` als Key
-3. Andere Registries verwenden ihre Domain (z.B. `ghcr.io`)
+If these lines **don't** appear:
+1. Verify the registry key in config.json is correct
+2. Docker Hub uses `https://index.docker.io/v1/` as key
+3. Other registries use their domain (e.g., `ghcr.io`)
 
-### Debug-Logging aktivieren
+### Enable Debug Logging
 
-Für detaillierte Logs setze das Log-Level auf Debug:
+For detailed logs, set the log level to Debug:
 
 ```yaml
 environment:

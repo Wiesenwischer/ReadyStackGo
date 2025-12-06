@@ -1,16 +1,16 @@
 # Container Lifecycle
 
-Dieses Dokument beschreibt den Lebenszyklus eines Kontext-Containers unter ReadyStackGo.
+This document describes the lifecycle of a context container under ReadyStackGo.
 
-## Schritte
+## Steps
 
-1. Manifest weist Version zu
-2. DeploymentPlan erzeugt Aktionen
-3. Container wird ggf. gestoppt
-4. Container wird entfernt
-5. Container wird neu erstellt (mit aktueller Version)
-6. Container wird gestartet
-7. Optionaler Healthcheck
+1. Manifest assigns version
+2. DeploymentPlan generates actions
+3. Container is stopped (if needed)
+4. Container is removed
+5. Container is recreated (with current version)
+6. Container is started
+7. Optional healthcheck
 
 ---
 

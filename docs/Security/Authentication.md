@@ -1,5 +1,5 @@
-# Authentifizierung
+# Authentication
 
-Dokumentation zur Authentifizierung folgt.
+Documentation for authentication coming soon.
 
-Siehe auch: [Security Overview](Overview.md)
+See also: [Security Overview](Overview.md)

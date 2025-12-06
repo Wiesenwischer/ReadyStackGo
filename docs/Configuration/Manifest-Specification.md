@@ -1,25 +1,25 @@
 # Manifest Specification
 
-Das Manifest beschreibt den gesamten Zielzustand eines Stacks.
+The manifest describes the complete target state of a stack.
 
-## Inhalt
-1. Ziele
-2. Struktur
+## Contents
+1. Goals
+2. Structure
 3. JSON Schema
-4. Beispiele
+4. Examples
 5. Best Practices
 
 ---
 
-## 1. Ziele
+## 1. Goals
 
-- Vollständige, deklarative Beschreibung eines Releases
-- Eindeutige Versionierung (`stackVersion`)
-- Klare Zuordnung Kontexte → Images/Tags
+- Complete, declarative description of a release
+- Unique versioning (`stackVersion`)
+- Clear mapping contexts → Images/Tags
 
 ---
 
-## 2. Struktur (vereinfacht)
+## 2. Structure (simplified)
 
 ```json
 {
@@ -37,12 +37,12 @@ Das Manifest beschreibt den gesamten Zielzustand eines Stacks.
 
 ## 3. JSON Schema
 
-Siehe technische Spezifikation (Kapitel Manifest-Schema).  
-Dieses Dokument referenziert das gleiche Schema.
+See technical specification (chapter Manifest Schema).
+This document references the same schema.
 
 ---
 
-## 4. Beispiel
+## 4. Example
 
 ```json
 {
@@ -62,6 +62,6 @@ Dieses Dokument referenziert das gleiche Schema.
 
 ## 5. Best Practices
 
-- SemVer strikt einhalten
-- Für Pre-Releases Suffixe wie `-alpha`, `-beta`, `-rc` nutzen
-- Kontextnamen stabil halten
+- Strictly follow SemVer
+- Use suffixes like `-alpha`, `-beta`, `-rc` for pre-releases
+- Keep context names stable

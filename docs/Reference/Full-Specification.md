@@ -1,75 +1,75 @@
 
-# ReadyStackGo – Gesamtspezifikation
+# ReadyStackGo – Complete Specification
 
-## Inhaltsverzeichnis
-1. Einleitung  
-2. Ziele  
-3. Systemübersicht  
-4. Architektur  
-5. Komponenten  
-6. Konfigurationsmodell  
-7. Setup-Wizard  
-8. Deployment-Pipeline  
-9. Release-Management  
-10. Feature Flags  
-11. Sicherheit  
+## Table of Contents
+1. Introduction
+2. Goals
+3. System Overview
+4. Architecture
+5. Components
+6. Configuration Model
+7. Setup Wizard
+8. Deployment Pipeline
+9. Release Management
+10. Feature Flags
+11. Security
 12. Roadmap
 
 ---
 
-# 1. Einleitung
+# 1. Introduction
 
-ReadyStackGo ist ein selbst gehostetes Deployment- und Administrationssystem für containerisierte Software-Stacks. Ziel ist es, On-Premise-Kunden, Partnern und internen Teams eine einfache Installation, Wartung und Aktualisierung komplexer Microservice-Systeme zu ermöglichen, ohne dass diese direkt mit Docker Compose, Kubernetes oder manuellen Deployment-Skripten interagieren müssen.
+ReadyStackGo is a self-hosted deployment and administration system for containerized software stacks. The goal is to enable on-premise customers, partners, and internal teams to easily install, maintain, and update complex microservice systems without having to interact directly with Docker Compose, Kubernetes, or manual deployment scripts.
 
-Der Kern von ReadyStackGo ist ein **einziger Admin-Container**, der:
-- eine Web-UI bereitstellt,
-- einen Setup-Wizard enthält,
-- TLS automatisch bootstrapped,
-- Release-Manifeste verarbeitet,
-- Container-Stacks installiert und aktualisiert,
-- Konfiguration versioniert verwaltet,
-- und später Multi-Node-Deployments unterstützen kann.
+The core of ReadyStackGo is a **single Admin container** that:
+- provides a web UI,
+- contains a setup wizard,
+- automatically bootstraps TLS,
+- processes release manifests,
+- installs and updates container stacks,
+- manages configuration in a versioned manner,
+- and can later support multi-node deployments.
 
-ReadyStackGo ist vollständig offline-fähig und benötigt nur:
-- Docker auf dem Host,
-- den Zugriff auf den Docker Socket.
+ReadyStackGo is fully offline-capable and only requires:
+- Docker on the host,
+- access to the Docker Socket.
 
-Dies macht das System ideal für:
-- On-Premise-Betrieb
-- isolierte Kundennetzwerke
-- Edge-Installationen
-- interne Entwicklungs-Stacks
+This makes the system ideal for:
+- On-premise operation
+- Isolated customer networks
+- Edge installations
+- Internal development stacks
 
 
-# 2. Ziele
+# 2. Goals
 
-ReadyStackGo soll eine vollständig integrierte, leicht zu bedienende und robuste Managementplattform darstellen.  
-Die wichtigsten Ziele sind:
+ReadyStackGo is intended to be a fully integrated, easy-to-use, and robust management platform.
+The main goals are:
 
-## 2.1 Primäre Ziele
-1. **Ein einzelner Admin-Container** verwaltet den gesamten Stack.  
-2. **Setup-Wizard**, der Installationen für Kunden extrem vereinfacht.  
-3. **TLS-Automatisierung** (Self-Signed + später Custom-Zertifikate).  
-4. **Manifest-basierte Installation & Updates** für ganze Stacks.  
-5. **Zentrale Konfiguration** über rsgo-config (Volume).  
-6. **Feature Flags** für kunden- oder organisationsspezifische Aktivierungen.  
-7. **Offline-Betrieb**: Keine Cloud-Anbindung notwendig.  
-8. **Erweiterbarkeit**: BFFs, APIs, Business-Kontexte, Gateways.  
+## 2.1 Primary Goals
+1. **A single Admin container** manages the entire stack.
+2. **Setup Wizard** that makes installations extremely simple for customers.
+3. **TLS Automation** (Self-Signed + later Custom Certificates).
+4. **Manifest-based Installation & Updates** for entire stacks.
+5. **Central Configuration** via rsgo-config (Volume).
+6. **Feature Flags** for customer- or organization-specific activations.
+7. **Offline Operation**: No cloud connection required.
+8. **Extensibility**: BFFs, APIs, Business Contexts, Gateways.
 
-## 2.2 Nicht-Ziele (für die ersten Releases)
-- Kein Kubernetes.  
-- Kein Fokus auf Multi-Tenancy SaaS (stattdessen Organisation).  
-- Kein Setup von externen Datenbanken.  
-- Kein automatisches Clustering.  
-- Keine dynamische Container-Orchestrierung wie Swarm/K8s.
+## 2.2 Non-Goals (for initial releases)
+- No Kubernetes.
+- No focus on Multi-Tenancy SaaS (Organization instead).
+- No setup of external databases.
+- No automatic clustering.
+- No dynamic container orchestration like Swarm/K8s.
 
 ---
 
-# 3. Systemübersicht
+# 3. System Overview
 
-ReadyStackGo besteht aus drei Schichten:
+ReadyStackGo consists of three layers:
 
-1. **Admin-Container (ReadyStackGo selbst)**
+1. **Admin Container (ReadyStackGo itself)**
    - UI
    - Wizard
    - TLS Management
@@ -77,44 +77,44 @@ ReadyStackGo besteht aus drei Schichten:
    - Deployment Engine
    - Config Store
 
-2. **Gateway / BFF-Schicht**
+2. **Gateway / BFF Layer**
    - BFF Desktop
    - BFF Web
    - Public API Gateway
 
-3. **Fachliche Kontexte (AMS Microservices)**
+3. **Business Contexts (AMS Microservices)**
    - Project
    - Memo
    - Discussion
    - Identity
    - etc.
 
-Alle Systeme sind als Docker-Container definiert und werden durch Manifeste spezifiziert.
+All systems are defined as Docker containers and specified through manifests.
 
 ---
 
-# 4. Architektur
+# 4. Architecture
 
-## 4.1 Schichtenmodell (Clean Architecture)
+## 4.1 Layer Model (Clean Architecture)
 
-- **API-Schicht**
+- **API Layer**
   - Endpoints (FastEndpoints)
-  - Authentifizierung / Rollen
+  - Authentication / Roles
   - Input/Output DTOs
 
 - **Application**
   - Dispatcher
   - Commands & Queries
-  - Orchestrierung / Policies
+  - Orchestration / Policies
 
 - **Domain**
-  - Reine Geschäftsobjekte
+  - Pure Business Objects
   - Value Objects
   - Policies
 
 - **Infrastructure**
-  - Docker-Service
-  - TLS-Service
+  - Docker Service
+  - TLS Service
   - ConfigStore
   - ManifestProvider
 
@@ -125,44 +125,44 @@ Alle Systeme sind als Docker-Container definiert und werden durch Manifeste spez
 
 
 
-# 5. Komponentenübersicht
+# 5. Component Overview
 
-ReadyStackGo besteht aus mehreren klar getrennten Komponenten, die im Zusammenspiel den gesamten Stack verwalten.  
-Jede Komponente ist austauschbar, testbar und erweiterbar.
+ReadyStackGo consists of several clearly separated components that work together to manage the entire stack.
+Each component is replaceable, testable, and extensible.
 
-## 5.1 ReadyStackGo Admin (zentraler Container)
+## 5.1 ReadyStackGo Admin (Central Container)
 
-Der Admin-Container stellt bereit:
+The Admin container provides:
 
 - Web UI (React + TailAdmin)
 - API (FastEndpoints)
 - Setup Wizard
-- TLS Handling (Bootstrap & Verwaltung)
-- Manifest-Verwaltung
+- TLS Handling (Bootstrap & Management)
+- Manifest Management
 - Deployment Engine
 - Config Store
-- Logs & Statusabfragen
+- Logs & Status Queries
 
-Der Admin-Container ist der **einzige Container**, den ein Kunde manuell starten muss.
+The Admin container is the **only container** that a customer needs to start manually.
 
 ---
 
-## 5.2 Gateway-Schicht
+## 5.2 Gateway Layer
 
-Der Manifest-Stack kann beliebig viele Gateways enthalten, typischerweise:
+The manifest stack can contain any number of gateways, typically:
 
-- **Edge Gateway** (TLS-Termination, Reverse Proxy)
+- **Edge Gateway** (TLS Termination, Reverse Proxy)
 - **Public API Gateway**
 - **BFF Desktop**
 - **BFF Web**
 
-Diese Gateways werden immer **zuletzt** deployed, um sicherzustellen, dass die darunterliegenden Dienste bereits laufen.
+These gateways are always deployed **last** to ensure that the underlying services are already running.
 
 ---
 
-## 5.3 Fachliche Kontexte (Microservices)
+## 5.3 Business Contexts (Microservices)
 
-Beispiele:
+Examples:
 
 - Project
 - Memo
@@ -171,23 +171,23 @@ Beispiele:
 - Notification
 - Search
 - Files
-- u.a.
+- etc.
 
-Jeder Kontext:
+Each context:
 
-- ist ein Container,
-- nutzt den gleichen Stack-Lebenszyklus,
-- besitzt eigene Versionen,
-- kann Verbindungen (DB/Eventstore/Transport) haben,
-- wird in den Manifesten definiert.
+- is a container,
+- uses the same stack lifecycle,
+- has its own versions,
+- can have connections (DB/Eventstore/Transport),
+- is defined in the manifests.
 
 ---
 
-## 5.4 Konfigurationskomponenten
+## 5.4 Configuration Components
 
 ### 5.4.1 Config Store (rsgo-config Volume)
 
-Darin liegen alle persistenten Daten:
+Contains all persistent data:
 
 ```
 rsgo.system.json
@@ -202,48 +202,48 @@ tls/<certs>
 
 ### 5.4.2 Manifest Provider
 
-- Lädt Release-Manifeste vom Dateisystem oder später einer Registry.
-- Validiert Versionen und Schema.
+- Loads release manifests from the filesystem or later from a registry.
+- Validates versions and schema.
 
 ### 5.4.3 Deployment Engine
 
-- Erzeugt den Deploymentplan pro Manifest
-- Start/Stop/Remove/Update Container
-- Healthchecks
+- Creates the deployment plan per manifest
+- Start/Stop/Remove/Update containers
+- Health checks
 - Maintains rsgo.release.json
 
 ### 5.4.4 TLS Engine
 
-- Generiert Self-Signed Zertifikat beim Bootstrap
-- Erlaubt späteres Hochladen eigener Zertifikate
+- Generates Self-Signed certificate during bootstrap
+- Allows later uploading of custom certificates
 
 ---
 
-# 6. Konfigurationsmodell (Detail)
+# 6. Configuration Model (Detail)
 
-Die gesamte Konfiguration wird klar strukturiert.
+The entire configuration is clearly structured.
 
 ## 6.1 rsgo.system.json
 
-Speichert:
+Stores:
 
-- Organisation
+- Organization
 - Ports
 - Base URL
-- Docker Netzwerkname
-- Wizard-Status
-- Deployment-Modus
-- Node-Konfiguration (Single Node vorerst)
+- Docker network name
+- Wizard status
+- Deployment mode
+- Node configuration (Single Node for now)
 
-### Beispiel
+### Example
 
 ```json
 {
   "organization": {
-    "id": "kunde-a",
-    "name": "Kunde A"
+    "id": "customer-a",
+    "name": "Customer A"
   },
-  "baseUrl": "https://ams.kunde-a.de",
+  "baseUrl": "https://ams.customer-a.com",
   "httpPort": 8080,
   "httpsPort": 8443,
   "dockerNetwork": "rsgo-net",
@@ -256,21 +256,21 @@ Speichert:
 
 ## 6.2 rsgo.security.json
 
-Speichert:
+Stores:
 
-- Lokalen Admin (Passwort gehasht, salted)
-- Rollenmodell (Admin/Operator)
-- Optional externe Identity Provider Konfiguration (OIDC)
+- Local Admin (Password hashed, salted)
+- Role model (Admin/Operator)
+- Optional external Identity Provider configuration (OIDC)
 - Local Admin fallback toggle
 
 ---
 
 ## 6.3 rsgo.tls.json
 
-Definiert:
+Defines:
 
-- tlsMode: SelfSigned oder Custom
-- Zertifikatspfad
+- tlsMode: SelfSigned or Custom
+- Certificate path
 - Port
 - httpEnabled
 - terminatingContext
@@ -279,7 +279,7 @@ Definiert:
 
 ## 6.4 rsgo.contexts.json
 
-Für Simple und Advanced Mode:
+For Simple and Advanced Mode:
 
 ### Simple Mode
 
@@ -324,17 +324,17 @@ Für Simple und Advanced Mode:
 
 ## 6.5 rsgo.features.json
 
-Globale Feature-Flags:
+Global Feature Flags:
 
-- Kontextübergreifend
+- Cross-context
 - True/False Values
-- Werden als `RSGO_FEATURE_*` an Container übergeben
+- Passed to containers as `RSGO_FEATURE_*`
 
 ---
 
 ## 6.6 rsgo.release.json
 
-Speichert den Zustand nach Deployment:
+Stores the state after deployment:
 
 ```json
 {
@@ -351,12 +351,12 @@ Speichert den Zustand nach Deployment:
 
 
 
-# 7. Setup-Wizard (Detail)
+# 7. Setup Wizard (Detail)
 
-Der Setup-Wizard ist bewusst kompakt gehalten und führt einen neuen Benutzer durch die minimal notwendigen Einrichtungsschritte.  
-Alle fortgeschrittenen Features können später in der Admin-UI angepasst werden.
+The Setup Wizard is intentionally kept compact and guides a new user through the minimally necessary setup steps.
+All advanced features can be adjusted later in the Admin UI.
 
-Der Wizard ist nur aktiv, wenn:
+The Wizard is only active when:
 
 ```
 rsgo.system.json.wizardState != "Installed"
@@ -364,47 +364,47 @@ rsgo.system.json.wizardState != "Installed"
 
 ---
 
-## 7.1 Ablaufübersicht
+## 7.1 Flow Overview
 
-1. **Admin anlegen**
-2. **Organisation anlegen**
-3. **Verbindungen setzen (Simple Mode)**
-4. **Zusammenfassung**
-5. **Stack installieren**
-6. Wizard sperrt sich → Login wird aktiv
+1. **Create Admin**
+2. **Create Organization**
+3. **Set Connections (Simple Mode)**
+4. **Summary**
+5. **Install Stack**
+6. Wizard locks itself → Login becomes active
 
 ---
 
-## 7.2 Schritt 1 – Admin
+## 7.2 Step 1 – Admin
 
-Benutzer gibt ein:
+User enters:
 
-- Username  
-- Passwort  
+- Username
+- Password
 
-Die API speichert:
+The API stores:
 
-- Passwort gehasht
-- Salt generiert
-- Rolle: admin
+- Password hashed
+- Salt generated
+- Role: admin
 - wizardState = "AdminCreated"
 
-Speicherung in `rsgo.security.json`.
+Storage in `rsgo.security.json`.
 
 ---
 
-## 7.3 Schritt 2 – Organisation
+## 7.3 Step 2 – Organization
 
-Daten:
+Data:
 
-- ID (technisch)
-- Name (Anzeige)
+- ID (technical)
+- Name (display)
 
-Speichert in `rsgo.system.json`:
+Stores in `rsgo.system.json`:
 
 ```json
 {
-  "organization": { "id": "kunde-a", "name": "Kunde A GmbH" }
+  "organization": { "id": "customer-a", "name": "Customer A GmbH" }
 }
 ```
 
@@ -412,15 +412,15 @@ wizardState = "OrganizationSet".
 
 ---
 
-## 7.4 Schritt 3 – Verbindungen (Simple Mode)
+## 7.4 Step 3 – Connections (Simple Mode)
 
-Der Benutzer trägt ein:
+User enters:
 
-- Transport Connection String  
-- Persistence Connection String  
+- Transport Connection String
+- Persistence Connection String
 - EventStore Connection String (optional)
 
-rsgo erzeugt:
+rsgo creates:
 
 ```json
 "mode": "Simple",
@@ -431,114 +431,114 @@ wizardState = "ConnectionsSet".
 
 ---
 
-## 7.5 Schritt 4 – Zusammenfassung
+## 7.5 Step 4 – Summary
 
-Der Wizard zeigt:
+The Wizard shows:
 
-- Organisation
-- Verbindungen
-- Vorgeschlagenes Manifest (z. B. aktuellste Version)
-- Alle Kontexte
-
----
-
-## 7.6 Schritt 5 – Installation
-
-Die API:
-
-1. liest das Manifest  
-2. erzeugt den Deploymentplan  
-3. stoppt alte Container (falls vorhanden)  
-4. erzeugt/stattet Container  
-5. schreibt `rsgo.release.json`  
-6. setzt wizardState = "Installed"  
-
-Nach diesem Schritt ist der Wizard deaktiviert.
+- Organization
+- Connections
+- Suggested Manifest (e.g., latest version)
+- All Contexts
 
 ---
 
-# 8. Deployment-Pipeline (Detail)
+## 7.6 Step 5 – Installation
 
-Der Deploymentprozess ist das Herzstück von ReadyStackGo.
+The API:
 
-## 8.1 Schritte im Überblick
+1. reads the manifest
+2. creates the deployment plan
+3. stops old containers (if present)
+4. creates/starts containers
+5. writes `rsgo.release.json`
+6. sets wizardState = "Installed"
 
-1. Manifest laden  
-2. Configs laden (`rsgo.system.json`, `rsgo.contexts.json`, `rsgo.features.json`)  
-3. EnvVars generieren  
-4. Docker-Netzwerk sicherstellen (`rsgo-net`)  
-5. Kontextweise Deployment ausführen  
-6. Gateway zuletzt deployen  
-7. Release-Status speichern  
+After this step, the Wizard is deactivated.
 
 ---
 
-## 8.2 EnvVar Generierung
+# 8. Deployment Pipeline (Detail)
 
-Folgende EnvVars werden erzeugt:
+The deployment process is the heart of ReadyStackGo.
 
-### 1. System  
+## 8.1 Steps Overview
+
+1. Load Manifest
+2. Load Configs (`rsgo.system.json`, `rsgo.contexts.json`, `rsgo.features.json`)
+3. Generate EnvVars
+4. Ensure Docker Network (`rsgo-net`)
+5. Execute Context-wise Deployment
+6. Deploy Gateway last
+7. Save Release Status
+
+---
+
+## 8.2 EnvVar Generation
+
+The following EnvVars are generated:
+
+### 1. System
 - `RSGO_ORG_ID`
 - `RSGO_ORG_NAME`
 - `RSGO_STACK_VERSION`
 
-### 2. Feature-Flags  
+### 2. Feature Flags
 - `RSGO_FEATURE_<name>=true/false`
 
-### 3. Verbindungen  
-Je nach Simple/Advanced Mode:
+### 3. Connections
+Depending on Simple/Advanced Mode:
 
 - `RSGO_CONNECTION_transport`
 - `RSGO_CONNECTION_persistence`
 - `RSGO_CONNECTION_eventStore`
 
-### 4. Manifest-spezifische Variablen  
-z. B.:
+### 4. Manifest-specific Variables
+e.g.:
 
 - `ROUTE_DESKTOP=http://ams-bff-desktop`
 - `ROUTE_PUBLIC_API=http://ams-public-api`
 
 ---
 
-## 8.3 Container Deployment Reihenfolge
+## 8.3 Container Deployment Order
 
-Für jede Manifest-Definition:
+For each manifest definition:
 
-1. **Stop & Remove** (falls Container existiert)
-2. **Create & Start** mit:
+1. **Stop & Remove** (if container exists)
+2. **Create & Start** with:
    - Image
    - EnvVars
    - Ports
    - Network
    - Name
-3. **Healthcheck** (optional)
-4. Gateway **zuletzt** deployen
+3. **Health check** (optional)
+4. Deploy Gateway **last**
 
 ---
 
-## 8.4 Fehler- und Rollbackstrategie
+## 8.4 Error and Rollback Strategy
 
-### Bei Fehler während des Deployments:
+### On Error During Deployment:
 
-- Fehler wird protokolliert
-- weiterer Deploymentprozess stoppt
-- Benutzer erhält:
-  - Fehlercode  
-  - Fehlerbeschreibung  
-- rsgo.release.json wird NICHT aktualisiert
+- Error is logged
+- Further deployment process stops
+- User receives:
+  - Error code
+  - Error description
+- rsgo.release.json is NOT updated
 
-Rollback V1 (einfach):
+Rollback V1 (simple):
 
-- vorherige Container bleiben unangetastet  
-- Benutzer kann über die UI:
-  - Deployment wiederholen  
-  - ältere Release-Version installieren  
+- Previous containers remain untouched
+- User can via the UI:
+  - Retry deployment
+  - Install older release version
 
 ---
 
-## 8.5 rsgo.release.json Aktualisierung
+## 8.5 rsgo.release.json Update
 
-Beispiel nach Deployment:
+Example after deployment:
 
 ```json
 {
@@ -556,20 +556,20 @@ Beispiel nach Deployment:
 
 # 9. Release Management
 
-## 9.1 Manifest-Dateien
+## 9.1 Manifest Files
 
-Ein Manifest definiert:
+A manifest defines:
 
-- Stack-Version
-- Kontext-Versionen
-- Kontextspezifische EnvVars
-- Gateway-Konfiguration
-- Feature-Defaults
-- Abhängigkeiten
+- Stack version
+- Context versions
+- Context-specific EnvVars
+- Gateway configuration
+- Feature defaults
+- Dependencies
 
 ---
 
-## 9.2 Beispielmanifest (ausführlich)
+## 9.2 Example Manifest (detailed)
 
 ```json
 {
@@ -610,26 +610,26 @@ Ein Manifest definiert:
 
 ## 9.3 Release Lifecycle
 
-1. **CI erzeugt neues Manifest**
-2. **ReadyStackGo lädt Manifest**
-3. **Admin wählt Manifest aus**
-4. **Deployment Engine führt Installation**
-5. **Release gespeichert**
+1. **CI creates new Manifest**
+2. **ReadyStackGo loads Manifest**
+3. **Admin selects Manifest**
+4. **Deployment Engine executes installation**
+5. **Release saved**
 
 
 
 # 10. Feature Flags
 
-Feature Flags erlauben, fachliche Funktionalitäten dynamisch ein- oder auszuschalten – kontextübergreifend und zentral gesteuert.
+Feature Flags allow dynamically enabling or disabling business functionality – cross-context and centrally controlled.
 
-## 10.1 Eigenschaften
-- Global gültig (nicht auf einen Kontext beschränkt).
-- Werden als Environment Variablen an jeden Container übergeben.
-- Können später pro Organisation erweitert werden.
-- Werden in `rsgo.features.json` gespeichert.
-- Können später auch im Manifest Vorbelegungen haben.
+## 10.1 Properties
+- Globally valid (not limited to one context).
+- Passed as Environment Variables to every container.
+- Can be extended per organization later.
+- Stored in `rsgo.features.json`.
+- Can later have default values in the manifest.
 
-## 10.2 Beispiel `rsgo.features.json`
+## 10.2 Example `rsgo.features.json`
 
 ```json
 {
@@ -639,16 +639,16 @@ Feature Flags erlauben, fachliche Funktionalitäten dynamisch ein- oder auszusch
 }
 ```
 
--> Container erhalten:
+-> Containers receive:
 ```
 RSGO_FEATURE_newColorTheme=true
 RSGO_FEATURE_discussionV2=false
 RSGO_FEATURE_memoRichEditor=true
 ```
 
-## 10.3 Feature Flags im Manifest
+## 10.3 Feature Flags in Manifest
 
-Kontexte können im Manifest Standardwerte definieren:
+Contexts can define default values in the manifest:
 
 ```json
 "features": {
@@ -657,150 +657,150 @@ Kontexte können im Manifest Standardwerte definieren:
 }
 ```
 
-Diese Werte können später vom Admin überschrieben werden.
+These values can be overridden by the admin later.
 
-## 10.4 UI (Admin-Bereich)
+## 10.4 UI (Admin Area)
 
-Die Administration sieht eine Liste aller Features:
+The administration sees a list of all features:
 
-| Feature Name       | Aktiv | Beschreibung |
-|--------------------|-------|--------------|
-| newColorTheme      | ✔️    | Neues UI-Theme |
-| discussionV2       | ❌    | Neue Diskussion-API |
+| Feature Name       | Active | Description |
+|--------------------|--------|-------------|
+| newColorTheme      | ✔️    | New UI Theme |
+| discussionV2       | ❌    | New Discussion API |
 | memoRichEditor     | ✔️    | Rich Text Editor |
 
-Jede Änderung wird in `rsgo.features.json` gespeichert.
+Each change is saved in `rsgo.features.json`.
 
 ---
 
-# 11. Sicherheit
+# 11. Security
 
-ReadyStackGo muss sowohl für On-Premise als auch produktive Umgebungen robust und sicher sein.
+ReadyStackGo must be robust and secure for both on-premise and production environments.
 
-## 11.1 Authentifizierungsmodi
+## 11.1 Authentication Modes
 
 1. **Local Authentication**
    - Default
-   - Benutzername + Passwort
-   - Speichert Passwort als Hash + Salt
+   - Username + Password
+   - Stores password as Hash + Salt
 
-2. **Externer Identity Provider (OIDC)**
+2. **External Identity Provider (OIDC)**
    - Keycloak
    - ams.identity
-   - Azure AD (später)
-   - Rollen über Claims
+   - Azure AD (later)
+   - Roles via Claims
 
-3. **Lokaler Admin Fallback**
-   - Aktiv oder deaktivierbar
-   - Garantiert Login auch bei IdP-Ausfall
+3. **Local Admin Fallback**
+   - Active or deactivatable
+   - Guarantees login even if IdP fails
 
 ---
 
-## 11.2 Autorisierung / Rollen
+## 11.2 Authorization / Roles
 
-### Rollen
+### Roles
 
 - **admin**
-  - Kann Deployments durchführen
-  - Kann Konfiguration ändern
-  - Kann TLS managen
-  - Kann Feature Flags anpassen
+  - Can perform deployments
+  - Can change configuration
+  - Can manage TLS
+  - Can adjust Feature Flags
 
 - **operator**
-  - Kann nur Container starten/stoppen
-  - Kann Logs einsehen
+  - Can only start/stop containers
+  - Can view logs
 
-### Rollenquelle
+### Role Source
 
-- Bei Local Auth:
-  - Rollen in `rsgo.security.json`
+- With Local Auth:
+  - Roles in `rsgo.security.json`
 
-- Bei OIDC:
-  - Aus Claim (z. B. `"role" : "rsgo-admin"`)
+- With OIDC:
+  - From Claim (e.g., `"role" : "rsgo-admin"`)
 
 ---
 
-## 11.3 Passwortsicherheit
+## 11.3 Password Security
 
-- Passwort-Hashing via PBKDF2 oder Argon2
-- Passwort-Salt wird pro Benutzer generiert
-- Keine Speicherung von Klartextpasswörtern
+- Password hashing via PBKDF2 or Argon2
+- Password salt generated per user
+- No plaintext password storage
 
 ---
 
 ## 11.4 TLS / HTTPS
 
 ### Bootstrap
-- Erststart generiert Self-Signed Zertifikat
-- Zertifikat wird unter `/app/config/tls/` gespeichert
+- First start generates Self-Signed Certificate
+- Certificate stored under `/app/config/tls/`
 
-### Custom Zertifikat
-- Admin-UI erlaubt Upload eines PFX
-- Speicherung in `rsgo.tls.json`
+### Custom Certificate
+- Admin UI allows PFX upload
+- Storage in `rsgo.tls.json`
 
-### TLS-Termination
-- Erfolgt im **Gateway**, nicht im Admin-Container selbst
-- Vorteil: Container-intern kann HTTP verwendet werden
+### TLS Termination
+- Occurs in the **Gateway**, not in the Admin container itself
+- Advantage: HTTP can be used internally between containers
 
 ---
 
 ## 11.5 API Security
 
-- JWT oder Cookie-Token
-- Anti-CSRF (bei Cookies)
-- Rate Limiting (optional später)
+- JWT or Cookie Token
+- Anti-CSRF (with Cookies)
+- Rate Limiting (optional later)
 - Secure Headers, HSTS
 
 ---
 
-# 12. Roadmap (detailliert)
+# 12. Roadmap (detailed)
 
-Diese Roadmap umfasst nur die Hauptlinien, Module können parallel entwickelt werden.
+This roadmap covers only the main lines; modules can be developed in parallel.
 
 ## 12.1 Version v0.1 – Container Management MVP
 
 - API: List, Start, Stop
-- DockerService Basis
-- UI: Container Übersicht
-- Kein Login
-- Kein Wizard
+- DockerService Base
+- UI: Container Overview
+- No Login
+- No Wizard
 
 ## 12.2 Version v0.2 – Local Admin & Hardcoded Stack
 
 - Login/Logout
-- Lokale Authentifizierung
-- Rechteverwaltung
+- Local Authentication
+- Rights Management
 - Dashboard
-- Hardcoded Stack-Deployment
+- Hardcoded Stack Deployment
 
 ## 12.3 Version v0.3 – Bootstrap, Wizard, TLS
 
 - Self-Signed TLS
-- Wizard mit 4 Schritten
-- Erste Manifest-Ladung
-- Basis-Deployment Engine
+- Wizard with 4 steps
+- First Manifest Loading
+- Basic Deployment Engine
 
 ## 12.4 Version v0.4 – Release Management
 
-- Manifest-Verwaltung
-- Versionierung
+- Manifest Management
+- Versioning
 - Update/Upgrade Flow
-- Release-Statusanzeige
+- Release Status Display
 
-## 12.5 Version v0.5 – Admin Komfort
+## 12.5 Version v0.5 – Admin Comfort
 
 - TLS Upload
 - Feature Flags UI
 - Advanced Connections
-- Node-Konfiguration (Single Node)
+- Node Configuration (Single Node)
 
-## 12.6 Version v1.0 – Multi Node (Clusterfähig)
+## 12.6 Version v1.0 – Multi Node (Cluster-capable)
 
-- rsgo.nodes.json aktiv nutzen
-- Pro Node: Rollen (Gateway Node, Compute Node)
-- Node-Discovery
+- Actively use rsgo.nodes.json
+- Per Node: Roles (Gateway Node, Compute Node)
+- Node Discovery
 - Remote Docker Hosts
 
 ---
 
-# → Ende der Gesamtspezifikation
+# → End of Complete Specification

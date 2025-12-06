@@ -1,3 +1,3 @@
 # Release Management
 
-Dokumentation zum Release Management folgt.
+Documentation for release management coming soon.

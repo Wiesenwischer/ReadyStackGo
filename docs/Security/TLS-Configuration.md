@@ -1,58 +1,58 @@
 # TLS System Documentation
 
-Dieses Dokument beschreibt das TLS-/Zertifikatssystem von ReadyStackGo.
+This document describes the TLS/certificate system of ReadyStackGo.
 
-## Inhalt
-1. Ziele
-2. TLS-Modi
-3. Bootstrap mit Self-Signed
-4. Custom-Zertifikate
+## Contents
+1. Goals
+2. TLS Modes
+3. Bootstrap with Self-Signed
+4. Custom Certificates
 5. Integration in Gateway
-6. Diagramme
+6. Diagrams
 
 ---
 
-## 1. Ziele
+## 1. Goals
 
-- Sofortige Absicherung mit Self-Signed-Zertifikaten
-- Späterer Austausch gegen Custom-Zertifikate möglich
-- TLS-Terminierung im Gateway
-- Minimale Komplexität für den Betreiber
-
----
-
-## 2. TLS-Modi
-
-- `SelfSigned` – Default beim ersten Start
-- `Custom` – PFX-Upload durch Admin
-
-Definition in `rsgo.tls.json`.
+- Immediate security with self-signed certificates
+- Later replacement with custom certificates possible
+- TLS termination in the gateway
+- Minimal complexity for the operator
 
 ---
 
-## 3. Bootstrap mit Self-Signed
+## 2. TLS Modes
 
-Beim ersten Start:
+- `SelfSigned` – Default on first start
+- `Custom` – PFX upload by admin
 
-1. Prüfen, ob `rsgo.tls.json` existiert  
-2. Falls nicht → Self-Signed-Zertifikat erzeugen  
-3. PFX unter `/app/certs/selfsigned.pfx` ablegen  
-4. `rsgo.tls.json` mit `mode = SelfSigned` schreiben  
+Defined in `rsgo.tls.json`.
 
 ---
 
-## 4. Custom-Zertifikate
+## 3. Bootstrap with Self-Signed
 
-Über Admin-UI:
+On first start:
 
-- Upload einer PFX-Datei
-- Eingabe des Passworts
-- Validierung (Ablaufdatum, Private Key, etc.)
-- Update von `rsgo.tls.json` mit `mode = Custom`
+1. Check if `rsgo.tls.json` exists
+2. If not → Generate self-signed certificate
+3. Store PFX at `/app/certs/selfsigned.pfx`
+4. Write `rsgo.tls.json` with `mode = SelfSigned`
 
 ---
 
-## 5. TLS-Flow Diagramm
+## 4. Custom Certificates
+
+Via Admin UI:
+
+- Upload a PFX file
+- Enter password
+- Validation (expiration date, private key, etc.)
+- Update `rsgo.tls.json` with `mode = Custom`
+
+---
+
+## 5. TLS Flow Diagram
 
 ```mermaid
 sequenceDiagram
@@ -62,15 +62,15 @@ sequenceDiagram
     participant TLS as TLS Engine
     participant GW as edge-gateway
 
-    Admin->>UI: öffnet TLS-Seite
+    Admin->>UI: opens TLS page
     UI->>API: GET /admin/tls
     API-->>UI: tlsMode=SelfSigned
 
-    Admin->>UI: lädt custom.pfx hoch
+    Admin->>UI: uploads custom.pfx
     UI->>API: POST /admin/tls/upload
     API->>TLS: Validate & Install
     TLS-->>API: OK
     API-->>UI: success
 
-    Note over API,GW: nächstes Deployment startet Gateway mit Custom-PFX
+    Note over API,GW: next deployment starts Gateway with Custom PFX
 ```
