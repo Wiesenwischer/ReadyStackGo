@@ -114,5 +114,8 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         // Ignore domain events - they're not persisted
         builder.Ignore(u => u.DomainEvents);
+
+        // Ignore login history - it's in-memory only for rate limiting
+        builder.Ignore(u => u.LoginHistory);
     }
 }

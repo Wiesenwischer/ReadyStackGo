@@ -1,4 +1,5 @@
 using MediatR;
+using ReadyStackGo.Domain.StackManagement.Manifests;
 
 namespace ReadyStackGo.Application.UseCases.Stacks.ListStacks;
 
@@ -22,5 +23,22 @@ public record StackListItem(
 public record StackVariableItem(
     string Name,
     string? DefaultValue,
-    bool IsRequired
+    bool IsRequired,
+    VariableType Type,
+    string? Label,
+    string? Description,
+    string? Placeholder,
+    string? Group,
+    int? Order,
+    string? Pattern,
+    string? PatternError,
+    double? Min,
+    double? Max,
+    List<SelectOptionItem>? Options
+);
+
+public record SelectOptionItem(
+    string Value,
+    string? Label,
+    string? Description
 );

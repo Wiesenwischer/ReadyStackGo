@@ -21,6 +21,7 @@ public sealed class EnvironmentId : ValueObject
     }
 
     public static EnvironmentId Create() => new();
+    public static EnvironmentId NewId() => new();
     public static EnvironmentId FromGuid(Guid value) => new(value);
 
     protected override IEnumerable<object?> GetEqualityComponents()

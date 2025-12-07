@@ -21,6 +21,7 @@ public sealed class OrganizationId : ValueObject
     }
 
     public static OrganizationId Create() => new();
+    public static OrganizationId NewId() => new();
     public static OrganizationId FromGuid(Guid value) => new(value);
 
     protected override IEnumerable<object?> GetEqualityComponents()

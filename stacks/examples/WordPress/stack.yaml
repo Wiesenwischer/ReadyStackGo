@@ -1,0 +1,103 @@
+# WordPress with MySQL - RSGo Manifest Format
+# Production-ready WordPress stack with database backend
+
+metadata:
+  name: WordPress
+  description: Production-ready WordPress stack with database backend
+  productVersion: "6.0.0"
+  category: CMS
+  tags:
+    - wordpress
+    - mysql
+    - cms
+    - blog
+
+variables:
+  WORDPRESS_VERSION:
+    label: WordPress Version
+    description: WordPress Docker image version
+    type: String
+    default: latest
+    group: Versions
+    order: 1
+
+  WORDPRESS_PORT:
+    label: WordPress Port
+    description: Port to access WordPress
+    type: Port
+    default: "8080"
+    group: Network
+    order: 1
+
+  DB_NAME:
+    label: Database Name
+    description: Name of the WordPress database
+    type: String
+    default: wordpress
+    group: Database
+    order: 1
+
+  DB_USER:
+    label: Database User
+    description: MySQL user for WordPress
+    type: String
+    default: wordpress
+    group: Database
+    order: 2
+
+  DB_PASSWORD:
+    label: Database Password
+    description: Password for the WordPress database user
+    type: Password
+    default: changeme
+    required: true
+    group: Database
+    order: 3
+
+  DB_ROOT_PASSWORD:
+    label: MySQL Root Password
+    description: Root password for MySQL server
+    type: Password
+    default: rootchangeme
+    required: true
+    group: Database
+    order: 4
+
+  MYSQL_VERSION:
+    label: MySQL Version
+    description: MySQL Docker image version
+    type: String
+    default: "8.0"
+    group: Versions
+    order: 2
+
+services:
+  wordpress:
+    image: wordpress:${WORDPRESS_VERSION}
+    ports:
+      - "${WORDPRESS_PORT}:80"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: ${DB_USER}
+      WORDPRESS_DB_PASSWORD: ${DB_PASSWORD}
+      WORDPRESS_DB_NAME: ${DB_NAME}
+    volumes:
+      - wordpress_data:/var/www/html
+    dependsOn:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: mysql:${MYSQL_VERSION}
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  wordpress_data: {}
+  db_data: {}

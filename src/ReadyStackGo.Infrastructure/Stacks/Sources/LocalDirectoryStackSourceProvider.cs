@@ -1,28 +1,28 @@
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.StackManagement.StackSources;
-using ReadyStackGo.Domain.StackManagement.StackSources;
-using YamlDotNet.Serialization;
 
 namespace ReadyStackGo.Infrastructure.Stacks.Sources;
 
 /// <summary>
-/// Provider that loads stacks from a local directory
+/// Provider that loads stacks from a local directory.
+/// Only supports RSGo Manifest Format (stack.yaml/stack.yml).
 /// </summary>
-public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
+public class LocalDirectoryStackSourceProvider : IStackSourceProvider
 {
     private readonly ILogger<LocalDirectoryStackSourceProvider> _logger;
-    private readonly IDeserializer _yamlDeserializer;
+    private readonly IRsgoManifestParser _manifestParser;
 
     public string SourceType => "local-directory";
 
-    public LocalDirectoryStackSourceProvider(ILogger<LocalDirectoryStackSourceProvider> logger)
+    public LocalDirectoryStackSourceProvider(
+        ILogger<LocalDirectoryStackSourceProvider> logger,
+        IRsgoManifestParser manifestParser)
     {
         _logger = logger;
-        _yamlDeserializer = new DeserializerBuilder().Build();
+        _manifestParser = manifestParser;
     }
 
     public bool CanHandle(StackSource source)
@@ -78,7 +78,7 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
             return stacks;
         }
 
-        // First, look for folder-based stacks (directories containing docker-compose.yml)
+        // First, look for folder-based stacks (directories containing docker-compose.yml or stack.yaml)
         // Search recursively to support nested folder structures like stacks/ams.project/identityaccess/
         var processedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -89,18 +89,27 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
             {
                 composeFile = Path.Combine(directory, "docker-compose.yaml");
             }
+            // Also support stack.yaml (RSGo Manifest Format)
+            if (!File.Exists(composeFile))
+            {
+                composeFile = Path.Combine(directory, "stack.yaml");
+            }
+            if (!File.Exists(composeFile))
+            {
+                composeFile = Path.Combine(directory, "stack.yml");
+            }
 
             if (File.Exists(composeFile))
             {
                 try
                 {
-                    var stack = await LoadStackFromFolderAsync(directory, composeFile, source.Id.Value, path, cancellationToken);
-                    if (stack != null)
+                    var loadedStacks = await LoadStacksFromFolderAsync(directory, composeFile, source.Id.Value, path, cancellationToken);
+                    foreach (var stack in loadedStacks)
                     {
                         stacks.Add(stack);
-                        processedPaths.Add(directory);
                         _logger.LogDebug("Loaded folder-based stack {StackId} from {Directory}", stack.Id, directory);
                     }
+                    processedPaths.Add(directory);
                 }
                 catch (Exception ex)
                 {
@@ -131,8 +140,8 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
 
             try
             {
-                var stack = await LoadStackFromFileAsync(file, source.Id.Value, path, cancellationToken);
-                if (stack != null)
+                var loadedStacks = await LoadStacksFromFileAsync(file, source.Id.Value, path, cancellationToken);
+                foreach (var stack in loadedStacks)
                 {
                     stacks.Add(stack);
                     _logger.LogDebug("Loaded file-based stack {StackId} from {File}", stack.Id, file);
@@ -149,268 +158,270 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
     }
 
     /// <summary>
-    /// Load a stack from a folder containing docker-compose.yml and optional .env/override files
+    /// Load stacks from a folder containing stack.yaml (RSGo Manifest Format).
+    /// For multi-stack manifests, returns one StackDefinition per sub-stack.
     /// </summary>
-    private async Task<StackDefinition?> LoadStackFromFolderAsync(string folderPath, string composeFile, string sourceId, string basePath, CancellationToken cancellationToken)
+    private async Task<IEnumerable<StackDefinition>> LoadStacksFromFolderAsync(string folderPath, string manifestFile, string sourceId, string basePath, CancellationToken cancellationToken)
     {
-        var yamlContent = await File.ReadAllTextAsync(composeFile, cancellationToken);
+        var yamlContent = await File.ReadAllTextAsync(manifestFile, cancellationToken);
 
         if (string.IsNullOrWhiteSpace(yamlContent))
         {
-            return null;
+            return Enumerable.Empty<StackDefinition>();
         }
 
         // Calculate relative path from base (e.g., "examples" or "ams.project")
         var relativePath = GetRelativePath(folderPath, basePath);
 
         // Stack name is the folder name
-        var stackName = Path.GetFileName(folderPath);
+        var folderName = Path.GetFileName(folderPath);
 
-        // Look for additional files
-        var additionalFiles = new List<string>();
-        var additionalFileContents = new Dictionary<string, string>();
+        // Parse RSGo Manifest from file to resolve includes for multi-stack manifests
+        var manifest = await _manifestParser.ParseFromFileAsync(manifestFile, cancellationToken);
 
-        // Check for docker-compose.override.yml
-        var overrideFile = Path.Combine(folderPath, "docker-compose.override.yml");
-        if (!File.Exists(overrideFile))
+        // Check if this is a multi-stack manifest
+        if (manifest.IsMultiStack && manifest.Stacks != null && manifest.Stacks.Count > 0)
         {
-            overrideFile = Path.Combine(folderPath, "docker-compose.override.yaml");
-        }
-        if (File.Exists(overrideFile))
-        {
-            var overrideContent = await File.ReadAllTextAsync(overrideFile, cancellationToken);
-            additionalFiles.Add(Path.GetFileName(overrideFile));
-            additionalFileContents[Path.GetFileName(overrideFile)] = overrideContent;
-            _logger.LogDebug("Found override file for stack {StackName}", stackName);
+            return CreateStackDefinitionsFromMultiStack(manifest, sourceId, yamlContent, manifestFile, relativePath);
         }
 
-        // Check for .env file and parse default values
-        var envFile = Path.Combine(folderPath, ".env");
-        var envDefaults = new Dictionary<string, string>();
-        if (File.Exists(envFile))
+        // Single-stack manifest - product = stack
+        var variables = await _manifestParser.ExtractVariablesAsync(manifest);
+        var services = ExtractServicesFromManifest(manifest);
+        var stackName = manifest.Metadata?.Name ?? folderName;
+        var description = manifest.Metadata?.Description;
+        var productVersion = manifest.Metadata?.ProductVersion;
+        var version = ComputeHash(yamlContent);
+        var category = manifest.Metadata?.Category;
+        var tags = manifest.Metadata?.Tags;
+
+        _logger.LogDebug("Loaded RSGo manifest {StackName} with {VarCount} variables, {SvcCount} services",
+            folderName, variables.Count, services.Count);
+
+        return new[]
         {
-            envDefaults = await ParseEnvFileAsync(envFile, cancellationToken);
-            _logger.LogDebug("Found .env file for stack {StackName} with {Count} variables", stackName, envDefaults.Count);
-        }
-
-        // Parse YAML to extract services and metadata
-        var services = new List<string>();
-        string? description = null;
-
-        try
-        {
-            var yaml = _yamlDeserializer.Deserialize<Dictionary<string, object>>(yamlContent);
-
-            if (yaml != null && yaml.TryGetValue("services", out var servicesObj) && servicesObj is Dictionary<object, object> servicesDict)
-            {
-                services = servicesDict.Keys.Select(k => k.ToString()!).ToList();
-            }
-
-            description = ExtractDescription(yamlContent);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Failed to parse YAML structure for {Folder}", folderPath);
-        }
-
-        // Extract variables from main YAML and override files
-        var allYamlContent = yamlContent + string.Join("\n", additionalFileContents.Values);
-        var variables = ExtractVariables(allYamlContent);
-
-        // Apply .env defaults to variables
-        // .env values have higher priority than YAML inline defaults (Docker Compose semantics)
-        for (var i = 0; i < variables.Count; i++)
-        {
-            var variable = variables[i];
-            if (envDefaults.TryGetValue(variable.Name, out var envDefault))
-            {
-                // .env value overrides YAML default (higher priority per Docker Compose)
-                variables[i] = variable.WithDefaultValue(envDefault);
-            }
-        }
-
-        // Add any .env variables that weren't found in YAML (informational)
-        foreach (var envVar in envDefaults)
-        {
-            if (!variables.Any(v => v.Name == envVar.Key))
-            {
-                variables.Add(new StackVariable(envVar.Key, envVar.Value, "From .env file"));
-            }
-        }
-
-        // Calculate version hash including all files
-        var allContent = yamlContent + string.Join("", additionalFileContents.Values) + string.Join("", envDefaults.Select(kv => $"{kv.Key}={kv.Value}"));
-        var version = ComputeHash(allContent);
-
-        return new StackDefinition(
-            sourceId: sourceId,
-            name: stackName,
-            yamlContent: yamlContent,
-            description: description,
-            variables: variables.OrderBy(v => v.Name),
-            services: services,
-            filePath: composeFile,
-            relativePath: relativePath,
-            additionalFiles: additionalFiles,
-            additionalFileContents: additionalFileContents,
-            lastSyncedAt: DateTime.UtcNow,
-            version: version);
+            new StackDefinition(
+                sourceId: sourceId,
+                name: stackName,
+                yamlContent: yamlContent,
+                description: description,
+                variables: variables,
+                services: services,
+                filePath: manifestFile,
+                relativePath: relativePath,
+                lastSyncedAt: DateTime.UtcNow,
+                version: productVersion ?? version,
+                // Product properties - for single-stack, product = stack
+                productName: stackName,
+                productDisplayName: stackName,
+                productDescription: description,
+                productVersion: productVersion,
+                category: category,
+                tags: tags)
+        };
     }
 
     /// <summary>
-    /// Parse a .env file and return key-value pairs
+    /// Load stacks from a YAML file (RSGo Manifest Format).
+    /// For multi-stack manifests, returns one StackDefinition per sub-stack.
     /// </summary>
-    private async Task<Dictionary<string, string>> ParseEnvFileAsync(string envFilePath, CancellationToken cancellationToken)
-    {
-        var result = new Dictionary<string, string>();
-        var lines = await File.ReadAllLinesAsync(envFilePath, cancellationToken);
-
-        foreach (var line in lines)
-        {
-            var trimmed = line.Trim();
-
-            // Skip empty lines and comments
-            if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith('#'))
-            {
-                continue;
-            }
-
-            var equalsIndex = trimmed.IndexOf('=');
-            if (equalsIndex > 0)
-            {
-                var key = trimmed[..equalsIndex].Trim();
-                var value = trimmed[(equalsIndex + 1)..].Trim();
-
-                // Remove quotes if present
-                if ((value.StartsWith('"') && value.EndsWith('"')) ||
-                    (value.StartsWith('\'') && value.EndsWith('\'')))
-                {
-                    value = value[1..^1];
-                }
-
-                result[key] = value;
-            }
-        }
-
-        return result;
-    }
-
-    private async Task<StackDefinition?> LoadStackFromFileAsync(string filePath, string sourceId, string basePath, CancellationToken cancellationToken)
+    private async Task<IEnumerable<StackDefinition>> LoadStacksFromFileAsync(string filePath, string sourceId, string basePath, CancellationToken cancellationToken)
     {
         var yamlContent = await File.ReadAllTextAsync(filePath, cancellationToken);
 
         if (string.IsNullOrWhiteSpace(yamlContent))
         {
-            return null;
+            return Enumerable.Empty<StackDefinition>();
         }
 
         // Extract stack name from filename
-        var stackName = Path.GetFileNameWithoutExtension(filePath);
+        var fileName = Path.GetFileNameWithoutExtension(filePath);
 
         // Calculate relative path from base (e.g., "examples" for stacks/examples/simple-nginx.yml)
         var fileDir = Path.GetDirectoryName(filePath);
         var relativePath = fileDir != null ? GetRelativePathForFile(fileDir, basePath) : null;
 
-        // Try to parse YAML to extract services and metadata
-        var services = new List<string>();
-        string? description = null;
-
         try
         {
-            var yaml = _yamlDeserializer.Deserialize<Dictionary<string, object>>(yamlContent);
+            // Parse RSGo Manifest from file to resolve includes for multi-stack manifests
+            var manifest = await _manifestParser.ParseFromFileAsync(filePath, cancellationToken);
 
-            if (yaml != null && yaml.TryGetValue("services", out var servicesObj) && servicesObj is Dictionary<object, object> servicesDict)
+            // Check if this is a multi-stack manifest
+            if (manifest.IsMultiStack && manifest.Stacks != null && manifest.Stacks.Count > 0)
             {
-                services = servicesDict.Keys.Select(k => k.ToString()!).ToList();
+                return CreateStackDefinitionsFromMultiStack(manifest, sourceId, yamlContent, filePath, relativePath);
             }
 
-            // Extract description from top-level comment
-            description = ExtractDescription(yamlContent);
+            // Single-stack manifest - product = stack
+            var variables = await _manifestParser.ExtractVariablesAsync(manifest);
+            var services = ExtractServicesFromManifest(manifest);
+            var stackName = manifest.Metadata?.Name ?? fileName;
+            var description = manifest.Metadata?.Description;
+            var productVersion = manifest.Metadata?.ProductVersion;
+            var version = ComputeHash(yamlContent);
+            var category = manifest.Metadata?.Category;
+            var tags = manifest.Metadata?.Tags;
+
+            _logger.LogDebug("Loaded RSGo manifest file {StackName} with {VarCount} variables, {SvcCount} services",
+                fileName, variables.Count, services.Count);
+
+            return new[]
+            {
+                new StackDefinition(
+                    sourceId: sourceId,
+                    name: stackName,
+                    yamlContent: yamlContent,
+                    description: description,
+                    variables: variables,
+                    services: services,
+                    filePath: filePath,
+                    relativePath: relativePath,
+                    lastSyncedAt: DateTime.UtcNow,
+                    version: productVersion ?? version,
+                    // Product properties - for single-stack, product = stack
+                    productName: stackName,
+                    productDisplayName: stackName,
+                    productDescription: description,
+                    productVersion: productVersion,
+                    category: category,
+                    tags: tags)
+            };
         }
         catch (Exception ex)
         {
-            // Invalid YAML - skip this file entirely
-            _logger.LogWarning(ex, "Invalid YAML in file {File}, skipping", filePath);
-            return null;
+            // Invalid RSGo manifest - skip this file
+            _logger.LogWarning(ex, "Invalid RSGo manifest in file {File}, skipping", filePath);
+            return Enumerable.Empty<StackDefinition>();
         }
-
-        // Extract variables
-        var variables = ExtractVariables(yamlContent);
-
-        // Calculate version hash
-        var version = ComputeHash(yamlContent);
-
-        return new StackDefinition(
-            sourceId: sourceId,
-            name: stackName,
-            yamlContent: yamlContent,
-            description: description,
-            variables: variables,
-            services: services,
-            filePath: filePath,
-            relativePath: relativePath,
-            lastSyncedAt: DateTime.UtcNow,
-            version: version);
     }
 
-    private static string? ExtractDescription(string yamlContent)
+    /// <summary>
+    /// Creates StackDefinition objects for each sub-stack in a multi-stack manifest.
+    /// All stacks share the same ProductName for proper grouping.
+    /// </summary>
+    private IEnumerable<StackDefinition> CreateStackDefinitionsFromMultiStack(
+        Domain.StackManagement.Manifests.RsgoManifest manifest,
+        string sourceId,
+        string yamlContent,
+        string filePath,
+        string? relativePath)
     {
-        // Look for description in first comment block
-        // Skip lines starting with "Usage:" or similar command hints
-        var lines = yamlContent.Split('\n');
-        var descriptions = new List<string>();
+        // Product-level metadata (shared across all stacks)
+        var productName = manifest.Metadata?.Name ?? "Unknown";
+        var productDisplayName = manifest.Metadata?.Name ?? "Unknown";
+        var productDescription = manifest.Metadata?.Description;
+        var productVersion = manifest.Metadata?.ProductVersion;
+        var productCategory = manifest.Metadata?.Category;
+        var productTags = manifest.Metadata?.Tags;
+        var version = ComputeHash(yamlContent);
+        var results = new List<StackDefinition>();
 
-        foreach (var line in lines)
+        foreach (var (stackKey, stackEntry) in manifest.Stacks!)
         {
-            var trimmed = line.Trim();
-            if (trimmed.StartsWith('#'))
+            // Extract services from this sub-stack
+            var services = stackEntry.Services?.Keys.ToList() ?? new List<string>();
+
+            // Extract variables: shared + stack-specific
+            var variables = new List<StackVariable>();
+            if (manifest.SharedVariables != null)
             {
-                var comment = trimmed.TrimStart('#').Trim();
-                if (!string.IsNullOrEmpty(comment) &&
-                    !comment.StartsWith("vim:") &&
-                    !comment.Contains("yaml") &&
-                    !comment.StartsWith("Usage:", StringComparison.OrdinalIgnoreCase))
+                foreach (var (name, def) in manifest.SharedVariables)
                 {
-                    descriptions.Add(comment);
+                    variables.Add(ConvertToStackVariable(name, def));
                 }
             }
-            else if (!string.IsNullOrWhiteSpace(trimmed))
+            if (stackEntry.Variables != null)
             {
-                break;
+                foreach (var (name, def) in stackEntry.Variables)
+                {
+                    // Stack-specific overrides shared
+                    variables.RemoveAll(v => v.Name == name);
+                    variables.Add(ConvertToStackVariable(name, def));
+                }
             }
+
+            // Stack-level metadata
+            var stackName = stackEntry.Metadata?.Name ?? stackKey;
+            var stackDescription = stackEntry.Metadata?.Description ?? productDescription;
+
+            _logger.LogDebug("Created sub-stack '{StackKey}' ({StackName}) with {VarCount} variables, {SvcCount} services",
+                stackKey, stackName, variables.Count, services.Count);
+
+            results.Add(new StackDefinition(
+                sourceId: sourceId,
+                name: stackName,
+                yamlContent: yamlContent,
+                description: stackDescription,
+                variables: variables,
+                services: services,
+                filePath: filePath,
+                relativePath: relativePath,
+                lastSyncedAt: DateTime.UtcNow,
+                version: productVersion ?? version,
+                // Product properties - all stacks share the same product
+                productName: productName,
+                productDisplayName: productDisplayName,
+                productDescription: productDescription,
+                productVersion: productVersion,
+                category: productCategory,
+                tags: productTags));
         }
 
-        // Join with newlines for multi-line display, limit to 2 lines
-        if (descriptions.Count == 0) return null;
-        var limitedDescriptions = descriptions.Take(2);
-        return string.Join("\n", limitedDescriptions);
+        _logger.LogInformation("Loaded multi-stack manifest '{ProductName}' with {StackCount} sub-stacks",
+            productName, results.Count);
+
+        return results;
     }
 
-    private static List<StackVariable> ExtractVariables(string yamlContent)
+    private static StackVariable ConvertToStackVariable(string name, Domain.StackManagement.Manifests.RsgoVariable def)
     {
-        var variables = new Dictionary<string, StackVariable>();
+        var options = def.Options?.Select(o => new SelectOption(o.Value, o.Label, o.Description));
 
-        // Match ${VAR} and ${VAR:-default} patterns
-        var regex = VariableRegex();
-        var matches = regex.Matches(yamlContent);
+        return new StackVariable(
+            name: name,
+            defaultValue: def.Default,
+            description: def.Description,
+            type: def.Type,
+            label: def.Label,
+            pattern: def.Pattern,
+            patternError: def.PatternError,
+            options: options,
+            min: def.Min,
+            max: def.Max,
+            placeholder: def.Placeholder,
+            group: def.Group,
+            order: def.Order,
+            isRequired: def.Required
+        );
+    }
 
-        foreach (Match match in matches)
+    /// <summary>
+    /// Extract all service names from a manifest, handling both single-stack and multi-stack formats.
+    /// For multi-stack manifests, collects services from all stacks (after include resolution).
+    /// </summary>
+    private static List<string> ExtractServicesFromManifest(Domain.StackManagement.Manifests.RsgoManifest manifest)
+    {
+        var services = new List<string>();
+
+        // Single-stack: direct services
+        if (manifest.Services != null)
         {
-            var varName = match.Groups[1].Value;
-            var defaultValue = match.Groups[3].Success ? match.Groups[3].Value : null;
+            services.AddRange(manifest.Services.Keys);
+        }
 
-            if (!variables.ContainsKey(varName))
+        // Multi-stack: collect services from all stacks (includes are already resolved)
+        if (manifest.Stacks != null)
+        {
+            foreach (var (_, stackEntry) in manifest.Stacks)
             {
-                variables[varName] = new StackVariable(varName, defaultValue);
-            }
-            else if (defaultValue != null && variables[varName].DefaultValue == null)
-            {
-                // Update with default if we find one
-                variables[varName] = variables[varName].WithDefaultValue(defaultValue);
+                if (stackEntry.Services != null)
+                {
+                    services.AddRange(stackEntry.Services.Keys);
+                }
             }
         }
 
-        return variables.Values.OrderBy(v => v.Name).ToList();
+        return services.Distinct().ToList();
     }
 
     private static string ComputeHash(string content)
@@ -418,9 +429,6 @@ public partial class LocalDirectoryStackSourceProvider : IStackSourceProvider
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(content));
         return Convert.ToHexString(bytes)[..16].ToLowerInvariant();
     }
-
-    [GeneratedRegex(@"\$\{([A-Z_][A-Z0-9_]*)(:-([^}]*))?\}", RegexOptions.IgnoreCase)]
-    private static partial Regex VariableRegex();
 
     private static string? FindSolutionRoot(string startPath)
     {

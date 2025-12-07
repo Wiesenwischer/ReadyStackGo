@@ -42,7 +42,23 @@ public class ListStacksEndpoint : Endpoint<EmptyRequest, IEnumerable<StackDto>>
             {
                 Name = v.Name,
                 DefaultValue = v.DefaultValue,
-                IsRequired = v.IsRequired
+                IsRequired = v.IsRequired,
+                Type = v.Type.ToString(),
+                Label = v.Label,
+                Description = v.Description,
+                Placeholder = v.Placeholder,
+                Group = v.Group,
+                Order = v.Order,
+                Pattern = v.Pattern,
+                PatternError = v.PatternError,
+                Min = v.Min,
+                Max = v.Max,
+                Options = v.Options?.Select(o => new SelectOptionDto
+                {
+                    Value = o.Value,
+                    Label = o.Label,
+                    Description = o.Description
+                }).ToList()
             }).ToList(),
             LastSyncedAt = s.LastSyncedAt,
             Version = s.Version
@@ -68,11 +84,29 @@ public class StackDto
 }
 
 /// <summary>
-/// Stack variable DTO
+/// Stack variable DTO with full type information
 /// </summary>
 public class StackVariableDto
 {
     public required string Name { get; init; }
     public string? DefaultValue { get; init; }
     public bool IsRequired { get; init; }
+    public string Type { get; init; } = "String";
+    public string? Label { get; init; }
+    public string? Description { get; init; }
+    public string? Placeholder { get; init; }
+    public string? Group { get; init; }
+    public int? Order { get; init; }
+    public string? Pattern { get; init; }
+    public string? PatternError { get; init; }
+    public double? Min { get; init; }
+    public double? Max { get; init; }
+    public List<SelectOptionDto>? Options { get; init; }
+}
+
+public class SelectOptionDto
+{
+    public required string Value { get; init; }
+    public string? Label { get; init; }
+    public string? Description { get; init; }
 }

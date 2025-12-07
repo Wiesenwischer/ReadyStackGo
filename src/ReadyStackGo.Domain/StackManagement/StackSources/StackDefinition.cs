@@ -71,6 +71,42 @@ public class StackDefinition
     /// </summary>
     public string? Version { get; }
 
+    #region Product Properties (for grouping stacks into products)
+
+    /// <summary>
+    /// Name of the parent product this stack belongs to.
+    /// For single-stack products, this equals the stack name.
+    /// For multi-stack products, all stacks share the same ProductName.
+    /// </summary>
+    public string ProductName { get; }
+
+    /// <summary>
+    /// Human-readable display name of the product.
+    /// </summary>
+    public string ProductDisplayName { get; }
+
+    /// <summary>
+    /// Description of the product (may differ from stack description).
+    /// </summary>
+    public string? ProductDescription { get; }
+
+    /// <summary>
+    /// Product version (from metadata.productVersion).
+    /// </summary>
+    public string? ProductVersion { get; }
+
+    /// <summary>
+    /// Category for organizing products (e.g., "Database", "Web", "Identity").
+    /// </summary>
+    public string? Category { get; }
+
+    /// <summary>
+    /// Tags for filtering and search.
+    /// </summary>
+    public IReadOnlyList<string> Tags { get; }
+
+    #endregion
+
     public StackDefinition(
         string sourceId,
         string name,
@@ -83,7 +119,14 @@ public class StackDefinition
         IEnumerable<string>? additionalFiles = null,
         IDictionary<string, string>? additionalFileContents = null,
         DateTime? lastSyncedAt = null,
-        string? version = null)
+        string? version = null,
+        // Product properties
+        string? productName = null,
+        string? productDisplayName = null,
+        string? productDescription = null,
+        string? productVersion = null,
+        string? category = null,
+        IEnumerable<string>? tags = null)
     {
         if (string.IsNullOrWhiteSpace(sourceId))
             throw new ArgumentException("SourceId cannot be empty.", nameof(sourceId));
@@ -104,5 +147,37 @@ public class StackDefinition
         AdditionalFileContents = new Dictionary<string, string>(additionalFileContents ?? new Dictionary<string, string>());
         LastSyncedAt = lastSyncedAt ?? DateTime.UtcNow;
         Version = version;
+
+        // Product properties - default to stack values if not specified
+        ProductName = productName ?? name;
+        ProductDisplayName = productDisplayName ?? name;
+        ProductDescription = productDescription ?? description;
+        ProductVersion = productVersion ?? version;
+        Category = category;
+        Tags = (tags?.ToList() ?? new List<string>()).AsReadOnly();
+    }
+
+    /// <summary>
+    /// Gets all required variables (no default value or explicitly marked required).
+    /// </summary>
+    public IEnumerable<StackVariable> GetRequiredVariables()
+    {
+        return Variables.Where(v => v.IsRequired);
+    }
+
+    /// <summary>
+    /// Gets all optional variables (have default value and not explicitly required).
+    /// </summary>
+    public IEnumerable<StackVariable> GetOptionalVariables()
+    {
+        return Variables.Where(v => !v.IsRequired);
+    }
+
+    /// <summary>
+    /// Checks if this stack contains a service with the given name.
+    /// </summary>
+    public bool HasService(string serviceName)
+    {
+        return Services.Contains(serviceName);
     }
 }

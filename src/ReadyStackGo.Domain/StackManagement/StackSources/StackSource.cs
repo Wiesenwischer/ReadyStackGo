@@ -67,7 +67,7 @@ public class StackSource : AggregateRoot<StackSourceId>
         StackSourceId id,
         string name,
         string gitUrl,
-        string branch = "main",
+        string? branch = "main",
         string? path = null,
         string filePattern = "*.yml;*.yaml")
     {
@@ -77,7 +77,7 @@ public class StackSource : AggregateRoot<StackSourceId>
         var source = new StackSource(id, name, StackSourceType.GitRepository)
         {
             GitUrl = gitUrl,
-            GitBranch = branch,
+            GitBranch = branch ?? "main",
             Path = path,
             FilePattern = filePattern
         };
