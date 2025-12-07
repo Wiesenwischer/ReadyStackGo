@@ -26,7 +26,22 @@ public class ListStacksHandler : IRequestHandler<ListStacksQuery, ListStacksResu
             s.Description,
             s.RelativePath,
             s.Services.ToList(),
-            s.Variables.Select(v => new StackVariableItem(v.Name, v.DefaultValue, v.IsRequired)).ToList(),
+            s.Variables.Select(v => new StackVariableItem(
+                v.Name,
+                v.DefaultValue,
+                v.IsRequired,
+                v.Type,
+                v.Label,
+                v.Description,
+                v.Placeholder,
+                v.Group,
+                v.Order,
+                v.Pattern,
+                v.PatternError,
+                v.Min,
+                v.Max,
+                v.Options?.Select(o => new SelectOptionItem(o.Value, o.Label, o.Description)).ToList()
+            )).ToList(),
             s.LastSyncedAt,
             s.Version
         ));
