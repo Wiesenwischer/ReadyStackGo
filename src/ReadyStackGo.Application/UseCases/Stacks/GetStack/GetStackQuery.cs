@@ -1,4 +1,5 @@
 using MediatR;
+using ReadyStackGo.Application.UseCases.Stacks.ListStacks;
 
 namespace ReadyStackGo.Application.UseCases.Stacks.GetStack;
 
@@ -17,10 +18,4 @@ public record GetStackResult(
     List<string> AdditionalFiles,
     DateTime LastSyncedAt,
     string? Version
-);
-
-public record StackVariableItem(
-    string Name,
-    string? DefaultValue,
-    bool IsRequired
 );

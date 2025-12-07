@@ -21,6 +21,7 @@ public sealed class DeploymentId : ValueObject
     }
 
     public static DeploymentId Create() => new();
+    public static DeploymentId NewId() => new();
     public static DeploymentId FromGuid(Guid value) => new(value);
 
     protected override IEnumerable<object?> GetEqualityComponents()

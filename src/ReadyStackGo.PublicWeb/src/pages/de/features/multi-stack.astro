@@ -1,0 +1,82 @@
+---
+import LandingLayout from '../../../layouts/LandingLayout.astro';
+import Header from '../../../components/Header.astro';
+import FeaturePage from '../../../components/FeaturePage.astro';
+import Footer from '../../../components/Footer.astro';
+
+const lang = 'de';
+const icon = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>`;
+---
+
+<LandingLayout title="Multi-Stack Produkte - ReadyStackGo">
+	<Header lang={lang} />
+	<main class="flex-1">
+		<FeaturePage
+			lang={lang}
+			titleKey="features.multistack.title"
+			subtitleKey="featurepage.multistack.subtitle"
+			icon={icon}
+		>
+			<h2>Was sind Multi-Stack Produkte?</h2>
+			<p>
+				Multi-Stack Produkte ermöglichen es, komplexe Anwendungen zu definieren, die aus mehreren
+				Docker Stacks bestehen. Statt jeden Stack einzeln zu verwalten, werden sie in einem
+				einzigen RSGo Manifest zusammengefasst.
+			</p>
+
+			<h3>Typische Anwendungsfälle</h3>
+			<ul>
+				<li><strong>Microservices-Architekturen:</strong> Frontend, Backend und Datenbank als separate Stacks mit gemeinsamer Konfiguration</li>
+				<li><strong>Multi-Tenant Setups:</strong> Basis-Stack mit kundenspezifischen Erweiterungen</li>
+				<li><strong>Development Environments:</strong> Entwicklungs-Tools und Abhängigkeiten in einem Produkt gebündelt</li>
+			</ul>
+
+			<h2>Gemeinsame Variablen</h2>
+			<p>
+				Ein zentrales Feature ist die Möglichkeit, Variablen auf Produkt-Ebene zu definieren,
+				die von allen Stacks genutzt werden können:
+			</p>
+
+			<pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto"><code>{`product:
+  name: my-application
+  variables:
+    - name: DATABASE_HOST
+      type: String
+      description: Shared database hostname
+
+stacks:
+  - name: backend
+    variables:
+      - name: DATABASE_HOST  # Übernimmt Definition vom Produkt
+
+  - name: frontend
+    variables:
+      - name: API_URL
+        type: String`}</code></pre>
+
+			<h2>Variable Override Behavior</h2>
+			<p>
+				Wenn eine Variable sowohl auf Produkt- als auch auf Stack-Ebene definiert ist,
+				werden die Definitionen intelligent zusammengeführt:
+			</p>
+
+			<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4 my-6">
+				<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">Merge-Regeln:</h4>
+				<ul class="text-brand-700 dark:text-brand-400 space-y-1">
+					<li>Stack-spezifische Werte überschreiben Produkt-Werte</li>
+					<li>Typ und Validierung werden vom Produkt vererbt</li>
+					<li>Beschreibungen können auf Stack-Ebene angepasst werden</li>
+				</ul>
+			</div>
+
+			<h2>Vorteile</h2>
+			<ul>
+				<li><strong>Konsistenz:</strong> Einheitliche Konfiguration über alle Stacks</li>
+				<li><strong>Wiederverwendbarkeit:</strong> Gemeinsame Variablen nur einmal definieren</li>
+				<li><strong>Übersichtlichkeit:</strong> Alle Komponenten in einem Manifest</li>
+				<li><strong>Deployment:</strong> Ein-Klick Installation des gesamten Produkts</li>
+			</ul>
+		</FeaturePage>
+	</main>
+	<Footer lang={lang} />
+</LandingLayout>

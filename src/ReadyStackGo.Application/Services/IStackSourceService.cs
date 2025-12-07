@@ -41,4 +41,15 @@ public interface IStackSourceService
     /// Get a specific stack by ID
     /// </summary>
     Task<StackDefinition?> GetStackAsync(string stackId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get all products (grouped stacks) from the cache.
+    /// A product is a grouping of one or more related stacks.
+    /// </summary>
+    Task<IEnumerable<ProductDefinition>> GetProductsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get a specific product by ID
+    /// </summary>
+    Task<ProductDefinition?> GetProductAsync(string productId, CancellationToken cancellationToken = default);
 }
