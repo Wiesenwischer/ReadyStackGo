@@ -4,7 +4,7 @@ ReadyStackGo uses GitHub Actions for Continuous Integration and Deployment. All 
 
 ## CI (ci.yml)
 
-**Trigger:** Push to `main`, `develop`, `feature/**` and Pull Requests
+**Trigger:** Pull Requests to `main` or `develop`
 
 The main workflow for Continuous Integration:
 
@@ -45,7 +45,7 @@ Builds and pushes Docker images to Docker Hub:
 
 ## Docker Dev Build (docker-dev.yml)
 
-**Trigger:** After successful CI workflow on `develop`
+**Trigger:** Push to `develop` (after PR merge)
 
 Builds and pushes dev images to GitHub Container Registry (ghcr.io):
 
@@ -129,20 +129,26 @@ Synchronizes the `/docs` folder structure with the GitHub Wiki:
 ## Workflow Dependencies
 
 ```
-Push to main/develop
+Pull Request to main/develop
        │
        ▼
     ┌─────┐
     │ CI  │ ─────────────────────┐
-    └──┬──┘                      │
-       │ (success, develop)      ▼
-       ▼                  ┌────────────┐
-  ┌────────────┐          │ E2E Tests  │
-  │ Docker Dev │          └────────────┘
+    └─────┘                      │
+                                 ▼
+                          ┌────────────┐
+                          │ E2E Tests  │
+                          └────────────┘
+
+Push to develop (PR merge)
+       │
+       ▼
+  ┌────────────┐
+  │ Docker Dev │
   │  (ghcr.io) │
   └────────────┘
 
-Push to main
+Push to main (PR merge)
        │
        ├──► Release Drafter (update draft)
        │
@@ -152,7 +158,7 @@ Manually click "Publish release"
        │
        └──► Tag v* is created
                  │
-                 ├──► Docker (version tag)
+                 ├──► Docker Hub (version tag)
                  └──► Cloudflare Pages
 ```
 

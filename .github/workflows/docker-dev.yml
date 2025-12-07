@@ -1,9 +1,9 @@
 name: Docker Dev Build
 
+# Triggered on push to develop (after PR merge)
+# CI already ran on the PR, so we trust the code is tested
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
+  push:
     branches: [develop]
 
 env:
@@ -12,7 +12,6 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
       packages: write
