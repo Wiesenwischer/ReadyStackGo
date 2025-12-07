@@ -40,6 +40,7 @@ public static class DependencyInjection
         // Manifest services
         services.AddSingleton<IManifestProvider, ManifestProvider>();
         services.AddSingleton<IDockerComposeParser, DockerComposeParser>();
+        services.AddSingleton<IRsgoManifestParser, RsgoManifestParser>();
 
         // Deployment services
         // v0.6: DeploymentEngine is Scoped because it depends on Scoped repositories

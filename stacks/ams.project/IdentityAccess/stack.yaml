@@ -1,0 +1,146 @@
+# ams.project IdentityAccess - Multi-Stack Product Manifest
+# Demonstrates the include feature for modular stack definitions
+
+metadata:
+  name: ams.project IdentityAccess
+  description: Identity Provider for ams.project based on IdentityServer
+  productVersion: "3.1.0"
+  category: Identity
+  tags:
+    - identity
+    - authentication
+    - ams.project
+
+# Shared variables available to all stacks
+sharedVariables:
+  # Environment
+  ENVIRONMENT_NAME:
+    label: Environment Name
+    description: Used in network naming
+    type: String
+    default: local
+    group: Environment
+    order: 1
+
+  # Docker Registry
+  REGISTRY:
+    label: Docker Registry
+    description: Docker registry for images
+    type: String
+    default: amssolution
+    group: Registry
+    order: 1
+
+  # External DNS/IP
+  AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP:
+    label: External DNS/IP
+    description: External DNS name or IP for service access
+    type: String
+    default: host.docker.internal
+    group: Network
+    order: 1
+
+  # Database Configuration
+  AMS_DB:
+    label: AMS Database Connection
+    description: Connection string for AMS database
+    type: SqlServerConnectionString
+    default: "Server=ams-mssql;Database=AMS01;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;"
+    group: Database
+    order: 1
+
+  IDENTITY_ACCESS_DB:
+    label: Identity Database Connection
+    description: Connection string for Identity database
+    type: SqlServerConnectionString
+    default: "Server=ams-mssql;Database=AMS01-Identity;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;"
+    group: Database
+    order: 2
+
+  # NServiceBus Configuration
+  SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER:
+    label: Service Bus Circuit Breaker Timeout
+    description: Time to wait before triggering circuit breaker (seconds)
+    type: Number
+    default: "120"
+    min: 30
+    max: 600
+    group: ServiceBus
+    order: 1
+
+  EXIT_ON_CRITICAL_ERROR:
+    label: Exit on Critical Error
+    description: Whether to exit the service on critical errors
+    type: Boolean
+    default: "false"
+    group: ServiceBus
+    order: 2
+
+  SERVICE_BUS_CATALOG:
+    label: Service Bus Catalog
+    description: NServiceBus catalog name
+    type: String
+    default: AMS01
+    group: ServiceBus
+    order: 3
+
+  # Logging
+  MIN_LOG_LEVEL:
+    label: Minimum Log Level
+    description: Minimum log level for Serilog
+    type: Select
+    default: Fatal
+    options:
+      - value: Verbose
+        label: Verbose
+      - value: Debug
+        label: Debug
+      - value: Information
+        label: Information
+      - value: Warning
+        label: Warning
+      - value: Error
+        label: Error
+      - value: Fatal
+        label: Fatal
+    group: Logging
+    order: 1
+
+  LOG_MAX_SIZE:
+    label: Log Max Size
+    description: Maximum size per log file
+    type: String
+    default: 5m
+    group: Logging
+    order: 2
+
+  LOG_MAX_FILE:
+    label: Log Max Files
+    description: Maximum number of log files to keep
+    type: Number
+    default: "3"
+    min: 1
+    max: 100
+    group: Logging
+    order: 3
+
+  # UI Configuration
+  CULTURE_CODE:
+    label: Culture Code
+    description: Culture code for localization
+    type: Select
+    default: de-DE
+    options:
+      - value: de-DE
+        label: German (Germany)
+      - value: en-US
+        label: English (US)
+      - value: en-GB
+        label: English (UK)
+    group: UI
+    order: 1
+
+# Stack definitions - using include to reference external fragment
+stacks:
+  identity:
+    include: identity-access.yaml

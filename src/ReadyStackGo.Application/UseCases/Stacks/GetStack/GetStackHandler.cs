@@ -1,5 +1,6 @@
 using MediatR;
 using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.UseCases.Stacks.ListStacks;
 using YamlDotNet.Serialization;
 
 namespace ReadyStackGo.Application.UseCases.Stacks.GetStack;
@@ -38,7 +39,22 @@ public class GetStackHandler : IRequestHandler<GetStackQuery, GetStackResult?>
             stack.Description,
             mergedYamlContent,
             stack.Services.ToList(),
-            stack.Variables.Select(v => new StackVariableItem(v.Name, v.DefaultValue, v.IsRequired)).ToList(),
+            stack.Variables.Select(v => new StackVariableItem(
+                v.Name,
+                v.DefaultValue,
+                v.IsRequired,
+                v.Type,
+                v.Label,
+                v.Description,
+                v.Placeholder,
+                v.Group,
+                v.Order,
+                v.Pattern,
+                v.PatternError,
+                v.Min,
+                v.Max,
+                v.Options?.Select(o => new SelectOptionItem(o.Value, o.Label, o.Description)).ToList()
+            )).ToList(),
             stack.FilePath,
             stack.AdditionalFiles.ToList(),
             stack.LastSyncedAt,

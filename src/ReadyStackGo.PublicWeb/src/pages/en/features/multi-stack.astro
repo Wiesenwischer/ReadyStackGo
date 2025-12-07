@@ -1,0 +1,82 @@
+---
+import LandingLayout from '../../../layouts/LandingLayout.astro';
+import Header from '../../../components/Header.astro';
+import FeaturePage from '../../../components/FeaturePage.astro';
+import Footer from '../../../components/Footer.astro';
+
+const lang = 'en';
+const icon = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>`;
+---
+
+<LandingLayout title="Multi-Stack Products - ReadyStackGo">
+	<Header lang={lang} />
+	<main class="flex-1">
+		<FeaturePage
+			lang={lang}
+			titleKey="features.multistack.title"
+			subtitleKey="featurepage.multistack.subtitle"
+			icon={icon}
+		>
+			<h2>What are Multi-Stack Products?</h2>
+			<p>
+				Multi-Stack Products allow you to define complex applications consisting of multiple
+				Docker Stacks. Instead of managing each stack separately, they are combined in a
+				single RSGo Manifest.
+			</p>
+
+			<h3>Typical Use Cases</h3>
+			<ul>
+				<li><strong>Microservices Architectures:</strong> Frontend, backend, and database as separate stacks with shared configuration</li>
+				<li><strong>Multi-Tenant Setups:</strong> Base stack with customer-specific extensions</li>
+				<li><strong>Development Environments:</strong> Development tools and dependencies bundled in one product</li>
+			</ul>
+
+			<h2>Shared Variables</h2>
+			<p>
+				A key feature is the ability to define variables at the product level
+				that can be used by all stacks:
+			</p>
+
+			<pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto"><code>{`product:
+  name: my-application
+  variables:
+    - name: DATABASE_HOST
+      type: String
+      description: Shared database hostname
+
+stacks:
+  - name: backend
+    variables:
+      - name: DATABASE_HOST  # Inherits definition from product
+
+  - name: frontend
+    variables:
+      - name: API_URL
+        type: String`}</code></pre>
+
+			<h2>Variable Override Behavior</h2>
+			<p>
+				When a variable is defined at both product and stack level,
+				the definitions are intelligently merged:
+			</p>
+
+			<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4 my-6">
+				<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">Merge Rules:</h4>
+				<ul class="text-brand-700 dark:text-brand-400 space-y-1">
+					<li>Stack-specific values override product values</li>
+					<li>Type and validation are inherited from the product</li>
+					<li>Descriptions can be customized at the stack level</li>
+				</ul>
+			</div>
+
+			<h2>Benefits</h2>
+			<ul>
+				<li><strong>Consistency:</strong> Uniform configuration across all stacks</li>
+				<li><strong>Reusability:</strong> Define shared variables only once</li>
+				<li><strong>Clarity:</strong> All components in one manifest</li>
+				<li><strong>Deployment:</strong> One-click installation of the entire product</li>
+			</ul>
+		</FeaturePage>
+	</main>
+	<Footer lang={lang} />
+</LandingLayout>

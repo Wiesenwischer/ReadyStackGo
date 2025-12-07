@@ -49,7 +49,23 @@ public class GetStackEndpoint : Endpoint<GetStackRequest, StackDetailDto>
             {
                 Name = v.Name,
                 DefaultValue = v.DefaultValue,
-                IsRequired = v.IsRequired
+                IsRequired = v.IsRequired,
+                Type = v.Type.ToString(),
+                Label = v.Label,
+                Description = v.Description,
+                Placeholder = v.Placeholder,
+                Group = v.Group,
+                Order = v.Order,
+                Pattern = v.Pattern,
+                PatternError = v.PatternError,
+                Min = v.Min,
+                Max = v.Max,
+                Options = v.Options?.Select(o => new SelectOptionDto
+                {
+                    Value = o.Value,
+                    Label = o.Label,
+                    Description = o.Description
+                }).ToList()
             }).ToList(),
             FilePath = result.FilePath,
             AdditionalFiles = result.AdditionalFiles,

@@ -1,67 +1,130 @@
 # Manifest Specification
 
-The manifest describes the complete target state of a stack.
-
-## Contents
-1. Goals
-2. Structure
-3. JSON Schema
-4. Examples
-5. Best Practices
+The RSGo Manifest is the native stack definition format for ReadyStackGo. It describes the complete target state of a deployable stack using YAML.
 
 ---
 
-## 1. Goals
+## Overview
 
-- Complete, declarative description of a release
-- Unique versioning (`stackVersion`)
-- Clear mapping contexts → Images/Tags
+A manifest defines:
+
+- **Metadata**: Product name, version, description, and categorization
+- **Variables**: User-configurable parameters with types and validation
+- **Services**: Docker containers to deploy
+- **Volumes**: Persistent storage definitions
+- **Networks**: Network configurations
 
 ---
 
-## 2. Structure (simplified)
+## Quick Example
 
-```json
-{
-  "manifestVersion": "1.0.0",
-  "stackVersion": "4.3.0",
-  "schemaVersion": 12,
-  "gateway": { ... },
-  "contexts": { ... },
-  "features": { ... },
-  "metadata": { ... }
-}
+```yaml
+metadata:
+  name: Whoami
+  productVersion: "1.0.0"
+  category: Testing
+
+variables:
+  PORT:
+    label: Port
+    type: Port
+    default: "8080"
+
+services:
+  whoami:
+    image: traefik/whoami:latest
+    ports:
+      - "${PORT}:80"
+    restart: unless-stopped
 ```
 
 ---
 
-## 3. JSON Schema
+## Manifest Types
 
-See technical specification (chapter Manifest Schema).
-This document references the same schema.
+### 1. Product (Single-Stack)
+
+Contains services directly at the root level. Has `productVersion` in metadata.
+
+### 2. Product (Multi-Stack)
+
+Contains multiple stacks via `stacks` section with shared variables.
+
+### 3. Fragment
+
+No `productVersion` - only loadable via `include` from a product.
 
 ---
 
-## 4. Example
+## Key Features
 
-```json
-{
-  "stackVersion": "4.3.0",
-  "contexts": {
-    "project": {
-      "image": "registry/ams.project-api",
-      "version": "6.4.0",
-      "containerName": "ams-project",
-      "internal": true
-    }
-  }
-}
+### Variable Types
+
+| Type | Description |
+|------|-------------|
+| `String` | Free-form text |
+| `Number` | Numeric value with optional min/max |
+| `Boolean` | True/false toggle |
+| `Password` | Masked sensitive data |
+| `Port` | Network port (1-65535) |
+| `Select` | Dropdown selection |
+| `Url`, `Email`, `Path` | Validated formats |
+| `SqlServerConnectionString` | Builder dialog for SQL Server |
+| `PostgresConnectionString` | Builder dialog for PostgreSQL |
+| `MySqlConnectionString` | Builder dialog for MySQL |
+| `MongoConnectionString` | Builder dialog for MongoDB |
+| `RedisConnectionString` | Builder dialog for Redis |
+
+### Variable Substitution
+
+Use `${VARIABLE_NAME}` syntax in services:
+
+```yaml
+services:
+  app:
+    image: ${REGISTRY}/myapp:${VERSION}
+    ports:
+      - "${PORT}:80"
+    environment:
+      DATABASE: ${DB_CONNECTION}
+```
+
+### Multi-Stack with Shared Variables
+
+```yaml
+sharedVariables:
+  REGISTRY:
+    type: String
+    default: docker.io
+
+stacks:
+  api:
+    include: api.yaml
+  monitoring:
+    services:
+      prometheus:
+        image: prom/prometheus:latest
 ```
 
 ---
 
-## 5. Best Practices
+## Full Reference
 
-- Strictly follow SemVer
-- Use suffixes like `-alpha`, `-beta`, `-rc` for pre-releases
-- Keep context names stable
+For complete documentation including:
+
+- All variable types and properties
+- Service configuration options
+- Volume and network definitions
+- Multi-stack and fragment patterns
+- Complete examples
+
+See: **[RSGo Manifest Schema](../Reference/Manifest-Schema.md)**
+
+---
+
+## Related Documentation
+
+- [Products](../Concepts/Products.md) - Product concepts
+- [Multi-Stack](../Concepts/Multi-Stack.md) - Multi-stack products
+- [Stack Fragments](../Concepts/Stack-Fragments.md) - Reusable fragments
+- [Best Practices](../Concepts/Best-Practices.md) - Guidelines

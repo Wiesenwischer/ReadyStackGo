@@ -1,0 +1,175 @@
+# Identity Access Stack Fragment
+# This is a fragment (no productVersion) - only loadable via include
+# Stack-specific variables are defined here, shared variables come from the product
+
+metadata:
+  name: Identity Access
+  description: Identity Provider services based on IdentityServer
+  category: Identity
+  tags:
+    - identity
+    - authentication
+
+variables:
+  # Security Settings (identity-specific)
+  IDENTITY_ACCESS_CERT_PATH:
+    label: Certificate Path
+    description: Path to the identity API certificate
+    type: String
+    default: /etc/ssl/certs/identity-api.pfx
+    group: Security
+    order: 1
+
+  IDENTITY_ACCESS_CERT_PASSWORD:
+    label: Certificate Password
+    description: Password for the certificate
+    type: Password
+    default: "P@ssw0rd!"
+    group: Security
+    order: 2
+
+  # Email Settings (identity-specific)
+  MAIL_SERVER:
+    label: Mail Server
+    description: SMTP server for sending emails
+    type: String
+    default: host.docker.internal
+    group: Email
+    order: 1
+
+  MAIL_PORT:
+    label: Mail Port
+    description: SMTP port
+    type: Port
+    default: "25"
+    group: Email
+    order: 2
+
+  MAIL_SENDER_NAME:
+    label: Sender Name
+    description: Display name for sent emails
+    type: String
+    default: ams.project
+    group: Email
+    order: 3
+
+  MAIL_SENDER:
+    label: Sender Address
+    description: Email address for sent emails
+    type: String
+    default: noreply@host.docker.internal
+    pattern: "^[^@]+@[^@]+$"
+    patternError: Must be a valid email address
+    group: Email
+    order: 4
+
+  MAIL_PASSWORD:
+    label: Mail Password
+    description: Password for SMTP authentication (if required)
+    type: Password
+    default: ""
+    group: Email
+    order: 5
+
+  MAIL_IS_AUTHENTICATION_REQUIRED:
+    label: Authentication Required
+    description: Whether SMTP authentication is required
+    type: Boolean
+    default: "false"
+    group: Email
+    order: 6
+
+services:
+  identity-api:
+    image: ${REGISTRY}/identityaccess.identityserver:linux-latest
+    ports:
+      - "7614:8080"
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:8080;https://0.0.0.0:8443
+      ConnectionStrings__IdentityAccess: ${IDENTITY_ACCESS_DB}
+      ConnectionStrings__ams: ${AMS_DB}
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      CultureCode: ${CULTURE_CODE}
+      IdentityServerUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:7614
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+      CertificatePath: ${IDENTITY_ACCESS_CERT_PATH}
+      CertificatePassword: ${IDENTITY_ACCESS_CERT_PASSWORD}
+      SERVICE_BUS_CATALOG: ${SERVICE_BUS_CATALOG}
+    volumes:
+      - profilePictures:/app/wwwroot/picture
+    networks:
+      - ams-project-identity
+
+  adminportal:
+    image: ${REGISTRY}/identityaccess.adminportal:linux-latest
+    restart: unless-stopped
+    ports:
+      - "7615:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+      ConnectionStrings__IdentityAccess: ${IDENTITY_ACCESS_DB}
+      ConnectionStrings__ams: ${AMS_DB}
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      CultureCode: ${CULTURE_CODE}
+      IdentityServerUrl: http://identity-api:8080
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+      SERVICE_BUS_CATALOG: ${SERVICE_BUS_CATALOG}
+    networks:
+      - ams-project-identity
+
+  identityaccess-clienthub:
+    image: ${REGISTRY}/identityaccess.clienthub:linux-latest
+    restart: unless-stopped
+    ports:
+      - "7616:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+      ConnectionStrings__IdentityAccess: ${IDENTITY_ACCESS_DB}
+      ConnectionStrings__ams: ${AMS_DB}
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+      SERVICE_BUS_CATALOG: ${SERVICE_BUS_CATALOG}
+    networks:
+      - ams-project-identity
+
+  identityaccess-emailsender:
+    image: ${REGISTRY}/identityaccess.emailsender:linux-latest
+    restart: unless-stopped
+    ports:
+      - "7617:80"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__IdentityAccess: ${IDENTITY_ACCESS_DB}
+      ConnectionStrings__ams: ${AMS_DB}
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      CultureCode: ${CULTURE_CODE}
+      EmailSettings__MailServer: ${MAIL_SERVER}
+      EmailSettings__Port: ${MAIL_PORT}
+      EmailSettings__SenderName: ${MAIL_SENDER_NAME}
+      EmailSettings__Sender: ${MAIL_SENDER}
+      EmailSettings__Password: ${MAIL_PASSWORD}
+      EmailSettings__IsAuthenticationRequired: ${MAIL_IS_AUTHENTICATION_REQUIRED}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+      SERVICE_BUS_CATALOG: ${SERVICE_BUS_CATALOG}
+    networks:
+      - ams-project-identity
+
+networks:
+  ams-project-identity:
+    driver: bridge
+
+volumes:
+  profilePictures: {}

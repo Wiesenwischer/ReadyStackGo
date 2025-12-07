@@ -318,4 +318,55 @@ public class StackSourceService : IStackSourceService
         await EnsureInitializedAsync(cancellationToken);
         return _cache.Get(stackId);
     }
+
+    public async Task<IEnumerable<ProductDefinition>> GetProductsAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureInitializedAsync(cancellationToken);
+        var stacks = _cache.GetAll().ToList();
+        var sources = _sourceEntries.Select(ConvertToStackSource).ToDictionary(s => s.Id.Value, s => s.Name);
+
+        return GroupStacksIntoProducts(stacks, sources);
+    }
+
+    public async Task<ProductDefinition?> GetProductAsync(string productId, CancellationToken cancellationToken = default)
+    {
+        var products = await GetProductsAsync(cancellationToken);
+        return products.FirstOrDefault(p => p.Id == productId);
+    }
+
+    /// <summary>
+    /// Groups stacks into products based on ProductName.
+    /// Single-stack products: ProductName equals StackName
+    /// Multi-stack products: All stacks share the same ProductName
+    /// </summary>
+    private static IEnumerable<ProductDefinition> GroupStacksIntoProducts(
+        IEnumerable<StackDefinition> stacks,
+        Dictionary<string, string> sourceNames)
+    {
+        // Group stacks by SourceId:ProductName (product ID)
+        var groupedStacks = stacks
+            .GroupBy(s => $"{s.SourceId}:{s.ProductName}")
+            .Select(group =>
+            {
+                var stackList = group.ToList();
+                var firstStack = stackList.First();
+
+                return new ProductDefinition(
+                    sourceId: firstStack.SourceId,
+                    name: firstStack.ProductName,
+                    displayName: firstStack.ProductDisplayName,
+                    stacks: stackList,
+                    description: firstStack.ProductDescription,
+                    productVersion: firstStack.ProductVersion,
+                    category: firstStack.Category,
+                    tags: firstStack.Tags,
+                    icon: null,
+                    documentation: null
+                );
+            })
+            .ToList();
+
+        // Sort by display name
+        return groupedStacks.OrderBy(p => p.DisplayName).ToList();
+    }
 }

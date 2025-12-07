@@ -1,5 +1,6 @@
-index
+Home
 Getting-Started
+Concepts
 Architecture
 Configuration
 Setup-Wizard
@@ -8,4 +9,3 @@ Operations
 Development
 CI-CD
 Reference
-Release-Notes

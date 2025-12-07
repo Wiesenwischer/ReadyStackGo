@@ -1,0 +1,44 @@
+---
+import { t, type Lang } from '../i18n/translations';
+
+interface Props {
+	lang: Lang;
+	titleKey: string;
+	subtitleKey: string;
+	icon: string;
+}
+
+const { lang, titleKey, subtitleKey, icon } = Astro.props;
+---
+
+<section class="py-16 lg:py-24">
+	<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+		<!-- Header -->
+		<div class="text-center mb-12">
+			<div class="inline-flex items-center justify-center w-16 h-16 bg-brand-100 dark:bg-brand-500/20 rounded-2xl mb-6">
+				<svg class="w-8 h-8 text-brand-600 dark:text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" set:html={icon} />
+			</div>
+			<h1 class="text-title-lg sm:text-title-xl font-bold text-gray-900 dark:text-white mb-4">
+				{t(lang, titleKey as any)}
+			</h1>
+			<p class="text-xl text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
+				{t(lang, subtitleKey as any)}
+			</p>
+		</div>
+
+		<!-- Content slot -->
+		<div class="prose prose-lg dark:prose-invert max-w-none">
+			<slot />
+		</div>
+
+		<!-- Back link -->
+		<div class="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
+			<a href={`/${lang}/home`} class="inline-flex items-center text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 font-medium">
+				<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+				</svg>
+				{lang === 'de' ? 'Zurück zur Startseite' : 'Back to Home'}
+			</a>
+		</div>
+	</div>
+</section>
