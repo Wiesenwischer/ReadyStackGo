@@ -1,9 +1,51 @@
 import { apiGet, apiPost } from './client';
 
+/**
+ * Variable types matching the backend VariableType enum.
+ */
+export type VariableType =
+  | 'String'
+  | 'Number'
+  | 'Boolean'
+  | 'Select'
+  | 'Password'
+  | 'Port'
+  | 'Url'
+  | 'Email'
+  | 'Path'
+  | 'MultiLine'
+  | 'ConnectionString'
+  | 'SqlServerConnectionString'
+  | 'PostgresConnectionString'
+  | 'MySqlConnectionString'
+  | 'EventStoreConnectionString'
+  | 'MongoConnectionString'
+  | 'RedisConnectionString';
+
+/**
+ * Option for Select type variables.
+ */
+export interface SelectOption {
+  value: string;
+  label?: string;
+  description?: string;
+}
+
 export interface StackVariable {
   name: string;
   defaultValue?: string;
   isRequired: boolean;
+  type?: VariableType;
+  label?: string;
+  description?: string;
+  pattern?: string;
+  patternError?: string;
+  options?: SelectOption[];
+  min?: number;
+  max?: number;
+  placeholder?: string;
+  group?: string;
+  order?: number;
 }
 
 export interface Stack {
@@ -58,6 +100,39 @@ export async function getStackSources(): Promise<StackSource[]> {
 
 export async function syncSources(): Promise<SyncResult> {
   return apiPost<SyncResult>('/api/stack-sources/sync');
+}
+
+// Product API (grouped stacks)
+export interface ProductStack {
+  id: string;
+  name: string;
+  description?: string;
+  services: string[];
+  variables: StackVariable[];
+}
+
+export interface Product {
+  id: string;
+  sourceId: string;
+  sourceName: string;
+  name: string;
+  description?: string;
+  version?: string;
+  category?: string;
+  tags?: string[];
+  isMultiStack: boolean;
+  totalServices: number;
+  totalVariables: number;
+  stacks: ProductStack[];
+  lastSyncedAt: string;
+}
+
+export async function getProducts(): Promise<Product[]> {
+  return apiGet<Product[]>('/api/products');
+}
+
+export async function getProduct(productId: string): Promise<Product> {
+  return apiGet<Product>(`/api/products/${encodeURIComponent(productId)}`);
 }
 
 // Re-export old names for backwards compatibility during migration

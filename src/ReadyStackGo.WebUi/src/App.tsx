@@ -4,6 +4,8 @@ import { ScrollToTop } from "./components/common/ScrollToTop";
 import Dashboard from "./pages/Dashboard";
 import Containers from "./pages/Containers";
 import Stacks from "./pages/Stacks";
+import ProductDetail from "./pages/ProductDetail";
+import DeployStack from "./pages/DeployStack";
 import Environments from "./pages/Environments";
 import SetupEnvironment from "./pages/SetupEnvironment";
 import Login from "./pages/Auth/Login";
@@ -69,6 +71,22 @@ export default function App() {
                   element={
                     <EnvironmentGuard>
                       <Stacks />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/stacks/:productId"
+                  element={
+                    <EnvironmentGuard>
+                      <ProductDetail />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/deploy/:stackId"
+                  element={
+                    <EnvironmentGuard>
+                      <DeployStack />
                     </EnvironmentGuard>
                   }
                 />

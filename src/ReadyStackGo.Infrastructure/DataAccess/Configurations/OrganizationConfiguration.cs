@@ -42,7 +42,19 @@ public class OrganizationConfiguration : IEntityTypeConfiguration<Organization>
         builder.Property(t => t.Version)
             .IsConcurrencyToken();
 
+        // Owner ID - optional foreign key to Users
+        builder.Property(t => t.OwnerId)
+            .HasConversion(
+                id => id != null ? id.Value.ToString() : null,
+                value => value != null ? new UserId(Guid.Parse(value)) : null)
+            .HasColumnName("OwnerId")
+            .HasMaxLength(36);
+
         // Ignore domain events - they're not persisted
         builder.Ignore(t => t.DomainEvents);
+
+        // Ignore memberships for now - they're in-memory only
+        // TODO: Add proper owned collection configuration when persistence is needed
+        builder.Ignore(t => t.Memberships);
     }
 }

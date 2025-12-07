@@ -94,6 +94,29 @@ public class DeploymentConfiguration : IEntityTypeConfiguration<Deployment>
                 .IsRequired();
         });
 
+        // Configure PhaseHistory as owned collection
+        builder.OwnsMany(d => d.PhaseHistory, ph =>
+        {
+            ph.ToTable("DeploymentPhaseHistory");
+
+            ph.WithOwner().HasForeignKey("DeploymentId");
+
+            ph.Property<int>("Id")
+                .ValueGeneratedOnAdd();
+
+            ph.HasKey("Id");
+
+            ph.Property(p => p.Phase)
+                .IsRequired();
+
+            ph.Property(p => p.Message)
+                .HasMaxLength(500)
+                .IsRequired();
+
+            ph.Property(p => p.Timestamp)
+                .IsRequired();
+        });
+
         // Indexes
         builder.HasIndex(d => new { d.EnvironmentId, d.ProjectName })
             .IsUnique();

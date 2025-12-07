@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { parseCompose, deployCompose, type EnvironmentVariableInfo } from '../../api/deployments';
+import { parseCompose, deployCompose } from '../../api/deployments';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { type Stack, getStack } from '../../api/stacks';
+import { type Stack, type StackVariable, getStack } from '../../api/stacks';
+import VariableInput, { groupVariables } from '../variables/VariableInput';
 
 interface DeployComposeModalProps {
   isOpen: boolean;
@@ -17,7 +18,7 @@ export default function DeployComposeModal({ isOpen, onClose, onDeploySuccess, p
   const [step, setStep] = useState<Step>('upload');
   const [yamlContent, setYamlContent] = useState('');
   const [stackName, setStackName] = useState('');
-  const [variables, setVariables] = useState<EnvironmentVariableInfo[]>([]);
+  const [variables, setVariables] = useState<StackVariable[]>([]);
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
   const [services, setServices] = useState<string[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -43,14 +44,8 @@ export default function DeployComposeModal({ isOpen, onClose, onDeploySuccess, p
           setStackName(detail.name);
           setServices(detail.services);
 
-          // Convert StackVariable to EnvironmentVariableInfo format
-          const vars: EnvironmentVariableInfo[] = detail.variables.map(v => ({
-            name: v.name,
-            defaultValue: v.defaultValue || '',
-            isRequired: v.isRequired,
-            usedInServices: [] // Not tracked in stack definitions
-          }));
-          setVariables(vars);
+          // Use StackVariable directly (has type info)
+          setVariables(detail.variables);
 
           // Initialize variable values with defaults
           const initialValues: Record<string, string> = {};
@@ -136,13 +131,31 @@ export default function DeployComposeModal({ isOpen, onClose, onDeploySuccess, p
         return;
       }
 
-      setVariables(response.variables);
+      // Convert EnvironmentVariableInfo to StackVariable format
+      const stackVars: StackVariable[] = response.variables.map(v => ({
+        name: v.name,
+        defaultValue: v.defaultValue,
+        isRequired: v.isRequired,
+        // Type will be inferred from the response if available
+        type: (v as any).type || 'String',
+        label: (v as any).label,
+        description: (v as any).description,
+        options: (v as any).options,
+        min: (v as any).min,
+        max: (v as any).max,
+        pattern: (v as any).pattern,
+        patternError: (v as any).patternError,
+        placeholder: (v as any).placeholder,
+        group: (v as any).group,
+        order: (v as any).order,
+      }));
+      setVariables(stackVars);
       setServices(response.services);
       setWarnings(response.warnings);
 
       // Initialize variable values with defaults
       const initialValues: Record<string, string> = {};
-      response.variables.forEach(v => {
+      stackVars.forEach(v => {
         initialValues[v.name] = v.defaultValue || '';
       });
       setVariableValues(initialValues);
@@ -338,30 +351,31 @@ services:
                   <p className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
                     Environment Variables:
                   </p>
-                  <div className="space-y-3">
-                    {variables.map((v) => (
-                      <div key={v.name}>
-                        <label className="block mb-1 text-sm text-gray-600 dark:text-gray-400">
-                          {v.name}
-                          {v.isRequired && <span className="text-red-500 ml-1">*</span>}
-                          {v.defaultValue && (
-                            <span className="ml-2 text-xs text-gray-500">
-                              (default: {v.defaultValue})
-                            </span>
-                          )}
-                        </label>
-                        <input
-                          type="text"
-                          value={variableValues[v.name] || ''}
-                          onChange={(e) =>
-                            setVariableValues({ ...variableValues, [v.name]: e.target.value })
-                          }
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                          placeholder={v.defaultValue || `Enter ${v.name}`}
-                        />
+                  {/* Render variables grouped by their group property */}
+                  {(() => {
+                    const groups = groupVariables(variables);
+                    return Array.from(groups.entries()).map(([groupName, groupVars]) => (
+                      <div key={groupName} className="mb-4">
+                        {groups.size > 1 && (
+                          <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 pb-1 border-b border-gray-200 dark:border-gray-700">
+                            {groupName}
+                          </h4>
+                        )}
+                        <div className="space-y-3">
+                          {groupVars.map((v) => (
+                            <VariableInput
+                              key={v.name}
+                              variable={v}
+                              value={variableValues[v.name] || ''}
+                              onChange={(newValue) =>
+                                setVariableValues({ ...variableValues, [v.name]: newValue })
+                              }
+                            />
+                          ))}
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                    ));
+                  })()}
                 </div>
               )}
 

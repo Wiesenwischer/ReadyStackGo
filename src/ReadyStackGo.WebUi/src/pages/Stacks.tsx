@@ -1,20 +1,18 @@
 import { useEffect, useState, useCallback } from "react";
+import { Link } from "react-router";
 import { listDeployments, removeDeployment, type DeploymentSummary } from "../api/deployments";
-import { getStacks, syncSources, type Stack } from "../api/stacks";
+import { getProducts, syncSources, type Product } from "../api/stacks";
 import { useEnvironment } from "../context/EnvironmentContext";
-import DeployComposeModal from "../components/stacks/DeployComposeModal";
 
 export default function Stacks() {
   const { activeEnvironment } = useEnvironment();
   const [deployments, setDeployments] = useState<DeploymentSummary[]>([]);
-  const [stacks, setStacks] = useState<Stack[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [stacksLoading, setStacksLoading] = useState(true);
+  const [productsLoading, setProductsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
-  const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
-  const [selectedStack, setSelectedStack] = useState<Stack | null>(null);
 
   const loadDeployments = useCallback(async () => {
     if (!activeEnvironment) {
@@ -39,16 +37,15 @@ export default function Stacks() {
     }
   }, [activeEnvironment]);
 
-  const loadStacks = useCallback(async () => {
+  const loadProducts = useCallback(async () => {
     try {
-      setStacksLoading(true);
-      const data = await getStacks();
-      setStacks(data);
+      setProductsLoading(true);
+      const data = await getProducts();
+      setProducts(data);
     } catch (err) {
-      console.error("Failed to load stacks:", err);
-      // Don't set error for stacks as deployments might still work
+      console.error("Failed to load products:", err);
     } finally {
-      setStacksLoading(false);
+      setProductsLoading(false);
     }
   }, []);
 
@@ -56,7 +53,7 @@ export default function Stacks() {
     try {
       setSyncing(true);
       await syncSources();
-      await loadStacks();
+      await loadProducts();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to sync sources");
     } finally {
@@ -66,8 +63,8 @@ export default function Stacks() {
 
   useEffect(() => {
     loadDeployments();
-    loadStacks();
-  }, [loadDeployments, loadStacks]);
+    loadProducts();
+  }, [loadDeployments, loadProducts]);
 
   const handleRemove = async (stackName: string) => {
     if (!activeEnvironment) return;
@@ -81,11 +78,6 @@ export default function Stacks() {
     } finally {
       setActionLoading(null);
     }
-  };
-
-  const handleDeploy = (stack: Stack) => {
-    setSelectedStack(stack);
-    setIsDeployModalOpen(true);
   };
 
   const getStatusBadge = (status: string | null | undefined) => {
@@ -121,19 +113,24 @@ export default function Stacks() {
           Stack Management
         </h1>
         <div className="flex gap-3">
-          <button
-            onClick={() => {
-              setSelectedStack(null);
-              setIsDeployModalOpen(true);
-            }}
-            disabled={!activeEnvironment}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Deploy Custom
-          </button>
+          {activeEnvironment ? (
+            <Link
+              to="/deploy/custom"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white hover:bg-brand-700"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Deploy Custom
+            </Link>
+          ) : (
+            <span className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white opacity-50 cursor-not-allowed">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Deploy Custom
+            </span>
+          )}
           <button
             onClick={handleSync}
             disabled={syncing}
@@ -162,77 +159,37 @@ export default function Stacks() {
       )}
 
       <div className="flex flex-col gap-10">
-        {/* Available Stacks Section */}
+        {/* Available Products Section */}
         <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="px-4 py-6 md:px-6 xl:px-7.5">
             <h4 className="text-xl font-semibold text-black dark:text-white">
-              Available Stacks
+              Available Products
             </h4>
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-              Stack definitions from configured sources
+              Products from configured sources. Each product contains one or more deployable stacks.
             </p>
           </div>
 
-          {stacksLoading ? (
+          {productsLoading ? (
             <div className="border-t border-stroke px-4 py-8 dark:border-strokedark">
               <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-                Loading available stacks...
+                Loading available products...
               </p>
             </div>
-          ) : stacks.length === 0 ? (
+          ) : products.length === 0 ? (
             <div className="border-t border-stroke px-4 py-8 dark:border-strokedark">
               <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-                No stack definitions available. Click "Sync Sources" to load stacks from configured sources.
+                No products available. Click "Sync Sources" to load products from configured sources.
               </p>
             </div>
           ) : (
             <div className="border-t border-stroke p-4 dark:border-strokedark">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {stacks.map((stack) => (
-                  <div
-                    key={stack.id}
-                    className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50"
-                  >
-                    <div className="mb-3 flex items-start justify-between">
-                      <div>
-                        <h5 className="font-semibold text-gray-900 dark:text-white">
-                          {stack.name}
-                        </h5>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {stack.relativePath ? `${stack.sourceName} / ${stack.relativePath}` : stack.sourceName}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleDeploy(stack)}
-                        disabled={!activeEnvironment}
-                        className="rounded bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Deploy
-                      </button>
-                    </div>
-
-                    {stack.description && (
-                      <p className="mb-3 text-sm text-gray-600 dark:text-gray-400 whitespace-pre-line line-clamp-2">
-                        {stack.description}
-                      </p>
-                    )}
-
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <span className="inline-flex items-center rounded bg-blue-100 px-2 py-1 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                        {stack.services.length} service{stack.services.length !== 1 ? 's' : ''}
-                      </span>
-                      {stack.variables.length > 0 && (
-                        <span className="inline-flex items-center rounded bg-purple-100 px-2 py-1 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
-                          {stack.variables.length} config{stack.variables.length !== 1 ? 's' : ''}
-                        </span>
-                      )}
-                      {stack.version && (
-                        <span className="inline-flex items-center rounded bg-gray-200 px-2 py-1 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-                          v{stack.version.substring(0, 8)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                {products.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                  />
                 ))}
               </div>
             </div>
@@ -262,7 +219,7 @@ export default function Stacks() {
           ) : deployments.length === 0 ? (
             <div className="border-t border-stroke px-4 py-8 dark:border-strokedark">
               <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-                No deployments in this environment. Deploy a stack from the available stacks above.
+                No deployments in this environment. Deploy a stack from the available products above.
               </p>
             </div>
           ) : (
@@ -336,19 +293,75 @@ export default function Stacks() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
 
-      <DeployComposeModal
-        isOpen={isDeployModalOpen}
-        onClose={() => {
-          setIsDeployModalOpen(false);
-          setSelectedStack(null);
-        }}
-        onDeploySuccess={() => {
-          loadDeployments();
-          setSelectedStack(null);
-        }}
-        preloadedStack={selectedStack}
-      />
+// Product Card Component
+interface ProductCardProps {
+  product: Product;
+}
+
+function ProductCard({ product }: ProductCardProps) {
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50 overflow-hidden">
+      {/* Product Header */}
+      <div className="p-4">
+        <div className="mb-3 flex items-start justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h5 className="font-semibold text-gray-900 dark:text-white">
+                {product.name}
+              </h5>
+              {product.isMultiStack && (
+                <span className="inline-flex items-center rounded bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
+                  {product.stacks.length} stacks
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {product.sourceName}
+            </p>
+          </div>
+
+          <Link
+            to={`/stacks/${encodeURIComponent(product.id)}`}
+            className="inline-flex items-center gap-1 rounded bg-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"
+          >
+            View Details
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+        </div>
+
+        {product.description && (
+          <p className="mb-3 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+            {product.description}
+          </p>
+        )}
+
+        <div className="flex flex-wrap gap-2 text-xs">
+          <span className="inline-flex items-center rounded bg-blue-100 px-2 py-1 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+            {product.totalServices} service{product.totalServices !== 1 ? 's' : ''}
+          </span>
+          {product.totalVariables > 0 && (
+            <span className="inline-flex items-center rounded bg-purple-100 px-2 py-1 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+              {product.totalVariables} config{product.totalVariables !== 1 ? 's' : ''}
+            </span>
+          )}
+          {product.version && (
+            <span className="inline-flex items-center rounded bg-gray-200 px-2 py-1 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+              v{product.version.substring(0, 8)}
+            </span>
+          )}
+          {product.category && (
+            <span className="inline-flex items-center rounded bg-indigo-100 px-2 py-1 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
+              {product.category}
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
