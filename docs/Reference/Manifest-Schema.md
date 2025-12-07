@@ -151,6 +151,10 @@ stacks:
 | `Select` | Dropdown selection | Must be one of defined options |
 | `Password` | Password input | Masked in UI, min 8 characters |
 | `Port` | Network port | Integer 1-65535 |
+| `Url` | URL input | HTML5 URL validation |
+| `Email` | Email input | HTML5 email validation |
+| `Path` | File system path | Text input for paths |
+| `MultiLine` | Multi-line text | Textarea input |
 | `SqlServerConnectionString` | SQL Server connection string | Builder dialog with server, database, auth options |
 | `PostgresConnectionString` | PostgreSQL connection string | Builder dialog with SSL mode, pooling options |
 | `MySqlConnectionString` | MySQL connection string | Builder dialog with charset, SSL options |
