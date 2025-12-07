@@ -27,6 +27,8 @@ EMAIL:
 | `patternError` | Error message when pattern doesn't match |
 | `placeholder` | Placeholder text in input field |
 
+**UI**: Single-line text input
+
 ---
 
 ### Number
@@ -135,6 +137,77 @@ ENVIRONMENT:
 | `description` | Additional description |
 
 **UI**: Dropdown menu
+
+---
+
+## Extended Types
+
+### Url
+
+URL input with format validation.
+
+```yaml
+API_ENDPOINT:
+  label: API Endpoint
+  description: External API endpoint URL
+  type: Url
+  default: "https://api.example.com"
+  placeholder: "https://..."
+```
+
+**UI**: Text input with URL validation
+
+---
+
+### Email
+
+Email address input with format validation.
+
+```yaml
+ADMIN_EMAIL:
+  label: Admin Email
+  description: Administrator email for notifications
+  type: Email
+  default: admin@example.com
+  placeholder: admin@yourdomain.com
+```
+
+**UI**: Text input with email validation
+
+---
+
+### Path
+
+File system path input.
+
+```yaml
+DATA_PATH:
+  label: Data Path
+  description: Path for data storage
+  type: Path
+  default: /data
+```
+
+**UI**: Text input for paths
+
+---
+
+### MultiLine
+
+Multi-line text input for larger content.
+
+```yaml
+SSL_CERTIFICATE:
+  label: SSL Certificate
+  description: PEM-encoded SSL certificate
+  type: MultiLine
+  placeholder: |
+    -----BEGIN CERTIFICATE-----
+    ...
+    -----END CERTIFICATE-----
+```
+
+**UI**: Textarea with multiple lines
 
 ---
 
@@ -312,25 +385,25 @@ variables:
   # Database group
   DB_HOST:
     type: String
-    group: database
+    group: Database
     order: 1
   DB_PORT:
     type: Port
-    group: database
+    group: Database
     order: 2
   DB_PASSWORD:
     type: Password
-    group: database
+    group: Database
     order: 3
 
   # Network group
   WEB_PORT:
     type: Port
-    group: network
+    group: Network
     order: 1
   API_PORT:
     type: Port
-    group: network
+    group: Network
     order: 2
 ```
 
@@ -340,6 +413,18 @@ variables:
 | `order` | Order within the group |
 
 **UI**: Variables are displayed ordered by groups with group headers.
+
+**Recommended Groups:**
+
+| Group | Description |
+|-------|-------------|
+| `General` | General settings |
+| `Network` | Ports, DNS, URLs |
+| `Database` | Database connections |
+| `Security` | Certificates, passwords |
+| `Logging` | Log levels, outputs |
+| `Performance` | Timeouts, pools, threads |
+| `Advanced` | Advanced configuration |
 
 ---
 
@@ -362,6 +447,97 @@ All types support:
 ### Error Display
 
 Validation errors are displayed directly below the input field in red.
+
+---
+
+## Complete Example
+
+```yaml
+variables:
+  # String with pattern
+  VERSION_TAG:
+    label: Version Tag
+    type: String
+    default: v1.0.0
+    pattern: "^v\\d+\\.\\d+\\.\\d+$"
+    patternError: Version must match format v#.#.# (e.g., v1.0.0)
+    group: Versions
+    order: 1
+
+  # Number with range
+  MAX_CONNECTIONS:
+    label: Max Connections
+    type: Number
+    default: "100"
+    min: 1
+    max: 1000
+    group: Performance
+
+  # Boolean
+  ENABLE_DEBUG:
+    label: Enable Debug Mode
+    type: Boolean
+    default: "false"
+    group: General
+
+  # Password
+  ADMIN_PASSWORD:
+    label: Admin Password
+    type: Password
+    required: true
+    group: Security
+
+  # Port
+  HTTP_PORT:
+    label: HTTP Port
+    type: Port
+    default: "8080"
+    group: Network
+
+  # Select
+  ENVIRONMENT:
+    label: Environment
+    type: Select
+    default: development
+    options:
+      - value: development
+        label: Development
+      - value: staging
+        label: Staging
+      - value: production
+        label: Production
+    group: General
+
+  # URL
+  API_ENDPOINT:
+    label: API Endpoint
+    type: Url
+    default: "https://api.example.com"
+    group: External Services
+
+  # Email
+  ADMIN_EMAIL:
+    label: Admin Email
+    type: Email
+    default: admin@example.com
+    group: Notifications
+
+  # MultiLine
+  SSL_CERTIFICATE:
+    label: SSL Certificate
+    type: MultiLine
+    placeholder: |
+      -----BEGIN CERTIFICATE-----
+      ...
+      -----END CERTIFICATE-----
+    group: Security
+
+  # SQL Server Connection
+  DATABASE:
+    label: SQL Server Connection
+    type: SqlServerConnectionString
+    group: Database
+```
 
 ---
 

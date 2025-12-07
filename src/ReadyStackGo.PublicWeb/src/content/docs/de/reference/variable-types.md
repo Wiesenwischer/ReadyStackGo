@@ -27,6 +27,8 @@ EMAIL:
 | `patternError` | Fehlermeldung bei Pattern-Verletzung |
 | `placeholder` | Platzhalter-Text im Eingabefeld |
 
+**UI**: Einzeiliges Textfeld
+
 ---
 
 ### Number
@@ -35,7 +37,7 @@ Numerische Eingabe mit optionalen Min/Max-Grenzen.
 
 ```yaml
 WORKERS:
-  label: Worker Threads
+  label: Worker-Threads
   type: Number
   default: "4"
   min: 1
@@ -45,8 +47,8 @@ WORKERS:
 
 | Eigenschaft | Beschreibung |
 |-------------|--------------|
-| `min` | Minimaler Wert |
-| `max` | Maximaler Wert |
+| `min` | Minimalwert |
+| `max` | Maximalwert |
 
 **UI**: Zahlenfeld mit Validierung
 
@@ -54,14 +56,14 @@ WORKERS:
 
 ### Boolean
 
-Toggle-Schalter für Ja/Nein-Werte.
+Schalter für Ja/Nein-Werte.
 
 ```yaml
 DEBUG:
   label: Debug-Modus
   type: Boolean
   default: "false"
-  description: Aktiviert erweiterte Logging-Ausgaben
+  description: Aktiviert erweiterte Logging-Ausgabe
 ```
 
 **Gültige Werte**: `"true"` oder `"false"` (als Strings)
@@ -82,7 +84,7 @@ DB_PASSWORD:
   description: Mindestens 8 Zeichen
 ```
 
-**UI**: Passwortfeld mit Eye-Icon zum Anzeigen/Verstecken
+**UI**: Passwortfeld mit Auge-Symbol zum Ein-/Ausblenden
 
 ---
 
@@ -92,10 +94,10 @@ Netzwerk-Port mit automatischer Validierung (1-65535).
 
 ```yaml
 WEB_PORT:
-  label: Web-Port
+  label: Web Port
   type: Port
   default: "8080"
-  description: HTTP Port für die Anwendung
+  description: HTTP-Port der Anwendung
 ```
 
 | Eigenschaft | Beschreibung |
@@ -122,19 +124,90 @@ ENVIRONMENT:
       description: Lokale Entwicklungsumgebung
     - value: staging
       label: Staging
-      description: Test-Umgebung
+      description: Testumgebung
     - value: production
       label: Produktion
       description: Live-System
 ```
 
-| Option-Eigenschaft | Beschreibung |
-|--------------------|--------------|
-| `value` | Technischer Wert (Pflicht) |
+| Options-Eigenschaft | Beschreibung |
+|---------------------|--------------|
+| `value` | Technischer Wert (erforderlich) |
 | `label` | Anzeigetext |
 | `description` | Zusätzliche Beschreibung |
 
 **UI**: Dropdown-Menü
+
+---
+
+## Erweiterte Typen
+
+### Url
+
+URL-Eingabe mit Format-Validierung.
+
+```yaml
+API_ENDPOINT:
+  label: API Endpoint
+  description: Externe API-URL
+  type: Url
+  default: "https://api.example.com"
+  placeholder: "https://..."
+```
+
+**UI**: Textfeld mit URL-Validierung
+
+---
+
+### Email
+
+E-Mail-Adresse mit Format-Validierung.
+
+```yaml
+ADMIN_EMAIL:
+  label: Admin E-Mail
+  description: E-Mail-Adresse für Benachrichtigungen
+  type: Email
+  default: admin@example.com
+  placeholder: admin@ihredomain.de
+```
+
+**UI**: Textfeld mit E-Mail-Validierung
+
+---
+
+### Path
+
+Dateisystem-Pfad Eingabe.
+
+```yaml
+DATA_PATH:
+  label: Daten-Pfad
+  description: Pfad für Datenspeicherung
+  type: Path
+  default: /data
+```
+
+**UI**: Textfeld für Pfade
+
+---
+
+### MultiLine
+
+Mehrzeilige Texteingabe für größeren Inhalt.
+
+```yaml
+SSL_CERTIFICATE:
+  label: SSL-Zertifikat
+  description: PEM-kodiertes SSL-Zertifikat
+  type: MultiLine
+  placeholder: |
+    -----BEGIN CERTIFICATE-----
+    ...
+    -----END CERTIFICATE-----
+```
+
+**UI**: Textarea mit mehreren Zeilen
 
 ---
 
@@ -144,7 +217,7 @@ Diese Typen bieten spezialisierte Builder-Dialoge für Datenbankverbindungen.
 
 ### SqlServerConnectionString
 
-Microsoft SQL Server Verbindungsstring.
+Microsoft SQL Server Connection String.
 
 ```yaml
 DB_CONNECTION:
@@ -155,11 +228,11 @@ DB_CONNECTION:
 ```
 
 **Builder-Dialog Features**:
-- Server und Port getrennt konfigurieren
+- Server und Port separat konfigurieren
 - Windows-Authentifizierung oder SQL-Login
 - Optionen: Encrypt, TrustServerCertificate, MARS
 - Live-Vorschau des Connection Strings
-- **Test Connection** Button
+- **Verbindung testen** Button
 
 **Generiertes Format**:
 ```
@@ -170,7 +243,7 @@ Server=myserver,1433;Database=mydb;User Id=sa;Password=***;TrustServerCertificat
 
 ### PostgresConnectionString
 
-PostgreSQL Verbindungsstring.
+PostgreSQL Connection String.
 
 ```yaml
 PG_CONNECTION:
@@ -181,10 +254,10 @@ PG_CONNECTION:
 
 **Builder-Dialog Features**:
 - Host, Port, Datenbank
-- Benutzer und Passwort
-- SSL Mode (Disable, Require, Prefer)
+- Benutzername und Passwort
+- SSL-Modus (Disable, Require, Prefer)
 - Connection Pooling Optionen
-- Test Connection
+- Verbindung testen
 
 **Generiertes Format**:
 ```
@@ -195,7 +268,7 @@ Host=localhost;Port=5432;Database=mydb;Username=postgres;Password=***;SSL Mode=P
 
 ### MySqlConnectionString
 
-MySQL/MariaDB Verbindungsstring.
+MySQL/MariaDB Connection String.
 
 ```yaml
 MYSQL_CONNECTION:
@@ -209,7 +282,7 @@ MYSQL_CONNECTION:
 - Datenbank und Benutzer
 - SSL-Optionen
 - Charset-Konfiguration
-- Test Connection
+- Verbindung testen
 
 **Generiertes Format**:
 ```
@@ -220,7 +293,7 @@ Server=localhost;Port=3306;Database=mydb;User=root;Password=***;SslMode=Required
 
 ### MongoConnectionString
 
-MongoDB Verbindungsstring.
+MongoDB Connection String.
 
 ```yaml
 MONGO_CONNECTION:
@@ -231,9 +304,9 @@ MONGO_CONNECTION:
 **Builder-Dialog Features**:
 - Single Host oder Replica Set
 - Authentifizierung und AuthSource
-- SSL/TLS Optionen
+- SSL/TLS-Optionen
 - Read Preference
-- Test Connection
+- Verbindung testen
 
 **Generiertes Format**:
 ```
@@ -244,7 +317,7 @@ mongodb://user:pass@host1:27017,host2:27017/mydb?replicaSet=rs0&authSource=admin
 
 ### RedisConnectionString
 
-Redis Verbindungsstring.
+Redis Connection String.
 
 ```yaml
 REDIS_URL:
@@ -256,7 +329,7 @@ REDIS_URL:
 **Builder-Dialog Features**:
 - Host und Port
 - Passwort (optional)
-- Database-Nummer
+- Datenbank-Nummer
 - SSL-Optionen
 - Sentinel-Konfiguration
 
@@ -269,7 +342,7 @@ redis://user:password@host:6379/0?ssl=true
 
 ### EventStoreConnectionString
 
-EventStoreDB gRPC Verbindungsstring.
+EventStoreDB gRPC Connection String.
 
 ```yaml
 EVENTSTORE_CONNECTION:
@@ -295,7 +368,7 @@ Generischer Connection String ohne spezialisierten Builder.
 
 ```yaml
 CUSTOM_CONNECTION:
-  label: Benutzerdefinierte Verbindung
+  label: Custom Verbindung
   type: ConnectionString
 ```
 
@@ -309,28 +382,28 @@ Variablen können in logische Gruppen organisiert werden:
 
 ```yaml
 variables:
-  # Datenbankgruppe
+  # Datenbank-Gruppe
   DB_HOST:
     type: String
-    group: database
+    group: Database
     order: 1
   DB_PORT:
     type: Port
-    group: database
+    group: Database
     order: 2
   DB_PASSWORD:
     type: Password
-    group: database
+    group: Database
     order: 3
 
-  # Netzwerkgruppe
+  # Netzwerk-Gruppe
   WEB_PORT:
     type: Port
-    group: network
+    group: Network
     order: 1
   API_PORT:
     type: Port
-    group: network
+    group: Network
     order: 2
 ```
 
@@ -339,7 +412,19 @@ variables:
 | `group` | Name der Gruppe |
 | `order` | Reihenfolge innerhalb der Gruppe |
 
-**UI**: Variablen werden nach Gruppen geordnet mit Gruppenüberschriften angezeigt.
+**UI**: Variablen werden gruppiert mit Überschriften angezeigt.
+
+**Empfohlene Gruppen:**
+
+| Gruppe | Beschreibung |
+|--------|--------------|
+| `General` | Allgemeine Einstellungen |
+| `Network` | Ports, DNS, URLs |
+| `Database` | Datenbankverbindungen |
+| `Security` | Zertifikate, Passwörter |
+| `Logging` | Log-Level, Ausgaben |
+| `Performance` | Timeouts, Pools, Threads |
+| `Advanced` | Erweiterte Konfiguration |
 
 ---
 
@@ -353,15 +438,106 @@ Alle Typen unterstützen:
 | `default` | Standardwert |
 | `description` | Hilfetext unter dem Feld |
 
-### Validierungsreihenfolge
+### Validierungs-Reihenfolge
 
-1. Required-Check (falls `required: true`)
+1. Required-Prüfung (wenn `required: true`)
 2. Typ-spezifische Validierung (z.B. Port-Bereich)
-3. Pattern-Validierung (falls `pattern` definiert)
+3. Pattern-Validierung (wenn `pattern` definiert)
 
-### Fehlerdarstellung
+### Fehleranzeige
 
 Validierungsfehler werden direkt unter dem Eingabefeld in Rot angezeigt.
+
+---
+
+## Vollständiges Beispiel
+
+```yaml
+variables:
+  # String mit Pattern
+  VERSION_TAG:
+    label: Version Tag
+    type: String
+    default: v1.0.0
+    pattern: "^v\\d+\\.\\d+\\.\\d+$"
+    patternError: Version muss Format v#.#.# haben (z.B. v1.0.0)
+    group: Versions
+    order: 1
+
+  # Number mit Bereich
+  MAX_CONNECTIONS:
+    label: Max Verbindungen
+    type: Number
+    default: "100"
+    min: 1
+    max: 1000
+    group: Performance
+
+  # Boolean
+  ENABLE_DEBUG:
+    label: Debug aktivieren
+    type: Boolean
+    default: "false"
+    group: General
+
+  # Password
+  ADMIN_PASSWORD:
+    label: Admin Passwort
+    type: Password
+    required: true
+    group: Security
+
+  # Port
+  HTTP_PORT:
+    label: HTTP Port
+    type: Port
+    default: "8080"
+    group: Network
+
+  # Select
+  ENVIRONMENT:
+    label: Umgebung
+    type: Select
+    default: development
+    options:
+      - value: development
+        label: Entwicklung
+      - value: staging
+        label: Staging
+      - value: production
+        label: Produktion
+    group: General
+
+  # URL
+  API_ENDPOINT:
+    label: API Endpoint
+    type: Url
+    default: "https://api.example.com"
+    group: External Services
+
+  # Email
+  ADMIN_EMAIL:
+    label: Admin E-Mail
+    type: Email
+    default: admin@example.com
+    group: Notifications
+
+  # MultiLine
+  SSL_CERTIFICATE:
+    label: SSL Zertifikat
+    type: MultiLine
+    placeholder: |
+      -----BEGIN CERTIFICATE-----
+      ...
+      -----END CERTIFICATE-----
+    group: Security
+
+  # SQL Server Connection
+  DATABASE:
+    label: SQL Server Verbindung
+    type: SqlServerConnectionString
+    group: Database
+```
 
 ---
 
