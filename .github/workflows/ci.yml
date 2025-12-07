@@ -1,12 +1,10 @@
 name: CI
 
 on:
-  push:
-    branches: [main, develop]  # Only main branches - PRs handle feature branches
   pull_request:
     branches: [main, develop]
 
-# Cancel redundant runs for the same PR/branch
+# Cancel in-progress runs when a new commit is pushed
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
