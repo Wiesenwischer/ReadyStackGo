@@ -2,9 +2,14 @@ name: CI
 
 on:
   push:
-    branches: [main, develop, 'feature/**']
+    branches: [main, develop]  # Only main branches - PRs handle feature branches
   pull_request:
     branches: [main, develop]
+
+# Cancel redundant runs for the same PR/branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   DOTNET_VERSION: '9.0.x'
