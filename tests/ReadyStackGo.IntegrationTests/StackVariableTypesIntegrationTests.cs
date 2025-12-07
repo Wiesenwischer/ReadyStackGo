@@ -62,8 +62,9 @@ public class StackVariableTypesIntegrationTests : AuthenticatedTestBase
             {
                 "String", "Number", "Boolean", "Select", "Password",
                 "Port", "Url", "Email", "Path", "MultiLine",
-                "SqlServerConnectionString", "PostgresConnectionString",
-                "MongoDbConnectionString", "MySqlConnectionString"
+                "ConnectionString", "SqlServerConnectionString", "PostgresConnectionString",
+                "MySqlConnectionString", "EventStoreConnectionString", "MongoConnectionString",
+                "RedisConnectionString"
             };
 
             allVariables.Should().AllSatisfy(v =>
