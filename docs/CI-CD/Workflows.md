@@ -4,7 +4,7 @@ ReadyStackGo uses GitHub Actions for Continuous Integration and Deployment. All 
 
 ## CI (ci.yml)
 
-**Trigger:** Pull Requests to `main` or `develop`
+**Trigger:** Pull Requests to `main`
 
 The main workflow for Continuous Integration:
 
@@ -45,19 +45,19 @@ Builds and pushes Docker images to Docker Hub:
 
 ## Docker Dev Build (docker-dev.yml)
 
-**Trigger:** Push to `develop` (after PR merge)
+**Trigger:** Push to `main` (after PR merge)
 
 Builds and pushes dev images to GitHub Container Registry (ghcr.io):
 
 - Multi-platform build (linux/amd64, linux/arm64)
-- Image tag: `develop` (overwritten on each build)
+- Image tag: `latest` (overwritten on each build)
 - Git commit SHA as label (`org.opencontainers.image.revision`)
 
-**Image:** `ghcr.io/wiesenwischer/readystackgo:develop`
+**Image:** `ghcr.io/wiesenwischer/readystackgo:latest`
 
 **Read commit SHA:**
 ```bash
-docker inspect ghcr.io/wiesenwischer/readystackgo:develop \
+docker inspect ghcr.io/wiesenwischer/readystackgo:latest \
   --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
 ```
 
@@ -84,7 +84,7 @@ Deploys the PublicWeb documentation site to Cloudflare Pages:
 
 ## Release Drafter (release-drafter.yml)
 
-**Trigger:** Push to `main` and Pull Requests
+**Trigger:** Push to `main` and Pull Requests to `main`
 
 Creates release drafts that are manually published:
 
@@ -100,7 +100,7 @@ Creates release drafts that are manually published:
 
 ## Third-Party Licenses (licenses.yml)
 
-**Trigger:** Push to `main`/`develop` on changes to `*.csproj` or `package.json`, or manually
+**Trigger:** Push to `main` on changes to `*.csproj` or `package.json`, or manually
 
 Generates license information for all dependencies:
 
@@ -129,7 +129,7 @@ Synchronizes the `/docs` folder structure with the GitHub Wiki:
 ## Workflow Dependencies
 
 ```
-Pull Request to main/develop
+Pull Request to main
        │
        ▼
     ┌─────┐
@@ -140,15 +140,9 @@ Pull Request to main/develop
                           │ E2E Tests  │
                           └────────────┘
 
-Push to develop (PR merge)
-       │
-       ▼
-  ┌────────────┐
-  │ Docker Dev │
-  │  (ghcr.io) │
-  └────────────┘
-
 Push to main (PR merge)
+       │
+       ├──► Docker Dev (ghcr.io:latest)
        │
        ├──► Release Drafter (update draft)
        │

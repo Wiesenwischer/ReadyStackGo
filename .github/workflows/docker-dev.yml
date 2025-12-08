@@ -1,10 +1,13 @@
 name: Docker Dev Build
 
-# Triggered on push to develop (after PR merge)
-# CI already ran on the PR, so we trust the code is tested
+# Triggered on push to main (after PR merge)
+# Builds a dev image for testing before release
 on:
   push:
-    branches: [develop]
+    branches: [main]
+    # Don't trigger on tag pushes (release workflow handles those)
+    tags-ignore:
+      - 'v*'
 
 env:
   GHCR_IMAGE: ghcr.io/wiesenwischer/readystackgo
@@ -35,7 +38,7 @@ jobs:
         with:
           images: ${{ env.GHCR_IMAGE }}
           tags: |
-            type=raw,value=develop
+            type=raw,value=latest
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
 
