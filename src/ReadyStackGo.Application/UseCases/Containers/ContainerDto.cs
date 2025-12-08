@@ -20,6 +20,11 @@ public record ContainerDto
     /// Number of failing health checks (if any)
     /// </summary>
     public int FailingStreak { get; init; } = 0;
+
+    /// <summary>
+    /// Number of container restarts
+    /// </summary>
+    public int RestartCount { get; init; } = 0;
 }
 
 public record PortDto

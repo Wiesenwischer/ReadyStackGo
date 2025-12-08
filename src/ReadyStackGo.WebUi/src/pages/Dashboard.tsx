@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { dashboardApi, type DashboardStats } from '../api/dashboard';
 import { useEnvironment } from '../context/EnvironmentContext';
+import HealthWidget from '../components/dashboard/HealthWidget';
 
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -98,7 +99,13 @@ export default function Dashboard() {
       </div>
 
       <div className="mt-4 grid grid-cols-12 gap-4 md:mt-6 md:gap-6 2xl:mt-7.5 2xl:gap-7.5">
-        <div className="col-span-12 xl:col-span-8">
+        {/* Health Status Widget */}
+        <div className="col-span-12 xl:col-span-4">
+          <HealthWidget />
+        </div>
+
+        {/* Container Overview */}
+        <div className="col-span-12 xl:col-span-4">
           <div className="rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-7.5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-7.5">
             <div className="mb-3 justify-between gap-4 sm:flex">
               <div>
@@ -130,6 +137,7 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Stack Overview */}
         <div className="col-span-12 xl:col-span-4">
           <div className="rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-7.5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-7.5">
             <div className="mb-3">
