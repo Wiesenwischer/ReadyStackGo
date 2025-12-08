@@ -86,7 +86,7 @@ public class HealthMonitoringServiceTests
 
         // Act
         var snapshot = await _service.CaptureHealthSnapshotAsync(
-            _orgId, _envId, _deploymentId, "test-stack", "1.0.0");
+            _orgId, _envId, _deploymentId, "test-stack", "1.0.0", serviceHealthConfigs: null);
 
         // Assert
         _dockerServiceMock.Verify(
@@ -121,7 +121,7 @@ public class HealthMonitoringServiceTests
 
         // Act
         var snapshot = await _service.CaptureHealthSnapshotAsync(
-            _orgId, _envId, _deploymentId, "test-stack", "1.0.0");
+            _orgId, _envId, _deploymentId, "test-stack", "1.0.0", serviceHealthConfigs: null);
 
         // Assert
         _dockerServiceMock.Verify(
@@ -164,7 +164,7 @@ public class HealthMonitoringServiceTests
 
         // Act
         var snapshot = await _service.CaptureHealthSnapshotAsync(
-            _orgId, _envId, _deploymentId, "test-stack", "1.0.0");
+            _orgId, _envId, _deploymentId, "test-stack", "1.0.0", serviceHealthConfigs: null);
 
         // Assert
         _dockerServiceMock.Verify(
@@ -200,7 +200,7 @@ public class HealthMonitoringServiceTests
 
         // Act
         var snapshot = await _service.CaptureHealthSnapshotAsync(
-            _orgId, _envId, _deploymentId, "test-stack", "1.0.0");
+            _orgId, _envId, _deploymentId, "test-stack", "1.0.0", serviceHealthConfigs: null);
 
         // Assert
         _dockerServiceMock.Verify(
@@ -246,7 +246,7 @@ public class HealthMonitoringServiceTests
 
         // Act
         var snapshot = await _service.CaptureHealthSnapshotAsync(
-            _orgId, _envId, _deploymentId, "test-stack", "1.0.0");
+            _orgId, _envId, _deploymentId, "test-stack", "1.0.0", serviceHealthConfigs: null);
 
         // Assert - Only 3 calls for unhealthy/degraded containers
         _dockerServiceMock.Verify(
@@ -293,7 +293,7 @@ public class HealthMonitoringServiceTests
 
         // Act
         var snapshot = await _service.CaptureHealthSnapshotAsync(
-            _orgId, _envId, _deploymentId, "test-stack", "1.0.0");
+            _orgId, _envId, _deploymentId, "test-stack", "1.0.0", serviceHealthConfigs: null);
 
         // Assert
         _dockerServiceMock.Verify(

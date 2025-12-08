@@ -89,6 +89,17 @@ public static class DependencyInjection
         services.AddScoped<IHealthMonitoringService, HealthMonitoringService>();
         services.AddScoped<IHealthCollectorService, HealthCollectorService>();
 
+        // HTTP Health Checker for ASP.NET Core /hc endpoints
+        services.AddHttpClient<IHttpHealthChecker, HttpHealthChecker>(client =>
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-HealthChecker");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            // Skip certificate validation for internal container communication
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        });
+
         // Password hashing
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
 

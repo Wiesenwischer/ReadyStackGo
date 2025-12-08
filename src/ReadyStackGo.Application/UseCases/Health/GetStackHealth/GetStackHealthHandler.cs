@@ -88,6 +88,7 @@ public class GetStackHealthHandler : IRequestHandler<GetStackHealthQuery, GetSta
                 deploymentId,
                 deployment.StackName,
                 deployment.StackVersion,
+                serviceHealthConfigs: null, // TODO: Load from stack definition
                 cancellationToken);
         }
 

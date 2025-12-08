@@ -71,6 +71,7 @@ public class HealthCollectorService : IHealthCollectorService
                     deployment.Id,
                     deployment.StackName,
                     deployment.StackVersion,
+                    serviceHealthConfigs: null, // TODO: Load from stack definition
                     cancellationToken);
 
                 var summaryDto = MapToStackHealthSummary(snapshot);
@@ -150,6 +151,7 @@ public class HealthCollectorService : IHealthCollectorService
                 deploymentId,
                 deployment.StackName,
                 deployment.StackVersion,
+                serviceHealthConfigs: null, // TODO: Load from stack definition
                 cancellationToken);
 
             var summaryDto = MapToStackHealthSummary(snapshot);
