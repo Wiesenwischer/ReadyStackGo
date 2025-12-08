@@ -1,4 +1,4 @@
-import { apiGet } from './client';
+import { apiGet, apiPut } from './client';
 
 // Types for health data (matching backend DTOs)
 export interface StackHealthDto {
@@ -267,4 +267,54 @@ export function formatHealthRatio(healthy: number, total: number): string {
 export function calculateHealthPercentage(healthy: number, total: number): number {
   if (total === 0) return 0;
   return Math.round((healthy / total) * 100);
+}
+
+// Operation Mode API
+
+export interface ChangeOperationModeRequest {
+  mode: OperationModeName;
+  reason?: string;
+  targetVersion?: string;
+}
+
+export interface ChangeOperationModeResponse {
+  success: boolean;
+  message?: string;
+  deploymentId?: string;
+  previousMode?: string;
+  newMode?: string;
+}
+
+/**
+ * Change the operation mode of a deployment.
+ * @param deploymentId The deployment ID
+ * @param request The mode change request
+ */
+export async function changeOperationMode(
+  deploymentId: string,
+  request: ChangeOperationModeRequest
+): Promise<ChangeOperationModeResponse> {
+  return apiPut<ChangeOperationModeResponse>(
+    `/api/deployments/${deploymentId}/operation-mode`,
+    request
+  );
+}
+
+/**
+ * Enter maintenance mode for a deployment.
+ */
+export async function enterMaintenanceMode(
+  deploymentId: string,
+  reason?: string
+): Promise<ChangeOperationModeResponse> {
+  return changeOperationMode(deploymentId, { mode: 'Maintenance', reason });
+}
+
+/**
+ * Exit maintenance mode and return to normal operation.
+ */
+export async function exitMaintenanceMode(
+  deploymentId: string
+): Promise<ChangeOperationModeResponse> {
+  return changeOperationMode(deploymentId, { mode: 'Normal' });
 }

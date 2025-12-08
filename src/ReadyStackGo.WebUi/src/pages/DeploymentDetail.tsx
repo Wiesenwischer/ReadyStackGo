@@ -7,6 +7,8 @@ import {
   getHealthStatusPresentation,
   getOperationModePresentation,
   getStackHealth,
+  enterMaintenanceMode,
+  exitMaintenanceMode,
   type StackHealthSummaryDto,
   type StackHealthDto,
   type ServiceHealthDto
@@ -20,6 +22,8 @@ export default function DeploymentDetail() {
   const [detailedHealth, setDetailedHealth] = useState<StackHealthDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [modeActionLoading, setModeActionLoading] = useState(false);
+  const [modeActionError, setModeActionError] = useState<string | null>(null);
 
   // SignalR Health Hub connection
   const { connectionState, subscribeToEnvironment, unsubscribeFromEnvironment } = useHealthHub({
@@ -90,6 +94,40 @@ export default function DeploymentDetail() {
     if (!dateString) return "-";
     const date = new Date(dateString);
     return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const handleEnterMaintenance = async () => {
+    if (!deployment?.deploymentId) return;
+    try {
+      setModeActionLoading(true);
+      setModeActionError(null);
+      const response = await enterMaintenanceMode(deployment.deploymentId);
+      if (!response.success) {
+        setModeActionError(response.message || 'Failed to enter maintenance mode');
+      }
+      // Health data will be updated via SignalR
+    } catch (err) {
+      setModeActionError(err instanceof Error ? err.message : 'Failed to enter maintenance mode');
+    } finally {
+      setModeActionLoading(false);
+    }
+  };
+
+  const handleExitMaintenance = async () => {
+    if (!deployment?.deploymentId) return;
+    try {
+      setModeActionLoading(true);
+      setModeActionError(null);
+      const response = await exitMaintenanceMode(deployment.deploymentId);
+      if (!response.success) {
+        setModeActionError(response.message || 'Failed to exit maintenance mode');
+      }
+      // Health data will be updated via SignalR
+    } catch (err) {
+      setModeActionError(err instanceof Error ? err.message : 'Failed to exit maintenance mode');
+    } finally {
+      setModeActionLoading(false);
+    }
   };
 
   const statusPresentation = health
@@ -180,15 +218,73 @@ export default function DeploymentDetail() {
             Deployed {formatDate(deployment.deployedAt)} in {activeEnvironment?.name}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {connectionState === 'connected' && (
             <span className="inline-flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
               <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
               Live
             </span>
           )}
+          {/* Operation Mode Controls */}
+          {deployment?.deploymentId && health && (
+            <>
+              {health.operationMode === 'Normal' && (
+                <button
+                  onClick={handleEnterMaintenance}
+                  disabled={modeActionLoading}
+                  className="inline-flex items-center justify-center gap-2 rounded-md bg-yellow-100 px-4 py-2 text-sm font-medium text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:hover:bg-yellow-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  {modeActionLoading ? 'Entering...' : 'Enter Maintenance'}
+                </button>
+              )}
+              {health.operationMode === 'Maintenance' && (
+                <button
+                  onClick={handleExitMaintenance}
+                  disabled={modeActionLoading}
+                  className="inline-flex items-center justify-center gap-2 rounded-md bg-green-100 px-4 py-2 text-sm font-medium text-green-800 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {modeActionLoading ? 'Exiting...' : 'Exit Maintenance'}
+                </button>
+              )}
+            </>
+          )}
         </div>
       </div>
+
+      {/* Operation Mode Error */}
+      {modeActionError && (
+        <div className="mb-6 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-red-800 dark:text-red-200">{modeActionError}</p>
+            </div>
+            <div className="ml-auto pl-3">
+              <button
+                onClick={() => setModeActionError(null)}
+                className="inline-flex rounded-md p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50"
+              >
+                <span className="sr-only">Dismiss</span>
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Health Summary Card */}
       {health && (
