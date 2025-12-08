@@ -286,6 +286,30 @@ Die Health-Engine liest immer zuerst `OperationMode` und interpretiert Container
 - `OperationMode=Normal` + viele kaputte Container → echte Störung.
 - `OperationMode=Migrating` + Dienste down → erwartete Einschränkung (Degraded).
 
+### 5.3 Container-Lifecycle bei Maintenance Mode
+
+Beim Wechsel in den Maintenance-Modus werden Container automatisch gestoppt:
+
+```
+Normal → Maintenance: Alle Stack-Container werden gestoppt
+Maintenance → Normal: Alle Stack-Container werden gestartet
+```
+
+**Ausnahme:** Container mit dem Label `rsgo.maintenance=ignore` werden nicht gestoppt/gestartet.
+Dies ist nützlich für Infrastruktur-Container (z.B. Datenbanken), die während der Wartung weiterlaufen sollen.
+
+Beispiel in docker-compose.yml:
+```yaml
+services:
+  postgres:
+    image: postgres:16
+    labels:
+      rsgo.stack: my-app
+      rsgo.maintenance: ignore  # Container bleibt bei Maintenance aktiv
+```
+
+Die Container-Lifecycle-Verwaltung erfolgt über die Docker API und wird durch den `ChangeOperationModeHandler` koordiniert.
+
 ---
 
 ## 6. API
