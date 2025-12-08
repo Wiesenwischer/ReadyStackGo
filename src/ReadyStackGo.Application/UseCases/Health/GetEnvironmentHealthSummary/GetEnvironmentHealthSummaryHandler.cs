@@ -79,19 +79,15 @@ public class GetEnvironmentHealthSummaryHandler
     {
         return new StackHealthSummaryDto
         {
-            DeploymentId = stack.SnapshotId.Value.ToString(),
+            DeploymentId = stack.DeploymentId.Value.ToString(),
             StackName = stack.StackName,
             CurrentVersion = stack.CurrentVersion,
 
-            // Overall status - using domain behavior
+            // Overall status (UI presentation handled in frontend)
             OverallStatus = stack.OverallStatus.Name,
-            OverallStatusColor = stack.OverallStatus.CssColorClass,
-            OverallStatusIcon = stack.OverallStatus.Icon,
 
-            // Operation mode - using domain behavior
+            // Operation mode
             OperationMode = stack.OperationMode.Name,
-            OperationModeColor = stack.OperationMode.CssColorClass,
-            OperationModeIcon = stack.OperationMode.Icon,
 
             // Services summary
             HealthyServices = stack.HealthyServices,

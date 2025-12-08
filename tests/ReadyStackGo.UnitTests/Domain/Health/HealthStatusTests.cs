@@ -98,35 +98,6 @@ public class HealthStatusTests
 
     #endregion
 
-    #region CssColorClass
-
-    [Theory]
-    [InlineData("Healthy", "green")]
-    [InlineData("Degraded", "yellow")]
-    [InlineData("Unhealthy", "red")]
-    [InlineData("Unknown", "gray")]
-    public void CssColorClass_ReturnsCorrectColor(string statusName, string expectedColor)
-    {
-        var status = HealthStatus.FromName(statusName);
-
-        status.CssColorClass.Should().Be(expectedColor);
-    }
-
-    #endregion
-
-    #region Icon
-
-    [Fact]
-    public void Icon_AllStatusesHaveIcons()
-    {
-        foreach (var status in HealthStatus.GetAll())
-        {
-            status.Icon.Should().NotBeNullOrEmpty($"Status {status.Name} should have an icon");
-        }
-    }
-
-    #endregion
-
     #region SeverityLevel
 
     [Fact]

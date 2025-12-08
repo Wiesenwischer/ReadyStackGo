@@ -108,32 +108,6 @@ public sealed class OperationMode : ValueObject
     };
 
     /// <summary>
-    /// Returns the CSS color class for UI display.
-    /// </summary>
-    public string CssColorClass => this switch
-    {
-        _ when this == Normal => "green",
-        _ when this == Migrating => "blue",
-        _ when this == Maintenance => "yellow",
-        _ when this == Stopped => "gray",
-        _ when this == Failed => "red",
-        _ => "gray"
-    };
-
-    /// <summary>
-    /// Returns the icon for UI display.
-    /// </summary>
-    public string Icon => this switch
-    {
-        _ when this == Normal => "●",
-        _ when this == Migrating => "↻",
-        _ when this == Maintenance => "🔧",
-        _ when this == Stopped => "⏹",
-        _ when this == Failed => "✗",
-        _ => "?"
-    };
-
-    /// <summary>
     /// Gets the valid transitions from this mode.
     /// </summary>
     public IEnumerable<OperationMode> GetValidTransitions()

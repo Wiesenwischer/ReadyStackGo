@@ -1,5 +1,6 @@
 namespace ReadyStackGo.Domain.Deployment.Health;
 
+using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.SharedKernel;
 
@@ -189,6 +190,7 @@ public sealed class EnvironmentHealthSummary : ValueObject
 public sealed class StackHealthSummary : ValueObject
 {
     public HealthSnapshotId SnapshotId { get; }
+    public DeploymentId DeploymentId { get; }
     public string StackName { get; }
     public string? CurrentVersion { get; }
     public HealthStatus OverallStatus { get; }
@@ -201,6 +203,7 @@ public sealed class StackHealthSummary : ValueObject
 
     private StackHealthSummary(
         HealthSnapshotId snapshotId,
+        DeploymentId deploymentId,
         string stackName,
         string? currentVersion,
         HealthStatus overallStatus,
@@ -212,6 +215,7 @@ public sealed class StackHealthSummary : ValueObject
         bool requiresAttention)
     {
         SnapshotId = snapshotId;
+        DeploymentId = deploymentId;
         StackName = stackName;
         CurrentVersion = currentVersion;
         OverallStatus = overallStatus;
@@ -230,6 +234,7 @@ public sealed class StackHealthSummary : ValueObject
     {
         return new StackHealthSummary(
             snapshot.Id,
+            snapshot.DeploymentId,
             snapshot.StackName,
             snapshot.CurrentVersion,
             snapshot.Overall,

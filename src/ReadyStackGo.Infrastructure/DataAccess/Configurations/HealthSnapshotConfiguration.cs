@@ -281,7 +281,7 @@ public class HealthSnapshotConfiguration : IEntityTypeConfiguration<HealthSnapsh
         public string? ContainerId { get; set; }
         public string? ContainerName { get; set; }
         public string? Reason { get; set; }
-        public int RestartCount { get; set; }
+        public int? RestartCount { get; set; }
     }
 
     private class BusHealthDto

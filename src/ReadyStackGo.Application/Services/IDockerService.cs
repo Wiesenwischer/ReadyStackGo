@@ -10,6 +10,12 @@ public interface IDockerService
     Task<IEnumerable<ContainerDto>> ListContainersAsync(string environmentId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Lists all containers with detailed info (including RestartCount) for the specified environment.
+    /// This is slower than ListContainersAsync as it requires inspecting each container.
+    /// </summary>
+    Task<IEnumerable<ContainerDto>> ListContainersWithDetailsAsync(string environmentId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Starts a container in the specified environment.
     /// </summary>
     Task StartContainerAsync(string environmentId, string containerId, CancellationToken cancellationToken = default);
@@ -56,6 +62,12 @@ public interface IDockerService
     /// Checks if an image exists locally in the specified environment.
     /// </summary>
     Task<bool> ImageExistsAsync(string environmentId, string image, string tag = "latest", CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the restart count for a specific container.
+    /// This requires an additional API call (inspect) so use sparingly.
+    /// </summary>
+    Task<int> GetContainerRestartCountAsync(string environmentId, string containerId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

@@ -29,6 +29,23 @@ public class EnvironmentHealthSummaryTests
         int healthyServices = 3,
         int totalServices = 3)
     {
+        return CreateSnapshotWithDeploymentId(
+            DeploymentId.NewId(),
+            overallStatus,
+            operationMode,
+            stackName,
+            healthyServices,
+            totalServices);
+    }
+
+    private HealthSnapshot CreateSnapshotWithDeploymentId(
+        DeploymentId deploymentId,
+        HealthStatus overallStatus,
+        OperationMode operationMode,
+        string stackName,
+        int healthyServices = 3,
+        int totalServices = 3)
+    {
         var services = Enumerable.Range(0, totalServices)
             .Select(i => ServiceHealth.Create(
                 $"service-{i}",
@@ -44,7 +61,7 @@ public class EnvironmentHealthSummaryTests
         return HealthSnapshot.Capture(
             _orgId,
             _envId,
-            DeploymentId.NewId(),
+            deploymentId,
             stackName,
             operationMode,
             "1.0.0",
@@ -337,6 +354,39 @@ public class EnvironmentHealthSummaryTests
         stackSummary.HealthyServices.Should().Be(2);
         stackSummary.TotalServices.Should().Be(3);
         stackSummary.RequiresAttention.Should().BeTrue();
+    }
+
+    [Fact]
+    public void StackHealthSummary_FromSnapshot_ContainsDeploymentId()
+    {
+        var environment = CreateTestEnvironment();
+        var deploymentId = DeploymentId.NewId();
+        var snapshot = CreateSnapshotWithDeploymentId(deploymentId, HealthStatus.Healthy, OperationMode.Normal, "test-stack");
+
+        var summary = EnvironmentHealthSummary.FromSnapshots(environment, new[] { snapshot });
+        var stackSummary = summary.Stacks.Single();
+
+        stackSummary.DeploymentId.Should().Be(deploymentId);
+        stackSummary.SnapshotId.Should().Be(snapshot.Id);
+        // DeploymentId and SnapshotId should be different
+        stackSummary.DeploymentId.Value.Should().NotBe(stackSummary.SnapshotId.Value);
+    }
+
+    [Fact]
+    public void StackHealthSummary_FromSnapshot_DeploymentIdMatchesOriginalSnapshot()
+    {
+        var environment = CreateTestEnvironment();
+        var deploymentId1 = DeploymentId.NewId();
+        var deploymentId2 = DeploymentId.NewId();
+
+        var snapshot1 = CreateSnapshotWithDeploymentId(deploymentId1, HealthStatus.Healthy, OperationMode.Normal, "stack-1");
+        var snapshot2 = CreateSnapshotWithDeploymentId(deploymentId2, HealthStatus.Degraded, OperationMode.Migrating, "stack-2");
+
+        var summary = EnvironmentHealthSummary.FromSnapshots(environment, new[] { snapshot1, snapshot2 });
+
+        summary.Stacks.Should().HaveCount(2);
+        summary.Stacks.Should().Contain(s => s.DeploymentId == deploymentId1 && s.StackName == "stack-1");
+        summary.Stacks.Should().Contain(s => s.DeploymentId == deploymentId2 && s.StackName == "stack-2");
     }
 
     [Fact]

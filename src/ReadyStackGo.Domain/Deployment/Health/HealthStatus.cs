@@ -81,28 +81,6 @@ public sealed class HealthStatus : ValueObject
     public bool AllowsActions => this != Unknown;
 
     /// <summary>
-    /// Returns the CSS color class for UI display.
-    /// </summary>
-    public string CssColorClass => this switch
-    {
-        _ when this == Healthy => "green",
-        _ when this == Degraded => "yellow",
-        _ when this == Unhealthy => "red",
-        _ => "gray"
-    };
-
-    /// <summary>
-    /// Returns the icon for UI display.
-    /// </summary>
-    public string Icon => this switch
-    {
-        _ when this == Healthy => "✓",
-        _ when this == Degraded => "⚠",
-        _ when this == Unhealthy => "✗",
-        _ => "?"
-    };
-
-    /// <summary>
     /// Combines two health statuses, returning the worse one.
     /// </summary>
     public HealthStatus CombineWith(HealthStatus other)
