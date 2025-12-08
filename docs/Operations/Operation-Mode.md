@@ -239,13 +239,13 @@ External System          RSGO Observer           Stack
 
 Monitors a SQL Server Extended Property and triggers maintenance mode based on its value.
 
-**Use Case**: ERP systems like ams.erp set a database property during their own maintenance. RSGO automatically puts the dependent stack into maintenance mode.
+**Use Case**: Legacy applications or backend systems set a database property during their own maintenance. RSGO automatically puts the dependent stack into maintenance mode.
 
 **Manifest Configuration:**
 
 ```yaml
 metadata:
-  name: AMS ERP Stack
+  name: Legacy Integration Stack
   productVersion: "1.0.0"
 
 variables:
@@ -256,8 +256,9 @@ variables:
 
 maintenanceObserver:
   type: sqlExtendedProperty
-  connectionString: ${DB_CONNECTION}
-  propertyName: ams.MaintenanceMode
+  connectionString: ${DB_CONNECTION}      # Direct variable reference
+  # OR: connectionName: DB_CONNECTION     # Reference by variable name
+  propertyName: app.MaintenanceMode
   maintenanceValue: "1"      # When property = 1 → enter maintenance
   normalValue: "0"           # When property = 0 → exit maintenance
   pollingInterval: 30s       # Check every 30 seconds
@@ -265,26 +266,35 @@ maintenanceObserver:
 services:
   api:
     image: myapp/api:latest
-    # Will be stopped automatically when ams.MaintenanceMode = 1
+    # Will be stopped automatically when app.MaintenanceMode = 1
 ```
+
+**Connection Options:**
+
+| Property | Description |
+|----------|-------------|
+| `connectionString` | Direct connection string or variable substitution (`${VAR}`) |
+| `connectionName` | Name of a defined variable (e.g., `DB_CONNECTION`, `LEGACY_DB`) |
+
+Using `connectionName` is recommended when you already have a connection string variable defined in your manifest - it avoids duplication and ensures consistency.
 
 **Extended Property Example:**
 
 ```sql
 -- Set maintenance mode ON
 EXEC sp_addextendedproperty
-  @name = N'ams.MaintenanceMode',
+  @name = N'app.MaintenanceMode',
   @value = N'1';
 
 -- Set maintenance mode OFF
 EXEC sp_updateextendedproperty
-  @name = N'ams.MaintenanceMode',
+  @name = N'app.MaintenanceMode',
   @value = N'0';
 
 -- Query current value
 SELECT value
 FROM sys.extended_properties
-WHERE name = 'ams.MaintenanceMode';
+WHERE name = 'app.MaintenanceMode';
 ```
 
 #### SQL Query Observer
@@ -298,7 +308,8 @@ Executes a custom SQL query and triggers maintenance based on the result.
 ```yaml
 maintenanceObserver:
   type: sqlQuery
-  connectionString: ${DB_CONNECTION}
+  connectionName: PERSISTENCE_DB           # Reference existing variable
+  # OR: connectionString: ${PERSISTENCE_DB}
   query: |
     SELECT CASE
       WHEN EXISTS (SELECT 1 FROM SystemStatus WHERE Status = 'Maintenance')
@@ -365,9 +376,11 @@ maintenanceObserver:
 
 | Type | Property | Description |
 |------|----------|-------------|
-| `sqlExtendedProperty` | `connectionString` | SQL Server connection string |
+| `sqlExtendedProperty` | `connectionString` | SQL Server connection string (supports `${VAR}` syntax) |
+| `sqlExtendedProperty` | `connectionName` | Name of a defined variable (alternative to connectionString) |
 | `sqlExtendedProperty` | `propertyName` | Name of the Extended Property |
-| `sqlQuery` | `connectionString` | SQL Server connection string |
+| `sqlQuery` | `connectionString` | SQL Server connection string (supports `${VAR}` syntax) |
+| `sqlQuery` | `connectionName` | Name of a defined variable (alternative to connectionString) |
 | `sqlQuery` | `query` | SQL query returning single value |
 | `http` | `url` | HTTP endpoint URL |
 | `http` | `method` | HTTP method (GET, POST) |
@@ -375,6 +388,8 @@ maintenanceObserver:
 | `http` | `jsonPath` | JSONPath to extract value from response |
 | `file` | `path` | File path to monitor |
 | `file` | `mode` | `exists` or `content` |
+
+> **Note:** For SQL observers, use either `connectionString` OR `connectionName`, not both. `connectionName` is recommended when you already have a connection string variable defined in your manifest.
 
 ### Observer Behavior
 
@@ -438,23 +453,23 @@ When an observer is configured, the UI shows:
 └─────────────────────────────────────────────────────┘
 ```
 
-### Example: ams.erp Integration
+### Example: Legacy System Integration
 
-Complete manifest for integrating with ams.erp maintenance:
+Complete manifest for integrating with a legacy system's maintenance mode:
 
 ```yaml
 metadata:
-  name: AMS ERP Integration
-  description: Stack synced with ams.erp maintenance mode
+  name: Legacy Portal Integration
+  description: Stack synced with backend maintenance mode
   productVersion: "2.0.0"
   category: Enterprise
 
 variables:
-  AMS_DB:
-    label: AMS Database Connection
+  BACKEND_DB:
+    label: Backend Database Connection
     type: SqlServerConnectionString
     required: true
-    description: Connection to the ams.erp database
+    description: Connection to the backend database
 
   API_PORT:
     label: API Port
@@ -463,26 +478,26 @@ variables:
 
 maintenanceObserver:
   type: sqlExtendedProperty
-  connectionString: ${AMS_DB}
-  propertyName: ams.MaintenanceMode
+  connectionName: BACKEND_DB              # Reference the variable by name
+  propertyName: app.MaintenanceMode
   maintenanceValue: "1"
   normalValue: "0"
   pollingInterval: 30s
 
 services:
-  ams-api:
-    image: mycompany/ams-api:latest
+  portal-api:
+    image: mycompany/portal-api:latest
     ports:
       - "${API_PORT}:5000"
     environment:
-      ConnectionStrings__AMS: ${AMS_DB}
-    # Stopped when ams.MaintenanceMode = 1
+      ConnectionStrings__Backend: ${BACKEND_DB}
+    # Stopped when app.MaintenanceMode = 1
 
-  ams-worker:
-    image: mycompany/ams-worker:latest
+  portal-worker:
+    image: mycompany/portal-worker:latest
     environment:
-      ConnectionStrings__AMS: ${AMS_DB}
-    # Stopped when ams.MaintenanceMode = 1
+      ConnectionStrings__Backend: ${BACKEND_DB}
+    # Stopped when app.MaintenanceMode = 1
 
   redis:
     image: redis:7
@@ -492,12 +507,12 @@ services:
 
 **Workflow:**
 
-1. ams.erp Admin starts maintenance in ams.erp
-2. ams.erp sets `ams.MaintenanceMode = 1` on database
+1. Admin starts maintenance in the backend system
+2. Backend sets `app.MaintenanceMode = 1` on database
 3. RSGO Observer detects the change within 30 seconds
-4. RSGO enters maintenance mode, stops `ams-api` and `ams-worker`
+4. RSGO enters maintenance mode, stops `portal-api` and `portal-worker`
 5. Redis keeps running (has `rsgo.maintenance: ignore`)
-6. ams.erp Admin completes maintenance, sets `ams.MaintenanceMode = 0`
+6. Admin completes maintenance, sets `app.MaintenanceMode = 0`
 7. RSGO Observer detects the change
 8. RSGO exits maintenance mode, starts containers
 9. Stack is fully operational again
@@ -509,7 +524,7 @@ services:
 3. **Monitor migrations**: Watch migration progress in real-time
 4. **Document failures**: Record failure reasons for post-mortem analysis
 5. **Test recovery**: Verify your recovery procedures before production issues
-6. **Configure observers for ERP systems**: Let external systems control maintenance automatically
+6. **Configure observers for legacy systems**: Let external systems control maintenance automatically
 7. **Set appropriate polling intervals**: Balance responsiveness vs. resource usage
 
 ## Example Workflow

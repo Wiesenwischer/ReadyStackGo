@@ -1113,7 +1113,8 @@ Monitors a SQL Server Extended Property value:
 ```yaml
 maintenanceObserver:
   type: sqlExtendedProperty
-  connectionString: ${DB_CONNECTION}
+  connectionName: AMS_DB                  # Reference variable by name
+  # OR: connectionString: ${AMS_DB}       # Direct variable substitution
   propertyName: ams.MaintenanceMode
   maintenanceValue: "1"
   normalValue: "0"
@@ -1123,13 +1124,16 @@ maintenanceObserver:
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `type` | string | **Yes** | Must be `sqlExtendedProperty` |
-| `connectionString` | string | **Yes** | SQL Server connection string (supports variables) |
+| `connectionString` | string | **Yes*** | SQL Server connection string (supports `${VAR}` syntax) |
+| `connectionName` | string | **Yes*** | Name of a defined variable (e.g., `BACKEND_DB`) |
 | `propertyName` | string | **Yes** | Name of the Extended Property to monitor |
 | `maintenanceValue` | string | **Yes** | Value that triggers maintenance mode |
 | `normalValue` | string | **Yes** | Value that exits maintenance mode |
 | `pollingInterval` | string | No | Check interval (default: `30s`) |
 | `timeout` | string | No | Query timeout (default: `10s`) |
 | `enabled` | boolean | No | Enable/disable observer (default: `true`) |
+
+*Use either `connectionString` OR `connectionName`, not both. `connectionName` is recommended when you already have a connection variable defined.
 
 ### SQL Query Observer
 
@@ -1204,23 +1208,23 @@ maintenanceObserver:
 
 ### Complete Example
 
-ERP system integration with automatic maintenance synchronization:
+Legacy system integration with automatic maintenance synchronization:
 
 ```yaml
 metadata:
-  name: AMS ERP Integration
+  name: Legacy Portal Integration
   productVersion: "2.0.0"
 
 variables:
-  AMS_DB:
-    label: AMS Database
+  BACKEND_DB:
+    label: Backend Database
     type: SqlServerConnectionString
     required: true
 
 maintenanceObserver:
   type: sqlExtendedProperty
-  connectionString: ${AMS_DB}
-  propertyName: ams.MaintenanceMode
+  connectionName: BACKEND_DB              # Reference by variable name
+  propertyName: app.MaintenanceMode
   maintenanceValue: "1"
   normalValue: "0"
   pollingInterval: 30s
@@ -1228,7 +1232,7 @@ maintenanceObserver:
 services:
   api:
     image: myapp/api:latest
-    # Stopped when ams.MaintenanceMode = 1
+    # Stopped when app.MaintenanceMode = 1
 
   postgres:
     image: postgres:16
