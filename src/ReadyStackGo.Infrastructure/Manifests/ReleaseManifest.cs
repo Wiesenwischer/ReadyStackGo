@@ -33,6 +33,55 @@ public class ContextDefinition
     public List<string>? Ports { get; set; }
     public Dictionary<string, string>? Volumes { get; set; }
     public List<string>? DependsOn { get; set; }
+
+    /// <summary>
+    /// HTTP health check configuration. If specified, RSGO will call this endpoint
+    /// instead of relying on Docker HEALTHCHECK status.
+    /// </summary>
+    public HealthCheckConfig? Health { get; set; }
+}
+
+/// <summary>
+/// Configuration for HTTP health checks.
+/// Allows RSGO to directly call ASP.NET Core /hc endpoints or similar.
+/// </summary>
+public class HealthCheckConfig
+{
+    /// <summary>
+    /// Health check type: "http" (default), "tcp", or "none" (disable).
+    /// </summary>
+    public string Type { get; set; } = "http";
+
+    /// <summary>
+    /// URL path to health endpoint (e.g., "/hc" or "/health").
+    /// For http type, this is appended to the container's internal URL.
+    /// </summary>
+    public string Path { get; set; } = "/hc";
+
+    /// <summary>
+    /// Port to use for health checks. Defaults to first exposed port.
+    /// </summary>
+    public int? Port { get; set; }
+
+    /// <summary>
+    /// Timeout for health check requests in seconds.
+    /// </summary>
+    public int TimeoutSeconds { get; set; } = 5;
+
+    /// <summary>
+    /// Interval between health checks in seconds (for background monitoring).
+    /// </summary>
+    public int IntervalSeconds { get; set; } = 30;
+
+    /// <summary>
+    /// Number of consecutive failures before marking as unhealthy.
+    /// </summary>
+    public int UnhealthyThreshold { get; set; } = 3;
+
+    /// <summary>
+    /// Expected HTTP status codes for healthy response (default: 200).
+    /// </summary>
+    public List<int> HealthyStatusCodes { get; set; } = new() { 200 };
 }
 
 public class FeatureDefault

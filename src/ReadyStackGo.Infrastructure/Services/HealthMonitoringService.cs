@@ -11,23 +11,27 @@ using ReadyStackGo.Domain.IdentityAccess.Organizations;
 /// <summary>
 /// Service for monitoring health of deployed stacks.
 /// Collects container status from Docker and aggregates into health snapshots.
+/// Supports both Docker HEALTHCHECK and direct HTTP health endpoint checks.
 /// </summary>
 public class HealthMonitoringService : IHealthMonitoringService
 {
     private readonly IDockerService _dockerService;
     private readonly IDeploymentRepository _deploymentRepository;
     private readonly IHealthSnapshotRepository _healthSnapshotRepository;
+    private readonly IHttpHealthChecker? _httpHealthChecker;
     private readonly ILogger<HealthMonitoringService> _logger;
 
     public HealthMonitoringService(
         IDockerService dockerService,
         IDeploymentRepository deploymentRepository,
         IHealthSnapshotRepository healthSnapshotRepository,
-        ILogger<HealthMonitoringService> logger)
+        ILogger<HealthMonitoringService> logger,
+        IHttpHealthChecker? httpHealthChecker = null)
     {
         _dockerService = dockerService;
         _deploymentRepository = deploymentRepository;
         _healthSnapshotRepository = healthSnapshotRepository;
+        _httpHealthChecker = httpHealthChecker;
         _logger = logger;
     }
 
@@ -37,6 +41,7 @@ public class HealthMonitoringService : IHealthMonitoringService
         DeploymentId deploymentId,
         string stackName,
         string? currentVersion = null,
+        IReadOnlyDictionary<string, ServiceHealthCheckConfig>? serviceHealthConfigs = null,
         CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Capturing health snapshot for deployment {DeploymentId}", deploymentId);
@@ -45,10 +50,11 @@ public class HealthMonitoringService : IHealthMonitoringService
         var deployment = _deploymentRepository.Get(deploymentId);
         var operationMode = DetermineOperationMode(deployment);
 
-        // Collect container health from Docker
+        // Collect container health from Docker (with optional HTTP health checks)
         var selfHealth = await CollectSelfHealthAsync(
             environmentId.Value.ToString(),
             stackName,
+            serviceHealthConfigs,
             cancellationToken);
 
         // Create and persist the snapshot
@@ -117,11 +123,13 @@ public class HealthMonitoringService : IHealthMonitoringService
 
     /// <summary>
     /// Collects health status of all services/containers for a stack.
+    /// Supports both Docker HEALTHCHECK and HTTP health endpoint checks.
     /// RestartCount is only queried for unhealthy containers to minimize API calls.
     /// </summary>
     private async Task<SelfHealth> CollectSelfHealthAsync(
         string environmentId,
         string stackName,
+        IReadOnlyDictionary<string, ServiceHealthCheckConfig>? serviceHealthConfigs,
         CancellationToken cancellationToken)
     {
         try
@@ -140,20 +148,19 @@ public class HealthMonitoringService : IHealthMonitoringService
                 return SelfHealth.Empty();
             }
 
-            // Map containers to service health, only fetching RestartCount for unhealthy ones
+            // Map containers to service health, with HTTP health checks if configured
             var serviceHealthTasks = stackContainers.Select(async c =>
             {
-                var healthStatus = DetermineHealthStatus(c);
-                int? restartCount = null;
+                var serviceName = ExtractServiceName(c);
+                ServiceHealthCheckConfig? healthConfig = null;
+                serviceHealthConfigs?.TryGetValue(serviceName, out healthConfig);
 
-                // Only fetch RestartCount for unhealthy containers
-                if (healthStatus != HealthStatus.Healthy && !string.IsNullOrEmpty(c.Id))
-                {
-                    restartCount = await _dockerService.GetContainerRestartCountAsync(
-                        environmentId, c.Id, cancellationToken);
-                }
-
-                return MapContainerToServiceHealth(c, healthStatus, restartCount);
+                return await CollectServiceHealthAsync(
+                    c,
+                    serviceName,
+                    healthConfig,
+                    environmentId,
+                    cancellationToken);
             });
 
             var serviceHealthList = await Task.WhenAll(serviceHealthTasks);
@@ -164,6 +171,138 @@ public class HealthMonitoringService : IHealthMonitoringService
             _logger.LogError(ex, "Failed to collect container health for stack {StackName}", stackName);
             return SelfHealth.Empty();
         }
+    }
+
+    /// <summary>
+    /// Collects health for a single service/container.
+    /// Uses HTTP health check if configured, otherwise falls back to Docker status.
+    /// </summary>
+    private async Task<ServiceHealth> CollectServiceHealthAsync(
+        ContainerDto container,
+        string serviceName,
+        ServiceHealthCheckConfig? healthConfig,
+        string environmentId,
+        CancellationToken cancellationToken)
+    {
+        HealthStatus healthStatus;
+        string? reason = null;
+        int? restartCount = null;
+
+        // Check if container is running first - if not, HTTP check doesn't make sense
+        if (container.State.ToLowerInvariant() != "running")
+        {
+            healthStatus = DetermineHealthStatusFromDocker(container);
+            reason = DetermineHealthReason(container, healthStatus);
+        }
+        // Use HTTP health check if configured and available
+        else if (healthConfig?.IsHttp == true && _httpHealthChecker != null)
+        {
+            var httpResult = await PerformHttpHealthCheckAsync(
+                container, serviceName, healthConfig, cancellationToken);
+            healthStatus = httpResult.Status;
+            reason = httpResult.Reason;
+        }
+        // Fall back to Docker status
+        else
+        {
+            healthStatus = DetermineHealthStatusFromDocker(container);
+            reason = DetermineHealthReason(container, healthStatus);
+        }
+
+        // Only fetch RestartCount for unhealthy containers
+        if (healthStatus != HealthStatus.Healthy && !string.IsNullOrEmpty(container.Id))
+        {
+            restartCount = await _dockerService.GetContainerRestartCountAsync(
+                environmentId, container.Id, cancellationToken);
+        }
+
+        return ServiceHealth.Create(
+            serviceName,
+            healthStatus,
+            container.Id,
+            container.Name.TrimStart('/'),
+            reason,
+            restartCount);
+    }
+
+    /// <summary>
+    /// Performs HTTP health check for a container.
+    /// </summary>
+    private async Task<(HealthStatus Status, string? Reason)> PerformHttpHealthCheckAsync(
+        ContainerDto container,
+        string serviceName,
+        ServiceHealthCheckConfig config,
+        CancellationToken cancellationToken)
+    {
+        // Determine container address (use container name as Docker DNS resolves it)
+        var containerAddress = container.Name.TrimStart('/');
+
+        // Determine port (use config or first exposed port)
+        var port = config.Port ?? GetFirstExposedPort(container);
+        if (port == null)
+        {
+            _logger.LogWarning(
+                "No port configured for HTTP health check on service {ServiceName}, falling back to Docker status",
+                serviceName);
+            return (DetermineHealthStatusFromDocker(container), "No port for HTTP health check");
+        }
+
+        var httpConfig = new HttpHealthCheckConfig
+        {
+            Path = config.Path,
+            Port = port.Value,
+            Timeout = TimeSpan.FromSeconds(config.TimeoutSeconds),
+            HealthyStatusCodes = config.ExpectedStatusCodes,
+            UseHttps = config.UseHttps
+        };
+
+        try
+        {
+            var result = await _httpHealthChecker!.CheckHealthAsync(
+                containerAddress, httpConfig, cancellationToken);
+
+            if (result.IsHealthy)
+            {
+                return (HealthStatus.Healthy, null);
+            }
+            else
+            {
+                // Map reported status to HealthStatus
+                var status = result.ReportedStatus?.ToLowerInvariant() switch
+                {
+                    "healthy" => HealthStatus.Healthy,
+                    "degraded" => HealthStatus.Degraded,
+                    "unhealthy" => HealthStatus.Unhealthy,
+                    _ => HealthStatus.Unhealthy
+                };
+
+                var reason = result.Error ?? $"HTTP health check: {result.ReportedStatus}";
+                if (result.ResponseTimeMs.HasValue)
+                {
+                    reason += $" ({result.ResponseTimeMs}ms)";
+                }
+
+                return (status, reason);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "HTTP health check failed for {ServiceName}", serviceName);
+            return (HealthStatus.Unhealthy, $"HTTP health check error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Gets the first exposed port from a container.
+    /// </summary>
+    private static int? GetFirstExposedPort(ContainerDto container)
+    {
+        var firstPort = container.Ports?.FirstOrDefault();
+        if (firstPort != null && firstPort.PrivatePort > 0)
+        {
+            return firstPort.PrivatePort;
+        }
+        return null;
     }
 
     /// <summary>
@@ -189,28 +328,24 @@ public class HealthMonitoringService : IHealthMonitoringService
     }
 
     /// <summary>
-    /// Maps a Docker container DTO to a ServiceHealth value object.
+    /// Extracts the service name from a container.
     /// </summary>
-    private static ServiceHealth MapContainerToServiceHealth(ContainerDto container, HealthStatus healthStatus, int? restartCount)
+    private static string ExtractServiceName(ContainerDto container)
     {
-        var reason = DetermineHealthReason(container, healthStatus);
+        // Try to get service name from Docker Compose label
+        if (container.Labels.TryGetValue("com.docker.compose.service", out var service))
+        {
+            return service;
+        }
 
-        // Extract service name from container (remove stack prefix if present)
-        var serviceName = ExtractServiceName(container);
-
-        return ServiceHealth.Create(
-            serviceName,
-            healthStatus,
-            container.Id,
-            container.Name.TrimStart('/'),
-            reason,
-            restartCount);
+        // Fall back to container name
+        return container.Name.TrimStart('/');
     }
 
     /// <summary>
-    /// Determines the health status based on container state and health check.
+    /// Determines the health status based on Docker container state and health check.
     /// </summary>
-    private static HealthStatus DetermineHealthStatus(ContainerDto container)
+    private static HealthStatus DetermineHealthStatusFromDocker(ContainerDto container)
     {
         // First check Docker health status if available
         if (!string.IsNullOrEmpty(container.HealthStatus) && container.HealthStatus != "none")
@@ -263,21 +398,6 @@ public class HealthMonitoringService : IHealthMonitoringService
             "created" => "Container created but not started",
             _ => $"Unknown state: {container.State}"
         };
-    }
-
-    /// <summary>
-    /// Extracts the service name from a container.
-    /// </summary>
-    private static string ExtractServiceName(ContainerDto container)
-    {
-        // Try to get service name from Docker Compose label
-        if (container.Labels.TryGetValue("com.docker.compose.service", out var service))
-        {
-            return service;
-        }
-
-        // Fall back to container name
-        return container.Name.TrimStart('/');
     }
 
     /// <summary>
