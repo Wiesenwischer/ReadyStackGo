@@ -1,8 +1,13 @@
 using System.Text;
+using System.Text.Json;
 using FastEndpoints;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using ReadyStackGo.Api.BackgroundServices;
+using ReadyStackGo.Api.Hubs;
+using ReadyStackGo.Api.Services;
 using ReadyStackGo.Application;
+using ReadyStackGo.Application.Services;
 using ReadyStackGo.Infrastructure;
 
 namespace ReadyStackGo.Api;
@@ -38,9 +43,48 @@ public class Program
                     IssuerSigningKey = new SymmetricSecurityKey(
                         Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!))
                 };
+
+                // Configure JWT authentication for SignalR
+                // SignalR sends the token via query string for WebSocket connections
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+
+                        // If the request is for a hub, read token from query string
+                        if (!string.IsNullOrEmpty(accessToken) &&
+                            path.StartsWithSegments("/hubs"))
+                        {
+                            context.Token = accessToken;
+                        }
+
+                        return Task.CompletedTask;
+                    }
+                };
             });
 
         builder.Services.AddAuthorization();
+
+        // Add SignalR for real-time health updates
+        builder.Services.AddSignalR()
+            .AddJsonProtocol(options =>
+            {
+                options.PayloadSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+            });
+        builder.Services.AddScoped<IHealthNotificationService, HealthNotificationService>();
+
+        // Health Collector Background Service (v0.11)
+        builder.Services.Configure<HealthCollectorOptions>(
+            builder.Configuration.GetSection(HealthCollectorOptions.SectionName));
+        var healthCollectorOptions = builder.Configuration
+            .GetSection(HealthCollectorOptions.SectionName)
+            .Get<HealthCollectorOptions>() ?? new HealthCollectorOptions();
+        if (healthCollectorOptions.Enabled)
+        {
+            builder.Services.AddHostedService<HealthCollectorBackgroundService>();
+        }
 
         // Add CORS for development
         builder.Services.AddCors(options =>
@@ -49,7 +93,8 @@ public class Program
             {
                 policy.WithOrigins("http://localhost:5173", "http://localhost:5174", "http://localhost:5175")
                       .AllowAnyMethod()
-                      .AllowAnyHeader();
+                      .AllowAnyHeader()
+                      .AllowCredentials(); // Required for SignalR
             });
         });
 
@@ -94,6 +139,9 @@ public class Program
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseFastEndpoints();
+
+        // Map SignalR hubs
+        app.MapHub<HealthHub>("/hubs/health");
 
         // SPA fallback: serve index.html for non-API, non-file routes
         // This must come after static files middleware so that actual files are served first

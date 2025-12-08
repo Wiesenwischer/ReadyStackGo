@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import {
-  BoxIcon,
   ChevronDownIcon,
   GridIcon,
   HorizontaLDots,
   BoxCubeIcon,
   PlugInIcon,
+  ListIcon,
+  BoxIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { useEnvironment } from "../context/EnvironmentContext";
@@ -29,15 +30,21 @@ const navItems: NavItem[] = [
     requiresEnvironment: true,
   },
   {
+    icon: <BoxCubeIcon />,
+    name: "Deployments",
+    path: "/deployments",
+    requiresEnvironment: true,
+  },
+  {
     icon: <BoxIcon />,
     name: "Containers",
     path: "/containers",
     requiresEnvironment: true,
   },
   {
-    icon: <BoxCubeIcon />,
-    name: "Stacks",
-    path: "/stacks",
+    icon: <ListIcon />,
+    name: "Stack Catalog",
+    path: "/catalog",
     requiresEnvironment: true,
   },
   {
