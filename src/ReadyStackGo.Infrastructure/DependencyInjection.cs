@@ -9,6 +9,7 @@ using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Users;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Infrastructure.Authentication;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Services;
@@ -82,6 +83,10 @@ public static class DependencyInjection
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IEnvironmentRepository, EnvironmentRepository>();
         services.AddScoped<IDeploymentRepository, DeploymentRepository>();
+        services.AddScoped<IHealthSnapshotRepository, HealthSnapshotRepository>();
+
+        // Health Monitoring (v0.11)
+        services.AddScoped<IHealthMonitoringService, HealthMonitoringService>();
 
         // Password hashing
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
