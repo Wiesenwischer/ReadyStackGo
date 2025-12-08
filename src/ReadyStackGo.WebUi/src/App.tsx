@@ -3,7 +3,9 @@ import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Dashboard from "./pages/Dashboard";
 import Containers from "./pages/Containers";
-import Stacks from "./pages/Stacks";
+import Deployments from "./pages/Deployments";
+import DeploymentDetail from "./pages/DeploymentDetail";
+import StackCatalog from "./pages/StackCatalog";
 import ProductDetail from "./pages/ProductDetail";
 import DeployStack from "./pages/DeployStack";
 import Environments from "./pages/Environments";
@@ -67,15 +69,31 @@ export default function App() {
                   }
                 />
                 <Route
-                  path="/stacks"
+                  path="/deployments"
                   element={
                     <EnvironmentGuard>
-                      <Stacks />
+                      <Deployments />
                     </EnvironmentGuard>
                   }
                 />
                 <Route
-                  path="/stacks/:productId"
+                  path="/deployments/:stackName"
+                  element={
+                    <EnvironmentGuard>
+                      <DeploymentDetail />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/catalog"
+                  element={
+                    <EnvironmentGuard>
+                      <StackCatalog />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/catalog/:productId"
                   element={
                     <EnvironmentGuard>
                       <ProductDetail />

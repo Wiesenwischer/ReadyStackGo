@@ -35,3 +35,9 @@ services:
       - "${WHOAMI_PORT}:80"
     environment:
       WHOAMI_NAME: ${INSTANCE_NAME}
+    healthCheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      startPeriod: 10s

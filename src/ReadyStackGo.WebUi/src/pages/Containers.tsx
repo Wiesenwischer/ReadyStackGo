@@ -60,50 +60,65 @@ export default function Containers() {
     }
   };
 
-  const getStatusBadge = (state: string) => {
-    const isRunning = state.toLowerCase() === "running";
-    return (
-      <span
-        className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
-          isRunning
-            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-            : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-        }`}
-      >
-        {state}
-      </span>
-    );
-  };
-
-  const getHealthBadge = (healthStatus: string | undefined) => {
-    if (!healthStatus || healthStatus === "none") return null;
-
-    let colorClasses = "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
-    let icon = "";
-
-    switch (healthStatus.toLowerCase()) {
-      case "healthy":
-        colorClasses = "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-        icon = "\u2713"; // checkmark
-        break;
-      case "unhealthy":
-        colorClasses = "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-        icon = "\u2717"; // x mark
-        break;
-      case "starting":
-        colorClasses = "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-        icon = "\u23F3"; // hourglass
-        break;
+  /**
+   * Get combined status badge (like Portainer).
+   * Shows "healthy" instead of "running" when health check passes.
+   */
+  const getCombinedStatusBadge = (state: string, healthStatus: string | undefined) => {
+    // If health check exists, use it as primary status (like Portainer)
+    if (healthStatus && healthStatus !== "none") {
+      switch (healthStatus.toLowerCase()) {
+        case "healthy":
+          return (
+            <span className="inline-flex rounded-full px-3 py-1 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+              healthy
+            </span>
+          );
+        case "unhealthy":
+          return (
+            <span className="inline-flex rounded-full px-3 py-1 text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+              unhealthy
+            </span>
+          );
+        case "starting":
+          return (
+            <span className="inline-flex rounded-full px-3 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+              starting
+            </span>
+          );
+      }
     }
 
-    return (
-      <span
-        className={`ml-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${colorClasses}`}
-        title={`Health: ${healthStatus}`}
-      >
-        {icon}
-      </span>
-    );
+    // Fall back to container state
+    const stateLower = state.toLowerCase();
+    switch (stateLower) {
+      case "running":
+        return (
+          <span className="inline-flex rounded-full px-3 py-1 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+            running
+          </span>
+        );
+      case "exited":
+      case "dead":
+        return (
+          <span className="inline-flex rounded-full px-3 py-1 text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+            {stateLower}
+          </span>
+        );
+      case "paused":
+      case "restarting":
+        return (
+          <span className="inline-flex rounded-full px-3 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+            {stateLower}
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex rounded-full px-3 py-1 text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+            {state}
+          </span>
+        );
+    }
   };
 
   return (
@@ -181,8 +196,7 @@ export default function Containers() {
                   </p>
                 </div>
                 <div className="col-span-1 flex items-center">
-                  {getStatusBadge(container.state)}
-                  {getHealthBadge(container.healthStatus)}
+                  {getCombinedStatusBadge(container.state, container.healthStatus)}
                 </div>
                 <div className="col-span-1 flex items-center">
                   <p className="text-sm text-black dark:text-white">
