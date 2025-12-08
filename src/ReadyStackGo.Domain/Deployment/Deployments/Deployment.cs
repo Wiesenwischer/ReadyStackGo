@@ -3,6 +3,7 @@ namespace ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.SharedKernel;
 using ReadyStackGo.Domain.IdentityAccess.Users;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.Health;
 
 /// <summary>
 /// Aggregate root representing a stack deployment to an environment.
@@ -15,6 +16,7 @@ public class Deployment : AggregateRoot<DeploymentId>
     public string? StackVersion { get; private set; }
     public string ProjectName { get; private set; } = null!;
     public DeploymentStatus Status { get; private set; }
+    public OperationMode OperationMode { get; private set; } = OperationMode.Normal;
     public string? ErrorMessage { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime? CompletedAt { get; private set; }
@@ -213,6 +215,7 @@ public class Deployment : AggregateRoot<DeploymentId>
         EnsureValidTransition(DeploymentStatus.Stopped);
 
         Status = DeploymentStatus.Stopped;
+        SetOperationModeStopped();
 
         foreach (var service in _services)
         {
@@ -232,6 +235,7 @@ public class Deployment : AggregateRoot<DeploymentId>
             "Can only restart a stopped deployment.");
 
         Status = DeploymentStatus.Running;
+        SetOperationModeNormal();
         CurrentPhase = DeploymentPhase.Starting;
         ProgressPercentage = 0;
 
@@ -266,6 +270,114 @@ public class Deployment : AggregateRoot<DeploymentId>
     {
         SelfAssertArgumentTrue(CanTransitionTo(targetStatus),
             $"Invalid state transition from {Status} to {targetStatus}.");
+    }
+
+    #endregion
+
+    #region Operation Mode
+
+    /// <summary>
+    /// Puts the deployment into maintenance mode.
+    /// </summary>
+    public void EnterMaintenance(string? reason = null)
+    {
+        SelfAssertArgumentTrue(Status == DeploymentStatus.Running,
+            "Can only enter maintenance on a running deployment.");
+        SelfAssertArgumentTrue(OperationMode.CanTransitionTo(OperationMode.Maintenance),
+            $"Cannot transition from {OperationMode.Name} to Maintenance.");
+
+        OperationMode = OperationMode.Maintenance;
+        AddDomainEvent(new OperationModeChanged(Id, OperationMode.Maintenance, reason));
+    }
+
+    /// <summary>
+    /// Exits maintenance mode and returns to normal operation.
+    /// </summary>
+    public void ExitMaintenance()
+    {
+        SelfAssertArgumentTrue(OperationMode == OperationMode.Maintenance,
+            "Deployment is not in maintenance mode.");
+
+        OperationMode = OperationMode.Normal;
+        AddDomainEvent(new OperationModeChanged(Id, OperationMode.Normal, "Exited maintenance mode"));
+    }
+
+    /// <summary>
+    /// Starts a migration/upgrade process.
+    /// </summary>
+    public void StartMigration(string targetVersion)
+    {
+        SelfAssertArgumentNotEmpty(targetVersion, "Target version is required.");
+        SelfAssertArgumentTrue(OperationMode.CanTransitionTo(OperationMode.Migrating),
+            $"Cannot transition from {OperationMode.Name} to Migrating.");
+
+        OperationMode = OperationMode.Migrating;
+        AddDomainEvent(new OperationModeChanged(Id, OperationMode.Migrating, $"Migrating to version {targetVersion}"));
+    }
+
+    /// <summary>
+    /// Completes a migration successfully.
+    /// </summary>
+    public void CompleteMigration(string newVersion)
+    {
+        SelfAssertArgumentTrue(OperationMode == OperationMode.Migrating,
+            "Deployment is not in migration mode.");
+
+        StackVersion = newVersion;
+        OperationMode = OperationMode.Normal;
+        AddDomainEvent(new OperationModeChanged(Id, OperationMode.Normal, $"Migration to {newVersion} completed"));
+    }
+
+    /// <summary>
+    /// Fails a migration.
+    /// </summary>
+    public void FailMigration(string errorMessage)
+    {
+        SelfAssertArgumentTrue(OperationMode == OperationMode.Migrating,
+            "Deployment is not in migration mode.");
+
+        OperationMode = OperationMode.Failed;
+        ErrorMessage = errorMessage;
+        AddDomainEvent(new OperationModeChanged(Id, OperationMode.Failed, errorMessage));
+    }
+
+    /// <summary>
+    /// Recovers from a failed state by returning to normal operation.
+    /// </summary>
+    public void RecoverFromFailure()
+    {
+        SelfAssertArgumentTrue(OperationMode == OperationMode.Failed,
+            "Deployment is not in failed state.");
+
+        OperationMode = OperationMode.Normal;
+        ErrorMessage = null;
+        AddDomainEvent(new OperationModeChanged(Id, OperationMode.Normal, "Recovered from failure"));
+    }
+
+    /// <summary>
+    /// Sets the operation mode to stopped when the deployment is stopped.
+    /// Called internally when MarkAsStopped is invoked.
+    /// </summary>
+    private void SetOperationModeStopped()
+    {
+        if (OperationMode != OperationMode.Stopped)
+        {
+            OperationMode = OperationMode.Stopped;
+            AddDomainEvent(new OperationModeChanged(Id, OperationMode.Stopped, "Deployment stopped"));
+        }
+    }
+
+    /// <summary>
+    /// Resets the operation mode to normal when the deployment is restarted.
+    /// Called internally when Restart is invoked.
+    /// </summary>
+    private void SetOperationModeNormal()
+    {
+        if (OperationMode == OperationMode.Stopped)
+        {
+            OperationMode = OperationMode.Normal;
+            AddDomainEvent(new OperationModeChanged(Id, OperationMode.Normal, "Deployment restarted"));
+        }
     }
 
     #endregion

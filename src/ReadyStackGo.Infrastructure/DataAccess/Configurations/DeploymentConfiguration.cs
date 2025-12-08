@@ -6,8 +6,7 @@ using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Users;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
-using ReadyStackGo.Domain.Deployment.Deployments;
-using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.Health;
 
 /// <summary>
 /// EF Core configuration for Deployment aggregate.
@@ -44,6 +43,12 @@ public class DeploymentConfiguration : IEntityTypeConfiguration<Deployment>
             .IsRequired();
 
         builder.Property(d => d.Status)
+            .IsRequired();
+
+        builder.Property(d => d.OperationMode)
+            .HasConversion(
+                mode => mode.Value,
+                value => OperationMode.FromValue(value))
             .IsRequired();
 
         builder.Property(d => d.ErrorMessage)
