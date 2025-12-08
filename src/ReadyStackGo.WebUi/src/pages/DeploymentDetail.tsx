@@ -97,15 +97,38 @@ export default function DeploymentDetail() {
   };
 
   const handleEnterMaintenance = async () => {
-    if (!deployment?.deploymentId) return;
+    if (!deployment?.deploymentId || !activeEnvironment) return;
     try {
       setModeActionLoading(true);
       setModeActionError(null);
       const response = await enterMaintenanceMode(deployment.deploymentId);
       if (!response.success) {
         setModeActionError(response.message || 'Failed to enter maintenance mode');
+      } else {
+        // Optimistically update local state
+        if (health) {
+          setHealth({ ...health, operationMode: 'Maintenance' });
+        }
+        // Also refresh health data from server to get full updated state
+        try {
+          const healthData = await getStackHealth(activeEnvironment.id, deployment.deploymentId, true);
+          setDetailedHealth(healthData);
+          setHealth({
+            deploymentId: healthData.deploymentId,
+            stackName: healthData.stackName,
+            currentVersion: healthData.currentVersion,
+            overallStatus: healthData.overallStatus,
+            operationMode: healthData.operationMode,
+            healthyServices: healthData.self.healthyCount,
+            totalServices: healthData.self.totalCount,
+            statusMessage: healthData.statusMessage,
+            requiresAttention: healthData.requiresAttention,
+            capturedAtUtc: healthData.capturedAtUtc
+          });
+        } catch {
+          // Ignore refresh errors, optimistic update is enough
+        }
       }
-      // Health data will be updated via SignalR
     } catch (err) {
       setModeActionError(err instanceof Error ? err.message : 'Failed to enter maintenance mode');
     } finally {
@@ -114,15 +137,38 @@ export default function DeploymentDetail() {
   };
 
   const handleExitMaintenance = async () => {
-    if (!deployment?.deploymentId) return;
+    if (!deployment?.deploymentId || !activeEnvironment) return;
     try {
       setModeActionLoading(true);
       setModeActionError(null);
       const response = await exitMaintenanceMode(deployment.deploymentId);
       if (!response.success) {
         setModeActionError(response.message || 'Failed to exit maintenance mode');
+      } else {
+        // Optimistically update local state
+        if (health) {
+          setHealth({ ...health, operationMode: 'Normal' });
+        }
+        // Also refresh health data from server to get full updated state
+        try {
+          const healthData = await getStackHealth(activeEnvironment.id, deployment.deploymentId, true);
+          setDetailedHealth(healthData);
+          setHealth({
+            deploymentId: healthData.deploymentId,
+            stackName: healthData.stackName,
+            currentVersion: healthData.currentVersion,
+            overallStatus: healthData.overallStatus,
+            operationMode: healthData.operationMode,
+            healthyServices: healthData.self.healthyCount,
+            totalServices: healthData.self.totalCount,
+            statusMessage: healthData.statusMessage,
+            requiresAttention: healthData.requiresAttention,
+            capturedAtUtc: healthData.capturedAtUtc
+          });
+        } catch {
+          // Ignore refresh errors, optimistic update is enough
+        }
       }
-      // Health data will be updated via SignalR
     } catch (err) {
       setModeActionError(err instanceof Error ? err.message : 'Failed to exit maintenance mode');
     } finally {
