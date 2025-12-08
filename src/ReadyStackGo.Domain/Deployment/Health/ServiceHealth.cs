@@ -33,9 +33,10 @@ public sealed class ServiceHealth : ValueObject
     public string? Reason { get; }
 
     /// <summary>
-    /// Number of container restarts.
+    /// Number of container restarts. Only loaded for unhealthy containers.
+    /// Null means "not loaded" (healthy containers don't need this info).
     /// </summary>
-    public int RestartCount { get; }
+    public int? RestartCount { get; }
 
     private ServiceHealth(
         string name,
@@ -43,10 +44,9 @@ public sealed class ServiceHealth : ValueObject
         string? containerId,
         string? containerName,
         string? reason,
-        int restartCount)
+        int? restartCount)
     {
         SelfAssertArgumentNotEmpty(name, "Service name cannot be empty.");
-        SelfAssertArgumentTrue(restartCount >= 0, "Restart count cannot be negative.");
 
         Name = name;
         Status = status;
@@ -62,24 +62,24 @@ public sealed class ServiceHealth : ValueObject
         string? containerId = null,
         string? containerName = null,
         string? reason = null,
-        int restartCount = 0)
+        int? restartCount = null)
     {
         return new ServiceHealth(name, status, containerId, containerName, reason, restartCount);
     }
 
     public static ServiceHealth Healthy(string name, string? containerId = null, string? containerName = null)
     {
-        return new ServiceHealth(name, HealthStatus.Healthy, containerId, containerName, null, 0);
+        return new ServiceHealth(name, HealthStatus.Healthy, containerId, containerName, null, restartCount: null);
     }
 
-    public static ServiceHealth Unhealthy(string name, string reason, string? containerId = null, int restartCount = 0)
+    public static ServiceHealth Unhealthy(string name, string reason, string? containerId = null, int? restartCount = null)
     {
         return new ServiceHealth(name, HealthStatus.Unhealthy, containerId, null, reason, restartCount);
     }
 
     public static ServiceHealth Unknown(string name)
     {
-        return new ServiceHealth(name, HealthStatus.Unknown, null, null, "No data available", 0);
+        return new ServiceHealth(name, HealthStatus.Unknown, null, null, "No data available", restartCount: null);
     }
 
     protected override IEnumerable<object?> GetEqualityComponents()

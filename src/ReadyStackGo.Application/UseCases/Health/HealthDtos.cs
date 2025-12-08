@@ -11,15 +11,11 @@ public class StackHealthDto
     public required string? CurrentVersion { get; init; }
     public required string? TargetVersion { get; init; }
 
-    // Overall status
+    // Overall status (UI presentation like colors/icons handled in frontend)
     public required string OverallStatus { get; init; }
-    public required string OverallStatusColor { get; init; }
-    public required string OverallStatusIcon { get; init; }
 
     // Operation mode
     public required string OperationMode { get; init; }
-    public required string OperationModeColor { get; init; }
-    public required string OperationModeIcon { get; init; }
 
     // Summary
     public required string StatusMessage { get; init; }
@@ -54,12 +50,14 @@ public class ServiceHealthDto
 {
     public required string Name { get; init; }
     public required string Status { get; init; }
-    public required string StatusColor { get; init; }
-    public required string StatusIcon { get; init; }
     public string? ContainerId { get; init; }
     public string? ContainerName { get; init; }
     public string? Reason { get; init; }
-    public int RestartCount { get; init; }
+
+    /// <summary>
+    /// Number of container restarts. Null means not loaded (healthy containers).
+    /// </summary>
+    public int? RestartCount { get; init; }
 }
 
 /// <summary>
@@ -153,15 +151,11 @@ public class StackHealthSummaryDto
     public required string StackName { get; init; }
     public required string? CurrentVersion { get; init; }
 
-    // Overall status
+    // Overall status (UI presentation like colors/icons handled in frontend)
     public required string OverallStatus { get; init; }
-    public required string OverallStatusColor { get; init; }
-    public required string OverallStatusIcon { get; init; }
 
     // Operation mode
     public required string OperationMode { get; init; }
-    public required string OperationModeColor { get; init; }
-    public required string OperationModeIcon { get; init; }
 
     // Services summary
     public required int HealthyServices { get; init; }

@@ -87,6 +87,7 @@ public static class DependencyInjection
 
         // Health Monitoring (v0.11)
         services.AddScoped<IHealthMonitoringService, HealthMonitoringService>();
+        services.AddScoped<IHealthCollectorService, HealthCollectorService>();
 
         // Password hashing
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();

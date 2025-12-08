@@ -111,15 +111,11 @@ public class GetStackHealthHandler : IRequestHandler<GetStackHealthQuery, GetSta
             CurrentVersion = snapshot.CurrentVersion,
             TargetVersion = snapshot.TargetVersion,
 
-            // Overall status
+            // Overall status (UI presentation handled in frontend)
             OverallStatus = snapshot.Overall.Name,
-            OverallStatusColor = snapshot.Overall.CssColorClass,
-            OverallStatusIcon = GetStatusIcon(snapshot.Overall),
 
             // Operation mode
             OperationMode = snapshot.OperationMode.Name,
-            OperationModeColor = snapshot.OperationMode.CssColorClass,
-            OperationModeIcon = GetOperationModeIcon(snapshot.OperationMode),
 
             // Summary
             StatusMessage = GenerateStatusMessage(snapshot),
@@ -154,8 +150,6 @@ public class GetStackHealthHandler : IRequestHandler<GetStackHealthQuery, GetSta
         {
             Name = service.Name,
             Status = service.Status.Name,
-            StatusColor = service.Status.CssColorClass,
-            StatusIcon = GetStatusIcon(service.Status),
             ContainerId = service.ContainerId,
             ContainerName = service.ContainerName,
             Reason = service.Reason,
@@ -209,24 +203,6 @@ public class GetStackHealthHandler : IRequestHandler<GetStackHealthQuery, GetSta
                 ResponseTimeMs = s.ResponseTimeMs
             }).ToList()
         };
-    }
-
-    private static string GetStatusIcon(HealthStatus status)
-    {
-        if (status == HealthStatus.Healthy) return "check-circle";
-        if (status == HealthStatus.Degraded) return "alert-triangle";
-        if (status == HealthStatus.Unhealthy) return "x-circle";
-        return "help-circle";
-    }
-
-    private static string GetOperationModeIcon(OperationMode mode)
-    {
-        if (mode == OperationMode.Normal) return "play";
-        if (mode == OperationMode.Migrating) return "refresh-cw";
-        if (mode == OperationMode.Maintenance) return "tool";
-        if (mode == OperationMode.Stopped) return "square";
-        if (mode == OperationMode.Failed) return "alert-octagon";
-        return "help-circle";
     }
 
     private static string GenerateStatusMessage(HealthSnapshot snapshot)

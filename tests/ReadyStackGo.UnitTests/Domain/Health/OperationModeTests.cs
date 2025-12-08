@@ -184,36 +184,6 @@ public class OperationModeTests
 
     #endregion
 
-    #region CssColorClass
-
-    [Theory]
-    [InlineData("Normal", "green")]
-    [InlineData("Migrating", "blue")]
-    [InlineData("Maintenance", "yellow")]
-    [InlineData("Stopped", "gray")]
-    [InlineData("Failed", "red")]
-    public void CssColorClass_ReturnsCorrectColor(string modeName, string expectedColor)
-    {
-        var mode = OperationMode.FromName(modeName);
-
-        mode.CssColorClass.Should().Be(expectedColor);
-    }
-
-    #endregion
-
-    #region Icon
-
-    [Fact]
-    public void Icon_AllModesHaveIcons()
-    {
-        foreach (var mode in OperationMode.GetAll())
-        {
-            mode.Icon.Should().NotBeNullOrEmpty($"Mode {mode.Name} should have an icon");
-        }
-    }
-
-    #endregion
-
     #region State Transitions
 
     [Fact]

@@ -46,7 +46,37 @@ public class DockerService : IDockerService, IDisposable
             },
             cancellationToken);
 
-        return containers.Select(MapToContainerDto);
+        return containers.Select(c => MapToContainerDto(c, restartCount: 0));
+    }
+
+    public async Task<IEnumerable<ContainerDto>> ListContainersWithDetailsAsync(string environmentId, CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+
+        var containers = await client.Containers.ListContainersAsync(
+            new ContainersListParameters
+            {
+                All = true
+            },
+            cancellationToken);
+
+        // Parallel inspect for restart count
+        var tasks = containers.Select(async c =>
+        {
+            try
+            {
+                var inspection = await client.Containers.InspectContainerAsync(c.ID, cancellationToken);
+                var restartCount = (int)inspection.RestartCount;
+                return MapToContainerDto(c, restartCount);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to inspect container {ContainerId}", c.ID);
+                return MapToContainerDto(c, restartCount: 0);
+            }
+        });
+
+        return await Task.WhenAll(tasks);
     }
 
     public async Task StartContainerAsync(string environmentId, string containerId, CancellationToken cancellationToken = default)
@@ -531,7 +561,7 @@ public class DockerService : IDockerService, IDisposable
         var container = containers.FirstOrDefault(c =>
             c.Names.Any(n => n.TrimStart('/') == containerName));
 
-        return container != null ? MapToContainerDto(container) : null;
+        return container != null ? MapToContainerDto(container, restartCount: 0) : null;
     }
 
     public async Task<bool> ImageExistsAsync(string environmentId, string image, string tag = "latest", CancellationToken cancellationToken = default)
@@ -557,6 +587,22 @@ public class DockerService : IDockerService, IDisposable
         {
             _logger.LogDebug(ex, "Error checking if image {Image} exists", fullImage);
             return false;
+        }
+    }
+
+    public async Task<int> GetContainerRestartCountAsync(string environmentId, string containerId, CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+
+        try
+        {
+            var inspection = await client.Containers.InspectContainerAsync(containerId, cancellationToken);
+            return (int)inspection.RestartCount;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get restart count for container {ContainerId}", containerId);
+            return 0;
         }
     }
 
@@ -629,7 +675,7 @@ public class DockerService : IDockerService, IDisposable
         return new Uri($"tcp://{connectionString}");
     }
 
-    private static ContainerDto MapToContainerDto(ContainerListResponse container)
+    private static ContainerDto MapToContainerDto(ContainerListResponse container, int restartCount)
     {
         // Extract health status from Status string (e.g., "Up 2 hours (healthy)")
         var healthStatus = ExtractHealthStatus(container.Status);
@@ -651,7 +697,8 @@ public class DockerService : IDockerService, IDisposable
             Labels = container.Labels != null
                 ? new Dictionary<string, string>(container.Labels)
                 : new Dictionary<string, string>(),
-            HealthStatus = healthStatus
+            HealthStatus = healthStatus,
+            RestartCount = restartCount
         };
     }
 

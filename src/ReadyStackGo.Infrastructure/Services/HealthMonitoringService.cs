@@ -117,6 +117,7 @@ public class HealthMonitoringService : IHealthMonitoringService
 
     /// <summary>
     /// Collects health status of all services/containers for a stack.
+    /// RestartCount is only queried for unhealthy containers to minimize API calls.
     /// </summary>
     private async Task<SelfHealth> CollectSelfHealthAsync(
         string environmentId,
@@ -125,6 +126,7 @@ public class HealthMonitoringService : IHealthMonitoringService
     {
         try
         {
+            // Use fast ListContainersAsync first
             var containers = await _dockerService.ListContainersAsync(environmentId, cancellationToken);
 
             // Filter containers belonging to this stack (by project label or name prefix)
@@ -138,10 +140,23 @@ public class HealthMonitoringService : IHealthMonitoringService
                 return SelfHealth.Empty();
             }
 
-            var serviceHealthList = stackContainers
-                .Select(c => MapContainerToServiceHealth(c))
-                .ToList();
+            // Map containers to service health, only fetching RestartCount for unhealthy ones
+            var serviceHealthTasks = stackContainers.Select(async c =>
+            {
+                var healthStatus = DetermineHealthStatus(c);
+                int? restartCount = null;
 
+                // Only fetch RestartCount for unhealthy containers
+                if (healthStatus != HealthStatus.Healthy && !string.IsNullOrEmpty(c.Id))
+                {
+                    restartCount = await _dockerService.GetContainerRestartCountAsync(
+                        environmentId, c.Id, cancellationToken);
+                }
+
+                return MapContainerToServiceHealth(c, healthStatus, restartCount);
+            });
+
+            var serviceHealthList = await Task.WhenAll(serviceHealthTasks);
             return SelfHealth.Create(serviceHealthList);
         }
         catch (Exception ex)
@@ -156,25 +171,28 @@ public class HealthMonitoringService : IHealthMonitoringService
     /// </summary>
     private static bool BelongsToStack(ContainerDto container, string stackName)
     {
-        // Check by Docker Compose project label
+        // Check by ReadyStackGo stack label (primary)
+        if (container.Labels.TryGetValue("rsgo.stack", out var rsgoStack))
+        {
+            return string.Equals(rsgoStack, stackName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Check by Docker Compose project label (for compose-deployed stacks)
         if (container.Labels.TryGetValue("com.docker.compose.project", out var project))
         {
             return string.Equals(project, stackName, StringComparison.OrdinalIgnoreCase);
         }
 
-        // Fallback: check by container name prefix
-        var normalizedStackName = stackName.ToLowerInvariant().Replace(".", "-").Replace("_", "-");
-        var normalizedContainerName = container.Name.TrimStart('/').ToLowerInvariant();
-
-        return normalizedContainerName.StartsWith(normalizedStackName);
+        // No label-based matching available - do NOT fall back to name prefix matching
+        // as this causes false positives with similarly named stacks
+        return false;
     }
 
     /// <summary>
     /// Maps a Docker container DTO to a ServiceHealth value object.
     /// </summary>
-    private static ServiceHealth MapContainerToServiceHealth(ContainerDto container)
+    private static ServiceHealth MapContainerToServiceHealth(ContainerDto container, HealthStatus healthStatus, int? restartCount)
     {
-        var healthStatus = DetermineHealthStatus(container);
         var reason = DetermineHealthReason(container, healthStatus);
 
         // Extract service name from container (remove stack prefix if present)
@@ -186,7 +204,7 @@ public class HealthMonitoringService : IHealthMonitoringService
             container.Id,
             container.Name.TrimStart('/'),
             reason,
-            restartCount: 0); // TODO: Get restart count from Docker inspect
+            restartCount);
     }
 
     /// <summary>
