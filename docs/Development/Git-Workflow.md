@@ -2,12 +2,15 @@
 
 This document describes the Git workflow for developing ReadyStackGo.
 
+## Trunk-Based Development
+
+ReadyStackGo uses **trunk-based development** - a streamlined approach where all changes flow directly to `main`.
+
 ## Branches
 
 | Branch | Purpose | Deployment |
 |--------|---------|------------|
-| `main` | Production-ready code | Docker Hub (`latest`) |
-| `develop` | Current development | Docker Hub (`develop`) |
+| `main` | Single source of truth | ghcr.io (`latest`) + Docker Hub (on release) |
 | `feature/*` | New features | - |
 | `bugfix/*` | Bugfixes | - |
 | `hotfix/*` | Urgent production fixes | - |
@@ -17,13 +20,13 @@ This document describes the Git workflow for developing ReadyStackGo.
 ### Developing a Feature
 
 ```
-develop ──► feature/xyz ──► PR to develop ──► (later) Release to main
+main ──► feature/xyz ──► PR to main ──► Merge ──► (later) Release
 ```
 
-1. **Create branch** from `develop`:
+1. **Create branch** from `main`:
    ```bash
-   git checkout develop
-   git pull origin develop
+   git checkout main
+   git pull origin main
    git checkout -b feature/my-feature
    ```
 
@@ -37,22 +40,22 @@ develop ──► feature/xyz ──► PR to develop ──► (later) Release 
    ```bash
    git push origin feature/my-feature
    ```
-   → Create PR to `develop`
+   → Create PR to `main`
 
-4. **After review**: Merge PR into `develop`
+4. **After review**: Merge PR into `main`
 
 ---
 
-### Bugfix (not urgent)
+### Bugfix
 
 ```
-develop ──► bugfix/xyz ──► PR to develop ──► (later) Release to main
+main ──► bugfix/xyz ──► PR to main ──► Merge ──► (later) Release
 ```
 
-1. **Create branch** from `develop`:
+1. **Create branch** from `main`:
    ```bash
-   git checkout develop
-   git pull origin develop
+   git checkout main
+   git pull origin main
    git checkout -b bugfix/my-bugfix
    ```
 
@@ -66,19 +69,19 @@ develop ──► bugfix/xyz ──► PR to develop ──► (later) Release t
    ```bash
    git push origin bugfix/my-bugfix
    ```
-   → Create PR to `develop`
+   → Create PR to `main`
 
-4. **After review**: Merge PR into `develop`
+4. **After review**: Merge PR into `main`
 
 ---
 
 ### Hotfix (urgent, production affected)
 
 ```
-main ──► hotfix/xyz ──► PR to main ──► Create tag ──► merge back to develop
+main ──► hotfix/xyz ──► PR to main ──► Merge ──► Publish release immediately
 ```
 
-Only use when production is acutely affected!
+Same workflow as bugfix, but with immediate release:
 
 1. **Create branch** from `main`:
    ```bash
@@ -93,28 +96,9 @@ Only use when production is acutely affected!
    git commit -m "Hotfix: Description of the critical bug"
    ```
 
-3. **Push and create PR**:
-   ```bash
-   git push origin hotfix/critical-bug
-   ```
-   → Create PR to `main`
+3. **Push and create PR** to `main`
 
-4. **After review**: Merge PR into `main`
-
-5. **Create tag** (patch version):
-   ```bash
-   git checkout main
-   git pull origin main
-   git tag v0.6.1
-   git push origin v0.6.1
-   ```
-
-6. **Merge back to develop**:
-   ```bash
-   git checkout develop
-   git merge main
-   git push origin develop
-   ```
+4. **After merge**: Go to GitHub Releases and **publish the release immediately**
 
 ---
 
@@ -130,7 +114,7 @@ PR merge to main ──► Release Drafter Draft ──► (more PRs) ──► 
 
 ### Process
 
-1. **Create and merge PRs**: `develop` → `main`
+1. **Create and merge PRs** to `main`
    - Set labels (determines the version)
    - Multiple PRs can be collected
 
@@ -149,6 +133,7 @@ PR merge to main ──► Release Drafter Draft ──► (more PRs) ──► 
 - **Control**: Doc changes don't trigger a release
 - **No manual version**: Automatically calculated
 - **No manual tag**: Created on publish
+- **Simple flow**: One branch, no syncing between develop/main
 
 ### Version Determination by Labels
 
@@ -172,15 +157,15 @@ Labels are used for release notes and versioning. The **autolabeler** sets label
 ### Why Branches Matter
 
 ```
-❌ WRONG: Commit directly to develop
-develop ──► commit ──► PR to main
-                            │
-                            └── No label! (Branch is "develop", not "bugfix/*")
+❌ WRONG: Commit directly to main
+main ──► commit (no branch) ──► push
+                        │
+                        └── No PR, no label, no release notes!
 
 ✅ RIGHT: Use feature/bugfix branch
-develop ──► bugfix/xyz ──► PR to develop ──► PR to main
-                                │
-                                └── Label "bug" (automatic)
+main ──► feature/xyz ──► PR to main
+                              │
+                              └── Label "feature" (automatic)
 ```
 
 ### Automatic Labels (Autolabeler)
@@ -197,7 +182,7 @@ develop ──► bugfix/xyz ──► PR to develop ──► PR to main
 
 ### Manual Labels
 
-If the autolabeler doesn't work (e.g., PR from `develop` → `main`), set the appropriate label **manually** on the PR:
+If the autolabeler doesn't work, set the appropriate label **manually** on the PR:
 
 | Label | Usage | Version Bump |
 |-------|-------|--------------|
@@ -271,9 +256,9 @@ MAJOR.MINOR.PATCH
 
 | Trigger | Workflow | Result |
 |---------|----------|--------|
-| Push to `main`/`develop` | CI | Build + Tests |
-| CI successful on `develop` | Docker Dev | Image on ghcr.io (`develop`) |
-| Push to `main` | Release Drafter | GitHub Release published |
+| PR to `main` | CI | Build + Tests |
+| Push to `main` | Docker Dev | Image on ghcr.io (`latest`) |
+| Push to `main` | Release Drafter | Updates release draft |
 | Tag `v*` | Docker | Image on Docker Hub (`latest`, `0.7.3`, `0.7`) |
 | Tag `v*` | Cloudflare | PublicWeb deployed |
 | Push to `main` (docs/) | Wiki Sync | GitHub Wiki updated |
@@ -283,22 +268,29 @@ MAJOR.MINOR.PATCH
 ```
 PR with labels ──► merge to main
                       │
-                      ▼
-              Release Drafter
+                      ├──► Docker Dev builds ghcr.io:latest
                       │
-           ┌─────────┴─────────┐
-           ▼                   ▼
-       Git Tag          GitHub Release
-       created          published
-           │
-           ▼
-    ┌──────┴──────┐
-    ▼             ▼
- Docker       Cloudflare
- Workflow       Pages
-    │             │
-    ▼             ▼
- Images       PublicWeb
-(Docker Hub) (Release Notes
-             from GitHub API)
+                      └──► Release Drafter updates draft
+                                    │
+                                    ▼
+                           (accumulate more PRs)
+                                    │
+                                    ▼
+                          Manually "Publish release"
+                                    │
+                         ┌──────────┴──────────┐
+                         ▼                     ▼
+                     Git Tag              GitHub Release
+                     created              published
+                         │
+                         ▼
+                  ┌──────┴──────┐
+                  ▼             ▼
+               Docker       Cloudflare
+               Workflow       Pages
+                  │             │
+                  ▼             ▼
+               Images       PublicWeb
+            (Docker Hub)   (Release Notes
+                           from GitHub API)
 ```

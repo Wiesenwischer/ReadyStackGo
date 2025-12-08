@@ -28,19 +28,19 @@ See [`SETUP.md`](./SETUP.md) for details on:
 
 ## 3. Branching & Workflow
 
-Recommended model (example):
+ReadyStackGo uses **trunk-based development**:
 
-- `main` – stable releases
-- `develop` – integration branch
+- `main` – single source of truth
 - `feature/*` – feature branches
+- `bugfix/*` – bugfix branches
 
 PR Workflow:
 
 1. Create issue or reference existing issue
-2. Create branch `feature/<short-description>`
+2. Create branch `feature/<short-description>` from `main`
 3. Implement changes
 4. Run tests
-5. PR to `develop` with description & screenshots (if UI)
+5. PR to `main` with description & screenshots (if UI)
 
 ---
 
