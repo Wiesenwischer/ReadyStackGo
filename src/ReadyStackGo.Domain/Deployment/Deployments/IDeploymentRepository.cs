@@ -43,6 +43,11 @@ public interface IDeploymentRepository
     void Remove(Deployment deployment);
 
     /// <summary>
+    /// Gets all active deployments (Running or Stopped status).
+    /// </summary>
+    IEnumerable<Deployment> GetAllActive();
+
+    /// <summary>
     /// Saves all pending changes.
     /// </summary>
     void SaveChanges();

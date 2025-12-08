@@ -63,6 +63,14 @@ public class DeploymentRepository : IDeploymentRepository
         _context.Deployments.Remove(deployment);
     }
 
+    public IEnumerable<Deployment> GetAllActive()
+    {
+        return _context.Deployments
+            .Where(d => d.Status == DeploymentStatus.Running || d.Status == DeploymentStatus.Stopped)
+            .OrderByDescending(d => d.CreatedAt)
+            .ToList();
+    }
+
     public void SaveChanges()
     {
         _context.SaveChanges();

@@ -1,0 +1,70 @@
+using Microsoft.AspNetCore.SignalR;
+using ReadyStackGo.Api.Hubs;
+using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.UseCases.Health;
+using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Environments;
+
+namespace ReadyStackGo.Api.Services;
+
+/// <summary>
+/// Implementation of IHealthNotificationService using SignalR.
+/// </summary>
+public class HealthNotificationService : IHealthNotificationService
+{
+    private readonly IHubContext<HealthHub> _hubContext;
+    private readonly ILogger<HealthNotificationService> _logger;
+
+    public HealthNotificationService(
+        IHubContext<HealthHub> hubContext,
+        ILogger<HealthNotificationService> logger)
+    {
+        _hubContext = hubContext;
+        _logger = logger;
+    }
+
+    public async Task NotifyDeploymentHealthChangedAsync(
+        DeploymentId deploymentId,
+        StackHealthSummaryDto healthSummary,
+        CancellationToken cancellationToken = default)
+    {
+        var groupName = $"deploy:{deploymentId.Value}";
+
+        _logger.LogDebug(
+            "Sending health update for deployment {DeploymentId} to group {Group}",
+            deploymentId, groupName);
+
+        await _hubContext.Clients
+            .Group(groupName)
+            .SendAsync("DeploymentHealthChanged", healthSummary, cancellationToken);
+    }
+
+    public async Task NotifyEnvironmentHealthChangedAsync(
+        EnvironmentId environmentId,
+        EnvironmentHealthSummaryDto summary,
+        CancellationToken cancellationToken = default)
+    {
+        var groupName = $"env:{environmentId.Value}";
+
+        _logger.LogDebug(
+            "Sending health update for environment {EnvironmentId} to group {Group}",
+            environmentId, groupName);
+
+        await _hubContext.Clients
+            .Group(groupName)
+            .SendAsync("EnvironmentHealthChanged", summary, cancellationToken);
+    }
+
+    public async Task NotifyGlobalHealthChangedAsync(
+        StackHealthSummaryDto healthSummary,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug(
+            "Sending global health update for stack {StackName}",
+            healthSummary.StackName);
+
+        await _hubContext.Clients
+            .Group("health:all")
+            .SendAsync("GlobalHealthChanged", healthSummary, cancellationToken);
+    }
+}

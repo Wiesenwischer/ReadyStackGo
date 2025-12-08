@@ -6,6 +6,7 @@ using ReadyStackGo.Domain.IdentityAccess.Roles;
 using ReadyStackGo.Domain.IdentityAccess.Users;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.Health;
 
 /// <summary>
 /// EF Core DbContext for ReadyStackGo persistence.
@@ -21,6 +22,7 @@ public class ReadyStackGoDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Environment> Environments => Set<Environment>();
     public DbSet<Deployment> Deployments => Set<Deployment>();
+    public DbSet<HealthSnapshot> HealthSnapshots => Set<HealthSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
