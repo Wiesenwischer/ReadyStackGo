@@ -55,11 +55,17 @@ export const translations = {
 		'features.editors.desc': 'Spezialisierte UI-Editoren für Variablentypen wie Connection Strings, Ports und Passwörter.',
 		'features.manifest.title': 'RSGo Manifest Format',
 		'features.manifest.desc': 'Leistungsstarkes Stack-Format mit Typisierung, Validierung und Docker Compose Import.',
+		'features.health.title': 'Health Monitoring',
+		'features.health.desc': 'Echtzeit-Überwachung aller Container und Services mit automatischen Statusaktualisierungen.',
+		'features.maintenance.title': 'Wartungsmodus',
+		'features.maintenance.desc': 'Kontrollierte Wartungsfenster mit automatischem Container-Lifecycle-Management.',
 
 		// Feature Pages
 		'featurepage.multistack.subtitle': 'Definiere komplexe Anwendungen mit mehreren Docker Stacks und gemeinsamen Variablen in einem einzigen Manifest.',
 		'featurepage.editors.subtitle': 'Spezialisierte UI-Komponenten für verschiedene Variablentypen - von Connection Strings bis Port-Konfigurationen.',
 		'featurepage.manifest.subtitle': 'Ein flexibles, typisiertes Format für Stack-Definitionen mit Validierung, Metadaten und Docker Compose Kompatibilität.',
+		'featurepage.health.subtitle': 'Überwache den Zustand deiner Container und Services in Echtzeit mit automatischen Benachrichtigungen.',
+		'featurepage.maintenance.subtitle': 'Verwalte Wartungsfenster mit automatischem Stoppen und Starten von Containern.',
 
 		// Installation
 		'install.title': 'In Sekunden einsatzbereit',
@@ -135,11 +141,17 @@ export const translations = {
 		'features.editors.desc': 'Specialized UI editors for variable types like connection strings, ports and passwords.',
 		'features.manifest.title': 'RSGo Manifest Format',
 		'features.manifest.desc': 'Powerful stack format with type validation, rich metadata and Docker Compose import.',
+		'features.health.title': 'Health Monitoring',
+		'features.health.desc': 'Real-time monitoring of all containers and services with automatic status updates.',
+		'features.maintenance.title': 'Maintenance Mode',
+		'features.maintenance.desc': 'Controlled maintenance windows with automatic container lifecycle management.',
 
 		// Feature Pages
 		'featurepage.multistack.subtitle': 'Define complex applications with multiple Docker Stacks and shared variables in a single manifest.',
 		'featurepage.editors.subtitle': 'Specialized UI components for different variable types - from connection strings to port configurations.',
 		'featurepage.manifest.subtitle': 'A flexible, typed format for stack definitions with validation, metadata and Docker Compose compatibility.',
+		'featurepage.health.subtitle': 'Monitor the health of your containers and services in real-time with automatic notifications.',
+		'featurepage.maintenance.subtitle': 'Manage maintenance windows with automatic container stop and start.',
 
 		// Installation
 		'install.title': 'Ready in Seconds',

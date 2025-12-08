@@ -488,6 +488,116 @@ healthCheck:
 | `retries` | integer | Retries before marking unhealthy |
 | `startPeriod` | string | Grace period before checks start |
 
+### RSGO Labels
+
+ReadyStackGo uses special container labels for stack identification and operation mode management.
+
+#### Stack Identification
+
+The `rsgo.stack` label identifies which stack a container belongs to:
+
+```yaml
+services:
+  api:
+    image: myapp/api:latest
+    labels:
+      rsgo.stack: my-application
+```
+
+> **Note:** This label is automatically added by ReadyStackGo during deployment. You typically don't need to set it manually in your manifest.
+
+#### Maintenance Mode Behavior
+
+The `rsgo.maintenance` label controls how containers behave when the stack enters Maintenance Mode:
+
+```yaml
+services:
+  postgres:
+    image: postgres:16
+    labels:
+      rsgo.stack: my-app
+      rsgo.maintenance: ignore    # Won't be stopped during maintenance
+
+  api:
+    image: myapp/api:latest
+    labels:
+      rsgo.stack: my-app
+      # No rsgo.maintenance = will be stopped during maintenance
+```
+
+| Value | Behavior |
+|-------|----------|
+| `ignore` | Container keeps running during maintenance mode |
+| *(not set)* | Container is stopped when entering maintenance mode |
+
+**Use Cases for `rsgo.maintenance: ignore`:**
+
+- **Databases**: Keep PostgreSQL, MySQL, or other databases running for migrations
+- **Message Brokers**: Keep RabbitMQ, Kafka running to preserve messages
+- **Shared Services**: Services used by multiple stacks
+
+#### Complete Example with Health and Maintenance
+
+```yaml
+metadata:
+  name: Production App
+  productVersion: "2.0.0"
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthCheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      rsgo.maintenance: ignore    # Database stays up during maintenance
+
+  api:
+    image: myapp/api:${VERSION}
+    ports:
+      - "${API_PORT}:8080"
+    environment:
+      DATABASE_URL: postgres://postgres:${DB_PASSWORD}@postgres:5432/app
+    dependsOn:
+      - postgres
+    healthCheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      startPeriod: 40s
+    # No rsgo.maintenance label = stopped during maintenance
+
+  worker:
+    image: myapp/worker:${VERSION}
+    environment:
+      DATABASE_URL: postgres://postgres:${DB_PASSWORD}@postgres:5432/app
+    dependsOn:
+      - postgres
+    # No health check = relies on container state
+    # No rsgo.maintenance = stopped during maintenance
+
+volumes:
+  postgres_data: {}
+```
+
+**Maintenance Mode Workflow:**
+
+1. User sets stack to "Maintenance" mode
+2. ReadyStackGo stops containers without `rsgo.maintenance: ignore`
+3. Database continues running for maintenance tasks
+4. User performs maintenance (migrations, backups, etc.)
+5. User sets stack back to "Normal" mode
+6. ReadyStackGo starts all stopped containers
+
+See also: [Health Monitoring](../Operations/Health-Monitoring.md) | [Operation Mode](../Operations/Operation-Mode.md)
+
 ---
 
 ## Volumes
@@ -998,3 +1108,5 @@ stacks:
 - [Stack Fragments](../Concepts/Stack-Fragments.md) - Fragments
 - [Best Practices](../Concepts/Best-Practices.md) - Guidelines
 - [Stack Sources](Stack-Sources.md) - Stack source configuration
+- [Health Monitoring](../Operations/Health-Monitoring.md) - Real-time container health monitoring
+- [Operation Mode](../Operations/Operation-Mode.md) - Maintenance mode and container lifecycle

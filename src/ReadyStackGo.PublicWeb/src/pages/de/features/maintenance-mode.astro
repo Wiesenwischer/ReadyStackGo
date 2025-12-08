@@ -1,0 +1,116 @@
+---
+import LandingLayout from '../../../layouts/LandingLayout.astro';
+import Header from '../../../components/Header.astro';
+import FeaturePage from '../../../components/FeaturePage.astro';
+import Footer from '../../../components/Footer.astro';
+
+const lang = 'de';
+const icon = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>`;
+---
+
+<LandingLayout title="Wartungsmodus - ReadyStackGo">
+	<Header lang={lang} />
+	<main class="flex-1">
+		<FeaturePage
+			lang={lang}
+			titleKey="features.maintenance.title"
+			subtitleKey="featurepage.maintenance.subtitle"
+			icon={icon}
+		>
+			<h2>Operation Modes</h2>
+			<p>
+				ReadyStackGo verfolgt den Betriebszustand jedes Deployments separat vom Health-Status.
+				So kannst du zwischen geplanter Downtime und echten Ausfällen unterscheiden.
+			</p>
+
+			<h2>Verfügbare Modi</h2>
+			<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 my-6">
+				<div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+					<h4 class="font-semibold text-green-800 dark:text-green-300 mb-2">🟢 Normal</h4>
+					<p class="text-green-700 dark:text-green-400 text-sm">Normalbetrieb, alle Services sollten laufen</p>
+				</div>
+				<div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+					<h4 class="font-semibold text-yellow-800 dark:text-yellow-300 mb-2">🔧 Maintenance</h4>
+					<p class="text-yellow-700 dark:text-yellow-400 text-sm">Geplante Wartung, Services können gestoppt sein</p>
+				</div>
+				<div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+					<h4 class="font-semibold text-blue-800 dark:text-blue-300 mb-2">🔄 Migrating</h4>
+					<p class="text-blue-700 dark:text-blue-400 text-sm">Upgrade oder Migration läuft</p>
+				</div>
+				<div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+					<h4 class="font-semibold text-red-800 dark:text-red-300 mb-2">🔴 Failed</h4>
+					<p class="text-red-700 dark:text-red-400 text-sm">Operation fehlgeschlagen, Eingriff nötig</p>
+				</div>
+				<div class="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+					<h4 class="font-semibold text-gray-800 dark:text-gray-300 mb-2">⏹️ Stopped</h4>
+					<p class="text-gray-700 dark:text-gray-400 text-sm">Stack absichtlich gestoppt</p>
+				</div>
+			</div>
+
+			<h2>Automatisches Container-Lifecycle</h2>
+			<p>
+				Beim Wechsel in den Wartungsmodus werden Container automatisch verwaltet:
+			</p>
+			<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4 my-6">
+				<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">Container-Lifecycle:</h4>
+				<ul class="text-brand-700 dark:text-brand-400 space-y-1">
+					<li><strong>Normal → Maintenance:</strong> Alle Stack-Container werden gestoppt</li>
+					<li><strong>Maintenance → Normal:</strong> Alle Stack-Container werden gestartet</li>
+				</ul>
+			</div>
+
+			<h2>Container ausschließen</h2>
+			<p>
+				Manche Container (wie Datenbanken) sollten während der Wartung weiterlaufen.
+				Nutze das <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">rsgo.maintenance</code> Label:
+			</p>
+			<pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto"><code>{`services:
+  postgres:
+    image: postgres:16
+    labels:
+      rsgo.stack: my-app
+      rsgo.maintenance: ignore  # Wird nicht gestoppt
+
+  api:
+    image: myapp/api:latest
+    labels:
+      rsgo.stack: my-app
+      # Kein rsgo.maintenance = wird gestoppt`}</code></pre>
+
+			<h2>Anwendungsfälle</h2>
+			<ul>
+				<li><strong>Datenbank-Migrationen:</strong> App-Container stoppen, Migrationen ausführen, neustarten</li>
+				<li><strong>Backup-Fenster:</strong> Services während Backups stoppen</li>
+				<li><strong>Konfigurationsänderungen:</strong> Sichere Config-Changes ohne Traffic</li>
+				<li><strong>Upgrades:</strong> Kontrollierte Versionswechsel mit Rollback-Support</li>
+			</ul>
+
+			<h2>Echtzeit UI-Updates</h2>
+			<p>
+				Modusänderungen werden sofort via SignalR gepusht:
+			</p>
+			<ul>
+				<li>Dashboard zeigt aktuellen Operation Mode</li>
+				<li>Health-Status im Modus-Kontext interpretiert</li>
+				<li>Verfügbare Aktionen basierend auf aktuellem Modus</li>
+				<li>Modus-Historie für Audit Trail</li>
+			</ul>
+
+			<h2>API Integration</h2>
+			<pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto"><code>{`PUT /api/deployments/{id}/operation-mode
+{
+  "newMode": "Maintenance",
+  "reason": "Geplantes wöchentliches Backup"
+}`}</code></pre>
+
+			<h2>Vorteile</h2>
+			<ul>
+				<li><strong>Kontrollierte Downtime:</strong> Klare Unterscheidung zwischen geplanten und ungeplanten Ausfällen</li>
+				<li><strong>Automatisches Lifecycle:</strong> Kein manuelles Container Stop/Start nötig</li>
+				<li><strong>Selektiver Ausschluss:</strong> Kritische Services weiterlaufen lassen</li>
+				<li><strong>Audit Trail:</strong> Nachvollziehen wer den Modus wann geändert hat</li>
+			</ul>
+		</FeaturePage>
+	</main>
+	<Footer lang={lang} />
+</LandingLayout>

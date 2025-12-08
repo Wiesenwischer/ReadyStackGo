@@ -1,0 +1,107 @@
+---
+import LandingLayout from '../../../layouts/LandingLayout.astro';
+import Header from '../../../components/Header.astro';
+import FeaturePage from '../../../components/FeaturePage.astro';
+import Footer from '../../../components/Footer.astro';
+
+const lang = 'de';
+const icon = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>`;
+---
+
+<LandingLayout title="Health Monitoring - ReadyStackGo">
+	<Header lang={lang} />
+	<main class="flex-1">
+		<FeaturePage
+			lang={lang}
+			titleKey="features.health.title"
+			subtitleKey="featurepage.health.subtitle"
+			icon={icon}
+		>
+			<h2>Echtzeit Container-Überwachung</h2>
+			<p>
+				ReadyStackGo überwacht kontinuierlich alle deployten Container und Services
+				und bietet sofortige Einblicke in den Zustand deiner Infrastruktur.
+			</p>
+
+			<h2>Health Status-Stufen</h2>
+			<div class="grid md:grid-cols-2 gap-4 my-6">
+				<div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+					<h4 class="font-semibold text-green-800 dark:text-green-300 mb-2">🟢 Healthy</h4>
+					<p class="text-green-700 dark:text-green-400 text-sm">Alle Services laufen normal</p>
+				</div>
+				<div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+					<h4 class="font-semibold text-yellow-800 dark:text-yellow-300 mb-2">🟡 Degraded</h4>
+					<p class="text-yellow-700 dark:text-yellow-400 text-sm">Einige Services haben Probleme</p>
+				</div>
+				<div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+					<h4 class="font-semibold text-red-800 dark:text-red-300 mb-2">🔴 Unhealthy</h4>
+					<p class="text-red-700 dark:text-red-400 text-sm">Kritische Services ausgefallen</p>
+				</div>
+				<div class="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+					<h4 class="font-semibold text-gray-800 dark:text-gray-300 mb-2">⚪ Unknown</h4>
+					<p class="text-gray-700 dark:text-gray-400 text-sm">Status nicht ermittelbar</p>
+				</div>
+			</div>
+
+			<h2>SignalR Echtzeit-Updates</h2>
+			<p>
+				Statusänderungen werden sofort via SignalR an deinen Browser gepusht.
+				Kein manuelles Refresh nötig - das Dashboard aktualisiert sich automatisch bei:
+			</p>
+			<ul>
+				<li>Container-Start oder -Stopp</li>
+				<li>Services werden unhealthy</li>
+				<li>Änderungen des Operation Mode</li>
+				<li>Abgeschlossene Deployments</li>
+			</ul>
+
+			<h2>HTTP Health Checks</h2>
+			<p>
+				Konfiguriere eigene Health-Endpoints in deinem Stack-Manifest:
+			</p>
+			<pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto"><code>{`services:
+  api:
+    image: myapp/api:latest
+    health:
+      type: http
+      url: http://api:8080/health
+      interval: 30s
+      timeout: 5s
+      retries: 3`}</code></pre>
+
+			<h2>Dashboard Integration</h2>
+			<p>
+				Das Health-Widget bietet einen schnellen Überblick über alle Deployments:
+			</p>
+			<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4 my-6">
+				<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">Dashboard Features:</h4>
+				<ul class="text-brand-700 dark:text-brand-400 space-y-1">
+					<li>Aggregierte Health über alle Environments</li>
+					<li>Schnellfilter für unhealthy Stacks</li>
+					<li>Service-Anzahl und Restart-Tracking</li>
+					<li>Durchklicken zu Deployment-Details</li>
+				</ul>
+			</div>
+
+			<h2>Health History</h2>
+			<p>
+				Verfolge Health-Trends über Zeit um zu identifizieren:
+			</p>
+			<ul>
+				<li>Wiederkehrende Probleme zu bestimmten Zeiten</li>
+				<li>Korrelation mit Deployments</li>
+				<li>Service-Stabilitätsmuster</li>
+				<li>Infrastruktur-Engpässe</li>
+			</ul>
+
+			<h2>Vorteile</h2>
+			<ul>
+				<li><strong>Sofortige Sichtbarkeit:</strong> Wisse sofort wenn etwas kaputt geht</li>
+				<li><strong>Proaktives Monitoring:</strong> Erkenne Degradation vor Ausfällen</li>
+				<li><strong>Trendanalyse:</strong> Identifiziere Muster in der Health History</li>
+				<li><strong>Aggregierte Ansichten:</strong> Environment- und Organisations-Rollups</li>
+			</ul>
+		</FeaturePage>
+	</main>
+	<Footer lang={lang} />
+</LandingLayout>
