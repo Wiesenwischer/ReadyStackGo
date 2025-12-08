@@ -266,6 +266,7 @@ public class DeploymentService : IDeploymentService
                 EnvironmentId = environmentId,
                 DeployedAt = deployment.CreatedAt,
                 Status = deployment.Status.ToString(),
+                OperationMode = deployment.OperationMode.Name,
                 Services = deployment.Services.Select(s => new DeployedServiceInfo
                 {
                     ServiceName = s.ServiceName,
@@ -313,6 +314,7 @@ public class DeploymentService : IDeploymentService
                     DeploymentId = d.Id.ToString(),
                     DeployedAt = d.CreatedAt,
                     Status = d.Status.ToString(),
+                    OperationMode = d.OperationMode.Name,
                     ServiceCount = d.Services.Count
                 }).ToList()
             });

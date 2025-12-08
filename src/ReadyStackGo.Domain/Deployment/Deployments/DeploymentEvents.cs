@@ -1,6 +1,7 @@
 namespace ReadyStackGo.Domain.Deployment.Deployments;
 
 using ReadyStackGo.Domain.SharedKernel;
+using ReadyStackGo.Domain.Deployment.Health;
 
 /// <summary>
 /// Event raised when deployment progress is updated.
@@ -99,5 +100,25 @@ public sealed class ServiceStatusChanged : DomainEvent
         ServiceName = serviceName;
         PreviousStatus = previousStatus;
         NewStatus = newStatus;
+    }
+}
+
+/// <summary>
+/// Event raised when the operation mode of a deployment changes.
+/// </summary>
+public sealed class OperationModeChanged : DomainEvent
+{
+    public DeploymentId DeploymentId { get; }
+    public OperationMode NewMode { get; }
+    public string? Reason { get; }
+
+    public OperationModeChanged(
+        DeploymentId deploymentId,
+        OperationMode newMode,
+        string? reason = null)
+    {
+        DeploymentId = deploymentId;
+        NewMode = newMode;
+        Reason = reason;
     }
 }

@@ -434,6 +434,7 @@ public class GetDeploymentResponse
     public string? EnvironmentId { get; set; }
     public DateTime? DeployedAt { get; set; }
     public string? Status { get; set; }
+    public string? OperationMode { get; set; }
     public List<DeployedServiceInfo> Services { get; set; } = new();
     public Dictionary<string, string> Configuration { get; set; } = new();
 }
@@ -458,4 +459,5 @@ public class DeploymentSummary
     public DateTime DeployedAt { get; set; }
     public int ServiceCount { get; set; }
     public string? Status { get; set; }
+    public string? OperationMode { get; set; }
 }
