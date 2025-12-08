@@ -20,6 +20,10 @@ sharedVariables:                  # Variables shared across all stacks (Multi-St
 variables:                        # Variables for this stack (Single-Stack or Fragment)
   PORT: ...
 
+maintenanceObserver:              # Automatic maintenance mode trigger (optional)
+  type: sqlExtendedProperty
+  ...
+
 stacks:                           # Stack definitions (Multi-Stack only)
   api:
     include: api.yaml
@@ -1086,6 +1090,153 @@ stacks:
       prometheus_data: {}
       grafana_data: {}
 ```
+
+---
+
+## Maintenance Observer
+
+The `maintenanceObserver` configuration allows external systems to automatically trigger maintenance mode. RSGO monitors the configured source and synchronizes the operation mode accordingly.
+
+### Observer Types
+
+| Type | Description |
+|------|-------------|
+| `sqlExtendedProperty` | Monitor SQL Server Extended Property |
+| `sqlQuery` | Execute custom SQL query |
+| `http` | Monitor HTTP endpoint |
+| `file` | Monitor file existence or content |
+
+### SQL Extended Property Observer
+
+Monitors a SQL Server Extended Property value:
+
+```yaml
+maintenanceObserver:
+  type: sqlExtendedProperty
+  connectionString: ${DB_CONNECTION}
+  propertyName: ams.MaintenanceMode
+  maintenanceValue: "1"
+  normalValue: "0"
+  pollingInterval: 30s
+```
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `type` | string | **Yes** | Must be `sqlExtendedProperty` |
+| `connectionString` | string | **Yes** | SQL Server connection string (supports variables) |
+| `propertyName` | string | **Yes** | Name of the Extended Property to monitor |
+| `maintenanceValue` | string | **Yes** | Value that triggers maintenance mode |
+| `normalValue` | string | **Yes** | Value that exits maintenance mode |
+| `pollingInterval` | string | No | Check interval (default: `30s`) |
+| `timeout` | string | No | Query timeout (default: `10s`) |
+| `enabled` | boolean | No | Enable/disable observer (default: `true`) |
+
+### SQL Query Observer
+
+Executes a custom SQL query:
+
+```yaml
+maintenanceObserver:
+  type: sqlQuery
+  connectionString: ${DB_CONNECTION}
+  query: |
+    SELECT CASE
+      WHEN Status = 'Maintenance' THEN 'maintenance'
+      ELSE 'normal'
+    END FROM SystemStatus
+  maintenanceValue: "maintenance"
+  normalValue: "normal"
+  pollingInterval: 60s
+```
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `type` | string | **Yes** | Must be `sqlQuery` |
+| `connectionString` | string | **Yes** | SQL Server connection string |
+| `query` | string | **Yes** | SQL query returning single value |
+| `maintenanceValue` | string | **Yes** | Value that triggers maintenance mode |
+| `normalValue` | string | **Yes** | Value that exits maintenance mode |
+
+### HTTP Endpoint Observer
+
+Monitors an HTTP endpoint:
+
+```yaml
+maintenanceObserver:
+  type: http
+  url: https://status.example.com/api/maintenance
+  method: GET
+  headers:
+    Authorization: Bearer ${STATUS_TOKEN}
+  jsonPath: "$.maintenanceMode"
+  maintenanceValue: "true"
+  normalValue: "false"
+  pollingInterval: 30s
+```
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `type` | string | **Yes** | Must be `http` |
+| `url` | string | **Yes** | HTTP endpoint URL |
+| `method` | string | No | HTTP method (default: `GET`) |
+| `headers` | object | No | Request headers |
+| `jsonPath` | string | No | JSONPath to extract value from response |
+| `maintenanceValue` | string | **Yes** | Value that triggers maintenance mode |
+| `normalValue` | string | **Yes** | Value that exits maintenance mode |
+
+### File Observer
+
+Monitors a file:
+
+```yaml
+maintenanceObserver:
+  type: file
+  path: /var/maintenance/maintenance.flag
+  mode: exists
+  pollingInterval: 10s
+```
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `type` | string | **Yes** | Must be `file` |
+| `path` | string | **Yes** | File path to monitor |
+| `mode` | string | No | `exists` or `content` (default: `exists`) |
+
+### Complete Example
+
+ERP system integration with automatic maintenance synchronization:
+
+```yaml
+metadata:
+  name: AMS ERP Integration
+  productVersion: "2.0.0"
+
+variables:
+  AMS_DB:
+    label: AMS Database
+    type: SqlServerConnectionString
+    required: true
+
+maintenanceObserver:
+  type: sqlExtendedProperty
+  connectionString: ${AMS_DB}
+  propertyName: ams.MaintenanceMode
+  maintenanceValue: "1"
+  normalValue: "0"
+  pollingInterval: 30s
+
+services:
+  api:
+    image: myapp/api:latest
+    # Stopped when ams.MaintenanceMode = 1
+
+  postgres:
+    image: postgres:16
+    labels:
+      rsgo.maintenance: ignore    # Keeps running
+```
+
+See [Operation Mode](../Operations/Operation-Mode.md#maintenance-observers) for detailed observer documentation.
 
 ---
 

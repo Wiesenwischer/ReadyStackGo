@@ -209,6 +209,299 @@ Operation mode changes trigger immediate SignalR notifications:
 - All connected clients see the change
 - Health widget reflects new state
 
+## Maintenance Observers
+
+Maintenance Observers allow external systems to trigger maintenance mode automatically. Instead of manually switching modes, RSGO monitors external state and synchronizes the operation mode accordingly.
+
+### Observer Pattern
+
+```
+External System          RSGO Observer           Stack
+     │                        │                    │
+     │  State changes         │                    │
+     │  (DB property=1)       │                    │
+     │ ─────────────────────► │                    │
+     │                        │  Enter Maintenance │
+     │                        │ ──────────────────►│
+     │                        │                    │ Containers stopped
+     │                        │                    │
+     │  State restored        │                    │
+     │  (DB property=0)       │                    │
+     │ ─────────────────────► │                    │
+     │                        │  Exit Maintenance  │
+     │                        │ ──────────────────►│
+     │                        │                    │ Containers started
+```
+
+### Observer Types
+
+#### SQL Extended Property Observer
+
+Monitors a SQL Server Extended Property and triggers maintenance mode based on its value.
+
+**Use Case**: ERP systems like ams.erp set a database property during their own maintenance. RSGO automatically puts the dependent stack into maintenance mode.
+
+**Manifest Configuration:**
+
+```yaml
+metadata:
+  name: AMS ERP Stack
+  productVersion: "1.0.0"
+
+variables:
+  DB_CONNECTION:
+    type: SqlServerConnectionString
+    label: Database Connection
+    required: true
+
+maintenanceObserver:
+  type: sqlExtendedProperty
+  connectionString: ${DB_CONNECTION}
+  propertyName: ams.MaintenanceMode
+  maintenanceValue: "1"      # When property = 1 → enter maintenance
+  normalValue: "0"           # When property = 0 → exit maintenance
+  pollingInterval: 30s       # Check every 30 seconds
+
+services:
+  api:
+    image: myapp/api:latest
+    # Will be stopped automatically when ams.MaintenanceMode = 1
+```
+
+**Extended Property Example:**
+
+```sql
+-- Set maintenance mode ON
+EXEC sp_addextendedproperty
+  @name = N'ams.MaintenanceMode',
+  @value = N'1';
+
+-- Set maintenance mode OFF
+EXEC sp_updateextendedproperty
+  @name = N'ams.MaintenanceMode',
+  @value = N'0';
+
+-- Query current value
+SELECT value
+FROM sys.extended_properties
+WHERE name = 'ams.MaintenanceMode';
+```
+
+#### SQL Query Observer
+
+Executes a custom SQL query and triggers maintenance based on the result.
+
+**Use Case**: More complex conditions, multiple tables, or non-Extended Property sources.
+
+**Manifest Configuration:**
+
+```yaml
+maintenanceObserver:
+  type: sqlQuery
+  connectionString: ${DB_CONNECTION}
+  query: |
+    SELECT CASE
+      WHEN EXISTS (SELECT 1 FROM SystemStatus WHERE Status = 'Maintenance')
+      THEN 'maintenance'
+      ELSE 'normal'
+    END AS Mode
+  maintenanceValue: "maintenance"
+  normalValue: "normal"
+  pollingInterval: 60s
+```
+
+#### HTTP Endpoint Observer
+
+Monitors an HTTP endpoint and triggers maintenance based on the response.
+
+**Use Case**: External maintenance APIs, status pages, or service health endpoints.
+
+**Manifest Configuration:**
+
+```yaml
+maintenanceObserver:
+  type: http
+  url: https://status.example.com/api/maintenance
+  method: GET
+  headers:
+    Authorization: Bearer ${STATUS_TOKEN}
+  jsonPath: "$.maintenanceMode"     # Extract value from JSON response
+  maintenanceValue: "true"
+  normalValue: "false"
+  pollingInterval: 30s
+  timeout: 10s
+```
+
+#### File Observer
+
+Monitors a file for existence or content changes.
+
+**Use Case**: Legacy systems that create marker files during maintenance.
+
+**Manifest Configuration:**
+
+```yaml
+maintenanceObserver:
+  type: file
+  path: /var/maintenance/maintenance.flag
+  mode: exists                    # 'exists' or 'content'
+  # mode: exists → file exists = maintenance, file absent = normal
+  # mode: content → compare file content with maintenanceValue/normalValue
+  pollingInterval: 10s
+```
+
+### Observer Configuration Reference
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `type` | string | **Yes** | Observer type: `sqlExtendedProperty`, `sqlQuery`, `http`, `file` |
+| `pollingInterval` | string | No | How often to check (default: `30s`) |
+| `timeout` | string | No | Timeout for each check (default: `10s`) |
+| `maintenanceValue` | string | **Yes** | Value that triggers maintenance mode |
+| `normalValue` | string | **Yes** | Value that exits maintenance mode |
+| `enabled` | boolean | No | Enable/disable observer (default: `true`) |
+
+**Type-specific properties:**
+
+| Type | Property | Description |
+|------|----------|-------------|
+| `sqlExtendedProperty` | `connectionString` | SQL Server connection string |
+| `sqlExtendedProperty` | `propertyName` | Name of the Extended Property |
+| `sqlQuery` | `connectionString` | SQL Server connection string |
+| `sqlQuery` | `query` | SQL query returning single value |
+| `http` | `url` | HTTP endpoint URL |
+| `http` | `method` | HTTP method (GET, POST) |
+| `http` | `headers` | Request headers |
+| `http` | `jsonPath` | JSONPath to extract value from response |
+| `file` | `path` | File path to monitor |
+| `file` | `mode` | `exists` or `content` |
+
+### Observer Behavior
+
+#### State Transitions
+
+```
+Observer detects maintenanceValue
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│ RSGO logs: "Observer triggered:         │
+│ External maintenance detected"          │
+└─────────────────────────────────────────┘
+    │
+    ▼
+Enter Maintenance Mode (automatic)
+    │
+    ▼
+Containers stopped (respecting rsgo.maintenance labels)
+```
+
+#### Conflict Resolution
+
+If a user manually changes the mode while an observer is active:
+
+| Scenario | Behavior |
+|----------|----------|
+| Observer says "maintenance", user sets "normal" | Observer wins on next poll |
+| Observer says "normal", user sets "maintenance" | User wins (observer doesn't override manual) |
+| Observer disabled | Manual control only |
+
+To override the observer temporarily, disable it via API:
+
+```http
+PUT /api/deployments/{id}/maintenance-observer
+{ "enabled": false }
+```
+
+#### Failure Handling
+
+| Failure | Behavior |
+|---------|----------|
+| Connection timeout | Log warning, retry on next poll |
+| Query error | Log error, retain current state |
+| Invalid response | Log error, retain current state |
+| 3 consecutive failures | Log critical, send notification |
+
+### Dashboard Integration
+
+When an observer is configured, the UI shows:
+
+```
+┌─────────────────────────────────────────────────────┐
+│ Operation Mode: 🔧 Maintenance                      │
+│ ─────────────────────────────────────────────────── │
+│ Triggered by: SQL Extended Property Observer        │
+│ Property: ams.MaintenanceMode = 1                   │
+│ Last checked: 15 seconds ago                        │
+│ ─────────────────────────────────────────────────── │
+│ [Disable Observer] [View History]                   │
+└─────────────────────────────────────────────────────┘
+```
+
+### Example: ams.erp Integration
+
+Complete manifest for integrating with ams.erp maintenance:
+
+```yaml
+metadata:
+  name: AMS ERP Integration
+  description: Stack synced with ams.erp maintenance mode
+  productVersion: "2.0.0"
+  category: Enterprise
+
+variables:
+  AMS_DB:
+    label: AMS Database Connection
+    type: SqlServerConnectionString
+    required: true
+    description: Connection to the ams.erp database
+
+  API_PORT:
+    label: API Port
+    type: Port
+    default: "5000"
+
+maintenanceObserver:
+  type: sqlExtendedProperty
+  connectionString: ${AMS_DB}
+  propertyName: ams.MaintenanceMode
+  maintenanceValue: "1"
+  normalValue: "0"
+  pollingInterval: 30s
+
+services:
+  ams-api:
+    image: mycompany/ams-api:latest
+    ports:
+      - "${API_PORT}:5000"
+    environment:
+      ConnectionStrings__AMS: ${AMS_DB}
+    # Stopped when ams.MaintenanceMode = 1
+
+  ams-worker:
+    image: mycompany/ams-worker:latest
+    environment:
+      ConnectionStrings__AMS: ${AMS_DB}
+    # Stopped when ams.MaintenanceMode = 1
+
+  redis:
+    image: redis:7
+    labels:
+      rsgo.maintenance: ignore    # Keeps running during maintenance
+```
+
+**Workflow:**
+
+1. ams.erp Admin starts maintenance in ams.erp
+2. ams.erp sets `ams.MaintenanceMode = 1` on database
+3. RSGO Observer detects the change within 30 seconds
+4. RSGO enters maintenance mode, stops `ams-api` and `ams-worker`
+5. Redis keeps running (has `rsgo.maintenance: ignore`)
+6. ams.erp Admin completes maintenance, sets `ams.MaintenanceMode = 0`
+7. RSGO Observer detects the change
+8. RSGO exits maintenance mode, starts containers
+9. Stack is fully operational again
+
 ## Best Practices
 
 1. **Plan maintenance windows**: Communicate with users before entering maintenance
@@ -216,6 +509,8 @@ Operation mode changes trigger immediate SignalR notifications:
 3. **Monitor migrations**: Watch migration progress in real-time
 4. **Document failures**: Record failure reasons for post-mortem analysis
 5. **Test recovery**: Verify your recovery procedures before production issues
+6. **Configure observers for ERP systems**: Let external systems control maintenance automatically
+7. **Set appropriate polling intervals**: Balance responsiveness vs. resource usage
 
 ## Example Workflow
 

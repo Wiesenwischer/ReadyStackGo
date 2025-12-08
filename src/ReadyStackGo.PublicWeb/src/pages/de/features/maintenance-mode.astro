@@ -85,6 +85,38 @@ const icon = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width=
 				<li><strong>Upgrades:</strong> Kontrollierte Versionswechsel mit Rollback-Support</li>
 			</ul>
 
+			<h2>Maintenance Observers</h2>
+			<p>
+				Synchronisiere den Wartungsmodus automatisch mit externen Systemen. Konfiguriere Observer,
+				die externe Zustände überwachen und den Wartungsmodus automatisch auslösen.
+			</p>
+			<div class="grid md:grid-cols-2 gap-4 my-6">
+				<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4">
+					<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">SQL Extended Property</h4>
+					<p class="text-brand-700 dark:text-brand-400 text-sm">Überwache Datenbank-Properties von ERP-Systemen wie ams.erp</p>
+				</div>
+				<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4">
+					<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">SQL Query</h4>
+					<p class="text-brand-700 dark:text-brand-400 text-sm">Führe eigene Queries für komplexe Wartungsbedingungen aus</p>
+				</div>
+				<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4">
+					<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">HTTP Endpoint</h4>
+					<p class="text-brand-700 dark:text-brand-400 text-sm">Überwache externe Status-APIs oder Maintenance-Endpoints</p>
+				</div>
+				<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4">
+					<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">File Observer</h4>
+					<p class="text-brand-700 dark:text-brand-400 text-sm">Beobachte Maintenance-Flag-Dateien von Legacy-Systemen</p>
+				</div>
+			</div>
+			<pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto"><code>{`# Beispiel: Sync mit ERP-Wartungsmodus
+maintenanceObserver:
+  type: sqlExtendedProperty
+  connectionString: \${DB_CONNECTION}
+  propertyName: ams.MaintenanceMode
+  maintenanceValue: "1"
+  normalValue: "0"
+  pollingInterval: 30s`}</code></pre>
+
 			<h2>Echtzeit UI-Updates</h2>
 			<p>
 				Modusänderungen werden sofort via SignalR gepusht:

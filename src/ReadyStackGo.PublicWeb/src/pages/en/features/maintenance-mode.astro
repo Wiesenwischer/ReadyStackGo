@@ -85,6 +85,38 @@ const icon = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width=
 				<li><strong>Upgrades:</strong> Controlled version transitions with rollback support</li>
 			</ul>
 
+			<h2>Maintenance Observers</h2>
+			<p>
+				Automatically synchronize maintenance mode with external systems. Configure observers
+				to monitor external state and trigger maintenance mode automatically.
+			</p>
+			<div class="grid md:grid-cols-2 gap-4 my-6">
+				<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4">
+					<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">SQL Extended Property</h4>
+					<p class="text-brand-700 dark:text-brand-400 text-sm">Monitor database properties from ERP systems like ams.erp</p>
+				</div>
+				<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4">
+					<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">SQL Query</h4>
+					<p class="text-brand-700 dark:text-brand-400 text-sm">Execute custom queries for complex maintenance conditions</p>
+				</div>
+				<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4">
+					<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">HTTP Endpoint</h4>
+					<p class="text-brand-700 dark:text-brand-400 text-sm">Monitor external status APIs or maintenance endpoints</p>
+				</div>
+				<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4">
+					<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">File Observer</h4>
+					<p class="text-brand-700 dark:text-brand-400 text-sm">Watch for maintenance flag files from legacy systems</p>
+				</div>
+			</div>
+			<pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto"><code>{`# Example: Sync with ERP maintenance mode
+maintenanceObserver:
+  type: sqlExtendedProperty
+  connectionString: \${DB_CONNECTION}
+  propertyName: ams.MaintenanceMode
+  maintenanceValue: "1"
+  normalValue: "0"
+  pollingInterval: 30s`}</code></pre>
+
 			<h2>Real-time UI Updates</h2>
 			<p>
 				Mode changes are pushed instantly via SignalR:
