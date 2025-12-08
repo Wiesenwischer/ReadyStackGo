@@ -9,19 +9,24 @@ using ReadyStackGo.Domain.Deployment.Health;
 
 /// <summary>
 /// Handler for changing the operation mode of a deployment.
+/// Entering maintenance mode stops containers, exiting starts them again.
+/// Containers with label rsgo.maintenance=ignore are not affected.
 /// </summary>
 public class ChangeOperationModeHandler : IRequestHandler<ChangeOperationModeCommand, ChangeOperationModeResponse>
 {
     private readonly IDeploymentRepository _deploymentRepository;
+    private readonly IDockerService _dockerService;
     private readonly IHealthNotificationService _healthNotificationService;
     private readonly ILogger<ChangeOperationModeHandler> _logger;
 
     public ChangeOperationModeHandler(
         IDeploymentRepository deploymentRepository,
+        IDockerService dockerService,
         IHealthNotificationService healthNotificationService,
         ILogger<ChangeOperationModeHandler> logger)
     {
         _deploymentRepository = deploymentRepository;
+        _dockerService = dockerService;
         _healthNotificationService = healthNotificationService;
         _logger = logger;
     }
@@ -83,8 +88,66 @@ public class ChangeOperationModeHandler : IRequestHandler<ChangeOperationModeCom
         // Send SignalR notification immediately so UI updates
         await SendHealthNotificationAsync(deployment, cancellationToken);
 
+        // Handle container lifecycle based on mode transition
+        await HandleContainerLifecycleAsync(deployment, previousMode, targetMode, cancellationToken);
+
         return ChangeOperationModeResponse.Ok(
             request.DeploymentId, previousMode.Name, targetMode.Name);
+    }
+
+    /// <summary>
+    /// Handles container stop/start based on operation mode transitions.
+    /// - Entering Maintenance: Stop all containers (except rsgo.maintenance=ignore)
+    /// - Exiting Maintenance to Normal: Start all containers
+    /// </summary>
+    private async Task HandleContainerLifecycleAsync(
+        Deployment deployment,
+        OperationMode previousMode,
+        OperationMode targetMode,
+        CancellationToken cancellationToken)
+    {
+        var environmentId = deployment.EnvironmentId.Value.ToString();
+        var stackName = deployment.StackName;
+
+        try
+        {
+            // Entering Maintenance Mode -> Stop containers
+            if (targetMode == OperationMode.Maintenance)
+            {
+                _logger.LogInformation(
+                    "Entering maintenance mode for {StackName} - stopping containers",
+                    stackName);
+
+                var stoppedContainers = await _dockerService.StopStackContainersAsync(
+                    environmentId, stackName, cancellationToken);
+
+                _logger.LogInformation(
+                    "Stopped {Count} containers for {StackName} maintenance",
+                    stoppedContainers.Count, stackName);
+            }
+            // Exiting Maintenance Mode -> Start containers
+            else if (previousMode == OperationMode.Maintenance && targetMode == OperationMode.Normal)
+            {
+                _logger.LogInformation(
+                    "Exiting maintenance mode for {StackName} - starting containers",
+                    stackName);
+
+                var startedContainers = await _dockerService.StartStackContainersAsync(
+                    environmentId, stackName, cancellationToken);
+
+                _logger.LogInformation(
+                    "Started {Count} containers for {StackName} after maintenance",
+                    startedContainers.Count, stackName);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log but don't fail the operation - mode change was successful
+            _logger.LogWarning(ex,
+                "Failed to manage containers during mode transition for {StackName}. " +
+                "Mode changed successfully but container state may need manual intervention.",
+                stackName);
+        }
     }
 
     private async Task SendHealthNotificationAsync(Deployment deployment, CancellationToken cancellationToken)
