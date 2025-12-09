@@ -90,7 +90,7 @@ services:
   # AUTHORIZATION (PolicyServer)
   # ===========================================
   policyserver:
-    image: ${REGISTRY}/policyserver:linux-v2.4.0
+    image: amssolution/policyserver:linux-v2.4.0
     restart: always
     environment:
       ConnectionStrings__ams: ${AMS_DB}
@@ -99,7 +99,7 @@ services:
       Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
 
   policyserver-manager-api:
-    image: ${REGISTRY}/policyserver.manager.api:linux-v2.4.0
+    image: amssolution/policyserver.manager.api:linux-v2.4.0
     restart: always
     ports:
       - "7612:80"
@@ -111,7 +111,7 @@ services:
       Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
 
   policyserver-manager-userselector-api:
-    image: ${REGISTRY}/policyserver.manager.userselector.api:linux-v2.4.0
+    image: amssolution/policyserver.manager.userselector.api:linux-v2.4.0
     restart: always
     ports:
       - "7613:80"
@@ -124,7 +124,7 @@ services:
   # IDENTITY ACCESS
   # ===========================================
   identity-api:
-    image: ${REGISTRY}/identityaccess.identityserver:linux-v2.4.0
+    image: amssolution/identityaccess.identityserver:linux-v2.4.0
     restart: always
     ports:
       - "7614:80"
@@ -146,7 +146,7 @@ services:
       - ./certs:/etc/ssl/certs:ro
 
   adminportal:
-    image: ${REGISTRY}/identityaccess.adminportal:linux-v2.4.0
+    image: amssolution/identityaccess.adminportal:linux-v2.4.0
     restart: always
     ports:
       - "7615:80"
@@ -163,7 +163,7 @@ services:
       SERVICE_BUS_CATALOG: ${SERVICE_BUS_CATALOG}
 
   identityaccess-clienthub:
-    image: ${REGISTRY}/identityaccess.clienthub:linux-v2.4.0
+    image: amssolution/identityaccess.clienthub:linux-v2.4.0
     restart: always
     ports:
       - "7616:80"
@@ -178,7 +178,7 @@ services:
       SERVICE_BUS_CATALOG: ${SERVICE_BUS_CATALOG}
 
   identityaccess-emailsender:
-    image: ${REGISTRY}/identityaccess.emailsender:linux-v2.4.0
+    image: amssolution/identityaccess.emailsender:linux-v2.4.0
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development

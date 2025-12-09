@@ -29,7 +29,7 @@ services:
   # MONITORING
   # ===========================================
   healthmonitor:
-    image: ${REGISTRY}/itops.healthmonitor:linux-v3-pre
+    image: amssolution/itops.healthmonitor:linux-v3-pre
     restart: always
     ports:
       - "5100:80"
@@ -41,7 +41,7 @@ services:
       Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
 
   watchdog:
-    image: ${REGISTRY}/watchdog:linux-latest
+    image: amssolution/watchdog:linux-latest
     restart: always
     ports:
       - "5101:80"
@@ -60,7 +60,7 @@ services:
   # BFF (Backend for Frontend)
   # ===========================================
   desktopschedulingapigw:
-    image: ${REGISTRY}/desktopschedulingapigw:linux-v3.0.1
+    image: amssolution/desktopschedulingapigw:linux-v3.0.1
     restart: always
     ports:
       - "5200:80"
@@ -68,7 +68,7 @@ services:
       - "10000:10000"
 
   desktopprojectplanningcomposition:
-    image: ${REGISTRY}/desktop.projectplanning.compositiongateway:linux-v3.0.1
+    image: amssolution/desktop.projectplanning.compositiongateway:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -79,7 +79,7 @@ services:
       Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
 
   clienthub:
-    image: ${REGISTRY}/itops.clienthub:linux-v3.0.1
+    image: amssolution/itops.clienthub:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -92,7 +92,7 @@ services:
   # COLLABORATION
   # ===========================================
   collaboration-api:
-    image: ${REGISTRY}/collaboration.api:linux-v3.0.1
+    image: amssolution/collaboration.api:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -105,7 +105,7 @@ services:
   # PLANNING - CAPACITY UTILIZATION
   # ===========================================
   planning-capacityutilization-api:
-    image: ${REGISTRY}/planning.capacityutilization.api:linux-v3.0.1
+    image: amssolution/planning.capacityutilization.api:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -118,7 +118,7 @@ services:
   # PLANNING - PROJECTS
   # ===========================================
   projectmanagement-api:
-    image: ${REGISTRY}/projectmanagement.api:linux-v3.0.1
+    image: amssolution/projectmanagement.api:linux-v3.0.1
     restart: always
     ports:
       - "3080:80"
@@ -138,7 +138,7 @@ services:
       - cachedata
 
   projectmanagement:
-    image: ${REGISTRY}/projectmanagement:linux-v3.0.1
+    image: amssolution/projectmanagement:linux-v3.0.1
     restart: always
     ports:
       - "3081:80"
@@ -153,7 +153,7 @@ services:
       Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
 
   projectmanagement-readmodelgenerator:
-    image: ${REGISTRY}/projectmanagement.readmodelgenerator:linux-v3.0.1
+    image: amssolution/projectmanagement.readmodelgenerator:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -166,7 +166,7 @@ services:
       Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
 
   projectmanagement-erpdata:
-    image: ${REGISTRY}/projectmanagement.erpdata:linux-v3.0.1
+    image: amssolution/projectmanagement.erpdata:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -182,7 +182,7 @@ services:
   # PLANNING - REPORTING
   # ===========================================
   planning-reporting-api:
-    image: ${REGISTRY}/scheduling.reporting.api:linux-v3.0.1
+    image: amssolution/scheduling.reporting.api:linux-v3.0.1
     restart: always
     ports:
       - "7608:80"
@@ -193,7 +193,7 @@ services:
       Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
 
   planning-reporting-clienthub:
-    image: ${REGISTRY}/scheduling.reporting.clienthub:linux-v3.0.1
+    image: amssolution/scheduling.reporting.clienthub:linux-v3.0.1
     restart: always
     ports:
       - "7900:80"
@@ -209,7 +209,7 @@ services:
   # PLANNING - TRACKING (ACCOUNTING)
   # ===========================================
   accounting-api:
-    image: ${REGISTRY}/accounting.api:linux-v3.0.1
+    image: amssolution/accounting.api:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -222,7 +222,7 @@ services:
       Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
 
   accounting-capacitydispatcher:
-    image: ${REGISTRY}/accounting.resourcecapacitydispatcher:linux-v3.0.1
+    image: amssolution/accounting.resourcecapacitydispatcher:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -235,7 +235,7 @@ services:
       Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
 
   accounting-integration:
-    image: ${REGISTRY}/accounting.integration:linux-v3.0.1
+    image: amssolution/accounting.integration:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -247,7 +247,7 @@ services:
       Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
 
   capacityplanning-api:
-    image: ${REGISTRY}/capacityplanning.api:linux-v3.0.1
+    image: amssolution/capacityplanning.api:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -259,7 +259,7 @@ services:
       Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
 
   capacityplanning-readmodelgenerator:
-    image: ${REGISTRY}/capacityplanning.readmodelgenerator:linux-v3.0.1
+    image: amssolution/capacityplanning.readmodelgenerator:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -277,7 +277,7 @@ services:
   # PLANNING - TYPE CURVE
   # ===========================================
   planning-typecurve-api:
-    image: ${REGISTRY}/planning-typecurve-api:linux-v3.0.1
+    image: amssolution/planning-typecurve-api:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -290,7 +290,7 @@ services:
   # PRODUCTION PLANNING (BOM)
   # ===========================================
   bom-api:
-    image: ${REGISTRY}/productionplanning.bom.api:linux-v3.0.1
+    image: amssolution/productionplanning.bom.api:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -302,7 +302,7 @@ services:
       ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
 
   bom-readmodelgenerator:
-    image: ${REGISTRY}/productionplanning.readmodelgenerator:linux-v3.0.1
+    image: amssolution/productionplanning.readmodelgenerator:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -314,7 +314,7 @@ services:
       Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
 
   erpreadmodel-readmodelgenerator:
-    image: ${REGISTRY}/erpreadmodel.readmodelgenerator:linux-v3.0.1
+    image: amssolution/erpreadmodel.readmodelgenerator:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -327,7 +327,7 @@ services:
   # PROJECT EXPORTING
   # ===========================================
   projectexporting-readmodelgenerator:
-    image: ${REGISTRY}/projectexporting.readmodelgenerator:linux-v3.0.1
+    image: amssolution/projectexporting.readmodelgenerator:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -339,7 +339,7 @@ services:
       Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
 
   projectexporting-api:
-    image: ${REGISTRY}/projectexporting.api:linux-v3.0.1
+    image: amssolution/projectexporting.api:linux-v3.0.1
     restart: always
     ports:
       - "7700:80"
@@ -351,14 +351,14 @@ services:
       Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
 
   projectexporting-client:
-    image: ${REGISTRY}/projectexporting.client:linux-v3.0.1
+    image: amssolution/projectexporting.client:linux-v3.0.1
     restart: always
 
   # ===========================================
   # SALES ORDERS
   # ===========================================
   salesorders-api:
-    image: ${REGISTRY}/salesorders.api:linux-v3.0.1
+    image: amssolution/salesorders.api:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -373,7 +373,7 @@ services:
       - cachedata
 
   salesorders-integration:
-    image: ${REGISTRY}/salesorders.integration:linux-v3.0.1
+    image: amssolution/salesorders.integration:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -389,7 +389,7 @@ services:
       - cachedata
 
   salesorders:
-    image: ${REGISTRY}/salesorders:linux-v3.0.1
+    image: amssolution/salesorders:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -401,14 +401,14 @@ services:
       Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
 
   projectplanning.salesorders-client:
-    image: ${REGISTRY}/projectplanning.salesorders.client:linux-v3.0.1
+    image: amssolution/projectplanning.salesorders.client:linux-v3.0.1
     restart: always
 
   # ===========================================
   # WAGE DATA
   # ===========================================
   wage-data-api:
-    image: ${REGISTRY}/wage.data.api:linux-v3.0.1-erp${ERP_MAIN_VERSION}
+    image: amssolution/wage.data.api:linux-v3.0.1-erp${ERP_MAIN_VERSION}
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -423,7 +423,7 @@ services:
   # DISCUSSIONS
   # ===========================================
   discussions-api:
-    image: ${REGISTRY}/discussions.api:linux-v3.0.1
+    image: amssolution/discussions.api:linux-v3.0.1
     restart: always
     ports:
       - "7710:80"
@@ -436,14 +436,14 @@ services:
       Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
 
   discussion-client:
-    image: ${REGISTRY}/discussion.client:linux-v3.0.1
+    image: amssolution/discussion.client:linux-v3.0.1
     restart: always
 
   # ===========================================
   # MEMO
   # ===========================================
   memo-api:
-    image: ${REGISTRY}/memo.api:linux-v3.0.1
+    image: amssolution/memo.api:linux-v3.0.1
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -453,14 +453,14 @@ services:
       Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
 
   memo-client:
-    image: ${REGISTRY}/memo.client:linux-v3.0.1
+    image: amssolution/memo.client:linux-v3.0.1
     restart: always
 
   # ===========================================
   # BOM LINK
   # ===========================================
   bom-link-client:
-    image: ${REGISTRY}/bom.link.client:linux-v3.0.1
+    image: amssolution/bom.link.client:linux-v3.0.1
     restart: always
 
 volumes:
