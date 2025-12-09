@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.UseCases.Deployments.ChangeOperationMode;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Domain.Deployment.Observers;
@@ -20,6 +22,7 @@ public class MaintenanceObserverService : IMaintenanceObserverService
     private readonly IStackSourceService _stackSourceService;
     private readonly IRsgoManifestParser _manifestParser;
     private readonly IHealthNotificationService _notificationService;
+    private readonly ISender _mediator;
     private readonly ILogger<MaintenanceObserverService> _logger;
 
     // Cache for observer instances per deployment
@@ -41,6 +44,7 @@ public class MaintenanceObserverService : IMaintenanceObserverService
         IStackSourceService stackSourceService,
         IRsgoManifestParser manifestParser,
         IHealthNotificationService notificationService,
+        ISender mediator,
         ILogger<MaintenanceObserverService> logger)
     {
         _observerFactory = observerFactory;
@@ -49,6 +53,7 @@ public class MaintenanceObserverService : IMaintenanceObserverService
         _stackSourceService = stackSourceService;
         _manifestParser = manifestParser;
         _notificationService = notificationService;
+        _mediator = mediator;
         _logger = logger;
     }
 
@@ -324,21 +329,31 @@ public class MaintenanceObserverService : IMaintenanceObserverService
             return;
         }
 
-        // Get the latest health snapshot to check current operation mode
-        var latestSnapshot = _healthSnapshotRepository.GetLatestForDeployment(deployment.Id);
-        var currentMode = latestSnapshot?.OperationMode ?? OperationMode.Normal;
+        // Get current operation mode from deployment (OperationMode is now on Deployment aggregate)
+        var currentMode = deployment.OperationMode;
         var shouldBeMaintenance = result.IsMaintenanceRequired;
 
-        // Log state changes - actual OperationMode update will be integrated with HealthCollectorService
+        // Handle mode transitions via the business logic (ChangeOperationModeCommand)
         if (shouldBeMaintenance && currentMode != OperationMode.Maintenance)
         {
             _logger.LogInformation(
                 "Maintenance observer triggered maintenance mode for {StackName} (observed: {Value})",
                 deployment.StackName, result.ObservedValue);
 
-            // TODO: Integrate with HealthMonitoringService to update OperationMode
-            // The OperationMode is part of HealthSnapshot, so we need to coordinate
-            // with the health collection to apply the mode change
+            // Use ChangeOperationModeCommand to properly enter maintenance mode
+            // This triggers the same business logic as the UI button
+            var command = new ChangeOperationModeCommand(
+                deployment.Id.Value.ToString(),
+                OperationMode.Maintenance.Name,
+                Reason: $"Triggered by maintenance observer (observed: {result.ObservedValue})");
+
+            var response = await _mediator.Send(command, cancellationToken);
+            if (!response.Success)
+            {
+                _logger.LogWarning(
+                    "Failed to enter maintenance mode for {StackName}: {Message}",
+                    deployment.StackName, response.Message);
+            }
         }
         else if (!shouldBeMaintenance && currentMode == OperationMode.Maintenance)
         {
@@ -346,7 +361,19 @@ public class MaintenanceObserverService : IMaintenanceObserverService
                 "Maintenance observer cleared maintenance mode for {StackName} (observed: {Value})",
                 deployment.StackName, result.ObservedValue);
 
-            // TODO: Same as above
+            // Use ChangeOperationModeCommand to properly exit maintenance mode
+            var command = new ChangeOperationModeCommand(
+                deployment.Id.Value.ToString(),
+                OperationMode.Normal.Name,
+                Reason: $"Cleared by maintenance observer (observed: {result.ObservedValue})");
+
+            var response = await _mediator.Send(command, cancellationToken);
+            if (!response.Success)
+            {
+                _logger.LogWarning(
+                    "Failed to exit maintenance mode for {StackName}: {Message}",
+                    deployment.StackName, response.Message);
+            }
         }
     }
 
