@@ -89,6 +89,33 @@ services:
       DATABASE: ${DB_CONNECTION}
 ```
 
+### Import Variables from .env File
+
+When deploying a stack, you can import variable values from a `.env` file instead of entering them manually:
+
+1. Click the **Import .env** button in the Deploy page sidebar
+2. Select your `.env` file
+3. Matching variables are automatically populated
+
+**Supported .env Format:**
+
+```bash
+# Comments are ignored
+DB_HOST=localhost
+DB_PORT=5432
+DB_PASSWORD="secret with spaces"
+DB_NAME='single-quoted'
+SIMPLE_VALUE=no-quotes-needed
+```
+
+**Features:**
+
+- Lines starting with `#` are treated as comments
+- Empty lines are ignored
+- Values can be quoted (double `"` or single `'`) or unquoted
+- Only variables defined in the manifest are imported (others are ignored)
+- Existing values are overwritten by imported values
+
 ### Multi-Stack with Shared Variables
 
 ```yaml
