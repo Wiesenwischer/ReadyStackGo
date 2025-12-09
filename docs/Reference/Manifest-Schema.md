@@ -20,6 +20,10 @@ sharedVariables:                  # Variables shared across all stacks (Multi-St
 variables:                        # Variables for this stack (Single-Stack or Fragment)
   PORT: ...
 
+maintenanceObserver:              # Automatic maintenance mode trigger (optional)
+  type: sqlExtendedProperty
+  ...
+
 stacks:                           # Stack definitions (Multi-Stack only)
   api:
     include: api.yaml
@@ -487,6 +491,116 @@ healthCheck:
 | `timeout` | string | Timeout for each check (e.g., "10s") |
 | `retries` | integer | Retries before marking unhealthy |
 | `startPeriod` | string | Grace period before checks start |
+
+### RSGO Labels
+
+ReadyStackGo uses special container labels for stack identification and operation mode management.
+
+#### Stack Identification
+
+The `rsgo.stack` label identifies which stack a container belongs to:
+
+```yaml
+services:
+  api:
+    image: myapp/api:latest
+    labels:
+      rsgo.stack: my-application
+```
+
+> **Note:** This label is automatically added by ReadyStackGo during deployment. You typically don't need to set it manually in your manifest.
+
+#### Maintenance Mode Behavior
+
+The `rsgo.maintenance` label controls how containers behave when the stack enters Maintenance Mode:
+
+```yaml
+services:
+  postgres:
+    image: postgres:16
+    labels:
+      rsgo.stack: my-app
+      rsgo.maintenance: ignore    # Won't be stopped during maintenance
+
+  api:
+    image: myapp/api:latest
+    labels:
+      rsgo.stack: my-app
+      # No rsgo.maintenance = will be stopped during maintenance
+```
+
+| Value | Behavior |
+|-------|----------|
+| `ignore` | Container keeps running during maintenance mode |
+| *(not set)* | Container is stopped when entering maintenance mode |
+
+**Use Cases for `rsgo.maintenance: ignore`:**
+
+- **Databases**: Keep PostgreSQL, MySQL, or other databases running for migrations
+- **Message Brokers**: Keep RabbitMQ, Kafka running to preserve messages
+- **Shared Services**: Services used by multiple stacks
+
+#### Complete Example with Health and Maintenance
+
+```yaml
+metadata:
+  name: Production App
+  productVersion: "2.0.0"
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthCheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      rsgo.maintenance: ignore    # Database stays up during maintenance
+
+  api:
+    image: myapp/api:${VERSION}
+    ports:
+      - "${API_PORT}:8080"
+    environment:
+      DATABASE_URL: postgres://postgres:${DB_PASSWORD}@postgres:5432/app
+    dependsOn:
+      - postgres
+    healthCheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      startPeriod: 40s
+    # No rsgo.maintenance label = stopped during maintenance
+
+  worker:
+    image: myapp/worker:${VERSION}
+    environment:
+      DATABASE_URL: postgres://postgres:${DB_PASSWORD}@postgres:5432/app
+    dependsOn:
+      - postgres
+    # No health check = relies on container state
+    # No rsgo.maintenance = stopped during maintenance
+
+volumes:
+  postgres_data: {}
+```
+
+**Maintenance Mode Workflow:**
+
+1. User sets stack to "Maintenance" mode
+2. ReadyStackGo stops containers without `rsgo.maintenance: ignore`
+3. Database continues running for maintenance tasks
+4. User performs maintenance (migrations, backups, etc.)
+5. User sets stack back to "Normal" mode
+6. ReadyStackGo starts all stopped containers
+
+See also: [Health Monitoring](../Operations/Health-Monitoring.md) | [Operation Mode](../Operations/Operation-Mode.md)
 
 ---
 
@@ -979,6 +1093,157 @@ stacks:
 
 ---
 
+## Maintenance Observer
+
+The `maintenanceObserver` configuration allows external systems to automatically trigger maintenance mode. RSGO monitors the configured source and synchronizes the operation mode accordingly.
+
+### Observer Types
+
+| Type | Description |
+|------|-------------|
+| `sqlExtendedProperty` | Monitor SQL Server Extended Property |
+| `sqlQuery` | Execute custom SQL query |
+| `http` | Monitor HTTP endpoint |
+| `file` | Monitor file existence or content |
+
+### SQL Extended Property Observer
+
+Monitors a SQL Server Extended Property value:
+
+```yaml
+maintenanceObserver:
+  type: sqlExtendedProperty
+  connectionName: AMS_DB                  # Reference variable by name
+  # OR: connectionString: ${AMS_DB}       # Direct variable substitution
+  propertyName: ams.MaintenanceMode
+  maintenanceValue: "1"
+  normalValue: "0"
+  pollingInterval: 30s
+```
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `type` | string | **Yes** | Must be `sqlExtendedProperty` |
+| `connectionString` | string | **Yes*** | SQL Server connection string (supports `${VAR}` syntax) |
+| `connectionName` | string | **Yes*** | Name of a defined variable (e.g., `BACKEND_DB`) |
+| `propertyName` | string | **Yes** | Name of the Extended Property to monitor |
+| `maintenanceValue` | string | **Yes** | Value that triggers maintenance mode |
+| `normalValue` | string | **Yes** | Value that exits maintenance mode |
+| `pollingInterval` | string | No | Check interval (default: `30s`) |
+| `timeout` | string | No | Query timeout (default: `10s`) |
+| `enabled` | boolean | No | Enable/disable observer (default: `true`) |
+
+*Use either `connectionString` OR `connectionName`, not both. `connectionName` is recommended when you already have a connection variable defined.
+
+### SQL Query Observer
+
+Executes a custom SQL query:
+
+```yaml
+maintenanceObserver:
+  type: sqlQuery
+  connectionString: ${DB_CONNECTION}
+  query: |
+    SELECT CASE
+      WHEN Status = 'Maintenance' THEN 'maintenance'
+      ELSE 'normal'
+    END FROM SystemStatus
+  maintenanceValue: "maintenance"
+  normalValue: "normal"
+  pollingInterval: 60s
+```
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `type` | string | **Yes** | Must be `sqlQuery` |
+| `connectionString` | string | **Yes** | SQL Server connection string |
+| `query` | string | **Yes** | SQL query returning single value |
+| `maintenanceValue` | string | **Yes** | Value that triggers maintenance mode |
+| `normalValue` | string | **Yes** | Value that exits maintenance mode |
+
+### HTTP Endpoint Observer
+
+Monitors an HTTP endpoint:
+
+```yaml
+maintenanceObserver:
+  type: http
+  url: https://status.example.com/api/maintenance
+  method: GET
+  headers:
+    Authorization: Bearer ${STATUS_TOKEN}
+  jsonPath: "$.maintenanceMode"
+  maintenanceValue: "true"
+  normalValue: "false"
+  pollingInterval: 30s
+```
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `type` | string | **Yes** | Must be `http` |
+| `url` | string | **Yes** | HTTP endpoint URL |
+| `method` | string | No | HTTP method (default: `GET`) |
+| `headers` | object | No | Request headers |
+| `jsonPath` | string | No | JSONPath to extract value from response |
+| `maintenanceValue` | string | **Yes** | Value that triggers maintenance mode |
+| `normalValue` | string | **Yes** | Value that exits maintenance mode |
+
+### File Observer
+
+Monitors a file:
+
+```yaml
+maintenanceObserver:
+  type: file
+  path: /var/maintenance/maintenance.flag
+  mode: exists
+  pollingInterval: 10s
+```
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `type` | string | **Yes** | Must be `file` |
+| `path` | string | **Yes** | File path to monitor |
+| `mode` | string | No | `exists` or `content` (default: `exists`) |
+
+### Complete Example
+
+Legacy system integration with automatic maintenance synchronization:
+
+```yaml
+metadata:
+  name: Legacy Portal Integration
+  productVersion: "2.0.0"
+
+variables:
+  BACKEND_DB:
+    label: Backend Database
+    type: SqlServerConnectionString
+    required: true
+
+maintenanceObserver:
+  type: sqlExtendedProperty
+  connectionName: BACKEND_DB              # Reference by variable name
+  propertyName: app.MaintenanceMode
+  maintenanceValue: "1"
+  normalValue: "0"
+  pollingInterval: 30s
+
+services:
+  api:
+    image: myapp/api:latest
+    # Stopped when app.MaintenanceMode = 1
+
+  postgres:
+    image: postgres:16
+    labels:
+      rsgo.maintenance: ignore    # Keeps running
+```
+
+See [Operation Mode](../Operations/Operation-Mode.md#maintenance-observers) for detailed observer documentation.
+
+---
+
 ## Loader Behavior
 
 1. **Scan**: Recursively scan `stacks/` for `*.yaml` and `*.yml` files
@@ -998,3 +1263,5 @@ stacks:
 - [Stack Fragments](../Concepts/Stack-Fragments.md) - Fragments
 - [Best Practices](../Concepts/Best-Practices.md) - Guidelines
 - [Stack Sources](Stack-Sources.md) - Stack source configuration
+- [Health Monitoring](../Operations/Health-Monitoring.md) - Real-time container health monitoring
+- [Operation Mode](../Operations/Operation-Mode.md) - Maintenance mode and container lifecycle
