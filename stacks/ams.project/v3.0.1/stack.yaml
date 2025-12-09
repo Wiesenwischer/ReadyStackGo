@@ -27,27 +27,6 @@ sharedVariables:
     group: Registry
     order: 1
 
-  TAG:
-    label: Image Tag
-    description: Docker image tag version
-    type: String
-    default: latest
-    group: Registry
-    order: 2
-
-  PLATFORM:
-    label: Platform
-    description: Target platform (linux/windows)
-    type: Select
-    default: linux
-    options:
-      - value: linux
-        label: Linux
-      - value: windows
-        label: Windows
-    group: Registry
-    order: 3
-
   ERP_MAIN_VERSION:
     label: ERP Main Version
     description: ERP system main version for wage-data-api
@@ -61,7 +40,7 @@ sharedVariables:
       - value: "12"
         label: ERP 12
     group: Registry
-    order: 4
+    order: 2
 
   # ===========================================
   # Network Configuration
