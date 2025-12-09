@@ -1,9 +1,34 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router';
 import { deployCompose } from '../api/deployments';
 import { useEnvironment } from '../context/EnvironmentContext';
 import { type StackDetail, getStack } from '../api/stacks';
 import VariableInput, { groupVariables } from '../components/variables/VariableInput';
+
+// Parse .env file content and return key-value pairs
+const parseEnvContent = (content: string): Record<string, string> => {
+  const result: Record<string, string> = {};
+  const lines = content.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    // Skip empty lines and comments
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    // Find first = sign
+    const eqIndex = trimmed.indexOf('=');
+    if (eqIndex === -1) continue;
+    const key = trimmed.substring(0, eqIndex).trim();
+    let value = trimmed.substring(eqIndex + 1).trim();
+    // Remove surrounding quotes if present
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (key) {
+      result[key] = value;
+    }
+  }
+  return result;
+};
 
 type DeployState = 'loading' | 'configure' | 'deploying' | 'success' | 'error';
 
@@ -21,6 +46,7 @@ export default function DeployStack() {
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
   const [deployWarnings, setDeployWarnings] = useState<string[]>([]);
+  const envFileInputRef = useRef<HTMLInputElement>(null);
 
   // Load stack details (only if not custom)
   useEffect(() => {
@@ -59,6 +85,33 @@ export default function DeployStack() {
 
     loadStack();
   }, [stackId, isCustomDeploy]);
+
+  // Handle .env file import
+  const handleEnvFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && stack) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const content = event.target?.result as string;
+        const envValues = parseEnvContent(content);
+        // Update variable values with matching keys from .env
+        setVariableValues(prev => {
+          const updated = { ...prev };
+          for (const v of stack.variables) {
+            if (envValues[v.name] !== undefined) {
+              updated[v.name] = envValues[v.name];
+            }
+          }
+          return updated;
+        });
+      };
+      reader.readAsText(file);
+    }
+    // Reset input so same file can be selected again
+    if (envFileInputRef.current) {
+      envFileInputRef.current.value = '';
+    }
+  };
 
   const handleDeploy = async () => {
     if (!stackName.trim()) {
@@ -257,6 +310,14 @@ export default function DeployStack() {
         </p>
       </div>
 
+      {/* Error Display - Directly under header for visibility */}
+      {error && (
+        <div className="mb-6 p-4 text-sm text-red-800 bg-red-100 rounded-lg dark:bg-red-900/30 dark:text-red-400">
+          <p className="font-medium mb-1">Error</p>
+          <p>{error}</p>
+        </div>
+      )}
+
       {!activeEnvironment && (
         <div className="mb-6 rounded-md bg-yellow-50 p-4 dark:bg-yellow-900/20">
           <p className="text-sm text-yellow-800 dark:text-yellow-200">
@@ -352,17 +413,51 @@ services:
             </div>
           )}
 
-          {/* Error Display */}
-          {error && (
-            <div className="p-4 text-sm text-red-800 bg-red-100 rounded-lg dark:bg-red-900/30 dark:text-red-400">
-              <p className="font-medium mb-1">Error</p>
-              <p>{error}</p>
-            </div>
-          )}
-        </div>
+          </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Import & Deploy Actions - First for better UX */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+            {/* Import .env Button (only for stack deploy with variables) */}
+            {!isCustomDeploy && stack && stack.variables.length > 0 && (
+              <>
+                <input
+                  ref={envFileInputRef}
+                  type="file"
+                  accept=".env,.txt"
+                  onChange={handleEnvFileImport}
+                  className="hidden"
+                  id="env-file-input"
+                />
+                <label
+                  htmlFor="env-file-input"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-gray-100 px-6 py-3 text-center font-medium text-gray-700 cursor-pointer hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 mb-3"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  Import .env
+                </label>
+              </>
+            )}
+
+            {/* Deploy Button */}
+            <button
+              onClick={handleDeploy}
+              disabled={!activeEnvironment || !stackName.trim() || (isCustomDeploy && !yamlContent.trim())}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              Deploy to {activeEnvironment?.name || 'Environment'}
+            </button>
+            <p className="mt-2 text-xs text-center text-gray-500 dark:text-gray-400">
+              This will start the deployment process
+            </p>
+          </div>
+
           {/* Stack Info (only for stack deploy) */}
           {!isCustomDeploy && (
             <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -441,23 +536,6 @@ services:
               </div>
             </div>
           )}
-
-          {/* Deploy Button */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-            <button
-              onClick={handleDeploy}
-              disabled={!activeEnvironment || !stackName.trim() || (isCustomDeploy && !yamlContent.trim())}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              Deploy to {activeEnvironment?.name || 'Environment'}
-            </button>
-            <p className="mt-2 text-xs text-center text-gray-500 dark:text-gray-400">
-              This will start the deployment process
-            </p>
-          </div>
         </div>
       </div>
     </div>
