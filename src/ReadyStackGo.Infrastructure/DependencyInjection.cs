@@ -23,6 +23,8 @@ using ReadyStackGo.Infrastructure.Services;
 using ReadyStackGo.Infrastructure.Stacks;
 using ReadyStackGo.Infrastructure.Stacks.Sources;
 using ReadyStackGo.Infrastructure.Tls;
+using ReadyStackGo.Infrastructure.Observers;
+using ReadyStackGo.Domain.Deployment.Observers;
 
 namespace ReadyStackGo.Infrastructure;
 
@@ -88,6 +90,20 @@ public static class DependencyInjection
         // Health Monitoring (v0.11)
         services.AddScoped<IHealthMonitoringService, HealthMonitoringService>();
         services.AddScoped<IHealthCollectorService, HealthCollectorService>();
+
+        // Maintenance Observers (v0.11)
+        services.AddSingleton<IMaintenanceObserverFactory, MaintenanceObserverFactory>();
+        services.AddScoped<IMaintenanceObserverService, MaintenanceObserverService>();
+
+        // HTTP client for HTTP observer
+        services.AddHttpClient("MaintenanceObserver", client =>
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-MaintenanceObserver");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        });
 
         // HTTP Health Checker for ASP.NET Core /hc endpoints
         services.AddHttpClient<IHttpHealthChecker, HttpHealthChecker>(client =>

@@ -1,0 +1,196 @@
+# ams.project 3.0.1 - Multi-Stack Product Manifest
+# Enterprise Project Planning and Resource Management System
+
+metadata:
+  name: ams.project
+  displayName: ams.project
+  description: Enterprise Project Planning, Resource Management and ERP Integration Platform
+  productVersion: "3.0.1"
+  category: Enterprise
+  tags:
+    - ams
+    - project-management
+    - erp
+    - planning
+    - identity
+
+# Shared variables available to all stacks
+sharedVariables:
+  # ===========================================
+  # Registry & Versioning
+  # ===========================================
+  REGISTRY:
+    label: Docker Registry
+    description: Docker registry for ams.project images
+    type: String
+    default: amssolution
+    group: Registry
+    order: 1
+
+  TAG:
+    label: Image Tag
+    description: Docker image tag version
+    type: String
+    default: latest
+    group: Registry
+    order: 2
+
+  PLATFORM:
+    label: Platform
+    description: Target platform (linux/windows)
+    type: Select
+    default: linux
+    options:
+      - value: linux
+        label: Linux
+      - value: windows
+        label: Windows
+    group: Registry
+    order: 3
+
+  ERP_MAIN_VERSION:
+    label: ERP Main Version
+    description: ERP system main version for wage-data-api
+    type: Select
+    default: "11"
+    options:
+      - value: "10"
+        label: ERP 10
+      - value: "11"
+        label: ERP 11
+      - value: "12"
+        label: ERP 12
+    group: Registry
+    order: 4
+
+  # ===========================================
+  # Network Configuration
+  # ===========================================
+  AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP:
+    label: External DNS/IP
+    description: External DNS name or IP address for service access
+    type: String
+    default: host.docker.internal
+    group: Network
+    order: 1
+
+  # ===========================================
+  # Database Configuration
+  # ===========================================
+  AMS_DB:
+    label: AMS Database Connection
+    description: SQL Server connection string for AMS database
+    type: SqlServerConnectionString
+    default: "Server=ams-mssql;Database=AMS01;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;"
+    required: true
+    group: Database
+    order: 1
+
+  IDENTITY_ACCESS_DB:
+    label: Identity Database Connection
+    description: SQL Server connection string for Identity database
+    type: SqlServerConnectionString
+    default: "Server=ams-mssql;Database=AMS01-Identity;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;"
+    required: true
+    group: Database
+    order: 2
+
+  # ===========================================
+  # Service Bus Configuration
+  # ===========================================
+  SERVICE_BUS_CATALOG:
+    label: Service Bus Catalog
+    description: NServiceBus catalog name
+    type: String
+    default: AMS01
+    group: ServiceBus
+    order: 1
+
+  SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER:
+    label: Circuit Breaker Timeout
+    description: Time to wait before triggering circuit breaker (seconds)
+    type: Number
+    default: "120"
+    min: 30
+    max: 600
+    group: ServiceBus
+    order: 2
+
+  EXIT_ON_CRITICAL_ERROR:
+    label: Exit on Critical Error
+    description: Whether to exit services on critical NServiceBus errors
+    type: Boolean
+    default: "false"
+    group: ServiceBus
+    order: 3
+
+  # ===========================================
+  # Logging Configuration
+  # ===========================================
+  MIN_LOG_LEVEL:
+    label: Minimum Log Level
+    description: Minimum log level for Serilog
+    type: Select
+    default: Fatal
+    options:
+      - value: Verbose
+        label: Verbose
+      - value: Debug
+        label: Debug
+      - value: Information
+        label: Information
+      - value: Warning
+        label: Warning
+      - value: Error
+        label: Error
+      - value: Fatal
+        label: Fatal
+    group: Logging
+    order: 1
+
+  LOG_MAX_SIZE:
+    label: Log Max Size
+    description: Maximum size per log file
+    type: String
+    default: 5m
+    group: Logging
+    order: 2
+
+  LOG_MAX_FILE:
+    label: Log Max Files
+    description: Maximum number of log files to keep
+    type: Number
+    default: "3"
+    min: 1
+    max: 100
+    group: Logging
+    order: 3
+
+  # ===========================================
+  # Localization
+  # ===========================================
+  CULTURE_CODE:
+    label: Culture Code
+    description: Culture code for localization
+    type: Select
+    default: de-DE
+    options:
+      - value: de-DE
+        label: German (Germany)
+      - value: en-US
+        label: English (US)
+      - value: en-GB
+        label: English (UK)
+    group: Localization
+    order: 1
+
+# Stack definitions - using include to reference external fragments
+stacks:
+  logging:
+    include: logging.yaml
+  infrastructure:
+    include: infrastructure.yaml
+  identity:
+    include: identity.yaml
+  business:
+    include: business.yaml

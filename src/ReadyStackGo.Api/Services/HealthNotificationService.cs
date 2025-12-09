@@ -67,4 +67,34 @@ public class HealthNotificationService : IHealthNotificationService
             .Group("health:all")
             .SendAsync("GlobalHealthChanged", healthSummary, cancellationToken);
     }
+
+    public async Task NotifyObserverResultAsync(
+        DeploymentId deploymentId,
+        string stackName,
+        ObserverResultDto result,
+        CancellationToken cancellationToken = default)
+    {
+        var groupName = $"deploy:{deploymentId.Value}";
+
+        _logger.LogDebug(
+            "Sending observer result for deployment {DeploymentId} ({StackName}): MaintenanceRequired={MaintenanceRequired}",
+            deploymentId, stackName, result.IsMaintenanceRequired);
+
+        var payload = new
+        {
+            DeploymentId = deploymentId.Value.ToString(),
+            StackName = stackName,
+            Result = result
+        };
+
+        // Send to deployment subscribers
+        await _hubContext.Clients
+            .Group(groupName)
+            .SendAsync("ObserverResultChanged", payload, cancellationToken);
+
+        // Also send to global health subscribers
+        await _hubContext.Clients
+            .Group("health:all")
+            .SendAsync("ObserverResultChanged", payload, cancellationToken);
+    }
 }
