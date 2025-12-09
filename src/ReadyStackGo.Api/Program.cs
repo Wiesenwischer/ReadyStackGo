@@ -86,6 +86,9 @@ public class Program
             builder.Services.AddHostedService<HealthCollectorBackgroundService>();
         }
 
+        // Maintenance Observer Background Service (v0.11)
+        builder.Services.AddHostedService<MaintenanceObserverBackgroundService>();
+
         // Add CORS for development
         builder.Services.AddCors(options =>
         {

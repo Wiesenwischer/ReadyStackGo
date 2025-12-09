@@ -1,6 +1,7 @@
 using ReadyStackGo.Application.UseCases.Health;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.Observers;
 
 namespace ReadyStackGo.Application.Services;
 
@@ -31,4 +32,62 @@ public interface IHealthNotificationService
     Task NotifyGlobalHealthChangedAsync(
         StackHealthSummaryDto healthSummary,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Notify clients about a maintenance observer result.
+    /// </summary>
+    Task NotifyObserverResultAsync(
+        DeploymentId deploymentId,
+        string stackName,
+        ObserverResultDto result,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// DTO for observer result notifications.
+/// </summary>
+public class ObserverResultDto
+{
+    /// <summary>
+    /// Whether the check was successful.
+    /// </summary>
+    public bool IsSuccess { get; set; }
+
+    /// <summary>
+    /// Whether maintenance mode is required.
+    /// </summary>
+    public bool IsMaintenanceRequired { get; set; }
+
+    /// <summary>
+    /// The observed value.
+    /// </summary>
+    public string? ObservedValue { get; set; }
+
+    /// <summary>
+    /// Error message if failed.
+    /// </summary>
+    public string? ErrorMessage { get; set; }
+
+    /// <summary>
+    /// Timestamp when the check was performed.
+    /// </summary>
+    public DateTimeOffset CheckedAt { get; set; }
+
+    /// <summary>
+    /// Observer type (sqlExtendedProperty, sqlQuery, http, file).
+    /// </summary>
+    public string? ObserverType { get; set; }
+
+    public static ObserverResultDto FromDomain(ObserverResult result, string? observerType = null)
+    {
+        return new ObserverResultDto
+        {
+            IsSuccess = result.IsSuccess,
+            IsMaintenanceRequired = result.IsMaintenanceRequired,
+            ObservedValue = result.ObservedValue,
+            ErrorMessage = result.ErrorMessage,
+            CheckedAt = result.CheckedAt,
+            ObserverType = observerType
+        };
+    }
 }
