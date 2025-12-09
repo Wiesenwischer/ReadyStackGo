@@ -656,3 +656,116 @@ a.action,
 /* Override the site-title link href via JavaScript workaround */
 /* Starlight generates: <a href="/de/" class="site-title"> */
 /* We want it to link to "/" instead */
+
+/* ============================================
+   LANDING PAGE DARK MODE - FeaturePage styling
+   ============================================ */
+
+/* Feature page prose content - fix dark mode text colors */
+.dark .prose {
+  --tw-prose-body: #e4e7ec;
+  --tw-prose-headings: #f9fafb;
+  --tw-prose-lead: #d0d5dd;
+  --tw-prose-links: #7592ff;
+  --tw-prose-bold: #f9fafb;
+  --tw-prose-counters: #98a2b3;
+  --tw-prose-bullets: #98a2b3;
+  --tw-prose-hr: #344054;
+  --tw-prose-quotes: #f9fafb;
+  --tw-prose-quote-borders: #344054;
+  --tw-prose-captions: #98a2b3;
+  --tw-prose-code: #7592ff;
+  --tw-prose-pre-code: #e4e7ec;
+  --tw-prose-pre-bg: #0c111d;
+  --tw-prose-th-borders: #344054;
+  --tw-prose-td-borders: #344054;
+}
+
+/* Feature page code blocks - override inline dark:bg-gray-800 */
+.dark .prose pre,
+.dark .prose pre.bg-gray-100,
+.dark pre.bg-gray-100 {
+  background-color: #0c111d !important;
+  border: 1px solid #344054 !important;
+}
+
+.dark .prose pre code,
+.dark pre code {
+  color: #e4e7ec !important;
+  background-color: transparent !important;
+}
+
+/* Feature page inline code */
+.dark .prose code:not(pre code),
+.dark code:not(pre code) {
+  background-color: #344054 !important;
+  color: #7592ff !important;
+}
+
+/* Feature page tables in dark mode */
+.dark .prose table,
+.dark table.min-w-full {
+  border-color: #344054 !important;
+}
+
+.dark .prose thead,
+.dark thead.bg-gray-50 {
+  background-color: #1d2939 !important;
+}
+
+.dark .prose th,
+.dark th {
+  color: #f9fafb !important;
+  border-color: #344054 !important;
+}
+
+.dark .prose td,
+.dark td {
+  color: #e4e7ec !important;
+  border-color: #344054 !important;
+}
+
+.dark .prose tbody tr,
+.dark tbody tr {
+  border-color: #344054 !important;
+}
+
+/* Feature page list items */
+.dark .prose li {
+  color: #e4e7ec !important;
+}
+
+.dark .prose li strong {
+  color: #f9fafb !important;
+}
+
+/* Feature page paragraphs */
+.dark .prose p {
+  color: #e4e7ec !important;
+}
+
+/* Feature page cards/boxes - override inline bg-gray-50/bg-gray-800 */
+.dark .bg-gray-50,
+.dark .bg-gray-100 {
+  background-color: #1d2939 !important;
+}
+
+.dark .bg-gray-800 {
+  background-color: #0c111d !important;
+}
+
+/* Feature page grid cards text */
+.dark .bg-gray-50 h4,
+.dark .bg-gray-50 .font-semibold {
+  color: #f9fafb !important;
+}
+
+.dark .bg-gray-50 ul,
+.dark .bg-gray-50 li {
+  color: #d0d5dd !important;
+}
+
+/* Table backgrounds in dark mode */
+.dark table.bg-white {
+  background-color: #1d2939 !important;
+}
