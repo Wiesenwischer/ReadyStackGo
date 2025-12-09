@@ -658,10 +658,30 @@ a.action,
 /* We want it to link to "/" instead */
 
 /* ============================================
-   LANDING PAGE DARK MODE - FeaturePage styling
+   LANDING PAGE - FeaturePage styling
    ============================================ */
 
-/* Feature page prose content - fix dark mode text colors */
+/* Feature page prose content - LIGHT MODE */
+.prose {
+  --tw-prose-body: #344054;
+  --tw-prose-headings: #101828;
+  --tw-prose-lead: #475467;
+  --tw-prose-links: #465fff;
+  --tw-prose-bold: #101828;
+  --tw-prose-counters: #667085;
+  --tw-prose-bullets: #667085;
+  --tw-prose-hr: #e4e7ec;
+  --tw-prose-quotes: #101828;
+  --tw-prose-quote-borders: #e4e7ec;
+  --tw-prose-captions: #667085;
+  --tw-prose-code: #465fff;
+  --tw-prose-pre-code: #344054;
+  --tw-prose-pre-bg: #f2f4f7;
+  --tw-prose-th-borders: #e4e7ec;
+  --tw-prose-td-borders: #e4e7ec;
+}
+
+/* Feature page prose content - DARK MODE */
 .dark .prose {
   --tw-prose-body: #e4e7ec;
   --tw-prose-headings: #f9fafb;
@@ -679,6 +699,46 @@ a.action,
   --tw-prose-pre-bg: #0c111d;
   --tw-prose-th-borders: #344054;
   --tw-prose-td-borders: #344054;
+}
+
+/* Feature page headings - match main page styling (text-title-md/lg) */
+.prose h2 {
+  font-size: 30px !important;
+  line-height: 38px !important;
+  font-weight: 700 !important;
+  color: #101828 !important;
+  margin-top: 2.5rem !important;
+  margin-bottom: 1rem !important;
+}
+
+.dark .prose h2 {
+  color: #f9fafb !important;
+}
+
+.prose h3 {
+  font-size: 24px !important;
+  line-height: 32px !important;
+  font-weight: 600 !important;
+  color: #101828 !important;
+  margin-top: 2rem !important;
+  margin-bottom: 0.75rem !important;
+}
+
+.dark .prose h3 {
+  color: #f9fafb !important;
+}
+
+.prose h4 {
+  font-size: 20px !important;
+  line-height: 28px !important;
+  font-weight: 600 !important;
+  color: #101828 !important;
+  margin-top: 1.5rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.dark .prose h4 {
+  color: #f9fafb !important;
 }
 
 /* Feature page code blocks - override inline dark:bg-gray-800 */
