@@ -6,6 +6,7 @@ using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Manifests;
+using static ReadyStackGo.Infrastructure.Manifests.DockerNamingUtility;
 
 namespace ReadyStackGo.Infrastructure.Services;
 
@@ -141,7 +142,7 @@ public class DeploymentEngine : IDeploymentEngine
             }
 
             // Fallback: if no networks defined, create a default stack network
-            var defaultNetwork = $"{stackName}_default";
+            var defaultNetwork = CreateNetworkName(stackName, "default");
             if (plan.Networks.Count == 0)
             {
                 await EnsureDockerNetworkAsync(environmentId, defaultNetwork);
