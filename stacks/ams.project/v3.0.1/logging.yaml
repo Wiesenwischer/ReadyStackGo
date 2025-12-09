@@ -1,0 +1,46 @@
+# Logging Stack Fragment (ELK)
+# This is a fragment (no productVersion) - only loadable via include
+
+metadata:
+  name: Logging (ELK)
+  description: Elasticsearch, Logstash, Kibana logging infrastructure
+  category: Infrastructure
+  tags:
+    - logging
+    - elk
+    - elasticsearch
+
+services:
+  elasticsearch:
+    build:
+      context: elk/elasticsearch/
+    restart: always
+    volumes:
+      - ./elk/elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+    environment:
+      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+
+  logstash:
+    build:
+      context: elk/logstash/
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./elk/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./elk/logstash/pipeline:/usr/share/logstash/pipeline:ro
+    environment:
+      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    build:
+      context: elk/kibana/
+    restart: always
+    ports:
+      - "5601:5601"
+    volumes:
+      - ./elk/kibana/config/:/usr/share/kibana/config:ro
+    depends_on:
+      - elasticsearch

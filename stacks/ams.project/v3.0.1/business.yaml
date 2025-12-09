@@ -1,0 +1,467 @@
+# Business Stack Fragment
+# This is a fragment (no productVersion) - only loadable via include
+# Contains: Planning, Sales, Collaboration, Monitoring services
+
+metadata:
+  name: Business Services
+  description: ams.project business services (Planning, Sales, Collaboration)
+  category: Business
+  tags:
+    - planning
+    - sales
+    - collaboration
+    - monitoring
+
+# Maintenance Observer Configuration
+# Monitors SQL Server extended property for maintenance mode
+maintenance:
+  observer:
+    type: SqlServerExtendedProperty
+    connectionString: ${AMS_DB}
+    propertyName: ams.maintenance
+    pollingIntervalSeconds: 30
+    values:
+      normal: "0"
+      maintenance: "1"
+
+services:
+  # ===========================================
+  # MONITORING
+  # ===========================================
+  healthmonitor:
+    image: ${REGISTRY}/itops.healthmonitor:linux-v3-pre
+    restart: always
+    ports:
+      - "5100:80"
+    volumes:
+      - healthdata:/app/data
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  watchdog:
+    image: ${REGISTRY}/watchdog:linux-latest
+    restart: always
+    ports:
+      - "5101:80"
+      - "161:161/udp"
+    environment:
+      ConnectionStrings__Monitoring: ${AMS_DB}
+      SNMP_COMMUNITY: public
+      SNMP_PORT: "161"
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      HealthCheckAddresses__0: http://projectmanagement/hc
+      HealthCheckAddresses__1: http://projectmanagement-api/hc
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  # ===========================================
+  # BFF (Backend for Frontend)
+  # ===========================================
+  desktopschedulingapigw:
+    image: ${REGISTRY}/desktopschedulingapigw:${PLATFORM}-${TAG}
+    restart: always
+    ports:
+      - "5200:80"
+      - "15200:9901"
+      - "10000:10000"
+
+  desktopprojectplanningcomposition:
+    image: ${REGISTRY}/desktop.projectplanning.compositiongateway:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      Urls__ProjectManagement: http://projectmanagement-api
+      Urls__SalesOrders: http://salesorders-api
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  clienthub:
+    image: ${REGISTRY}/itops.clienthub:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__ams: ${AMS_DB}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  # ===========================================
+  # COLLABORATION
+  # ===========================================
+  collaboration-api:
+    image: ${REGISTRY}/collaboration.api:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__ams: ${AMS_DB}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  # ===========================================
+  # PLANNING - CAPACITY UTILIZATION
+  # ===========================================
+  planning-capacityutilization-api:
+    image: ${REGISTRY}/planning.capacityutilization.api:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__ams: ${AMS_DB}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  # ===========================================
+  # PLANNING - PROJECTS
+  # ===========================================
+  projectmanagement-api:
+    image: ${REGISTRY}/projectmanagement.api:${PLATFORM}-${TAG}
+    restart: always
+    ports:
+      - "3080:80"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      IdentityServerUrl: http://identity-api
+      ConnectionStrings__ProjectManagement: ${AMS_DB}
+      ConnectionStrings__Cache: ${REDIS_DB}
+      ConnectionStrings__EventStore: ${EVENTSTORE_DB}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+      RunMigrations: "True"
+    depends_on:
+      - cachedata
+
+  projectmanagement:
+    image: ${REGISTRY}/projectmanagement:${PLATFORM}-${TAG}
+    restart: always
+    ports:
+      - "3081:80"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      ConnectionStrings__ams: ${AMS_DB}
+      CultureCode: ${CULTURE_CODE}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  projectmanagement-readmodelgenerator:
+    image: ${REGISTRY}/projectmanagement.readmodelgenerator:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      ConnectionStrings__ams: ${AMS_DB}
+      ConnectionStrings__EventStore: ${EVENTSTORE_DB}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  projectmanagement-erpdata:
+    image: ${REGISTRY}/projectmanagement.erpdata:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      ConnectionStrings__ams: ${AMS_DB}
+      ConnectionStrings__EventStore: ${EVENTSTORE_DB}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  # ===========================================
+  # PLANNING - REPORTING
+  # ===========================================
+  planning-reporting-api:
+    image: ${REGISTRY}/scheduling.reporting.api:${PLATFORM}-${TAG}
+    restart: always
+    ports:
+      - "7608:80"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__ams: ${AMS_DB}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+
+  planning-reporting-clienthub:
+    image: ${REGISTRY}/scheduling.reporting.clienthub:${PLATFORM}-${TAG}
+    restart: always
+    ports:
+      - "7900:80"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__ams: ${AMS_DB}
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+
+  # ===========================================
+  # PLANNING - TRACKING (ACCOUNTING)
+  # ===========================================
+  accounting-api:
+    image: ${REGISTRY}/accounting.api:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__ams: ${AMS_DB}
+      ConnectionStrings__Cache: ${REDIS_DB}
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  accounting-capacitydispatcher:
+    image: ${REGISTRY}/accounting.resourcecapacitydispatcher:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__Cache: ${REDIS_DB}
+      ConnectionStrings__ams: ${AMS_DB}
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  accounting-integration:
+    image: ${REGISTRY}/accounting.integration:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__ams: ${AMS_DB}
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  capacityplanning-api:
+    image: ${REGISTRY}/capacityplanning.api:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "80"
+      ConnectionStrings__ams: ${AMS_DB}
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  capacityplanning-readmodelgenerator:
+    image: ${REGISTRY}/capacityplanning.readmodelgenerator:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "80"
+      ConnectionStrings__ams: ${AMS_DB}
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+      Throttling__Rate: "00:00:01"
+      Throttling__Limit: "2"
+      Throttling__AdditionalResetTime: "00:00:00"
+
+  # ===========================================
+  # PLANNING - TYPE CURVE
+  # ===========================================
+  planning-typecurve-api:
+    image: ${REGISTRY}/planning-typecurve-api:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__ams: ${AMS_DB}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  # ===========================================
+  # PRODUCTION PLANNING (BOM)
+  # ===========================================
+  bom-api:
+    image: ${REGISTRY}/productionplanning.bom.api:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__ams: ${AMS_DB}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+
+  bom-readmodelgenerator:
+    image: ${REGISTRY}/productionplanning.readmodelgenerator:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ConnectionStrings__ams: ${AMS_DB}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  erpreadmodel-readmodelgenerator:
+    image: ${REGISTRY}/erpreadmodel.readmodelgenerator:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__ams: ${AMS_DB}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  # ===========================================
+  # PROJECT EXPORTING
+  # ===========================================
+  projectexporting-readmodelgenerator:
+    image: ${REGISTRY}/projectexporting.readmodelgenerator:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ConnectionStrings__ams: ${AMS_DB}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  projectexporting-api:
+    image: ${REGISTRY}/projectexporting.api:${PLATFORM}-${TAG}
+    restart: always
+    ports:
+      - "7700:80"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__ams: ${AMS_DB}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  projectexporting-client:
+    image: ${REGISTRY}/projectexporting.client:${PLATFORM}-${TAG}
+    restart: always
+
+  # ===========================================
+  # SALES ORDERS
+  # ===========================================
+  salesorders-api:
+    image: ${REGISTRY}/salesorders.api:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__ams: ${AMS_DB}
+      ConnectionStrings__Cache: ${REDIS_DB}
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+    depends_on:
+      - cachedata
+
+  salesorders-integration:
+    image: ${REGISTRY}/salesorders.integration:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__ams: ${AMS_DB}
+      ConnectionStrings__Cache: ${REDIS_DB}
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      CultureCode: ${CULTURE_CODE}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+    depends_on:
+      - cachedata
+
+  salesorders:
+    image: ${REGISTRY}/salesorders:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__ams: ${AMS_DB}
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  projectplanning.salesorders-client:
+    image: ${REGISTRY}/projectplanning.salesorders.client:${PLATFORM}-${TAG}
+    restart: always
+
+  # ===========================================
+  # WAGE DATA
+  # ===========================================
+  wage-data-api:
+    image: ${REGISTRY}/wage.data.api:${PLATFORM}-${TAG}-erp${ERP_MAIN_VERSION}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__ams: ${AMS_DB}
+      ServiceBusTimeToWaitBeforeTriggeringCircuitBreaker: ${SERVICE_BUS_TIME_TO_WAIT_BEFORE_TRIGGERING_CIRCUIT_BREAKER}
+      ExitOnCriticalError: ${EXIT_ON_CRITICAL_ERROR}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  # ===========================================
+  # DISCUSSIONS
+  # ===========================================
+  discussions-api:
+    image: ${REGISTRY}/discussions.api:${PLATFORM}-${TAG}
+    restart: always
+    ports:
+      - "7710:80"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__ams: ${AMS_DB}
+      ConnectionStrings__EventStore: ${GRPC_EVENTSTORE_DB}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  discussion-client:
+    image: ${REGISTRY}/discussion.client:${PLATFORM}-${TAG}
+    restart: always
+
+  # ===========================================
+  # MEMO
+  # ===========================================
+  memo-api:
+    image: ${REGISTRY}/memo.api:${PLATFORM}-${TAG}
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__ams: ${AMS_DB}
+      Serilog__LogstashUrl: http://${AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP}:8080
+      Serilog__MinimumLevel: ${MIN_LOG_LEVEL}
+
+  memo-client:
+    image: ${REGISTRY}/memo.client:${PLATFORM}-${TAG}
+    restart: always
+
+  # ===========================================
+  # BOM LINK
+  # ===========================================
+  bom-link-client:
+    image: ${REGISTRY}/bom.link.client:${PLATFORM}-${TAG}
+    restart: always
+
+volumes:
+  healthdata: {}
