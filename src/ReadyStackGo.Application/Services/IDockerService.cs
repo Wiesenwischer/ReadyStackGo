@@ -68,6 +68,32 @@ public interface IDockerService
     /// This requires an additional API call (inspect) so use sparingly.
     /// </summary>
     Task<int> GetContainerRestartCountAsync(string environmentId, string containerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Stops all containers belonging to a stack (identified by rsgo.stack label).
+    /// Containers with rsgo.maintenance=ignore label will be excluded.
+    /// </summary>
+    /// <param name="environmentId">Environment ID</param>
+    /// <param name="stackName">Stack name (rsgo.stack label value)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of container IDs that were stopped</returns>
+    Task<IReadOnlyList<string>> StopStackContainersAsync(
+        string environmentId,
+        string stackName,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Starts all containers belonging to a stack (identified by rsgo.stack label).
+    /// Containers with rsgo.maintenance=ignore label will be excluded.
+    /// </summary>
+    /// <param name="environmentId">Environment ID</param>
+    /// <param name="stackName">Stack name (rsgo.stack label value)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of container IDs that were started</returns>
+    Task<IReadOnlyList<string>> StartStackContainersAsync(
+        string environmentId,
+        string stackName,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>

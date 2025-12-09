@@ -606,6 +606,86 @@ public class DockerService : IDockerService, IDisposable
         }
     }
 
+    public async Task<IReadOnlyList<string>> StopStackContainersAsync(
+        string environmentId,
+        string stackName,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation(
+            "Stopping containers for stack {StackName} in environment {EnvironmentId}",
+            stackName, environmentId);
+
+        var containers = await ListContainersAsync(environmentId, cancellationToken);
+        var stackContainers = containers
+            .Where(c => c.Labels.TryGetValue("rsgo.stack", out var stack) && stack == stackName)
+            .Where(c => !c.Labels.TryGetValue("rsgo.maintenance", out var mode) ||
+                        !mode.Equals("ignore", StringComparison.OrdinalIgnoreCase))
+            .Where(c => c.State == "running")
+            .ToList();
+
+        var stoppedIds = new List<string>();
+
+        foreach (var container in stackContainers)
+        {
+            try
+            {
+                _logger.LogDebug("Stopping container {Name} ({Id})", container.Name, container.Id);
+                await StopContainerAsync(environmentId, container.Id, cancellationToken);
+                stoppedIds.Add(container.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to stop container {Name} ({Id})", container.Name, container.Id);
+            }
+        }
+
+        _logger.LogInformation(
+            "Stopped {Count} containers for stack {StackName} in environment {EnvironmentId}",
+            stoppedIds.Count, stackName, environmentId);
+
+        return stoppedIds;
+    }
+
+    public async Task<IReadOnlyList<string>> StartStackContainersAsync(
+        string environmentId,
+        string stackName,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation(
+            "Starting containers for stack {StackName} in environment {EnvironmentId}",
+            stackName, environmentId);
+
+        var containers = await ListContainersAsync(environmentId, cancellationToken);
+        var stackContainers = containers
+            .Where(c => c.Labels.TryGetValue("rsgo.stack", out var stack) && stack == stackName)
+            .Where(c => !c.Labels.TryGetValue("rsgo.maintenance", out var mode) ||
+                        !mode.Equals("ignore", StringComparison.OrdinalIgnoreCase))
+            .Where(c => c.State == "exited" || c.State == "created")
+            .ToList();
+
+        var startedIds = new List<string>();
+
+        foreach (var container in stackContainers)
+        {
+            try
+            {
+                _logger.LogDebug("Starting container {Name} ({Id})", container.Name, container.Id);
+                await StartContainerAsync(environmentId, container.Id, cancellationToken);
+                startedIds.Add(container.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to start container {Name} ({Id})", container.Name, container.Id);
+            }
+        }
+
+        _logger.LogInformation(
+            "Started {Count} containers for stack {StackName} in environment {EnvironmentId}",
+            startedIds.Count, stackName, environmentId);
+
+        return startedIds;
+    }
+
     private Task<DockerClient> GetDockerClientAsync(string environmentId)
     {
         // Check cache first
