@@ -88,6 +88,23 @@ You can now:
 - Upload TLS certificate
 - Perform updates
 
+## Tips & Tricks
+
+### Import .env Files
+
+When deploying a stack with many variables, you can import values from a `.env` file:
+
+1. Go to the Deploy page for a stack
+2. Click **Import .env** in the sidebar
+3. Select your `.env` file
+
+This is useful when:
+- Migrating from Docker Compose deployments
+- Reusing configurations across environments
+- Bulk-updating variable values
+
+See: [.env Import Documentation](../Configuration/Manifest-Specification.md#import-variables-from-env-file)
+
 ## Next Steps
 
 - [Installation (detailed)](Installation.md)
