@@ -1,0 +1,259 @@
+---
+import LandingLayout from '../../../layouts/LandingLayout.astro';
+import Header from '../../../components/Header.astro';
+import FeaturePage from '../../../components/FeaturePage.astro';
+import Footer from '../../../components/Footer.astro';
+
+const lang = 'en';
+const icon = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>`;
+---
+
+<LandingLayout title="Stack Deployment - ReadyStackGo Documentation">
+	<Header lang={lang} />
+	<main class="flex-1">
+		<FeaturePage
+			lang={lang}
+			titleKey="Stack Deployment"
+			subtitleKey="Step-by-step guide to deploying a stack"
+			icon={icon}
+		>
+			<p class="text-lg text-gray-600 dark:text-gray-400 mb-8">
+				This guide shows you how to select a stack from the catalog, configure it,
+				and deploy. The screenshots show each step in detail.
+			</p>
+
+			<h2>Overview</h2>
+			<p>
+				Deploying a stack in ReadyStackGo is done in a few simple steps:
+			</p>
+			<ol class="list-decimal list-inside space-y-2 mb-6">
+				<li>Log in to the system</li>
+				<li>Navigate to the Stack Catalog</li>
+				<li>Select a product</li>
+				<li>Configure variables</li>
+				<li>Start deployment</li>
+				<li>Monitor status</li>
+			</ol>
+
+			<hr class="my-8 border-gray-200 dark:border-gray-700" />
+
+			<h2>Step 1: Login</h2>
+			<p>
+				Open the ReadyStackGo web interface in your browser. You will be greeted
+				with the login screen where you enter your credentials.
+			</p>
+			<figure class="my-6">
+				<img
+					src="/images/docs/01-login.png"
+					alt="ReadyStackGo Login Page"
+					class="rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
+				/>
+				<figcaption class="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+					ReadyStackGo Login Page
+				</figcaption>
+			</figure>
+			<ul class="mb-6">
+				<li>Enter your <strong>username</strong></li>
+				<li>Enter your <strong>password</strong></li>
+				<li>Click <strong>Sign In</strong></li>
+			</ul>
+
+			<hr class="my-8 border-gray-200 dark:border-gray-700" />
+
+			<h2>Step 2: Dashboard</h2>
+			<p>
+				After successful login, you arrive at the Dashboard. Here you see an overview
+				of your environments and active deployments.
+			</p>
+			<figure class="my-6">
+				<img
+					src="/images/docs/02-dashboard.png"
+					alt="ReadyStackGo Dashboard"
+					class="rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
+				/>
+				<figcaption class="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+					The Dashboard shows Environments and active Deployments
+				</figcaption>
+			</figure>
+
+			<hr class="my-8 border-gray-200 dark:border-gray-700" />
+
+			<h2>Step 3: Stack Catalog</h2>
+			<p>
+				Navigate to the <strong>Stack Catalog</strong> via the main menu. The catalog
+				shows all available products that you can deploy.
+			</p>
+			<figure class="my-6">
+				<img
+					src="/images/docs/03-catalog.png"
+					alt="Stack Catalog with available products"
+					class="rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
+				/>
+				<figcaption class="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+					The Stack Catalog shows all available products
+				</figcaption>
+			</figure>
+			<p>
+				Each product shows:
+			</p>
+			<ul class="mb-6">
+				<li><strong>Name</strong> and <strong>Version</strong></li>
+				<li><strong>Description</strong> of the product</li>
+				<li><strong>Category</strong> for easy filtering</li>
+				<li><strong>Tags</strong> for searching</li>
+			</ul>
+
+			<hr class="my-8 border-gray-200 dark:border-gray-700" />
+
+			<h2>Step 4: Product Details</h2>
+			<p>
+				Click on a product to open the detail page. Here you find detailed
+				information and available versions.
+			</p>
+			<figure class="my-6">
+				<img
+					src="/images/docs/04-product-detail.png"
+					alt="Product Detail Page"
+					class="rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
+				/>
+				<figcaption class="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+					The Product Detail page with description and Deploy button
+				</figcaption>
+			</figure>
+			<p>
+				On this page you can:
+			</p>
+			<ul class="mb-6">
+				<li>Read the full <strong>product description</strong></li>
+				<li>See the included <strong>stacks</strong></li>
+				<li>Select a <strong>version</strong></li>
+				<li>Proceed to deployment with <strong>Deploy</strong></li>
+			</ul>
+
+			<hr class="my-8 border-gray-200 dark:border-gray-700" />
+
+			<h2>Step 5: Configure Deployment</h2>
+			<p>
+				On the Deploy page, you configure all necessary variables for your
+				deployment. Variables are organized by groups.
+			</p>
+			<figure class="my-6">
+				<img
+					src="/images/docs/05-deploy-configure.png"
+					alt="Deploy Configuration Page"
+					class="rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
+				/>
+				<figcaption class="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+					The Deploy page with variable configuration
+				</figcaption>
+			</figure>
+
+			<h3>Stack Name</h3>
+			<p>
+				Enter a unique <strong>Stack Name</strong>. This name is used to identify
+				the deployment and must be unique.
+			</p>
+
+			<h3>Configure Variables</h3>
+			<p>
+				Fill in the required variables. Different input fields are displayed
+				depending on the variable type:
+			</p>
+			<ul class="mb-6">
+				<li><strong>String:</strong> Simple text field</li>
+				<li><strong>Password:</strong> Masked password field</li>
+				<li><strong>Port:</strong> Port selection with validation (1-65535)</li>
+				<li><strong>Boolean:</strong> Toggle switch</li>
+				<li><strong>Select:</strong> Dropdown selection</li>
+				<li><strong>Connection String:</strong> Builder dialog for database connections</li>
+			</ul>
+
+			<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4 my-6">
+				<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">💡 Tip: .env Import</h4>
+				<p class="text-brand-700 dark:text-brand-400">
+					Already have a <code class="bg-brand-100 dark:bg-brand-800 px-1 rounded">.env</code> file with your configuration values?
+					Click <strong>Import .env</strong> in the sidebar to automatically import all
+					matching variables!
+				</p>
+				<p class="text-brand-700 dark:text-brand-400 mt-2">
+					Supported formats:
+				</p>
+				<ul class="text-brand-700 dark:text-brand-400 text-sm mt-1">
+					<li>• Lines starting with <code class="bg-brand-100 dark:bg-brand-800 px-1 rounded">#</code> are ignored as comments</li>
+					<li>• Values can be quoted: <code class="bg-brand-100 dark:bg-brand-800 px-1 rounded">"value"</code> or <code class="bg-brand-100 dark:bg-brand-800 px-1 rounded">'value'</code></li>
+					<li>• Only variables defined in the manifest are imported</li>
+				</ul>
+			</div>
+
+			<h3>Start Deployment</h3>
+			<p>
+				Once all required fields are filled, click the <strong>Deploy</strong>
+				button in the sidebar. The deployment will start and you will be
+				redirected to the deployments overview.
+			</p>
+
+			<hr class="my-8 border-gray-200 dark:border-gray-700" />
+
+			<h2>Step 6: Monitor Deployments</h2>
+			<p>
+				In the <strong>Deployments</strong> overview you see all active and
+				past deployments with their current status.
+			</p>
+			<figure class="my-6">
+				<img
+					src="/images/docs/08-deployments-list.png"
+					alt="Deployments Overview"
+					class="rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
+				/>
+				<figcaption class="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+					The Deployments overview shows all active stacks
+				</figcaption>
+			</figure>
+			<p>
+				For each deployment you see:
+			</p>
+			<ul class="mb-6">
+				<li><strong>Stack Name:</strong> The name you assigned</li>
+				<li><strong>Status:</strong> Running, Stopped, Error</li>
+				<li><strong>Services:</strong> Number of containers</li>
+				<li><strong>Environment:</strong> The target environment</li>
+			</ul>
+
+			<hr class="my-8 border-gray-200 dark:border-gray-700" />
+
+			<h2>Next Steps</h2>
+			<p>
+				After successful deployment you can:
+			</p>
+			<ul class="mb-6">
+				<li>Monitor stack status in real-time</li>
+				<li>View container logs</li>
+				<li>Stop or restart the stack</li>
+				<li>Change variables and redeploy</li>
+				<li>Delete the stack</li>
+			</ul>
+
+			<div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 my-6">
+				<h3 class="text-lg font-semibold mb-4">Further Documentation</h3>
+				<ul class="space-y-2">
+					<li>
+						<a href="/en/features/manifest-format" class="text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
+							→ RSGo Manifest Format
+						</a>
+					</li>
+					<li>
+						<a href="/en/features/multi-stack" class="text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
+							→ Multi-Stack Products
+						</a>
+					</li>
+					<li>
+						<a href="/en/features/smart-editors" class="text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
+							→ Smart Editors
+						</a>
+					</li>
+				</ul>
+			</div>
+		</FeaturePage>
+	</main>
+	<Footer lang={lang} />
+</LandingLayout>
