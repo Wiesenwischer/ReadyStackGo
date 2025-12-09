@@ -177,8 +177,8 @@ public class DockerComposeParser : IDockerComposeParser
             foreach (var (networkName, networkDef) in compose.Networks)
             {
                 var isExternal = networkDef.External ?? false;
-                // External networks use their name as-is, non-external get prefixed with stack name
-                var resolvedName = isExternal ? networkName : $"{stackName}_{networkName}";
+                // External networks use their name as-is, non-external get prefixed with sanitized stack name
+                var resolvedName = isExternal ? networkName : DockerNamingUtility.CreateNetworkName(stackName, networkName);
 
                 plan.Networks[networkName] = new NetworkDefinition
                 {
@@ -193,7 +193,7 @@ public class DockerComposeParser : IDockerComposeParser
         }
 
         // If no networks defined, create a default stack network
-        var defaultNetwork = $"{stackName}_default";
+        var defaultNetwork = DockerNamingUtility.CreateNetworkName(stackName, "default");
         if (networkMapping.Count == 0)
         {
             plan.Networks["default"] = new NetworkDefinition
@@ -219,7 +219,7 @@ public class DockerComposeParser : IDockerComposeParser
                 Image = ResolveVariables(service.Image ?? string.Empty, resolvedVariables),
                 Version = "latest", // Docker Compose doesn't have explicit versions
                 ContainerName = ResolveVariables(
-                    service.ContainerName ?? $"{stackName}_{serviceName}",
+                    service.ContainerName ?? DockerNamingUtility.CreateContainerName(stackName, serviceName),
                     resolvedVariables),
                 Internal = service.Ports == null || service.Ports.Count == 0,
                 Order = order++
@@ -288,8 +288,8 @@ public class DockerComposeParser : IDockerComposeParser
                             !volumeSource.Contains("\\") &&
                             !volumeSource.Contains("/"))
                         {
-                            // Prefix named volume with stack name for isolation
-                            volumeSource = $"{stackName}_{volumeSource}";
+                            // Prefix named volume with sanitized stack name for isolation
+                            volumeSource = DockerNamingUtility.CreateVolumeName(stackName, volumeSource);
                         }
 
                         step.Volumes[volumeSource] = volumeTarget;

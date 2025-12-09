@@ -357,7 +357,7 @@ public class RsgoManifestParser : IRsgoManifestParser
             foreach (var (networkName, networkDef) in networks)
             {
                 var isExternal = networkDef.External ?? false;
-                var resolvedName = isExternal ? networkName : $"{stackName}_{networkName}";
+                var resolvedName = isExternal ? networkName : DockerNamingUtility.CreateNetworkName(stackName, networkName);
 
                 plan.Networks[networkName] = new NetworkDefinition
                 {
@@ -369,7 +369,7 @@ public class RsgoManifestParser : IRsgoManifestParser
         }
 
         // Create default network if none defined
-        var defaultNetwork = $"{stackName}_default";
+        var defaultNetwork = DockerNamingUtility.CreateNetworkName(stackName, "default");
         if (networkMapping.Count == 0)
         {
             plan.Networks["default"] = new NetworkDefinition
@@ -394,7 +394,7 @@ public class RsgoManifestParser : IRsgoManifestParser
                 Image = ResolveVariables(service.Image, resolvedVariables),
                 Version = ExtractImageVersion(service.Image),
                 ContainerName = ResolveVariables(
-                    service.ContainerName ?? $"{stackName}_{serviceName}",
+                    service.ContainerName ?? DockerNamingUtility.CreateContainerName(stackName, serviceName),
                     resolvedVariables),
                 Internal = service.Ports == null || service.Ports.Count == 0,
                 Order = order++
@@ -449,14 +449,14 @@ public class RsgoManifestParser : IRsgoManifestParser
                         var volumeSource = parts[0];
                         var volumeTarget = parts[1];
 
-                        // Prefix named volumes with stack name
+                        // Prefix named volumes with sanitized stack name
                         if (!volumeSource.StartsWith("/") &&
                             !volumeSource.StartsWith(".") &&
                             !volumeSource.StartsWith("~") &&
                             !volumeSource.Contains("\\") &&
                             !volumeSource.Contains("/"))
                         {
-                            volumeSource = $"{stackName}_{volumeSource}";
+                            volumeSource = DockerNamingUtility.CreateVolumeName(stackName, volumeSource);
                         }
 
                         step.Volumes[volumeSource] = volumeTarget;
