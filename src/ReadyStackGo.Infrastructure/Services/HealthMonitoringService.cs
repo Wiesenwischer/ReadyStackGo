@@ -401,20 +401,15 @@ public class HealthMonitoringService : IHealthMonitoringService
     }
 
     /// <summary>
-    /// Determines the operation mode based on deployment status.
+    /// Gets the operation mode from the deployment.
+    /// The OperationMode is now stored directly on the Deployment aggregate.
     /// </summary>
     private static OperationMode DetermineOperationMode(Deployment? deployment)
     {
         if (deployment == null)
             return OperationMode.Normal;
 
-        return deployment.Status switch
-        {
-            DeploymentStatus.Running => OperationMode.Normal,
-            DeploymentStatus.Stopped => OperationMode.Stopped,
-            DeploymentStatus.Failed => OperationMode.Failed,
-            DeploymentStatus.Pending => OperationMode.Migrating,
-            _ => OperationMode.Normal
-        };
+        // Use the stored OperationMode from the deployment
+        return deployment.OperationMode;
     }
 }

@@ -8,6 +8,7 @@ on:
     types: [opened, reopened, synchronize, labeled]
     branches:
       - main
+      - develop
 
 permissions:
   contents: write
@@ -23,11 +24,13 @@ jobs:
           config-name: release-drafter.yml
           # Draft only - manually publish when ready
           publish: false
+          # Only update release draft for PRs against main
+          disable-releaser: ${{ github.event_name == 'pull_request' && github.base_ref != 'main' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Show draft info
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
         run: |
           echo "Next version will be: ${{ steps.drafter.outputs.resolved_version }}"
           echo "Tag: ${{ steps.drafter.outputs.tag_name }}"
