@@ -2,7 +2,10 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
+using ReadyStackGo.Domain.StackManagement.Manifests;
 using ReadyStackGo.Domain.StackManagement.StackSources;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 namespace ReadyStackGo.Infrastructure.Stacks.Sources;
 
@@ -14,6 +17,7 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
 {
     private readonly ILogger<LocalDirectoryStackSourceProvider> _logger;
     private readonly IRsgoManifestParser _manifestParser;
+    private readonly ISerializer _yamlSerializer;
 
     public string SourceType => "local-directory";
 
@@ -23,6 +27,10 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
     {
         _logger = logger;
         _manifestParser = manifestParser;
+        _yamlSerializer = new SerializerBuilder()
+            .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull)
+            .Build();
     }
 
     public bool CanHandle(StackSource source)
@@ -300,7 +308,7 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
     /// All stacks share the same ProductName for proper grouping.
     /// </summary>
     private IEnumerable<StackDefinition> CreateStackDefinitionsFromMultiStack(
-        Domain.StackManagement.Manifests.RsgoManifest manifest,
+        RsgoManifest manifest,
         string sourceId,
         string yamlContent,
         string filePath,
@@ -344,13 +352,16 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
             var stackName = stackEntry.Metadata?.Name ?? stackKey;
             var stackDescription = stackEntry.Metadata?.Description ?? productDescription;
 
+            // Generate docker-compose compatible YAML for this sub-stack
+            var composeYaml = GenerateComposeYamlForStack(stackEntry);
+
             _logger.LogDebug("Created sub-stack '{StackKey}' ({StackName}) with {VarCount} variables, {SvcCount} services",
                 stackKey, stackName, variables.Count, services.Count);
 
             results.Add(new StackDefinition(
                 sourceId: sourceId,
                 name: stackName,
-                yamlContent: yamlContent,
+                yamlContent: composeYaml,
                 description: stackDescription,
                 variables: variables,
                 services: services,
@@ -373,7 +384,122 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
         return results;
     }
 
-    private static StackVariable ConvertToStackVariable(string name, Domain.StackManagement.Manifests.RsgoVariable def)
+    /// <summary>
+    /// Generates docker-compose compatible YAML content for a sub-stack.
+    /// </summary>
+    private string GenerateComposeYamlForStack(RsgoStackEntry stackEntry)
+    {
+        var composeContent = new Dictionary<string, object>();
+
+        if (stackEntry.Services != null && stackEntry.Services.Count > 0)
+        {
+            var servicesDict = new Dictionary<string, object>();
+            foreach (var (serviceName, serviceConfig) in stackEntry.Services)
+            {
+                servicesDict[serviceName] = ConvertServiceToComposeFormat(serviceConfig);
+            }
+            composeContent["services"] = servicesDict;
+        }
+
+        if (stackEntry.Volumes != null && stackEntry.Volumes.Count > 0)
+        {
+            composeContent["volumes"] = stackEntry.Volumes;
+        }
+
+        if (stackEntry.Networks != null && stackEntry.Networks.Count > 0)
+        {
+            composeContent["networks"] = stackEntry.Networks;
+        }
+
+        return _yamlSerializer.Serialize(composeContent);
+    }
+
+    /// <summary>
+    /// Converts an RSGo service configuration to docker-compose format.
+    /// </summary>
+    private static Dictionary<string, object> ConvertServiceToComposeFormat(RsgoService service)
+    {
+        var serviceDict = new Dictionary<string, object>();
+
+        if (!string.IsNullOrEmpty(service.Image))
+            serviceDict["image"] = service.Image;
+
+        if (!string.IsNullOrEmpty(service.ContainerName))
+            serviceDict["container_name"] = service.ContainerName;
+
+        if (service.Ports != null && service.Ports.Count > 0)
+            serviceDict["ports"] = service.Ports;
+
+        if (service.Environment != null && service.Environment.Count > 0)
+            serviceDict["environment"] = service.Environment;
+
+        if (service.Volumes != null && service.Volumes.Count > 0)
+            serviceDict["volumes"] = service.Volumes;
+
+        if (service.Networks != null && service.Networks.Count > 0)
+            serviceDict["networks"] = service.Networks;
+
+        if (service.DependsOn != null && service.DependsOn.Count > 0)
+            serviceDict["depends_on"] = service.DependsOn;
+
+        if (!string.IsNullOrEmpty(service.Restart))
+            serviceDict["restart"] = service.Restart;
+
+        if (!string.IsNullOrEmpty(service.Command))
+            serviceDict["command"] = service.Command;
+
+        if (!string.IsNullOrEmpty(service.Entrypoint))
+            serviceDict["entrypoint"] = service.Entrypoint;
+
+        if (!string.IsNullOrEmpty(service.WorkingDir))
+            serviceDict["working_dir"] = service.WorkingDir;
+
+        if (!string.IsNullOrEmpty(service.User))
+            serviceDict["user"] = service.User;
+
+        if (service.Labels != null && service.Labels.Count > 0)
+            serviceDict["labels"] = service.Labels;
+
+        if (service.HealthCheck != null)
+        {
+            var healthCheckDict = ConvertHealthCheckToComposeFormat(service.HealthCheck);
+            if (healthCheckDict != null)
+                serviceDict["healthcheck"] = healthCheckDict;
+        }
+
+        return serviceDict;
+    }
+
+    /// <summary>
+    /// Converts an RSGo health check to docker-compose format.
+    /// Only Docker HEALTHCHECK properties are included (not RSGO-specific HTTP checks).
+    /// </summary>
+    private static Dictionary<string, object>? ConvertHealthCheckToComposeFormat(RsgoHealthCheck healthCheck)
+    {
+        if (healthCheck.IsHttpHealthCheck || healthCheck.IsTcpHealthCheck || healthCheck.IsDisabled)
+            return null;
+
+        var hcDict = new Dictionary<string, object>();
+
+        if (healthCheck.Test != null && healthCheck.Test.Count > 0)
+            hcDict["test"] = healthCheck.Test;
+
+        if (!string.IsNullOrEmpty(healthCheck.Interval))
+            hcDict["interval"] = healthCheck.Interval;
+
+        if (!string.IsNullOrEmpty(healthCheck.Timeout))
+            hcDict["timeout"] = healthCheck.Timeout;
+
+        if (healthCheck.Retries.HasValue)
+            hcDict["retries"] = healthCheck.Retries.Value;
+
+        if (!string.IsNullOrEmpty(healthCheck.StartPeriod))
+            hcDict["start_period"] = healthCheck.StartPeriod;
+
+        return hcDict.Count > 0 ? hcDict : null;
+    }
+
+    private static StackVariable ConvertToStackVariable(string name, RsgoVariable def)
     {
         var options = def.Options?.Select(o => new SelectOption(o.Value, o.Label, o.Description));
 
@@ -399,7 +525,7 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
     /// Extract all service names from a manifest, handling both single-stack and multi-stack formats.
     /// For multi-stack manifests, collects services from all stacks (after include resolution).
     /// </summary>
-    private static List<string> ExtractServicesFromManifest(Domain.StackManagement.Manifests.RsgoManifest manifest)
+    private static List<string> ExtractServicesFromManifest(RsgoManifest manifest)
     {
         var services = new List<string>();
 
