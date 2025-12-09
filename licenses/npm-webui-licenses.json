@@ -303,6 +303,13 @@
     "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/@jridgewell/trace-mapping",
     "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/@jridgewell/trace-mapping/LICENSE"
   },
+  "@microsoft/signalr@8.0.17": {
+    "licenses": "MIT",
+    "repository": "https://github.com/dotnet/aspnetcore",
+    "publisher": "Microsoft",
+    "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/@microsoft/signalr",
+    "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/@microsoft/signalr/README.md"
+  },
   "@nodelib/fs.scandir@2.1.5": {
     "licenses": "MIT",
     "repository": "https://github.com/nodelib/nodelib/tree/master/packages/fs/fs.scandir",
@@ -617,6 +624,14 @@
     "publisher": "Evan You",
     "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/@vitejs/plugin-react",
     "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/@vitejs/plugin-react/LICENSE"
+  },
+  "abort-controller@3.0.0": {
+    "licenses": "MIT",
+    "repository": "https://github.com/mysticatea/abort-controller",
+    "publisher": "Toru Nagashima",
+    "url": "https://github.com/mysticatea",
+    "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/abort-controller",
+    "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/abort-controller/LICENSE"
   },
   "acorn-jsx@5.3.2": {
     "licenses": "MIT",
@@ -988,6 +1003,21 @@
     "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/esutils",
     "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/esutils/LICENSE.BSD"
   },
+  "event-target-shim@5.0.1": {
+    "licenses": "MIT",
+    "repository": "https://github.com/mysticatea/event-target-shim",
+    "publisher": "Toru Nagashima",
+    "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/event-target-shim",
+    "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/event-target-shim/LICENSE"
+  },
+  "eventsource@2.0.2": {
+    "licenses": "MIT",
+    "repository": "https://github.com/EventSource/eventsource",
+    "publisher": "Aslak Hellesøy",
+    "email": "aslak.hellesoy@gmail.com",
+    "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/eventsource",
+    "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/eventsource/LICENSE"
+  },
   "fast-deep-equal@3.1.3": {
     "licenses": "MIT",
     "repository": "https://github.com/epoberezkin/fast-deep-equal",
@@ -1036,6 +1066,14 @@
     "email": "thecodrr@protonmail.com",
     "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/tinyglobby/node_modules/fdir",
     "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/tinyglobby/node_modules/fdir/LICENSE"
+  },
+  "fetch-cookie@2.2.0": {
+    "licenses": "Unlicense",
+    "repository": "https://github.com/valeriangalliat/fetch-cookie",
+    "publisher": "Val",
+    "url": "https://val.codejam.info",
+    "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/fetch-cookie",
+    "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/fetch-cookie/README.md"
   },
   "file-entry-cache@8.0.0": {
     "licenses": "MIT",
@@ -1473,6 +1511,13 @@
     "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/no-case",
     "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/no-case/LICENSE"
   },
+  "node-fetch@2.7.0": {
+    "licenses": "MIT",
+    "repository": "https://github.com/bitinn/node-fetch",
+    "publisher": "David Frank",
+    "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/node-fetch",
+    "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/node-fetch/LICENSE.md"
+  },
   "node-releases@2.0.27": {
     "licenses": "MIT",
     "repository": "https://github.com/chicoxyzzy/node-releases",
@@ -1624,6 +1669,15 @@
     "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/prelude-ls",
     "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/prelude-ls/LICENSE"
   },
+  "psl@1.15.0": {
+    "licenses": "MIT",
+    "repository": "https://github.com/lupomontero/psl",
+    "publisher": "Lupo Montero",
+    "email": "lupomontero@gmail.com",
+    "url": "https://lupomontero.com/",
+    "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/psl",
+    "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/psl/LICENSE"
+  },
   "punycode@2.3.1": {
     "licenses": "MIT",
     "repository": "https://github.com/mathiasbynens/punycode.js",
@@ -1631,6 +1685,13 @@
     "url": "https://mathiasbynens.be/",
     "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/punycode",
     "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/punycode/LICENSE-MIT.txt"
+  },
+  "querystringify@2.2.0": {
+    "licenses": "MIT",
+    "repository": "https://github.com/unshiftio/querystringify",
+    "publisher": "Arnout Kazemier",
+    "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/querystringify",
+    "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/querystringify/LICENSE"
   },
   "queue-microtask@1.2.3": {
     "licenses": "MIT",
@@ -1698,6 +1759,13 @@
     "private": true,
     "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi",
     "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/README.md"
+  },
+  "requires-port@1.0.0": {
+    "licenses": "MIT",
+    "repository": "https://github.com/unshiftio/requires-port",
+    "publisher": "Arnout Kazemier",
+    "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/requires-port",
+    "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/requires-port/LICENSE"
   },
   "resolve-from@4.0.0": {
     "licenses": "MIT",
@@ -1855,6 +1923,21 @@
     "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/to-regex-range",
     "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/to-regex-range/LICENSE"
   },
+  "tough-cookie@4.1.4": {
+    "licenses": "BSD-3-Clause",
+    "repository": "https://github.com/salesforce/tough-cookie",
+    "publisher": "Jeremy Stashewsky",
+    "email": "jstash@gmail.com",
+    "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/tough-cookie",
+    "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/tough-cookie/LICENSE"
+  },
+  "tr46@0.0.3": {
+    "licenses": "MIT",
+    "repository": "https://github.com/Sebmaster/tr46.js",
+    "publisher": "Sebastian Mayr",
+    "email": "npm@smayr.name",
+    "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/tr46"
+  },
   "ts-api-utils@2.1.0": {
     "licenses": "MIT",
     "repository": "https://github.com/JoshuaKGoldberg/ts-api-utils",
@@ -1897,6 +1980,14 @@
     "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/undici-types",
     "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/undici-types/LICENSE"
   },
+  "universalify@0.2.0": {
+    "licenses": "MIT",
+    "repository": "https://github.com/RyanZim/universalify",
+    "publisher": "Ryan Zimmerman",
+    "email": "opensrc@ryanzim.com",
+    "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/universalify",
+    "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/universalify/LICENSE"
+  },
   "update-browserslist-db@1.1.4": {
     "licenses": "MIT",
     "repository": "https://github.com/browserslist/update-db",
@@ -1912,6 +2003,13 @@
     "email": "gary.court@gmail.com",
     "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/uri-js",
     "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/uri-js/LICENSE"
+  },
+  "url-parse@1.5.10": {
+    "licenses": "MIT",
+    "repository": "https://github.com/unshiftio/url-parse",
+    "publisher": "Arnout Kazemier",
+    "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/url-parse",
+    "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/url-parse/LICENSE"
   },
   "use-sync-external-store@1.6.0": {
     "licenses": "MIT",
@@ -1940,6 +2038,23 @@
     "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/void-elements",
     "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/void-elements/LICENSE"
   },
+  "webidl-conversions@3.0.1": {
+    "licenses": "BSD-2-Clause",
+    "repository": "https://github.com/jsdom/webidl-conversions",
+    "publisher": "Domenic Denicola",
+    "email": "d@domenic.me",
+    "url": "https://domenic.me/",
+    "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/webidl-conversions",
+    "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/webidl-conversions/LICENSE.md"
+  },
+  "whatwg-url@5.0.0": {
+    "licenses": "MIT",
+    "repository": "https://github.com/jsdom/whatwg-url",
+    "publisher": "Sebastian Mayr",
+    "email": "github@smayr.name",
+    "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/whatwg-url",
+    "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/whatwg-url/LICENSE.txt"
+  },
   "which@2.0.2": {
     "licenses": "ISC",
     "repository": "https://github.com/isaacs/node-which",
@@ -1956,6 +2071,15 @@
     "url": "https://github.com/jonschlinkert",
     "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/word-wrap",
     "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/word-wrap/LICENSE"
+  },
+  "ws@7.5.10": {
+    "licenses": "MIT",
+    "repository": "https://github.com/websockets/ws",
+    "publisher": "Einar Otto Stangvik",
+    "email": "einaros@gmail.com",
+    "url": "http://2x.io",
+    "path": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/ws",
+    "licenseFile": "/home/runner/work/ReadyStackGo/ReadyStackGo/src/ReadyStackGo.WebUi/node_modules/ws/LICENSE"
   },
   "yallist@3.1.1": {
     "licenses": "ISC",
