@@ -158,8 +158,6 @@ sharedVariables:
         label: German (Germany)
       - value: en-US
         label: English (US)
-      - value: en-GB
-        label: English (UK)
     group: Localization
     order: 1
 
