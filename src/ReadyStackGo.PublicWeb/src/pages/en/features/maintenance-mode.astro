@@ -1,0 +1,148 @@
+---
+import LandingLayout from '../../../layouts/LandingLayout.astro';
+import Header from '../../../components/Header.astro';
+import FeaturePage from '../../../components/FeaturePage.astro';
+import Footer from '../../../components/Footer.astro';
+
+const lang = 'en';
+const icon = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>`;
+---
+
+<LandingLayout title="Maintenance Mode - ReadyStackGo">
+	<Header lang={lang} />
+	<main class="flex-1">
+		<FeaturePage
+			lang={lang}
+			titleKey="features.maintenance.title"
+			subtitleKey="featurepage.maintenance.subtitle"
+			icon={icon}
+		>
+			<h2>Operation Modes</h2>
+			<p>
+				ReadyStackGo tracks the operational state of each deployment separately from health status.
+				This allows you to distinguish between planned downtime and actual failures.
+			</p>
+
+			<h2>Available Modes</h2>
+			<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 my-6">
+				<div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+					<h4 class="font-semibold text-green-800 dark:text-green-300 mb-2">🟢 Normal</h4>
+					<p class="text-green-700 dark:text-green-400 text-sm">Standard operation, all services should be running</p>
+				</div>
+				<div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+					<h4 class="font-semibold text-yellow-800 dark:text-yellow-300 mb-2">🔧 Maintenance</h4>
+					<p class="text-yellow-700 dark:text-yellow-400 text-sm">Planned maintenance, services may be stopped</p>
+				</div>
+				<div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+					<h4 class="font-semibold text-blue-800 dark:text-blue-300 mb-2">🔄 Migrating</h4>
+					<p class="text-blue-700 dark:text-blue-400 text-sm">Upgrade or migration in progress</p>
+				</div>
+				<div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+					<h4 class="font-semibold text-red-800 dark:text-red-300 mb-2">🔴 Failed</h4>
+					<p class="text-red-700 dark:text-red-400 text-sm">Operation failed, requires intervention</p>
+				</div>
+				<div class="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+					<h4 class="font-semibold text-gray-800 dark:text-gray-300 mb-2">⏹️ Stopped</h4>
+					<p class="text-gray-700 dark:text-gray-400 text-sm">Stack intentionally stopped</p>
+				</div>
+			</div>
+
+			<h2>Automatic Container Lifecycle</h2>
+			<p>
+				When entering maintenance mode, containers are automatically managed:
+			</p>
+			<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4 my-6">
+				<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">Container Lifecycle:</h4>
+				<ul class="text-brand-700 dark:text-brand-400 space-y-1">
+					<li><strong>Normal → Maintenance:</strong> All stack containers are stopped</li>
+					<li><strong>Maintenance → Normal:</strong> All stack containers are started</li>
+				</ul>
+			</div>
+
+			<h2>Excluding Containers</h2>
+			<p>
+				Some containers (like databases) should continue running during maintenance.
+				Use the <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">rsgo.maintenance</code> label:
+			</p>
+			<pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto"><code>{`services:
+  postgres:
+    image: postgres:16
+    labels:
+      rsgo.stack: my-app
+      rsgo.maintenance: ignore  # Won't be stopped
+
+  api:
+    image: myapp/api:latest
+    labels:
+      rsgo.stack: my-app
+      # No rsgo.maintenance = will be stopped`}</code></pre>
+
+			<h2>Use Cases</h2>
+			<ul>
+				<li><strong>Database Migrations:</strong> Stop app containers, run migrations, restart</li>
+				<li><strong>Backup Windows:</strong> Stop services during backup operations</li>
+				<li><strong>Configuration Updates:</strong> Safe config changes without traffic</li>
+				<li><strong>Upgrades:</strong> Controlled version transitions with rollback support</li>
+			</ul>
+
+			<h2>Maintenance Observers</h2>
+			<p>
+				Automatically synchronize maintenance mode with external systems. Configure observers
+				to monitor external state and trigger maintenance mode automatically.
+			</p>
+			<div class="grid md:grid-cols-2 gap-4 my-6">
+				<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4">
+					<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">SQL Extended Property</h4>
+					<p class="text-brand-700 dark:text-brand-400 text-sm">Monitor database properties from legacy or backend systems</p>
+				</div>
+				<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4">
+					<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">SQL Query</h4>
+					<p class="text-brand-700 dark:text-brand-400 text-sm">Execute custom queries for complex maintenance conditions</p>
+				</div>
+				<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4">
+					<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">HTTP Endpoint</h4>
+					<p class="text-brand-700 dark:text-brand-400 text-sm">Monitor external status APIs or maintenance endpoints</p>
+				</div>
+				<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4">
+					<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">File Observer</h4>
+					<p class="text-brand-700 dark:text-brand-400 text-sm">Watch for maintenance flag files from legacy systems</p>
+				</div>
+			</div>
+			<pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto"><code>{`# Example: Sync with ERP maintenance mode
+maintenanceObserver:
+  type: sqlExtendedProperty
+  connectionString: \${DB_CONNECTION}
+  propertyName: ams.MaintenanceMode
+  maintenanceValue: "1"
+  normalValue: "0"
+  pollingInterval: 30s`}</code></pre>
+
+			<h2>Real-time UI Updates</h2>
+			<p>
+				Mode changes are pushed instantly via SignalR:
+			</p>
+			<ul>
+				<li>Dashboard shows current operation mode</li>
+				<li>Health status interpreted in mode context</li>
+				<li>Actions available based on current mode</li>
+				<li>Mode history for audit trail</li>
+			</ul>
+
+			<h2>API Integration</h2>
+			<pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto"><code>{`PUT /api/deployments/{id}/operation-mode
+{
+  "newMode": "Maintenance",
+  "reason": "Scheduled weekly backup"
+}`}</code></pre>
+
+			<h2>Benefits</h2>
+			<ul>
+				<li><strong>Controlled downtime:</strong> Clear distinction between planned and unplanned outages</li>
+				<li><strong>Automatic lifecycle:</strong> No manual container stop/start needed</li>
+				<li><strong>Selective exclusion:</strong> Keep critical services running</li>
+				<li><strong>Audit trail:</strong> Track who changed mode and when</li>
+			</ul>
+		</FeaturePage>
+	</main>
+	<Footer lang={lang} />
+</LandingLayout>
