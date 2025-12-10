@@ -31,4 +31,8 @@
     <ProjectReference Include="..\..\src\ReadyStackGo.Infrastructure\ReadyStackGo.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="TestData\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -1,0 +1,22 @@
+metadata:
+  name: Test Business Services
+  description: Test stack with maintenance observer
+  productVersion: 1.0.0
+
+maintenance:
+  observer:
+    type: sqlExtendedProperty
+    connectionString: ${TEST_DB}
+    propertyName: test-MaintenanceMode
+
+variables:
+  TEST_DB:
+    description: Database connection string
+    type: connectionString
+    required: true
+
+services:
+  test-service:
+    image: nginx:alpine
+    ports:
+      - "8080:80"

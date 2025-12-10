@@ -584,12 +584,12 @@ volumes:
         var providerLogger = Substitute.For<ILogger<LocalDirectoryStackSourceProvider>>();
         var provider = new LocalDirectoryStackSourceProvider(providerLogger, _realParser);
 
-        // Use the real stacks directory
-        var stacksPath = @"c:\proj\ReadyStackGo\stacks";
-        if (!Directory.Exists(stacksPath))
-        {
-            Assert.Fail("Stacks directory not found at expected location");
-        }
+        // Use the test stacks directory from TestData folder
+        // Go up from bin/Debug/net9.0 -> IntegrationTests -> TestData/stacks
+        var testDir = Path.GetDirectoryName(typeof(MaintenanceObserverParsingTests).Assembly.Location)!;
+        var stacksPath = Path.GetFullPath(Path.Combine(testDir, "..", "..", "..", "TestData", "stacks"));
+
+        Directory.Exists(stacksPath).Should().BeTrue($"Test stacks directory should exist at: {stacksPath}");
 
         var stackSource = StackSource.CreateLocalDirectory(
             StackSourceId.Create(Guid.NewGuid().ToString()),
@@ -599,11 +599,11 @@ volumes:
         // Act - Load all stacks
         var stacks = (await provider.LoadStacksAsync(stackSource)).ToList();
 
-        // Assert - Find Business Services stack and verify MaintenanceObserver is set directly
+        // Assert - Find Test Business Services stack and verify MaintenanceObserver is set directly
         var businessStack = stacks.FirstOrDefault(s =>
-            s.Name.Equals("Business Services", StringComparison.OrdinalIgnoreCase));
+            s.Name.Equals("Test Business Services", StringComparison.OrdinalIgnoreCase));
 
-        businessStack.Should().NotBeNull("Business Services stack should be loaded");
+        businessStack.Should().NotBeNull("Test Business Services stack should be loaded");
 
         // This is the critical assertion - MaintenanceObserver should be set on StackDefinition
         businessStack!.MaintenanceObserver.Should().NotBeNull(
@@ -611,8 +611,8 @@ volumes:
             "LocalDirectoryStackSourceProvider should populate MaintenanceObserver from the manifest.");
 
         businessStack.MaintenanceObserver!.Type.Should().Be("sqlExtendedProperty");
-        businessStack.MaintenanceObserver.ConnectionString.Should().Be("${AMS_DB}");
-        businessStack.MaintenanceObserver.PropertyName.Should().Be("ams-MaintenanceMode");
+        businessStack.MaintenanceObserver.ConnectionString.Should().Be("${TEST_DB}");
+        businessStack.MaintenanceObserver.PropertyName.Should().Be("test-MaintenanceMode");
     }
 
     /// <summary>
