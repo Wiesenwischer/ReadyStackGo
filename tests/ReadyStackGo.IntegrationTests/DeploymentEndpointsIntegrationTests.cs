@@ -14,8 +14,13 @@ public class DeploymentEndpointsIntegrationTests : AuthenticatedTestBase
 {
     #region Test Data
 
+    // RSGo manifest format - simple stack with one service
     private const string SimpleComposeYaml = @"
-version: '3.8'
+metadata:
+  name: Simple Web Stack
+  description: A simple web server
+  productVersion: 1.0.0
+
 services:
   web:
     image: nginx:latest
@@ -23,21 +28,48 @@ services:
       - '80:80'
 ";
 
+    // RSGo manifest format - stack with variables
     private const string ComposeWithVariables = @"
-version: '3.8'
+metadata:
+  name: Database Stack
+  description: PostgreSQL database with variables
+  productVersion: 1.0.0
+
+variables:
+  POSTGRES_VERSION:
+    description: PostgreSQL version
+    default: '15'
+  DB_USER:
+    description: Database user
+    required: true
+  DB_PASSWORD:
+    description: Database password
+    required: true
+  DB_NAME:
+    description: Database name
+    default: mydb
+  DB_PORT:
+    description: Database port
+    default: '5432'
+
 services:
   db:
-    image: postgres:${POSTGRES_VERSION:-15}
+    image: postgres:${POSTGRES_VERSION}
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME:-mydb}
+      POSTGRES_DB: ${DB_NAME}
     ports:
-      - '${DB_PORT:-5432}:5432'
+      - '${DB_PORT}:5432'
 ";
 
+    // RSGo manifest format - multiple services
     private const string MultiServiceCompose = @"
-version: '3.8'
+metadata:
+  name: Multi-Service Stack
+  description: Stack with multiple services
+  productVersion: 1.0.0
+
 services:
   frontend:
     image: nginx:latest
@@ -55,8 +87,13 @@ services:
     image: redis:7
 ";
 
+    // RSGo manifest format - with networks and volumes
     private const string ComposeWithNetworksAndVolumes = @"
-version: '3.8'
+metadata:
+  name: App Stack
+  description: Application with networks and volumes
+  productVersion: 1.0.0
+
 services:
   app:
     image: myapp:latest
@@ -286,7 +323,7 @@ volumes:
         };
 
         // Act
-        var response = await Client.PostAsJsonAsync($"/api/deployments/{environmentId}", request);
+        var response = await Client.PostAsJsonAsync($"/api/environments/{environmentId}/deployments", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -310,7 +347,7 @@ volumes:
         };
 
         // Act
-        var response = await Client.PostAsJsonAsync($"/api/deployments/{environmentId}", request);
+        var response = await Client.PostAsJsonAsync($"/api/environments/{environmentId}/deployments", request);
 
         // Assert
         // The API accepts the request - actual validation happens at deployment time
@@ -332,7 +369,7 @@ volumes:
         };
 
         // Act
-        var response = await Client.PostAsJsonAsync("/api/deployments/invalid-environment-id", request);
+        var response = await Client.PostAsJsonAsync("/api/environments/invalid-environment-id/deployments", request);
 
         // Assert
         // v0.6: The API may return either:
@@ -367,7 +404,7 @@ volumes:
         };
 
         // Act
-        var response = await Client.PostAsJsonAsync($"/api/deployments/{environmentId}", request);
+        var response = await Client.PostAsJsonAsync($"/api/environments/{environmentId}/deployments", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -390,7 +427,7 @@ volumes:
         };
 
         // Act
-        var response = await Client.PostAsJsonAsync($"/api/deployments/{environmentId}", request);
+        var response = await Client.PostAsJsonAsync($"/api/environments/{environmentId}/deployments", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -416,7 +453,7 @@ volumes:
         var environmentId = await CreateTestEnvironment("List Deployments Test");
 
         // Act
-        var response = await Client.GetAsync($"/api/deployments/{environmentId}");
+        var response = await Client.GetAsync($"/api/environments/{environmentId}/deployments");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -431,7 +468,7 @@ volumes:
     public async Task GET_ListDeployments_WithInvalidEnvironmentId_ReturnsEmptyList()
     {
         // Act
-        var response = await Client.GetAsync("/api/deployments/invalid-environment-id");
+        var response = await Client.GetAsync("/api/environments/invalid-environment-id/deployments");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -453,7 +490,7 @@ volumes:
         var environmentId = await CreateTestEnvironment("Get Deployment Test");
 
         // Act
-        var response = await Client.GetAsync($"/api/deployments/{environmentId}/nonexistent-stack");
+        var response = await Client.GetAsync($"/api/environments/{environmentId}/deployments/nonexistent-stack");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -470,7 +507,7 @@ volumes:
         var environmentId = await CreateTestEnvironment("Remove Deployment Test");
 
         // Act
-        var response = await Client.DeleteAsync($"/api/deployments/{environmentId}/nonexistent-stack");
+        var response = await Client.DeleteAsync($"/api/environments/{environmentId}/deployments/nonexistent-stack");
 
         // Assert
         // DELETE is idempotent per RFC 7231 - removing a non-existent stack should succeed
@@ -512,11 +549,11 @@ volumes:
                 ["DB_PASSWORD"] = "flowpassword"
             }
         };
-        var deployResponse = await Client.PostAsJsonAsync($"/api/deployments/{environmentId}", deployRequest);
+        var deployResponse = await Client.PostAsJsonAsync($"/api/environments/{environmentId}/deployments", deployRequest);
         deployResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // Step 3: List deployments
-        var listResponse = await Client.GetAsync($"/api/deployments/{environmentId}");
+        var listResponse = await Client.GetAsync($"/api/environments/{environmentId}/deployments");
         listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var list = await listResponse.Content.ReadFromJsonAsync<ListDeploymentsResponse>();

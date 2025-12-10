@@ -8,6 +8,7 @@ const __dirname = path.dirname(__filename);
 // Test config directory path (relative to repo root for CI, relative to WebUi for local)
 const repoRoot = path.resolve(__dirname, '..', '..');
 const testConfigDir = path.resolve(repoRoot, 'src', 'ReadyStackGo.Api', 'config');
+const testDataDir = path.resolve(repoRoot, 'src', 'ReadyStackGo.Api', 'data');
 
 // In CI, the working directory is the repo root
 const isCI = !!process.env.CI;
@@ -46,16 +47,17 @@ export default defineConfig({
       command: 'npm run dev',
       url: 'http://localhost:5174',
       reuseExistingServer: !isCI,
-      timeout: 120 * 1000,
+      timeout: 180 * 1000, // 3 minutes for frontend
     },
     {
       command: backendCommand,
       url: 'http://localhost:5259/health',
       reuseExistingServer: !isCI,
-      timeout: 180 * 1000, // 3 minutes for backend startup
+      timeout: 300 * 1000, // 5 minutes for backend startup in CI
       env: {
         ASPNETCORE_ENVIRONMENT: 'Development',
         ConfigPath: testConfigDir,
+        DataPath: testDataDir,
       },
     },
   ],

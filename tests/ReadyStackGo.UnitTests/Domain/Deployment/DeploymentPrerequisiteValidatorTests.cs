@@ -5,8 +5,6 @@ using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Roles;
 using ReadyStackGo.Domain.IdentityAccess.Users;
-using ReadyStackGo.Domain.StackManagement.Manifests;
-using ReadyStackGo.Domain.StackManagement.StackSources;
 
 namespace ReadyStackGo.UnitTests.Domain.Deployment;
 
@@ -65,7 +63,7 @@ public class DeploymentPrerequisiteValidatorTests
         var environment = CreateTestEnvironment();
         var organization = CreateActiveOrganization(environment.OrganizationId);
         var user = CreateAuthorizedUser(organization.Id);
-        var stack = CreateTestStack();
+        var stack = CreateTestStackInfo();
         var variables = new Dictionary<string, string> { { "DB_HOST", "localhost" } };
 
         SetupRepositories(environment, organization);
@@ -85,7 +83,7 @@ public class DeploymentPrerequisiteValidatorTests
         var environment = CreateTestEnvironment();
         var organization = CreateActiveOrganization(environment.OrganizationId);
         var user = CreateSystemAdmin(); // Not a member but is sysadmin
-        var stack = CreateTestStack();
+        var stack = CreateTestStackInfo();
         var variables = new Dictionary<string, string> { { "DB_HOST", "localhost" } };
 
         SetupRepositories(environment, organization);
@@ -108,7 +106,7 @@ public class DeploymentPrerequisiteValidatorTests
         // Arrange
         var envId = EnvironmentId.NewId();
         var user = CreateTestUser();
-        var stack = CreateTestStack();
+        var stack = CreateTestStackInfo();
         var variables = new Dictionary<string, string>();
 
         _environmentRepositoryMock.Setup(r => r.Get(envId)).Returns((Environment?)null);
@@ -131,7 +129,7 @@ public class DeploymentPrerequisiteValidatorTests
         // Arrange
         var environment = CreateTestEnvironment();
         var user = CreateTestUser();
-        var stack = CreateTestStack();
+        var stack = CreateTestStackInfo();
         var variables = new Dictionary<string, string>();
 
         _environmentRepositoryMock.Setup(r => r.Get(environment.Id)).Returns(environment);
@@ -152,7 +150,7 @@ public class DeploymentPrerequisiteValidatorTests
         var environment = CreateTestEnvironment();
         var organization = CreateInactiveOrganization(environment.OrganizationId);
         var user = CreateAuthorizedUser(organization.Id);
-        var stack = CreateTestStack();
+        var stack = CreateTestStackInfo();
         var variables = new Dictionary<string, string> { { "DB_HOST", "localhost" } };
 
         SetupRepositories(environment, organization);
@@ -176,7 +174,7 @@ public class DeploymentPrerequisiteValidatorTests
         var environment = CreateTestEnvironment();
         var organization = CreateActiveOrganization(environment.OrganizationId);
         var user = CreateDisabledUser(organization.Id);
-        var stack = CreateTestStack();
+        var stack = CreateTestStackInfo();
         var variables = new Dictionary<string, string> { { "DB_HOST", "localhost" } };
 
         SetupRepositories(environment, organization);
@@ -196,7 +194,7 @@ public class DeploymentPrerequisiteValidatorTests
         var environment = CreateTestEnvironment();
         var organization = CreateActiveOrganization(environment.OrganizationId);
         var user = CreateTestUser(); // No org membership
-        var stack = CreateTestStack();
+        var stack = CreateTestStackInfo();
         var variables = new Dictionary<string, string> { { "DB_HOST", "localhost" } };
 
         SetupRepositories(environment, organization);
@@ -220,7 +218,7 @@ public class DeploymentPrerequisiteValidatorTests
         var environment = CreateTestEnvironment();
         var organization = CreateActiveOrganization(environment.OrganizationId);
         var user = CreateAuthorizedUser(organization.Id);
-        var stack = CreateStackWithRequiredVariables();
+        var stack = CreateStackInfoWithRequiredVariables();
         var variables = new Dictionary<string, string>(); // Missing required variable
 
         SetupRepositories(environment, organization);
@@ -240,7 +238,7 @@ public class DeploymentPrerequisiteValidatorTests
         var environment = CreateTestEnvironment();
         var organization = CreateActiveOrganization(environment.OrganizationId);
         var user = CreateAuthorizedUser(organization.Id);
-        var stack = CreateStackWithRequiredVariables();
+        var stack = CreateStackInfoWithRequiredVariables();
         var variables = new Dictionary<string, string> { { "DB_HOST", "" } }; // Empty value
 
         SetupRepositories(environment, organization);
@@ -260,7 +258,7 @@ public class DeploymentPrerequisiteValidatorTests
         var environment = CreateTestEnvironment();
         var organization = CreateActiveOrganization(environment.OrganizationId);
         var user = CreateAuthorizedUser(organization.Id);
-        var stack = CreateStackWithPortVariable();
+        var stack = CreateStackInfoWithPortVariable();
         var variables = new Dictionary<string, string> { { "PORT", "invalid" } }; // Invalid port
 
         SetupRepositories(environment, organization);
@@ -280,7 +278,7 @@ public class DeploymentPrerequisiteValidatorTests
         var environment = CreateTestEnvironment();
         var organization = CreateActiveOrganization(environment.OrganizationId);
         var user = CreateAuthorizedUser(organization.Id);
-        var stack = CreateStackWithOptionalVariables();
+        var stack = CreateStackInfoWithOptionalVariables();
         var variables = new Dictionary<string, string>(); // Optional variables not provided
 
         SetupRepositories(environment, organization);
@@ -303,7 +301,7 @@ public class DeploymentPrerequisiteValidatorTests
         var environment = CreateTestEnvironment();
         var organization = CreateActiveOrganization(environment.OrganizationId);
         var user = CreateAuthorizedUser(organization.Id);
-        var stack = CreateStackWithNoServices();
+        var stack = CreateStackInfoWithNoServices();
         var variables = new Dictionary<string, string>();
 
         SetupRepositories(environment, organization);
@@ -327,7 +325,7 @@ public class DeploymentPrerequisiteValidatorTests
         var environment = CreateTestEnvironment();
         var organization = CreateInactiveOrganization(environment.OrganizationId);
         var user = CreateDisabledUser(organization.Id); // Wrong org
-        var stack = CreateStackWithRequiredVariables();
+        var stack = CreateStackInfoWithRequiredVariables();
         var variables = new Dictionary<string, string>(); // Missing variables
 
         SetupRepositories(environment, organization);
@@ -493,56 +491,122 @@ public class DeploymentPrerequisiteValidatorTests
         return user;
     }
 
-    private static StackDefinition CreateTestStack()
+    /// <summary>
+    /// Creates a StackValidationInfo with optional variable that has default value.
+    /// </summary>
+    private static StackValidationInfo CreateTestStackInfo()
     {
-        return new StackDefinition(
-            sourceId: "local",
-            name: "test-stack",
-            yamlContent: "services:\n  web:\n    image: nginx",
-            variables: new[] { new StackVariable("DB_HOST", "localhost") },
-            services: new[] { "web" });
+        return new StackValidationInfo
+        {
+            StackId = "local:test-stack",
+            RequiredVariables = [],
+            Variables =
+            [
+                new VariableValidationInfo
+                {
+                    Name = "DB_HOST",
+                    Label = "Database Host",
+                    IsRequired = false,
+                    Validate = _ => []
+                }
+            ],
+            ServiceNames = ["web"]
+        };
     }
 
-    private static StackDefinition CreateStackWithRequiredVariables()
+    /// <summary>
+    /// Creates a StackValidationInfo with required variable (no default).
+    /// </summary>
+    private static StackValidationInfo CreateStackInfoWithRequiredVariables()
     {
-        return new StackDefinition(
-            sourceId: "local",
-            name: "test-stack",
-            yamlContent: "services:\n  web:\n    image: nginx",
-            variables: new[] { new StackVariable("DB_HOST") }, // No default = required
-            services: new[] { "web" });
+        return new StackValidationInfo
+        {
+            StackId = "local:test-stack",
+            RequiredVariables = [new RequiredVariableInfo("DB_HOST", "Database Host")],
+            Variables =
+            [
+                new VariableValidationInfo
+                {
+                    Name = "DB_HOST",
+                    Label = "Database Host",
+                    IsRequired = true,
+                    Validate = _ => []
+                }
+            ],
+            ServiceNames = ["web"]
+        };
     }
 
-    private static StackDefinition CreateStackWithOptionalVariables()
+    /// <summary>
+    /// Creates a StackValidationInfo with optional variables.
+    /// </summary>
+    private static StackValidationInfo CreateStackInfoWithOptionalVariables()
     {
-        return new StackDefinition(
-            sourceId: "local",
-            name: "test-stack",
-            yamlContent: "services:\n  web:\n    image: nginx",
-            variables: new[] { new StackVariable("LOG_LEVEL", "info") }, // Has default = optional
-            services: new[] { "web" });
+        return new StackValidationInfo
+        {
+            StackId = "local:test-stack",
+            RequiredVariables = [],
+            Variables =
+            [
+                new VariableValidationInfo
+                {
+                    Name = "LOG_LEVEL",
+                    Label = "Log Level",
+                    IsRequired = false,
+                    Validate = _ => []
+                }
+            ],
+            ServiceNames = ["web"]
+        };
     }
 
-    private static StackDefinition CreateStackWithPortVariable()
+    /// <summary>
+    /// Creates a StackValidationInfo with a port variable that validates numeric input.
+    /// </summary>
+    private static StackValidationInfo CreateStackInfoWithPortVariable()
     {
-        return new StackDefinition(
-            sourceId: "local",
-            name: "test-stack",
-            yamlContent: "services:\n  web:\n    image: nginx",
-            variables: new[]
-            {
-                new StackVariable("PORT", null, "Port number", VariableType.Port)
-            },
-            services: new[] { "web" });
+        return new StackValidationInfo
+        {
+            StackId = "local:test-stack",
+            RequiredVariables = [],
+            Variables =
+            [
+                new VariableValidationInfo
+                {
+                    Name = "PORT",
+                    Label = "Port",
+                    IsRequired = false,
+                    Validate = value =>
+                    {
+                        if (string.IsNullOrWhiteSpace(value))
+                            return [];
+
+                        if (!int.TryParse(value, out var port))
+                            return ["Port must be a valid number."];
+
+                        if (port < 1 || port > 65535)
+                            return ["Port must be between 1 and 65535."];
+
+                        return [];
+                    }
+                }
+            ],
+            ServiceNames = ["web"]
+        };
     }
 
-    private static StackDefinition CreateStackWithNoServices()
+    /// <summary>
+    /// Creates a StackValidationInfo with no services.
+    /// </summary>
+    private static StackValidationInfo CreateStackInfoWithNoServices()
     {
-        return new StackDefinition(
-            sourceId: "local",
-            name: "test-stack",
-            yamlContent: "services: {}",
-            services: Array.Empty<string>());
+        return new StackValidationInfo
+        {
+            StackId = "local:test-stack",
+            RequiredVariables = [],
+            Variables = [],
+            ServiceNames = []
+        };
     }
 
     #endregion

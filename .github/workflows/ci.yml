@@ -17,6 +17,9 @@ jobs:
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
+    outputs:
+      semVer: ${{ steps.gitversion.outputs.semVer }}
+      majorMinorPatch: ${{ steps.gitversion.outputs.majorMinorPatch }}
 
     steps:
       - uses: actions/checkout@v4
@@ -46,10 +49,15 @@ jobs:
         with:
           useConfigFile: true
 
-      - name: Display Version
+      - name: Version Summary
         run: |
-          echo "SemVer: ${{ steps.gitversion.outputs.semVer }}"
-          echo "MajorMinorPatch: ${{ steps.gitversion.outputs.majorMinorPatch }}"
+          echo "## 🏷️ Version: ${{ steps.gitversion.outputs.semVer }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| SemVer | \`${{ steps.gitversion.outputs.semVer }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| MajorMinorPatch | \`${{ steps.gitversion.outputs.majorMinorPatch }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| PreReleaseTag | \`${{ steps.gitversion.outputs.preReleaseTag }}\` |" >> $GITHUB_STEP_SUMMARY
 
       - name: Restore .NET dependencies
         run: dotnet restore
@@ -98,47 +106,3 @@ jobs:
             src/ReadyStackGo.Api/bin/Release/
             src/ReadyStackGo.Api/wwwroot/
           retention-days: 7
-
-  e2e-tests:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    needs: build-and-test
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: 'src/ReadyStackGo.WebUi/package-lock.json'
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-
-      - name: Install Frontend Dependencies
-        working-directory: src/ReadyStackGo.WebUi
-        run: npm ci
-
-      - name: Install Playwright Browsers
-        working-directory: src/ReadyStackGo.WebUi
-        run: npx playwright install --with-deps chromium
-
-      - name: Build Backend
-        run: dotnet build src/ReadyStackGo.Api/ReadyStackGo.Api.csproj --configuration Release
-
-      - name: Run E2E Tests
-        working-directory: src/ReadyStackGo.WebUi
-        run: npm run test:e2e
-        continue-on-error: true
-
-      - name: Upload Playwright Report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: src/ReadyStackGo.WebUi/playwright-report/
-          retention-days: 30

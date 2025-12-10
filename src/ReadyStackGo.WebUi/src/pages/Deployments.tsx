@@ -73,12 +73,12 @@ export default function Deployments() {
     loadDeployments();
   }, [loadDeployments]);
 
-  const handleRemove = async (stackName: string) => {
-    if (!activeEnvironment) return;
+  const handleRemove = async (deploymentId: string) => {
+    if (!activeEnvironment || !deploymentId) return;
 
     try {
-      setActionLoading(stackName);
-      await removeDeployment(activeEnvironment.id, stackName);
+      setActionLoading(deploymentId);
+      await removeDeployment(activeEnvironment.id, deploymentId);
       await loadDeployments();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to remove deployment");
@@ -204,7 +204,7 @@ export default function Deployments() {
                   deployment={deployment}
                   health={health}
                   onRemove={handleRemove}
-                  isRemoving={actionLoading === deployment.stackName}
+                  isRemoving={actionLoading === deployment.deploymentId}
                   formatDate={formatDate}
                 />
               );
@@ -219,7 +219,7 @@ export default function Deployments() {
 interface DeploymentRowProps {
   deployment: DeploymentSummary;
   health?: StackHealthSummaryDto;
-  onRemove: (stackName: string) => void;
+  onRemove: (deploymentId: string) => void;
   isRemoving: boolean;
   formatDate: (date: string) => string;
 }
@@ -285,7 +285,7 @@ function DeploymentRow({ deployment, health, onRemove, isRemoving, formatDate }:
             Details
           </Link>
           <button
-            onClick={() => onRemove(deployment.stackName)}
+            onClick={() => deployment.deploymentId && onRemove(deployment.deploymentId)}
             disabled={isRemoving}
             className="inline-flex items-center justify-center rounded bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
           >

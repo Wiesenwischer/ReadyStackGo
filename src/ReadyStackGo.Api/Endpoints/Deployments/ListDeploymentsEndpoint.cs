@@ -30,7 +30,7 @@ public class ListDeploymentsEndpoint : Endpoint<ListDeploymentsRequest, ListDepl
 
     public override void Configure()
     {
-        Get("/api/deployments/{environmentId}");
+        Get("/api/environments/{environmentId}/deployments");
         PreProcessor<RbacPreProcessor<ListDeploymentsRequest>>();
     }
 

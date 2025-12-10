@@ -16,6 +16,7 @@ public class RemoveDeploymentRequest
 
 /// <summary>
 /// Removes a deployment. Requires Deployments.Delete permission.
+/// DELETE /api/environments/{environmentId}/deployments/{deploymentId}
 /// Accessible by: SystemAdmin, OrganizationOwner, Operator (scoped).
 /// </summary>
 [RequirePermission("Deployments", "Delete")]
@@ -30,17 +31,17 @@ public class RemoveDeploymentEndpoint : Endpoint<RemoveDeploymentRequest, Deploy
 
     public override void Configure()
     {
-        Delete("/api/deployments/{environmentId}/{stackName}");
+        Delete("/api/environments/{environmentId}/deployments/{deploymentId}");
         PreProcessor<RbacPreProcessor<RemoveDeploymentRequest>>();
     }
 
     public override async Task HandleAsync(RemoveDeploymentRequest req, CancellationToken ct)
     {
         var environmentId = Route<string>("environmentId")!;
-        var stackName = Route<string>("stackName")!;
+        var deploymentId = Route<string>("deploymentId")!;
         req.EnvironmentId = environmentId;
 
-        var response = await _mediator.Send(new RemoveDeploymentCommand(environmentId, stackName), ct);
+        var response = await _mediator.Send(new RemoveDeploymentByIdCommand(environmentId, deploymentId), ct);
 
         if (!response.Success)
         {

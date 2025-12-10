@@ -66,12 +66,12 @@ export default function Stacks() {
     loadProducts();
   }, [loadDeployments, loadProducts]);
 
-  const handleRemove = async (stackName: string) => {
-    if (!activeEnvironment) return;
+  const handleRemove = async (deploymentId: string) => {
+    if (!activeEnvironment || !deploymentId) return;
 
     try {
-      setActionLoading(stackName);
-      await removeDeployment(activeEnvironment.id, stackName);
+      setActionLoading(deploymentId);
+      await removeDeployment(activeEnvironment.id, deploymentId);
       await loadDeployments();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to remove deployment");
@@ -280,11 +280,11 @@ export default function Stacks() {
 
                   <div className="col-span-1 flex items-center">
                     <button
-                      onClick={() => handleRemove(deployment.stackName)}
-                      disabled={actionLoading === deployment.stackName}
+                      onClick={() => deployment.deploymentId && handleRemove(deployment.deploymentId)}
+                      disabled={!deployment.deploymentId || actionLoading === deployment.deploymentId}
                       className="inline-flex items-center justify-center rounded bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {actionLoading === deployment.stackName ? "..." : "Remove"}
+                      {actionLoading === deployment.deploymentId ? "..." : "Remove"}
                     </button>
                   </div>
                 </div>

@@ -54,8 +54,12 @@ public class DeploymentRepository : IDeploymentRepository
     public Deployment? GetByStackName(EnvironmentId environmentId, string stackName)
     {
         // Owned entities (Services) are loaded automatically by EF Core
+        // Return the most recent non-removed deployment with this stack name
         return _context.Deployments
-            .FirstOrDefault(d => d.EnvironmentId == environmentId && d.StackName == stackName);
+            .Where(d => d.EnvironmentId == environmentId && d.StackName == stackName)
+            .Where(d => d.Status != DeploymentStatus.Removed)
+            .OrderByDescending(d => d.CreatedAt)
+            .FirstOrDefault();
     }
 
     public void Remove(Deployment deployment)

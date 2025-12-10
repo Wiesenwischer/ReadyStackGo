@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.UseCases.Deployments.ChangeOperationMode;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
@@ -37,6 +38,10 @@ public class MaintenanceObserverE2ETests
         _observerFactory = Substitute.For<IMaintenanceObserverFactory>();
         _mediator = Substitute.For<ISender>();
         _logger = Substitute.For<ILogger<MaintenanceObserverService>>();
+
+        // Setup default MediatR response for ChangeOperationModeCommand
+        _mediator.Send(Arg.Any<ChangeOperationModeCommand>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo => new ChangeOperationModeResponse { Success = true });
     }
 
     private MaintenanceObserverService CreateService()
@@ -111,13 +116,13 @@ public class MaintenanceObserverE2ETests
             maintenanceObserver: maintenanceObserver);
 
         _stackSourceService.GetStacksAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IEnumerable<StackDefinition>>(new List<StackDefinition> { stackDefinition }));
+            .Returns(new List<StackDefinition> { stackDefinition });
 
         // Setup observer to return maintenance mode
         var observer = Substitute.For<IMaintenanceObserver>();
         observer.Type.Returns(ObserverType.Http);
         observer.CheckAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(ObserverResult.MaintenanceRequired("maintenance")));
+            .Returns(ObserverResult.MaintenanceRequired("maintenance"));
 
         _observerFactory.Create(Arg.Any<MaintenanceObserverConfig>()).Returns(observer);
 
@@ -172,7 +177,7 @@ public class MaintenanceObserverE2ETests
             maintenanceObserver: maintenanceObserver);
 
         _stackSourceService.GetStacksAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IEnumerable<StackDefinition>>(new List<StackDefinition> { stackDefinition }));
+            .Returns(new List<StackDefinition> { stackDefinition });
 
         // Setup observer - first returns maintenance, then normal
         var observer = Substitute.For<IMaintenanceObserver>();
@@ -183,9 +188,9 @@ public class MaintenanceObserverE2ETests
             .Returns(callInfo =>
             {
                 callCount++;
-                return Task.FromResult(callCount == 1
+                return callCount == 1
                     ? ObserverResult.MaintenanceRequired("maintenance")
-                    : ObserverResult.NormalOperation("normal"));
+                    : ObserverResult.NormalOperation("normal");
             });
 
         _observerFactory.Create(Arg.Any<MaintenanceObserverConfig>()).Returns(observer);
@@ -267,13 +272,13 @@ public class MaintenanceObserverE2ETests
         var stack3 = new StackDefinition("source", "background-worker", "yaml3"); // No observer
 
         _stackSourceService.GetStacksAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IEnumerable<StackDefinition>>(new List<StackDefinition> { stack1, stack2, stack3 }));
+            .Returns(new List<StackDefinition> { stack1, stack2, stack3 });
 
         // Setup observer - returns normal for all
         var observer = Substitute.For<IMaintenanceObserver>();
         observer.Type.Returns(ObserverType.Http);
         observer.CheckAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(ObserverResult.NormalOperation("false")));
+            .Returns(ObserverResult.NormalOperation("false"));
 
         _observerFactory.Create(Arg.Any<MaintenanceObserverConfig>()).Returns(observer);
 

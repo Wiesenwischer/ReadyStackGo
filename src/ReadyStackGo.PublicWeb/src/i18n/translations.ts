@@ -187,5 +187,5 @@ export function t(lang: Lang, key: keyof (typeof translations)['de']): string {
 }
 
 export function getDocsPath(lang: Lang): string {
-	return `/${lang}/docs/stack-deployment/`;
+	return `/${lang}/docs/`;
 }
