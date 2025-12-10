@@ -290,7 +290,7 @@ public class RsgoManifestParser : IRsgoManifestParser
                 manifest.Services,
                 manifest.Networks,
                 manifest.Volumes,
-                manifest.Metadata?.ProductVersion ?? stackName,
+                manifest.Metadata?.ProductVersion ?? "unspecified",
                 resolvedVariables,
                 stackName);
         }
@@ -330,7 +330,7 @@ public class RsgoManifestParser : IRsgoManifestParser
             stackEntry.Services,
             stackEntry.Networks,
             stackEntry.Volumes,
-            manifest.Metadata?.ProductVersion ?? stackName,
+            manifest.Metadata?.ProductVersion ?? "unspecified",
             resolvedVariables,
             stackName);
     }
