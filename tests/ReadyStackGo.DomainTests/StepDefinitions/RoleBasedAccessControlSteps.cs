@@ -6,13 +6,6 @@ using ReadyStackGo.DomainTests.Support;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Roles;
 using ReadyStackGo.Domain.IdentityAccess.Users;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
-using ReadyStackGo.Domain.IdentityAccess.Users;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
-using ReadyStackGo.Domain.IdentityAccess.Roles;
-using ReadyStackGo.Domain.IdentityAccess.Users;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
-using ReadyStackGo.Domain.IdentityAccess.Users;
 
 [Binding]
 public class RoleBasedAccessControlSteps
@@ -27,14 +20,14 @@ public class RoleBasedAccessControlSteps
     [Given(@"environment ""(.*)"" exists in ""(.*)""")]
     public void GivenEnvironmentExistsIn(string envName, string orgName)
     {
-        var tenant = _context.Tenants.GetValueOrDefault(orgName);
-        if (tenant == null)
+        var organization = _context.Organizations.GetValueOrDefault(orgName);
+        if (organization == null)
         {
-            var tenantId = _context.TenantRepository.NextIdentity();
-            tenant = Tenant.Provision(tenantId, orgName, "Test organization");
-            tenant.Activate();
-            _context.TenantRepository.Add(tenant);
-            _context.Tenants[orgName] = tenant;
+            var organizationId = _context.OrganizationRepository.NextIdentity();
+            organization = Organization.Provision(organizationId, orgName, "Test organization");
+            organization.Activate();
+            _context.OrganizationRepository.Add(organization);
+            _context.Organizations[orgName] = organization;
         }
 
         // Store environment with a generated ID (in real impl, this would be an Environment aggregate)
@@ -45,18 +38,20 @@ public class RoleBasedAccessControlSteps
     [Given(@"user ""(.*)"" is SystemAdmin")]
     public void GivenUserIsSystemAdmin(string username)
     {
-        var tenant = _context.Tenants.Values.FirstOrDefault()
-            ?? throw new InvalidOperationException("No tenant exists");
+        var organization = _context.Organizations.Values.FirstOrDefault()
+            ?? throw new InvalidOperationException("No organization exists");
 
-        var user = CreateOrGetUser(username, tenant.Id);
+        var user = CreateOrGetUser(username);
         user.AssignRole(RoleAssignment.Global(RoleId.SystemAdmin));
     }
 
     [Given(@"user ""(.*)"" exists in ""(.*)""")]
     public void GivenUserExistsIn(string username, string orgName)
     {
-        var tenant = _context.Tenants[orgName];
-        CreateOrGetUser(username, tenant.Id);
+        var organization = _context.Organizations[orgName];
+        var user = CreateOrGetUser(username);
+        // Assign a basic role to associate user with organization
+        user.AssignRole(RoleAssignment.ForOrganization(RoleId.Viewer, organization.Id.Value.ToString()));
     }
 
     [Given(@"user ""(.*)"" has role ""(.*)"" for environment ""(.*)""")]
@@ -72,9 +67,9 @@ public class RoleBasedAccessControlSteps
     public void GivenUserHasRoleForOrganization(string username, string roleName, string orgName)
     {
         var user = _context.Users[username];
-        var tenant = _context.Tenants[orgName];
+        var organization = _context.Organizations[orgName];
         var roleId = new RoleId(roleName);
-        user.AssignRole(RoleAssignment.ForOrganization(roleId, tenant.Id.Value.ToString()));
+        user.AssignRole(RoleAssignment.ForOrganization(roleId, organization.Id.Value.ToString()));
     }
 
     [Then(@"user ""(.*)"" should have permission ""(.*)"" with global scope")]
@@ -102,10 +97,10 @@ public class RoleBasedAccessControlSteps
     public void ThenUserShouldHavePermissionForOrganization(string username, string permissionString, string orgName)
     {
         var user = _context.Users[username];
-        var tenant = _context.Tenants[orgName];
+        var organization = _context.Organizations[orgName];
         var permission = Permission.Parse(permissionString);
 
-        var hasPermission = CheckUserPermission(user, permission, ScopeType.Organization, tenant.Id.Value.ToString());
+        var hasPermission = CheckUserPermission(user, permission, ScopeType.Organization, organization.Id.Value.ToString());
         hasPermission.Should().BeTrue($"User '{username}' should have permission '{permissionString}' for organization '{orgName}'");
     }
 
@@ -123,14 +118,14 @@ public class RoleBasedAccessControlSteps
     public void ThenUserShouldNotHavePermissionForOrganization(string username, string permissionString, string orgName)
     {
         var user = _context.Users[username];
-        var tenant = _context.Tenants[orgName];
+        var organization = _context.Organizations[orgName];
         var permission = Permission.Parse(permissionString);
 
-        var hasPermission = CheckUserPermission(user, permission, ScopeType.Organization, tenant.Id.Value.ToString());
+        var hasPermission = CheckUserPermission(user, permission, ScopeType.Organization, organization.Id.Value.ToString());
         hasPermission.Should().BeFalse($"User '{username}' should NOT have permission '{permissionString}' for organization '{orgName}'");
     }
 
-    private User CreateOrGetUser(string username, TenantId tenantId)
+    private User CreateOrGetUser(string username)
     {
         if (_context.Users.TryGetValue(username, out var existingUser))
         {
@@ -140,7 +135,7 @@ public class RoleBasedAccessControlSteps
         var userId = _context.UserRepository.NextIdentity();
         var email = new EmailAddress($"{username}@test.com");
         var password = HashedPassword.Create("TestPass123!", _context.PasswordHasher);
-        var user = User.Register(userId, tenantId, username, email, password);
+        var user = User.Register(userId, username, email, password);
         _context.UserRepository.Add(user);
         _context.Users[username] = user;
         return user;

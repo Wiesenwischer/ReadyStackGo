@@ -376,6 +376,35 @@ volumes:
         result.Should().NotBeNull();
     }
 
+    [Fact]
+    public async Task POST_DeployCompose_ReturnsDeploymentSessionId()
+    {
+        // Arrange
+        var environmentId = await CreateTestEnvironment("SessionId Test Environment");
+
+        var request = new
+        {
+            stackName = "session-test-stack",
+            yamlContent = SimpleComposeYaml,
+            variables = new Dictionary<string, string>()
+        };
+
+        // Act
+        var response = await Client.PostAsJsonAsync($"/api/deployments/{environmentId}", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<DeployComposeResponseSimple>();
+        result.Should().NotBeNull();
+
+        // DeploymentSessionId should be set for SignalR progress tracking
+        result!.DeploymentSessionId.Should().NotBeNullOrEmpty(
+            "Response should include a DeploymentSessionId for SignalR progress tracking");
+        result.DeploymentSessionId.Should().StartWith("session-test-stack-",
+            "DeploymentSessionId should be prefixed with the stack name");
+    }
+
     #endregion
 
     #region List Deployments
@@ -538,7 +567,8 @@ volumes:
         string? DeploymentId,
         string? StackName,
         List<DeployedServiceInfo>? Services,
-        List<string> Errors
+        List<string> Errors,
+        string? DeploymentSessionId
     );
     private record DeployedServiceInfo(string ServiceName, string? ContainerId, string? Status, List<string>? Ports);
     private record DeploymentSummary(string DeploymentId, string StackName, DateTime DeployedAt, int ServiceCount, string? Status);
@@ -549,7 +579,7 @@ volumes:
 
     // Simplified DTOs for error responses (to avoid JSON deserialization issues)
     private record ParseComposeResponseSimple(bool Success, string? Message);
-    private record DeployComposeResponseSimple(bool Success, string? Message);
+    private record DeployComposeResponseSimple(bool Success, string? Message, string? DeploymentSessionId);
 
     #endregion
 }

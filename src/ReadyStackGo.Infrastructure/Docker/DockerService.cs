@@ -350,7 +350,10 @@ public class DockerService : IDockerService, IDisposable
     }
 
     /// <summary>
-    /// Get authentication config for a Docker image from ~/.docker/config.json
+    /// Get authentication config for a Docker image.
+    /// Priority:
+    /// 1. Environment variables via IConfiguration (Docker:Username, Docker:Password)
+    /// 2. Docker config file (~/.docker/config.json)
     /// </summary>
     private AuthConfig? GetAuthConfigForImage(string image)
     {
@@ -360,94 +363,133 @@ public class DockerService : IDockerService, IDisposable
             var registry = GetRegistryFromImage(image);
             _logger.LogInformation("Looking for credentials for image {Image}, registry: {Registry}", image, registry);
 
-            // Read Docker config file
-            var configPath = GetDockerConfigPath();
-            _logger.LogInformation("Docker config path: {Path}", configPath);
-
-            if (!File.Exists(configPath))
+            // 1. Try environment variables first (via IConfiguration)
+            var authFromEnv = GetAuthConfigFromConfiguration(registry);
+            if (authFromEnv != null)
             {
-                _logger.LogWarning("Docker config file not found at {Path}", configPath);
-                return null;
+                return authFromEnv;
             }
 
-            var configJson = File.ReadAllText(configPath);
-            var config = JsonSerializer.Deserialize<DockerConfigFile>(configJson);
-
-            // Log available registries
-            if (config?.Auths != null)
-            {
-                _logger.LogInformation("Available registries in config: {Registries}", string.Join(", ", config.Auths.Keys));
-            }
-            else
-            {
-                _logger.LogWarning("No auths section found in Docker config");
-                return null;
-            }
-
-            DockerAuthEntry? auth = null;
-            string? foundRegistry = null;
-
-            // Try exact match first
-            if (config.Auths.TryGetValue(registry, out auth))
-            {
-                foundRegistry = registry;
-            }
-            // Try with https:// prefix
-            else if (config.Auths.TryGetValue($"https://{registry}", out auth))
-            {
-                foundRegistry = $"https://{registry}";
-            }
-            // For Docker Hub, also try without /v1/
-            else if (registry == "https://index.docker.io/v1/" && config.Auths.TryGetValue("https://index.docker.io/v1", out auth))
-            {
-                foundRegistry = "https://index.docker.io/v1";
-            }
-
-            if (auth == null)
-            {
-                _logger.LogWarning("No credentials found for registry {Registry}", registry);
-                return null;
-            }
-
-            _logger.LogInformation("Found credentials for registry {Registry}", foundRegistry);
-
-            // Docker stores credentials as base64(username:password)
-            if (!string.IsNullOrEmpty(auth.Auth))
-            {
-                var decoded = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(auth.Auth));
-                var parts = decoded.Split(':', 2);
-                if (parts.Length == 2)
-                {
-                    _logger.LogInformation("Using credentials for user {Username}", parts[0]);
-                    return new AuthConfig
-                    {
-                        Username = parts[0],
-                        Password = parts[1],
-                        ServerAddress = registry
-                    };
-                }
-            }
-
-            // Fallback to username/password if stored directly
-            if (!string.IsNullOrEmpty(auth.Username))
-            {
-                _logger.LogInformation("Using direct credentials for user {Username}", auth.Username);
-                return new AuthConfig
-                {
-                    Username = auth.Username,
-                    Password = auth.Password,
-                    ServerAddress = registry
-                };
-            }
-
-            _logger.LogWarning("Auth entry found but no credentials could be extracted");
-            return null;
+            // 2. Fallback to Docker config file
+            return GetAuthConfigFromDockerConfig(image, registry);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to read Docker credentials for image {Image}", image);
             return null;
         }
+    }
+
+    /// <summary>
+    /// Get authentication config from IConfiguration (environment variables or appsettings).
+    /// Supports: Docker:Username/Docker:Password or DOCKER__USERNAME/DOCKER__PASSWORD
+    /// </summary>
+    private AuthConfig? GetAuthConfigFromConfiguration(string registry)
+    {
+        var username = _configuration["Docker:Username"];
+        var password = _configuration["Docker:Password"];
+
+        if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
+        {
+            _logger.LogInformation("Using Docker credentials from configuration for user {Username}", username);
+            return new AuthConfig
+            {
+                Username = username,
+                Password = password,
+                ServerAddress = registry
+            };
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Get authentication config from ~/.docker/config.json
+    /// </summary>
+    private AuthConfig? GetAuthConfigFromDockerConfig(string image, string registry)
+    {
+        // Read Docker config file
+        var configPath = GetDockerConfigPath();
+        _logger.LogInformation("Docker config path: {Path}", configPath);
+
+        if (!File.Exists(configPath))
+        {
+            _logger.LogWarning("Docker config file not found at {Path}", configPath);
+            return null;
+        }
+
+        var configJson = File.ReadAllText(configPath);
+        var config = JsonSerializer.Deserialize<DockerConfigFile>(configJson);
+
+        // Log available registries
+        if (config?.Auths != null)
+        {
+            _logger.LogInformation("Available registries in config: {Registries}", string.Join(", ", config.Auths.Keys));
+        }
+        else
+        {
+            _logger.LogWarning("No auths section found in Docker config");
+            return null;
+        }
+
+        DockerAuthEntry? auth = null;
+        string? foundRegistry = null;
+
+        // Try exact match first
+        if (config.Auths.TryGetValue(registry, out auth))
+        {
+            foundRegistry = registry;
+        }
+        // Try with https:// prefix
+        else if (config.Auths.TryGetValue($"https://{registry}", out auth))
+        {
+            foundRegistry = $"https://{registry}";
+        }
+        // For Docker Hub, also try without /v1/
+        else if (registry == "https://index.docker.io/v1/" && config.Auths.TryGetValue("https://index.docker.io/v1", out auth))
+        {
+            foundRegistry = "https://index.docker.io/v1";
+        }
+
+        if (auth == null)
+        {
+            _logger.LogWarning("No credentials found for registry {Registry}", registry);
+            return null;
+        }
+
+        _logger.LogInformation("Found credentials for registry {Registry}", foundRegistry);
+
+        // Docker stores credentials as base64(username:password)
+        if (!string.IsNullOrEmpty(auth.Auth))
+        {
+            var decoded = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(auth.Auth));
+            var parts = decoded.Split(':', 2);
+            if (parts.Length == 2)
+            {
+                _logger.LogInformation("Using credentials from Docker config for user {Username}", parts[0]);
+                return new AuthConfig
+                {
+                    Username = parts[0],
+                    Password = parts[1],
+                    ServerAddress = registry
+                };
+            }
+        }
+
+        // Fallback to username/password if stored directly
+        if (!string.IsNullOrEmpty(auth.Username))
+        {
+            _logger.LogInformation("Using direct credentials from Docker config for user {Username}", auth.Username);
+            return new AuthConfig
+            {
+                Username = auth.Username,
+                Password = auth.Password,
+                ServerAddress = registry
+            };
+        }
+
+        _logger.LogWarning("Auth entry found but no credentials could be extracted (credential helper in use?)");
+        return null;
     }
 
     /// <summary>

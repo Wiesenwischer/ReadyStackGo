@@ -35,7 +35,7 @@ public class Organization : AggregateRoot<OrganizationId>
         Description = description;
         OwnerId = ownerId;
         Active = false;
-        CreatedAt = DateTime.UtcNow;
+        CreatedAt = SystemClock.UtcNow;
 
         AddDomainEvent(new OrganizationProvisioned(Id, Name));
     }

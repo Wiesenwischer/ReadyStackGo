@@ -1,4 +1,5 @@
 using FluentAssertions;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using ReadyStackGo.Application.Services;
@@ -22,9 +23,9 @@ public class MaintenanceObserverE2ETests
     private readonly IDeploymentRepository _deploymentRepository;
     private readonly IHealthSnapshotRepository _healthSnapshotRepository;
     private readonly IStackSourceService _stackSourceService;
-    private readonly IRsgoManifestParser _manifestParser;
     private readonly IHealthNotificationService _notificationService;
     private readonly IMaintenanceObserverFactory _observerFactory;
+    private readonly ISender _mediator;
     private readonly ILogger<MaintenanceObserverService> _logger;
 
     public MaintenanceObserverE2ETests()
@@ -32,16 +33,41 @@ public class MaintenanceObserverE2ETests
         _deploymentRepository = Substitute.For<IDeploymentRepository>();
         _healthSnapshotRepository = Substitute.For<IHealthSnapshotRepository>();
         _stackSourceService = Substitute.For<IStackSourceService>();
-        _manifestParser = Substitute.For<IRsgoManifestParser>();
         _notificationService = Substitute.For<IHealthNotificationService>();
         _observerFactory = Substitute.For<IMaintenanceObserverFactory>();
+        _mediator = Substitute.For<ISender>();
         _logger = Substitute.For<ILogger<MaintenanceObserverService>>();
+    }
+
+    private MaintenanceObserverService CreateService()
+    {
+        return new MaintenanceObserverService(
+            _observerFactory,
+            _deploymentRepository,
+            _healthSnapshotRepository,
+            _stackSourceService,
+            _notificationService,
+            _mediator,
+            _logger);
     }
 
     private static Deployment CreateRunningDeployment(DeploymentId deploymentId, EnvironmentId environmentId, string stackName)
     {
         var userId = UserId.Create();
         var deployment = Deployment.Start(deploymentId, environmentId, stackName, stackName, userId);
+        deployment.MarkAsRunning(new List<DeployedService>());
+        return deployment;
+    }
+
+    private static Deployment CreateRunningDeploymentWithVariables(
+        DeploymentId deploymentId,
+        EnvironmentId environmentId,
+        string stackName,
+        Dictionary<string, string> variables)
+    {
+        var userId = UserId.Create();
+        var deployment = Deployment.Start(deploymentId, environmentId, stackName, stackName, userId);
+        deployment.SetVariables(variables);
         deployment.MarkAsRunning(new List<DeployedService>());
         return deployment;
     }
@@ -66,30 +92,26 @@ public class MaintenanceObserverE2ETests
         _deploymentRepository.Get(deploymentId).Returns(deployment);
         _deploymentRepository.GetAllActive().Returns(new List<Deployment> { deployment });
 
-        // Setup stack with HTTP observer
+        // Setup stack with HTTP observer - MaintenanceObserver is now directly on StackDefinition
+        var maintenanceObserver = new RsgoMaintenanceObserver
+        {
+            Type = "http",
+            Url = "https://status.mycompany.com/api/maintenance",
+            PollingInterval = "30s",
+            MaintenanceValue = "maintenance",
+            NormalValue = "normal",
+            JsonPath = "status"
+        };
+
         var stackDefinition = new StackDefinition(
             sourceId: "rsgo-stacks",
             name: "prod-api",
             yamlContent: "version: '3'\nservices:\n  api:\n    image: myapp:latest",
-            description: "Production API");
+            description: "Production API",
+            maintenanceObserver: maintenanceObserver);
 
         _stackSourceService.GetStacksAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IEnumerable<StackDefinition>>(new List<StackDefinition> { stackDefinition }));
-
-        var manifest = new RsgoManifest
-        {
-            MaintenanceObserver = new RsgoMaintenanceObserver
-            {
-                Type = "http",
-                Url = "https://status.mycompany.com/api/maintenance",
-                PollingInterval = "30s",
-                MaintenanceValue = "maintenance",
-                NormalValue = "normal",
-                JsonPath = "status"
-            }
-        };
-
-        _manifestParser.ParseAsync(Arg.Any<string>()).Returns(Task.FromResult(manifest));
 
         // Setup observer to return maintenance mode
         var observer = Substitute.For<IMaintenanceObserver>();
@@ -106,14 +128,7 @@ public class MaintenanceObserverE2ETests
             Arg.Do<ObserverResultDto>(dto => notificationsSent.Add(dto)),
             Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
-        var service = new MaintenanceObserverService(
-            _observerFactory,
-            _deploymentRepository,
-            _healthSnapshotRepository,
-            _stackSourceService,
-            _manifestParser,
-            _notificationService,
-            _logger);
+        var service = CreateService();
 
         // Act - run the check cycle (as background service would)
         await service.CheckAllObserversAsync();
@@ -140,27 +155,24 @@ public class MaintenanceObserverE2ETests
 
         _deploymentRepository.Get(deploymentId).Returns(deployment);
 
+        // Setup stack with HTTP observer - MaintenanceObserver is now directly on StackDefinition
+        var maintenanceObserver = new RsgoMaintenanceObserver
+        {
+            Type = "http",
+            Url = "https://status.mycompany.com/api/maintenance",
+            PollingInterval = "1s",
+            MaintenanceValue = "maintenance",
+            NormalValue = "normal"
+        };
+
         var stackDefinition = new StackDefinition(
             sourceId: "rsgo-stacks",
             name: "prod-api",
-            yamlContent: "version: '3'\nservices:\n  api:\n    image: myapp:latest");
+            yamlContent: "version: '3'\nservices:\n  api:\n    image: myapp:latest",
+            maintenanceObserver: maintenanceObserver);
 
         _stackSourceService.GetStacksAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IEnumerable<StackDefinition>>(new List<StackDefinition> { stackDefinition }));
-
-        var manifest = new RsgoManifest
-        {
-            MaintenanceObserver = new RsgoMaintenanceObserver
-            {
-                Type = "http",
-                Url = "https://status.mycompany.com/api/maintenance",
-                PollingInterval = "1s",
-                MaintenanceValue = "maintenance",
-                NormalValue = "normal"
-            }
-        };
-
-        _manifestParser.ParseAsync(Arg.Any<string>()).Returns(Task.FromResult(manifest));
 
         // Setup observer - first returns maintenance, then normal
         var observer = Substitute.For<IMaintenanceObserver>();
@@ -188,14 +200,7 @@ public class MaintenanceObserverE2ETests
             Arg.Do<ObserverResultDto>(dto => notificationsSent.Add(dto)),
             Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
-        var service = new MaintenanceObserverService(
-            _observerFactory,
-            _deploymentRepository,
-            _healthSnapshotRepository,
-            _stackSourceService,
-            _manifestParser,
-            _notificationService,
-            _logger);
+        var service = CreateService();
 
         // Act - first check (maintenance)
         await service.CheckDeploymentObserverAsync(deploymentId);
@@ -238,42 +243,31 @@ public class MaintenanceObserverE2ETests
         _deploymentRepository.Get(deployment2Id).Returns(deployment2);
         _deploymentRepository.Get(deployment3Id).Returns(deployment3);
 
-        // Setup stacks - only first two have observers
-        var stack1 = new StackDefinition("source", "api-service", "yaml1");
-        var stack2 = new StackDefinition("source", "web-frontend", "yaml2");
-        var stack3 = new StackDefinition("source", "background-worker", "yaml3");
+        // Setup stacks - only first two have observers (MaintenanceObserver directly on StackDefinition)
+        var observer1 = new RsgoMaintenanceObserver
+        {
+            Type = "http",
+            Url = "https://status.com/api",
+            PollingInterval = "30s",
+            MaintenanceValue = "true",
+            NormalValue = "false"
+        };
+
+        var observer2 = new RsgoMaintenanceObserver
+        {
+            Type = "http",
+            Url = "https://status.com/web",
+            PollingInterval = "30s",
+            MaintenanceValue = "true",
+            NormalValue = "false"
+        };
+
+        var stack1 = new StackDefinition("source", "api-service", "yaml1", maintenanceObserver: observer1);
+        var stack2 = new StackDefinition("source", "web-frontend", "yaml2", maintenanceObserver: observer2);
+        var stack3 = new StackDefinition("source", "background-worker", "yaml3"); // No observer
 
         _stackSourceService.GetStacksAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IEnumerable<StackDefinition>>(new List<StackDefinition> { stack1, stack2, stack3 }));
-
-        // Manifest with observer for api-service
-        _manifestParser.ParseAsync("yaml1").Returns(Task.FromResult(new RsgoManifest
-        {
-            MaintenanceObserver = new RsgoMaintenanceObserver
-            {
-                Type = "http",
-                Url = "https://status.com/api",
-                PollingInterval = "30s",
-                MaintenanceValue = "true",
-                NormalValue = "false"
-            }
-        }));
-
-        // Manifest with observer for web-frontend
-        _manifestParser.ParseAsync("yaml2").Returns(Task.FromResult(new RsgoManifest
-        {
-            MaintenanceObserver = new RsgoMaintenanceObserver
-            {
-                Type = "http",
-                Url = "https://status.com/web",
-                PollingInterval = "30s",
-                MaintenanceValue = "true",
-                NormalValue = "false"
-            }
-        }));
-
-        // No observer for background-worker
-        _manifestParser.ParseAsync("yaml3").Returns(Task.FromResult(new RsgoManifest()));
 
         // Setup observer - returns normal for all
         var observer = Substitute.For<IMaintenanceObserver>();
@@ -290,14 +284,7 @@ public class MaintenanceObserverE2ETests
             Arg.Any<ObserverResultDto>(),
             Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
-        var service = new MaintenanceObserverService(
-            _observerFactory,
-            _deploymentRepository,
-            _healthSnapshotRepository,
-            _stackSourceService,
-            _manifestParser,
-            _notificationService,
-            _logger);
+        var service = CreateService();
 
         // Act
         await service.CheckAllObserversAsync();
@@ -330,35 +317,30 @@ public class MaintenanceObserverE2ETests
         _deploymentRepository.Get(deploymentId1).Returns(deployment1);
         _deploymentRepository.Get(deploymentId2).Returns(deployment2);
 
-        var stack1 = new StackDefinition("source", "service-a", "yaml1");
-        var stack2 = new StackDefinition("source", "service-b", "yaml2");
+        // Setup stacks with observers - MaintenanceObserver directly on StackDefinition
+        var observerConfig1 = new RsgoMaintenanceObserver
+        {
+            Type = "http",
+            Url = "https://failing-server.com/status",
+            PollingInterval = "30s",
+            MaintenanceValue = "maintenance",
+            NormalValue = "normal"
+        };
+
+        var observerConfig2 = new RsgoMaintenanceObserver
+        {
+            Type = "http",
+            Url = "https://working-server.com/status",
+            PollingInterval = "30s",
+            MaintenanceValue = "maintenance",
+            NormalValue = "normal"
+        };
+
+        var stack1 = new StackDefinition("source", "service-a", "yaml1", maintenanceObserver: observerConfig1);
+        var stack2 = new StackDefinition("source", "service-b", "yaml2", maintenanceObserver: observerConfig2);
 
         _stackSourceService.GetStacksAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IEnumerable<StackDefinition>>(new List<StackDefinition> { stack1, stack2 }));
-
-        _manifestParser.ParseAsync("yaml1").Returns(Task.FromResult(new RsgoManifest
-        {
-            MaintenanceObserver = new RsgoMaintenanceObserver
-            {
-                Type = "http",
-                Url = "https://failing-server.com/status",
-                PollingInterval = "30s",
-                MaintenanceValue = "maintenance",
-                NormalValue = "normal"
-            }
-        }));
-
-        _manifestParser.ParseAsync("yaml2").Returns(Task.FromResult(new RsgoManifest
-        {
-            MaintenanceObserver = new RsgoMaintenanceObserver
-            {
-                Type = "http",
-                Url = "https://working-server.com/status",
-                PollingInterval = "30s",
-                MaintenanceValue = "maintenance",
-                NormalValue = "normal"
-            }
-        }));
 
         // Track which observers were created for each URL
         var failingObserver = Substitute.For<IMaintenanceObserver>();
@@ -386,14 +368,7 @@ public class MaintenanceObserverE2ETests
             Arg.Any<ObserverResultDto>(),
             Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
-        var service = new MaintenanceObserverService(
-            _observerFactory,
-            _deploymentRepository,
-            _healthSnapshotRepository,
-            _stackSourceService,
-            _manifestParser,
-            _notificationService,
-            _logger);
+        var service = CreateService();
 
         // Act - this should not throw even though one observer fails
         await service.CheckAllObserversAsync();
@@ -401,6 +376,186 @@ public class MaintenanceObserverE2ETests
         // Assert - both observers were checked
         await failingObserver.Received(1).CheckAsync(Arg.Any<CancellationToken>());
         await workingObserver.Received(1).CheckAsync(Arg.Any<CancellationToken>());
+    }
+
+    #endregion
+
+    #region Variable Resolution E2E Tests
+
+    [Fact]
+    public async Task E2E_SqlObserver_WithVariablePlaceholder_ResolvesAndCreatesObserver()
+    {
+        // This E2E test simulates the real-world scenario:
+        // 1. Manifest has connectionString: ${AMS_DB}
+        // 2. Deployment has AMS_DB variable with actual connection string
+        // 3. Observer is created with resolved connection string
+
+        // Arrange
+        var deploymentId = DeploymentId.Create();
+        var environmentId = EnvironmentId.Create();
+
+        // Deployment with AMS_DB variable set
+        var variables = new Dictionary<string, string>
+        {
+            ["AMS_DB"] = "Server=sqldev2017;Database=dev-amsproject;User Id=projectuser;Password=projectuser;TrustServerCertificate=true"
+        };
+        var deployment = CreateRunningDeploymentWithVariables(deploymentId, environmentId, "Business Services", variables);
+
+        _deploymentRepository.Get(deploymentId).Returns(deployment);
+        _deploymentRepository.GetAllActive().Returns(new List<Deployment> { deployment });
+
+        // Stack definition with MaintenanceObserver containing ${AMS_DB} placeholder
+        var maintenanceObserver = new RsgoMaintenanceObserver
+        {
+            Type = "sqlExtendedProperty",
+            ConnectionString = "${AMS_DB}",  // Placeholder!
+            PropertyName = "ams.maintenance",
+            PollingInterval = "30s",
+            MaintenanceValue = "1",
+            NormalValue = "0"
+        };
+
+        var stackDefinition = new StackDefinition(
+            sourceId: "rsgo-stacks",
+            name: "Business Services",
+            yamlContent: "yaml-content",
+            description: "AMS Business Services",
+            maintenanceObserver: maintenanceObserver);
+
+        _stackSourceService.GetStacksAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IEnumerable<StackDefinition>>(new List<StackDefinition> { stackDefinition }));
+
+        // Capture the config passed to factory
+        MaintenanceObserverConfig? capturedConfig = null;
+        var observer = Substitute.For<IMaintenanceObserver>();
+        observer.Type.Returns(ObserverType.SqlExtendedProperty);
+        observer.CheckAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(ObserverResult.NormalOperation("0")));
+
+        _observerFactory.Create(Arg.Do<MaintenanceObserverConfig>(c => capturedConfig = c))
+            .Returns(observer);
+
+        _notificationService.NotifyObserverResultAsync(
+            Arg.Any<DeploymentId>(),
+            Arg.Any<string>(),
+            Arg.Any<ObserverResultDto>(),
+            Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+
+        var service = CreateService();
+
+        // Act
+        var result = await service.CheckDeploymentObserverAsync(deploymentId);
+
+        // Assert
+        result.Should().NotBeNull();
+        capturedConfig.Should().NotBeNull();
+        capturedConfig!.Type.Should().Be(ObserverType.SqlExtendedProperty);
+
+        // The key assertion: ${AMS_DB} was resolved to actual connection string
+        var sqlSettings = capturedConfig.Settings as SqlObserverSettings;
+        sqlSettings.Should().NotBeNull();
+        sqlSettings!.ConnectionString.Should().Be("Server=sqldev2017;Database=dev-amsproject;User Id=projectuser;Password=projectuser;TrustServerCertificate=true");
+        sqlSettings.PropertyName.Should().Be("ams.maintenance");
+    }
+
+    [Fact]
+    public async Task E2E_SqlObserver_WithMissingVariable_ReturnsNull()
+    {
+        // Simulates: Manifest has ${AMS_DB} but deployment has no AMS_DB variable
+
+        // Arrange
+        var deploymentId = DeploymentId.Create();
+        var environmentId = EnvironmentId.Create();
+
+        // Deployment WITHOUT the AMS_DB variable
+        var deployment = CreateRunningDeploymentWithVariables(deploymentId, environmentId, "Business Services", new Dictionary<string, string>());
+
+        _deploymentRepository.Get(deploymentId).Returns(deployment);
+
+        // Stack with MaintenanceObserver containing unresolvable placeholder
+        var maintenanceObserver = new RsgoMaintenanceObserver
+        {
+            Type = "sqlExtendedProperty",
+            ConnectionString = "${AMS_DB}",  // Unresolvable!
+            PropertyName = "ams.maintenance",
+            PollingInterval = "30s",
+            MaintenanceValue = "1"
+        };
+
+        var stackDefinition = new StackDefinition("source", "Business Services", "yaml", maintenanceObserver: maintenanceObserver);
+
+        _stackSourceService.GetStacksAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IEnumerable<StackDefinition>>(new List<StackDefinition> { stackDefinition }));
+
+        var service = CreateService();
+
+        // Act
+        var result = await service.CheckDeploymentObserverAsync(deploymentId);
+
+        // Assert - should fail gracefully
+        result.Should().BeNull();
+        _observerFactory.DidNotReceive().Create(Arg.Any<MaintenanceObserverConfig>());
+    }
+
+    [Fact]
+    public async Task E2E_SqlObserver_WithMultipleVariables_ResolvesAll()
+    {
+        // Simulates: connectionString with multiple placeholders
+
+        // Arrange
+        var deploymentId = DeploymentId.Create();
+        var environmentId = EnvironmentId.Create();
+
+        var variables = new Dictionary<string, string>
+        {
+            ["DB_SERVER"] = "sqldev2017",
+            ["DB_NAME"] = "dev-amsproject",
+            ["DB_USER"] = "projectuser",
+            ["DB_PASS"] = "projectuser"
+        };
+        var deployment = CreateRunningDeploymentWithVariables(deploymentId, environmentId, "multi-var-stack", variables);
+
+        _deploymentRepository.Get(deploymentId).Returns(deployment);
+
+        // Stack with MaintenanceObserver containing multiple variable placeholders
+        var maintenanceObserver = new RsgoMaintenanceObserver
+        {
+            Type = "sqlExtendedProperty",
+            ConnectionString = "Server=${DB_SERVER};Database=${DB_NAME};User Id=${DB_USER};Password=${DB_PASS}",
+            PropertyName = "maintenance",
+            PollingInterval = "30s",
+            MaintenanceValue = "1"
+        };
+
+        var stackDefinition = new StackDefinition("source", "multi-var-stack", "yaml", maintenanceObserver: maintenanceObserver);
+
+        _stackSourceService.GetStacksAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IEnumerable<StackDefinition>>(new List<StackDefinition> { stackDefinition }));
+
+        MaintenanceObserverConfig? capturedConfig = null;
+        var observer = Substitute.For<IMaintenanceObserver>();
+        observer.Type.Returns(ObserverType.SqlExtendedProperty);
+        observer.CheckAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(ObserverResult.NormalOperation("0")));
+
+        _observerFactory.Create(Arg.Do<MaintenanceObserverConfig>(c => capturedConfig = c))
+            .Returns(observer);
+
+        _notificationService.NotifyObserverResultAsync(
+            Arg.Any<DeploymentId>(),
+            Arg.Any<string>(),
+            Arg.Any<ObserverResultDto>(),
+            Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+
+        var service = CreateService();
+
+        // Act
+        var result = await service.CheckDeploymentObserverAsync(deploymentId);
+
+        // Assert
+        result.Should().NotBeNull();
+        var sqlSettings = capturedConfig!.Settings as SqlObserverSettings;
+        sqlSettings!.ConnectionString.Should().Be("Server=sqldev2017;Database=dev-amsproject;User Id=projectuser;Password=projectuser");
     }
 
     #endregion
@@ -418,25 +573,21 @@ public class MaintenanceObserverE2ETests
 
         _deploymentRepository.Get(deploymentId).Returns(deployment);
 
-        var stackDefinition = new StackDefinition("source", "json-api", "yaml");
+        // Stack with HTTP observer using nested JSONPath
+        var maintenanceObserver = new RsgoMaintenanceObserver
+        {
+            Type = "http",
+            Url = "https://api.example.com/health",
+            PollingInterval = "30s",
+            MaintenanceValue = "true",
+            NormalValue = "false",
+            JsonPath = "data.maintenance.enabled"  // Nested JSONPath
+        };
+
+        var stackDefinition = new StackDefinition("source", "json-api", "yaml", maintenanceObserver: maintenanceObserver);
 
         _stackSourceService.GetStacksAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IEnumerable<StackDefinition>>(new List<StackDefinition> { stackDefinition }));
-
-        var manifest = new RsgoManifest
-        {
-            MaintenanceObserver = new RsgoMaintenanceObserver
-            {
-                Type = "http",
-                Url = "https://api.example.com/health",
-                PollingInterval = "30s",
-                MaintenanceValue = "true",
-                NormalValue = "false",
-                JsonPath = "data.maintenance.enabled"  // Nested JSONPath
-            }
-        };
-
-        _manifestParser.ParseAsync(Arg.Any<string>()).Returns(Task.FromResult(manifest));
 
         // The actual HTTP observer would extract from JSON like:
         // { "data": { "maintenance": { "enabled": true } } }
@@ -453,14 +604,7 @@ public class MaintenanceObserverE2ETests
             Arg.Any<ObserverResultDto>(),
             Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
-        var service = new MaintenanceObserverService(
-            _observerFactory,
-            _deploymentRepository,
-            _healthSnapshotRepository,
-            _stackSourceService,
-            _manifestParser,
-            _notificationService,
-            _logger);
+        var service = CreateService();
 
         // Act
         var result = await service.CheckDeploymentObserverAsync(deploymentId);
@@ -482,35 +626,23 @@ public class MaintenanceObserverE2ETests
 
         _deploymentRepository.Get(deploymentId).Returns(deployment);
 
-        var stackDefinition = new StackDefinition("source", "db-app", "yaml");
+        // SQL observer without connection string - this should fail validation
+        var maintenanceObserver = new RsgoMaintenanceObserver
+        {
+            Type = "sqlExtendedProperty",
+            PropertyName = "MaintenanceMode",
+            PollingInterval = "30s",
+            MaintenanceValue = "true",
+            NormalValue = "false"
+            // No ConnectionString or ConnectionName - this should fail
+        };
+
+        var stackDefinition = new StackDefinition("source", "db-app", "yaml", maintenanceObserver: maintenanceObserver);
 
         _stackSourceService.GetStacksAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IEnumerable<StackDefinition>>(new List<StackDefinition> { stackDefinition }));
 
-        // SQL observer without connection string
-        var manifest = new RsgoManifest
-        {
-            MaintenanceObserver = new RsgoMaintenanceObserver
-            {
-                Type = "sqlExtendedProperty",
-                PropertyName = "MaintenanceMode",
-                PollingInterval = "30s",
-                MaintenanceValue = "true",
-                NormalValue = "false"
-                // No ConnectionString or ConnectionName - this should fail
-            }
-        };
-
-        _manifestParser.ParseAsync(Arg.Any<string>()).Returns(Task.FromResult(manifest));
-
-        var service = new MaintenanceObserverService(
-            _observerFactory,
-            _deploymentRepository,
-            _healthSnapshotRepository,
-            _stackSourceService,
-            _manifestParser,
-            _notificationService,
-            _logger);
+        var service = CreateService();
 
         // Act
         var result = await service.CheckDeploymentObserverAsync(deploymentId);

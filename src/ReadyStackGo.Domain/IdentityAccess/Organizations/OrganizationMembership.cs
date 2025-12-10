@@ -47,7 +47,7 @@ public sealed class OrganizationMembership : ValueObject
             userId,
             organizationId,
             MembershipStatus.Active,
-            DateTime.UtcNow,
+            SystemClock.UtcNow,
             invitedBy,
             invitationNote);
     }
@@ -67,7 +67,7 @@ public sealed class OrganizationMembership : ValueObject
             userId,
             organizationId,
             MembershipStatus.PendingInvitation,
-            DateTime.UtcNow,
+            SystemClock.UtcNow,
             invitedBy,
             invitationNote);
     }
@@ -104,7 +104,7 @@ public sealed class OrganizationMembership : ValueObject
             JoinedAt,
             InvitedBy,
             InvitationNote);
-        declined.LeftAt = DateTime.UtcNow;
+        declined.LeftAt = SystemClock.UtcNow;
         return declined;
     }
 
@@ -157,7 +157,7 @@ public sealed class OrganizationMembership : ValueObject
             JoinedAt,
             InvitedBy,
             InvitationNote);
-        left.LeftAt = DateTime.UtcNow;
+        left.LeftAt = SystemClock.UtcNow;
         return left;
     }
 
@@ -171,7 +171,7 @@ public sealed class OrganizationMembership : ValueObject
     /// </summary>
     public TimeSpan GetMembershipDuration()
     {
-        var endTime = LeftAt ?? DateTime.UtcNow;
+        var endTime = LeftAt ?? SystemClock.UtcNow;
         return endTime - JoinedAt;
     }
 

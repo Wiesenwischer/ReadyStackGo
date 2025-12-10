@@ -1,9 +1,17 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router';
 import { deployCompose } from '../api/deployments';
 import { useEnvironment } from '../context/EnvironmentContext';
 import { type StackDetail, getStack } from '../api/stacks';
 import VariableInput, { groupVariables } from '../components/variables/VariableInput';
+import { useDeploymentHub, type DeploymentProgressUpdate } from '../hooks/useDeploymentHub';
+
+// Format phase names for display (PullingImages -> Pulling Images)
+const formatPhase = (phase: string | undefined): string => {
+  if (!phase) return '';
+  // Insert space before each capital letter (except the first one)
+  return phase.replace(/([A-Z])/g, ' $1').trim();
+};
 
 // Parse .env file content and return key-value pairs
 const parseEnvContent = (content: string): Record<string, string> => {
@@ -47,6 +55,46 @@ export default function DeployStack() {
   const [error, setError] = useState('');
   const [deployWarnings, setDeployWarnings] = useState<string[]>([]);
   const envFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Deployment progress state
+  // Use ref for session ID to avoid stale closures in SignalR callback
+  const deploymentSessionIdRef = useRef<string | null>(null);
+  const [progressUpdate, setProgressUpdate] = useState<DeploymentProgressUpdate | null>(null);
+  const [isSubscribedToAll, setIsSubscribedToAll] = useState(false);
+
+  // SignalR hub for real-time deployment progress
+  // Use ref to avoid stale closure - the callback may fire before state is updated
+  const handleDeploymentProgress = useCallback((update: DeploymentProgressUpdate) => {
+    // Check against ref (updated synchronously) for immediate filtering
+    const currentSessionId = deploymentSessionIdRef.current;
+    if (currentSessionId && update.deploymentId === currentSessionId) {
+      setProgressUpdate(update);
+
+      // Check if deployment completed (success or error)
+      if (update.isComplete) {
+        if (update.isError) {
+          setError(update.errorMessage || 'Deployment failed');
+          setState('error');
+        } else {
+          setState('success');
+        }
+      }
+    }
+  }, []);
+
+  const { subscribeToAllDeployments, connectionState } = useDeploymentHub({
+    onDeploymentProgress: handleDeploymentProgress,
+  });
+
+  // Subscribe to all deployments as soon as connected (BEFORE deploying)
+  // This ensures we don't miss any progress updates
+  useEffect(() => {
+    if (connectionState === 'connected' && !isSubscribedToAll) {
+      subscribeToAllDeployments()
+        .then(() => setIsSubscribedToAll(true))
+        .catch(console.error);
+    }
+  }, [connectionState, isSubscribedToAll, subscribeToAllDeployments]);
 
   // Load stack details (only if not custom)
   useEffect(() => {
@@ -148,14 +196,20 @@ export default function DeployStack() {
       }
     }
 
+    // Generate session ID BEFORE the API call so we can receive progress updates immediately
+    const sessionId = `${stackName}-${Date.now()}`;
+    deploymentSessionIdRef.current = sessionId;
+
     setState('deploying');
     setError('');
+    setProgressUpdate(null);
 
     try {
       const response = await deployCompose(activeEnvironment.id, {
         stackName,
         yamlContent: isCustomDeploy ? yamlContent : stack!.yamlContent,
         variables: variableValues,
+        sessionId, // Pass the pre-generated session ID to the server
       });
 
       if (!response.success) {
@@ -165,7 +219,11 @@ export default function DeployStack() {
       }
 
       setDeployWarnings(response.warnings || []);
-      setState('success');
+      // State will be set to 'success' by SignalR callback when deployment completes
+      // But if no SignalR connection, set it immediately
+      if (connectionState !== 'connected') {
+        setState('success');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Deployment failed');
       setState('error');
@@ -267,14 +325,68 @@ export default function DeployStack() {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="rounded-2xl border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-white/[0.03]">
-          <div className="flex flex-col items-center py-12">
+          <div className="flex flex-col items-center py-8">
             <div className="w-16 h-16 mb-6 border-4 border-brand-600 border-t-transparent rounded-full animate-spin"></div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
               Deploying Stack...
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Deploying {stackName} to {activeEnvironment?.name}. This may take a few moments.
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Deploying {stackName} to {activeEnvironment?.name}
             </p>
+
+            {/* Progress Section */}
+            <div className="w-full max-w-md">
+              {/* Progress Bar */}
+              <div className="mb-4">
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600 dark:text-gray-400">
+                    {formatPhase(progressUpdate?.phase) || 'Initializing'}
+                  </span>
+                  <span className="text-gray-600 dark:text-gray-400">
+                    {progressUpdate?.progressPercent || 0}%
+                  </span>
+                </div>
+                <div className="h-3 bg-gray-200 rounded-full dark:bg-gray-700 overflow-hidden">
+                  <div
+                    className="h-full bg-brand-600 rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${progressUpdate?.progressPercent || 0}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Status Message */}
+              <div className="text-center">
+                <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                  {progressUpdate?.message || 'Starting deployment...'}
+                </p>
+
+                {/* Service Progress */}
+                {progressUpdate && progressUpdate.totalServices > 0 && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    {progressUpdate.phase === 'PullingImages' ? 'Images' : 'Services'}: {progressUpdate.completedServices} / {progressUpdate.totalServices}
+                    {progressUpdate.currentService && (
+                      <span className="ml-2">
+                        (current: <span className="font-mono">{progressUpdate.currentService}</span>)
+                      </span>
+                    )}
+                  </p>
+                )}
+              </div>
+
+              {/* Connection Status */}
+              <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <span className={`w-2 h-2 rounded-full ${
+                  connectionState === 'connected' ? 'bg-green-500' :
+                  connectionState === 'connecting' ? 'bg-yellow-500' :
+                  connectionState === 'reconnecting' ? 'bg-yellow-500' :
+                  'bg-red-500'
+                }`} />
+                {connectionState === 'connected' ? 'Live updates' :
+                 connectionState === 'connecting' ? 'Connecting...' :
+                 connectionState === 'reconnecting' ? 'Reconnecting...' :
+                 'Updates unavailable'}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -425,7 +537,6 @@ services:
                 <input
                   ref={envFileInputRef}
                   type="file"
-                  accept=".env,.txt"
                   onChange={handleEnvFileImport}
                   className="hidden"
                   id="env-file-input"

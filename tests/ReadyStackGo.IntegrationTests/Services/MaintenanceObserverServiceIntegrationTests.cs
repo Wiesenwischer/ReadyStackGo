@@ -1,11 +1,14 @@
 using FluentAssertions;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.UseCases.Deployments.ChangeOperationMode;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Domain.Deployment.Observers;
+using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Users;
 using ReadyStackGo.Domain.StackManagement.Manifests;
 using ReadyStackGo.Domain.StackManagement.StackSources;
@@ -22,9 +25,9 @@ public class MaintenanceObserverServiceIntegrationTests
     private readonly IDeploymentRepository _deploymentRepository;
     private readonly IHealthSnapshotRepository _healthSnapshotRepository;
     private readonly IStackSourceService _stackSourceService;
-    private readonly IRsgoManifestParser _manifestParser;
     private readonly IHealthNotificationService _notificationService;
     private readonly IMaintenanceObserverFactory _observerFactory;
+    private readonly ISender _mediator;
     private readonly ILogger<MaintenanceObserverService> _logger;
 
     public MaintenanceObserverServiceIntegrationTests()
@@ -32,9 +35,9 @@ public class MaintenanceObserverServiceIntegrationTests
         _deploymentRepository = Substitute.For<IDeploymentRepository>();
         _healthSnapshotRepository = Substitute.For<IHealthSnapshotRepository>();
         _stackSourceService = Substitute.For<IStackSourceService>();
-        _manifestParser = Substitute.For<IRsgoManifestParser>();
         _notificationService = Substitute.For<IHealthNotificationService>();
         _observerFactory = Substitute.For<IMaintenanceObserverFactory>();
+        _mediator = Substitute.For<ISender>();
         _logger = Substitute.For<ILogger<MaintenanceObserverService>>();
     }
 
@@ -45,8 +48,8 @@ public class MaintenanceObserverServiceIntegrationTests
             _deploymentRepository,
             _healthSnapshotRepository,
             _stackSourceService,
-            _manifestParser,
             _notificationService,
+            _mediator,
             _logger);
     }
 
@@ -64,13 +67,14 @@ public class MaintenanceObserverServiceIntegrationTests
         return Deployment.Start(deploymentId, environmentId, stackName, stackName, userId);
     }
 
-    private static StackDefinition CreateStackDefinition(string stackName)
+    private static StackDefinition CreateStackDefinition(string stackName, RsgoMaintenanceObserver? maintenanceObserver = null)
     {
         return new StackDefinition(
             sourceId: "test-source",
             name: stackName,
             yamlContent: "version: '3'\nservices:\n  web:\n    image: nginx",
-            description: "Test Stack");
+            description: "Test Stack",
+            maintenanceObserver: maintenanceObserver);
     }
 
     #region CheckDeploymentObserverAsync
@@ -145,26 +149,20 @@ public class MaintenanceObserverServiceIntegrationTests
 
         _deploymentRepository.Get(deploymentId).Returns(deployment);
 
-        // Setup stack definition
-        var stackDefinition = CreateStackDefinition("test-stack");
+        // Setup stack definition with MaintenanceObserver
+        var maintenanceObserver = new RsgoMaintenanceObserver
+        {
+            Type = "http",
+            Url = "https://api.example.com/status",
+            PollingInterval = "30s",
+            MaintenanceValue = "maintenance",
+            NormalValue = "normal"
+        };
+
+        var stackDefinition = CreateStackDefinition("test-stack", maintenanceObserver);
 
         _stackSourceService.GetStacksAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IEnumerable<StackDefinition>>(new List<StackDefinition> { stackDefinition }));
-
-        // Setup manifest with observer
-        var manifest = new RsgoManifest
-        {
-            MaintenanceObserver = new RsgoMaintenanceObserver
-            {
-                Type = "http",
-                Url = "https://api.example.com/status",
-                PollingInterval = "30s",
-                MaintenanceValue = "maintenance",
-                NormalValue = "normal"
-            }
-        };
-
-        _manifestParser.ParseAsync(Arg.Any<string>()).Returns(Task.FromResult(manifest));
 
         // Setup mock observer
         var observer = Substitute.For<IMaintenanceObserver>();
@@ -173,12 +171,6 @@ public class MaintenanceObserverServiceIntegrationTests
             .Returns(Task.FromResult(ObserverResult.NormalOperation("normal")));
 
         _observerFactory.Create(Arg.Any<MaintenanceObserverConfig>()).Returns(observer);
-
-        _notificationService.NotifyObserverResultAsync(
-            Arg.Any<DeploymentId>(),
-            Arg.Any<string>(),
-            Arg.Any<ObserverResultDto>(),
-            Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
         // Act
         var result = await service.CheckDeploymentObserverAsync(deploymentId);
@@ -191,36 +183,41 @@ public class MaintenanceObserverServiceIntegrationTests
     }
 
     [Fact]
-    public async Task CheckDeploymentObserverAsync_SendsSignalRNotification()
+    public async Task CheckDeploymentObserverAsync_MaintenanceMode_SendsChangeOperationModeCommand()
     {
         // Arrange
         var service = CreateService();
         var deploymentId = DeploymentId.Create();
         var environmentId = EnvironmentId.Create();
 
-        var deployment = CreateRunningDeployment(deploymentId, environmentId, "test-stack");
+        // Create deployment with services that have container IDs
+        var userId = UserId.Create();
+        var deployment = Deployment.Start(deploymentId, environmentId, "test-stack", "test-stack", userId);
+        var services = new List<DeployedService>
+        {
+            new("web", "container-1", "test-stack-web", "nginx:latest", "running"),
+            new("api", "container-2", "test-stack-api", "dotnet:8.0", "running")
+        };
+        deployment.MarkAsRunning(services);
 
         _deploymentRepository.Get(deploymentId).Returns(deployment);
 
-        var stackDefinition = CreateStackDefinition("test-stack");
+        // Setup stack definition with MaintenanceObserver
+        var maintenanceObserver = new RsgoMaintenanceObserver
+        {
+            Type = "http",
+            Url = "https://api.example.com/status",
+            PollingInterval = "30s",
+            MaintenanceValue = "maintenance",
+            NormalValue = "normal"
+        };
+
+        var stackDefinition = CreateStackDefinition("test-stack", maintenanceObserver);
 
         _stackSourceService.GetStacksAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IEnumerable<StackDefinition>>(new List<StackDefinition> { stackDefinition }));
 
-        var manifest = new RsgoManifest
-        {
-            MaintenanceObserver = new RsgoMaintenanceObserver
-            {
-                Type = "http",
-                Url = "https://api.example.com/status",
-                PollingInterval = "30s",
-                MaintenanceValue = "maintenance",
-                NormalValue = "normal"
-            }
-        };
-
-        _manifestParser.ParseAsync(Arg.Any<string>()).Returns(Task.FromResult(manifest));
-
+        // Setup mock observer to return maintenance mode
         var observer = Substitute.For<IMaintenanceObserver>();
         observer.Type.Returns(ObserverType.Http);
         observer.CheckAsync(Arg.Any<CancellationToken>())
@@ -228,20 +225,16 @@ public class MaintenanceObserverServiceIntegrationTests
 
         _observerFactory.Create(Arg.Any<MaintenanceObserverConfig>()).Returns(observer);
 
-        _notificationService.NotifyObserverResultAsync(
-            Arg.Any<DeploymentId>(),
-            Arg.Any<string>(),
-            Arg.Any<ObserverResultDto>(),
-            Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        // No existing health snapshot (current mode is Normal by default)
+        _healthSnapshotRepository.GetLatestForDeployment(deploymentId).Returns((HealthSnapshot?)null);
 
         // Act
         await service.CheckDeploymentObserverAsync(deploymentId);
 
-        // Assert
-        await _notificationService.Received(1).NotifyObserverResultAsync(
-            deploymentId,
-            "test-stack",
-            Arg.Is<ObserverResultDto>(r => r.IsMaintenanceRequired),
+        // Assert - ChangeOperationModeCommand should be sent via MediatR
+        // Note: We verify that Send was called - the actual command content is tested in unit tests
+        await _mediator.Received(1).Send(
+            Arg.Any<ChangeOperationModeCommand>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -275,24 +268,20 @@ public class MaintenanceObserverServiceIntegrationTests
 
         _deploymentRepository.Get(deploymentId).Returns(deployment);
 
-        var stackDefinition = CreateStackDefinition("test-stack");
+        // Setup stack definition with MaintenanceObserver
+        var maintenanceObserver = new RsgoMaintenanceObserver
+        {
+            Type = "http",
+            Url = "https://api.example.com/status",
+            PollingInterval = "30s",
+            MaintenanceValue = "maintenance",
+            NormalValue = "normal"
+        };
+
+        var stackDefinition = CreateStackDefinition("test-stack", maintenanceObserver);
 
         _stackSourceService.GetStacksAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IEnumerable<StackDefinition>>(new List<StackDefinition> { stackDefinition }));
-
-        var manifest = new RsgoManifest
-        {
-            MaintenanceObserver = new RsgoMaintenanceObserver
-            {
-                Type = "http",
-                Url = "https://api.example.com/status",
-                PollingInterval = "30s",
-                MaintenanceValue = "maintenance",
-                NormalValue = "normal"
-            }
-        };
-
-        _manifestParser.ParseAsync(Arg.Any<string>()).Returns(Task.FromResult(manifest));
 
         var expectedResult = ObserverResult.NormalOperation("normal");
         var observer = Substitute.For<IMaintenanceObserver>();
@@ -300,9 +289,6 @@ public class MaintenanceObserverServiceIntegrationTests
         observer.CheckAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(expectedResult));
 
         _observerFactory.Create(Arg.Any<MaintenanceObserverConfig>()).Returns(observer);
-        _notificationService.NotifyObserverResultAsync(
-            Arg.Any<DeploymentId>(), Arg.Any<string>(), Arg.Any<ObserverResultDto>(), Arg.Any<CancellationToken>())
-            .Returns(Task.CompletedTask);
 
         // Perform initial check
         await service.CheckDeploymentObserverAsync(deploymentId);
@@ -389,24 +375,20 @@ public class MaintenanceObserverServiceIntegrationTests
 
         _deploymentRepository.Get(deploymentId).Returns(deployment);
 
-        var stackDefinition = CreateStackDefinition("test-stack");
+        // Setup stack definition with MaintenanceObserver
+        var maintenanceObserver = new RsgoMaintenanceObserver
+        {
+            Type = "http",
+            Url = "https://api.example.com/status",
+            PollingInterval = "1s",
+            MaintenanceValue = "maintenance",
+            NormalValue = "normal"
+        };
+
+        var stackDefinition = CreateStackDefinition("test-stack", maintenanceObserver);
 
         _stackSourceService.GetStacksAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IEnumerable<StackDefinition>>(new List<StackDefinition> { stackDefinition }));
-
-        var manifest = new RsgoManifest
-        {
-            MaintenanceObserver = new RsgoMaintenanceObserver
-            {
-                Type = "http",
-                Url = "https://api.example.com/status",
-                PollingInterval = "1s",
-                MaintenanceValue = "maintenance",
-                NormalValue = "normal"
-            }
-        };
-
-        _manifestParser.ParseAsync(Arg.Any<string>()).Returns(Task.FromResult(manifest));
 
         var observer = Substitute.For<IMaintenanceObserver>();
         observer.Type.Returns(ObserverType.Http);
@@ -414,9 +396,6 @@ public class MaintenanceObserverServiceIntegrationTests
             .Returns(Task.FromResult(ObserverResult.NormalOperation("normal")));
 
         _observerFactory.Create(Arg.Any<MaintenanceObserverConfig>()).Returns(observer);
-        _notificationService.NotifyObserverResultAsync(
-            Arg.Any<DeploymentId>(), Arg.Any<string>(), Arg.Any<ObserverResultDto>(), Arg.Any<CancellationToken>())
-            .Returns(Task.CompletedTask);
 
         // Act - call twice with delay to ensure polling interval passes
         await service.CheckDeploymentObserverAsync(deploymentId);

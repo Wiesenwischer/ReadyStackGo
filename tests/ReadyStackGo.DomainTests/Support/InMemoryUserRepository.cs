@@ -1,12 +1,5 @@
 namespace ReadyStackGo.DomainTests.Support;
 
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
-using ReadyStackGo.Domain.IdentityAccess.Roles;
-using ReadyStackGo.Domain.IdentityAccess.Users;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
-using ReadyStackGo.Domain.IdentityAccess.Roles;
-using ReadyStackGo.Domain.IdentityAccess.Users;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Users;
 
 /// <summary>
@@ -19,6 +12,11 @@ public class InMemoryUserRepository : IUserRepository
     public UserId NextIdentity() => UserId.Create();
 
     public void Add(User user)
+    {
+        _users[user.Id] = user;
+    }
+
+    public void Update(User user)
     {
         _users[user.Id] = user;
     }
@@ -38,9 +36,9 @@ public class InMemoryUserRepository : IUserRepository
         return _users.Values.FirstOrDefault(u => u.Email == email);
     }
 
-    public IEnumerable<User> GetByTenant(TenantId tenantId)
+    public IEnumerable<User> GetAll()
     {
-        return _users.Values.Where(u => u.TenantId == tenantId);
+        return _users.Values;
     }
 
     public void Remove(User user)

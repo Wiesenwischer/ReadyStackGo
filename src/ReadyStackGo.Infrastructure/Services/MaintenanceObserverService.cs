@@ -7,6 +7,7 @@ using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Domain.Deployment.Observers;
 using ReadyStackGo.Domain.StackManagement.Manifests;
+using ReadyStackGo.Domain.StackManagement.StackSources;
 
 namespace ReadyStackGo.Infrastructure.Services;
 
@@ -20,7 +21,6 @@ public class MaintenanceObserverService : IMaintenanceObserverService
     private readonly IDeploymentRepository _deploymentRepository;
     private readonly IHealthSnapshotRepository _healthSnapshotRepository;
     private readonly IStackSourceService _stackSourceService;
-    private readonly IRsgoManifestParser _manifestParser;
     private readonly IHealthNotificationService _notificationService;
     private readonly ISender _mediator;
     private readonly ILogger<MaintenanceObserverService> _logger;
@@ -42,7 +42,6 @@ public class MaintenanceObserverService : IMaintenanceObserverService
         IDeploymentRepository deploymentRepository,
         IHealthSnapshotRepository healthSnapshotRepository,
         IStackSourceService stackSourceService,
-        IRsgoManifestParser manifestParser,
         IHealthNotificationService notificationService,
         ISender mediator,
         ILogger<MaintenanceObserverService> logger)
@@ -51,7 +50,6 @@ public class MaintenanceObserverService : IMaintenanceObserverService
         _deploymentRepository = deploymentRepository;
         _healthSnapshotRepository = healthSnapshotRepository;
         _stackSourceService = stackSourceService;
-        _manifestParser = manifestParser;
         _notificationService = notificationService;
         _mediator = mediator;
         _logger = logger;
@@ -165,6 +163,12 @@ public class MaintenanceObserverService : IMaintenanceObserverService
         {
             // Get all stacks and find the one matching this deployment
             var stacks = await _stackSourceService.GetStacksAsync();
+
+            _logger.LogDebug(
+                "Looking for stack matching deployment {StackName}. Available stacks: {AvailableStacks}",
+                deployment.StackName,
+                string.Join(", ", stacks.Select(s => s.Name)));
+
             var stack = stacks.FirstOrDefault(s =>
                 s.Name.Equals(deployment.StackName, StringComparison.OrdinalIgnoreCase));
 
@@ -174,16 +178,18 @@ public class MaintenanceObserverService : IMaintenanceObserverService
                 return null;
             }
 
-            // Parse the YAML content to get the full manifest with maintenanceObserver
-            var manifest = await _manifestParser.ParseAsync(stack.YamlContent);
+            // Use MaintenanceObserver directly from StackDefinition (already parsed during stack loading)
+            _logger.LogDebug(
+                "Stack {StackName}: HasMaintenanceObserver={HasObserver}",
+                deployment.StackName,
+                stack.MaintenanceObserver != null);
 
-            if (manifest?.MaintenanceObserver == null)
+            if (stack.MaintenanceObserver == null)
             {
                 return null;
             }
 
-            var manifestObserver = manifest.MaintenanceObserver;
-            return ConvertToConfig(manifestObserver);
+            return ConvertToConfig(stack.MaintenanceObserver, deployment.Variables);
         }
         catch (Exception ex)
         {
@@ -192,7 +198,9 @@ public class MaintenanceObserverService : IMaintenanceObserverService
         }
     }
 
-    private MaintenanceObserverConfig? ConvertToConfig(RsgoMaintenanceObserver manifestObserver)
+    private MaintenanceObserverConfig? ConvertToConfig(
+        RsgoMaintenanceObserver manifestObserver,
+        IReadOnlyDictionary<string, string> deploymentVariables)
     {
         if (!ObserverType.TryFromValue(manifestObserver.Type, out var observerType) || observerType == null)
         {
@@ -206,7 +214,15 @@ public class MaintenanceObserverService : IMaintenanceObserverService
 
         if (observerType == ObserverType.SqlExtendedProperty)
         {
-            var connectionString = ResolveConnectionString(manifestObserver);
+            var connectionString = ResolveConnectionString(manifestObserver, deploymentVariables);
+            _logger.LogDebug(
+                "Resolving SQL connection: ConnectionString={ConnectionString}, ConnectionName={ConnectionName}, " +
+                "DeploymentVariables={Variables}, ResolvedConnectionString={Resolved}",
+                manifestObserver.ConnectionString,
+                manifestObserver.ConnectionName,
+                string.Join(", ", deploymentVariables.Select(kv => $"{kv.Key}={kv.Value}")),
+                string.IsNullOrEmpty(connectionString) ? "(null)" : "(set)");
+
             if (string.IsNullOrEmpty(connectionString))
             {
                 _logger.LogWarning("No connection string available for SQL observer");
@@ -218,7 +234,7 @@ public class MaintenanceObserverService : IMaintenanceObserverService
         }
         else if (observerType == ObserverType.SqlQuery)
         {
-            var connectionString = ResolveConnectionString(manifestObserver);
+            var connectionString = ResolveConnectionString(manifestObserver, deploymentVariables);
             if (string.IsNullOrEmpty(connectionString))
             {
                 _logger.LogWarning("No connection string available for SQL observer");
@@ -265,23 +281,53 @@ public class MaintenanceObserverService : IMaintenanceObserverService
             settings);
     }
 
-    private string? ResolveConnectionString(RsgoMaintenanceObserver manifestObserver)
+    private string? ResolveConnectionString(
+        RsgoMaintenanceObserver manifestObserver,
+        IReadOnlyDictionary<string, string> deploymentVariables)
     {
-        // Direct connection string - return as-is (variable resolution happens elsewhere)
+        // Direct connection string - resolve variables if present
         if (!string.IsNullOrEmpty(manifestObserver.ConnectionString))
         {
-            return manifestObserver.ConnectionString;
+            return ResolveVariables(manifestObserver.ConnectionString, deploymentVariables);
         }
 
-        // Connection name - not implemented yet, needs variable resolver
+        // Connection name - try to resolve from deployment variables
         if (!string.IsNullOrEmpty(manifestObserver.ConnectionName))
         {
+            if (deploymentVariables.TryGetValue(manifestObserver.ConnectionName, out var connectionString))
+            {
+                return connectionString;
+            }
+
             _logger.LogWarning(
-                "ConnectionName '{ConnectionName}' - variable resolution not yet implemented",
+                "ConnectionName '{ConnectionName}' not found in deployment variables",
                 manifestObserver.ConnectionName);
         }
 
         return null;
+    }
+
+    private string? ResolveVariables(string template, IReadOnlyDictionary<string, string> variables)
+    {
+        if (string.IsNullOrEmpty(template))
+            return template;
+
+        var result = template;
+
+        // Replace ${VAR_NAME} patterns with values from deployment variables
+        foreach (var kvp in variables)
+        {
+            result = result.Replace($"${{{kvp.Key}}}", kvp.Value);
+        }
+
+        // Check if any unresolved placeholders remain
+        if (result.Contains("${"))
+        {
+            _logger.LogWarning("Unresolved variable placeholders in: {Template}", template);
+            return null;
+        }
+
+        return result;
     }
 
     private bool ShouldCheck(Guid deploymentId)
@@ -306,21 +352,6 @@ public class MaintenanceObserverService : IMaintenanceObserverService
         ObserverResult result,
         CancellationToken cancellationToken)
     {
-        // Get observer type for the DTO
-        string? observerType = null;
-        if (_configs.TryGetValue(deployment.Id.Value, out var config))
-        {
-            observerType = config.Type.Value;
-        }
-
-        // Send SignalR notification
-        var resultDto = ObserverResultDto.FromDomain(result, observerType);
-        await _notificationService.NotifyObserverResultAsync(
-            deployment.Id,
-            deployment.StackName,
-            resultDto,
-            cancellationToken);
-
         if (!result.IsSuccess)
         {
             _logger.LogWarning(

@@ -42,7 +42,7 @@ public class Environment : AggregateRoot<EnvironmentId>
         Type = type;
         ConnectionConfig = connectionConfig;
         IsDefault = false;
-        CreatedAt = DateTime.UtcNow;
+        CreatedAt = SystemClock.UtcNow;
 
         AddDomainEvent(new EnvironmentCreated(Id, Name));
     }
@@ -80,7 +80,7 @@ public class Environment : AggregateRoot<EnvironmentId>
     public void SetAsDefault()
     {
         IsDefault = true;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = SystemClock.UtcNow;
     }
 
     /// <summary>
@@ -89,7 +89,7 @@ public class Environment : AggregateRoot<EnvironmentId>
     public void UnsetAsDefault()
     {
         IsDefault = false;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = SystemClock.UtcNow;
     }
 
     /// <summary>
@@ -101,7 +101,7 @@ public class Environment : AggregateRoot<EnvironmentId>
         SelfAssertArgumentLength(name, 1, 100, "Environment name must be 100 characters or less.");
 
         Name = name;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = SystemClock.UtcNow;
     }
 
     /// <summary>
@@ -112,7 +112,7 @@ public class Environment : AggregateRoot<EnvironmentId>
         SelfAssertArgumentNotNull(config, "ConnectionConfig is required.");
 
         ConnectionConfig = config;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = SystemClock.UtcNow;
     }
 
     public override string ToString() =>

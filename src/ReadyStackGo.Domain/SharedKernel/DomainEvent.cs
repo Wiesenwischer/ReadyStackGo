@@ -9,7 +9,7 @@ public abstract class DomainEvent : IDomainEvent
     protected DomainEvent()
     {
         EventVersion = 1;
-        OccurredOn = DateTime.UtcNow;
+        OccurredOn = SystemClock.UtcNow;
     }
 
     public int EventVersion { get; protected set; }

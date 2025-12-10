@@ -37,7 +37,7 @@ public sealed class Enablement : ValueObject
             if (!Enabled) return false;
             if (!StartDate.HasValue && !EndDate.HasValue) return true;
 
-            var now = DateTime.UtcNow;
+            var now = SystemClock.UtcNow;
             if (StartDate.HasValue && now < StartDate.Value) return false;
             if (EndDate.HasValue && now > EndDate.Value) return false;
 

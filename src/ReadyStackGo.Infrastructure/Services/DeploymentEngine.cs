@@ -91,7 +91,15 @@ public class DeploymentEngine : IDeploymentEngine
         return plan;
     }
 
-    public async Task<DeploymentResult> ExecuteDeploymentAsync(DeploymentPlan plan)
+    public Task<DeploymentResult> ExecuteDeploymentAsync(DeploymentPlan plan)
+    {
+        return ExecuteDeploymentAsync(plan, null, CancellationToken.None);
+    }
+
+    public async Task<DeploymentResult> ExecuteDeploymentAsync(
+        DeploymentPlan plan,
+        DeploymentProgressCallback? progressCallback,
+        CancellationToken cancellationToken = default)
     {
         var result = new DeploymentResult
         {
@@ -99,9 +107,45 @@ public class DeploymentEngine : IDeploymentEngine
             DeploymentTime = DateTime.UtcNow
         };
 
+        var totalSteps = plan.Steps.Count;
+        var completedSteps = 0;
+
+        // Define deployment phases with their weights (end of last phase = 100)
+        // Each phase reports its own 0-100% progress internally
+        // Pulling images takes the most time (network download), starting containers is fast
+        var phaseWeights = new Dictionary<string, (int Start, int End)>
+        {
+            ["Initializing"] = (0, 2),        // 0-2%
+            ["Network"] = (2, 5),             // 2-5%
+            ["PullingImages"] = (5, 90),      // 5-90% (85% of total - this is the slow part)
+            ["StartingServices"] = (90, 100), // 90-100% (10% - starting is fast)
+            ["Complete"] = (100, 100)         // 100% (instant)
+        };
+
+        // Helper to calculate overall progress from phase-local progress (0-100)
+        int CalculateOverallProgress(string phase, int phaseProgress)
+        {
+            if (!phaseWeights.TryGetValue(phase, out var weight))
+                return phaseProgress; // Unknown phase, use raw value
+
+            var phaseRange = weight.End - weight.Start;
+            return weight.Start + (phaseProgress * phaseRange / 100);
+        }
+
+        // Helper to report progress - phases report their own 0-100% progress
+        async Task ReportProgress(string phase, string message, int phaseProgress = 0, string? currentService = null)
+        {
+            if (progressCallback != null)
+            {
+                var overallPercent = CalculateOverallProgress(phase, phaseProgress);
+                await progressCallback(phase, message, overallPercent, currentService, totalSteps, completedSteps);
+            }
+        }
+
         try
         {
             _logger.LogInformation("Starting deployment of stack version {Version}", plan.StackVersion);
+            await ReportProgress("Initializing", $"Starting deployment of {plan.StackName ?? plan.StackVersion}");
 
             // Determine environment ID - use from plan or fall back to default
             var environmentId = plan.EnvironmentId;
@@ -127,8 +171,11 @@ public class DeploymentEngine : IDeploymentEngine
             var stackName = plan.StackName ?? plan.StackVersion;
 
             // Create all non-external networks defined in the plan
+            await ReportProgress("Network", "Creating Docker networks...");
             foreach (var (networkName, networkDef) in plan.Networks)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 if (!networkDef.External)
                 {
                     // Create the network with resolved name (already prefixed with stack name)
@@ -148,33 +195,122 @@ public class DeploymentEngine : IDeploymentEngine
                 await EnsureDockerNetworkAsync(environmentId, defaultNetwork);
             }
 
-            // Execute deployment steps in order
+            // PHASE 1: Pull all images first (fail-fast if any image is unavailable)
+            var pullWarnings = new Dictionary<string, string>();
+            var pulledImages = 0;
+            var totalImages = plan.Steps.Count;
+
+            await ReportProgress("PullingImages", $"Pulling {totalImages} images...", 0);
+
+            // Helper to report progress during pull phase - passes pulledImages as completedSteps
+            async Task ReportPullProgress(string message, int phaseProgress, string? currentService = null)
+            {
+                if (progressCallback != null)
+                {
+                    var overallPercent = CalculateOverallProgress("PullingImages", phaseProgress);
+                    await progressCallback("PullingImages", message, overallPercent, currentService, totalImages, pulledImages);
+                }
+            }
+
             foreach (var step in plan.Steps)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var (imageName, imageTag) = ParseImageReference(step.Image, step.Version);
+                var fullImageName = $"{imageName}:{imageTag}";
+
+                // Phase-local progress: where we are before pulling this image
+                var beforePullPercent = totalImages > 0 ? (pulledImages * 100 / totalImages) : 0;
+                await ReportPullProgress($"Pulling {fullImageName}...", beforePullPercent, step.ContextName);
+
                 try
                 {
-                    var warning = await DeployStepAsync(environmentId, step, defaultNetwork, stackName);
-                    if (warning != null)
-                    {
-                        result.Warnings.Add(warning);
-                    }
-                    result.DeployedContexts.Add(step.ContextName);
-                    _logger.LogInformation("Successfully deployed context {Context}", step.ContextName);
+                    _logger.LogInformation("Pulling image {Image} for {Context}", fullImageName, step.ContextName);
+                    await _dockerService.PullImageAsync(environmentId, imageName, imageTag);
+                    _logger.LogInformation("Successfully pulled image {Image}", fullImageName);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to deploy context {Context}", step.ContextName);
-                    result.Errors.Add($"Failed to deploy {step.ContextName}: {ex.Message}");
+                    _logger.LogWarning(ex, "Failed to pull image {Image}", fullImageName);
+
+                    // Check if image exists locally as fallback
+                    var imageExists = await _dockerService.ImageExistsAsync(environmentId, imageName, imageTag);
+                    if (!imageExists)
+                    {
+                        var errorMessage = $"Service '{step.ContextName}': Failed to pull image '{imageName}' (tag: {imageTag}) - no local copy exists. " +
+                            $"Please ensure the image exists and registry credentials are configured. Error: {ex.Message}";
+                        _logger.LogError(errorMessage);
+                        result.Errors.Add(errorMessage);
+                        result.Success = false;
+                        await ReportProgress("Failed", errorMessage, 0, step.ContextName);
+                        return result;
+                    }
+
+                    pullWarnings[step.ContextName] = $"Image '{fullImageName}' could not be pulled - using existing local image. The deployed version may be outdated.";
+                    _logger.LogWarning("Using existing local image {Image} (pull failed: {Error})", fullImageName, ex.Message);
+                }
+
+                pulledImages++;
+                // Phase-local progress: 0-100% within this phase
+                var afterPullPercent = totalImages > 0 ? (pulledImages * 100 / totalImages) : 100;
+                await ReportPullProgress($"Pulled {pulledImages}/{totalImages} images", afterPullPercent, step.ContextName);
+            }
+
+            await ReportPullProgress($"All {totalImages} images ready", 100);
+
+            // PHASE 2: Start all containers in dependency order
+            await ReportProgress("StartingServices", $"Starting {totalSteps} services...", 0);
+
+            foreach (var step in plan.Steps)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    // Phase-local progress: where we are before starting this service
+                    var beforeStartPercent = totalSteps > 0 ? (completedSteps * 100 / totalSteps) : 0;
+                    await ReportProgress("StartingServices", $"Starting {step.ContextName}...", beforeStartPercent, step.ContextName);
+
+                    await StartContainerAsync(environmentId, step, defaultNetwork, stackName);
+
+                    // Add any pull warnings for this step
+                    if (pullWarnings.TryGetValue(step.ContextName, out var warning))
+                    {
+                        result.Warnings.Add(warning);
+                    }
+
+                    result.DeployedContexts.Add(step.ContextName);
+                    completedSteps++;
+
+                    // Phase-local progress: 0-100% within this phase
+                    var afterStartPercent = totalSteps > 0 ? (completedSteps * 100 / totalSteps) : 100;
+                    await ReportProgress("StartingServices", $"Started {completedSteps}/{totalSteps} services", afterStartPercent, step.ContextName);
+
+                    _logger.LogInformation("Successfully started context {Context}", step.ContextName);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to start context {Context}", step.ContextName);
+                    result.Errors.Add($"Failed to start {step.ContextName}: {ex.Message}");
                     result.Success = false;
                     return result;
                 }
             }
 
-            // Update release configuration
+            // Update release configuration (instant, no separate progress phase needed)
             await UpdateReleaseConfigAsync(plan);
 
             result.Success = true;
             _logger.LogInformation("Stack deployment completed successfully");
+
+            // Report 100% completion
+            await ReportProgress("Complete", $"Successfully deployed {stackName} with {totalSteps} services", 100);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Deployment was cancelled");
+            result.Errors.Add("Deployment was cancelled");
+            result.Success = false;
         }
         catch (Exception ex)
         {
@@ -365,14 +501,16 @@ public class DeploymentEngine : IDeploymentEngine
     }
 
     /// <summary>
-    /// Deploys a single step and returns a warning message if a local image fallback was used.
+    /// Starts a container for a deployment step (assumes image is already pulled).
     /// </summary>
-    private async Task<string?> DeployStepAsync(string environmentId, DeploymentStep step, string defaultNetwork, string stackName)
+    private async Task StartContainerAsync(
+        string environmentId,
+        DeploymentStep step,
+        string defaultNetwork,
+        string stackName)
     {
-        _logger.LogInformation("Deploying step {Context} (order: {Order}) in environment {EnvironmentId}",
+        _logger.LogInformation("Starting container for {Context} (order: {Order}) in environment {EnvironmentId}",
             step.ContextName, step.Order, environmentId);
-
-        string? warning = null;
 
         // Stop and remove existing container if it exists
         try
@@ -389,50 +527,15 @@ public class DeploymentEngine : IDeploymentEngine
             _logger.LogDebug(ex, "No existing container {Container} to remove", step.ContainerName);
         }
 
-        // Pull image
         var (imageName, imageTag) = ParseImageReference(step.Image, step.Version);
-        var fullImageName = $"{imageName}:{imageTag}";
-        var pullSucceeded = false;
-        string? pullError = null;
-
-        try
-        {
-            _logger.LogInformation("Pulling image {Image} for container {Container}", fullImageName, step.ContainerName);
-            await _dockerService.PullImageAsync(environmentId, imageName, imageTag);
-            _logger.LogInformation("Successfully pulled image {Image}", fullImageName);
-            pullSucceeded = true;
-        }
-        catch (Exception ex)
-        {
-            pullError = ex.Message;
-            _logger.LogWarning(ex, "Failed to pull image {Image}", fullImageName);
-        }
-
-        // If pull failed, check if image exists locally
-        if (!pullSucceeded)
-        {
-            var imageExists = await _dockerService.ImageExistsAsync(environmentId, imageName, imageTag);
-            if (!imageExists)
-            {
-                var errorMessage = $"Failed to pull image '{fullImageName}' and no local copy exists. " +
-                    $"Please ensure the image exists and registry credentials are configured. Error: {pullError}";
-                _logger.LogError(errorMessage);
-                throw new InvalidOperationException(errorMessage);
-            }
-
-            warning = $"Image '{fullImageName}' could not be pulled - using existing local image. The deployed version may be outdated.";
-            _logger.LogWarning("Using existing local image {Image} (pull failed: {Error})", fullImageName, pullError);
-        }
 
         // Determine networks for this container
-        // Use step's networks if specified, otherwise fall back to default network
         var networks = step.Networks.Count > 0 ? step.Networks : new List<string> { defaultNetwork };
 
         _logger.LogDebug("Container {Container} will be connected to networks: {Networks}",
             step.ContainerName, string.Join(", ", networks));
 
         // Create and start container
-        // Add service name as network alias so other containers can resolve it by service name
         var request = new CreateContainerRequest
         {
             Name = step.ContainerName,
@@ -454,15 +557,13 @@ public class DeploymentEngine : IDeploymentEngine
         var containerId = await _dockerService.CreateAndStartContainerAsync(environmentId, request);
 
         _logger.LogInformation(
-            "Deployed container {Container} ({ContainerId}) from {Image}:{Tag} with {EnvCount} env vars on {NetworkCount} network(s)",
+            "Started container {Container} ({ContainerId}) from {Image}:{Tag} with {EnvCount} env vars on {NetworkCount} network(s)",
             step.ContainerName,
             containerId,
             imageName,
             imageTag,
             step.EnvVars.Count,
             networks.Count);
-
-        return warning;
     }
 
     private async Task UpdateReleaseConfigAsync(DeploymentPlan plan)

@@ -1,5 +1,6 @@
 namespace ReadyStackGo.Infrastructure.DataAccess.Configurations;
 
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
@@ -68,6 +69,13 @@ public class DeploymentConfiguration : IEntityTypeConfiguration<Deployment>
         builder.Property(d => d.Version)
             .IsConcurrencyToken();
 
+        // Configure Variables as JSON column
+        builder.Property(d => d.Variables)
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                v => JsonSerializer.Deserialize<Dictionary<string, string>>(v, (JsonSerializerOptions?)null) ?? new())
+            .HasColumnName("VariablesJson");
+
         // Configure DeployedServices as owned collection
         builder.OwnsMany(d => d.Services, s =>
         {
@@ -122,10 +130,7 @@ public class DeploymentConfiguration : IEntityTypeConfiguration<Deployment>
                 .IsRequired();
         });
 
-        // Indexes
-        builder.HasIndex(d => new { d.EnvironmentId, d.ProjectName })
-            .IsUnique();
-
+        // Indexes (no unique constraint on ProjectName - allows re-deploying same stack name)
         builder.HasIndex(d => d.EnvironmentId);
 
         builder.HasIndex(d => d.Status);

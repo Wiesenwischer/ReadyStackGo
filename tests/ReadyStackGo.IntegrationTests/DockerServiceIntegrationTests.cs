@@ -32,7 +32,7 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
             .WithImage("nginx:alpine")
             .WithName($"readystackgo-test-{Guid.NewGuid():N}")
             .WithPortBinding(80, true) // true = assign random free host port
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(80))
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(80)))
             .Build();
 
         await _testContainer.StartAsync();

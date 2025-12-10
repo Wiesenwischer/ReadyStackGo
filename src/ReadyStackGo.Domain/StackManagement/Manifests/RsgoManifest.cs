@@ -63,10 +63,10 @@ public class RsgoManifest
     public Dictionary<string, RsgoNetwork>? Networks { get; set; }
 
     /// <summary>
-    /// Maintenance observer configuration (optional).
-    /// Monitors external systems to automatically trigger maintenance mode.
+    /// Maintenance configuration section (optional).
+    /// Contains observer for automatic maintenance mode detection.
     /// </summary>
-    public RsgoMaintenanceObserver? MaintenanceObserver { get; set; }
+    public RsgoMaintenance? Maintenance { get; set; }
 
     /// <summary>
     /// Determines if this manifest is a product (has productVersion).
@@ -501,6 +501,18 @@ public class RsgoNetwork
     /// Driver options.
     /// </summary>
     public Dictionary<string, string>? DriverOpts { get; set; }
+}
+
+/// <summary>
+/// Maintenance configuration section.
+/// Contains observer and future maintenance-related settings.
+/// </summary>
+public class RsgoMaintenance
+{
+    /// <summary>
+    /// Observer configuration for automatic maintenance mode detection.
+    /// </summary>
+    public RsgoMaintenanceObserver? Observer { get; set; }
 }
 
 /// <summary>
