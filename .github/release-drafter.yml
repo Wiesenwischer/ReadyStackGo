@@ -59,6 +59,12 @@ autolabeler:
   - label: 'feature'
     branch:
       - '/feature\/.+/'
+  - label: 'enhancement'
+    branch:
+      - '/refactor\/.+/'
+  - label: 'maintenance'
+    branch:
+      - '/chore\/.+/'
   - label: 'dependencies'
     files:
       - 'package*.json'
