@@ -3,8 +3,11 @@
 ## Git Branching
 
 - **Main Branch**: `main` ist der einzige permanente Branch
+- **NIEMALS direkt auf `main` committen!** Branch Protection ist aktiv
 - **Feature Branches**: Für neue Features `feature/<name>` von `main` ableiten
 - **Bugfix Branches**: Für Fehlerbehebungen `bugfix/<name>` von `main` ableiten
+- **Refactor Branches**: Für Refactorings `refactor/<name>` von `main` ableiten
+- **Pull Requests**: Immer PR erstellen und Status Checks abwarten
 - **KEIN** `develop` Branch - direkt von/nach `main` arbeiten
 - Nach Merge den Feature/Bugfix Branch löschen
 
