@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Deployments;
+using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.IdentityAccess.Users;
@@ -9,13 +10,12 @@ namespace ReadyStackGo.Infrastructure.Services;
 
 /// <summary>
 /// Service for managing stack deployments.
-/// Supports both Docker Compose and RSGo Manifest formats with auto-detection.
+/// Uses RSGo Manifest format exclusively.
 /// v0.6: Fully migrated to SQLite persistence.
-/// v0.12: Added RSGo manifest support and format auto-detection.
+/// v0.12: RSGo manifest only (Docker Compose import via separate converter).
 /// </summary>
 public class DeploymentService : IDeploymentService
 {
-    private readonly IDockerComposeParser _composeParser;
     private readonly IRsgoManifestParser _manifestParser;
     private readonly IDeploymentEngine _deploymentEngine;
     private readonly IDeploymentRepository _deploymentRepository;
@@ -24,7 +24,6 @@ public class DeploymentService : IDeploymentService
     private readonly ILogger<DeploymentService> _logger;
 
     public DeploymentService(
-        IDockerComposeParser composeParser,
         IRsgoManifestParser manifestParser,
         IDeploymentEngine deploymentEngine,
         IDeploymentRepository deploymentRepository,
@@ -32,7 +31,6 @@ public class DeploymentService : IDeploymentService
         IUserRepository userRepository,
         ILogger<DeploymentService> logger)
     {
-        _composeParser = composeParser;
         _manifestParser = manifestParser;
         _deploymentEngine = deploymentEngine;
         _deploymentRepository = deploymentRepository;
@@ -45,81 +43,39 @@ public class DeploymentService : IDeploymentService
     {
         try
         {
-            // Detect manifest format
-            var format = _manifestParser.DetectFormat(request.YamlContent);
-            _logger.LogInformation("Parsing manifest (format: {Format})", format);
+            _logger.LogInformation("Parsing RSGo manifest");
 
-            if (format == ManifestFormat.RsgoManifest)
+            // Validate manifest
+            var validation = await _manifestParser.ValidateAsync(request.YamlContent);
+            if (!validation.IsValid)
             {
-                // Use RSGo manifest parser
-                var rsgoValidation = await _manifestParser.ValidateAsync(request.YamlContent);
-                if (!rsgoValidation.IsValid)
-                {
-                    return new ParseComposeResponse
-                    {
-                        Success = false,
-                        Message = "Manifest validation failed",
-                        Errors = rsgoValidation.Errors,
-                        Warnings = rsgoValidation.Warnings
-                    };
-                }
-
-                // Parse manifest once
-                var manifest = await _manifestParser.ParseAsync(request.YamlContent);
-                var variables = await _manifestParser.ExtractVariablesAsync(manifest);
-
                 return new ParseComposeResponse
                 {
-                    Success = true,
-                    Message = $"Successfully parsed RSGo manifest with {manifest.Services?.Count ?? 0} services",
-                    Services = manifest.Services?.Keys.ToList() ?? new List<string>(),
-                    Variables = variables.Select(v => new EnvironmentVariableInfo
-                    {
-                        Name = v.Name,
-                        DefaultValue = v.DefaultValue,
-                        IsRequired = v.IsRequired,
-                        UsedInServices = new List<string>() // RSGo variables don't track service usage
-                    }).ToList(),
-                    Warnings = rsgoValidation.Warnings
-                };
-            }
-            else
-            {
-                // Use Docker Compose parser (legacy format)
-                var validation = await _composeParser.ValidateAsync(request.YamlContent);
-
-                if (!validation.IsValid)
-                {
-                    return new ParseComposeResponse
-                    {
-                        Success = false,
-                        Message = "Compose file validation failed",
-                        Errors = validation.Errors,
-                        Warnings = validation.Warnings
-                    };
-                }
-
-                // Parse the compose file
-                var definition = await _composeParser.ParseAsync(request.YamlContent);
-
-                // Detect environment variables
-                var variables = await _composeParser.DetectVariablesAsync(request.YamlContent);
-
-                return new ParseComposeResponse
-                {
-                    Success = true,
-                    Message = $"Successfully parsed compose file with {definition.Services.Count} services",
-                    Services = definition.Services.Keys.ToList(),
-                    Variables = variables.Select(v => new EnvironmentVariableInfo
-                    {
-                        Name = v.Name,
-                        DefaultValue = v.DefaultValue,
-                        IsRequired = v.IsRequired,
-                        UsedInServices = v.UsedInServices
-                    }).ToList(),
+                    Success = false,
+                    Message = "Manifest validation failed",
+                    Errors = validation.Errors,
                     Warnings = validation.Warnings
                 };
             }
+
+            // Parse manifest once
+            var manifest = await _manifestParser.ParseAsync(request.YamlContent);
+            var variables = await _manifestParser.ExtractVariablesAsync(manifest);
+
+            return new ParseComposeResponse
+            {
+                Success = true,
+                Message = $"Successfully parsed RSGo manifest with {manifest.Services?.Count ?? 0} services",
+                Services = manifest.Services?.Keys.ToList() ?? new List<string>(),
+                Variables = variables.Select(v => new EnvironmentVariableInfo
+                {
+                    Name = v.Name,
+                    DefaultValue = v.DefaultValue,
+                    IsRequired = v.IsRequired,
+                    UsedInServices = new List<string>()
+                }).ToList(),
+                Warnings = validation.Warnings
+            };
         }
         catch (Exception ex)
         {
@@ -177,82 +133,38 @@ public class DeploymentService : IDeploymentService
                 await progressCallback("Validating", "Validating manifest...", 5, null, 0, 0);
             }
 
-            // Detect manifest format and create deployment plan
-            var format = _manifestParser.DetectFormat(request.YamlContent);
-            _logger.LogDebug("Detected manifest format: {Format} for stack {StackName}", format, request.StackName);
-
-            DeploymentPlan plan;
-
-            if (format == ManifestFormat.RsgoManifest)
+            // Validate manifest
+            var validation = await _manifestParser.ValidateAsync(request.YamlContent);
+            if (!validation.IsValid)
             {
-                // Use RSGo manifest parser
-                var rsgoValidation = await _manifestParser.ValidateAsync(request.YamlContent);
-                if (!rsgoValidation.IsValid)
+                return new DeployComposeResponse
                 {
-                    return new DeployComposeResponse
-                    {
-                        Success = false,
-                        Message = "Manifest validation failed",
-                        Errors = rsgoValidation.Errors
-                    };
-                }
-
-                // Report progress
-                if (progressCallback != null)
-                {
-                    await progressCallback("Parsing", "Parsing RSGo manifest...", 10, null, 0, 0);
-                }
-
-                // Parse manifest once and create deployment plan directly
-                var manifest = await _manifestParser.ParseAsync(request.YamlContent);
-
-                if (progressCallback != null)
-                {
-                    await progressCallback("Planning", "Creating deployment plan...", 15, null, 0, 0);
-                }
-
-                plan = await _manifestParser.ConvertToDeploymentPlanAsync(
-                    manifest,
-                    request.Variables,
-                    request.StackName);
-                plan.StackVersion = request.StackVersion ?? manifest.Metadata?.ProductVersion ?? "unspecified";
+                    Success = false,
+                    Message = "Manifest validation failed",
+                    Errors = validation.Errors
+                };
             }
-            else
+
+            // Report progress
+            if (progressCallback != null)
             {
-                // Use Docker Compose parser (legacy format)
-                var validation = await _composeParser.ValidateAsync(request.YamlContent);
-                if (!validation.IsValid)
-                {
-                    return new DeployComposeResponse
-                    {
-                        Success = false,
-                        Message = "Compose file validation failed",
-                        Errors = validation.Errors
-                    };
-                }
-
-                // Report progress
-                if (progressCallback != null)
-                {
-                    await progressCallback("Parsing", "Parsing Docker Compose file...", 10, null, 0, 0);
-                }
-
-                // Parse the compose file
-                var definition = await _composeParser.ParseAsync(request.YamlContent);
-
-                // Report progress
-                if (progressCallback != null)
-                {
-                    await progressCallback("Planning", "Creating deployment plan...", 15, null, 0, 0);
-                }
-
-                // Convert to deployment plan
-                plan = await _composeParser.ConvertToDeploymentPlanAsync(
-                    definition,
-                    request.Variables,
-                    request.StackName,
-                    request.StackVersion);
+                await progressCallback("Parsing", "Parsing RSGo manifest...", 10, null, 0, 0);
             }
+
+            // Parse manifest once
+            var manifest = await _manifestParser.ParseAsync(request.YamlContent);
+
+            if (progressCallback != null)
+            {
+                await progressCallback("Planning", "Creating deployment plan...", 15, null, 0, 0);
+            }
+
+            // Create deployment plan
+            var plan = await _manifestParser.ConvertToDeploymentPlanAsync(
+                manifest,
+                request.Variables,
+                request.StackName);
+            plan.StackVersion = request.StackVersion ?? manifest.Metadata?.ProductVersion ?? "unspecified";
 
             // Set environment ID for the deployment
             plan.EnvironmentId = environmentId;
@@ -522,6 +434,178 @@ public class DeploymentService : IDeploymentService
                 Message = $"Failed to remove deployment: {ex.Message}",
                 Errors = new List<string> { ex.Message }
             };
+        }
+    }
+
+    public async Task<DeployStackResponse> DeployStackAsync(
+        string environmentId,
+        DeployStackRequest request,
+        DeploymentServiceProgressCallback? progressCallback,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Deploying stack {StackName} to environment {EnvironmentId} (catalog: {CatalogStackId})",
+                request.StackName, environmentId, request.CatalogStackId);
+
+            // Validate environment exists
+            if (!Guid.TryParse(environmentId, out var envGuid))
+            {
+                return DeployStackResponse.Failed("Invalid environment ID", "Invalid environment ID format");
+            }
+
+            var environment = _environmentRepository.Get(new EnvironmentId(envGuid));
+            if (environment == null)
+            {
+                return DeployStackResponse.Failed(
+                    $"Environment '{environmentId}' not found",
+                    $"Environment '{environmentId}' not found");
+            }
+
+            // Report initial progress
+            if (progressCallback != null)
+            {
+                await progressCallback("Validating", "Validating manifest...", 5, null, 0, 0);
+            }
+
+            // Validate manifest
+            var validation = await _manifestParser.ValidateAsync(request.YamlContent);
+            if (!validation.IsValid)
+            {
+                return new DeployStackResponse
+                {
+                    Success = false,
+                    Message = "Manifest validation failed",
+                    Errors = validation.Errors
+                };
+            }
+
+            // Report progress
+            if (progressCallback != null)
+            {
+                await progressCallback("Parsing", "Parsing RSGo manifest...", 10, null, 0, 0);
+            }
+
+            // Parse manifest once
+            var manifest = await _manifestParser.ParseAsync(request.YamlContent);
+
+            if (progressCallback != null)
+            {
+                await progressCallback("Planning", "Creating deployment plan...", 15, null, 0, 0);
+            }
+
+            // Create deployment plan
+            var plan = await _manifestParser.ConvertToDeploymentPlanAsync(
+                manifest,
+                request.Variables,
+                request.StackName);
+            plan.StackVersion = request.StackVersion ?? manifest.Metadata?.ProductVersion ?? "unspecified";
+
+            // Set environment ID for the deployment
+            plan.EnvironmentId = environmentId;
+            plan.StackName = request.StackName;
+
+            // Create progress adapter to convert DeploymentEngine callback to our callback
+            DeploymentProgressCallback? engineCallback = null;
+            if (progressCallback != null)
+            {
+                engineCallback = async (phase, message, percent, currentService, totalServices, completedServices) =>
+                {
+                    // Scale the engine progress (0-100) to our range (20-90)
+                    var scaledPercent = 20 + (percent * 70 / 100);
+                    await progressCallback(phase, message, scaledPercent, currentService, totalServices, completedServices);
+                };
+            }
+
+            // Execute deployment with progress callback
+            var result = await _deploymentEngine.ExecuteDeploymentAsync(plan, engineCallback, cancellationToken);
+
+            if (!result.Success)
+            {
+                return new DeployStackResponse
+                {
+                    Success = false,
+                    Message = "Deployment failed",
+                    Errors = result.Errors
+                };
+            }
+
+            // Report progress
+            if (progressCallback != null)
+            {
+                await progressCallback("Persisting", "Saving deployment record...", 95, null, result.DeployedContexts.Count, result.DeployedContexts.Count);
+            }
+
+            // Get current user (use first admin for now - TODO: get from authentication context)
+            var currentUser = _userRepository.GetAll().FirstOrDefault();
+            var userId = currentUser?.Id ?? new UserId();
+
+            // Create and persist deployment record
+            var deploymentId = _deploymentRepository.NextIdentity();
+            var deployment = Domain.Deployment.Deployments.Deployment.Start(
+                deploymentId,
+                new EnvironmentId(envGuid),
+                request.StackName,
+                request.StackName, // Use stack name as project name
+                userId);
+
+            deployment.SetStackVersion(plan.StackVersion);
+
+            // Store deployment variables for later use (e.g., maintenance observer)
+            if (request.Variables != null && request.Variables.Count > 0)
+            {
+                deployment.SetVariables(request.Variables);
+            }
+
+            // Mark as running with services
+            var deployedServices = result.DeployedContexts.Select(c => new DeployedService(
+                c,
+                null, // Container ID will be populated by container inspection
+                c,    // Container name
+                null, // Image
+                "running"
+            )).ToList();
+
+            deployment.MarkAsRunning(deployedServices);
+
+            _deploymentRepository.Add(deployment);
+            _deploymentRepository.SaveChanges();
+
+            _logger.LogInformation("Successfully deployed stack {StackName} with deployment ID {DeploymentId}",
+                request.StackName, deploymentId);
+
+            // Build success message with warning hint
+            var message = $"Successfully deployed {request.StackName}";
+            if (result.Warnings.Count > 0)
+            {
+                message += $" (with {result.Warnings.Count} warning{(result.Warnings.Count > 1 ? "s" : "")})";
+            }
+
+            // Report completion
+            if (progressCallback != null)
+            {
+                await progressCallback("Complete", message, 100, null, result.DeployedContexts.Count, result.DeployedContexts.Count);
+            }
+
+            return new DeployStackResponse
+            {
+                Success = true,
+                Message = message,
+                DeploymentId = deploymentId.ToString(),
+                StackName = request.StackName,
+                StackVersion = plan.StackVersion,
+                Services = result.DeployedContexts.Select(c => new DeployedServiceInfo
+                {
+                    ServiceName = c,
+                    Status = "running"
+                }).ToList(),
+                Warnings = result.Warnings
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deploy stack {StackName}", request.StackName);
+            return DeployStackResponse.Failed($"Deployment failed: {ex.Message}", ex.Message);
         }
     }
 }

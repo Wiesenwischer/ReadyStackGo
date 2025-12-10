@@ -1,4 +1,5 @@
 using ReadyStackGo.Application.UseCases.Deployments;
+using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 
 namespace ReadyStackGo.Application.Services;
 
@@ -53,4 +54,14 @@ public interface IDeploymentService
     /// Remove a deployed stack.
     /// </summary>
     Task<DeployComposeResponse> RemoveDeploymentAsync(string environmentId, string stackName);
+
+    /// <summary>
+    /// Deploy a stack from a catalog definition with progress reporting.
+    /// The stack definition data is passed as a DTO, not as a domain object.
+    /// </summary>
+    Task<DeployStackResponse> DeployStackAsync(
+        string environmentId,
+        DeployStackRequest request,
+        DeploymentServiceProgressCallback? progressCallback,
+        CancellationToken cancellationToken = default);
 }

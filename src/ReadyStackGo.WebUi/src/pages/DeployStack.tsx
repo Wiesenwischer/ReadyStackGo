@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router';
-import { deployCompose } from '../api/deployments';
+import { deployCompose, deployStack } from '../api/deployments';
 import { useEnvironment } from '../context/EnvironmentContext';
 import { type StackDetail, getStack } from '../api/stacks';
 import VariableInput, { groupVariables } from '../components/variables/VariableInput';
@@ -205,13 +205,24 @@ export default function DeployStack() {
     setProgressUpdate(null);
 
     try {
-      const response = await deployCompose(activeEnvironment.id, {
-        stackName,
-        yamlContent: isCustomDeploy ? yamlContent : stack!.yamlContent,
-        stackVersion: isCustomDeploy ? undefined : stack?.version,
-        variables: variableValues,
-        sessionId, // Pass the pre-generated session ID to the server
-      });
+      let response;
+
+      if (isCustomDeploy) {
+        // Custom deploy: use old API with YAML content
+        response = await deployCompose(activeEnvironment.id, {
+          stackName,
+          yamlContent,
+          variables: variableValues,
+          sessionId,
+        });
+      } else {
+        // Catalog deploy: use new API with stackId (no YAML needed)
+        response = await deployStack(activeEnvironment.id, stackId!, {
+          stackName,
+          variables: variableValues,
+          sessionId,
+        });
+      }
 
       if (!response.success) {
         setError(response.errors.join('\n') || response.message || 'Deployment failed');
