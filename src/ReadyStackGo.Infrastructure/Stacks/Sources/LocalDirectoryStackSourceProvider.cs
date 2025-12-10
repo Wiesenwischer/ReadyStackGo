@@ -225,7 +225,9 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
                 productDescription: description,
                 productVersion: productVersion,
                 category: category,
-                tags: tags)
+                tags: tags,
+                // Maintenance configuration
+                maintenanceObserver: manifest.Maintenance?.Observer)
         };
     }
 
@@ -292,7 +294,9 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
                     productDescription: description,
                     productVersion: productVersion,
                     category: category,
-                    tags: tags)
+                    tags: tags,
+                    // Maintenance configuration
+                    maintenanceObserver: manifest.Maintenance?.Observer)
             };
         }
         catch (Exception ex)
@@ -352,11 +356,11 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
             var stackName = stackEntry.Metadata?.Name ?? stackKey;
             var stackDescription = stackEntry.Metadata?.Description ?? productDescription;
 
-            // Generate docker-compose compatible YAML for this sub-stack
-            var composeYaml = GenerateComposeYamlForStack(stackEntry);
+            // Generate YAML for this sub-stack, inheriting maintenance config from parent
+            var composeYaml = GenerateYamlForStack(stackEntry, manifest.Maintenance);
 
-            _logger.LogDebug("Created sub-stack '{StackKey}' ({StackName}) with {VarCount} variables, {SvcCount} services",
-                stackKey, stackName, variables.Count, services.Count);
+            _logger.LogDebug("Created sub-stack '{StackKey}' ({StackName}) with {VarCount} variables, {SvcCount} services, HasMaintenance={HasMaintenance}",
+                stackKey, stackName, variables.Count, services.Count, manifest.Maintenance?.Observer != null);
 
             results.Add(new StackDefinition(
                 sourceId: sourceId,
@@ -375,7 +379,9 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
                 productDescription: productDescription,
                 productVersion: productVersion,
                 category: productCategory,
-                tags: productTags));
+                tags: productTags,
+                // Maintenance configuration - inherited from product level
+                maintenanceObserver: manifest.Maintenance?.Observer));
         }
 
         _logger.LogInformation("Loaded multi-stack manifest '{ProductName}' with {StackCount} sub-stacks",
@@ -385,33 +391,31 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
     }
 
     /// <summary>
-    /// Generates docker-compose compatible YAML content for a sub-stack.
+    /// Generates YAML content for a sub-stack by serializing the complete RsgoManifest structure.
+    /// This approach ensures ALL sections are preserved (maintenance, metadata, services, etc.)
+    /// without requiring manual maintenance when new sections are added.
     /// </summary>
-    private string GenerateComposeYamlForStack(RsgoStackEntry stackEntry)
+    private string GenerateYamlForStack(RsgoStackEntry stackEntry, RsgoMaintenance? maintenance = null)
     {
-        var composeContent = new Dictionary<string, object>();
-
-        if (stackEntry.Services != null && stackEntry.Services.Count > 0)
+        // Create a complete manifest from the stack entry
+        // This ensures all sections are preserved including maintenance
+        var manifest = new RsgoManifest
         {
-            var servicesDict = new Dictionary<string, object>();
-            foreach (var (serviceName, serviceConfig) in stackEntry.Services)
+            Metadata = stackEntry.Metadata != null ? new RsgoProductMetadata
             {
-                servicesDict[serviceName] = ConvertServiceToComposeFormat(serviceConfig);
-            }
-            composeContent["services"] = servicesDict;
-        }
+                Name = stackEntry.Metadata.Name,
+                Description = stackEntry.Metadata.Description,
+                Category = stackEntry.Metadata.Category,
+                Tags = stackEntry.Metadata.Tags
+            } : null,
+            Maintenance = maintenance,  // Inherit from parent
+            Services = stackEntry.Services,
+            Volumes = stackEntry.Volumes,
+            Networks = stackEntry.Networks,
+            Variables = stackEntry.Variables
+        };
 
-        if (stackEntry.Volumes != null && stackEntry.Volumes.Count > 0)
-        {
-            composeContent["volumes"] = stackEntry.Volumes;
-        }
-
-        if (stackEntry.Networks != null && stackEntry.Networks.Count > 0)
-        {
-            composeContent["networks"] = stackEntry.Networks;
-        }
-
-        return _yamlSerializer.Serialize(composeContent);
+        return _yamlSerializer.Serialize(manifest);
     }
 
     /// <summary>

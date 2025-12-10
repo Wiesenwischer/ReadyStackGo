@@ -1,17 +1,15 @@
 Feature: Organization Provisioning
-    As a system installer
-    I want to provision an organization with an admin user
-    So that users can start managing their Docker stacks
+    As an administrator
+    I want to provision organizations
+    So that users can manage their Docker stacks
 
 Background:
     Given the system has no tenants configured
 
-Scenario: Provision initial organization
-    When I provision organization "ACME Corp" with description "Main organization"
-    And I create admin user "admin" with email "admin@acme.com" and password "SecurePass123!"
+Scenario: Provision organization assigns OrganizationOwner role
+    Given user "admin" exists with "SystemAdmin" role globally
+    When user "admin" provisions organization "ACME Corp" with description "Main organization"
     Then the organization "ACME Corp" should exist and be active
-    And user "admin" should exist with email "admin@acme.com"
-    And user "admin" should have role "SystemAdmin" with global scope
     And user "admin" should have role "OrganizationOwner" for organization "ACME Corp"
 
 Scenario: Cannot provision organization with weak password

@@ -68,7 +68,7 @@ public sealed class EnvironmentHealthSummary : ValueObject
         EnvironmentId = environmentId;
         EnvironmentName = environmentName;
         Stacks = stacks;
-        CreatedAtUtc = DateTime.UtcNow;
+        CreatedAtUtc = SystemClock.UtcNow;
 
         // Calculate counts
         TotalStacks = stacks.Count;
@@ -249,7 +249,7 @@ public sealed class StackHealthSummary : ValueObject
     /// <summary>
     /// Gets the age of the underlying snapshot.
     /// </summary>
-    public TimeSpan Age => DateTime.UtcNow - CapturedAtUtc;
+    public TimeSpan Age => SystemClock.UtcNow - CapturedAtUtc;
 
     /// <summary>
     /// Gets the service health ratio as a string (e.g., "3/5").

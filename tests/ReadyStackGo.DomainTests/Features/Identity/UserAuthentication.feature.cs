@@ -201,14 +201,14 @@ await this.FeatureBackgroundAsync();
             await this.ScenarioCleanupAsync();
         }
         
-        [Xunit.SkippableFactAttribute(DisplayName="Authentication fails for inactive organization")]
+        [Xunit.SkippableFactAttribute(DisplayName="Authentication fails for non-existent user")]
         [Xunit.TraitAttribute("FeatureTitle", "User Authentication")]
-        [Xunit.TraitAttribute("Description", "Authentication fails for inactive organization")]
-        public async System.Threading.Tasks.Task AuthenticationFailsForInactiveOrganization()
+        [Xunit.TraitAttribute("Description", "Authentication fails for non-existent user")]
+        public async System.Threading.Tasks.Task AuthenticationFailsForNon_ExistentUser()
         {
             string[] tagsOfScenario = ((string[])(null));
             System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new System.Collections.Specialized.OrderedDictionary();
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Authentication fails for inactive organization", null, tagsOfScenario, argumentsOfScenario, featureTags);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Authentication fails for non-existent user", null, tagsOfScenario, argumentsOfScenario, featureTags);
 #line 23
 this.ScenarioInitialize(scenarioInfo);
 #line hidden
@@ -223,43 +223,9 @@ this.ScenarioInitialize(scenarioInfo);
 await this.FeatureBackgroundAsync();
 #line hidden
 #line 24
-    await testRunner.GivenAsync("organization \"ACME Corp\" is deactivated", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 25
-    await testRunner.WhenAsync("I authenticate with username \"admin\" and password \"SecurePass123!\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 26
-    await testRunner.ThenAsync("authentication should fail", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [Xunit.SkippableFactAttribute(DisplayName="Authentication fails for non-existent user")]
-        [Xunit.TraitAttribute("FeatureTitle", "User Authentication")]
-        [Xunit.TraitAttribute("Description", "Authentication fails for non-existent user")]
-        public async System.Threading.Tasks.Task AuthenticationFailsForNon_ExistentUser()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new System.Collections.Specialized.OrderedDictionary();
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Authentication fails for non-existent user", null, tagsOfScenario, argumentsOfScenario, featureTags);
-#line 28
-this.ScenarioInitialize(scenarioInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                testRunner.SkipScenario();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 6
-await this.FeatureBackgroundAsync();
-#line hidden
-#line 29
     await testRunner.WhenAsync("I authenticate with username \"nonexistent\" and password \"AnyPassword123!\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 30
+#line 25
     await testRunner.ThenAsync("authentication should fail", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }

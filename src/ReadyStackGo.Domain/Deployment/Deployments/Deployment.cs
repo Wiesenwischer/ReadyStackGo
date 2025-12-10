@@ -31,6 +31,10 @@ public class Deployment : AggregateRoot<DeploymentId>
     public bool IsCancellationRequested { get; private set; }
     public string? CancellationReason { get; private set; }
 
+    // Deployment variables (resolved values used during deployment)
+    private readonly Dictionary<string, string> _variables = new();
+    public IReadOnlyDictionary<string, string> Variables => _variables;
+
     private readonly List<DeployedService> _services = new();
     public IReadOnlyCollection<DeployedService> Services => _services.AsReadOnly();
 
@@ -61,7 +65,7 @@ public class Deployment : AggregateRoot<DeploymentId>
         Status = DeploymentStatus.Pending;
         CurrentPhase = DeploymentPhase.Initializing;
         ProgressPercentage = 0;
-        CreatedAt = DateTime.UtcNow;
+        CreatedAt = SystemClock.UtcNow;
 
         RecordPhase(DeploymentPhase.Initializing, "Deployment initialized");
         AddDomainEvent(new DeploymentStarted(Id, EnvironmentId, StackName));
@@ -145,6 +149,18 @@ public class Deployment : AggregateRoot<DeploymentId>
     }
 
     /// <summary>
+    /// Sets the deployment variables (resolved values used during deployment).
+    /// </summary>
+    public void SetVariables(IDictionary<string, string> variables)
+    {
+        _variables.Clear();
+        foreach (var kvp in variables)
+        {
+            _variables[kvp.Key] = kvp.Value;
+        }
+    }
+
+    /// <summary>
     /// Updates the deployment progress.
     /// </summary>
     public void UpdateProgress(DeploymentPhase phase, int percentage, string message)
@@ -164,7 +180,7 @@ public class Deployment : AggregateRoot<DeploymentId>
 
     private void RecordPhase(DeploymentPhase phase, string message)
     {
-        _phaseHistory.Add(new DeploymentPhaseRecord(phase, message, DateTime.UtcNow));
+        _phaseHistory.Add(new DeploymentPhaseRecord(phase, message, SystemClock.UtcNow));
     }
 
     #endregion
@@ -181,7 +197,7 @@ public class Deployment : AggregateRoot<DeploymentId>
         Status = DeploymentStatus.Running;
         CurrentPhase = DeploymentPhase.Completed;
         ProgressPercentage = 100;
-        CompletedAt = DateTime.UtcNow;
+        CompletedAt = SystemClock.UtcNow;
 
         _services.Clear();
         _services.AddRange(services);
@@ -200,8 +216,9 @@ public class Deployment : AggregateRoot<DeploymentId>
             "Cannot fail an already terminal deployment.");
 
         Status = DeploymentStatus.Failed;
+        CurrentPhase = DeploymentPhase.Failed;
         ErrorMessage = errorMessage;
-        CompletedAt = DateTime.UtcNow;
+        CompletedAt = SystemClock.UtcNow;
 
         RecordPhase(DeploymentPhase.Failed, errorMessage);
         AddDomainEvent(new DeploymentCompleted(Id, Status, errorMessage));
@@ -253,8 +270,8 @@ public class Deployment : AggregateRoot<DeploymentId>
     /// </summary>
     public void MarkAsRemoved()
     {
-        SelfAssertArgumentTrue(Status is DeploymentStatus.Running or DeploymentStatus.Stopped,
-            "Can only remove a running or stopped deployment.");
+        SelfAssertArgumentTrue(Status != DeploymentStatus.Removed,
+            "Deployment is already removed.");
 
         Status = DeploymentStatus.Removed;
 
@@ -473,7 +490,7 @@ public class Deployment : AggregateRoot<DeploymentId>
     /// </summary>
     public TimeSpan GetElapsedTime()
     {
-        return (CompletedAt ?? DateTime.UtcNow) - CreatedAt;
+        return (CompletedAt ?? SystemClock.UtcNow) - CreatedAt;
     }
 
     /// <summary>

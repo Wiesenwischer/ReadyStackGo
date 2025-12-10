@@ -25,6 +25,8 @@ export interface DeployComposeRequest {
   stackName: string;
   yamlContent: string;
   variables: Record<string, string>;
+  /** Client-generated session ID for real-time progress tracking via SignalR */
+  sessionId?: string;
 }
 
 export interface DeployedServiceInfo {
@@ -42,6 +44,8 @@ export interface DeployComposeResponse {
   services: DeployedServiceInfo[];
   errors: string[];
   warnings: string[];
+  /** Session ID for real-time progress tracking via SignalR */
+  deploymentSessionId?: string;
 }
 
 export interface DeploymentSummary {

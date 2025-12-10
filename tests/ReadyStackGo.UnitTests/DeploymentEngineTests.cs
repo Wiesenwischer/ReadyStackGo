@@ -323,4 +323,373 @@ public class DeploymentEngineTests
         // Verify that GetDefault was called on the environment repository
         _environmentRepositoryMock.Verify(x => x.GetDefault(_testOrgId), Times.Once);
     }
+
+    #region Two-Phase Deployment Tests (Pull All, Then Start All)
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_TwoPhaseDeployment_ShouldPullAllImagesBeforeStartingContainers()
+    {
+        // Arrange
+        var pullCallOrder = new List<string>();
+        var startCallOrder = new List<string>();
+
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "db",
+                    Image = "postgres",
+                    Version = "15",
+                    ContainerName = "rsgo-db",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Order = 0
+                },
+                new()
+                {
+                    ContextName = "api",
+                    Image = "myregistry.com/api",
+                    Version = "1.0.0",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string> { "db" },
+                    Order = 1
+                },
+                new()
+                {
+                    ContextName = "web",
+                    Image = "myregistry.com/web",
+                    Version = "1.0.0",
+                    ContainerName = "rsgo-web",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string> { "api" },
+                    Order = 2
+                }
+            }
+        };
+
+        // Track pull order
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, string, CancellationToken>((_, image, _, _) => pullCallOrder.Add($"pull:{image}"))
+            .Returns(Task.CompletedTask);
+
+        // Track start order
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<string, CreateContainerRequest, CancellationToken>((_, req, _) => startCallOrder.Add($"start:{req.Name}"))
+            .ReturnsAsync("container-id");
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan);
+
+        // Assert
+        result.Success.Should().BeTrue();
+
+        // All pulls should happen before any starts
+        pullCallOrder.Should().HaveCount(3);
+        startCallOrder.Should().HaveCount(3);
+
+        // Verify pull phase completes before start phase
+        pullCallOrder.Should().ContainInOrder("pull:postgres", "pull:myregistry.com/api", "pull:myregistry.com/web");
+        startCallOrder.Should().ContainInOrder("start:rsgo-db", "start:rsgo-api", "start:rsgo-web");
+    }
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_TwoPhaseDeployment_WhenFirstImagePullFails_ShouldNotStartAnyContainers()
+    {
+        // Arrange
+        var startCalled = false;
+
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "db",
+                    Image = "nonexistent/image",
+                    Version = "latest",
+                    ContainerName = "rsgo-db",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Order = 0
+                },
+                new()
+                {
+                    ContextName = "api",
+                    Image = "nginx",
+                    Version = "latest",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string> { "db" },
+                    Order = 1
+                }
+            }
+        };
+
+        // First image pull fails
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), "nonexistent/image", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Image not found"));
+
+        // No local image exists
+        _dockerServiceMock
+            .Setup(x => x.ImageExistsAsync(It.IsAny<string>(), "nonexistent/image", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Track if container creation is ever called
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .Callback(() => startCalled = true)
+            .ReturnsAsync("container-id");
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan);
+
+        // Assert
+        result.Success.Should().BeFalse("deployment should fail when image pull fails and no local copy exists");
+        startCalled.Should().BeFalse("no containers should be started when pull phase fails");
+        result.Errors.Should().ContainSingle();
+        result.Errors[0].Should().Contain("nonexistent/image");
+    }
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_TwoPhaseDeployment_WhenMiddleImagePullFails_ShouldNotStartAnyContainers()
+    {
+        // Arrange
+        var startCalled = false;
+
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "db",
+                    Image = "postgres",
+                    Version = "15",
+                    ContainerName = "rsgo-db",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Order = 0
+                },
+                new()
+                {
+                    ContextName = "api",
+                    Image = "nonexistent/api",
+                    Version = "1.0.0",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string> { "db" },
+                    Order = 1
+                },
+                new()
+                {
+                    ContextName = "web",
+                    Image = "nginx",
+                    Version = "latest",
+                    ContainerName = "rsgo-web",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string> { "api" },
+                    Order = 2
+                }
+            }
+        };
+
+        // First image pull succeeds
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), "postgres", "15", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Second image pull fails
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), "nonexistent/api", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Image not found"));
+
+        // No local image exists for the failed image
+        _dockerServiceMock
+            .Setup(x => x.ImageExistsAsync(It.IsAny<string>(), "nonexistent/api", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Track if container creation is ever called
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .Callback(() => startCalled = true)
+            .ReturnsAsync("container-id");
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan);
+
+        // Assert
+        result.Success.Should().BeFalse("deployment should fail when any image pull fails");
+        startCalled.Should().BeFalse("no containers should be started - even though postgres was pulled successfully");
+        result.Errors.Should().ContainSingle();
+        result.Errors[0].Should().Contain("nonexistent/api");
+    }
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_TwoPhaseDeployment_ShouldReportProgressCorrectly()
+    {
+        // Arrange
+        var progressUpdates = new List<(string Phase, string Message, int Percent)>();
+
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "db",
+                    Image = "postgres",
+                    Version = "15",
+                    ContainerName = "rsgo-db",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Order = 0
+                },
+                new()
+                {
+                    ContextName = "api",
+                    Image = "nginx",
+                    Version = "latest",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string> { "db" },
+                    Order = 1
+                }
+            }
+        };
+
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("container-id");
+
+        DeploymentProgressCallback progressCallback = (phase, message, percent, _, _, _) =>
+        {
+            progressUpdates.Add((phase, message, percent));
+            return Task.CompletedTask;
+        };
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan, progressCallback, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeTrue();
+
+        // Verify progress phases
+        var phases = progressUpdates.Select(p => p.Phase).Distinct().ToList();
+        phases.Should().Contain("PullingImages", "progress should include PullingImages phase");
+        phases.Should().Contain("StartingServices", "progress should include StartingServices phase");
+
+        // Verify progress percentages go from 0-50 for pulling, 50-100 for starting
+        var pullingUpdates = progressUpdates.Where(p => p.Phase == "PullingImages").ToList();
+        var startingUpdates = progressUpdates.Where(p => p.Phase == "StartingServices").ToList();
+
+        pullingUpdates.Should().NotBeEmpty();
+        startingUpdates.Should().NotBeEmpty();
+
+        // Pulling phase should be in 5-90% range (based on phase weights - pulling is slow)
+        pullingUpdates.Should().OnlyContain(p => p.Percent >= 5 && p.Percent <= 90,
+            "PullingImages phase maps to overall 5-90%");
+        // Starting phase should be in 90-100% range (based on phase weights - starting is fast)
+        startingUpdates.Should().OnlyContain(p => p.Percent >= 90 && p.Percent <= 100,
+            "StartingServices phase maps to overall 90-100%");
+    }
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_TwoPhaseDeployment_WhenCancelledDuringPull_ShouldNotStartContainers()
+    {
+        // Arrange
+        var startCalled = false;
+        var cts = new CancellationTokenSource();
+
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "db",
+                    Image = "postgres",
+                    Version = "15",
+                    ContainerName = "rsgo-db",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Order = 0
+                },
+                new()
+                {
+                    ContextName = "api",
+                    Image = "nginx",
+                    Version = "latest",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string> { "db" },
+                    Order = 1
+                }
+            }
+        };
+
+        // First pull succeeds, then cancel
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), "postgres", "15", It.IsAny<CancellationToken>()))
+            .Callback(() => cts.Cancel()) // Cancel after first pull
+            .Returns(Task.CompletedTask);
+
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .Callback(() => startCalled = true)
+            .ReturnsAsync("container-id");
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan, null, cts.Token);
+
+        // Assert
+        result.Success.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.Contains("cancelled"));
+        startCalled.Should().BeFalse("no containers should be started when cancelled during pull phase");
+    }
+
+    #endregion
 }

@@ -98,7 +98,7 @@ public sealed class BusHealth : ValueObject
             transportKey,
             false,
             null,
-            DateTime.UtcNow,
+            SystemClock.UtcNow,
             TimeSpan.Zero,
             null,
             null);

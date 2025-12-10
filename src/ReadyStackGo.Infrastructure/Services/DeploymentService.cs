@@ -1,18 +1,9 @@
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Deployments;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
-using ReadyStackGo.Domain.IdentityAccess.Roles;
+using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.IdentityAccess.Users;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
-using ReadyStackGo.Domain.IdentityAccess.Users;
-using ReadyStackGo.Domain.Deployment.Deployments;
-using ReadyStackGo.Domain.Deployment.Environments;
-using ReadyStackGo.Domain.Deployment.Deployments;
-using ReadyStackGo.Domain.Deployment.Environments;
-using ReadyStackGo.Domain.Deployment.Deployments;
-using ReadyStackGo.Domain.Deployment.Environments;
-using ReadyStackGo.Infrastructure.Services;
 
 namespace ReadyStackGo.Infrastructure.Services;
 
@@ -98,7 +89,16 @@ public class DeploymentService : IDeploymentService
         }
     }
 
-    public async Task<DeployComposeResponse> DeployComposeAsync(string environmentId, DeployComposeRequest request)
+    public Task<DeployComposeResponse> DeployComposeAsync(string environmentId, DeployComposeRequest request)
+    {
+        return DeployComposeAsync(environmentId, request, null, CancellationToken.None);
+    }
+
+    public async Task<DeployComposeResponse> DeployComposeAsync(
+        string environmentId,
+        DeployComposeRequest request,
+        DeploymentServiceProgressCallback? progressCallback,
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -127,6 +127,12 @@ public class DeploymentService : IDeploymentService
                 };
             }
 
+            // Report initial progress
+            if (progressCallback != null)
+            {
+                await progressCallback("Validating", "Validating compose file...", 5, null, 0, 0);
+            }
+
             // Parse and validate the compose file
             var validation = await _composeParser.ValidateAsync(request.YamlContent);
             if (!validation.IsValid)
@@ -139,8 +145,20 @@ public class DeploymentService : IDeploymentService
                 };
             }
 
+            // Report progress
+            if (progressCallback != null)
+            {
+                await progressCallback("Parsing", "Parsing compose file...", 10, null, 0, 0);
+            }
+
             // Parse the compose file
             var definition = await _composeParser.ParseAsync(request.YamlContent);
+
+            // Report progress
+            if (progressCallback != null)
+            {
+                await progressCallback("Planning", "Creating deployment plan...", 15, null, 0, 0);
+            }
 
             // Convert to deployment plan
             var plan = await _composeParser.ConvertToDeploymentPlanAsync(
@@ -152,8 +170,20 @@ public class DeploymentService : IDeploymentService
             plan.EnvironmentId = environmentId;
             plan.StackName = request.StackName;
 
-            // Execute deployment
-            var result = await _deploymentEngine.ExecuteDeploymentAsync(plan);
+            // Create progress adapter to convert DeploymentEngine callback to our callback
+            DeploymentProgressCallback? engineCallback = null;
+            if (progressCallback != null)
+            {
+                engineCallback = async (phase, message, percent, currentService, totalServices, completedServices) =>
+                {
+                    // Scale the engine progress (0-100) to our range (20-90)
+                    var scaledPercent = 20 + (percent * 70 / 100);
+                    await progressCallback(phase, message, scaledPercent, currentService, totalServices, completedServices);
+                };
+            }
+
+            // Execute deployment with progress callback
+            var result = await _deploymentEngine.ExecuteDeploymentAsync(plan, engineCallback, cancellationToken);
 
             if (!result.Success)
             {
@@ -163,6 +193,12 @@ public class DeploymentService : IDeploymentService
                     Message = "Deployment failed",
                     Errors = result.Errors
                 };
+            }
+
+            // Report progress
+            if (progressCallback != null)
+            {
+                await progressCallback("Persisting", "Saving deployment record...", 95, null, result.DeployedContexts.Count, result.DeployedContexts.Count);
             }
 
             // Get current user (use first admin for now - TODO: get from authentication context)
@@ -179,6 +215,12 @@ public class DeploymentService : IDeploymentService
                 userId);
 
             deployment.SetStackVersion(plan.StackVersion ?? "1.0.0");
+
+            // Store deployment variables for later use (e.g., maintenance observer)
+            if (request.Variables != null && request.Variables.Count > 0)
+            {
+                deployment.SetVariables(request.Variables);
+            }
 
             // Mark as running with services
             var deployedServices = result.DeployedContexts.Select(c => new DeployedService(
@@ -202,6 +244,12 @@ public class DeploymentService : IDeploymentService
             if (result.Warnings.Count > 0)
             {
                 message += $" (with {result.Warnings.Count} warning{(result.Warnings.Count > 1 ? "s" : "")})";
+            }
+
+            // Report completion
+            if (progressCallback != null)
+            {
+                await progressCallback("Complete", message, 100, null, result.DeployedContexts.Count, result.DeployedContexts.Count);
             }
 
             return new DeployComposeResponse
@@ -302,7 +350,8 @@ public class DeploymentService : IDeploymentService
                 });
             }
 
-            var deployments = _deploymentRepository.GetByEnvironment(new EnvironmentId(envGuid));
+            var deployments = _deploymentRepository.GetByEnvironment(new EnvironmentId(envGuid))
+                .Where(d => d.Status != Domain.Deployment.Deployments.DeploymentStatus.Removed);
 
             return Task.FromResult(new ListDeploymentsResponse
             {
@@ -360,9 +409,9 @@ public class DeploymentService : IDeploymentService
                 };
             }
 
-            // Remove deployment record from database
+            // Remove deployment record from database (if not already removed)
             var deployment = _deploymentRepository.GetByStackName(new EnvironmentId(envGuid), stackName);
-            if (deployment != null)
+            if (deployment != null && deployment.Status != Domain.Deployment.Deployments.DeploymentStatus.Removed)
             {
                 deployment.MarkAsRemoved();
                 _deploymentRepository.Update(deployment);

@@ -4,11 +4,6 @@ using FluentAssertions;
 using Reqnroll;
 using ReadyStackGo.DomainTests.Support;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
-using ReadyStackGo.Domain.IdentityAccess.Roles;
-using ReadyStackGo.Domain.IdentityAccess.Users;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
-using ReadyStackGo.Domain.IdentityAccess.Users;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Users;
 
 [Binding]
@@ -24,23 +19,20 @@ public class UserAuthenticationSteps
     [Given(@"organization ""(.*)"" exists and is active")]
     public void GivenOrganizationExistsAndIsActive(string orgName)
     {
-        var tenantId = _context.TenantRepository.NextIdentity();
-        var tenant = Tenant.Provision(tenantId, orgName, "Test organization");
-        tenant.Activate();
-        _context.TenantRepository.Add(tenant);
-        _context.Tenants[orgName] = tenant;
+        var orgId = _context.OrganizationRepository.NextIdentity();
+        var org = Organization.Provision(orgId, orgName, "Test organization");
+        org.Activate();
+        _context.OrganizationRepository.Add(org);
+        _context.Organizations[orgName] = org;
     }
 
     [Given(@"user ""(.*)"" exists with password ""(.*)""")]
     public void GivenUserExistsWithPassword(string username, string password)
     {
-        var tenant = _context.Tenants.Values.FirstOrDefault()
-            ?? throw new InvalidOperationException("No tenant exists");
-
         var userId = _context.UserRepository.NextIdentity();
         var email = new EmailAddress($"{username}@test.com");
         var hashedPassword = HashedPassword.Create(password, _context.PasswordHasher);
-        var user = User.Register(userId, tenant.Id, username, email, hashedPassword);
+        var user = User.Register(userId, username, email, hashedPassword);
         _context.UserRepository.Add(user);
         _context.Users[username] = user;
     }
@@ -55,8 +47,8 @@ public class UserAuthenticationSteps
     [Given(@"organization ""(.*)"" is deactivated")]
     public void GivenOrganizationIsDeactivated(string orgName)
     {
-        var tenant = _context.Tenants[orgName];
-        tenant.Deactivate();
+        var org = _context.Organizations[orgName];
+        org.Deactivate();
     }
 
     [When(@"I authenticate with username ""(.*)"" and password ""(.*)""")]

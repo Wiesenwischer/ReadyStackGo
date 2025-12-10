@@ -36,7 +36,7 @@ public class StackSource : AggregateRoot<StackSourceId>
         Name = name;
         Type = type;
         Enabled = true;
-        CreatedAt = DateTime.UtcNow;
+        CreatedAt = SystemClock.UtcNow;
     }
 
     /// <summary>
@@ -106,7 +106,7 @@ public class StackSource : AggregateRoot<StackSourceId>
     /// </summary>
     public void MarkSynced()
     {
-        LastSyncedAt = DateTime.UtcNow;
+        LastSyncedAt = SystemClock.UtcNow;
     }
 
     /// <summary>

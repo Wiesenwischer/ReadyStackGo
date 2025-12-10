@@ -107,7 +107,7 @@ public sealed class HealthSnapshot : AggregateRoot<HealthSnapshotId>
         EnvironmentId = environmentId;
         DeploymentId = deploymentId;
         StackName = stackName;
-        CapturedAtUtc = DateTime.UtcNow;
+        CapturedAtUtc = SystemClock.UtcNow;
         OperationMode = operationMode;
         CurrentVersion = currentVersion;
         TargetVersion = targetVersion;
@@ -218,7 +218,7 @@ public sealed class HealthSnapshot : AggregateRoot<HealthSnapshotId>
     /// <summary>
     /// Gets the age of this snapshot.
     /// </summary>
-    public TimeSpan Age => DateTime.UtcNow - CapturedAtUtc;
+    public TimeSpan Age => SystemClock.UtcNow - CapturedAtUtc;
 
     /// <summary>
     /// Indicates if this snapshot is stale (older than threshold).

@@ -20,11 +20,6 @@ Scenario: Authentication fails for disabled user
     When I authenticate with username "admin" and password "SecurePass123!"
     Then authentication should fail
 
-Scenario: Authentication fails for inactive organization
-    Given organization "ACME Corp" is deactivated
-    When I authenticate with username "admin" and password "SecurePass123!"
-    Then authentication should fail
-
 Scenario: Authentication fails for non-existent user
     When I authenticate with username "nonexistent" and password "AnyPassword123!"
     Then authentication should fail

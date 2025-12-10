@@ -54,8 +54,8 @@ public class User : AggregateRoot<UserId>
         Email = email;
         Password = password;
         Enablement = Enablement.IndefiniteEnablement();
-        CreatedAt = DateTime.UtcNow;
-        PasswordChangedAt = DateTime.UtcNow;
+        CreatedAt = SystemClock.UtcNow;
+        PasswordChangedAt = SystemClock.UtcNow;
 
         AddDomainEvent(new UserRegistered(Id, Username, Email));
     }
@@ -137,7 +137,7 @@ public class User : AggregateRoot<UserId>
 
         IsLocked = true;
         LockReason = reason;
-        LockedUntil = DateTime.UtcNow.Add(duration);
+        LockedUntil = SystemClock.UtcNow.Add(duration);
 
         AddDomainEvent(new UserAccountLocked(Id, reason, LockedUntil));
     }
@@ -179,7 +179,7 @@ public class User : AggregateRoot<UserId>
     public void RecordSuccessfulLogin(string? ipAddress = null)
     {
         FailedLoginAttempts = 0;
-        _loginHistory.Add(new LoginAttempt(DateTime.UtcNow, true, ipAddress));
+        _loginHistory.Add(new LoginAttempt(SystemClock.UtcNow, true, ipAddress));
 
         // Keep only recent history (last 10 attempts)
         while (_loginHistory.Count > 10)
@@ -192,7 +192,7 @@ public class User : AggregateRoot<UserId>
     public void RecordFailedLogin(string? ipAddress = null, int maxAttempts = 5, TimeSpan? lockDuration = null)
     {
         FailedLoginAttempts++;
-        _loginHistory.Add(new LoginAttempt(DateTime.UtcNow, false, ipAddress));
+        _loginHistory.Add(new LoginAttempt(SystemClock.UtcNow, false, ipAddress));
 
         // Keep only recent history
         while (_loginHistory.Count > 10)
@@ -317,7 +317,7 @@ public class User : AggregateRoot<UserId>
     {
         SelfAssertArgumentNotNull(newPassword, "New password is required.");
         Password = newPassword;
-        PasswordChangedAt = DateTime.UtcNow;
+        PasswordChangedAt = SystemClock.UtcNow;
         MustChangePassword = false;
 
         AddDomainEvent(new UserPasswordChanged(Id));
@@ -339,7 +339,7 @@ public class User : AggregateRoot<UserId>
         if (!PasswordChangedAt.HasValue)
             return true;
 
-        return DateTime.UtcNow - PasswordChangedAt.Value > maxAge;
+        return SystemClock.UtcNow - PasswordChangedAt.Value > maxAge;
     }
 
     #endregion

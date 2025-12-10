@@ -394,6 +394,12 @@ public class DeployComposeRequest
     /// Target environment ID (set from route parameter for RBAC).
     /// </summary>
     public string? EnvironmentId { get; set; }
+
+    /// <summary>
+    /// Client-generated session ID for real-time progress tracking via SignalR.
+    /// If provided, clients can subscribe before calling this endpoint to receive all progress updates.
+    /// </summary>
+    public string? SessionId { get; set; }
 }
 
 /// <summary>
@@ -408,6 +414,12 @@ public class DeployComposeResponse
     public List<DeployedServiceInfo> Services { get; set; } = new();
     public List<string> Errors { get; set; } = new();
     public List<string> Warnings { get; set; } = new();
+
+    /// <summary>
+    /// Session ID used for real-time progress tracking via SignalR.
+    /// Clients can subscribe to deployment:{DeploymentSessionId} group.
+    /// </summary>
+    public string? DeploymentSessionId { get; set; }
 }
 
 /// <summary>

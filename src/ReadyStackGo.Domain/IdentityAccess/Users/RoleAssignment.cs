@@ -37,13 +37,13 @@ public sealed class RoleAssignment : ValueObject
     }
 
     public static RoleAssignment Global(RoleId roleId) =>
-        new(roleId, ScopeType.Global, null, DateTime.UtcNow);
+        new(roleId, ScopeType.Global, null, SystemClock.UtcNow);
 
     public static RoleAssignment ForOrganization(RoleId roleId, string organizationId) =>
-        new(roleId, ScopeType.Organization, organizationId, DateTime.UtcNow);
+        new(roleId, ScopeType.Organization, organizationId, SystemClock.UtcNow);
 
     public static RoleAssignment ForEnvironment(RoleId roleId, string environmentId) =>
-        new(roleId, ScopeType.Environment, environmentId, DateTime.UtcNow);
+        new(roleId, ScopeType.Environment, environmentId, SystemClock.UtcNow);
 
     protected override IEnumerable<object?> GetEqualityComponents()
     {

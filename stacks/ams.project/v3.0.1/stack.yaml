@@ -17,53 +17,6 @@ metadata:
 # Shared variables available to all stacks
 sharedVariables:
   # ===========================================
-  # Registry & Versioning
-  # ===========================================
-  REGISTRY:
-    label: Docker Registry
-    description: Docker registry for ams.project images
-    type: String
-    default: amssolution
-    group: Registry
-    order: 1
-
-  TAG:
-    label: Image Tag
-    description: Docker image tag version
-    type: String
-    default: latest
-    group: Registry
-    order: 2
-
-  PLATFORM:
-    label: Platform
-    description: Target platform (linux/windows)
-    type: Select
-    default: linux
-    options:
-      - value: linux
-        label: Linux
-      - value: windows
-        label: Windows
-    group: Registry
-    order: 3
-
-  ERP_MAIN_VERSION:
-    label: ERP Main Version
-    description: ERP system main version for wage-data-api
-    type: Select
-    default: "11"
-    options:
-      - value: "10"
-        label: ERP 10
-      - value: "11"
-        label: ERP 11
-      - value: "12"
-        label: ERP 12
-    group: Registry
-    order: 4
-
-  # ===========================================
   # Network Configuration
   # ===========================================
   AMS_PROJECT_EXTERNAL_DNS_NAME_OR_IP:
@@ -85,15 +38,6 @@ sharedVariables:
     required: true
     group: Database
     order: 1
-
-  IDENTITY_ACCESS_DB:
-    label: Identity Database Connection
-    description: SQL Server connection string for Identity database
-    type: SqlServerConnectionString
-    default: "Server=ams-mssql;Database=AMS01-Identity;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=true;"
-    required: true
-    group: Database
-    order: 2
 
   # ===========================================
   # Service Bus Configuration
@@ -179,10 +123,20 @@ sharedVariables:
         label: German (Germany)
       - value: en-US
         label: English (US)
-      - value: en-GB
-        label: English (UK)
     group: Localization
     order: 1
+
+# Maintenance Observer Configuration (Product-Level)
+# Monitors SQL Server extended property for maintenance mode.
+# All stacks in this product share the same maintenance state.
+maintenance:
+  observer:
+    type: sqlExtendedProperty
+    connectionString: ${AMS_DB}
+    propertyName: ams-MaintenanceMode
+    pollingInterval: 30s
+    maintenanceValue: "1"
+    normalValue: "0"
 
 # Stack definitions - using include to reference external fragments
 stacks:

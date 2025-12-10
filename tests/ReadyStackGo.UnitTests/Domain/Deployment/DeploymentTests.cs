@@ -955,6 +955,130 @@ public class DeploymentTests
 
     #endregion
 
+    #region Variables Tests
+
+    [Fact]
+    public void SetVariables_WithValidDictionary_StoresVariables()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        var variables = new Dictionary<string, string>
+        {
+            ["DB_HOST"] = "localhost",
+            ["DB_PORT"] = "5432",
+            ["DB_NAME"] = "mydb"
+        };
+
+        // Act
+        deployment.SetVariables(variables);
+
+        // Assert
+        deployment.Variables.Should().HaveCount(3);
+        deployment.Variables["DB_HOST"].Should().Be("localhost");
+        deployment.Variables["DB_PORT"].Should().Be("5432");
+        deployment.Variables["DB_NAME"].Should().Be("mydb");
+    }
+
+    [Fact]
+    public void SetVariables_WithEmptyDictionary_ClearsVariables()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        deployment.SetVariables(new Dictionary<string, string> { ["OLD"] = "value" });
+
+        // Act
+        deployment.SetVariables(new Dictionary<string, string>());
+
+        // Assert
+        deployment.Variables.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void SetVariables_OverwritesExistingVariables()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        deployment.SetVariables(new Dictionary<string, string>
+        {
+            ["VAR1"] = "old1",
+            ["VAR2"] = "old2"
+        });
+
+        // Act
+        deployment.SetVariables(new Dictionary<string, string>
+        {
+            ["VAR1"] = "new1",
+            ["VAR3"] = "new3"
+        });
+
+        // Assert
+        deployment.Variables.Should().HaveCount(2);
+        deployment.Variables["VAR1"].Should().Be("new1");
+        deployment.Variables["VAR3"].Should().Be("new3");
+        deployment.Variables.Should().NotContainKey("VAR2");
+    }
+
+    [Fact]
+    public void Variables_DefaultsToEmpty()
+    {
+        // Arrange & Act
+        var deployment = CreateTestDeployment();
+
+        // Assert
+        deployment.Variables.Should().NotBeNull();
+        deployment.Variables.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Variables_IsReadOnly()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        deployment.SetVariables(new Dictionary<string, string> { ["KEY"] = "value" });
+
+        // Assert - Variables should be IReadOnlyDictionary
+        deployment.Variables.Should().BeAssignableTo<IReadOnlyDictionary<string, string>>();
+    }
+
+    [Fact]
+    public void SetVariables_WithConnectionString_StoresCorrectly()
+    {
+        // Arrange - Real-world scenario with connection string containing special characters
+        var deployment = CreateTestDeployment();
+        var connectionString = "Server=sqldev2017;Database=dev-amsproject;User Id=sa;Password=P@ssw0rd!;TrustServerCertificate=true";
+        var variables = new Dictionary<string, string>
+        {
+            ["AMS_DB"] = connectionString
+        };
+
+        // Act
+        deployment.SetVariables(variables);
+
+        // Assert
+        deployment.Variables["AMS_DB"].Should().Be(connectionString);
+    }
+
+    [Fact]
+    public void SetVariables_PreservesAfterStatusTransition()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        var variables = new Dictionary<string, string>
+        {
+            ["ENV_VAR"] = "test_value"
+        };
+        deployment.SetVariables(variables);
+
+        // Act - Transition status
+        deployment.MarkAsRunning(CreateTestServices());
+
+        // Assert - Variables should still be accessible
+        deployment.Variables.Should().ContainKey("ENV_VAR");
+        deployment.Variables["ENV_VAR"].Should().Be("test_value");
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static Deployment CreateTestDeployment()

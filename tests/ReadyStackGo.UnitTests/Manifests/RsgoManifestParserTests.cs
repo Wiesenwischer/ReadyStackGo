@@ -850,4 +850,194 @@ stacks:
     }
 
     #endregion
+
+    #region Maintenance Observer Tests
+
+    [Fact]
+    public async Task ParseAsync_WithMaintenanceObserver_ParsesNestedStructure()
+    {
+        // Arrange
+        var yaml = @"
+version: '1.0'
+metadata:
+  name: AMS Business
+  productVersion: '3.0.1'
+services:
+  app:
+    image: myapp:latest
+maintenance:
+  observer:
+    type: sqlExtendedProperty
+    connectionString: ${AMS_DB}
+    propertyName: ams.maintenance
+    pollingInterval: 30s
+    maintenanceValue: '1'
+    normalValue: '0'
+";
+
+        // Act
+        var result = await _parser.ParseAsync(yaml);
+
+        // Assert
+        result.Maintenance.Should().NotBeNull();
+        result.Maintenance!.Observer.Should().NotBeNull();
+        result.Maintenance.Observer!.Type.Should().Be("sqlExtendedProperty");
+        result.Maintenance.Observer.ConnectionString.Should().Be("${AMS_DB}");
+        result.Maintenance.Observer.PropertyName.Should().Be("ams.maintenance");
+        result.Maintenance.Observer.PollingInterval.Should().Be("30s");
+        result.Maintenance.Observer.MaintenanceValue.Should().Be("1");
+        result.Maintenance.Observer.NormalValue.Should().Be("0");
+    }
+
+    [Fact]
+    public async Task ParseAsync_WithHttpObserver_ParsesAllProperties()
+    {
+        // Arrange
+        var yaml = @"
+version: '1.0'
+metadata:
+  name: Web App
+  productVersion: '1.0.0'
+services:
+  app:
+    image: myapp:latest
+maintenance:
+  observer:
+    type: http
+    url: https://api.example.com/maintenance
+    method: GET
+    timeout: 10s
+    jsonPath: $.status
+    maintenanceValue: maintenance
+    headers:
+      Authorization: Bearer ${API_TOKEN}
+      Accept: application/json
+";
+
+        // Act
+        var result = await _parser.ParseAsync(yaml);
+
+        // Assert
+        result.Maintenance.Should().NotBeNull();
+        result.Maintenance!.Observer.Should().NotBeNull();
+        result.Maintenance.Observer!.Type.Should().Be("http");
+        result.Maintenance.Observer.Url.Should().Be("https://api.example.com/maintenance");
+        result.Maintenance.Observer.Method.Should().Be("GET");
+        result.Maintenance.Observer.Timeout.Should().Be("10s");
+        result.Maintenance.Observer.JsonPath.Should().Be("$.status");
+        result.Maintenance.Observer.MaintenanceValue.Should().Be("maintenance");
+        result.Maintenance.Observer.Headers.Should().ContainKey("Authorization");
+        result.Maintenance.Observer.Headers.Should().ContainKey("Accept");
+    }
+
+    [Fact]
+    public async Task ParseAsync_WithFileObserver_ParsesAllProperties()
+    {
+        // Arrange
+        var yaml = @"
+version: '1.0'
+metadata:
+  name: File Based
+  productVersion: '1.0.0'
+services:
+  app:
+    image: myapp:latest
+maintenance:
+  observer:
+    type: file
+    path: /app/maintenance.flag
+    mode: exists
+    maintenanceValue: 'true'
+";
+
+        // Act
+        var result = await _parser.ParseAsync(yaml);
+
+        // Assert
+        result.Maintenance.Should().NotBeNull();
+        result.Maintenance!.Observer.Should().NotBeNull();
+        result.Maintenance.Observer!.Type.Should().Be("file");
+        result.Maintenance.Observer.Path.Should().Be("/app/maintenance.flag");
+        result.Maintenance.Observer.Mode.Should().Be("exists");
+        result.Maintenance.Observer.MaintenanceValue.Should().Be("true");
+    }
+
+    [Fact]
+    public async Task ParseAsync_WithSqlQueryObserver_ParsesAllProperties()
+    {
+        // Arrange
+        var yaml = @"
+version: '1.0'
+metadata:
+  name: SQL Query Based
+  productVersion: '1.0.0'
+services:
+  app:
+    image: myapp:latest
+maintenance:
+  observer:
+    type: sqlQuery
+    connectionName: DB_CONNECTION
+    query: SELECT MaintenanceMode FROM dbo.SystemConfig WHERE Id = 1
+    pollingInterval: 1m
+    maintenanceValue: 'true'
+";
+
+        // Act
+        var result = await _parser.ParseAsync(yaml);
+
+        // Assert
+        result.Maintenance.Should().NotBeNull();
+        result.Maintenance!.Observer.Should().NotBeNull();
+        result.Maintenance.Observer!.Type.Should().Be("sqlQuery");
+        result.Maintenance.Observer.ConnectionName.Should().Be("DB_CONNECTION");
+        result.Maintenance.Observer.Query.Should().Be("SELECT MaintenanceMode FROM dbo.SystemConfig WHERE Id = 1");
+        result.Maintenance.Observer.PollingInterval.Should().Be("1m");
+    }
+
+    [Fact]
+    public async Task ParseAsync_WithoutMaintenanceObserver_MaintenanceIsNull()
+    {
+        // Arrange
+        var yaml = @"
+version: '1.0'
+metadata:
+  name: Simple Stack
+  productVersion: '1.0.0'
+services:
+  app:
+    image: myapp:latest
+";
+
+        // Act
+        var result = await _parser.ParseAsync(yaml);
+
+        // Assert
+        result.Maintenance.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ParseAsync_WithMaintenanceWithoutObserver_ObserverIsNull()
+    {
+        // Arrange - Future extensibility: maintenance section without observer
+        var yaml = @"
+version: '1.0'
+metadata:
+  name: Empty Maintenance
+  productVersion: '1.0.0'
+services:
+  app:
+    image: myapp:latest
+maintenance: {}
+";
+
+        // Act
+        var result = await _parser.ParseAsync(yaml);
+
+        // Assert
+        result.Maintenance.Should().NotBeNull();
+        result.Maintenance!.Observer.Should().BeNull();
+    }
+
+    #endregion
 }

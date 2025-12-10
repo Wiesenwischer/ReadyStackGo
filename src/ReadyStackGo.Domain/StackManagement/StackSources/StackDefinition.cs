@@ -1,5 +1,8 @@
 namespace ReadyStackGo.Domain.StackManagement.StackSources;
 
+using ReadyStackGo.Domain.SharedKernel;
+using ReadyStackGo.Domain.StackManagement.Manifests;
+
 /// <summary>
 /// A stack definition loaded from a stack source.
 /// This is a Value Object as it has no identity of its own - it's identified by SourceId:Name.
@@ -107,6 +110,16 @@ public class StackDefinition
 
     #endregion
 
+    #region Maintenance Configuration
+
+    /// <summary>
+    /// Maintenance observer configuration for this stack.
+    /// Defined at product-level in the manifest and inherited by all stacks.
+    /// </summary>
+    public RsgoMaintenanceObserver? MaintenanceObserver { get; }
+
+    #endregion
+
     public StackDefinition(
         string sourceId,
         string name,
@@ -126,7 +139,9 @@ public class StackDefinition
         string? productDescription = null,
         string? productVersion = null,
         string? category = null,
-        IEnumerable<string>? tags = null)
+        IEnumerable<string>? tags = null,
+        // Maintenance configuration
+        RsgoMaintenanceObserver? maintenanceObserver = null)
     {
         if (string.IsNullOrWhiteSpace(sourceId))
             throw new ArgumentException("SourceId cannot be empty.", nameof(sourceId));
@@ -145,7 +160,7 @@ public class StackDefinition
         RelativePath = relativePath;
         AdditionalFiles = (additionalFiles?.ToList() ?? new List<string>()).AsReadOnly();
         AdditionalFileContents = new Dictionary<string, string>(additionalFileContents ?? new Dictionary<string, string>());
-        LastSyncedAt = lastSyncedAt ?? DateTime.UtcNow;
+        LastSyncedAt = lastSyncedAt ?? SystemClock.UtcNow;
         Version = version;
 
         // Product properties - default to stack values if not specified
@@ -155,6 +170,9 @@ public class StackDefinition
         ProductVersion = productVersion ?? version;
         Category = category;
         Tags = (tags?.ToList() ?? new List<string>()).AsReadOnly();
+
+        // Maintenance configuration
+        MaintenanceObserver = maintenanceObserver;
     }
 
     /// <summary>

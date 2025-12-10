@@ -74,6 +74,7 @@ public class Program
                 options.PayloadSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
             });
         builder.Services.AddScoped<IHealthNotificationService, HealthNotificationService>();
+        builder.Services.AddScoped<IDeploymentNotificationService, DeploymentNotificationService>();
 
         // Health Collector Background Service (v0.11)
         builder.Services.Configure<HealthCollectorOptions>(
@@ -145,6 +146,7 @@ public class Program
 
         // Map SignalR hubs
         app.MapHub<HealthHub>("/hubs/health");
+        app.MapHub<DeploymentHub>("/hubs/deployment");
 
         // SPA fallback: serve index.html for non-API, non-file routes
         // This must come after static files middleware so that actual files are served first
