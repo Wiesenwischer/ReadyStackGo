@@ -1,0 +1,25 @@
+{
+  "organization": {
+    "id": "test-org",
+    "name": "Test Organization",
+    "environments": [
+      {
+        "$type": "docker-socket",
+        "id": "local",
+        "name": "Local Development",
+        "socketPath": "unix:///var/run/docker.sock",
+        "isDefault": true,
+        "createdAt": "2024-01-01T00:00:00Z"
+      }
+    ],
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T00:00:00Z"
+  },
+  "baseUrl": "http://localhost:5259",
+  "httpPort": 5259,
+  "httpsPort": 5260,
+  "dockerNetwork": "rsgo-net",
+  "mode": "SingleNode",
+  "wizardState": "Installed",
+  "installedVersion": "0.11.0"
+}

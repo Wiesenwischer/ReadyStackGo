@@ -405,6 +405,8 @@ tmp/
 # Config files with secrets (examples should be committed)
 rsgo.*.json
 !rsgo.*.example.json
+# E2E test fixtures should be committed
+!**/e2e/fixtures/**/rsgo.*.json
 
 # TLS certificates
 *.pfx
