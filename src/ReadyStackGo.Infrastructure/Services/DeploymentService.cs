@@ -8,12 +8,15 @@ using ReadyStackGo.Domain.IdentityAccess.Users;
 namespace ReadyStackGo.Infrastructure.Services;
 
 /// <summary>
-/// Service for managing Docker Compose stack deployments.
+/// Service for managing stack deployments.
+/// Supports both Docker Compose and RSGo Manifest formats with auto-detection.
 /// v0.6: Fully migrated to SQLite persistence.
+/// v0.12: Added RSGo manifest support and format auto-detection.
 /// </summary>
 public class DeploymentService : IDeploymentService
 {
     private readonly IDockerComposeParser _composeParser;
+    private readonly IRsgoManifestParser _manifestParser;
     private readonly IDeploymentEngine _deploymentEngine;
     private readonly IDeploymentRepository _deploymentRepository;
     private readonly IEnvironmentRepository _environmentRepository;
@@ -22,6 +25,7 @@ public class DeploymentService : IDeploymentService
 
     public DeploymentService(
         IDockerComposeParser composeParser,
+        IRsgoManifestParser manifestParser,
         IDeploymentEngine deploymentEngine,
         IDeploymentRepository deploymentRepository,
         IEnvironmentRepository environmentRepository,
@@ -29,6 +33,7 @@ public class DeploymentService : IDeploymentService
         ILogger<DeploymentService> logger)
     {
         _composeParser = composeParser;
+        _manifestParser = manifestParser;
         _deploymentEngine = deploymentEngine;
         _deploymentRepository = deploymentRepository;
         _environmentRepository = environmentRepository;
@@ -40,50 +45,89 @@ public class DeploymentService : IDeploymentService
     {
         try
         {
-            _logger.LogInformation("Parsing Docker Compose file");
+            // Detect manifest format
+            var format = _manifestParser.DetectFormat(request.YamlContent);
+            _logger.LogInformation("Parsing manifest (format: {Format})", format);
 
-            // Validate the compose file
-            var validation = await _composeParser.ValidateAsync(request.YamlContent);
-
-            if (!validation.IsValid)
+            if (format == ManifestFormat.RsgoManifest)
             {
+                // Use RSGo manifest parser
+                var rsgoValidation = await _manifestParser.ValidateAsync(request.YamlContent);
+                if (!rsgoValidation.IsValid)
+                {
+                    return new ParseComposeResponse
+                    {
+                        Success = false,
+                        Message = "Manifest validation failed",
+                        Errors = rsgoValidation.Errors,
+                        Warnings = rsgoValidation.Warnings
+                    };
+                }
+
+                // Parse manifest once
+                var manifest = await _manifestParser.ParseAsync(request.YamlContent);
+                var variables = await _manifestParser.ExtractVariablesAsync(manifest);
+
                 return new ParseComposeResponse
                 {
-                    Success = false,
-                    Message = "Compose file validation failed",
-                    Errors = validation.Errors,
+                    Success = true,
+                    Message = $"Successfully parsed RSGo manifest with {manifest.Services?.Count ?? 0} services",
+                    Services = manifest.Services?.Keys.ToList() ?? new List<string>(),
+                    Variables = variables.Select(v => new EnvironmentVariableInfo
+                    {
+                        Name = v.Name,
+                        DefaultValue = v.DefaultValue,
+                        IsRequired = v.IsRequired,
+                        UsedInServices = new List<string>() // RSGo variables don't track service usage
+                    }).ToList(),
+                    Warnings = rsgoValidation.Warnings
+                };
+            }
+            else
+            {
+                // Use Docker Compose parser (legacy format)
+                var validation = await _composeParser.ValidateAsync(request.YamlContent);
+
+                if (!validation.IsValid)
+                {
+                    return new ParseComposeResponse
+                    {
+                        Success = false,
+                        Message = "Compose file validation failed",
+                        Errors = validation.Errors,
+                        Warnings = validation.Warnings
+                    };
+                }
+
+                // Parse the compose file
+                var definition = await _composeParser.ParseAsync(request.YamlContent);
+
+                // Detect environment variables
+                var variables = await _composeParser.DetectVariablesAsync(request.YamlContent);
+
+                return new ParseComposeResponse
+                {
+                    Success = true,
+                    Message = $"Successfully parsed compose file with {definition.Services.Count} services",
+                    Services = definition.Services.Keys.ToList(),
+                    Variables = variables.Select(v => new EnvironmentVariableInfo
+                    {
+                        Name = v.Name,
+                        DefaultValue = v.DefaultValue,
+                        IsRequired = v.IsRequired,
+                        UsedInServices = v.UsedInServices
+                    }).ToList(),
                     Warnings = validation.Warnings
                 };
             }
-
-            // Parse the compose file
-            var definition = await _composeParser.ParseAsync(request.YamlContent);
-
-            // Detect environment variables
-            var variables = await _composeParser.DetectVariablesAsync(request.YamlContent);
-
-            return new ParseComposeResponse
-            {
-                Success = true,
-                Message = $"Successfully parsed compose file with {definition.Services.Count} services",
-                Services = definition.Services.Keys.ToList(),
-                Variables = variables.Select(v => new EnvironmentVariableInfo
-                {
-                    Name = v.Name,
-                    DefaultValue = v.DefaultValue,
-                    IsRequired = v.IsRequired,
-                    UsedInServices = v.UsedInServices
-                }).ToList(),
-                Warnings = validation.Warnings
-            };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to parse Docker Compose file");
+            _logger.LogError(ex, "Failed to parse manifest");
             return new ParseComposeResponse
             {
                 Success = false,
-                Message = $"Failed to parse compose file: {ex.Message}",
+                Message = $"Failed to parse manifest: {ex.Message}",
                 Errors = new List<string> { ex.Message }
             };
         }
@@ -130,42 +174,85 @@ public class DeploymentService : IDeploymentService
             // Report initial progress
             if (progressCallback != null)
             {
-                await progressCallback("Validating", "Validating compose file...", 5, null, 0, 0);
+                await progressCallback("Validating", "Validating manifest...", 5, null, 0, 0);
             }
 
-            // Parse and validate the compose file
-            var validation = await _composeParser.ValidateAsync(request.YamlContent);
-            if (!validation.IsValid)
+            // Detect manifest format and create deployment plan
+            var format = _manifestParser.DetectFormat(request.YamlContent);
+            _logger.LogDebug("Detected manifest format: {Format} for stack {StackName}", format, request.StackName);
+
+            DeploymentPlan plan;
+
+            if (format == ManifestFormat.RsgoManifest)
             {
-                return new DeployComposeResponse
+                // Use RSGo manifest parser
+                var rsgoValidation = await _manifestParser.ValidateAsync(request.YamlContent);
+                if (!rsgoValidation.IsValid)
                 {
-                    Success = false,
-                    Message = "Compose file validation failed",
-                    Errors = validation.Errors
-                };
-            }
+                    return new DeployComposeResponse
+                    {
+                        Success = false,
+                        Message = "Manifest validation failed",
+                        Errors = rsgoValidation.Errors
+                    };
+                }
 
-            // Report progress
-            if (progressCallback != null)
+                // Report progress
+                if (progressCallback != null)
+                {
+                    await progressCallback("Parsing", "Parsing RSGo manifest...", 10, null, 0, 0);
+                }
+
+                // Parse manifest once and create deployment plan directly
+                var manifest = await _manifestParser.ParseAsync(request.YamlContent);
+
+                if (progressCallback != null)
+                {
+                    await progressCallback("Planning", "Creating deployment plan...", 15, null, 0, 0);
+                }
+
+                plan = await _manifestParser.ConvertToDeploymentPlanAsync(
+                    manifest,
+                    request.Variables,
+                    request.StackName);
+                plan.StackVersion = request.StackVersion ?? manifest.Metadata?.ProductVersion ?? "unspecified";
+            }
+            else
             {
-                await progressCallback("Parsing", "Parsing compose file...", 10, null, 0, 0);
+                // Use Docker Compose parser (legacy format)
+                var validation = await _composeParser.ValidateAsync(request.YamlContent);
+                if (!validation.IsValid)
+                {
+                    return new DeployComposeResponse
+                    {
+                        Success = false,
+                        Message = "Compose file validation failed",
+                        Errors = validation.Errors
+                    };
+                }
+
+                // Report progress
+                if (progressCallback != null)
+                {
+                    await progressCallback("Parsing", "Parsing Docker Compose file...", 10, null, 0, 0);
+                }
+
+                // Parse the compose file
+                var definition = await _composeParser.ParseAsync(request.YamlContent);
+
+                // Report progress
+                if (progressCallback != null)
+                {
+                    await progressCallback("Planning", "Creating deployment plan...", 15, null, 0, 0);
+                }
+
+                // Convert to deployment plan
+                plan = await _composeParser.ConvertToDeploymentPlanAsync(
+                    definition,
+                    request.Variables,
+                    request.StackName,
+                    request.StackVersion);
             }
-
-            // Parse the compose file
-            var definition = await _composeParser.ParseAsync(request.YamlContent);
-
-            // Report progress
-            if (progressCallback != null)
-            {
-                await progressCallback("Planning", "Creating deployment plan...", 15, null, 0, 0);
-            }
-
-            // Convert to deployment plan
-            var plan = await _composeParser.ConvertToDeploymentPlanAsync(
-                definition,
-                request.Variables,
-                request.StackName,
-                request.StackVersion);
 
             // Set environment ID for the deployment
             plan.EnvironmentId = environmentId;
