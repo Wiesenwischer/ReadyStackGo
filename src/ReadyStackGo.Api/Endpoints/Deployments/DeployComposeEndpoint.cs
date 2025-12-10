@@ -33,7 +33,7 @@ public class DeployComposeEndpoint : Endpoint<DeployComposeRequest, DeployCompos
         req.EnvironmentId = environmentId;
 
         var response = await _mediator.Send(
-            new DeployComposeCommand(environmentId, req.StackName, req.YamlContent, req.Variables, req.SessionId), ct);
+            new DeployComposeCommand(environmentId, req.StackName, req.YamlContent, req.Variables, req.StackVersion, req.SessionId), ct);
 
         if (!response.Success && response.Message?.Contains("not found") == true)
         {

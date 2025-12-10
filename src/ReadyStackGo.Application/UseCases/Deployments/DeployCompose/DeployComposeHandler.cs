@@ -25,6 +25,7 @@ public class DeployComposeHandler : IRequestHandler<DeployComposeCommand, Deploy
         {
             StackName = request.StackName,
             YamlContent = request.YamlContent,
+            StackVersion = request.StackVersion,
             Variables = request.Variables
         };
 

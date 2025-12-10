@@ -160,11 +160,12 @@ public class DockerComposeParser : IDockerComposeParser
     public Task<DeploymentPlan> ConvertToDeploymentPlanAsync(
         DockerComposeDefinition compose,
         Dictionary<string, string> resolvedVariables,
-        string stackName)
+        string stackName,
+        string? stackVersion = null)
     {
         var plan = new DeploymentPlan
         {
-            StackVersion = stackName,
+            StackVersion = stackVersion ?? "unspecified",
             GlobalEnvVars = new Dictionary<string, string>(resolvedVariables)
         };
 

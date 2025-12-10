@@ -208,6 +208,7 @@ export default function DeployStack() {
       const response = await deployCompose(activeEnvironment.id, {
         stackName,
         yamlContent: isCustomDeploy ? yamlContent : stack!.yamlContent,
+        stackVersion: isCustomDeploy ? undefined : stack?.version,
         variables: variableValues,
         sessionId, // Pass the pre-generated session ID to the server
       });

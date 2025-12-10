@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as signalR from '@microsoft/signalr';
 import { useAuth } from '../context/AuthContext';
-import type { StackHealthSummaryDto, EnvironmentHealthSummaryDto } from '../api/health';
+import type { StackHealthSummaryDto, StackHealthDto, EnvironmentHealthSummaryDto } from '../api/health';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
 export interface UseHealthHubOptions {
   onDeploymentHealthChanged?: (health: StackHealthSummaryDto) => void;
+  onDeploymentDetailedHealthChanged?: (health: StackHealthDto) => void;
   onEnvironmentHealthChanged?: (summary: EnvironmentHealthSummaryDto) => void;
   onGlobalHealthChanged?: (health: StackHealthSummaryDto) => void;
   onConnectionStateChanged?: (state: ConnectionState) => void;
@@ -64,6 +65,10 @@ export function useHealthHub(options: UseHealthHubOptions = {}): UseHealthHubRet
     // Set up event handlers
     connection.on('DeploymentHealthChanged', (health: StackHealthSummaryDto) => {
       optionsRef.current.onDeploymentHealthChanged?.(health);
+    });
+
+    connection.on('DeploymentDetailedHealthChanged', (health: StackHealthDto) => {
+      optionsRef.current.onDeploymentDetailedHealthChanged?.(health);
     });
 
     connection.on('EnvironmentHealthChanged', (summary: EnvironmentHealthSummaryDto) => {

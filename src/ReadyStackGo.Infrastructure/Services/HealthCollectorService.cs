@@ -3,7 +3,6 @@ using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Health;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
-using ReadyStackGo.Domain.Deployment.Health;
 
 namespace ReadyStackGo.Infrastructure.Services;
 
@@ -74,13 +73,20 @@ public class HealthCollectorService : IHealthCollectorService
                     serviceHealthConfigs: null, // TODO: Load from stack definition
                     cancellationToken);
 
-                var summaryDto = MapToStackHealthSummary(snapshot);
+                var summaryDto = HealthSnapshotMapper.MapToStackHealthSummary(snapshot);
                 stackSummaries.Add(summaryDto);
 
-                // Notify about individual deployment health change
+                // Notify about individual deployment health change (summary for environment list)
                 await _healthNotificationService.NotifyDeploymentHealthChangedAsync(
                     deployment.Id,
                     summaryDto,
+                    cancellationToken);
+
+                // Notify detailed health for deployment detail view subscribers
+                var detailedDto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, environmentId);
+                await _healthNotificationService.NotifyDeploymentDetailedHealthChangedAsync(
+                    deployment.Id,
+                    detailedDto,
                     cancellationToken);
             }
             catch (Exception ex)
@@ -154,12 +160,19 @@ public class HealthCollectorService : IHealthCollectorService
                 serviceHealthConfigs: null, // TODO: Load from stack definition
                 cancellationToken);
 
-            var summaryDto = MapToStackHealthSummary(snapshot);
+            var summaryDto = HealthSnapshotMapper.MapToStackHealthSummary(snapshot);
 
-            // Notify about deployment health change
+            // Notify about deployment health change (summary)
             await _healthNotificationService.NotifyDeploymentHealthChangedAsync(
                 deploymentId,
                 summaryDto,
+                cancellationToken);
+
+            // Notify detailed health for deployment detail view subscribers
+            var detailedDto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, deployment.EnvironmentId);
+            await _healthNotificationService.NotifyDeploymentDetailedHealthChangedAsync(
+                deploymentId,
+                detailedDto,
                 cancellationToken);
 
             _logger.LogInformation(
@@ -206,22 +219,5 @@ public class HealthCollectorService : IHealthCollectorService
     private IEnumerable<Deployment> GetAllActiveDeployments()
     {
         return _deploymentRepository.GetAllActive();
-    }
-
-    private static StackHealthSummaryDto MapToStackHealthSummary(HealthSnapshot snapshot)
-    {
-        return new StackHealthSummaryDto
-        {
-            DeploymentId = snapshot.DeploymentId.Value.ToString(),
-            StackName = snapshot.StackName,
-            CurrentVersion = snapshot.CurrentVersion,
-            OverallStatus = snapshot.Overall.Name,
-            OperationMode = snapshot.OperationMode.Name,
-            HealthyServices = snapshot.Self.HealthyCount,
-            TotalServices = snapshot.Self.TotalCount,
-            StatusMessage = snapshot.GetStatusMessage(),
-            RequiresAttention = snapshot.RequiresAttention,
-            CapturedAtUtc = snapshot.CapturedAtUtc
-        };
     }
 }

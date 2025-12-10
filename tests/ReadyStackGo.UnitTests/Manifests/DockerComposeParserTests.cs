@@ -206,16 +206,62 @@ services:
         };
 
         // Act
-        var plan = await _parser.ConvertToDeploymentPlanAsync(definition, variables, "my-stack");
+        var plan = await _parser.ConvertToDeploymentPlanAsync(definition, variables, "my-stack", "2.0.0");
 
         // Assert
         plan.Should().NotBeNull();
-        plan.StackVersion.Should().Be("my-stack");
+        plan.StackVersion.Should().Be("2.0.0");
         plan.Steps.Should().HaveCount(2);
 
         var webStep = plan.Steps.First(s => s.ContextName == "web");
         webStep.Image.Should().Be("nginx:1.21");
         webStep.Ports.Should().Contain("8080:80");
+    }
+
+    [Fact]
+    public async Task ConvertToDeploymentPlanAsync_WithVersion_SetsCorrectVersion()
+    {
+        // Arrange
+        var yaml = @"
+version: '3.8'
+services:
+  web:
+    image: nginx:latest
+";
+        var definition = await _parser.ParseAsync(yaml);
+
+        // Act
+        var plan = await _parser.ConvertToDeploymentPlanAsync(
+            definition,
+            new Dictionary<string, string>(),
+            "my-stack",
+            "3.1.0");
+
+        // Assert
+        plan.StackVersion.Should().Be("3.1.0");
+    }
+
+    [Fact]
+    public async Task ConvertToDeploymentPlanAsync_WithNullVersion_DefaultsToUnspecified()
+    {
+        // Arrange
+        var yaml = @"
+version: '3.8'
+services:
+  web:
+    image: nginx:latest
+";
+        var definition = await _parser.ParseAsync(yaml);
+
+        // Act
+        var plan = await _parser.ConvertToDeploymentPlanAsync(
+            definition,
+            new Dictionary<string, string>(),
+            "my-stack",
+            null);
+
+        // Assert
+        plan.StackVersion.Should().Be("unspecified");
     }
 
     [Fact]

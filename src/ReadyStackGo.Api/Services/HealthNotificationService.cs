@@ -31,12 +31,28 @@ public class HealthNotificationService : IHealthNotificationService
         var groupName = $"deploy:{deploymentId.Value}";
 
         _logger.LogDebug(
-            "Sending health update for deployment {DeploymentId} to group {Group}",
+            "Sending health summary for deployment {DeploymentId} to group {Group}",
             deploymentId, groupName);
 
         await _hubContext.Clients
             .Group(groupName)
             .SendAsync("DeploymentHealthChanged", healthSummary, cancellationToken);
+    }
+
+    public async Task NotifyDeploymentDetailedHealthChangedAsync(
+        DeploymentId deploymentId,
+        StackHealthDto detailedHealth,
+        CancellationToken cancellationToken = default)
+    {
+        var groupName = $"deploy:{deploymentId.Value}";
+
+        _logger.LogDebug(
+            "Sending detailed health for deployment {DeploymentId} to group {Group} with {ServiceCount} services",
+            deploymentId, groupName, detailedHealth.Self.Services.Count);
+
+        await _hubContext.Clients
+            .Group(groupName)
+            .SendAsync("DeploymentDetailedHealthChanged", detailedHealth, cancellationToken);
     }
 
     public async Task NotifyEnvironmentHealthChangedAsync(

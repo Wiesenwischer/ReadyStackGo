@@ -25,34 +25,39 @@ export default function DeploymentDetail() {
   const [modeActionLoading, setModeActionLoading] = useState(false);
   const [modeActionError, setModeActionError] = useState<string | null>(null);
 
-  // SignalR Health Hub connection
-  const { connectionState, subscribeToEnvironment, unsubscribeFromEnvironment } = useHealthHub({
-    onDeploymentHealthChanged: (healthData) => {
-      // Update health if it matches our deployment
+  // SignalR Health Hub connection - subscribe to deployment for detailed health updates
+  const { connectionState, subscribeToDeployment, unsubscribeFromDeployment } = useHealthHub({
+    onDeploymentDetailedHealthChanged: (healthData) => {
+      // Update detailed health if it matches our deployment
       if (deployment?.deploymentId && healthData.deploymentId === deployment.deploymentId) {
-        setHealth(healthData);
-      }
-    },
-    onEnvironmentHealthChanged: (summary) => {
-      // Find our deployment in the summary
-      if (deployment?.deploymentId) {
-        const stackHealth = summary.stacks.find(s => s.deploymentId === deployment.deploymentId);
-        if (stackHealth) {
-          setHealth(stackHealth);
-        }
+        setDetailedHealth(healthData);
+        // Also update summary from detailed data
+        setHealth({
+          deploymentId: healthData.deploymentId,
+          stackName: healthData.stackName,
+          currentVersion: healthData.currentVersion,
+          overallStatus: healthData.overallStatus,
+          operationMode: healthData.operationMode,
+          healthyServices: healthData.self.healthyCount,
+          totalServices: healthData.self.totalCount,
+          statusMessage: healthData.statusMessage,
+          requiresAttention: healthData.requiresAttention,
+          capturedAtUtc: healthData.capturedAtUtc
+        });
       }
     }
   });
 
-  // Subscribe to environment when connected
+  // Subscribe to deployment when connected and deployment is loaded
   useEffect(() => {
-    if (activeEnvironment && connectionState === 'connected') {
-      subscribeToEnvironment(activeEnvironment.id);
+    const deploymentId = deployment?.deploymentId;
+    if (deploymentId && connectionState === 'connected') {
+      subscribeToDeployment(deploymentId);
       return () => {
-        unsubscribeFromEnvironment(activeEnvironment.id);
+        unsubscribeFromDeployment(deploymentId);
       };
     }
-  }, [activeEnvironment, connectionState, subscribeToEnvironment, unsubscribeFromEnvironment]);
+  }, [deployment?.deploymentId, connectionState, subscribeToDeployment, unsubscribeFromDeployment]);
 
   useEffect(() => {
     const loadDeployment = async () => {

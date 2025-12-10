@@ -8,5 +8,6 @@ public record DeployComposeCommand(
     string StackName,
     string YamlContent,
     Dictionary<string, string> Variables,
+    string? StackVersion = null,
     string? SessionId = null
 ) : IRequest<DeployComposeResponse>;

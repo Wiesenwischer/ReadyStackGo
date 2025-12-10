@@ -164,7 +164,8 @@ public class DeploymentService : IDeploymentService
             var plan = await _composeParser.ConvertToDeploymentPlanAsync(
                 definition,
                 request.Variables,
-                request.StackName);
+                request.StackName,
+                request.StackVersion);
 
             // Set environment ID for the deployment
             plan.EnvironmentId = environmentId;
@@ -214,7 +215,7 @@ public class DeploymentService : IDeploymentService
                 request.StackName, // Use stack name as project name
                 userId);
 
-            deployment.SetStackVersion(plan.StackVersion ?? "1.0.0");
+            deployment.SetStackVersion(plan.StackVersion);
 
             // Store deployment variables for later use (e.g., maintenance observer)
             if (request.Variables != null && request.Variables.Count > 0)

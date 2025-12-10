@@ -30,11 +30,13 @@ public interface IDockerComposeParser
     /// <param name="compose">Parsed compose definition</param>
     /// <param name="resolvedVariables">Resolved environment variable values</param>
     /// <param name="stackName">Name for the deployed stack</param>
+    /// <param name="stackVersion">Version of the stack (from product manifest). Null defaults to "unspecified".</param>
     /// <returns>Deployment plan compatible with the deployment engine</returns>
     Task<DeploymentPlan> ConvertToDeploymentPlanAsync(
         DockerComposeDefinition compose,
         Dictionary<string, string> resolvedVariables,
-        string stackName);
+        string stackName,
+        string? stackVersion = null);
 
     /// <summary>
     /// Validate a Docker Compose YAML file.

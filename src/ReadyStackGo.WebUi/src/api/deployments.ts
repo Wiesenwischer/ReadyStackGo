@@ -24,6 +24,8 @@ export interface ParseComposeResponse {
 export interface DeployComposeRequest {
   stackName: string;
   yamlContent: string;
+  /** Version of the stack (from product manifest metadata.productVersion) */
+  stackVersion?: string;
   variables: Record<string, string>;
   /** Client-generated session ID for real-time progress tracking via SignalR */
   sessionId?: string;

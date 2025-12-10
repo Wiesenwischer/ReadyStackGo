@@ -386,6 +386,11 @@ public class DeployComposeRequest
     public required string YamlContent { get; set; }
 
     /// <summary>
+    /// Version of the stack (from product manifest metadata.productVersion).
+    /// </summary>
+    public string? StackVersion { get; set; }
+
+    /// <summary>
     /// Resolved environment variable values
     /// </summary>
     public Dictionary<string, string> Variables { get; set; } = new();
