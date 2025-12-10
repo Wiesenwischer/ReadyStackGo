@@ -40,47 +40,87 @@ Rough outlook on planned versions and features.
   - Draft-only Releases with Manual Publish
   - Docker Dev Builds on ghcr.io
   - Example Stacks Included in Docker Image
+- **v0.10** – RSGo Manifest Format (2025-12-07)
+  - Native Stack Definition Format for ReadyStackGo
+  - 17 Variable Types (String, Number, Boolean, Select, Password, Port, Url, Email, etc.)
+  - Docker Compose Import with Automatic Conversion
+  - Multi-Stack Products with Shared Variables and Fragments
+  - Regex Validation for Input Fields
+  - Complete Manifest Specification and Schema Reference
+- **v0.11** – Manifest Architecture & REST API Improvements (2025-12-10)
+  - DeployStack REST Endpoint for Stack Deployment via API
+  - SignalR DeploymentHub for Real-time Progress Updates
+  - StackValidationInfo for Pre-deployment Validation
+  - Maintenance Observer Integration
+  - Bounded Contexts Documentation
+  - PublicWeb Documentation (Stack Deployment Guides DE/EN)
+  - E2E Tests moved to Release Workflow
 
 ## Planned
 
-### v0.10 – RSGo Manifest Format
-- Specification for Custom Manifest Format
-- Docker Compose Import (Conversion on Import)
-- Type Validation (Number, Boolean, String, Select)
-- Regex Validation for Input Fields
+### v0.12 – Domain Refactoring (DDD)
+Complete implementation of Bounded Contexts as specified in [Bounded-Contexts.md](../Architecture/Bounded-Contexts.md).
 
-### v0.11 – Health Monitoring + Rollback
+**Phase 1: Catalog Context**
+- Create new namespace `ReadyStackGo.Domain.Catalog`
+- Move `StackSource`, `GitSource`, `FileSource` from StackManagement to Catalog
+- Move `RsgoManifest` and all parsing classes to Catalog
+- Define Domain Events for import (`StackDefinitionImportedEvent`, `RuntimeConfigImportedEvent`)
+- Create Event Handlers in StackManagement and Deployment
+
+**Phase 2: Runtime-Config to Deployment**
+- Create `RuntimeStackConfig` Entity in Deployment
+- Create `MaintenanceConfig`, `HealthCheckConfig`, `ObserverConfig` Value Objects
+- Add Repository and Persistence for RuntimeStackConfig
+- Implement Event Handler for `RuntimeConfigImportedEvent`
+
+**Phase 3: StackManagement Cleanup**
+- Remove runtime-related properties from `StackDefinition`
+- Replace all Manifest class imports with Events
+- Adapt tests
+
+**Phase 4: Application Layer**
+- Implement mapping functions for context transitions
+- Update UseCases to work with both contexts
+- Integration tests for cross-context flows
+
+### v0.13 – Health Monitoring + Rollback
 - Container Health Monitoring (Status, Health, RestartCount)
 - Stack Health Dashboard
 - Deployment Rollback (Restore Previous Stack Version)
 
-### v0.12 – Registry Management + Git Stack Sources
+### v0.14 – Registry Management + Git Stack Sources
 - Settings Page for Registry Management
 - Multiple Docker Registries Configurable (Name, URL, Username, Password)
 - GitRepository StackSourceProvider (Load Stacks from Git Repos)
 
-### v0.13 – Release & TLS Management
+### v0.15 – Release & TLS Management
 - Release Management UI
 - Custom TLS Certificates
 
-### v0.14 – Metrics & Audit
+### v0.16 – Metrics & Audit
 - Metrics & Alerting
 - Audit Logs
 
-### v0.15 – Docker Volumes Management
+### v0.17 – Docker Volumes Management
 - Docker Volumes View (List All Volumes per Environment)
 - Volume Details (Size, Mount Points, Labels)
 - Create/Delete Volumes
 - Detect Orphaned Volumes
 
-### v0.16 – CI/CD Integration
+### v0.18 – CI/CD Integration
 - Webhooks for External CI/CD Systems
 - API for Automated Deployments
 
-### v0.17 – Multi-User Support
+### v0.19 – Multi-User Support
 - User Management UI
 - Create/Edit Users
 - Password Reset Flow
+
+### v0.20 – Feature Flags
+- Feature Flags UI in Admin
+- Feature Toggle at Organization Level
+- Environment Variables for Feature Flags
 
 ### v1.0 – Production Ready
 - Review and Complete Documentation
@@ -90,8 +130,7 @@ Rough outlook on planned versions and features.
 ## Post v1.0
 
 ### Future Features
-- Feature Flags UI
-- Advanced Connection Mode
+- Advanced Connection Mode (Per-Context Connections)
 - Plugin System
 - Multi-Node Support (Multiple Docker Hosts per Environment)
 - Kubernetes Environment Support
