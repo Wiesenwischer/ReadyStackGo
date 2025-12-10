@@ -3,7 +3,6 @@ namespace ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Users;
-using ReadyStackGo.Domain.StackManagement.StackSources;
 
 /// <summary>
 /// Domain service that validates all prerequisites before a deployment can start.
@@ -26,18 +25,18 @@ public class DeploymentPrerequisiteValidator
     /// Validates all prerequisites for a deployment.
     /// </summary>
     /// <param name="environmentId">The target environment</param>
-    /// <param name="stackDefinition">The stack to deploy</param>
+    /// <param name="stackInfo">Stack validation info (DTO from StackManagement domain)</param>
     /// <param name="providedVariables">Variables provided by the user</param>
     /// <param name="user">The user initiating the deployment</param>
     /// <returns>Validation result with any errors</returns>
     public DeploymentPrerequisiteResult Validate(
         EnvironmentId environmentId,
-        StackDefinition stackDefinition,
+        StackValidationInfo stackInfo,
         IDictionary<string, string> providedVariables,
         User user)
     {
         ArgumentNullException.ThrowIfNull(environmentId);
-        ArgumentNullException.ThrowIfNull(stackDefinition);
+        ArgumentNullException.ThrowIfNull(stackInfo);
         ArgumentNullException.ThrowIfNull(providedVariables);
         ArgumentNullException.ThrowIfNull(user);
 
@@ -87,8 +86,7 @@ public class DeploymentPrerequisiteValidator
         }
 
         // 5. Validate required variables are provided
-        var requiredVariables = stackDefinition.GetRequiredVariables();
-        foreach (var variable in requiredVariables)
+        foreach (var variable in stackInfo.RequiredVariables)
         {
             if (!providedVariables.TryGetValue(variable.Name, out var value) ||
                 string.IsNullOrWhiteSpace(value))
@@ -100,25 +98,22 @@ public class DeploymentPrerequisiteValidator
         }
 
         // 6. Validate all provided variables against their constraints
-        foreach (var variable in stackDefinition.Variables)
+        foreach (var variable in stackInfo.Variables)
         {
             if (providedVariables.TryGetValue(variable.Name, out var value))
             {
-                var validationResult = variable.Validate(value);
-                if (!validationResult.IsValid)
+                var validationErrors = variable.Validate(value);
+                foreach (var error in validationErrors)
                 {
-                    foreach (var error in validationResult.Errors)
-                    {
-                        errors.Add(new PrerequisiteError(
-                            PrerequisiteErrorType.VariableValidationFailed,
-                            error));
-                    }
+                    errors.Add(new PrerequisiteError(
+                        PrerequisiteErrorType.VariableValidationFailed,
+                        error));
                 }
             }
         }
 
         // 7. Validate stack has at least one service
-        if (!stackDefinition.Services.Any())
+        if (!stackInfo.HasServices)
         {
             errors.Add(new PrerequisiteError(
                 PrerequisiteErrorType.NoServicesInStack,

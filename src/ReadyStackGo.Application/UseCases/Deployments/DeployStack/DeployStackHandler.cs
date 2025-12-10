@@ -1,23 +1,22 @@
 using MediatR;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.StackManagement.StackSources;
 
 namespace ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 
 public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStackResponse>
 {
-    private readonly IStackDefinitionRepository _stackRepository;
+    private readonly IStackSourceService _stackSourceService;
     private readonly IDeploymentService _deploymentService;
     private readonly IDeploymentNotificationService? _notificationService;
     private readonly TimeProvider _timeProvider;
 
     public DeployStackHandler(
-        IStackDefinitionRepository stackRepository,
+        IStackSourceService stackSourceService,
         IDeploymentService deploymentService,
         IDeploymentNotificationService? notificationService = null,
         TimeProvider? timeProvider = null)
     {
-        _stackRepository = stackRepository;
+        _stackSourceService = stackSourceService;
         _deploymentService = deploymentService;
         _notificationService = notificationService;
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -25,8 +24,8 @@ public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStac
 
     public async Task<DeployStackResponse> Handle(DeployStackCommand request, CancellationToken cancellationToken)
     {
-        // Load stack definition from catalog by ID
-        var stackDefinition = await _stackRepository.GetByIdAsync(request.StackId, cancellationToken);
+        // Load stack definition from catalog via application service
+        var stackDefinition = await _stackSourceService.GetStackAsync(request.StackId, cancellationToken);
         if (stackDefinition == null)
         {
             return DeployStackResponse.Failed(
