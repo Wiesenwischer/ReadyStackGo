@@ -119,14 +119,6 @@ export async function deployStack(environmentId: string, stackId: string, reques
   return apiPost<DeployStackResponse>(`/api/environments/${environmentId}/stacks/${encodeURIComponent(stackId)}/deploy`, request);
 }
 
-/**
- * Deploy a stack from the catalog by stackId.
- * This is the preferred method for deploying catalog stacks.
- */
-export async function deployStack(environmentId: string, stackId: string, request: DeployStackRequest): Promise<DeployStackResponse> {
-  return apiPost<DeployStackResponse>(`/api/environments/${environmentId}/stacks/${encodeURIComponent(stackId)}/deploy`, request);
-}
-
 export async function listDeployments(environmentId: string): Promise<ListDeploymentsResponse> {
   return apiGet<ListDeploymentsResponse>(`/api/environments/${environmentId}/deployments`);
 }
