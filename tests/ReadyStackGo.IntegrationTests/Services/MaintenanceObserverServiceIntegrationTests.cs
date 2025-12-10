@@ -228,6 +228,10 @@ public class MaintenanceObserverServiceIntegrationTests
         // No existing health snapshot (current mode is Normal by default)
         _healthSnapshotRepository.GetLatestForDeployment(deploymentId).Returns((HealthSnapshot?)null);
 
+        // Setup mediator to return success response
+        _mediator.Send(Arg.Any<ChangeOperationModeCommand>(), Arg.Any<CancellationToken>())
+            .Returns(ChangeOperationModeResponse.Ok(deploymentId.Value.ToString(), "Normal", "Maintenance"));
+
         // Act
         await service.CheckDeploymentObserverAsync(deploymentId);
 

@@ -391,31 +391,44 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
     }
 
     /// <summary>
-    /// Generates YAML content for a sub-stack by serializing the complete RsgoManifest structure.
-    /// This approach ensures ALL sections are preserved (maintenance, metadata, services, etc.)
-    /// without requiring manual maintenance when new sections are added.
+    /// Generates Docker Compose compatible YAML content for a sub-stack.
+    /// Converts RSGo format to docker-compose format (snake_case, no metadata section).
     /// </summary>
     private string GenerateYamlForStack(RsgoStackEntry stackEntry, RsgoMaintenance? maintenance = null)
     {
-        // Create a complete manifest from the stack entry
-        // This ensures all sections are preserved including maintenance
-        var manifest = new RsgoManifest
-        {
-            Metadata = stackEntry.Metadata != null ? new RsgoProductMetadata
-            {
-                Name = stackEntry.Metadata.Name,
-                Description = stackEntry.Metadata.Description,
-                Category = stackEntry.Metadata.Category,
-                Tags = stackEntry.Metadata.Tags
-            } : null,
-            Maintenance = maintenance,  // Inherit from parent
-            Services = stackEntry.Services,
-            Volumes = stackEntry.Volumes,
-            Networks = stackEntry.Networks,
-            Variables = stackEntry.Variables
-        };
+        // Build docker-compose compatible structure
+        var composeDict = new Dictionary<string, object>();
 
-        return _yamlSerializer.Serialize(manifest);
+        // Convert services to docker-compose format
+        if (stackEntry.Services != null && stackEntry.Services.Count > 0)
+        {
+            var servicesDict = new Dictionary<string, object>();
+            foreach (var (serviceName, service) in stackEntry.Services)
+            {
+                servicesDict[serviceName] = ConvertServiceToComposeFormat(service);
+            }
+            composeDict["services"] = servicesDict;
+        }
+
+        // Volumes (already in correct format)
+        if (stackEntry.Volumes != null && stackEntry.Volumes.Count > 0)
+        {
+            composeDict["volumes"] = stackEntry.Volumes;
+        }
+
+        // Networks (already in correct format)
+        if (stackEntry.Networks != null && stackEntry.Networks.Count > 0)
+        {
+            composeDict["networks"] = stackEntry.Networks;
+        }
+
+        // Use snake_case serializer for docker-compose format
+        var composeSerializer = new SerializerBuilder()
+            .WithNamingConvention(UnderscoredNamingConvention.Instance)
+            .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull)
+            .Build();
+
+        return composeSerializer.Serialize(composeDict);
     }
 
     /// <summary>
