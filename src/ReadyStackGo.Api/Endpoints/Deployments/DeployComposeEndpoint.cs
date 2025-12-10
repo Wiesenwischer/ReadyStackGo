@@ -22,7 +22,7 @@ public class DeployComposeEndpoint : Endpoint<DeployComposeRequest, DeployCompos
 
     public override void Configure()
     {
-        Post("/api/deployments/{environmentId}");
+        Post("/api/environments/{environmentId}/deployments");
         PreProcessor<RbacPreProcessor<DeployComposeRequest>>();
     }
 

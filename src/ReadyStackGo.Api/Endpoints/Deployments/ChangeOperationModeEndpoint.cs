@@ -7,7 +7,7 @@ using ReadyStackGo.Application.UseCases.Deployments.ChangeOperationMode;
 namespace ReadyStackGo.API.Endpoints.Deployments;
 
 /// <summary>
-/// PUT /api/deployments/{deploymentId}/operation-mode - Change the operation mode of a deployment.
+/// PUT /api/environments/{environmentId}/deployments/{deploymentId}/operation-mode - Change the operation mode of a deployment.
 /// Accessible by: SystemAdmin, OrganizationOwner, Operator.
 /// </summary>
 [RequirePermission("Deployments", "Write")]
@@ -22,14 +22,19 @@ public class ChangeOperationModeEndpoint : Endpoint<ChangeOperationModeRequest, 
 
     public override void Configure()
     {
-        Put("/api/deployments/{deploymentId}/operation-mode");
+        Put("/api/environments/{environmentId}/deployments/{deploymentId}/operation-mode");
         PreProcessor<RbacPreProcessor<ChangeOperationModeRequest>>();
     }
 
     public override async Task HandleAsync(ChangeOperationModeRequest req, CancellationToken ct)
     {
+        var environmentId = Route<string>("environmentId")!;
+        var deploymentId = Route<string>("deploymentId")!;
+        req.EnvironmentId = environmentId;
+        req.DeploymentId = deploymentId;
+
         var command = new ChangeOperationModeCommand(
-            req.DeploymentId,
+            deploymentId,
             req.Mode,
             req.Reason,
             req.TargetVersion);
@@ -50,6 +55,11 @@ public class ChangeOperationModeEndpoint : Endpoint<ChangeOperationModeRequest, 
 /// </summary>
 public class ChangeOperationModeRequest
 {
+    /// <summary>
+    /// Environment ID for RBAC scope check (from route).
+    /// </summary>
+    public string? EnvironmentId { get; set; }
+
     /// <summary>
     /// Deployment ID (from route).
     /// </summary>

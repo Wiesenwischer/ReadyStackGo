@@ -108,7 +108,7 @@ export async function parseCompose(request: ParseComposeRequest): Promise<ParseC
 }
 
 export async function deployCompose(environmentId: string, request: DeployComposeRequest): Promise<DeployComposeResponse> {
-  return apiPost<DeployComposeResponse>(`/api/deployments/${environmentId}`, request);
+  return apiPost<DeployComposeResponse>(`/api/environments/${environmentId}/deployments`, request);
 }
 
 /**
@@ -120,13 +120,13 @@ export async function deployStack(environmentId: string, stackId: string, reques
 }
 
 export async function listDeployments(environmentId: string): Promise<ListDeploymentsResponse> {
-  return apiGet<ListDeploymentsResponse>(`/api/deployments/${environmentId}`);
+  return apiGet<ListDeploymentsResponse>(`/api/environments/${environmentId}/deployments`);
 }
 
-export async function getDeployment(environmentId: string, stackName: string): Promise<GetDeploymentResponse> {
-  return apiGet<GetDeploymentResponse>(`/api/deployments/${environmentId}/${stackName}`);
+export async function getDeployment(environmentId: string, deploymentId: string): Promise<GetDeploymentResponse> {
+  return apiGet<GetDeploymentResponse>(`/api/environments/${environmentId}/deployments/${deploymentId}`);
 }
 
-export async function removeDeployment(environmentId: string, stackName: string): Promise<DeployComposeResponse> {
-  return apiDelete<DeployComposeResponse>(`/api/deployments/${environmentId}/${stackName}`);
+export async function removeDeployment(environmentId: string, deploymentId: string): Promise<DeployComposeResponse> {
+  return apiDelete<DeployComposeResponse>(`/api/environments/${environmentId}/deployments/${deploymentId}`);
 }

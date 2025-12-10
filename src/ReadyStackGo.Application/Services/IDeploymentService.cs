@@ -41,9 +41,14 @@ public interface IDeploymentService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Get deployment details for a stack.
+    /// Get deployment details for a stack by stack name.
     /// </summary>
     Task<GetDeploymentResponse> GetDeploymentAsync(string environmentId, string stackName);
+
+    /// <summary>
+    /// Get deployment details by deployment ID.
+    /// </summary>
+    Task<GetDeploymentResponse> GetDeploymentByIdAsync(string environmentId, string deploymentId);
 
     /// <summary>
     /// List all deployments in an environment.
@@ -51,9 +56,14 @@ public interface IDeploymentService
     Task<ListDeploymentsResponse> ListDeploymentsAsync(string environmentId);
 
     /// <summary>
-    /// Remove a deployed stack.
+    /// Remove a deployed stack by stack name.
     /// </summary>
     Task<DeployComposeResponse> RemoveDeploymentAsync(string environmentId, string stackName);
+
+    /// <summary>
+    /// Remove a deployed stack by deployment ID.
+    /// </summary>
+    Task<DeployComposeResponse> RemoveDeploymentByIdAsync(string environmentId, string deploymentId);
 
     /// <summary>
     /// Deploy a stack from a catalog definition with progress reporting.

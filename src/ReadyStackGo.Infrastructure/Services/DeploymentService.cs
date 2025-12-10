@@ -334,6 +334,71 @@ public class DeploymentService : IDeploymentService
         }
     }
 
+    public Task<GetDeploymentResponse> GetDeploymentByIdAsync(string environmentId, string deploymentId)
+    {
+        try
+        {
+            _logger.LogInformation("Getting deployment {DeploymentId} in environment {EnvironmentId}",
+                deploymentId, environmentId);
+
+            if (!Guid.TryParse(environmentId, out var envGuid))
+            {
+                return Task.FromResult(new GetDeploymentResponse
+                {
+                    Success = false,
+                    Message = "Invalid environment ID"
+                });
+            }
+
+            if (!Guid.TryParse(deploymentId, out var depGuid))
+            {
+                return Task.FromResult(new GetDeploymentResponse
+                {
+                    Success = false,
+                    Message = "Invalid deployment ID"
+                });
+            }
+
+            var deployment = _deploymentRepository.Get(new DeploymentId(depGuid));
+
+            if (deployment == null || deployment.EnvironmentId != new EnvironmentId(envGuid))
+            {
+                return Task.FromResult(new GetDeploymentResponse
+                {
+                    Success = false,
+                    Message = $"Deployment '{deploymentId}' not found in environment '{environmentId}'"
+                });
+            }
+
+            return Task.FromResult(new GetDeploymentResponse
+            {
+                Success = true,
+                StackName = deployment.StackName,
+                StackVersion = deployment.StackVersion,
+                DeploymentId = deployment.Id.ToString(),
+                EnvironmentId = environmentId,
+                DeployedAt = deployment.CreatedAt,
+                Status = deployment.Status.ToString(),
+                OperationMode = deployment.OperationMode.Name,
+                Services = deployment.Services.Select(s => new DeployedServiceInfo
+                {
+                    ServiceName = s.ServiceName,
+                    ContainerId = s.ContainerId,
+                    Status = s.Status
+                }).ToList()
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get deployment {DeploymentId}", deploymentId);
+            return Task.FromResult(new GetDeploymentResponse
+            {
+                Success = false,
+                Message = $"Failed to get deployment: {ex.Message}"
+            });
+        }
+    }
+
     public Task<ListDeploymentsResponse> ListDeploymentsAsync(string environmentId)
     {
         try
@@ -411,11 +476,23 @@ public class DeploymentService : IDeploymentService
 
             // Remove deployment record from database (if not already removed)
             var deployment = _deploymentRepository.GetByStackName(new EnvironmentId(envGuid), stackName);
-            if (deployment != null && deployment.Status != Domain.Deployment.Deployments.DeploymentStatus.Removed)
+            if (deployment != null)
             {
-                deployment.MarkAsRemoved();
-                _deploymentRepository.Update(deployment);
-                _deploymentRepository.SaveChanges();
+                _logger.LogInformation("Found deployment {DeploymentId} with status {Status} for stack {StackName}",
+                    deployment.Id, deployment.Status, stackName);
+
+                if (deployment.Status != Domain.Deployment.Deployments.DeploymentStatus.Removed)
+                {
+                    deployment.MarkAsRemoved();
+                    _deploymentRepository.Update(deployment);
+                    _deploymentRepository.SaveChanges();
+                    _logger.LogInformation("Marked deployment {DeploymentId} as removed", deployment.Id);
+                }
+            }
+            else
+            {
+                _logger.LogWarning("No deployment found for stack {StackName} in environment {EnvironmentId}",
+                    stackName, environmentId);
             }
 
             return new DeployComposeResponse
@@ -428,6 +505,89 @@ public class DeploymentService : IDeploymentService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to remove deployment {StackName}", stackName);
+            return new DeployComposeResponse
+            {
+                Success = false,
+                Message = $"Failed to remove deployment: {ex.Message}",
+                Errors = new List<string> { ex.Message }
+            };
+        }
+    }
+
+    public async Task<DeployComposeResponse> RemoveDeploymentByIdAsync(string environmentId, string deploymentId)
+    {
+        try
+        {
+            _logger.LogInformation("Removing deployment {DeploymentId} from environment {EnvironmentId}",
+                deploymentId, environmentId);
+
+            if (!Guid.TryParse(environmentId, out var envGuid))
+            {
+                return new DeployComposeResponse
+                {
+                    Success = false,
+                    Message = "Invalid environment ID",
+                    Errors = new List<string> { "Invalid environment ID format" }
+                };
+            }
+
+            if (!Guid.TryParse(deploymentId, out var depGuid))
+            {
+                return new DeployComposeResponse
+                {
+                    Success = false,
+                    Message = "Invalid deployment ID",
+                    Errors = new List<string> { "Invalid deployment ID format" }
+                };
+            }
+
+            // Find the deployment first to get its stack name
+            var deployment = _deploymentRepository.Get(new DeploymentId(depGuid));
+            if (deployment == null || deployment.EnvironmentId != new EnvironmentId(envGuid))
+            {
+                return new DeployComposeResponse
+                {
+                    Success = false,
+                    Message = $"Deployment '{deploymentId}' not found in environment '{environmentId}'",
+                    Errors = new List<string> { "Deployment not found" }
+                };
+            }
+
+            var stackName = deployment.StackName;
+
+            // Remove the stack using the deployment engine
+            var result = await _deploymentEngine.RemoveStackAsync(environmentId, stackName);
+
+            if (!result.Success)
+            {
+                return new DeployComposeResponse
+                {
+                    Success = false,
+                    Message = "Failed to remove deployment",
+                    Errors = result.Errors
+                };
+            }
+
+            // Mark deployment as removed in database
+            if (deployment.Status != Domain.Deployment.Deployments.DeploymentStatus.Removed)
+            {
+                deployment.MarkAsRemoved();
+                _deploymentRepository.Update(deployment);
+                _deploymentRepository.SaveChanges();
+                _logger.LogInformation("Marked deployment {DeploymentId} as removed", deployment.Id);
+            }
+
+            return new DeployComposeResponse
+            {
+                Success = true,
+                Message = $"Successfully removed {stackName}",
+                StackName = stackName,
+                DeploymentId = deploymentId
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to remove deployment {DeploymentId}", deploymentId);
             return new DeployComposeResponse
             {
                 Success = false,
