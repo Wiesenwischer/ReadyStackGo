@@ -140,7 +140,7 @@ jobs:
 
       - name: Run E2E Tests
         working-directory: src/ReadyStackGo.WebUi
-        run: npm run test:e2e
+        run: DEBUG=pw:webserver npm run test:e2e
 
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
