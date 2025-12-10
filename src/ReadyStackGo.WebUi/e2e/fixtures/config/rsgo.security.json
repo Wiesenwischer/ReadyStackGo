@@ -1,0 +1,10 @@
+{
+  "localAdmin": {
+    "username": "admin",
+    "passwordHash": "$2a$11$rWh6RaKniBtoOGffQ26WhOFxM7tdoy2Qb50Jf8kNTXAV8O9sUuLzW",
+    "salt": "$2a$11$rWh6RaKniBtoOGffQ26WhO",
+    "role": "admin"
+  },
+  "localAdminFallbackEnabled": true,
+  "externalIdentityProvider": null
+}
