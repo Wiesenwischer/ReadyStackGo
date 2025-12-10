@@ -3,11 +3,10 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Deployments.ChangeOperationMode;
+using ReadyStackGo.Domain.Catalog.Manifests;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Domain.Deployment.Observers;
-using ReadyStackGo.Domain.StackManagement.Manifests;
-using ReadyStackGo.Domain.StackManagement.StackSources;
 
 namespace ReadyStackGo.Infrastructure.Services;
 

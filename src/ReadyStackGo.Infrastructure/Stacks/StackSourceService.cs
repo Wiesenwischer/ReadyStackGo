@@ -1,9 +1,8 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.StackManagement.StackSources;
-using ReadyStackGo.Domain.StackManagement.StackSources;
-using ReadyStackGo.Domain.StackManagement.StackSources;
+using ReadyStackGo.Domain.Catalog.Sources;
+using ReadyStackGo.Domain.Catalog.Stacks;
 using ReadyStackGo.Infrastructure.Stacks.Configuration;
 
 namespace ReadyStackGo.Infrastructure.Stacks;

@@ -1,6 +1,6 @@
 using FluentAssertions;
-using ReadyStackGo.Domain.StackManagement.Manifests;
-using ReadyStackGo.Domain.StackManagement.StackSources;
+using ReadyStackGo.Domain.Catalog.Manifests;
+using ReadyStackGo.Domain.Catalog.Stacks;
 
 namespace ReadyStackGo.UnitTests.Stacks;
 

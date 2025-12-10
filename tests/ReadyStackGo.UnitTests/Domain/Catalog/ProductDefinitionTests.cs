@@ -1,7 +1,7 @@
 using FluentAssertions;
-using ReadyStackGo.Domain.StackManagement.StackSources;
+using ReadyStackGo.Domain.Catalog.Stacks;
 
-namespace ReadyStackGo.UnitTests.Domain.StackManagement;
+namespace ReadyStackGo.UnitTests.Domain.Catalog;
 
 /// <summary>
 /// Unit tests for ProductDefinition.

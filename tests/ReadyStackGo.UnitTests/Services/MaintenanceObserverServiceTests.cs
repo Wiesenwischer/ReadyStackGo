@@ -3,13 +3,13 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Moq;
 using ReadyStackGo.Application.Services;
+using ReadyStackGo.Domain.Catalog.Manifests;
+using ReadyStackGo.Domain.Catalog.Stacks;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Domain.Deployment.Observers;
 using ReadyStackGo.Domain.IdentityAccess.Users;
-using ReadyStackGo.Domain.StackManagement.Manifests;
-using ReadyStackGo.Domain.StackManagement.StackSources;
 using ReadyStackGo.Infrastructure.Services;
 
 namespace ReadyStackGo.UnitTests.Services;

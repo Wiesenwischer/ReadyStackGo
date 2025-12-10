@@ -2,8 +2,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.StackManagement.Manifests;
-using ReadyStackGo.Domain.StackManagement.StackSources;
+using ReadyStackGo.Domain.Catalog.Sources;
 using ReadyStackGo.Infrastructure.Manifests;
 using ReadyStackGo.Infrastructure.Stacks.Sources;
 

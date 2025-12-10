@@ -2,8 +2,8 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Deployments;
-using ReadyStackGo.Domain.StackManagement.Manifests;
-using ReadyStackGo.Domain.StackManagement.StackSources;
+using ReadyStackGo.Domain.Catalog.Manifests;
+using ReadyStackGo.Domain.Catalog.Stacks;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 

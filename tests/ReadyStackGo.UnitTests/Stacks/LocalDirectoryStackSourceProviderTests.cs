@@ -2,8 +2,9 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.StackManagement.Manifests;
-using ReadyStackGo.Domain.StackManagement.StackSources;
+using ReadyStackGo.Domain.Catalog.Manifests;
+using ReadyStackGo.Domain.Catalog.Sources;
+using ReadyStackGo.Domain.Catalog.Stacks;
 using ReadyStackGo.Infrastructure.Stacks.Sources;
 
 namespace ReadyStackGo.UnitTests.Stacks;
