@@ -1,19 +1,15 @@
 /**
  * Playwright script to capture screenshots for deployment documentation
- * Run from WebUi folder: npx tsx scripts/capture-screenshots.ts
+ * Run from WebUi folder: npx tsx ../../scripts/capture-deployment-screenshots.ts
  */
 import { chromium } from '@playwright/test';
 import * as path from 'path';
 import * as fs from 'fs';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const BASE_URL = process.env.RSGO_URL || 'http://localhost:8080';
 const USERNAME = process.env.RSGO_USERNAME || 'admin';
 const PASSWORD = process.env.RSGO_PASSWORD || '';
-const OUTPUT_DIR = path.join(__dirname, '..', '..', '..', 'docs', 'images', 'deployment');
+const OUTPUT_DIR = path.join(__dirname, '..', 'docs', 'images', 'deployment');
 
 async function main() {
   // Ensure output directory exists
@@ -55,7 +51,7 @@ async function main() {
     console.log('   Captured: 02-dashboard.png');
 
     console.log('3. Navigating to Stack Catalog...');
-    await page.click('a[href="/catalog"]');
+    await page.click('a[href="/catalog"], text=Catalog');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
 
@@ -121,7 +117,7 @@ async function main() {
     }
 
     console.log('6. Navigating to Deployments list...');
-    await page.click('a[href="/deployments"]');
+    await page.click('a[href="/deployments"], text=Deployments');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
 

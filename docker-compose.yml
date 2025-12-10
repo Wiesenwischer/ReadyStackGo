@@ -19,8 +19,9 @@ services:
       - ASPNETCORE_URLS=http://+:8080
       - ConfigPath=/app/config
       - ConnectionStrings__ReadyStackGo=Data Source=/app/data/readystackgo.db
-      - Docker__Username=amsmad
-      - Docker__Password=Zornbold77!
+      # Docker registry credentials (optional, set via .env file or environment)
+      # - Docker__Username=${DOCKER_USERNAME}
+      # - Docker__Password=${DOCKER_PASSWORD}
     restart: unless-stopped
     networks:
       - rsgo-net
