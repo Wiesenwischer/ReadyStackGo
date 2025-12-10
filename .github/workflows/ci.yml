@@ -17,6 +17,9 @@ jobs:
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
+    outputs:
+      semVer: ${{ steps.gitversion.outputs.semVer }}
+      majorMinorPatch: ${{ steps.gitversion.outputs.majorMinorPatch }}
 
     steps:
       - uses: actions/checkout@v4
@@ -46,10 +49,15 @@ jobs:
         with:
           useConfigFile: true
 
-      - name: Display Version
+      - name: Version Summary
         run: |
-          echo "SemVer: ${{ steps.gitversion.outputs.semVer }}"
-          echo "MajorMinorPatch: ${{ steps.gitversion.outputs.majorMinorPatch }}"
+          echo "## 🏷️ Version: ${{ steps.gitversion.outputs.semVer }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| SemVer | \`${{ steps.gitversion.outputs.semVer }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| MajorMinorPatch | \`${{ steps.gitversion.outputs.majorMinorPatch }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| PreReleaseTag | \`${{ steps.gitversion.outputs.preReleaseTag }}\` |" >> $GITHUB_STEP_SUMMARY
 
       - name: Restore .NET dependencies
         run: dotnet restore
