@@ -32,7 +32,7 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
         };
 
         // Act
-        var response = await Client.PutAsJsonAsync($"/api/deployments/{deploymentId}/operation-mode", request);
+        var response = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -52,12 +52,12 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
 
         // First enter maintenance
         var enterRequest = new { mode = "Maintenance" };
-        var enterResponse = await Client.PutAsJsonAsync($"/api/deployments/{deploymentId}/operation-mode", enterRequest);
+        var enterResponse = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", enterRequest);
         enterResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // Act - Exit maintenance
         var exitRequest = new { mode = "Normal" };
-        var response = await Client.PutAsJsonAsync($"/api/deployments/{deploymentId}/operation-mode", exitRequest);
+        var response = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", exitRequest);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -82,7 +82,7 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
         };
 
         // Act
-        var response = await Client.PutAsJsonAsync($"/api/deployments/{deploymentId}/operation-mode", request);
+        var response = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -106,7 +106,7 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
         };
 
         // Act
-        var response = await Client.PutAsJsonAsync($"/api/deployments/{deploymentId}/operation-mode", request);
+        var response = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -124,7 +124,7 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
         };
 
         // Act
-        var response = await Client.PutAsJsonAsync($"/api/deployments/{deploymentId}/operation-mode", request);
+        var response = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -142,7 +142,7 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
         };
 
         // Act
-        var response = await Client.PutAsJsonAsync($"/api/deployments/{fakeDeploymentId}/operation-mode", request);
+        var response = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{fakeDeploymentId}/operation-mode", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -158,7 +158,7 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
         };
 
         // Act
-        var response = await Client.PutAsJsonAsync("/api/deployments/not-a-guid/operation-mode", request);
+        var response = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/not-a-guid/operation-mode", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -176,7 +176,7 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
         };
 
         // Act
-        var response = await Client.PutAsJsonAsync($"/api/deployments/{deploymentId}/operation-mode", request);
+        var response = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -201,7 +201,8 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
         };
 
         // Act
-        var response = await unauthenticatedClient.PutAsJsonAsync($"/api/deployments/{fakeDeploymentId}/operation-mode", request);
+        var fakeEnvironmentId = Guid.NewGuid().ToString();
+        var response = await unauthenticatedClient.PutAsJsonAsync($"/api/environments/{fakeEnvironmentId}/deployments/{fakeDeploymentId}/operation-mode", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -216,10 +217,10 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
     {
         // Arrange
         var stackName = "get-opmode-test";
-        await CreateTestDeploymentAsync(stackName);
+        var deploymentId = await CreateTestDeploymentAsync(stackName);
 
         // Act
-        var response = await Client.GetAsync($"/api/deployments/{EnvironmentId}/{stackName}");
+        var response = await Client.GetAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -239,11 +240,11 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
 
         // Change to maintenance mode
         var modeRequest = new { mode = "Maintenance" };
-        var modeResponse = await Client.PutAsJsonAsync($"/api/deployments/{deploymentId}/operation-mode", modeRequest);
+        var modeResponse = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", modeRequest);
         modeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // Act
-        var response = await Client.GetAsync($"/api/deployments/{EnvironmentId}/{stackName}");
+        var response = await Client.GetAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -266,7 +267,7 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
         await CreateTestDeploymentAsync(stackName);
 
         // Act
-        var response = await Client.GetAsync($"/api/deployments/{EnvironmentId}");
+        var response = await Client.GetAsync($"/api/environments/{EnvironmentId}/deployments");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -293,27 +294,27 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
         var deploymentId = await CreateTestDeploymentAsync(stackName);
 
         // Step 1: Verify initial state is Normal
-        var getResponse1 = await Client.GetAsync($"/api/deployments/{EnvironmentId}/{stackName}");
+        var getResponse1 = await Client.GetAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}");
         var deployment1 = await getResponse1.Content.ReadFromJsonAsync<GetDeploymentResponse>();
         deployment1!.OperationMode.Should().Be("Normal");
 
         // Step 2: Enter maintenance
         var enterRequest = new { mode = "Maintenance", reason = "Scheduled maintenance" };
-        var enterResponse = await Client.PutAsJsonAsync($"/api/deployments/{deploymentId}/operation-mode", enterRequest);
+        var enterResponse = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", enterRequest);
         enterResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // Step 3: Verify maintenance state
-        var getResponse2 = await Client.GetAsync($"/api/deployments/{EnvironmentId}/{stackName}");
+        var getResponse2 = await Client.GetAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}");
         var deployment2 = await getResponse2.Content.ReadFromJsonAsync<GetDeploymentResponse>();
         deployment2!.OperationMode.Should().Be("Maintenance");
 
         // Step 4: Exit maintenance
         var exitRequest = new { mode = "Normal" };
-        var exitResponse = await Client.PutAsJsonAsync($"/api/deployments/{deploymentId}/operation-mode", exitRequest);
+        var exitResponse = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", exitRequest);
         exitResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // Step 5: Verify back to normal
-        var getResponse3 = await Client.GetAsync($"/api/deployments/{EnvironmentId}/{stackName}");
+        var getResponse3 = await Client.GetAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}");
         var deployment3 = await getResponse3.Content.ReadFromJsonAsync<GetDeploymentResponse>();
         deployment3!.OperationMode.Should().Be("Normal");
     }
@@ -327,7 +328,7 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
 
         // Step 1: Start migration
         var startRequest = new { mode = "Migrating", targetVersion = "2.0.0" };
-        var startResponse = await Client.PutAsJsonAsync($"/api/deployments/{deploymentId}/operation-mode", startRequest);
+        var startResponse = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", startRequest);
         startResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var startResult = await startResponse.Content.ReadFromJsonAsync<ChangeOperationModeResponse>();
@@ -335,7 +336,7 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
 
         // Step 2: Complete migration (back to normal)
         var completeRequest = new { mode = "Normal", targetVersion = "2.0.0" };
-        var completeResponse = await Client.PutAsJsonAsync($"/api/deployments/{deploymentId}/operation-mode", completeRequest);
+        var completeResponse = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", completeRequest);
         completeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var completeResult = await completeResponse.Content.ReadFromJsonAsync<ChangeOperationModeResponse>();

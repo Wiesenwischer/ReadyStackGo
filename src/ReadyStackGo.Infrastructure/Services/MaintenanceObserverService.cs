@@ -352,6 +352,19 @@ public class MaintenanceObserverService : IMaintenanceObserverService
         ObserverResult result,
         CancellationToken cancellationToken)
     {
+        // Get observer type for notification
+        var observerType = _configs.TryGetValue(deployment.Id.Value, out var config)
+            ? config.Type.Value
+            : null;
+
+        // Always notify clients about observer results (success or failure)
+        var resultDto = ObserverResultDto.FromDomain(result, observerType);
+        await _notificationService.NotifyObserverResultAsync(
+            deployment.Id,
+            deployment.StackName,
+            resultDto,
+            cancellationToken);
+
         if (!result.IsSuccess)
         {
             _logger.LogWarning(
