@@ -31,6 +31,33 @@ export interface DeployComposeRequest {
   sessionId?: string;
 }
 
+/**
+ * Request for deploying a stack from the catalog.
+ * Uses stackId instead of raw YAML content.
+ */
+export interface DeployStackRequest {
+  stackName: string;
+  variables: Record<string, string>;
+  /** Client-generated session ID for real-time progress tracking via SignalR */
+  sessionId?: string;
+}
+
+/**
+ * Response from deploying a stack.
+ */
+export interface DeployStackResponse {
+  success: boolean;
+  message?: string;
+  deploymentId?: string;
+  stackName?: string;
+  stackVersion?: string;
+  services: DeployedServiceInfo[];
+  errors: string[];
+  warnings: string[];
+  /** Session ID for real-time progress tracking via SignalR */
+  deploymentSessionId?: string;
+}
+
 export interface DeployedServiceInfo {
   serviceName: string;
   containerId?: string;
@@ -82,6 +109,14 @@ export async function parseCompose(request: ParseComposeRequest): Promise<ParseC
 
 export async function deployCompose(environmentId: string, request: DeployComposeRequest): Promise<DeployComposeResponse> {
   return apiPost<DeployComposeResponse>(`/api/deployments/${environmentId}`, request);
+}
+
+/**
+ * Deploy a stack from the catalog by stackId.
+ * This is the preferred method for deploying catalog stacks.
+ */
+export async function deployStack(environmentId: string, stackId: string, request: DeployStackRequest): Promise<DeployStackResponse> {
+  return apiPost<DeployStackResponse>(`/api/environments/${environmentId}/stacks/${encodeURIComponent(stackId)}/deploy`, request);
 }
 
 export async function listDeployments(environmentId: string): Promise<ListDeploymentsResponse> {
