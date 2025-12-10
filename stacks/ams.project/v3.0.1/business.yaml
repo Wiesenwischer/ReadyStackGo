@@ -15,6 +15,31 @@ metadata:
 # Note: Maintenance configuration is defined at product level in stack.yaml
 # All stacks in this product share the same maintenance state.
 
+variables:
+  EVENTSTORE_DB:
+    label: EventStore Connection (TCP)
+    description: EventStore TCP connection string for event sourcing
+    type: ConnectionString
+    default: "ConnectTo=tcp://admin:changeit@eventstore:1113"
+    group: Infrastructure
+    order: 1
+
+  GRPC_EVENTSTORE_DB:
+    label: EventStore Connection (gRPC)
+    description: EventStore gRPC connection string for Discussions API
+    type: ConnectionString
+    default: "esdb://admin:changeit@eventstore.db:2113?tls=false"
+    group: Infrastructure
+    order: 2
+
+  REDIS_DB:
+    label: Redis Connection
+    description: Redis cache connection string
+    type: ConnectionString
+    default: "cachedata:6379"
+    group: Infrastructure
+    order: 3
+
 services:
   # ===========================================
   # MONITORING

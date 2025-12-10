@@ -25,13 +25,19 @@ export default defineConfig({
   globalSetup: './e2e/global-setup.ts',
   fullyParallel: true,
   forbidOnly: isCI,
-  retries: isCI ? 2 : 0,
+  retries: isCI ? 1 : 0, // Reduced from 2 to 1 retry to speed up CI
   workers: isCI ? 1 : undefined,
   reporter: 'html',
+  timeout: 60 * 1000, // 60 seconds per test (default is 30s)
+  expect: {
+    timeout: 10 * 1000, // 10 seconds for expect assertions (default is 5s)
+  },
   use: {
     baseURL: 'http://localhost:5174',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    actionTimeout: 15 * 1000, // 15 seconds for actions like click, fill
+    navigationTimeout: 30 * 1000, // 30 seconds for navigation
   },
 
   projects: [
