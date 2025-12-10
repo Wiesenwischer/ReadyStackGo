@@ -8,6 +8,7 @@ const __dirname = path.dirname(__filename);
 // Test config directory path (relative to repo root for CI, relative to WebUi for local)
 const repoRoot = path.resolve(__dirname, '..', '..');
 const testConfigDir = path.resolve(repoRoot, 'src', 'ReadyStackGo.Api', 'config');
+const testDataDir = path.resolve(repoRoot, 'src', 'ReadyStackGo.Api', 'data');
 
 // In CI, the working directory is the repo root
 const isCI = !!process.env.CI;
@@ -56,6 +57,7 @@ export default defineConfig({
       env: {
         ASPNETCORE_ENVIRONMENT: 'Development',
         ConfigPath: testConfigDir,
+        DataPath: testDataDir,
       },
     },
   ],
