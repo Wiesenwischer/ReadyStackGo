@@ -217,10 +217,10 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
     {
         // Arrange
         var stackName = "get-opmode-test";
-        var deploymentId = await CreateTestDeploymentAsync(stackName);
+        _ = await CreateTestDeploymentAsync(stackName);
 
-        // Act
-        var response = await Client.GetAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}");
+        // Act - GetDeployment now uses stackName, not deploymentId
+        var response = await Client.GetAsync($"/api/environments/{EnvironmentId}/deployments/{stackName}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -238,13 +238,13 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
         var stackName = "reflect-opmode-test";
         var deploymentId = await CreateTestDeploymentAsync(stackName);
 
-        // Change to maintenance mode
+        // Change to maintenance mode (still uses deploymentId)
         var modeRequest = new { mode = "Maintenance" };
         var modeResponse = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", modeRequest);
         modeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // Act
-        var response = await Client.GetAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}");
+        // Act - GetDeployment now uses stackName, not deploymentId
+        var response = await Client.GetAsync($"/api/environments/{EnvironmentId}/deployments/{stackName}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -293,18 +293,18 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
         var stackName = "flow-maintenance-test";
         var deploymentId = await CreateTestDeploymentAsync(stackName);
 
-        // Step 1: Verify initial state is Normal
-        var getResponse1 = await Client.GetAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}");
+        // Step 1: Verify initial state is Normal (GetDeployment now uses stackName)
+        var getResponse1 = await Client.GetAsync($"/api/environments/{EnvironmentId}/deployments/{stackName}");
         var deployment1 = await getResponse1.Content.ReadFromJsonAsync<GetDeploymentResponse>();
         deployment1!.OperationMode.Should().Be("Normal");
 
-        // Step 2: Enter maintenance
+        // Step 2: Enter maintenance (operation-mode uses deploymentId)
         var enterRequest = new { mode = "Maintenance", reason = "Scheduled maintenance" };
         var enterResponse = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", enterRequest);
         enterResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // Step 3: Verify maintenance state
-        var getResponse2 = await Client.GetAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}");
+        var getResponse2 = await Client.GetAsync($"/api/environments/{EnvironmentId}/deployments/{stackName}");
         var deployment2 = await getResponse2.Content.ReadFromJsonAsync<GetDeploymentResponse>();
         deployment2!.OperationMode.Should().Be("Maintenance");
 
@@ -314,7 +314,7 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
         exitResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // Step 5: Verify back to normal
-        var getResponse3 = await Client.GetAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}");
+        var getResponse3 = await Client.GetAsync($"/api/environments/{EnvironmentId}/deployments/{stackName}");
         var deployment3 = await getResponse3.Content.ReadFromJsonAsync<GetDeploymentResponse>();
         deployment3!.OperationMode.Should().Be("Normal");
     }

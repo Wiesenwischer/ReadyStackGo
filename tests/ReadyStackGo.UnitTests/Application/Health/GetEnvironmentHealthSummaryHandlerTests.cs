@@ -7,6 +7,7 @@ using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.IdentityAccess.Users;
 
 namespace ReadyStackGo.UnitTests.Application.Health;
 
@@ -20,6 +21,7 @@ public class GetEnvironmentHealthSummaryHandlerTests
 {
     private readonly Mock<IHealthSnapshotRepository> _healthSnapshotRepoMock;
     private readonly Mock<IEnvironmentRepository> _environmentRepoMock;
+    private readonly Mock<IDeploymentRepository> _deploymentRepoMock;
     private readonly Mock<ILogger<GetEnvironmentHealthSummaryHandler>> _loggerMock;
     private readonly GetEnvironmentHealthSummaryHandler _handler;
 
@@ -30,11 +32,18 @@ public class GetEnvironmentHealthSummaryHandlerTests
     {
         _healthSnapshotRepoMock = new Mock<IHealthSnapshotRepository>();
         _environmentRepoMock = new Mock<IEnvironmentRepository>();
+        _deploymentRepoMock = new Mock<IDeploymentRepository>();
         _loggerMock = new Mock<ILogger<GetEnvironmentHealthSummaryHandler>>();
+
+        // Default: return empty list of deployments
+        _deploymentRepoMock
+            .Setup(r => r.GetByEnvironment(It.IsAny<EnvironmentId>()))
+            .Returns(Enumerable.Empty<Deployment>());
 
         _handler = new GetEnvironmentHealthSummaryHandler(
             _healthSnapshotRepoMock.Object,
             _environmentRepoMock.Object,
+            _deploymentRepoMock.Object,
             _loggerMock.Object);
     }
 
@@ -73,6 +82,23 @@ public class GetEnvironmentHealthSummaryHandlerTests
             selfHealth);
     }
 
+    private Deployment CreateTestDeployment(DeploymentId deploymentId, string stackName)
+    {
+        var userId = UserId.NewId();
+        return Deployment.Start(deploymentId, _envId, stackName, stackName, userId);
+    }
+
+    private void SetupActiveDeployments(params (DeploymentId id, string stackName)[] deployments)
+    {
+        var deploymentList = deployments
+            .Select(d => CreateTestDeployment(d.id, d.stackName))
+            .ToList();
+
+        _deploymentRepoMock
+            .Setup(r => r.GetByEnvironment(_envId))
+            .Returns(deploymentList);
+    }
+
     [Fact]
     public async Task Handle_ValidEnvironment_ReturnsDtoWithCorrectDeploymentIds()
     {
@@ -94,6 +120,11 @@ public class GetEnvironmentHealthSummaryHandlerTests
         _healthSnapshotRepoMock
             .Setup(r => r.GetLatestForEnvironment(_envId))
             .Returns(snapshots);
+
+        // Setup active deployments so snapshots are included
+        SetupActiveDeployments(
+            (deploymentId1, "stack-1"),
+            (deploymentId2, "stack-2"));
 
         var query = new GetEnvironmentHealthSummaryQuery(_envId.Value.ToString());
 
@@ -132,6 +163,9 @@ public class GetEnvironmentHealthSummaryHandlerTests
         _healthSnapshotRepoMock
             .Setup(r => r.GetLatestForEnvironment(_envId))
             .Returns(new[] { snapshot });
+
+        // Setup active deployment so snapshot is included
+        SetupActiveDeployments((deploymentId, "test-stack"));
 
         var query = new GetEnvironmentHealthSummaryQuery(_envId.Value.ToString());
 

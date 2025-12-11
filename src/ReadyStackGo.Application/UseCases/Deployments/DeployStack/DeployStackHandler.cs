@@ -37,7 +37,9 @@ public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStac
         var deployRequest = new DeployStackRequest
         {
             StackName = request.StackName,
-            YamlContent = stackDefinition.YamlContent,
+            Services = stackDefinition.Services,
+            Volumes = stackDefinition.Volumes,
+            Networks = stackDefinition.Networks,
             StackVersion = stackDefinition.ProductVersion,
             Variables = request.Variables,
             EnvironmentId = request.EnvironmentId,

@@ -43,8 +43,17 @@ public class GetStackEndpoint : Endpoint<GetStackRequest, StackDetailDto>
             SourceName = result.SourceName,
             Name = result.Name,
             Description = result.Description,
-            YamlContent = result.YamlContent,
-            Services = result.Services,
+            Services = result.Services.Select(s => new ServiceDto
+            {
+                Name = s.Name,
+                Image = s.Image,
+                ContainerName = s.ContainerName,
+                Ports = s.Ports,
+                Environment = s.Environment,
+                Volumes = s.Volumes,
+                Networks = s.Networks,
+                DependsOn = s.DependsOn
+            }).ToList(),
             Variables = result.Variables.Select(v => new StackVariableDto
             {
                 Name = v.Name,
@@ -67,10 +76,22 @@ public class GetStackEndpoint : Endpoint<GetStackRequest, StackDetailDto>
                     Description = o.Description
                 }).ToList()
             }).ToList(),
+            Volumes = result.Volumes.Select(v => new VolumeDto
+            {
+                Name = v.Name,
+                Driver = v.Driver,
+                External = v.External
+            }).ToList(),
+            Networks = result.Networks.Select(n => new NetworkDto
+            {
+                Name = n.Name,
+                Driver = n.Driver,
+                External = n.External
+            }).ToList(),
             FilePath = result.FilePath,
-            AdditionalFiles = result.AdditionalFiles,
             LastSyncedAt = result.LastSyncedAt,
-            Version = result.Version
+            Version = result.Version,
+            ProductId = result.ProductId
         };
     }
 }
@@ -81,7 +102,8 @@ public class GetStackRequest
 }
 
 /// <summary>
-/// Detailed stack DTO including YAML content
+/// Detailed stack DTO with structured service data.
+/// v0.12: Replaced YamlContent with structured Services, Volumes, Networks.
 /// </summary>
 public class StackDetailDto
 {
@@ -90,11 +112,50 @@ public class StackDetailDto
     public required string SourceName { get; init; }
     public required string Name { get; init; }
     public string? Description { get; init; }
-    public required string YamlContent { get; init; }
-    public List<string> Services { get; init; } = new();
+    public List<ServiceDto> Services { get; init; } = new();
     public List<StackVariableDto> Variables { get; init; } = new();
+    public List<VolumeDto> Volumes { get; init; } = new();
+    public List<NetworkDto> Networks { get; init; } = new();
     public string? FilePath { get; init; }
-    public List<string> AdditionalFiles { get; init; } = new();
     public DateTime LastSyncedAt { get; init; }
     public string? Version { get; init; }
+    /// <summary>
+    /// Product ID for navigation back to catalog (format: sourceId:productName).
+    /// </summary>
+    public required string ProductId { get; init; }
+}
+
+/// <summary>
+/// Service definition DTO.
+/// </summary>
+public class ServiceDto
+{
+    public required string Name { get; init; }
+    public required string Image { get; init; }
+    public string? ContainerName { get; init; }
+    public List<string> Ports { get; init; } = new();
+    public Dictionary<string, string> Environment { get; init; } = new();
+    public List<string> Volumes { get; init; } = new();
+    public List<string> Networks { get; init; } = new();
+    public List<string> DependsOn { get; init; } = new();
+}
+
+/// <summary>
+/// Named volume definition DTO.
+/// </summary>
+public class VolumeDto
+{
+    public required string Name { get; init; }
+    public string? Driver { get; init; }
+    public bool External { get; init; }
+}
+
+/// <summary>
+/// Network definition DTO.
+/// </summary>
+public class NetworkDto
+{
+    public required string Name { get; init; }
+    public string? Driver { get; init; }
+    public bool External { get; init; }
 }

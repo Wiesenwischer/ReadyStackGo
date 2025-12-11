@@ -73,11 +73,24 @@ export default function DeploymentDetail() {
         if (response.success) {
           setDeployment(response);
 
-          // Load detailed health data with service info
+          // Load detailed health data with service info (force refresh for immediate data)
           if (response.deploymentId) {
             try {
-              const healthData = await getStackHealth(activeEnvironment.id, response.deploymentId);
+              const healthData = await getStackHealth(activeEnvironment.id, response.deploymentId, true);
               setDetailedHealth(healthData);
+              // Also set the health summary from detailed data
+              setHealth({
+                deploymentId: healthData.deploymentId,
+                stackName: healthData.stackName,
+                currentVersion: healthData.currentVersion,
+                overallStatus: healthData.overallStatus,
+                operationMode: healthData.operationMode,
+                healthyServices: healthData.self.healthyCount,
+                totalServices: healthData.self.totalCount,
+                statusMessage: healthData.statusMessage,
+                requiresAttention: healthData.requiresAttention,
+                capturedAtUtc: healthData.capturedAtUtc
+              });
             } catch (healthErr) {
               console.warn("Could not load health data:", healthErr);
             }
@@ -106,7 +119,7 @@ export default function DeploymentDetail() {
     try {
       setModeActionLoading(true);
       setModeActionError(null);
-      const response = await enterMaintenanceMode(deployment.deploymentId);
+      const response = await enterMaintenanceMode(activeEnvironment.id, deployment.deploymentId);
       if (!response.success) {
         setModeActionError(response.message || 'Failed to enter maintenance mode');
       } else {
@@ -146,7 +159,7 @@ export default function DeploymentDetail() {
     try {
       setModeActionLoading(true);
       setModeActionError(null);
-      const response = await exitMaintenanceMode(deployment.deploymentId);
+      const response = await exitMaintenanceMode(activeEnvironment.id, deployment.deploymentId);
       if (!response.success) {
         setModeActionError(response.message || 'Failed to exit maintenance mode');
       } else {

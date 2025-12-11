@@ -2,10 +2,9 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.StackManagement.Manifests;
-using ReadyStackGo.Domain.StackManagement.StackSources;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
+using ReadyStackGo.Domain.Catalog.Manifests;
+using ReadyStackGo.Domain.Catalog.Sources;
+using ReadyStackGo.Domain.Catalog.Stacks;
 
 namespace ReadyStackGo.Infrastructure.Stacks.Sources;
 
@@ -17,7 +16,6 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
 {
     private readonly ILogger<LocalDirectoryStackSourceProvider> _logger;
     private readonly IRsgoManifestParser _manifestParser;
-    private readonly ISerializer _yamlSerializer;
 
     public string SourceType => "local-directory";
 
@@ -27,10 +25,6 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
     {
         _logger = logger;
         _manifestParser = manifestParser;
-        _yamlSerializer = new SerializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull)
-            .Build();
     }
 
     public bool CanHandle(StackSource source)
@@ -195,7 +189,9 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
 
         // Single-stack manifest - product = stack
         var variables = await _manifestParser.ExtractVariablesAsync(manifest);
-        var services = ExtractServicesFromManifest(manifest);
+        var services = ExtractServiceTemplatesFromManifest(manifest);
+        var volumes = ExtractVolumeDefinitionsFromManifest(manifest);
+        var networks = ExtractNetworkDefinitionsFromManifest(manifest);
         var stackName = manifest.Metadata?.Name ?? folderName;
         var description = manifest.Metadata?.Description;
         var productVersion = manifest.Metadata?.ProductVersion;
@@ -211,10 +207,11 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
             new StackDefinition(
                 sourceId: sourceId,
                 name: stackName,
-                yamlContent: yamlContent,
+                services: services,
                 description: description,
                 variables: variables,
-                services: services,
+                volumes: volumes,
+                networks: networks,
                 filePath: manifestFile,
                 relativePath: relativePath,
                 lastSyncedAt: DateTime.UtcNow,
@@ -264,7 +261,9 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
 
             // Single-stack manifest - product = stack
             var variables = await _manifestParser.ExtractVariablesAsync(manifest);
-            var services = ExtractServicesFromManifest(manifest);
+            var services = ExtractServiceTemplatesFromManifest(manifest);
+            var volumes = ExtractVolumeDefinitionsFromManifest(manifest);
+            var networks = ExtractNetworkDefinitionsFromManifest(manifest);
             var stackName = manifest.Metadata?.Name ?? fileName;
             var description = manifest.Metadata?.Description;
             var productVersion = manifest.Metadata?.ProductVersion;
@@ -280,10 +279,11 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
                 new StackDefinition(
                     sourceId: sourceId,
                     name: stackName,
-                    yamlContent: yamlContent,
+                    services: services,
                     description: description,
                     variables: variables,
-                    services: services,
+                    volumes: volumes,
+                    networks: networks,
                     filePath: filePath,
                     relativePath: relativePath,
                     lastSyncedAt: DateTime.UtcNow,
@@ -330,8 +330,10 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
 
         foreach (var (stackKey, stackEntry) in manifest.Stacks!)
         {
-            // Extract services from this sub-stack
-            var services = stackEntry.Services?.Keys.ToList() ?? new List<string>();
+            // Extract services from this sub-stack as ServiceTemplates
+            var services = ExtractServiceTemplatesFromStackEntry(stackEntry);
+            var volumes = ExtractVolumeDefinitionsFromStackEntry(stackEntry);
+            var networks = ExtractNetworkDefinitionsFromStackEntry(stackEntry);
 
             // Extract variables: shared + stack-specific
             var variables = new List<StackVariable>();
@@ -356,19 +358,17 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
             var stackName = stackEntry.Metadata?.Name ?? stackKey;
             var stackDescription = stackEntry.Metadata?.Description ?? productDescription;
 
-            // Generate YAML for this sub-stack, inheriting maintenance config from parent
-            var composeYaml = GenerateYamlForStack(stackEntry, manifest.Maintenance);
-
             _logger.LogDebug("Created sub-stack '{StackKey}' ({StackName}) with {VarCount} variables, {SvcCount} services, HasMaintenance={HasMaintenance}",
                 stackKey, stackName, variables.Count, services.Count, manifest.Maintenance?.Observer != null);
 
             results.Add(new StackDefinition(
                 sourceId: sourceId,
                 name: stackName,
-                yamlContent: composeYaml,
+                services: services,
                 description: stackDescription,
                 variables: variables,
-                services: services,
+                volumes: volumes,
+                networks: networks,
                 filePath: filePath,
                 relativePath: relativePath,
                 lastSyncedAt: DateTime.UtcNow,
@@ -391,129 +391,232 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
     }
 
     /// <summary>
-    /// Generates Docker Compose compatible YAML content for a sub-stack.
-    /// Converts RSGo format to docker-compose format (snake_case, no metadata section).
+    /// Extracts ServiceTemplate objects from a manifest.
     /// </summary>
-    private string GenerateYamlForStack(RsgoStackEntry stackEntry, RsgoMaintenance? maintenance = null)
+    private static List<ServiceTemplate> ExtractServiceTemplatesFromManifest(RsgoManifest manifest)
     {
-        // Build docker-compose compatible structure
-        var composeDict = new Dictionary<string, object>();
+        var services = new List<ServiceTemplate>();
 
-        // Convert services to docker-compose format
-        if (stackEntry.Services != null && stackEntry.Services.Count > 0)
+        if (manifest.Services != null)
         {
-            var servicesDict = new Dictionary<string, object>();
+            foreach (var (serviceName, service) in manifest.Services)
+            {
+                services.Add(ConvertToServiceTemplate(serviceName, service));
+            }
+        }
+
+        // Multi-stack: collect services from all stacks (includes are already resolved)
+        if (manifest.Stacks != null)
+        {
+            foreach (var (_, stackEntry) in manifest.Stacks)
+            {
+                if (stackEntry.Services != null)
+                {
+                    foreach (var (serviceName, service) in stackEntry.Services)
+                    {
+                        // Only add if not already present
+                        if (!services.Any(s => s.Name == serviceName))
+                        {
+                            services.Add(ConvertToServiceTemplate(serviceName, service));
+                        }
+                    }
+                }
+            }
+        }
+
+        return services;
+    }
+
+    /// <summary>
+    /// Extracts ServiceTemplate objects from a stack entry.
+    /// </summary>
+    private static List<ServiceTemplate> ExtractServiceTemplatesFromStackEntry(RsgoStackEntry stackEntry)
+    {
+        var services = new List<ServiceTemplate>();
+
+        if (stackEntry.Services != null)
+        {
             foreach (var (serviceName, service) in stackEntry.Services)
             {
-                servicesDict[serviceName] = ConvertServiceToComposeFormat(service);
+                services.Add(ConvertToServiceTemplate(serviceName, service));
             }
-            composeDict["services"] = servicesDict;
         }
 
-        // Volumes (already in correct format)
-        if (stackEntry.Volumes != null && stackEntry.Volumes.Count > 0)
-        {
-            composeDict["volumes"] = stackEntry.Volumes;
-        }
-
-        // Networks (already in correct format)
-        if (stackEntry.Networks != null && stackEntry.Networks.Count > 0)
-        {
-            composeDict["networks"] = stackEntry.Networks;
-        }
-
-        // Use snake_case serializer for docker-compose format
-        var composeSerializer = new SerializerBuilder()
-            .WithNamingConvention(UnderscoredNamingConvention.Instance)
-            .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull)
-            .Build();
-
-        return composeSerializer.Serialize(composeDict);
+        return services;
     }
 
     /// <summary>
-    /// Converts an RSGo service configuration to docker-compose format.
+    /// Converts an RsgoService to a ServiceTemplate.
     /// </summary>
-    private static Dictionary<string, object> ConvertServiceToComposeFormat(RsgoService service)
+    private static ServiceTemplate ConvertToServiceTemplate(string serviceName, RsgoService service)
     {
-        var serviceDict = new Dictionary<string, object>();
-
-        if (!string.IsNullOrEmpty(service.Image))
-            serviceDict["image"] = service.Image;
-
-        if (!string.IsNullOrEmpty(service.ContainerName))
-            serviceDict["container_name"] = service.ContainerName;
-
-        if (service.Ports != null && service.Ports.Count > 0)
-            serviceDict["ports"] = service.Ports;
-
-        if (service.Environment != null && service.Environment.Count > 0)
-            serviceDict["environment"] = service.Environment;
-
-        if (service.Volumes != null && service.Volumes.Count > 0)
-            serviceDict["volumes"] = service.Volumes;
-
-        if (service.Networks != null && service.Networks.Count > 0)
-            serviceDict["networks"] = service.Networks;
-
-        if (service.DependsOn != null && service.DependsOn.Count > 0)
-            serviceDict["depends_on"] = service.DependsOn;
-
-        if (!string.IsNullOrEmpty(service.Restart))
-            serviceDict["restart"] = service.Restart;
-
-        if (!string.IsNullOrEmpty(service.Command))
-            serviceDict["command"] = service.Command;
-
-        if (!string.IsNullOrEmpty(service.Entrypoint))
-            serviceDict["entrypoint"] = service.Entrypoint;
-
-        if (!string.IsNullOrEmpty(service.WorkingDir))
-            serviceDict["working_dir"] = service.WorkingDir;
-
-        if (!string.IsNullOrEmpty(service.User))
-            serviceDict["user"] = service.User;
-
-        if (service.Labels != null && service.Labels.Count > 0)
-            serviceDict["labels"] = service.Labels;
-
-        if (service.HealthCheck != null)
+        return new ServiceTemplate
         {
-            var healthCheckDict = ConvertHealthCheckToComposeFormat(service.HealthCheck);
-            if (healthCheckDict != null)
-                serviceDict["healthcheck"] = healthCheckDict;
-        }
-
-        return serviceDict;
+            Name = serviceName,
+            Image = service.Image ?? "unknown",
+            ContainerName = service.ContainerName,
+            Ports = service.Ports?.Select(p => PortMapping.Parse(p)).ToList() ?? new List<PortMapping>(),
+            Volumes = service.Volumes?.Select(v => VolumeMapping.Parse(v)).ToList() ?? new List<VolumeMapping>(),
+            Environment = service.Environment?.ToDictionary(e => e.Key, e => e.Value) ?? new Dictionary<string, string>(),
+            Labels = service.Labels ?? new Dictionary<string, string>(),
+            Networks = service.Networks ?? new List<string>(),
+            DependsOn = service.DependsOn ?? new List<string>(),
+            RestartPolicy = service.Restart,
+            Command = service.Command,
+            Entrypoint = service.Entrypoint,
+            WorkingDir = service.WorkingDir,
+            User = service.User,
+            HealthCheck = service.HealthCheck != null ? ConvertToServiceHealthCheck(service.HealthCheck) : null
+        };
     }
 
     /// <summary>
-    /// Converts an RSGo health check to docker-compose format.
-    /// Only Docker HEALTHCHECK properties are included (not RSGO-specific HTTP checks).
+    /// Converts an RsgoHealthCheck to a ServiceHealthCheck.
     /// </summary>
-    private static Dictionary<string, object>? ConvertHealthCheckToComposeFormat(RsgoHealthCheck healthCheck)
+    private static ServiceHealthCheck? ConvertToServiceHealthCheck(RsgoHealthCheck healthCheck)
     {
+        // Skip if this is an RSGO-specific health check (HTTP/TCP), not a Docker HEALTHCHECK
         if (healthCheck.IsHttpHealthCheck || healthCheck.IsTcpHealthCheck || healthCheck.IsDisabled)
             return null;
 
-        var hcDict = new Dictionary<string, object>();
+        return new ServiceHealthCheck
+        {
+            Test = healthCheck.Test ?? new List<string>(),
+            Interval = ParseTimeSpan(healthCheck.Interval),
+            Timeout = ParseTimeSpan(healthCheck.Timeout),
+            Retries = healthCheck.Retries,
+            StartPeriod = ParseTimeSpan(healthCheck.StartPeriod)
+        };
+    }
 
-        if (healthCheck.Test != null && healthCheck.Test.Count > 0)
-            hcDict["test"] = healthCheck.Test;
+    /// <summary>
+    /// Parses a Docker-style duration string (e.g., "30s", "1m", "1h") to TimeSpan.
+    /// </summary>
+    private static TimeSpan? ParseTimeSpan(string? duration)
+    {
+        if (string.IsNullOrWhiteSpace(duration))
+            return null;
 
-        if (!string.IsNullOrEmpty(healthCheck.Interval))
-            hcDict["interval"] = healthCheck.Interval;
+        // Try to parse common formats: 30s, 1m, 1h, etc.
+        var value = duration.Trim().ToLowerInvariant();
 
-        if (!string.IsNullOrEmpty(healthCheck.Timeout))
-            hcDict["timeout"] = healthCheck.Timeout;
+        if (value.EndsWith('s') && double.TryParse(value[..^1], out var seconds))
+            return TimeSpan.FromSeconds(seconds);
 
-        if (healthCheck.Retries.HasValue)
-            hcDict["retries"] = healthCheck.Retries.Value;
+        if (value.EndsWith('m') && double.TryParse(value[..^1], out var minutes))
+            return TimeSpan.FromMinutes(minutes);
 
-        if (!string.IsNullOrEmpty(healthCheck.StartPeriod))
-            hcDict["start_period"] = healthCheck.StartPeriod;
+        if (value.EndsWith('h') && double.TryParse(value[..^1], out var hours))
+            return TimeSpan.FromHours(hours);
 
-        return hcDict.Count > 0 ? hcDict : null;
+        if (value.EndsWith("ms") && double.TryParse(value[..^2], out var ms))
+            return TimeSpan.FromMilliseconds(ms);
+
+        // Fallback: try parsing as TimeSpan
+        if (TimeSpan.TryParse(duration, out var ts))
+            return ts;
+
+        return null;
+    }
+
+    /// <summary>
+    /// Extracts VolumeDefinition objects from a manifest.
+    /// </summary>
+    private static List<VolumeDefinition> ExtractVolumeDefinitionsFromManifest(RsgoManifest manifest)
+    {
+        var volumes = new List<VolumeDefinition>();
+
+        if (manifest.Volumes != null)
+        {
+            foreach (var (volumeName, volumeDef) in manifest.Volumes)
+            {
+                volumes.Add(ConvertToVolumeDefinition(volumeName, volumeDef));
+            }
+        }
+
+        return volumes;
+    }
+
+    /// <summary>
+    /// Extracts VolumeDefinition objects from a stack entry.
+    /// </summary>
+    private static List<VolumeDefinition> ExtractVolumeDefinitionsFromStackEntry(RsgoStackEntry stackEntry)
+    {
+        var volumes = new List<VolumeDefinition>();
+
+        if (stackEntry.Volumes != null)
+        {
+            foreach (var (volumeName, volumeDef) in stackEntry.Volumes)
+            {
+                volumes.Add(ConvertToVolumeDefinition(volumeName, volumeDef));
+            }
+        }
+
+        return volumes;
+    }
+
+    /// <summary>
+    /// Converts an RSGo volume definition to VolumeDefinition.
+    /// </summary>
+    private static VolumeDefinition ConvertToVolumeDefinition(string volumeName, RsgoVolume? volumeDef)
+    {
+        return new VolumeDefinition
+        {
+            Name = volumeName,
+            Driver = volumeDef?.Driver,
+            External = volumeDef?.External ?? false,
+            DriverOpts = volumeDef?.DriverOpts ?? new Dictionary<string, string>()
+        };
+    }
+
+    /// <summary>
+    /// Extracts NetworkDefinition objects from a manifest.
+    /// </summary>
+    private static List<NetworkDefinition> ExtractNetworkDefinitionsFromManifest(RsgoManifest manifest)
+    {
+        var networks = new List<NetworkDefinition>();
+
+        if (manifest.Networks != null)
+        {
+            foreach (var (networkName, networkDef) in manifest.Networks)
+            {
+                networks.Add(ConvertToNetworkDefinition(networkName, networkDef));
+            }
+        }
+
+        return networks;
+    }
+
+    /// <summary>
+    /// Extracts NetworkDefinition objects from a stack entry.
+    /// </summary>
+    private static List<NetworkDefinition> ExtractNetworkDefinitionsFromStackEntry(RsgoStackEntry stackEntry)
+    {
+        var networks = new List<NetworkDefinition>();
+
+        if (stackEntry.Networks != null)
+        {
+            foreach (var (networkName, networkDef) in stackEntry.Networks)
+            {
+                networks.Add(ConvertToNetworkDefinition(networkName, networkDef));
+            }
+        }
+
+        return networks;
+    }
+
+    /// <summary>
+    /// Converts an RSGo network definition to NetworkDefinition.
+    /// </summary>
+    private static NetworkDefinition ConvertToNetworkDefinition(string networkName, RsgoNetwork? networkDef)
+    {
+        return new NetworkDefinition
+        {
+            Name = networkName,
+            Driver = networkDef?.Driver ?? "bridge",
+            External = networkDef?.External ?? false,
+            DriverOpts = networkDef?.DriverOpts ?? new Dictionary<string, string>()
+        };
     }
 
     private static StackVariable ConvertToStackVariable(string name, RsgoVariable def)
@@ -536,35 +639,6 @@ public class LocalDirectoryStackSourceProvider : IStackSourceProvider
             order: def.Order,
             isRequired: def.Required
         );
-    }
-
-    /// <summary>
-    /// Extract all service names from a manifest, handling both single-stack and multi-stack formats.
-    /// For multi-stack manifests, collects services from all stacks (after include resolution).
-    /// </summary>
-    private static List<string> ExtractServicesFromManifest(RsgoManifest manifest)
-    {
-        var services = new List<string>();
-
-        // Single-stack: direct services
-        if (manifest.Services != null)
-        {
-            services.AddRange(manifest.Services.Keys);
-        }
-
-        // Multi-stack: collect services from all stacks (includes are already resolved)
-        if (manifest.Stacks != null)
-        {
-            foreach (var (_, stackEntry) in manifest.Stacks)
-            {
-                if (stackEntry.Services != null)
-                {
-                    services.AddRange(stackEntry.Services.Keys);
-                }
-            }
-        }
-
-        return services.Distinct().ToList();
     }
 
     private static string ComputeHash(string content)

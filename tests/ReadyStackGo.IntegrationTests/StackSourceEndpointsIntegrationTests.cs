@@ -91,7 +91,7 @@ public class StackSourceEndpointsIntegrationTests : AuthenticatedTestBase
         var detail = await response.Content.ReadFromJsonAsync<StackDefinitionDetailDto>();
         detail.Should().NotBeNull();
         detail!.Id.Should().Be(stackId);
-        detail.YamlContent.Should().NotBeNullOrEmpty();
+        detail.Services.Should().NotBeNull();
     }
 
     [Fact]
@@ -272,13 +272,36 @@ public class StackSourceEndpointsIntegrationTests : AuthenticatedTestBase
         string SourceId,
         string Name,
         string? Description,
-        string YamlContent,
-        List<string> Services,
+        List<ServiceDetailDto> Services,
         List<StackVariableDto> Variables,
+        List<VolumeDetailDto> Volumes,
+        List<NetworkDetailDto> Networks,
         string? FilePath,
-        List<string> AdditionalFiles,
         DateTime LastSyncedAt,
         string? Version
+    );
+
+    private record ServiceDetailDto(
+        string Name,
+        string Image,
+        string? ContainerName,
+        List<string> Ports,
+        Dictionary<string, string> Environment,
+        List<string> Volumes,
+        List<string> Networks,
+        List<string> DependsOn
+    );
+
+    private record VolumeDetailDto(
+        string Name,
+        string? Driver,
+        bool External
+    );
+
+    private record NetworkDetailDto(
+        string Name,
+        string? Driver,
+        bool External
     );
 
     private record StackVariableDto(

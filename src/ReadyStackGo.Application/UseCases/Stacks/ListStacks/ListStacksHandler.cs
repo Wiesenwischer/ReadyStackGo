@@ -25,7 +25,7 @@ public class ListStacksHandler : IRequestHandler<ListStacksQuery, ListStacksResu
             s.Name,
             s.Description,
             s.RelativePath,
-            s.Services.ToList(),
+            s.GetServiceNames().ToList(),
             s.Variables.Select(v => new StackVariableItem(
                 v.Name,
                 v.DefaultValue,

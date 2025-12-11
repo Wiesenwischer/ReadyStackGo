@@ -1,6 +1,8 @@
 using System.Text.Json;
 using MediatR;
 using ReadyStackGo.Application.Services;
+using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Environments;
 
 namespace ReadyStackGo.Application.UseCases.Dashboard.GetDashboardStats;
 
@@ -8,11 +10,16 @@ public class GetDashboardStatsHandler : IRequestHandler<GetDashboardStatsQuery, 
 {
     private readonly IStackSourceService _stackSourceService;
     private readonly IDockerService _dockerService;
+    private readonly IDeploymentRepository _deploymentRepository;
 
-    public GetDashboardStatsHandler(IStackSourceService stackSourceService, IDockerService dockerService)
+    public GetDashboardStatsHandler(
+        IStackSourceService stackSourceService,
+        IDockerService dockerService,
+        IDeploymentRepository deploymentRepository)
     {
         _stackSourceService = stackSourceService;
         _dockerService = dockerService;
+        _deploymentRepository = deploymentRepository;
     }
 
     public async Task<GetDashboardStatsResult> Handle(GetDashboardStatsQuery request, CancellationToken cancellationToken)
@@ -24,14 +31,25 @@ public class GetDashboardStatsHandler : IRequestHandler<GetDashboardStatsQuery, 
 
         try
         {
+            // Get catalog data
+            var products = await _stackSourceService.GetProductsAsync(cancellationToken);
             var stacks = await _stackSourceService.GetStacksAsync(cancellationToken);
             var containers = await _dockerService.ListContainersAsync(request.EnvironmentId, cancellationToken);
 
+            // Count active deployments (not removed) for this environment
+            var environmentId = EnvironmentId.FromGuid(Guid.Parse(request.EnvironmentId));
+            var activeDeployments = _deploymentRepository
+                .GetByEnvironment(environmentId)
+                .Count(d => d.Status != DeploymentStatus.Removed);
+
+            var totalProducts = products.Count();
+            var totalStacks = stacks.Count();
             var stats = new DashboardStatsDto
             {
-                TotalStacks = stacks.Count(),
-                DeployedStacks = 0,
-                NotDeployedStacks = stacks.Count(),
+                TotalProducts = totalProducts,
+                TotalStacks = totalStacks,
+                DeployedStacks = activeDeployments,
+                NotDeployedStacks = Math.Max(0, totalStacks - activeDeployments),
                 TotalContainers = containers.Count(),
                 RunningContainers = containers.Count(c => c.State == "running"),
                 StoppedContainers = containers.Count(c => c.State != "running")

@@ -11,11 +11,61 @@ public record GetStackResult(
     string SourceName,
     string Name,
     string? Description,
-    string YamlContent,
-    List<string> Services,
+    List<ServiceItem> Services,
     List<StackVariableItem> Variables,
+    List<VolumeItem> Volumes,
+    List<NetworkItem> Networks,
     string? FilePath,
-    List<string> AdditionalFiles,
     DateTime LastSyncedAt,
-    string? Version
+    string? Version,
+    /// <summary>
+    /// Product ID for navigation back to catalog (format: sourceId:productName).
+    /// </summary>
+    string ProductId
+);
+
+/// <summary>
+/// Represents a service in a stack.
+/// </summary>
+public record ServiceItem(
+    string Name,
+    string Image,
+    string? ContainerName,
+    List<string> Ports,
+    List<string> Volumes,
+    Dictionary<string, string> Environment,
+    List<string> Networks,
+    List<string> DependsOn,
+    string? RestartPolicy,
+    string? Command,
+    ServiceHealthCheckItem? HealthCheck
+);
+
+/// <summary>
+/// Health check configuration for a service.
+/// </summary>
+public record ServiceHealthCheckItem(
+    List<string> Test,
+    string? Interval,
+    string? Timeout,
+    int? Retries,
+    string? StartPeriod
+);
+
+/// <summary>
+/// Named volume in a stack.
+/// </summary>
+public record VolumeItem(
+    string Name,
+    string? Driver,
+    bool External
+);
+
+/// <summary>
+/// Network in a stack.
+/// </summary>
+public record NetworkItem(
+    string Name,
+    string Driver,
+    bool External
 );

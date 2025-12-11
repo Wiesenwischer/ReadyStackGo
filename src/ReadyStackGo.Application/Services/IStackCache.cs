@@ -1,4 +1,4 @@
-using ReadyStackGo.Domain.StackManagement.StackSources;
+using ReadyStackGo.Domain.Catalog.Stacks;
 
 namespace ReadyStackGo.Application.Services;
 

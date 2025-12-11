@@ -374,13 +374,39 @@ public class StackVariableTypesIntegrationTests : AuthenticatedTestBase
         public string SourceName { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
-        public string YamlContent { get; set; } = string.Empty;
-        public List<string> Services { get; set; } = new();
+        public List<ServiceResponseDto> Services { get; set; } = new();
         public List<VariableDto> Variables { get; set; } = new();
+        public List<VolumeResponseDto> Volumes { get; set; } = new();
+        public List<NetworkResponseDto> Networks { get; set; } = new();
         public string? FilePath { get; set; }
-        public List<string> AdditionalFiles { get; set; } = new();
         public DateTime LastSyncedAt { get; set; }
         public string? Version { get; set; }
+    }
+
+    public class ServiceResponseDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Image { get; set; } = string.Empty;
+        public string? ContainerName { get; set; }
+        public List<string> Ports { get; set; } = new();
+        public Dictionary<string, string> Environment { get; set; } = new();
+        public List<string> Volumes { get; set; } = new();
+        public List<string> Networks { get; set; } = new();
+        public List<string> DependsOn { get; set; } = new();
+    }
+
+    public class VolumeResponseDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? Driver { get; set; }
+        public bool External { get; set; }
+    }
+
+    public class NetworkResponseDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? Driver { get; set; }
+        public bool External { get; set; }
     }
 
     public class VariableDto

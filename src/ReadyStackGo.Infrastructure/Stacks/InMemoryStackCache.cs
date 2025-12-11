@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.StackManagement.StackSources;
+using ReadyStackGo.Domain.Catalog.Stacks;
 
 namespace ReadyStackGo.Infrastructure.Stacks;
 
