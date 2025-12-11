@@ -6,6 +6,7 @@ using ReadyStackGo.Domain.Catalog.Manifests;
 using ReadyStackGo.Domain.Catalog.Stacks;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
+using DeploymentNetworkDefinition = ReadyStackGo.Application.UseCases.Deployments.NetworkDefinition;
 
 namespace ReadyStackGo.Infrastructure.Manifests;
 
@@ -359,7 +360,7 @@ public class RsgoManifestParser : IRsgoManifestParser
                 var isExternal = networkDef.External ?? false;
                 var resolvedName = isExternal ? networkName : DockerNamingUtility.CreateNetworkName(stackName, networkName);
 
-                plan.Networks[networkName] = new NetworkDefinition
+                plan.Networks[networkName] = new DeploymentNetworkDefinition
                 {
                     External = isExternal,
                     ResolvedName = resolvedName
@@ -372,7 +373,7 @@ public class RsgoManifestParser : IRsgoManifestParser
         var defaultNetwork = DockerNamingUtility.CreateNetworkName(stackName, "default");
         if (networkMapping.Count == 0)
         {
-            plan.Networks["default"] = new NetworkDefinition
+            plan.Networks["default"] = new DeploymentNetworkDefinition
             {
                 External = false,
                 ResolvedName = defaultNetwork

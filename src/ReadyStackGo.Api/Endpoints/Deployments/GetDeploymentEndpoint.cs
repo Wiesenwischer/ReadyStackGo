@@ -8,7 +8,7 @@ using ReadyStackGo.Application.UseCases.Deployments.GetDeployment;
 namespace ReadyStackGo.API.Endpoints.Deployments;
 
 /// <summary>
-/// GET /api/environments/{environmentId}/deployments/{deploymentId} - Get a specific deployment.
+/// GET /api/environments/{environmentId}/deployments/{stackName} - Get a specific deployment by stack name.
 /// Accessible by: SystemAdmin, OrganizationOwner, Operator, Viewer (scoped).
 /// </summary>
 [RequirePermission("Deployments", "Read")]
@@ -23,17 +23,18 @@ public class GetDeploymentEndpoint : Endpoint<GetDeploymentRequest, GetDeploymen
 
     public override void Configure()
     {
-        Get("/api/environments/{environmentId}/deployments/{deploymentId}");
+        Get("/api/environments/{environmentId}/deployments/{stackName}");
         PreProcessor<RbacPreProcessor<GetDeploymentRequest>>();
     }
 
     public override async Task HandleAsync(GetDeploymentRequest req, CancellationToken ct)
     {
         var environmentId = Route<string>("environmentId")!;
-        var deploymentId = Route<string>("deploymentId")!;
+        var stackName = Route<string>("stackName")!;
         req.EnvironmentId = environmentId;
 
-        var response = await _mediator.Send(new GetDeploymentByIdQuery(environmentId, deploymentId), ct);
+        // Use GetDeploymentQuery which looks up by stack name, not by GUID deployment ID
+        var response = await _mediator.Send(new GetDeploymentQuery(environmentId, stackName), ct);
 
         if (!response.Success)
         {

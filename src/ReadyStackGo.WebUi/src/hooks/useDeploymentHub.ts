@@ -4,16 +4,19 @@ import { useAuth } from '../context/AuthContext';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
+// Backend payload gets converted to camelCase by SignalR JSON serialization
 export interface DeploymentProgressUpdate {
-  deploymentId: string;
+  sessionId: string;
   phase: string;
   message: string;
-  progressPercent: number;
+  percentComplete: number;
   currentService?: string;
   totalServices: number;
   completedServices: number;
-  isComplete: boolean;
-  isError: boolean;
+  status: string;
+  // Added by frontend handlers
+  isComplete?: boolean;
+  isError?: boolean;
   errorMessage?: string;
 }
 
@@ -26,7 +29,6 @@ export interface UseDeploymentHubReturn {
   connectionState: ConnectionState;
   subscribeToDeployment: (sessionId: string) => Promise<void>;
   unsubscribeFromDeployment: (sessionId: string) => Promise<void>;
-  subscribeToAllDeployments: () => Promise<void>;
 }
 
 export function useDeploymentHub(options: UseDeploymentHubOptions = {}): UseDeploymentHubReturn {
@@ -144,20 +146,9 @@ export function useDeploymentHub(options: UseDeploymentHubOptions = {}): UseDepl
     }
   }, []);
 
-  const subscribeToAllDeployments = useCallback(async () => {
-    // Subscribe to a wildcard group or all deployments
-    // For now, we'll use a placeholder - the backend sends to session-specific groups
-    if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
-      // Subscribe to "all" group if supported, otherwise this is a no-op
-      // The current backend sends to specific session groups
-      // We handle this by subscribing early and filtering client-side
-    }
-  }, []);
-
   return {
     connectionState,
     subscribeToDeployment,
-    unsubscribeFromDeployment,
-    subscribeToAllDeployments
+    unsubscribeFromDeployment
   };
 }

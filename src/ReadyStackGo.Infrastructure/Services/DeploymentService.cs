@@ -5,6 +5,7 @@ using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.IdentityAccess.Users;
+using CatalogStacks = ReadyStackGo.Domain.Catalog.Stacks;
 
 namespace ReadyStackGo.Infrastructure.Services;
 
@@ -598,7 +599,7 @@ public class DeploymentService : IDeploymentService
     }
 
     public async Task<DeployStackResponse> DeployStackAsync(
-        string environmentId,
+        string? environmentId,
         DeployStackRequest request,
         DeploymentServiceProgressCallback? progressCallback,
         CancellationToken cancellationToken = default)
@@ -609,7 +610,7 @@ public class DeploymentService : IDeploymentService
                 request.StackName, environmentId, request.CatalogStackId);
 
             // Validate environment exists
-            if (!Guid.TryParse(environmentId, out var envGuid))
+            if (string.IsNullOrEmpty(environmentId) || !Guid.TryParse(environmentId, out var envGuid))
             {
                 return DeployStackResponse.Failed("Invalid environment ID", "Invalid environment ID format");
             }
@@ -625,43 +626,23 @@ public class DeploymentService : IDeploymentService
             // Report initial progress
             if (progressCallback != null)
             {
-                await progressCallback("Validating", "Validating manifest...", 5, null, 0, 0);
+                await progressCallback("Validating", "Validating services...", 5, null, 0, 0);
             }
 
-            // Validate manifest
-            var validation = await _manifestParser.ValidateAsync(request.YamlContent);
-            if (!validation.IsValid)
+            // Validate we have services to deploy
+            if (request.Services == null || request.Services.Count == 0)
             {
-                return new DeployStackResponse
-                {
-                    Success = false,
-                    Message = "Manifest validation failed",
-                    Errors = validation.Errors
-                };
+                return DeployStackResponse.Failed("No services to deploy", "Stack has no services defined");
             }
 
             // Report progress
             if (progressCallback != null)
             {
-                await progressCallback("Parsing", "Parsing RSGo manifest...", 10, null, 0, 0);
-            }
-
-            // Parse manifest once
-            var manifest = await _manifestParser.ParseAsync(request.YamlContent);
-
-            if (progressCallback != null)
-            {
                 await progressCallback("Planning", "Creating deployment plan...", 15, null, 0, 0);
             }
 
-            // Create deployment plan
-            var plan = await _manifestParser.ConvertToDeploymentPlanAsync(
-                manifest,
-                request.Variables,
-                request.StackName);
-            plan.StackVersion = request.StackVersion ?? manifest.Metadata?.ProductVersion ?? "unspecified";
-
-            // Set environment ID for the deployment
+            // Create deployment plan directly from structured data (no YAML parsing needed)
+            var plan = CreateDeploymentPlanFromStructuredData(request);
             plan.EnvironmentId = environmentId;
             plan.StackName = request.StackName;
 
@@ -767,5 +748,191 @@ public class DeploymentService : IDeploymentService
             _logger.LogError(ex, "Failed to deploy stack {StackName}", request.StackName);
             return DeployStackResponse.Failed($"Deployment failed: {ex.Message}", ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Creates a deployment plan directly from structured ServiceTemplate data.
+    /// No YAML parsing needed - data is already in structured format from catalog.
+    /// </summary>
+    private DeploymentPlan CreateDeploymentPlanFromStructuredData(DeployStackRequest request)
+    {
+        var plan = new DeploymentPlan
+        {
+            StackVersion = request.StackVersion ?? "unspecified",
+            StackName = request.StackName,
+            GlobalEnvVars = request.Variables ?? new Dictionary<string, string>()
+        };
+
+        // Sanitize stack name for Docker naming (replace spaces with underscores)
+        var sanitizedStackName = request.StackName.Replace(" ", "_");
+
+        // Process networks
+        foreach (var network in request.Networks)
+        {
+            var resolvedName = network.External
+                ? network.Name
+                : $"{sanitizedStackName}_{network.Name}";
+
+            plan.Networks[network.Name] = new NetworkDefinition
+            {
+                External = network.External,
+                ResolvedName = resolvedName
+            };
+        }
+
+        // Process services into deployment steps
+        var order = 0;
+        foreach (var service in request.Services)
+        {
+            // Resolve variables in all service configuration fields
+            var resolvedImage = ResolveEnvironmentValue(service.Image, request.Variables);
+            var resolvedContainerName = service.ContainerName != null
+                ? ResolveEnvironmentValue(service.ContainerName, request.Variables)
+                : $"{sanitizedStackName}_{service.Name}";
+
+            var step = new DeploymentStep
+            {
+                ContextName = service.Name,
+                Image = resolvedImage,
+                Version = ExtractImageVersion(resolvedImage),
+                ContainerName = resolvedContainerName,
+                Order = order++,
+                DependsOn = service.DependsOn.ToList()
+            };
+
+            // Map ports - resolve ${VAR} placeholders in port mappings
+            step.Ports = service.Ports
+                .Select(p =>
+                {
+                    var hostPort = ResolveEnvironmentValue(p.HostPort, request.Variables);
+                    var containerPort = ResolveEnvironmentValue(p.ContainerPort, request.Variables);
+                    return $"{hostPort}:{containerPort}{(string.IsNullOrEmpty(p.Protocol) ? "" : "/" + p.Protocol)}";
+                })
+                .ToList();
+
+            // Determine if service is internal (no exposed ports)
+            step.Internal = !service.Ports.Any();
+
+            // Map volumes - resolve ${VAR} placeholders in volume mappings
+            foreach (var vol in service.Volumes)
+            {
+                var source = ResolveEnvironmentValue(vol.Source, request.Variables);
+                var target = ResolveEnvironmentValue(vol.Target, request.Variables);
+
+                // Prefix named volumes with stack name (unless external)
+                if (!source.StartsWith("/") && !source.StartsWith("./") && !source.Contains(":"))
+                {
+                    var volumeDef = request.Volumes.FirstOrDefault(v => v.Name == vol.Source);
+                    if (volumeDef == null || !volumeDef.External)
+                    {
+                        source = $"{sanitizedStackName}_{source}";
+                    }
+                }
+                step.Volumes[source] = target;
+            }
+
+            // Map environment variables - resolve ${VAR} placeholders
+            foreach (var env in service.Environment)
+            {
+                step.EnvVars[env.Key] = ResolveEnvironmentValue(env.Value, request.Variables);
+            }
+
+            // Map networks
+            step.Networks = service.Networks
+                .Select(n =>
+                {
+                    // Check if network is external
+                    var networkDef = request.Networks.FirstOrDefault(nd => nd.Name == n);
+                    return networkDef?.External == true ? n : $"{sanitizedStackName}_{n}";
+                })
+                .ToList();
+
+            plan.Steps.Add(step);
+        }
+
+        // Re-order steps based on dependencies (topological sort)
+        ReorderStepsByDependencies(plan.Steps);
+
+        return plan;
+    }
+
+    /// <summary>
+    /// Extracts version tag from Docker image string.
+    /// </summary>
+    private static string ExtractImageVersion(string image)
+    {
+        var colonIndex = image.LastIndexOf(':');
+        if (colonIndex > 0 && !image.Substring(colonIndex).Contains('/'))
+        {
+            return image.Substring(colonIndex + 1);
+        }
+        return "latest";
+    }
+
+    /// <summary>
+    /// Resolves environment variable placeholders like ${VAR} or ${VAR:-default}.
+    /// </summary>
+    private static string ResolveEnvironmentValue(string value, Dictionary<string, string> variables)
+    {
+        if (string.IsNullOrEmpty(value))
+            return value;
+
+        // Match ${VAR} or ${VAR:-default} patterns
+        var result = System.Text.RegularExpressions.Regex.Replace(value, @"\$\{([^}:]+)(?::-([^}]*))?\}", match =>
+        {
+            var varName = match.Groups[1].Value;
+            var defaultValue = match.Groups[2].Success ? match.Groups[2].Value : "";
+
+            if (variables.TryGetValue(varName, out var resolvedValue) && !string.IsNullOrEmpty(resolvedValue))
+            {
+                return resolvedValue;
+            }
+            return defaultValue;
+        });
+
+        return result;
+    }
+
+    /// <summary>
+    /// Reorders deployment steps based on dependencies (topological sort).
+    /// </summary>
+    private static void ReorderStepsByDependencies(List<DeploymentStep> steps)
+    {
+        var sorted = new List<DeploymentStep>();
+        var visited = new HashSet<string>();
+        var stepMap = steps.ToDictionary(s => s.ContextName);
+
+        void Visit(DeploymentStep step)
+        {
+            if (visited.Contains(step.ContextName))
+                return;
+
+            visited.Add(step.ContextName);
+
+            foreach (var dep in step.DependsOn)
+            {
+                if (stepMap.TryGetValue(dep, out var depStep))
+                {
+                    Visit(depStep);
+                }
+            }
+
+            sorted.Add(step);
+        }
+
+        foreach (var step in steps)
+        {
+            Visit(step);
+        }
+
+        // Update order based on sorted position
+        for (var i = 0; i < sorted.Count; i++)
+        {
+            sorted[i].Order = i;
+        }
+
+        // Replace original list contents
+        steps.Clear();
+        steps.AddRange(sorted);
     }
 }

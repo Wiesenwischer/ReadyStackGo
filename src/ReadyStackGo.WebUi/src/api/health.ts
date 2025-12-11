@@ -287,15 +287,17 @@ export interface ChangeOperationModeResponse {
 
 /**
  * Change the operation mode of a deployment.
+ * @param environmentId The environment ID
  * @param deploymentId The deployment ID
  * @param request The mode change request
  */
 export async function changeOperationMode(
+  environmentId: string,
   deploymentId: string,
   request: ChangeOperationModeRequest
 ): Promise<ChangeOperationModeResponse> {
   return apiPut<ChangeOperationModeResponse>(
-    `/api/deployments/${deploymentId}/operation-mode`,
+    `/api/environments/${environmentId}/deployments/${deploymentId}/operation-mode`,
     request
   );
 }
@@ -304,17 +306,19 @@ export async function changeOperationMode(
  * Enter maintenance mode for a deployment.
  */
 export async function enterMaintenanceMode(
+  environmentId: string,
   deploymentId: string,
   reason?: string
 ): Promise<ChangeOperationModeResponse> {
-  return changeOperationMode(deploymentId, { mode: 'Maintenance', reason });
+  return changeOperationMode(environmentId, deploymentId, { mode: 'Maintenance', reason });
 }
 
 /**
  * Exit maintenance mode and return to normal operation.
  */
 export async function exitMaintenanceMode(
+  environmentId: string,
   deploymentId: string
 ): Promise<ChangeOperationModeResponse> {
-  return changeOperationMode(deploymentId, { mode: 'Normal' });
+  return changeOperationMode(environmentId, deploymentId, { mode: 'Normal' });
 }

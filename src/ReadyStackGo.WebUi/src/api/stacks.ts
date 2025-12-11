@@ -61,10 +61,53 @@ export interface Stack {
   version?: string;
 }
 
-export interface StackDetail extends Stack {
-  yamlContent: string;
+/**
+ * Service definition in a stack.
+ */
+export interface ServiceDetail {
+  name: string;
+  image: string;
+  containerName?: string;
+  ports: string[];
+  environment: Record<string, string>;
+  volumes: string[];
+  networks: string[];
+  dependsOn: string[];
+}
+
+/**
+ * Named volume definition.
+ */
+export interface VolumeDetail {
+  name: string;
+  driver?: string;
+  external: boolean;
+}
+
+/**
+ * Network definition.
+ */
+export interface NetworkDetail {
+  name: string;
+  driver?: string;
+  external: boolean;
+}
+
+/**
+ * Detailed stack information with structured service data.
+ * v0.12: Replaced yamlContent with structured services, volumes, networks.
+ * Note: services is ServiceDetail[] (detailed), overriding the base string[] (names only)
+ */
+export interface StackDetail extends Omit<Stack, 'services'> {
+  /** Full service definitions with all details */
+  services: ServiceDetail[];
+  /** Named volumes defined in the stack */
+  volumes: VolumeDetail[];
+  /** Networks defined in the stack */
+  networks: NetworkDetail[];
   filePath?: string;
-  additionalFiles?: string[];
+  /** Product ID for navigation back to catalog (format: sourceId:productName) */
+  productId: string;
 }
 
 export interface StackSource {

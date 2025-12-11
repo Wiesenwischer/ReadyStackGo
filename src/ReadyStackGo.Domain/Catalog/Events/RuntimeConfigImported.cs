@@ -6,7 +6,7 @@ using ReadyStackGo.Domain.SharedKernel;
 /// Event raised when runtime configuration is imported from a manifest.
 /// Used to notify the Deployment context about maintenance observers, health checks, etc.
 /// </summary>
-public class RuntimeConfigImportedEvent : DomainEvent
+public class RuntimeConfigImported : DomainEvent
 {
     /// <summary>
     /// Unique stack identifier (format: sourceId:stackName).
@@ -28,7 +28,7 @@ public class RuntimeConfigImportedEvent : DomainEvent
     /// </summary>
     public IReadOnlyList<ImportedHealthCheck> HealthChecks { get; }
 
-    public RuntimeConfigImportedEvent(
+    public RuntimeConfigImported(
         string stackId,
         string sourceId,
         ImportedMaintenanceObserver? maintenanceObserver,

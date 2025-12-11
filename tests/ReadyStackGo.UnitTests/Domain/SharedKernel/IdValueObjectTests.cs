@@ -4,7 +4,7 @@ using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Roles;
 using ReadyStackGo.Domain.IdentityAccess.Users;
-using ReadyStackGo.Domain.StackManagement.StackSources;
+using ReadyStackGo.Domain.Catalog.Sources;
 
 namespace ReadyStackGo.UnitTests.Domain.SharedKernel;
 

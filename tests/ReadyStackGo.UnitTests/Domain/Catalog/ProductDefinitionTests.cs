@@ -13,8 +13,7 @@ public class ProductDefinitionTests
         return new StackDefinition(
             sourceId: sourceId,
             name: name,
-            yamlContent: "version: '3'\nservices:\n  web:\n    image: nginx",
-            services: new[] { "web" },
+            services: new[] { new ServiceTemplate { Name = "web", Image = "nginx" } },
             variables: new[] { new StackVariable("TEST_VAR", "default") });
     }
 
@@ -193,8 +192,10 @@ public class ProductDefinitionTests
     public void TotalServices_SumsServicesAcrossAllStacks()
     {
         // Arrange
-        var stack1 = new StackDefinition("source", "stack1", "yaml", services: new[] { "web", "db" });
-        var stack2 = new StackDefinition("source", "stack2", "yaml", services: new[] { "api" });
+        var stack1 = new StackDefinition("source", "stack1",
+            services: new[] { new ServiceTemplate { Name = "web", Image = "nginx" }, new ServiceTemplate { Name = "db", Image = "mysql" } });
+        var stack2 = new StackDefinition("source", "stack2",
+            services: new[] { new ServiceTemplate { Name = "api", Image = "api:latest" } });
         var product = new ProductDefinition("source", "product", "Product", new[] { stack1, stack2 });
 
         // Assert
@@ -202,10 +203,10 @@ public class ProductDefinitionTests
     }
 
     [Fact]
-    public void TotalServices_WithNoServices_ReturnsZero()
+    public void TotalServices_WithEmptyServices_ReturnsZero()
     {
         // Arrange
-        var stack = new StackDefinition("source", "stack", "yaml");
+        var stack = new StackDefinition("source", "stack", services: Array.Empty<ServiceTemplate>());
         var product = new ProductDefinition("source", "product", "Product", new[] { stack });
 
         // Assert
@@ -220,9 +221,11 @@ public class ProductDefinitionTests
     public void TotalVariables_SumsVariablesAcrossAllStacks()
     {
         // Arrange
-        var stack1 = new StackDefinition("source", "stack1", "yaml",
+        var stack1 = new StackDefinition("source", "stack1",
+            services: new[] { new ServiceTemplate { Name = "web", Image = "nginx" } },
             variables: new[] { new StackVariable("VAR1"), new StackVariable("VAR2") });
-        var stack2 = new StackDefinition("source", "stack2", "yaml",
+        var stack2 = new StackDefinition("source", "stack2",
+            services: new[] { new ServiceTemplate { Name = "web", Image = "nginx" } },
             variables: new[] { new StackVariable("VAR3") });
         var product = new ProductDefinition("source", "product", "Product", new[] { stack1, stack2 });
 
@@ -241,8 +244,12 @@ public class ProductDefinitionTests
         var earlierTime = DateTime.UtcNow.AddHours(-2);
         var laterTime = DateTime.UtcNow.AddHours(-1);
 
-        var stack1 = new StackDefinition("source", "stack1", "yaml", lastSyncedAt: earlierTime);
-        var stack2 = new StackDefinition("source", "stack2", "yaml", lastSyncedAt: laterTime);
+        var stack1 = new StackDefinition("source", "stack1",
+            services: new[] { new ServiceTemplate { Name = "web", Image = "nginx" } },
+            lastSyncedAt: earlierTime);
+        var stack2 = new StackDefinition("source", "stack2",
+            services: new[] { new ServiceTemplate { Name = "web", Image = "nginx" } },
+            lastSyncedAt: laterTime);
         var product = new ProductDefinition("source", "product", "Product", new[] { stack1, stack2 });
 
         // Assert

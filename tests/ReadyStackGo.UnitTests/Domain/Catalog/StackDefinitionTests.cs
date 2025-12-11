@@ -5,6 +5,7 @@ namespace ReadyStackGo.UnitTests.Domain.Catalog;
 
 /// <summary>
 /// Unit tests for StackDefinition domain class.
+/// v0.12: Updated to use structured ServiceTemplate data instead of YAML strings.
 /// </summary>
 public class StackDefinitionTests
 {
@@ -19,16 +20,19 @@ public class StackDefinitionTests
             CreateVariable("DB_HOST", "localhost"),
             CreateVariable("DB_PORT", "3306")
         };
-        var services = new[] { "mysql", "adminer" };
+        var services = new[]
+        {
+            CreateServiceTemplate("mysql", "mysql:8"),
+            CreateServiceTemplate("adminer", "adminer:latest")
+        };
 
         // Act
         var stack = new StackDefinition(
             sourceId: "local",
             name: "MySQL Stack",
-            yamlContent: "services:\n  mysql:\n    image: mysql:8",
+            services: services,
             description: "MySQL database stack",
             variables: variables,
-            services: services,
             filePath: "/stacks/mysql/stack.yaml",
             relativePath: "mysql",
             lastSyncedAt: DateTime.UtcNow,
@@ -48,11 +52,14 @@ public class StackDefinitionTests
     [Fact]
     public void Constructor_WithEmptySourceId_ThrowsArgumentException()
     {
+        // Arrange
+        var services = new[] { CreateServiceTemplate("web", "nginx") };
+
         // Act
         var act = () => new StackDefinition(
             sourceId: "",
             name: "Test",
-            yamlContent: "services: {}");
+            services: services);
 
         // Assert
         act.Should().Throw<ArgumentException>()
@@ -62,11 +69,14 @@ public class StackDefinitionTests
     [Fact]
     public void Constructor_WithEmptyName_ThrowsArgumentException()
     {
+        // Arrange
+        var services = new[] { CreateServiceTemplate("web", "nginx") };
+
         // Act
         var act = () => new StackDefinition(
             sourceId: "local",
             name: "",
-            yamlContent: "services: {}");
+            services: services);
 
         // Assert
         act.Should().Throw<ArgumentException>()
@@ -74,17 +84,17 @@ public class StackDefinitionTests
     }
 
     [Fact]
-    public void Constructor_WithEmptyYamlContent_ThrowsArgumentException()
+    public void Constructor_WithNullServices_CreatesEmptyServicesList()
     {
         // Act
-        var act = () => new StackDefinition(
+        var stack = new StackDefinition(
             sourceId: "local",
             name: "Test",
-            yamlContent: "");
+            services: null);
 
         // Assert
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("*yamlContent*");
+        stack.Services.Should().NotBeNull();
+        stack.Services.Should().BeEmpty();
     }
 
     #endregion
@@ -150,10 +160,11 @@ public class StackDefinitionTests
             new StackVariable("REQUIRED_VAR"),
             new StackVariable("OPTIONAL_VAR", "default")
         };
+        var services = new[] { CreateServiceTemplate("web", "nginx") };
         var stack = new StackDefinition(
             sourceId: "local",
             name: "test",
-            yamlContent: "services: {}",
+            services: services,
             variables: variables);
 
         // Act
@@ -174,10 +185,11 @@ public class StackDefinitionTests
             new StackVariable("REQUIRED_VAR"),
             new StackVariable("OPTIONAL_VAR", "default")
         };
+        var services = new[] { CreateServiceTemplate("web", "nginx") };
         var stack = new StackDefinition(
             sourceId: "local",
             name: "test",
-            yamlContent: "services: {}",
+            services: services,
             variables: variables);
 
         // Act
@@ -199,18 +211,44 @@ public class StackDefinitionTests
         var stack = CreateTestStack("local", "test");
 
         // Act & Assert
-        stack.Services.Should().BeAssignableTo<IReadOnlyList<string>>();
+        stack.Services.Should().BeAssignableTo<IReadOnlyList<ServiceTemplate>>();
+    }
+
+    [Fact]
+    public void GetServiceNames_ReturnsServiceNames()
+    {
+        // Arrange
+        var services = new[]
+        {
+            CreateServiceTemplate("mysql", "mysql:8"),
+            CreateServiceTemplate("adminer", "adminer:latest")
+        };
+        var stack = new StackDefinition(
+            sourceId: "local",
+            name: "test",
+            services: services);
+
+        // Act
+        var names = stack.GetServiceNames().ToList();
+
+        // Assert
+        names.Should().HaveCount(2);
+        names.Should().Contain("mysql");
+        names.Should().Contain("adminer");
     }
 
     [Fact]
     public void HasService_ExistingService_ReturnsTrue()
     {
         // Arrange
-        var services = new[] { "mysql", "adminer" };
+        var services = new[]
+        {
+            CreateServiceTemplate("mysql", "mysql:8"),
+            CreateServiceTemplate("adminer", "adminer:latest")
+        };
         var stack = new StackDefinition(
             sourceId: "local",
             name: "test",
-            yamlContent: "services: {}",
             services: services);
 
         // Act
@@ -224,11 +262,14 @@ public class StackDefinitionTests
     public void HasService_NonExistentService_ReturnsFalse()
     {
         // Arrange
-        var services = new[] { "mysql", "adminer" };
+        var services = new[]
+        {
+            CreateServiceTemplate("mysql", "mysql:8"),
+            CreateServiceTemplate("adminer", "adminer:latest")
+        };
         var stack = new StackDefinition(
             sourceId: "local",
             name: "test",
-            yamlContent: "services: {}",
             services: services);
 
         // Act
@@ -236,6 +277,107 @@ public class StackDefinitionTests
 
         // Assert
         result.Should().BeFalse();
+    }
+
+    [Fact]
+    public void GetService_ExistingService_ReturnsServiceTemplate()
+    {
+        // Arrange
+        var services = new[]
+        {
+            CreateServiceTemplate("mysql", "mysql:8"),
+            CreateServiceTemplate("adminer", "adminer:latest")
+        };
+        var stack = new StackDefinition(
+            sourceId: "local",
+            name: "test",
+            services: services);
+
+        // Act
+        var service = stack.GetService("mysql");
+
+        // Assert
+        service.Should().NotBeNull();
+        service!.Name.Should().Be("mysql");
+        service.Image.Should().Be("mysql:8");
+    }
+
+    [Fact]
+    public void GetService_NonExistentService_ReturnsNull()
+    {
+        // Arrange
+        var services = new[] { CreateServiceTemplate("mysql", "mysql:8") };
+        var stack = new StackDefinition(
+            sourceId: "local",
+            name: "test",
+            services: services);
+
+        // Act
+        var service = stack.GetService("postgres");
+
+        // Assert
+        service.Should().BeNull();
+    }
+
+    #endregion
+
+    #region Volumes and Networks Tests
+
+    [Fact]
+    public void Volumes_DefaultsToEmpty()
+    {
+        // Arrange
+        var services = new[] { CreateServiceTemplate("web", "nginx") };
+        var stack = new StackDefinition(
+            sourceId: "local",
+            name: "test",
+            services: services);
+
+        // Assert
+        stack.Volumes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Networks_DefaultsToEmpty()
+    {
+        // Arrange
+        var services = new[] { CreateServiceTemplate("web", "nginx") };
+        var stack = new StackDefinition(
+            sourceId: "local",
+            name: "test",
+            services: services);
+
+        // Assert
+        stack.Networks.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Constructor_WithVolumesAndNetworks_SetsCollections()
+    {
+        // Arrange
+        var services = new[] { CreateServiceTemplate("db", "postgres:15") };
+        var volumes = new[]
+        {
+            new VolumeDefinition { Name = "db_data" }
+        };
+        var networks = new[]
+        {
+            new NetworkDefinition { Name = "backend" }
+        };
+
+        // Act
+        var stack = new StackDefinition(
+            sourceId: "local",
+            name: "test",
+            services: services,
+            volumes: volumes,
+            networks: networks);
+
+        // Assert
+        stack.Volumes.Should().HaveCount(1);
+        stack.Volumes.First().Name.Should().Be("db_data");
+        stack.Networks.Should().HaveCount(1);
+        stack.Networks.First().Name.Should().Be("backend");
     }
 
     #endregion
@@ -247,12 +389,20 @@ public class StackDefinitionTests
         return new StackDefinition(
             sourceId: sourceId,
             name: name,
-            yamlContent: "services:\n  web:\n    image: nginx",
+            services: new[] { CreateServiceTemplate("web", "nginx") },
             description: "Test stack",
-            services: new[] { "web" },
             filePath: $"/stacks/{name}/stack.yaml",
             relativePath: name,
             version: "1.0.0");
+    }
+
+    private static ServiceTemplate CreateServiceTemplate(string name, string image)
+    {
+        return new ServiceTemplate
+        {
+            Name = name,
+            Image = image
+        };
     }
 
     private static StackVariable CreateVariable(string name, string? defaultValue)

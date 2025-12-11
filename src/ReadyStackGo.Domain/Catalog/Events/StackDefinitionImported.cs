@@ -6,7 +6,7 @@ using ReadyStackGo.Domain.SharedKernel;
 /// Event raised when a stack definition is imported from a source.
 /// Used to notify other bounded contexts about new/updated stack definitions.
 /// </summary>
-public class StackDefinitionImportedEvent : DomainEvent
+public class StackDefinitionImported : DomainEvent
 {
     /// <summary>
     /// Unique stack identifier (format: sourceId:stackName).
@@ -53,7 +53,7 @@ public class StackDefinitionImportedEvent : DomainEvent
     /// </summary>
     public ImportedProductInfo? Product { get; }
 
-    public StackDefinitionImportedEvent(
+    public StackDefinitionImported(
         string stackId,
         string sourceId,
         string name,

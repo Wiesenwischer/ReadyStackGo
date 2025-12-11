@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 /// <summary>
 /// Domain service for resolving variables in stack definitions.
 /// Handles variable substitution, defaults, and validation.
+/// Works with structured ServiceTemplate data (not raw YAML).
 /// </summary>
 public class StackVariableResolver
 {
@@ -13,11 +14,12 @@ public class StackVariableResolver
         RegexOptions.Compiled);
 
     /// <summary>
-    /// Resolves all variables in the YAML content with provided values.
+    /// Resolves all variables in the stack definition with provided values.
+    /// Returns new ServiceTemplates with resolved environment variables.
     /// </summary>
-    /// <param name="stackDefinition">The stack definition containing the template</param>
+    /// <param name="stackDefinition">The stack definition containing service templates</param>
     /// <param name="providedValues">Variables provided by the user</param>
-    /// <returns>Resolution result with resolved content and any errors</returns>
+    /// <returns>Resolution result with resolved service templates and any errors</returns>
     public VariableResolutionResult Resolve(
         StackDefinition stackDefinition,
         IDictionary<string, string> providedValues)
@@ -65,43 +67,35 @@ public class StackVariableResolver
             }
         }
 
-        // If there are errors, don't resolve the content
+        // If there are errors, return early
         if (errors.Count > 0)
         {
             return new VariableResolutionResult(
                 false,
-                stackDefinition.YamlContent,
+                stackDefinition.Services,
                 resolvedVariables,
                 errors);
         }
 
-        // Resolve variables in the YAML content
-        var resolvedContent = ResolveContent(stackDefinition.YamlContent, effectiveValues, errors);
-
-        // Also resolve variables in additional files
-        var resolvedAdditionalFiles = new Dictionary<string, string>();
-        foreach (var (fileName, content) in stackDefinition.AdditionalFileContents)
-        {
-            resolvedAdditionalFiles[fileName] = ResolveContent(content, effectiveValues, errors);
-        }
+        // Resolve variables in service templates
+        var resolvedServices = ResolveServicesVariables(stackDefinition.Services, effectiveValues, errors);
 
         return new VariableResolutionResult(
             errors.Count == 0,
-            resolvedContent,
+            resolvedServices,
             resolvedVariables,
-            errors,
-            resolvedAdditionalFiles);
+            errors);
     }
 
     /// <summary>
-    /// Extracts all variable references from YAML content.
+    /// Extracts all variable references from a string value.
     /// </summary>
-    public IEnumerable<ExtractedVariable> ExtractVariables(string yamlContent)
+    public IEnumerable<ExtractedVariable> ExtractVariablesFromString(string content)
     {
-        if (string.IsNullOrEmpty(yamlContent))
+        if (string.IsNullOrEmpty(content))
             yield break;
 
-        var matches = VariablePattern.Matches(yamlContent);
+        var matches = VariablePattern.Matches(content);
         var seen = new HashSet<string>();
 
         foreach (Match match in matches)
@@ -116,6 +110,53 @@ public class StackVariableResolver
                 yield return new ExtractedVariable(varName, defaultValue);
             }
         }
+    }
+
+    /// <summary>
+    /// Extracts all variable references from a stack definition's services.
+    /// </summary>
+    public IEnumerable<ExtractedVariable> ExtractVariables(StackDefinition stackDefinition)
+    {
+        var seen = new HashSet<string>();
+        var result = new List<ExtractedVariable>();
+
+        foreach (var service in stackDefinition.Services)
+        {
+            // Extract from environment values
+            foreach (var envValue in service.Environment.Values)
+            {
+                foreach (var variable in ExtractVariablesFromString(envValue))
+                {
+                    if (seen.Add(variable.Name))
+                    {
+                        result.Add(variable);
+                    }
+                }
+            }
+
+            // Extract from image
+            foreach (var variable in ExtractVariablesFromString(service.Image))
+            {
+                if (seen.Add(variable.Name))
+                {
+                    result.Add(variable);
+                }
+            }
+
+            // Extract from command
+            if (service.Command != null)
+            {
+                foreach (var variable in ExtractVariablesFromString(service.Command))
+                {
+                    if (seen.Add(variable.Name))
+                    {
+                        result.Add(variable);
+                    }
+                }
+            }
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -196,7 +237,36 @@ public class StackVariableResolver
         return effectiveValues;
     }
 
-    private string ResolveContent(
+    private IReadOnlyList<ServiceTemplate> ResolveServicesVariables(
+        IReadOnlyList<ServiceTemplate> services,
+        Dictionary<string, string> effectiveValues,
+        List<VariableResolutionError> errors)
+    {
+        var resolvedServices = new List<ServiceTemplate>();
+
+        foreach (var service in services)
+        {
+            var resolvedEnv = new Dictionary<string, string>();
+            foreach (var (key, value) in service.Environment)
+            {
+                resolvedEnv[key] = ResolveString(value, effectiveValues, errors);
+            }
+
+            var resolvedService = service with
+            {
+                Image = ResolveString(service.Image, effectiveValues, errors),
+                Environment = resolvedEnv,
+                Command = service.Command != null ? ResolveString(service.Command, effectiveValues, errors) : null,
+                Entrypoint = service.Entrypoint != null ? ResolveString(service.Entrypoint, effectiveValues, errors) : null
+            };
+
+            resolvedServices.Add(resolvedService);
+        }
+
+        return resolvedServices.AsReadOnly();
+    }
+
+    private string ResolveString(
         string content,
         Dictionary<string, string> effectiveValues,
         List<VariableResolutionError> errors)
@@ -245,13 +315,13 @@ public class StackVariableResolver
 
 /// <summary>
 /// Result of variable resolution.
+/// Contains resolved service templates with substituted variable values.
 /// </summary>
 public record VariableResolutionResult(
     bool IsSuccess,
-    string ResolvedContent,
+    IReadOnlyList<ServiceTemplate> ResolvedServices,
     IReadOnlyDictionary<string, string> ResolvedVariables,
-    IReadOnlyList<VariableResolutionError> Errors,
-    IReadOnlyDictionary<string, string>? ResolvedAdditionalFiles = null);
+    IReadOnlyList<VariableResolutionError> Errors);
 
 /// <summary>
 /// A variable resolution error.
@@ -272,7 +342,7 @@ public enum VariableResolutionErrorType
 }
 
 /// <summary>
-/// A variable extracted from YAML content.
+/// A variable extracted from content.
 /// </summary>
 public record ExtractedVariable(string Name, string? InlineDefault);
 

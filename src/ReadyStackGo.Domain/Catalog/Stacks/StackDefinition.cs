@@ -5,7 +5,8 @@ using ReadyStackGo.Domain.SharedKernel;
 
 /// <summary>
 /// A stack definition loaded from a stack source.
-/// This is a Value Object as it has no identity of its own - it's identified by SourceId:Name.
+/// Contains structured data about services, volumes, networks, and variables.
+/// NO YAML content - all data is parsed into structured domain objects.
 /// </summary>
 public class StackDefinition
 {
@@ -30,19 +31,24 @@ public class StackDefinition
     public string? Description { get; }
 
     /// <summary>
-    /// The Docker Compose YAML content.
-    /// </summary>
-    public string YamlContent { get; }
-
-    /// <summary>
-    /// Environment variables found in the YAML.
+    /// Variables (environment variables) for this stack.
     /// </summary>
     public IReadOnlyList<StackVariable> Variables { get; }
 
     /// <summary>
-    /// Services defined in the stack.
+    /// Service templates defining the containers in this stack.
     /// </summary>
-    public IReadOnlyList<string> Services { get; }
+    public IReadOnlyList<ServiceTemplate> Services { get; }
+
+    /// <summary>
+    /// Named volumes defined at stack level.
+    /// </summary>
+    public IReadOnlyList<VolumeDefinition> Volumes { get; }
+
+    /// <summary>
+    /// Networks defined at stack level.
+    /// </summary>
+    public IReadOnlyList<NetworkDefinition> Networks { get; }
 
     /// <summary>
     /// Path to the source file (for display purposes).
@@ -53,16 +59,6 @@ public class StackDefinition
     /// Relative path from the stack source root.
     /// </summary>
     public string? RelativePath { get; }
-
-    /// <summary>
-    /// Additional compose files (e.g., docker-compose.override.yml).
-    /// </summary>
-    public IReadOnlyList<string> AdditionalFiles { get; }
-
-    /// <summary>
-    /// Content of additional compose files, keyed by filename.
-    /// </summary>
-    public IReadOnlyDictionary<string, string> AdditionalFileContents { get; }
 
     /// <summary>
     /// When this definition was last synced from the source.
@@ -123,14 +119,13 @@ public class StackDefinition
     public StackDefinition(
         string sourceId,
         string name,
-        string yamlContent,
+        IEnumerable<ServiceTemplate>? services = null,
         string? description = null,
         IEnumerable<StackVariable>? variables = null,
-        IEnumerable<string>? services = null,
+        IEnumerable<VolumeDefinition>? volumes = null,
+        IEnumerable<NetworkDefinition>? networks = null,
         string? filePath = null,
         string? relativePath = null,
-        IEnumerable<string>? additionalFiles = null,
-        IDictionary<string, string>? additionalFileContents = null,
         DateTime? lastSyncedAt = null,
         string? version = null,
         // Product properties
@@ -147,19 +142,16 @@ public class StackDefinition
             throw new ArgumentException("SourceId cannot be empty.", nameof(sourceId));
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Name cannot be empty.", nameof(name));
-        if (string.IsNullOrWhiteSpace(yamlContent))
-            throw new ArgumentException("YamlContent cannot be empty.", nameof(yamlContent));
 
         SourceId = sourceId;
         Name = name;
-        YamlContent = yamlContent;
         Description = description;
         Variables = (variables?.ToList() ?? new List<StackVariable>()).AsReadOnly();
-        Services = (services?.ToList() ?? new List<string>()).AsReadOnly();
+        Services = (services?.ToList() ?? new List<ServiceTemplate>()).AsReadOnly();
+        Volumes = (volumes?.ToList() ?? new List<VolumeDefinition>()).AsReadOnly();
+        Networks = (networks?.ToList() ?? new List<NetworkDefinition>()).AsReadOnly();
         FilePath = filePath;
         RelativePath = relativePath;
-        AdditionalFiles = (additionalFiles?.ToList() ?? new List<string>()).AsReadOnly();
-        AdditionalFileContents = new Dictionary<string, string>(additionalFileContents ?? new Dictionary<string, string>());
         LastSyncedAt = lastSyncedAt ?? SystemClock.UtcNow;
         Version = version;
 
@@ -196,6 +188,22 @@ public class StackDefinition
     /// </summary>
     public bool HasService(string serviceName)
     {
-        return Services.Contains(serviceName);
+        return Services.Any(s => s.Name == serviceName);
+    }
+
+    /// <summary>
+    /// Gets the service names as a list of strings.
+    /// </summary>
+    public IEnumerable<string> GetServiceNames()
+    {
+        return Services.Select(s => s.Name);
+    }
+
+    /// <summary>
+    /// Gets a service by name.
+    /// </summary>
+    public ServiceTemplate? GetService(string serviceName)
+    {
+        return Services.FirstOrDefault(s => s.Name == serviceName);
     }
 }

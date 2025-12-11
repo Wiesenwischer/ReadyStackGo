@@ -5,7 +5,7 @@ using ReadyStackGo.Domain.SharedKernel;
 /// <summary>
 /// Event raised when a stack source has been synced.
 /// </summary>
-public class StackSourceSyncedEvent : DomainEvent
+public class StackSourceSynced : DomainEvent
 {
     /// <summary>
     /// ID of the source that was synced.
@@ -37,7 +37,7 @@ public class StackSourceSyncedEvent : DomainEvent
     /// </summary>
     public IReadOnlyList<string> Warnings { get; }
 
-    public StackSourceSyncedEvent(
+    public StackSourceSynced(
         string sourceId,
         string sourceName,
         int stacksLoaded,

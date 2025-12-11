@@ -60,14 +60,13 @@ export default function DeployStack() {
   // Use ref for session ID to avoid stale closures in SignalR callback
   const deploymentSessionIdRef = useRef<string | null>(null);
   const [progressUpdate, setProgressUpdate] = useState<DeploymentProgressUpdate | null>(null);
-  const [isSubscribedToAll, setIsSubscribedToAll] = useState(false);
 
   // SignalR hub for real-time deployment progress
   // Use ref to avoid stale closure - the callback may fire before state is updated
   const handleDeploymentProgress = useCallback((update: DeploymentProgressUpdate) => {
     // Check against ref (updated synchronously) for immediate filtering
     const currentSessionId = deploymentSessionIdRef.current;
-    if (currentSessionId && update.deploymentId === currentSessionId) {
+    if (currentSessionId && update.sessionId === currentSessionId) {
       setProgressUpdate(update);
 
       // Check if deployment completed (success or error)
@@ -82,19 +81,9 @@ export default function DeployStack() {
     }
   }, []);
 
-  const { subscribeToAllDeployments, connectionState } = useDeploymentHub({
+  const { subscribeToDeployment, connectionState } = useDeploymentHub({
     onDeploymentProgress: handleDeploymentProgress,
   });
-
-  // Subscribe to all deployments as soon as connected (BEFORE deploying)
-  // This ensures we don't miss any progress updates
-  useEffect(() => {
-    if (connectionState === 'connected' && !isSubscribedToAll) {
-      subscribeToAllDeployments()
-        .then(() => setIsSubscribedToAll(true))
-        .catch(console.error);
-    }
-  }, [connectionState, isSubscribedToAll, subscribeToAllDeployments]);
 
   // Load stack details (only if not custom)
   useEffect(() => {
@@ -204,6 +193,12 @@ export default function DeployStack() {
     setError('');
     setProgressUpdate(null);
 
+    // Subscribe to SignalR group BEFORE starting the API call
+    // This ensures we don't miss any progress updates
+    if (connectionState === 'connected') {
+      await subscribeToDeployment(sessionId);
+    }
+
     try {
       let response;
 
@@ -242,13 +237,12 @@ export default function DeployStack() {
     }
   };
 
-  // Get back URL - try to go back to product detail if we have sourceId
+  // Get back URL - go back to product detail page in catalog
   const getBackUrl = () => {
-    if (stack?.sourceId) {
-      // Extract product name from stack name or use sourceId
-      return `/stacks/${encodeURIComponent(`${stack.sourceId}:${stack.name}`)}`;
+    if (stack?.productId) {
+      return `/catalog/${encodeURIComponent(stack.productId)}`;
     }
-    return '/stacks';
+    return '/catalog';
   };
 
   if (state === 'loading') {
@@ -355,13 +349,13 @@ export default function DeployStack() {
                     {formatPhase(progressUpdate?.phase) || 'Initializing'}
                   </span>
                   <span className="text-gray-600 dark:text-gray-400">
-                    {progressUpdate?.progressPercent || 0}%
+                    {progressUpdate?.percentComplete ?? 0}%
                   </span>
                 </div>
                 <div className="h-3 bg-gray-200 rounded-full dark:bg-gray-700 overflow-hidden">
                   <div
                     className="h-full bg-brand-600 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${progressUpdate?.progressPercent || 0}%` }}
+                    style={{ width: `${progressUpdate?.percentComplete ?? 0}%` }}
                   />
                 </div>
               </div>
@@ -625,13 +619,13 @@ services:
                   <div className="space-y-1">
                     {stack.services.map((service) => (
                       <div
-                        key={service}
+                        key={service.name}
                         className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
                       >
                         <svg className="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 8 8">
                           <circle cx="4" cy="4" r="3" />
                         </svg>
-                        {service}
+                        {service.name}
                       </div>
                     ))}
                   </div>

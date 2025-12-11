@@ -1,3 +1,5 @@
+using CatalogStacks = ReadyStackGo.Domain.Catalog.Stacks;
+
 namespace ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 
 /// <summary>
@@ -12,9 +14,20 @@ public class DeployStackRequest
     public required string StackName { get; set; }
 
     /// <summary>
-    /// The YAML content of the manifest.
+    /// Service templates to deploy.
+    /// Contains structured service definitions (no YAML).
     /// </summary>
-    public required string YamlContent { get; set; }
+    public required IReadOnlyList<CatalogStacks.ServiceTemplate> Services { get; set; }
+
+    /// <summary>
+    /// Named volumes for the stack.
+    /// </summary>
+    public IReadOnlyList<CatalogStacks.VolumeDefinition> Volumes { get; set; } = Array.Empty<CatalogStacks.VolumeDefinition>();
+
+    /// <summary>
+    /// Networks for the stack.
+    /// </summary>
+    public IReadOnlyList<CatalogStacks.NetworkDefinition> Networks { get; set; } = Array.Empty<CatalogStacks.NetworkDefinition>();
 
     /// <summary>
     /// Version of the stack (from product manifest metadata.productVersion).

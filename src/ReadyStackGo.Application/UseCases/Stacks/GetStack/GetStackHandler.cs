@@ -1,7 +1,7 @@
 using MediatR;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Stacks.ListStacks;
-using YamlDotNet.Serialization;
+using ReadyStackGo.Domain.Catalog.Stacks;
 
 namespace ReadyStackGo.Application.UseCases.Stacks.GetStack;
 
@@ -21,15 +21,11 @@ public class GetStackHandler : IRequestHandler<GetStackQuery, GetStackResult?>
         if (stack == null)
             return null;
 
-        // Merge override files into the main YAML content
-        var mergedYamlContent = stack.YamlContent;
-        if (stack.AdditionalFileContents.Count > 0)
-        {
-            mergedYamlContent = MergeComposeFiles(stack.YamlContent, stack.AdditionalFileContents.Values);
-        }
-
         var sources = await _stackSourceService.GetSourcesAsync(cancellationToken);
         var sourceName = sources.FirstOrDefault(s => s.Id.Value == stack.SourceId)?.Name ?? stack.SourceId;
+
+        // Construct product ID from sourceId and productName (for back navigation in UI)
+        var productId = $"{stack.SourceId}:{stack.ProductName}";
 
         return new GetStackResult(
             stack.Id,
@@ -37,8 +33,7 @@ public class GetStackHandler : IRequestHandler<GetStackQuery, GetStackResult?>
             sourceName,
             stack.Name,
             stack.Description,
-            mergedYamlContent,
-            stack.Services.ToList(),
+            stack.Services.Select(MapService).ToList(),
             stack.Variables.Select(v => new StackVariableItem(
                 v.Name,
                 v.DefaultValue,
@@ -55,148 +50,40 @@ public class GetStackHandler : IRequestHandler<GetStackQuery, GetStackResult?>
                 v.Max,
                 v.Options?.Select(o => new SelectOptionItem(o.Value, o.Label, o.Description)).ToList()
             )).ToList(),
+            stack.Volumes.Select(v => new VolumeItem(v.Name, v.Driver, v.External)).ToList(),
+            stack.Networks.Select(n => new NetworkItem(n.Name, n.Driver, n.External)).ToList(),
             stack.FilePath,
-            stack.AdditionalFiles.ToList(),
             stack.LastSyncedAt,
-            stack.Version
+            stack.Version,
+            productId
         );
     }
 
-    /// <summary>
-    /// Merge multiple compose files using Docker Compose merge semantics.
-    /// Override files are merged on top of the base file.
-    /// </summary>
-    private static string MergeComposeFiles(string baseYaml, IEnumerable<string> overrideYamls)
+    private static ServiceItem MapService(ServiceTemplate service)
     {
-        var deserializer = new DeserializerBuilder().Build();
-        var serializer = new SerializerBuilder()
-            .DisableAliases()
-            .Build();
-
-        var baseDict = deserializer.Deserialize<Dictionary<string, object>>(baseYaml) ?? new();
-
-        foreach (var overrideYaml in overrideYamls)
-        {
-            if (string.IsNullOrWhiteSpace(overrideYaml))
-                continue;
-
-            var overrideDict = deserializer.Deserialize<Dictionary<string, object>>(overrideYaml);
-            if (overrideDict != null)
-            {
-                MergeDictionaries(baseDict, overrideDict);
-            }
-        }
-
-        return serializer.Serialize(baseDict);
+        return new ServiceItem(
+            service.Name,
+            service.Image,
+            service.ContainerName,
+            service.Ports.Select(p => p.ToString()).ToList(),
+            service.Volumes.Select(v => v.ToString()).ToList(),
+            new Dictionary<string, string>(service.Environment),
+            service.Networks.ToList(),
+            service.DependsOn.ToList(),
+            service.RestartPolicy,
+            service.Command,
+            service.HealthCheck != null ? MapHealthCheck(service.HealthCheck) : null
+        );
     }
 
-    // Lists that are concatenated per Docker Compose semantics
-    private static readonly HashSet<string> ConcatenatedLists = new(StringComparer.OrdinalIgnoreCase)
+    private static ServiceHealthCheckItem MapHealthCheck(ServiceHealthCheck healthCheck)
     {
-        "ports", "expose", "dns", "dns_search", "tmpfs"
-    };
-
-    // Lists that are merged by key per Docker Compose semantics
-    private static readonly HashSet<string> MergedByKeyLists = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "environment", "labels", "volumes", "devices"
-    };
-
-    /// <summary>
-    /// Deep merge two dictionaries using Docker Compose merge semantics.
-    /// </summary>
-    private static void MergeDictionaries(Dictionary<string, object> baseDict, Dictionary<string, object> overrideDict, string? parentKey = null)
-    {
-        foreach (var (key, overrideValue) in overrideDict)
-        {
-            if (baseDict.TryGetValue(key, out var baseValue))
-            {
-                if (baseValue is Dictionary<object, object> baseSubDict &&
-                    overrideValue is Dictionary<object, object> overrideSubDict)
-                {
-                    var baseConverted = baseSubDict.ToDictionary(k => k.Key.ToString()!, v => v.Value);
-                    var overrideConverted = overrideSubDict.ToDictionary(k => k.Key.ToString()!, v => v.Value);
-                    MergeDictionaries(baseConverted, overrideConverted, key);
-                    baseDict[key] = baseConverted;
-                }
-                else if (baseValue is IList<object> baseList && overrideValue is IList<object> overrideList)
-                {
-                    if (ConcatenatedLists.Contains(key))
-                    {
-                        baseDict[key] = ConcatenateLists(baseList, overrideList);
-                    }
-                    else if (MergedByKeyLists.Contains(key))
-                    {
-                        baseDict[key] = MergeKeyValueLists(baseList, overrideList);
-                    }
-                    else
-                    {
-                        baseDict[key] = overrideValue;
-                    }
-                }
-                else
-                {
-                    baseDict[key] = overrideValue;
-                }
-            }
-            else
-            {
-                baseDict[key] = overrideValue;
-            }
-        }
-    }
-
-    private static List<object> ConcatenateLists(IList<object> baseList, IList<object> overrideList)
-    {
-        var result = new List<object>(baseList);
-        foreach (var item in overrideList)
-        {
-            if (!result.Any(r => r.ToString() == item.ToString()))
-            {
-                result.Add(item);
-            }
-        }
-        return result;
-    }
-
-    private static List<object> MergeKeyValueLists(IList<object> baseList, IList<object> overrideList)
-    {
-        var merged = new Dictionary<string, string>(StringComparer.Ordinal);
-
-        foreach (var item in baseList)
-        {
-            var (key, value) = ParseKeyValue(item.ToString() ?? string.Empty);
-            merged[key] = value;
-        }
-
-        foreach (var item in overrideList)
-        {
-            var (key, value) = ParseKeyValue(item.ToString() ?? string.Empty);
-            merged[key] = value;
-        }
-
-        return merged.Select(kv => string.IsNullOrEmpty(kv.Value)
-            ? (object)kv.Key
-            : (object)$"{kv.Key}={kv.Value}").ToList();
-    }
-
-    private static (string Key, string Value) ParseKeyValue(string item)
-    {
-        if (item.Contains(':') && item.StartsWith('/'))
-        {
-            var colonIndex = item.IndexOf(':');
-            if (colonIndex > 0 && colonIndex < item.Length - 1)
-            {
-                var rest = item[(colonIndex + 1)..];
-                var nextColon = rest.IndexOf(':');
-                var containerPath = nextColon > 0 ? rest[..nextColon] : rest;
-                return (containerPath, item);
-            }
-        }
-
-        var parts = item.Split('=', 2);
-        var key = parts[0];
-        var value = parts.Length > 1 ? parts[1] : string.Empty;
-        return (key, value);
+        return new ServiceHealthCheckItem(
+            healthCheck.Test.ToList(),
+            healthCheck.Interval?.ToString(),
+            healthCheck.Timeout?.ToString(),
+            healthCheck.Retries,
+            healthCheck.StartPeriod?.ToString()
+        );
     }
 }

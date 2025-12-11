@@ -13,7 +13,14 @@ public class DeployStackApiRequest
     /// <summary>
     /// Stack ID from the catalog (format: sourceId:stackName).
     /// </summary>
-    public required string StackId { get; set; }
+    [BindFrom("stackId")]
+    public string StackId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Environment ID for deployment.
+    /// </summary>
+    [BindFrom("environmentId")]
+    public string EnvironmentId { get; set; } = string.Empty;
 
     /// <summary>
     /// Name for this deployment.
@@ -29,9 +36,6 @@ public class DeployStackApiRequest
     /// Client-generated session ID for real-time progress tracking via SignalR.
     /// </summary>
     public string? SessionId { get; set; }
-
-    // RBAC scope fields (set from route)
-    public string? EnvironmentId { get; set; }
 }
 
 /// <summary>
@@ -56,17 +60,10 @@ public class DeployStackEndpoint : Endpoint<DeployStackApiRequest, DeployStackRe
 
     public override async Task HandleAsync(DeployStackApiRequest req, CancellationToken ct)
     {
-        var environmentId = Route<string>("environmentId")!;
-        var stackId = Route<string>("stackId")!;
-
-        // Set for RBAC scope check
-        req.EnvironmentId = environmentId;
-        req.StackId = stackId;
-
         var response = await _mediator.Send(
             new DeployStackCommand(
-                environmentId,
-                stackId,
+                req.EnvironmentId,
+                req.StackId,
                 req.StackName,
                 req.Variables,
                 req.SessionId),

@@ -67,10 +67,11 @@ public interface IDeploymentService
 
     /// <summary>
     /// Deploy a stack from a catalog definition with progress reporting.
-    /// The stack definition data is passed as a DTO, not as a domain object.
+    /// The stack definition data (Services, Volumes, Networks) is passed as structured DTOs.
+    /// No YAML parsing is needed - data is already in structured format from catalog.
     /// </summary>
     Task<DeployStackResponse> DeployStackAsync(
-        string environmentId,
+        string? environmentId,
         DeployStackRequest request,
         DeploymentServiceProgressCallback? progressCallback,
         CancellationToken cancellationToken = default);

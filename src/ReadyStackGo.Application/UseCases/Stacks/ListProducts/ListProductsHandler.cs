@@ -33,7 +33,7 @@ public class ListProductsHandler : IRequestHandler<ListProductsQuery, ListProduc
                 s.Id,
                 s.Name,
                 s.Description,
-                s.Services.ToList(),
+                s.GetServiceNames().ToList(),
                 s.Variables.Select(v => new StackVariableItem(
                     v.Name,
                     v.DefaultValue,

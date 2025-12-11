@@ -40,7 +40,7 @@ public class GetProductHandler : IRequestHandler<GetProductQuery, GetProductResu
                 s.Id,
                 s.Name,
                 s.Description,
-                s.Services.ToList(),
+                s.GetServiceNames().ToList(),
                 s.Variables.Select(v => new StackVariableDetails(
                     v.Name,
                     v.DefaultValue,
