@@ -47,42 +47,35 @@ Rough outlook on planned versions and features.
   - Multi-Stack Products with Shared Variables and Fragments
   - Regex Validation for Input Fields
   - Complete Manifest Specification and Schema Reference
-- **v0.11** – Manifest Architecture & REST API Improvements (2025-12-10)
+- **v0.11** – Domain Refactoring & REST API (2025-12-11)
   - DeployStack REST Endpoint for Stack Deployment via API
   - SignalR DeploymentHub for Real-time Progress Updates
   - StackValidationInfo for Pre-deployment Validation
   - Maintenance Observer Integration
   - Bounded Contexts Documentation
-  - PublicWeb Documentation (Stack Deployment Guides DE/EN)
-  - E2E Tests moved to Release Workflow
+  - Catalog Bounded Context with Sources, Stacks, Manifests, Events
+  - Domain Events: `StackDefinitionImported`, `RuntimeConfigImported`, `StackSourceSynced`
+  - RuntimeStackConfig Entity in Deployment Context
+  - StackManagement namespace removed (merged into Catalog)
+  - Structured ServiceTemplate, VolumeDefinition, NetworkDefinition
+  - ProductId navigation from Stack detail to Catalog
+  - Deployment API uses stackId instead of raw YAML
 
 ## Planned
 
-### v0.12 – Domain Refactoring (DDD)
-Complete implementation of Bounded Contexts as specified in [Bounded-Contexts.md](../Architecture/Bounded-Contexts.md).
+### v0.12 – Domain Refactoring (DDD) - Phase 2
+Complete event-driven architecture as specified in [Bounded-Contexts.md](../Architecture/Bounded-Contexts.md).
 
-**Phase 1: Catalog Context**
-- Create new namespace `ReadyStackGo.Domain.Catalog`
-- Move `StackSource`, `GitSource`, `FileSource` from StackManagement to Catalog
-- Move `RsgoManifest` and all parsing classes to Catalog
-- Define Domain Events for import (`StackDefinitionImportedEvent`, `RuntimeConfigImportedEvent`)
-- Create Event Handlers in StackManagement and Deployment
+**Event-Driven Data Flow**
+- Publish `StackDefinitionLoaded` event when YAML is parsed in Catalog
+- Publish `RuntimeConfigLoaded` event for maintenance/health config
+- Event handlers in Deployment context receive runtime-relevant data
+- Event bus infrastructure (MediatR notifications or similar)
 
-**Phase 2: Runtime-Config to Deployment**
-- Create `RuntimeStackConfig` Entity in Deployment
-- Create `MaintenanceConfig`, `HealthCheckConfig`, `ObserverConfig` Value Objects
-- Add Repository and Persistence for RuntimeStackConfig
-- Implement Event Handler for `RuntimeConfigImportedEvent`
-
-**Phase 3: StackManagement Cleanup**
-- Remove runtime-related properties from `StackDefinition`
-- Replace all Manifest class imports with Events
-- Adapt tests
-
-**Phase 4: Application Layer**
-- Implement mapping functions for context transitions
-- Update UseCases to work with both contexts
-- Integration tests for cross-context flows
+**Context Isolation**
+- Remove `MaintenanceObserver` from `StackDefinition` (belongs to RuntimeConfig)
+- Deployment context receives config via events, not direct Catalog references
+- Clean separation: Catalog owns YAML/parsing, Deployment owns runtime behavior
 
 ### v0.13 – Health Monitoring + Rollback
 - Container Health Monitoring (Status, Health, RestartCount)
