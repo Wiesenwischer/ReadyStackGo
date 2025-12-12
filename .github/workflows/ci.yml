@@ -17,14 +17,9 @@ jobs:
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
-    outputs:
-      semVer: ${{ steps.gitversion.outputs.semVer }}
-      majorMinorPatch: ${{ steps.gitversion.outputs.majorMinorPatch }}
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -37,27 +32,6 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: 'src/ReadyStackGo.WebUi/package-lock.json'
-
-      - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v1
-        with:
-          versionSpec: '5.x'
-
-      - name: Determine Version
-        id: gitversion
-        uses: gittools/actions/gitversion/execute@v1
-        with:
-          useConfigFile: true
-
-      - name: Version Summary
-        run: |
-          echo "## 🏷️ Version: ${{ steps.gitversion.outputs.semVer }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
-          echo "| SemVer | \`${{ steps.gitversion.outputs.semVer }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| MajorMinorPatch | \`${{ steps.gitversion.outputs.majorMinorPatch }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| PreReleaseTag | \`${{ steps.gitversion.outputs.preReleaseTag }}\` |" >> $GITHUB_STEP_SUMMARY
 
       - name: Restore .NET dependencies
         run: dotnet restore
