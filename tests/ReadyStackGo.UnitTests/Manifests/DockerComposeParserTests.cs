@@ -1,7 +1,7 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
-using ReadyStackGo.Infrastructure.Manifests;
+using ReadyStackGo.Infrastructure.Docker;
 
 namespace ReadyStackGo.UnitTests.Manifests;
 

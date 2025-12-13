@@ -1,5 +1,5 @@
 using FluentAssertions;
-using ReadyStackGo.Infrastructure.Manifests;
+using ReadyStackGo.Infrastructure.Docker;
 using Xunit;
 
 namespace ReadyStackGo.UnitTests.Manifests;

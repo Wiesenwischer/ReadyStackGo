@@ -53,29 +53,23 @@ Rough outlook on planned versions and features.
   - StackValidationInfo for Pre-deployment Validation
   - Maintenance Observer Integration
   - Bounded Contexts Documentation
-  - Catalog Bounded Context with Sources, Stacks, Manifests, Events
-  - Domain Events: `StackDefinitionImported`, `RuntimeConfigImported`, `StackSourceSynced`
+  - Domain Events for Deployment context (DeploymentStarted, DeploymentCompleted, etc.)
   - RuntimeStackConfig Entity in Deployment Context
-  - StackManagement namespace removed (merged into Catalog)
   - Structured ServiceTemplate, VolumeDefinition, NetworkDefinition
   - ProductId navigation from Stack detail to Catalog
   - Deployment API uses stackId instead of raw YAML
+- **v0.12** – Domain Refactoring (DDD) - Phase 2 (2025-12-13)
+  - Removed `MaintenanceObserver` from `StackDefinition` (belongs to ProductDefinition)
+  - Infrastructure services don't publish domain events (Application layer responsibility)
+  - `IStackSourceProvider.LoadStacksAsync` returns `StackDefinition` directly
+  - Infrastructure reorganization by technical concerns (DataAccess, Docker, Security assemblies)
+  - Removed obsolete `StackVariable` class - use `Variable` instead
+  - Removed unused `StackDefinitionLoaded` and `StackSourceSynced` events
+  - `Variable` record with comprehensive UI metadata (Type, Pattern, Options, Min/Max, Group, Order)
+  - Built-in `Validate()` method for type-specific validation
+  - Clean build with 0 warnings (fixed CS0105, CS8602, CS8604)
 
 ## Planned
-
-### v0.12 – Domain Refactoring (DDD) - Phase 2
-Complete event-driven architecture as specified in [Bounded-Contexts.md](../Architecture/Bounded-Contexts.md).
-
-**Event-Driven Data Flow**
-- Publish `StackDefinitionLoaded` event when YAML is parsed in Catalog
-- Publish `RuntimeConfigLoaded` event for maintenance/health config
-- Event handlers in Deployment context receive runtime-relevant data
-- Event bus infrastructure (MediatR notifications or similar)
-
-**Context Isolation**
-- Remove `MaintenanceObserver` from `StackDefinition` (belongs to RuntimeConfig)
-- Deployment context receives config via events, not direct Catalog references
-- Clean separation: Catalog owns YAML/parsing, Deployment owns runtime behavior
 
 ### v0.13 – Health Monitoring + Rollback
 - Container Health Monitoring (Status, Health, RestartCount)

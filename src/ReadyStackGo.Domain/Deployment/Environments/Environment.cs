@@ -1,8 +1,6 @@
 namespace ReadyStackGo.Domain.Deployment.Environments;
 
 using ReadyStackGo.Domain.SharedKernel;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
-using ReadyStackGo.Domain.IdentityAccess.Users;
 
 /// <summary>
 /// Aggregate root representing a Docker environment where stacks can be deployed.

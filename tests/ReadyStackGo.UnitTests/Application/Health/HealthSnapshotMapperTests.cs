@@ -1,9 +1,9 @@
 using FluentAssertions;
 using ReadyStackGo.Application.UseCases.Health;
+using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
 
 namespace ReadyStackGo.UnitTests.Application.Health;
 

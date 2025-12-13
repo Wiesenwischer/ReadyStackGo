@@ -5,17 +5,17 @@ namespace ReadyStackGo.Application.UseCases.Stacks.ListStacks;
 
 public class ListStacksHandler : IRequestHandler<ListStacksQuery, ListStacksResult>
 {
-    private readonly IStackSourceService _stackSourceService;
+    private readonly IProductSourceService _productSourceService;
 
-    public ListStacksHandler(IStackSourceService stackSourceService)
+    public ListStacksHandler(IProductSourceService productSourceService)
     {
-        _stackSourceService = stackSourceService;
+        _productSourceService = productSourceService;
     }
 
     public async Task<ListStacksResult> Handle(ListStacksQuery request, CancellationToken cancellationToken)
     {
-        var stacks = await _stackSourceService.GetStacksAsync(cancellationToken);
-        var sources = await _stackSourceService.GetSourcesAsync(cancellationToken);
+        var stacks = await _productSourceService.GetStacksAsync(cancellationToken);
+        var sources = await _productSourceService.GetSourcesAsync(cancellationToken);
         var sourceNames = sources.ToDictionary(s => s.Id.Value, s => s.Name);
 
         var items = stacks.Select(s => new StackListItem(

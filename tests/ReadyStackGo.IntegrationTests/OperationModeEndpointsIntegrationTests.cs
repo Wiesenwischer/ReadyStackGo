@@ -2,11 +2,13 @@ using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
+using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.IdentityAccess.Users;
 using ReadyStackGo.IntegrationTests.Infrastructure;
 using Xunit;
+using DeploymentUserId = ReadyStackGo.Domain.Deployment.UserId;
 
 namespace ReadyStackGo.IntegrationTests;
 
@@ -368,9 +370,10 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
         var deployment = Deployment.Start(
             deploymentId,
             environmentId,
+            stackName, // stackId (same as stackName for test deployments)
             stackName,
             stackName, // projectName
-            user.Id);
+            DeploymentUserId.FromIdentityAccess(user.Id));
 
         deployment.SetStackVersion("1.0.0");
 

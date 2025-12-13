@@ -1,7 +1,7 @@
 using FluentAssertions;
+using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
-using ReadyStackGo.Domain.IdentityAccess.Users;
 
 namespace ReadyStackGo.UnitTests.Domain.Deployment;
 
@@ -26,6 +26,7 @@ public class DeploymentTests
         var deployment = Deployment.Start(
             deploymentId,
             environmentId,
+            "wordpress", // stackId
             "wordpress",
             "wordpress-prod",
             userId);
@@ -50,6 +51,7 @@ public class DeploymentTests
         var act = () => Deployment.Start(
             DeploymentId.NewId(),
             EnvironmentId.NewId(),
+            "stackId",
             "",
             "project",
             UserId.NewId());
@@ -65,6 +67,7 @@ public class DeploymentTests
         var act = () => Deployment.Start(
             DeploymentId.NewId(),
             EnvironmentId.NewId(),
+            "wordpress", // stackId
             "wordpress",
             "",
             UserId.NewId());
@@ -80,6 +83,7 @@ public class DeploymentTests
         var act = () => Deployment.Start(
             DeploymentId.NewId(),
             null!,
+            "wordpress", // stackId
             "wordpress",
             "project",
             UserId.NewId());
@@ -95,6 +99,7 @@ public class DeploymentTests
         var act = () => Deployment.Start(
             DeploymentId.NewId(),
             EnvironmentId.NewId(),
+            "wordpress", // stackId
             "wordpress",
             "project",
             null!);
@@ -114,6 +119,7 @@ public class DeploymentTests
         var deployment = Deployment.Start(
             deploymentId,
             environmentId,
+            "wordpress", // stackId
             "wordpress",
             "wordpress-prod",
             UserId.NewId());
@@ -1086,6 +1092,7 @@ public class DeploymentTests
         return Deployment.Start(
             DeploymentId.NewId(),
             EnvironmentId.NewId(),
+            "wordpress", // stackId
             "wordpress",
             "wordpress-prod",
             UserId.NewId());

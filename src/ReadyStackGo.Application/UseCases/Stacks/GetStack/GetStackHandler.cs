@@ -1,27 +1,27 @@
 using MediatR;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Stacks.ListStacks;
-using ReadyStackGo.Domain.Catalog.Stacks;
+using ReadyStackGo.Domain.StackManagement.Stacks;
 
 namespace ReadyStackGo.Application.UseCases.Stacks.GetStack;
 
 public class GetStackHandler : IRequestHandler<GetStackQuery, GetStackResult?>
 {
-    private readonly IStackSourceService _stackSourceService;
+    private readonly IProductSourceService _productSourceService;
 
-    public GetStackHandler(IStackSourceService stackSourceService)
+    public GetStackHandler(IProductSourceService productSourceService)
     {
-        _stackSourceService = stackSourceService;
+        _productSourceService = productSourceService;
     }
 
     public async Task<GetStackResult?> Handle(GetStackQuery request, CancellationToken cancellationToken)
     {
-        var stack = await _stackSourceService.GetStackAsync(request.StackId, cancellationToken);
+        var stack = await _productSourceService.GetStackAsync(request.StackId, cancellationToken);
 
         if (stack == null)
             return null;
 
-        var sources = await _stackSourceService.GetSourcesAsync(cancellationToken);
+        var sources = await _productSourceService.GetSourcesAsync(cancellationToken);
         var sourceName = sources.FirstOrDefault(s => s.Id.Value == stack.SourceId)?.Name ?? stack.SourceId;
 
         // Construct product ID from sourceId and productName (for back navigation in UI)

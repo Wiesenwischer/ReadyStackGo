@@ -4,13 +4,16 @@ using Moq;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Containers;
 using ReadyStackGo.Application.UseCases.Deployments;
+using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Infrastructure.Configuration;
-using ReadyStackGo.Infrastructure.Services;
+using ReadyStackGo.Infrastructure.Services.Deployment;
 using Xunit;
 using DomainEnvironment = ReadyStackGo.Domain.Deployment.Environments.Environment;
+using DeploymentOrganizationId = ReadyStackGo.Domain.Deployment.OrganizationId;
+using IdentityOrganizationId = ReadyStackGo.Domain.IdentityAccess.Organizations.OrganizationId;
 
 namespace ReadyStackGo.UnitTests;
 
@@ -27,11 +30,13 @@ public class DeploymentEngineTests
     private readonly Mock<ILogger<DeploymentEngine>> _loggerMock;
     private readonly DeploymentEngine _sut;
 
-    private readonly OrganizationId _testOrgId = OrganizationId.Create();
+    private readonly IdentityOrganizationId _testIdentityOrgId = IdentityOrganizationId.Create();
+    private readonly DeploymentOrganizationId _testOrgId;
     private readonly EnvironmentId _testEnvId = EnvironmentId.Create();
 
     public DeploymentEngineTests()
     {
+        _testOrgId = DeploymentOrganizationId.FromIdentityAccess(_testIdentityOrgId);
         _configStoreMock = new Mock<IConfigStore>();
         _dockerServiceMock = new Mock<IDockerService>();
         _organizationRepositoryMock = new Mock<IOrganizationRepository>();
@@ -51,14 +56,14 @@ public class DeploymentEngineTests
 
     private void SetupDefaultConfigs()
     {
-        // Setup organization
-        var organization = Organization.Provision(_testOrgId, "Test Organization", "Test Description");
+        // Setup organization (using IdentityAccess ID)
+        var organization = Organization.Provision(_testIdentityOrgId, "Test Organization", "Test Description");
         organization.Activate();
 
         _organizationRepositoryMock.Setup(x => x.GetAll())
             .Returns(new List<Organization> { organization });
 
-        // Setup environment
+        // Setup environment (using Deployment context ID)
         var environment = DomainEnvironment.CreateDockerSocket(
             _testEnvId,
             _testOrgId,

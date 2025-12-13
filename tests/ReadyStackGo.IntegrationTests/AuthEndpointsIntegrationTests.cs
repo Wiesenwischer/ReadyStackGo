@@ -169,8 +169,8 @@ public class AuthEndpointsIntegrationTests : IAsyncLifetime
         authenticatedClient.DefaultRequestHeaders.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", login!.Token);
 
-        // Act
-        var response = await authenticatedClient.GetAsync($"/api/containers?environment={_environmentId}");
+        // Act - use environments endpoint which doesn't require Docker
+        var response = await authenticatedClient.GetAsync("/api/environments");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -184,8 +184,8 @@ public class AuthEndpointsIntegrationTests : IAsyncLifetime
         authenticatedClient.DefaultRequestHeaders.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "invalid.token.here");
 
-        // Act
-        var response = await authenticatedClient.GetAsync($"/api/containers?environment={_environmentId}");
+        // Act - use environments endpoint which doesn't require Docker
+        var response = await authenticatedClient.GetAsync("/api/environments");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);

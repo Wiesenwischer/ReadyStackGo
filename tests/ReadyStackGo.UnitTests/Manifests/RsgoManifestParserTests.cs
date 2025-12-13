@@ -2,8 +2,8 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.Catalog.Manifests;
-using ReadyStackGo.Infrastructure.Manifests;
+using ReadyStackGo.Domain.StackManagement.Manifests;
+using ReadyStackGo.Infrastructure.Parsing;
 
 namespace ReadyStackGo.UnitTests.Manifests;
 
@@ -126,7 +126,7 @@ services:
         var result = await _parser.ParseAsync(yaml);
 
         // Assert
-        result.Variables["EMAIL"].Pattern.Should().NotBeNullOrEmpty();
+        result.Variables!["EMAIL"].Pattern.Should().NotBeNullOrEmpty();
         result.Variables["EMAIL"].PatternError.Should().Be("Please enter a valid email address");
     }
 

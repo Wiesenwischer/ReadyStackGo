@@ -3,11 +3,10 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using ReadyStackGo.Application.UseCases.Health;
 using ReadyStackGo.Application.UseCases.Health.GetEnvironmentHealthSummary;
+using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
-using ReadyStackGo.Domain.IdentityAccess.Users;
 
 namespace ReadyStackGo.UnitTests.Application.Health;
 
@@ -85,7 +84,7 @@ public class GetEnvironmentHealthSummaryHandlerTests
     private Deployment CreateTestDeployment(DeploymentId deploymentId, string stackName)
     {
         var userId = UserId.NewId();
-        return Deployment.Start(deploymentId, _envId, stackName, stackName, userId);
+        return Deployment.Start(deploymentId, _envId, stackName, stackName, stackName, userId);
     }
 
     private void SetupActiveDeployments(params (DeploymentId id, string stackName)[] deployments)

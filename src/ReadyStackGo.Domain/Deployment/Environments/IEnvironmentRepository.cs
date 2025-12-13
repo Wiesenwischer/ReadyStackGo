@@ -1,8 +1,5 @@
 namespace ReadyStackGo.Domain.Deployment.Environments;
 
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
-using ReadyStackGo.Domain.IdentityAccess.Users;
-
 /// <summary>
 /// Repository interface for Environment aggregate.
 /// </summary>
