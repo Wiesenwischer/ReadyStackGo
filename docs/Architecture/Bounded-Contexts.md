@@ -100,7 +100,7 @@ Zusätzlich zu den vier Bounded Contexts gibt es den **SharedKernel** - eine Sam
 │   └─────────────────┘                 │    │                                       │
 │                                       │    │   ┌─────────────────┐                 │
 │   ┌─────────────────┐                 │    │   │ Environment     │ (Entity)        │
-│   │ VariableDefinition│ (Value Object)│    │   │ - EnvironmentId │                 │
+│   │ Variable          │ (Value Object)│    │   │ - EnvironmentId │                 │
 │   │ - Name          │                 │    │   │ - OrganizationId│◄────────────────┼──┐
 │   │ - Label         │                 │    │   │ - DockerConfig  │                 │  │
 │   │ - Default       │                 │    │   └─────────────────┘                 │  │
@@ -370,9 +370,9 @@ public abstract class AggregateRoot : AggregateRoot<Guid>
 public class StackDefinition : AggregateRoot<StackId>
 {
     public string Name { get; private set; }
-    public IReadOnlyList<VariableDefinition> Variables { get; private set; }
+    public IReadOnlyList<Variable> Variables { get; private set; }
 
-    public void UpdateVariables(IEnumerable<VariableDefinition> variables)
+    public void UpdateVariables(IEnumerable<Variable> variables)
     {
         Variables = variables.ToList();
         IncrementVersion();
@@ -450,21 +450,24 @@ public class Email : ValueObject
     }
 }
 
-// In StackManagement Context
-public class VariableDefinition : ValueObject
+// In StackManagement Context - Variables/Variable.cs
+public record Variable
 {
     public string Name { get; }
     public string? Label { get; }
     public string? DefaultValue { get; }
     public bool IsRequired { get; }
+    public string? Description { get; }
+    public VariableType Type { get; }           // String, Number, Boolean, Select, Password, Port, etc.
+    public string? Pattern { get; }             // Regex validation for String types
+    public IReadOnlyList<SelectOption>? Options { get; }  // For Select type
+    public double? Min { get; }                 // For Number/Port types
+    public double? Max { get; }
+    public string? Placeholder { get; }
+    public string? Group { get; }               // UI grouping
+    public int Order { get; }                   // Display order
 
-    protected override IEnumerable<object?> GetEqualityComponents()
-    {
-        yield return Name;
-        yield return Label;
-        yield return DefaultValue;
-        yield return IsRequired;
-    }
+    public ValidationResult Validate(string? value);  // Built-in validation
 }
 ```
 
@@ -944,7 +947,7 @@ Der StackManagement Context ist verantwortlich für:
 |---------|-----------|
 | **StackDefinition** | Die Beschreibung eines deployb are Stacks |
 | **Product** | Eine logische Gruppierung verwandter Stacks |
-| **Variable** | Ein konfigurierbarer Parameter mit Validierungsregeln |
+| **Variable** | Ein konfigurierbarer Parameter mit Typ, Validierung und UI-Metadaten |
 | **ServiceTemplate** | Die abstrakte Definition eines Containers |
 | **Category** | Kategorisierung für UI-Gruppierung |
 
@@ -961,7 +964,7 @@ public class StackDefinition : AggregateRoot<StackId>
     public StackSourceId SourceId { get; }
 
     // Value Object Collections
-    public IReadOnlyList<VariableDefinition> Variables { get; }
+    public IReadOnlyList<Variable> Variables { get; }
     public IReadOnlyList<ServiceTemplate> Services { get; }
 
     // Computed Properties
@@ -979,16 +982,8 @@ public class ProductDefinition : Entity<ProductId>
 }
 
 // Value Objects
-public record VariableDefinition
-{
-    public required string Name { get; init; }
-    public string? Label { get; init; }
-    public string? Description { get; init; }
-    public string? DefaultValue { get; init; }
-    public bool IsRequired { get; init; }
-    public VariableType Type { get; init; }
-    public IReadOnlyList<ValidationRule> ValidationRules { get; init; }
-}
+// Variable is defined as a record in Variables/Variable.cs
+// See Section 3.4 for full definition with Type, Pattern, Options, etc.
 
 public record ServiceTemplate
 {
@@ -1741,67 +1736,105 @@ public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStac
 
 ```
 ReadyStackGo.Domain/
-├── Catalog/                              # Bounded Context: Catalog
-│   ├── Sources/
-│   │   ├── StackSource.cs
-│   │   ├── GitSource.cs
-│   │   ├── FileSource.cs
-│   │   └── IStackSourceRepository.cs
-│   ├── Parsing/
-│   │   ├── ManifestParser.cs
-│   │   ├── RsgoManifest.cs              # Value Objects nur für Parsing
-│   │   ├── RsgoService.cs
-│   │   └── ...
-│   └── Events/
-│       ├── StackDefinitionImportedEvent.cs
-│       └── RuntimeConfigImportedEvent.cs
+# Note: Catalog context is currently merged into StackManagement (Sources, Manifests)
+# The parsing logic is in the Infrastructure layer (RsgoManifestParser)
 │
 ├── StackManagement/                      # Bounded Context: StackManagement
+│   ├── Sources/
+│   │   ├── StackSource.cs
+│   │   ├── StackSourceId.cs
+│   │   ├── StackSourceType.cs
+│   │   └── IStackSourceRepository.cs
 │   ├── Stacks/
 │   │   ├── StackDefinition.cs
-│   │   ├── StackId.cs
+│   │   ├── ServiceTemplate.cs
+│   │   ├── NetworkDefinition.cs
+│   │   ├── VolumeDefinition.cs
 │   │   └── IStackDefinitionRepository.cs
 │   ├── Products/
-│   │   ├── ProductDefinition.cs
-│   │   └── IProductRepository.cs
+│   │   └── ProductDefinition.cs
+│   ├── Manifests/
+│   │   ├── RsgoManifest.cs              # Value Objects for YAML parsing
+│   │   └── VariableType.cs
 │   └── Variables/
-│       ├── VariableDefinition.cs
-│       └── ValidationRule.cs
+│       ├── Variable.cs                  # Variable record with Type, Pattern, Options
+│       └── StackVariableResolver.cs     # Resolves variable values from sources
 │
 ├── Deployment/                           # Bounded Context: Deployment
 │   ├── Environments/
 │   │   ├── Environment.cs
 │   │   ├── EnvironmentId.cs
+│   │   ├── EnvironmentType.cs
+│   │   ├── ConnectionConfig.cs
 │   │   └── IEnvironmentRepository.cs
-│   ├── Stacks/
-│   │   ├── DeployedStack.cs
-│   │   ├── RuntimeStackConfig.cs
-│   │   └── IRuntimeStackConfigRepository.cs
 │   ├── Deployments/
-│   │   ├── DeploymentPlan.cs
-│   │   ├── DeploymentPrerequisiteValidator.cs
-│   │   └── StackValidationInfo.cs
+│   │   ├── Deployment.cs
+│   │   ├── DeploymentId.cs
+│   │   ├── DeployedService.cs
+│   │   ├── DeploymentStatus.cs
+│   │   ├── DeploymentPrerequisiteValidationService.cs
+│   │   ├── StackValidationInfo.cs
+│   │   └── IDeploymentRepository.cs
+│   ├── RuntimeConfig/
+│   │   ├── RuntimeStackConfig.cs
+│   │   ├── RuntimeStackConfigId.cs
+│   │   ├── MaintenanceConfig.cs
+│   │   ├── HealthCheckConfig.cs
+│   │   └── IRuntimeStackConfigRepository.cs
+│   ├── Health/
+│   │   ├── HealthSnapshot.cs
+│   │   ├── HealthSnapshotId.cs
+│   │   ├── HealthStatus.cs
+│   │   ├── ServiceHealth.cs
+│   │   ├── InfraHealth.cs
+│   │   ├── EnvironmentHealthSummary.cs
+│   │   └── IHealthSnapshotRepository.cs
+│   ├── Observers/
+│   │   ├── MaintenanceObserverConfig.cs
+│   │   ├── ObserverType.cs
+│   │   ├── ObserverResult.cs
+│   │   └── IMaintenanceObserver.cs
 │   └── Events/
-│       ├── DeploymentStartedEvent.cs
-│       └── DeploymentCompletedEvent.cs
+│       ├── DeploymentStarted.cs
+│       ├── DeploymentCompleted.cs
+│       └── EnvironmentCreated.cs
 │
 ├── IdentityAccess/                       # Bounded Context: IdentityAccess
 │   ├── Users/
 │   │   ├── User.cs
 │   │   ├── UserId.cs
-│   │   └── IUserRepository.cs
+│   │   ├── EmailAddress.cs
+│   │   ├── HashedPassword.cs
+│   │   ├── Enablement.cs
+│   │   ├── RoleAssignment.cs
+│   │   ├── IUserRepository.cs
+│   │   ├── IPasswordHasher.cs
+│   │   ├── AuthenticationService.cs
+│   │   ├── SystemAdminRegistrationService.cs
+│   │   └── UserEvents.cs
 │   ├── Organizations/
 │   │   ├── Organization.cs
 │   │   ├── OrganizationId.cs
-│   │   └── IOrganizationRepository.cs
+│   │   ├── OrganizationMembership.cs
+│   │   ├── OrganizationMembershipService.cs
+│   │   ├── OrganizationProvisioningService.cs
+│   │   ├── IOrganizationRepository.cs
+│   │   └── OrganizationEvents.cs
 │   └── Roles/
-│       └── Role.cs
+│       ├── Role.cs
+│       ├── RoleId.cs
+│       ├── Permission.cs
+│       ├── ScopeType.cs
+│       └── IRoleRepository.cs
 │
 └── SharedKernel/                         # Gemeinsame Basis-Klassen
     ├── AggregateRoot.cs
+    ├── AssertionConcern.cs
+    ├── DomainEvent.cs
     ├── Entity.cs
-    ├── ValueObject.cs
-    └── IDomainEvent.cs
+    ├── IDomainEvent.cs
+    ├── SystemClock.cs
+    └── ValueObject.cs
 ```
 
 ### 10.2 Checkliste für neue Features
@@ -1916,3 +1949,29 @@ Die Aufteilung in vier Bounded Contexts (Catalog, StackManagement, Deployment, I
 - **Besserer Testbarkeit** durch isolierte Domains
 
 Die Migration erfolgt schrittweise, beginnend mit dem Catalog Context als zentraler Import-Komponente.
+
+---
+
+## Changelog
+
+### v0.12 (December 2024)
+
+**Variable Consolidation:**
+- Removed obsolete `StackVariable` class - use `Variable` instead
+- `Variable` record now includes comprehensive UI metadata: `Type`, `Pattern`, `Options`, `Min`, `Max`, `Placeholder`, `Group`, `Order`
+- Built-in `Validate()` method for type-specific validation
+
+**Deployment Context Enhancements:**
+- Added `Health/` subdomain with `HealthSnapshot`, `EnvironmentHealthSummary`, and health monitoring infrastructure
+- Added `Observers/` subdomain with `MaintenanceObserverConfig` for notification systems
+- Renamed `RuntimeConfig/` to properly organize runtime-related entities
+
+**IdentityAccess Context:**
+- Completed role-based access control with `RoleAssignment`, `Permission`, and scoped roles
+- Added `Enablement` value object for user activation state
+- Domain services: `AuthenticationService`, `OrganizationMembershipService`
+
+**SharedKernel:**
+- Added `SystemClock` for testable time abstraction
+- Added `AssertionConcern` base class for validation
+- Added `DomainEvent` base class

@@ -1,4 +1,5 @@
-using CatalogStacks = ReadyStackGo.Domain.Catalog.Stacks;
+using ReadyStackGo.Domain.Deployment.Observers;
+using StackManagement = ReadyStackGo.Domain.StackManagement.Stacks;
 
 namespace ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 
@@ -17,17 +18,17 @@ public class DeployStackRequest
     /// Service templates to deploy.
     /// Contains structured service definitions (no YAML).
     /// </summary>
-    public required IReadOnlyList<CatalogStacks.ServiceTemplate> Services { get; set; }
+    public required IReadOnlyList<StackManagement.ServiceTemplate> Services { get; set; }
 
     /// <summary>
     /// Named volumes for the stack.
     /// </summary>
-    public IReadOnlyList<CatalogStacks.VolumeDefinition> Volumes { get; set; } = Array.Empty<CatalogStacks.VolumeDefinition>();
+    public IReadOnlyList<StackManagement.VolumeDefinition> Volumes { get; set; } = Array.Empty<StackManagement.VolumeDefinition>();
 
     /// <summary>
     /// Networks for the stack.
     /// </summary>
-    public IReadOnlyList<CatalogStacks.NetworkDefinition> Networks { get; set; } = Array.Empty<CatalogStacks.NetworkDefinition>();
+    public IReadOnlyList<StackManagement.NetworkDefinition> Networks { get; set; } = Array.Empty<StackManagement.NetworkDefinition>();
 
     /// <summary>
     /// Version of the stack (from product manifest metadata.productVersion).
@@ -49,4 +50,11 @@ public class DeployStackRequest
     /// Stored for reference and audit.
     /// </summary>
     public string? CatalogStackId { get; set; }
+
+    /// <summary>
+    /// Maintenance observer configuration (optional).
+    /// Used to monitor external systems for maintenance mode.
+    /// Uses the Deployment domain's value object.
+    /// </summary>
+    public MaintenanceObserverConfig? MaintenanceObserver { get; set; }
 }

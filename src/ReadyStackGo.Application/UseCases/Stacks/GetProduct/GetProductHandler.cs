@@ -5,23 +5,23 @@ namespace ReadyStackGo.Application.UseCases.Stacks.GetProduct;
 
 public class GetProductHandler : IRequestHandler<GetProductQuery, GetProductResult?>
 {
-    private readonly IStackSourceService _stackSourceService;
+    private readonly IProductSourceService _productSourceService;
 
-    public GetProductHandler(IStackSourceService stackSourceService)
+    public GetProductHandler(IProductSourceService productSourceService)
     {
-        _stackSourceService = stackSourceService;
+        _productSourceService = productSourceService;
     }
 
     public async Task<GetProductResult?> Handle(GetProductQuery request, CancellationToken cancellationToken)
     {
-        var product = await _stackSourceService.GetProductAsync(request.ProductId, cancellationToken);
+        var product = await _productSourceService.GetProductAsync(request.ProductId, cancellationToken);
 
         if (product == null)
         {
             return null;
         }
 
-        var sources = await _stackSourceService.GetSourcesAsync(cancellationToken);
+        var sources = await _productSourceService.GetSourcesAsync(cancellationToken);
         var sourceNames = sources.ToDictionary(s => s.Id.Value, s => s.Name);
 
         var productDetails = new ProductDetails(
@@ -55,7 +55,7 @@ public class GetProductHandler : IRequestHandler<GetProductQuery, GetProductResu
                     v.PatternError,
                     v.Min,
                     v.Max,
-                    v.Options?.Select(o => new SelectOptionDetails(o.Value, o.Label, o.Description)).ToList()
+                    v.Options?.Select(o => new SelectOptionDetails(o.Value, o.Label ?? o.Value, o.Description)).ToList()
                 )).ToList()
             )).ToList(),
             LastSyncedAt: product.LastSyncedAt

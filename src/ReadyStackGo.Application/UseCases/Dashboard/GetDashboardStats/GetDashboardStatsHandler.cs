@@ -8,16 +8,16 @@ namespace ReadyStackGo.Application.UseCases.Dashboard.GetDashboardStats;
 
 public class GetDashboardStatsHandler : IRequestHandler<GetDashboardStatsQuery, GetDashboardStatsResult>
 {
-    private readonly IStackSourceService _stackSourceService;
+    private readonly IProductSourceService _productSourceService;
     private readonly IDockerService _dockerService;
     private readonly IDeploymentRepository _deploymentRepository;
 
     public GetDashboardStatsHandler(
-        IStackSourceService stackSourceService,
+        IProductSourceService productSourceService,
         IDockerService dockerService,
         IDeploymentRepository deploymentRepository)
     {
-        _stackSourceService = stackSourceService;
+        _productSourceService = productSourceService;
         _dockerService = dockerService;
         _deploymentRepository = deploymentRepository;
     }
@@ -32,8 +32,8 @@ public class GetDashboardStatsHandler : IRequestHandler<GetDashboardStatsQuery, 
         try
         {
             // Get catalog data
-            var products = await _stackSourceService.GetProductsAsync(cancellationToken);
-            var stacks = await _stackSourceService.GetStacksAsync(cancellationToken);
+            var products = await _productSourceService.GetProductsAsync(cancellationToken);
+            var stacks = await _productSourceService.GetStacksAsync(cancellationToken);
             var containers = await _dockerService.ListContainersAsync(request.EnvironmentId, cancellationToken);
 
             // Count active deployments (not removed) for this environment

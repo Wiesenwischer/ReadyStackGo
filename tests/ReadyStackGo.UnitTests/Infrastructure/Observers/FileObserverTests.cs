@@ -2,7 +2,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using ReadyStackGo.Domain.Deployment.Observers;
-using ReadyStackGo.Infrastructure.Observers;
+using ReadyStackGo.Infrastructure.Services.Health;
 
 namespace ReadyStackGo.UnitTests.Infrastructure.Observers;
 

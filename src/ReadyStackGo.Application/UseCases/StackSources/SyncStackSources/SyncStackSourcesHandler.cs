@@ -5,16 +5,16 @@ namespace ReadyStackGo.Application.UseCases.StackSources.SyncStackSources;
 
 public class SyncStackSourcesHandler : IRequestHandler<SyncStackSourcesCommand, SyncStackSourcesResult>
 {
-    private readonly IStackSourceService _stackSourceService;
+    private readonly IProductSourceService _productSourceService;
 
-    public SyncStackSourcesHandler(IStackSourceService stackSourceService)
+    public SyncStackSourcesHandler(IProductSourceService productSourceService)
     {
-        _stackSourceService = stackSourceService;
+        _productSourceService = productSourceService;
     }
 
     public async Task<SyncStackSourcesResult> Handle(SyncStackSourcesCommand request, CancellationToken cancellationToken)
     {
-        var result = await _stackSourceService.SyncAllAsync(cancellationToken);
+        var result = await _productSourceService.SyncAllAsync(cancellationToken);
 
         return new SyncStackSourcesResult(
             result.Success,

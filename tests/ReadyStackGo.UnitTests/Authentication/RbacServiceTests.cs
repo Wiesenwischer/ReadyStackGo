@@ -2,7 +2,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using FluentAssertions;
 using ReadyStackGo.Domain.IdentityAccess.Roles;
-using ReadyStackGo.Infrastructure.Authentication;
+using ReadyStackGo.Infrastructure.Security.Authentication;
 
 namespace ReadyStackGo.UnitTests.Authentication;
 

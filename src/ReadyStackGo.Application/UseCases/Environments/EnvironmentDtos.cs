@@ -1,3 +1,5 @@
+using DomainEnvironment = ReadyStackGo.Domain.Deployment.Environments.Environment;
+
 namespace ReadyStackGo.Application.UseCases.Environments;
 
 /// <summary>
@@ -11,6 +13,25 @@ public class EnvironmentResponse
     public required string ConnectionString { get; set; }
     public bool IsDefault { get; set; }
     public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>
+/// Maps Domain Environment to DTOs.
+/// </summary>
+public static class EnvironmentMapper
+{
+    public static EnvironmentResponse ToResponse(DomainEnvironment environment)
+    {
+        return new EnvironmentResponse
+        {
+            Id = environment.Id.ToString(),
+            Name = environment.Name,
+            Type = environment.Type.ToString(),
+            ConnectionString = environment.ConnectionConfig.SocketPath,
+            IsDefault = environment.IsDefault,
+            CreatedAt = environment.CreatedAt
+        };
+    }
 }
 
 /// <summary>

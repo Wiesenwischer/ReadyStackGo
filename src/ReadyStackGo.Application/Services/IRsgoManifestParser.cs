@@ -1,6 +1,6 @@
 using ReadyStackGo.Application.UseCases.Deployments;
-using ReadyStackGo.Domain.Catalog.Manifests;
-using ReadyStackGo.Domain.Catalog.Stacks;
+using ReadyStackGo.Domain.StackManagement.Manifests;
+using ReadyStackGo.Domain.StackManagement.Stacks;
 
 namespace ReadyStackGo.Application.Services;
 
@@ -39,8 +39,8 @@ public interface IRsgoManifestParser
     /// Extract all variable definitions from the manifest, including shared variables.
     /// </summary>
     /// <param name="manifest">Parsed RSGo manifest</param>
-    /// <returns>List of stack variables with full type information</returns>
-    Task<List<StackVariable>> ExtractVariablesAsync(RsgoManifest manifest);
+    /// <returns>List of variables with full type information</returns>
+    Task<List<Variable>> ExtractVariablesAsync(RsgoManifest manifest);
 
     /// <summary>
     /// Extract variables for a specific stack in a multi-stack manifest.
@@ -48,8 +48,8 @@ public interface IRsgoManifestParser
     /// </summary>
     /// <param name="manifest">Parsed RSGo manifest</param>
     /// <param name="stackKey">Stack key in the stacks section</param>
-    /// <returns>List of stack variables with full type information</returns>
-    Task<List<StackVariable>> ExtractStackVariablesAsync(RsgoManifest manifest, string stackKey);
+    /// <returns>List of variables with full type information</returns>
+    Task<List<Variable>> ExtractStackVariablesAsync(RsgoManifest manifest, string stackKey);
 
     /// <summary>
     /// Convert an RSGo manifest to a deployment plan.

@@ -2,7 +2,6 @@ namespace ReadyStackGo.Domain.Deployment.Health;
 
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.SharedKernel;
 
 /// <summary>

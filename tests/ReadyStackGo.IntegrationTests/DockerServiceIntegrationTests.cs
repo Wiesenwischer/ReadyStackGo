@@ -1,13 +1,16 @@
+using Docker.DotNet;
 using DotNet.Testcontainers.Builders;
+using DotNet.Testcontainers.Configurations;
 using DotNet.Testcontainers.Containers;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Infrastructure.Docker;
+using ReadyStackGo.IntegrationTests.Infrastructure;
 using Xunit;
 using DomainEnvironment = ReadyStackGo.Domain.Deployment.Environments.Environment;
 
@@ -16,24 +19,48 @@ namespace ReadyStackGo.IntegrationTests;
 /// <summary>
 /// Integration tests for DockerService using Testcontainers
 /// Diese Tests verwenden echte Docker-Container um die Docker-Integration zu testen
+/// Requires Docker to be running and accessible via Testcontainers.
 /// </summary>
-public class DockerServiceIntegrationTests : IAsyncLifetime
+[Trait("Category", "Docker")]
+[Collection("Docker")]
+public class DockerServiceIntegrationTests : IAsyncLifetime, IClassFixture<DockerTestFixture>
 {
+    private readonly DockerTestFixture _fixture;
     private IContainer? _testContainer;
     private DockerService? _dockerService;
     private static readonly EnvironmentId TestEnvironmentId = EnvironmentId.Create();
     private static readonly OrganizationId TestOrganizationId = OrganizationId.Create();
 
+    public DockerServiceIntegrationTests(DockerTestFixture fixture)
+    {
+        _fixture = fixture;
+    }
+
     public async Task InitializeAsync()
     {
+        if (!_fixture.IsDockerAvailable)
+        {
+            return; // Skip initialization when Docker is not available
+        }
+
+        // Configure Docker endpoint for Windows Docker Desktop if needed
+        var dockerEndpoint = GetDockerEndpoint();
+
         // Starte einen Test-Container (nginx) den wir für die Tests verwenden können
         // Verwende WithPortBinding(80, true) um einen zufälligen freien Port zu bekommen
-        _testContainer = new ContainerBuilder()
+        var containerBuilder = new ContainerBuilder()
             .WithImage("nginx:alpine")
             .WithName($"readystackgo-test-{Guid.NewGuid():N}")
             .WithPortBinding(80, true) // true = assign random free host port
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(80)))
-            .Build();
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(80)));
+
+        // Configure Docker endpoint if we detected a custom one
+        if (!string.IsNullOrEmpty(dockerEndpoint))
+        {
+            containerBuilder = containerBuilder.WithDockerEndpoint(dockerEndpoint);
+        }
+
+        _testContainer = containerBuilder.Build();
 
         await _testContainer.StartAsync();
 
@@ -72,9 +99,11 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
         _dockerService?.Dispose();
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ListContainersAsync_ShouldReturnContainers()
     {
+        Skip.IfNot(_fixture.IsDockerAvailable, "Docker is not available");
+
         // Act
         var containers = await _dockerService!.ListContainersAsync(TestEnvironmentId.ToString());
 
@@ -83,9 +112,11 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
         containers.Should().Contain(c => c.Id.StartsWith(_testContainer!.Id));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task StartContainerAsync_ShouldStartStoppedContainer()
     {
+        Skip.IfNot(_fixture.IsDockerAvailable, "Docker is not available");
+
         // Arrange - Container erst stoppen
         await _testContainer!.StopAsync();
 
@@ -103,9 +134,11 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
         testContainer!.State.Should().Be("running");
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task StopContainerAsync_ShouldStopRunningContainer()
     {
+        Skip.IfNot(_fixture.IsDockerAvailable, "Docker is not available");
+
         // Arrange - Sicherstellen dass Container läuft
         if (_testContainer!.State != TestcontainersStates.Running)
         {
@@ -126,9 +159,11 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
         testContainer!.State.Should().NotBe("running");
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ListContainersAsync_ShouldReturnContainerWithCorrectProperties()
     {
+        Skip.IfNot(_fixture.IsDockerAvailable, "Docker is not available");
+
         // Act
         var containers = await _dockerService!.ListContainersAsync(TestEnvironmentId.ToString());
         var testContainer = containers.FirstOrDefault(c => c.Id.StartsWith(_testContainer!.Id));
@@ -142,9 +177,11 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
         testContainer.Status.Should().NotBeNullOrEmpty();
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task TestConnectionAsync_ShouldSucceedWithValidDockerHost()
     {
+        Skip.IfNot(_fixture.IsDockerAvailable, "Docker is not available");
+
         // Arrange
         var dockerHost = OperatingSystem.IsWindows()
             ? "npipe://./pipe/docker_engine"
@@ -159,9 +196,11 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
         result.Message.Should().Contain("Connected to Docker");
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task TestConnectionAsync_ShouldFailWithInvalidDockerHost()
     {
+        Skip.IfNot(_fixture.IsDockerAvailable, "Docker is not available");
+
         // Arrange
         var dockerHost = "tcp://invalid-host:9999";
 
@@ -173,11 +212,41 @@ public class DockerServiceIntegrationTests : IAsyncLifetime
         result.Message.Should().Contain("Connection failed");
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ListContainersAsync_ShouldThrowForInvalidEnvironment()
     {
+        Skip.IfNot(_fixture.IsDockerAvailable, "Docker is not available");
+
         // Act & Assert
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => _dockerService!.ListContainersAsync("non-existent-env"));
+    }
+
+    /// <summary>
+    /// Detects the Docker endpoint for the current platform.
+    /// On Windows with Docker Desktop, uses the named pipe endpoint.
+    /// On Linux/Mac, returns null to use the default socket.
+    /// </summary>
+    private static string? GetDockerEndpoint()
+    {
+        // Check environment variable first
+        var envEndpoint = System.Environment.GetEnvironmentVariable("DOCKER_HOST");
+        if (!string.IsNullOrEmpty(envEndpoint))
+            return envEndpoint;
+
+        // On Windows, try Docker Desktop named pipes
+        if (OperatingSystem.IsWindows())
+        {
+            // Docker Desktop Linux containers (most common)
+            if (File.Exists(@"\\.\pipe\dockerDesktopLinuxEngine"))
+                return "npipe://./pipe/dockerDesktopLinuxEngine";
+
+            // Docker Desktop Windows containers
+            if (File.Exists(@"\\.\pipe\docker_engine"))
+                return "npipe://./pipe/docker_engine";
+        }
+
+        // On Linux/Mac, use default (null means use default socket)
+        return null;
     }
 }

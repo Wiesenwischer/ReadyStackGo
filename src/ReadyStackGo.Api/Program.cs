@@ -9,6 +9,7 @@ using ReadyStackGo.Api.Services;
 using ReadyStackGo.Application;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Infrastructure;
+using ReadyStackGo.Infrastructure.DataAccess;
 
 namespace ReadyStackGo.Api;
 

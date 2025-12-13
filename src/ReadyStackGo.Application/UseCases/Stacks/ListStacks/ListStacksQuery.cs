@@ -1,5 +1,5 @@
 using MediatR;
-using ReadyStackGo.Domain.Catalog.Manifests;
+using ReadyStackGo.Domain.StackManagement.Manifests;
 
 namespace ReadyStackGo.Application.UseCases.Stacks.ListStacks;
 

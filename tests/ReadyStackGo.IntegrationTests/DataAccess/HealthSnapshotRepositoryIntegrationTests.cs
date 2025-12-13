@@ -1,10 +1,10 @@
 namespace ReadyStackGo.IntegrationTests.DataAccess;
 
 using FluentAssertions;
+using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Infrastructure.DataAccess.Repositories;
 using ReadyStackGo.IntegrationTests.Infrastructure;
 

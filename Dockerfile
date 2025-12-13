@@ -26,6 +26,9 @@ COPY src/ReadyStackGo.Api/*.csproj ./src/ReadyStackGo.Api/
 COPY src/ReadyStackGo.Application/*.csproj ./src/ReadyStackGo.Application/
 COPY src/ReadyStackGo.Domain/*.csproj ./src/ReadyStackGo.Domain/
 COPY src/ReadyStackGo.Infrastructure/*.csproj ./src/ReadyStackGo.Infrastructure/
+COPY src/ReadyStackGo.Infrastructure.DataAccess/*.csproj ./src/ReadyStackGo.Infrastructure.DataAccess/
+COPY src/ReadyStackGo.Infrastructure.Docker/*.csproj ./src/ReadyStackGo.Infrastructure.Docker/
+COPY src/ReadyStackGo.Infrastructure.Security/*.csproj ./src/ReadyStackGo.Infrastructure.Security/
 
 # Restore dependencies (only for src projects, exclude tests)
 RUN dotnet restore src/ReadyStackGo.Api/ReadyStackGo.Api.csproj

@@ -1,21 +1,22 @@
 namespace ReadyStackGo.UnitTests.Domain.Deployments;
 
+using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
-using ReadyStackGo.Domain.IdentityAccess.Users;
 
 public class DeploymentOperationModeTests
 {
     private readonly DeploymentId _deploymentId = new(Guid.NewGuid());
     private readonly EnvironmentId _environmentId = new(Guid.NewGuid());
-    private readonly UserId _userId = new(Guid.NewGuid());
+    private readonly UserId _userId = UserId.NewId();
 
     private Deployment CreateRunningDeployment()
     {
         var deployment = Deployment.Start(
             _deploymentId,
             _environmentId,
+            "test-stack", // stackId
             "test-stack",
             "test-project",
             _userId);
@@ -35,6 +36,7 @@ public class DeploymentOperationModeTests
         var deployment = Deployment.Start(
             _deploymentId,
             _environmentId,
+            "test-stack", // stackId
             "test-stack",
             "test-project",
             _userId);
@@ -63,6 +65,7 @@ public class DeploymentOperationModeTests
         var deployment = Deployment.Start(
             _deploymentId,
             _environmentId,
+            "test-stack", // stackId
             "test-stack",
             "test-project",
             _userId);

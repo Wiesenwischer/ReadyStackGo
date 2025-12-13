@@ -3,11 +3,11 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Containers;
+using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
-using ReadyStackGo.Infrastructure.Services;
+using ReadyStackGo.Application.Services.Impl;
 
 namespace ReadyStackGo.UnitTests.Services;
 

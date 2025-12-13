@@ -1,21 +1,21 @@
 using MediatR;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.Catalog.Sources;
+using ReadyStackGo.Domain.StackManagement.Sources;
 
 namespace ReadyStackGo.Application.UseCases.StackSources.ListStackSources;
 
 public class ListStackSourcesHandler : IRequestHandler<ListStackSourcesQuery, ListStackSourcesResult>
 {
-    private readonly IStackSourceService _stackSourceService;
+    private readonly IProductSourceService _productSourceService;
 
-    public ListStackSourcesHandler(IStackSourceService stackSourceService)
+    public ListStackSourcesHandler(IProductSourceService productSourceService)
     {
-        _stackSourceService = stackSourceService;
+        _productSourceService = productSourceService;
     }
 
     public async Task<ListStackSourcesResult> Handle(ListStackSourcesQuery request, CancellationToken cancellationToken)
     {
-        var sources = await _stackSourceService.GetSourcesAsync(cancellationToken);
+        var sources = await _productSourceService.GetSourcesAsync(cancellationToken);
 
         var items = sources.Select(s => new StackSourceItem(
             s.Id.Value,

@@ -1,9 +1,9 @@
 namespace ReadyStackGo.Domain.Deployment.Deployments;
 
 using ReadyStackGo.Domain.SharedKernel;
-using ReadyStackGo.Domain.IdentityAccess.Users;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
+using ReadyStackGo.Domain.Deployment.Observers;
 
 /// <summary>
 /// Aggregate root representing a stack deployment to an environment.
@@ -12,6 +12,7 @@ using ReadyStackGo.Domain.Deployment.Health;
 public class Deployment : AggregateRoot<DeploymentId>
 {
     public EnvironmentId EnvironmentId { get; private set; } = null!;
+    public string StackId { get; private set; } = null!;
     public string StackName { get; private set; } = null!;
     public string? StackVersion { get; private set; }
     public string ProjectName { get; private set; } = null!;
@@ -35,6 +36,9 @@ public class Deployment : AggregateRoot<DeploymentId>
     private readonly Dictionary<string, string> _variables = new();
     public IReadOnlyDictionary<string, string> Variables => _variables;
 
+    // Maintenance observer configuration (from product definition at deploy time)
+    public MaintenanceObserverConfig? MaintenanceObserverConfig { get; private set; }
+
     private readonly List<DeployedService> _services = new();
     public IReadOnlyCollection<DeployedService> Services => _services.AsReadOnly();
 
@@ -47,18 +51,21 @@ public class Deployment : AggregateRoot<DeploymentId>
     private Deployment(
         DeploymentId id,
         EnvironmentId environmentId,
+        string stackId,
         string stackName,
         string projectName,
         UserId deployedBy)
     {
         SelfAssertArgumentNotNull(id, "DeploymentId is required.");
         SelfAssertArgumentNotNull(environmentId, "EnvironmentId is required.");
+        SelfAssertArgumentNotEmpty(stackId, "Stack ID is required.");
         SelfAssertArgumentNotEmpty(stackName, "Stack name is required.");
         SelfAssertArgumentNotEmpty(projectName, "Project name is required.");
         SelfAssertArgumentNotNull(deployedBy, "DeployedBy is required.");
 
         Id = id;
         EnvironmentId = environmentId;
+        StackId = stackId;
         StackName = stackName;
         ProjectName = projectName;
         DeployedBy = deployedBy;
@@ -79,11 +86,12 @@ public class Deployment : AggregateRoot<DeploymentId>
     public static Deployment Start(
         DeploymentId id,
         EnvironmentId environmentId,
+        string stackId,
         string stackName,
         string projectName,
         UserId deployedBy)
     {
-        return new Deployment(id, environmentId, stackName, projectName, deployedBy);
+        return new Deployment(id, environmentId, stackId, stackName, projectName, deployedBy);
     }
 
     #endregion
@@ -158,6 +166,14 @@ public class Deployment : AggregateRoot<DeploymentId>
         {
             _variables[kvp.Key] = kvp.Value;
         }
+    }
+
+    /// <summary>
+    /// Sets the maintenance observer configuration for this deployment.
+    /// </summary>
+    public void SetMaintenanceObserverConfig(MaintenanceObserverConfig? config)
+    {
+        MaintenanceObserverConfig = config;
     }
 
     /// <summary>

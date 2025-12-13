@@ -1,5 +1,5 @@
 using FluentAssertions;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.Deployment;
 using Environment = ReadyStackGo.Domain.Deployment.Environments.Environment;
 using EnvironmentId = ReadyStackGo.Domain.Deployment.Environments.EnvironmentId;
 using EnvironmentType = ReadyStackGo.Domain.Deployment.Environments.EnvironmentType;

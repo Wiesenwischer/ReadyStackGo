@@ -1,7 +1,7 @@
 using System.Reflection;
 using FastEndpoints;
 using ReadyStackGo.Domain.IdentityAccess.Roles;
-using ReadyStackGo.Infrastructure.Authentication;
+using ReadyStackGo.Infrastructure.Security.Authentication;
 
 namespace ReadyStackGo.Api.Authorization;
 

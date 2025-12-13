@@ -1,19 +1,26 @@
 using MediatR;
-using ReadyStackGo.Application.Services;
+using ReadyStackGo.Domain.Deployment.Environments;
 
 namespace ReadyStackGo.Application.UseCases.Environments.GetEnvironment;
 
 public class GetEnvironmentHandler : IRequestHandler<GetEnvironmentQuery, EnvironmentResponse?>
 {
-    private readonly IEnvironmentService _environmentService;
+    private readonly IEnvironmentRepository _environmentRepository;
 
-    public GetEnvironmentHandler(IEnvironmentService environmentService)
+    public GetEnvironmentHandler(IEnvironmentRepository environmentRepository)
     {
-        _environmentService = environmentService;
+        _environmentRepository = environmentRepository;
     }
 
-    public async Task<EnvironmentResponse?> Handle(GetEnvironmentQuery request, CancellationToken cancellationToken)
+    public Task<EnvironmentResponse?> Handle(GetEnvironmentQuery request, CancellationToken cancellationToken)
     {
-        return await _environmentService.GetEnvironmentAsync(request.EnvironmentId);
+        if (!Guid.TryParse(request.EnvironmentId, out var guid))
+        {
+            return Task.FromResult<EnvironmentResponse?>(null);
+        }
+
+        var environment = _environmentRepository.Get(new EnvironmentId(guid));
+
+        return Task.FromResult(environment != null ? EnvironmentMapper.ToResponse(environment) : null);
     }
 }

@@ -6,17 +6,17 @@ namespace ReadyStackGo.Application.UseCases.Stacks.ListProducts;
 
 public class ListProductsHandler : IRequestHandler<ListProductsQuery, ListProductsResult>
 {
-    private readonly IStackSourceService _stackSourceService;
+    private readonly IProductSourceService _productSourceService;
 
-    public ListProductsHandler(IStackSourceService stackSourceService)
+    public ListProductsHandler(IProductSourceService productSourceService)
     {
-        _stackSourceService = stackSourceService;
+        _productSourceService = productSourceService;
     }
 
     public async Task<ListProductsResult> Handle(ListProductsQuery request, CancellationToken cancellationToken)
     {
-        var products = await _stackSourceService.GetProductsAsync(cancellationToken);
-        var sources = await _stackSourceService.GetSourcesAsync(cancellationToken);
+        var products = await _productSourceService.GetProductsAsync(cancellationToken);
+        var sources = await _productSourceService.GetSourcesAsync(cancellationToken);
         var sourceNames = sources.ToDictionary(s => s.Id.Value, s => s.Name);
 
         var productItems = products.Select(p => new ProductItem(
