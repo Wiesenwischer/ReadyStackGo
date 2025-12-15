@@ -7,6 +7,7 @@ using ReadyStackGo.Domain.IdentityAccess.Users;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
+using RuntimeConfig = ReadyStackGo.Domain.Deployment.RuntimeConfig;
 
 /// <summary>
 /// EF Core DbContext for ReadyStackGo persistence.
@@ -29,5 +30,8 @@ public class ReadyStackGoDbContext : DbContext
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ReadyStackGoDbContext).Assembly);
+
+        // Ignore ServiceHealthCheckConfig - it's stored as JSON, not as a separate entity
+        modelBuilder.Ignore<RuntimeConfig.ServiceHealthCheckConfig>();
     }
 }

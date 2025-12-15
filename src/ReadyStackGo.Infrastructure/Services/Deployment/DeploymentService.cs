@@ -714,6 +714,12 @@ public class DeploymentService : IDeploymentService
                 deployment.SetMaintenanceObserverConfig(request.MaintenanceObserver);
             }
 
+            // Store health check configurations from stack definition
+            if (request.HealthCheckConfigs != null && request.HealthCheckConfigs.Count > 0)
+            {
+                deployment.SetHealthCheckConfigs(request.HealthCheckConfigs);
+            }
+
             // Mark as running with services
             var deployedServices = result.DeployedContexts.Select(c => new DeployedService(
                 c,

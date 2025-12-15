@@ -1,5 +1,6 @@
 using ReadyStackGo.Domain.Deployment.Observers;
 using StackManagement = ReadyStackGo.Domain.StackManagement.Stacks;
+using RuntimeConfig = ReadyStackGo.Domain.Deployment.RuntimeConfig;
 
 namespace ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 
@@ -57,4 +58,10 @@ public class DeployStackRequest
     /// Uses the Deployment domain's value object.
     /// </summary>
     public MaintenanceObserverConfig? MaintenanceObserver { get; set; }
+
+    /// <summary>
+    /// Health check configurations for services (optional).
+    /// Extracted from service healthCheck definitions in the stack manifest.
+    /// </summary>
+    public IReadOnlyList<RuntimeConfig.ServiceHealthCheckConfig>? HealthCheckConfigs { get; set; }
 }

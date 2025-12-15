@@ -216,11 +216,14 @@ public record VolumeMapping
 
 /// <summary>
 /// Health check configuration for a service.
+/// Supports both Docker HEALTHCHECK and RSGO HTTP health checks.
 /// </summary>
 public record ServiceHealthCheck
 {
+    #region Docker HEALTHCHECK (for container-level checks)
+
     /// <summary>
-    /// Test command to run.
+    /// Test command to run (Docker HEALTHCHECK).
     /// </summary>
     public IReadOnlyList<string> Test { get; init; } = Array.Empty<string>();
 
@@ -243,4 +246,52 @@ public record ServiceHealthCheck
     /// Start period before health checks begin.
     /// </summary>
     public TimeSpan? StartPeriod { get; init; }
+
+    #endregion
+
+    #region RSGO HTTP Health Check
+
+    /// <summary>
+    /// Health check type: "docker" (default), "http", "tcp", or "none".
+    /// </summary>
+    public string Type { get; init; } = "docker";
+
+    /// <summary>
+    /// HTTP path for health endpoint (e.g., "/hc" or "/health").
+    /// Only used when Type = "http".
+    /// </summary>
+    public string? Path { get; init; }
+
+    /// <summary>
+    /// Port for HTTP/TCP health checks.
+    /// </summary>
+    public int? Port { get; init; }
+
+    /// <summary>
+    /// Expected HTTP status codes for healthy response.
+    /// Defaults to [200].
+    /// </summary>
+    public IReadOnlyList<int>? ExpectedStatusCodes { get; init; }
+
+    /// <summary>
+    /// Whether to use HTTPS for HTTP health checks.
+    /// </summary>
+    public bool Https { get; init; }
+
+    #endregion
+
+    /// <summary>
+    /// Returns true if this is an RSGO HTTP health check.
+    /// </summary>
+    public bool IsHttpHealthCheck => Type.Equals("http", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Returns true if this is an RSGO TCP health check.
+    /// </summary>
+    public bool IsTcpHealthCheck => Type.Equals("tcp", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Returns true if health checks are disabled.
+    /// </summary>
+    public bool IsDisabled => Type.Equals("none", StringComparison.OrdinalIgnoreCase);
 }

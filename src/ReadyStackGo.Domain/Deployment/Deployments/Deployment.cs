@@ -39,6 +39,10 @@ public class Deployment : AggregateRoot<DeploymentId>
     // Maintenance observer configuration (from product definition at deploy time)
     public MaintenanceObserverConfig? MaintenanceObserverConfig { get; private set; }
 
+    // Health check configurations for services (from stack definition at deploy time)
+    private readonly List<RuntimeConfig.ServiceHealthCheckConfig> _healthCheckConfigs = new();
+    public IReadOnlyCollection<RuntimeConfig.ServiceHealthCheckConfig> HealthCheckConfigs => _healthCheckConfigs.AsReadOnly();
+
     private readonly List<DeployedService> _services = new();
     public IReadOnlyCollection<DeployedService> Services => _services.AsReadOnly();
 
@@ -174,6 +178,27 @@ public class Deployment : AggregateRoot<DeploymentId>
     public void SetMaintenanceObserverConfig(MaintenanceObserverConfig? config)
     {
         MaintenanceObserverConfig = config;
+    }
+
+    /// <summary>
+    /// Sets the health check configurations for this deployment's services.
+    /// </summary>
+    public void SetHealthCheckConfigs(IEnumerable<RuntimeConfig.ServiceHealthCheckConfig>? configs)
+    {
+        _healthCheckConfigs.Clear();
+        if (configs != null)
+        {
+            _healthCheckConfigs.AddRange(configs);
+        }
+    }
+
+    /// <summary>
+    /// Gets the health check configuration for a specific service.
+    /// </summary>
+    public RuntimeConfig.ServiceHealthCheckConfig? GetHealthCheckConfig(string serviceName)
+    {
+        return _healthCheckConfigs.FirstOrDefault(c =>
+            c.ServiceName.Equals(serviceName, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>

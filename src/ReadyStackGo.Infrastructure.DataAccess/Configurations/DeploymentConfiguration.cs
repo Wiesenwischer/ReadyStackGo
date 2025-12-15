@@ -9,6 +9,7 @@ using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Domain.Deployment.Observers;
+using RuntimeConfig = ReadyStackGo.Domain.Deployment.RuntimeConfig;
 
 /// <summary>
 /// EF Core configuration for Deployment aggregate.
@@ -93,6 +94,13 @@ public class DeploymentConfiguration : IEntityTypeConfiguration<Deployment>
                 v => v == null ? null : JsonSerializer.Serialize(v, observerConfigOptions),
                 v => string.IsNullOrEmpty(v) ? null : JsonSerializer.Deserialize<MaintenanceObserverConfig>(v, observerConfigOptions))
             .HasColumnName("MaintenanceObserverConfigJson");
+
+        // Configure HealthCheckConfigs as JSON column (value objects, not entities)
+        builder.Property<List<RuntimeConfig.ServiceHealthCheckConfig>>("_healthCheckConfigs")
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                v => JsonSerializer.Deserialize<List<RuntimeConfig.ServiceHealthCheckConfig>>(v, (JsonSerializerOptions?)null) ?? new())
+            .HasColumnName("HealthCheckConfigsJson");
 
         // Configure DeployedServices as owned collection
         builder.OwnsMany(d => d.Services, s =>
