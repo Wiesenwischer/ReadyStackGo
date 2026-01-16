@@ -68,43 +68,49 @@ Rough outlook on planned versions and features.
   - `Variable` record with comprehensive UI metadata (Type, Pattern, Options, Min/Max, Group, Order)
   - Built-in `Validate()` method for type-specific validation
   - Clean build with 0 warnings (fixed CS0105, CS8602, CS8604)
+- **v0.13** – Health Monitoring (2025-12-15)
+  - Load Health Check Configuration from RSGO Manifest
+  - `ServiceHealthCheck` extended with HTTP/TCP fields (type, path, port, expectedStatusCodes, https)
+  - `HealthCheckConfigs` collection in Deployment aggregate
+  - Health configs extracted during deployment and persisted to database
+  - `HealthCollectorService` uses health configs for HTTP/TCP checks
+  - 41 unit tests + 15 integration tests with TestContainers
 
 ## Planned
 
-### v0.13 – Health Monitoring + Rollback
-- Container Health Monitoring (Status, Health, RestartCount)
-- Stack Health Dashboard
+### v0.14 – Health Dashboard + Rollback
+- Stack Health Dashboard (UI for health status visualization)
 - Deployment Rollback (Restore Previous Stack Version)
 
-### v0.14 – Registry Management + Git Stack Sources
+### v0.15 – Registry Management + Git Stack Sources
 - Settings Page for Registry Management
 - Multiple Docker Registries Configurable (Name, URL, Username, Password)
 - GitRepository StackSourceProvider (Load Stacks from Git Repos)
 
-### v0.15 – Release & TLS Management
+### v0.16 – Release & TLS Management
 - Release Management UI
 - Custom TLS Certificates
 
-### v0.16 – Metrics & Audit
+### v0.17 – Metrics & Audit
 - Metrics & Alerting
 - Audit Logs
 
-### v0.17 – Docker Volumes Management
+### v0.18 – Docker Volumes Management
 - Docker Volumes View (List All Volumes per Environment)
 - Volume Details (Size, Mount Points, Labels)
 - Create/Delete Volumes
 - Detect Orphaned Volumes
 
-### v0.18 – CI/CD Integration
+### v0.19 – CI/CD Integration
 - Webhooks for External CI/CD Systems
 - API for Automated Deployments
 
-### v0.19 – Multi-User Support
+### v0.20 – Multi-User Support
 - User Management UI
 - Create/Edit Users
 - Password Reset Flow
 
-### v0.20 – Feature Flags
+### v0.21 – Feature Flags
 - Feature Flags UI in Admin
 - Feature Toggle at Organization Level
 - Environment Variables for Feature Flags
