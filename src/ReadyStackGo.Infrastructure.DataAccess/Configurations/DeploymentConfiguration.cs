@@ -103,11 +103,13 @@ public class DeploymentConfiguration : IEntityTypeConfiguration<Deployment>
             .HasColumnName("MaintenanceObserverConfigJson");
 
         // Configure HealthCheckConfigs as JSON column (value objects, not entities)
-        builder.Property<List<RuntimeConfig.ServiceHealthCheckConfig>>("_healthCheckConfigs")
+        // Use the public property with backing field access mode
+        builder.Property(d => d.HealthCheckConfigs)
             .HasConversion(
                 v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
                 v => JsonSerializer.Deserialize<List<RuntimeConfig.ServiceHealthCheckConfig>>(v, (JsonSerializerOptions?)null) ?? new())
-            .HasColumnName("HealthCheckConfigsJson");
+            .HasColumnName("HealthCheckConfigsJson")
+            .Metadata.SetPropertyAccessMode(PropertyAccessMode.Field);
 
         // Configure DeployedServices as owned collection
         builder.OwnsMany(d => d.Services, s =>
