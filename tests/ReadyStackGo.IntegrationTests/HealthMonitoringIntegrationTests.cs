@@ -4,7 +4,10 @@ using System.Net.Http.Json;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
+using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Health;
+using ReadyStackGo.Infrastructure.Services.Health;
 using ReadyStackGo.IntegrationTests.Infrastructure;
 using Xunit;
 
@@ -425,22 +428,6 @@ public class HttpHealthCheckerIntegrationTests : IAsyncLifetime
     }
 
     [SkippableFact]
-    public async Task HttpHealthCheck_WithTimeout_FailsGracefully()
-    {
-        Skip.IfNot(_dockerAvailable, "Docker is not available");
-
-        // Arrange - Use a very short timeout
-        using var httpClient = new HttpClient { Timeout = TimeSpan.FromMilliseconds(1) };
-        var url = $"http://localhost:{_containerPort}/";
-
-        // Act & Assert
-        await Assert.ThrowsAnyAsync<Exception>(async () =>
-        {
-            await httpClient.GetAsync(url);
-        });
-    }
-
-    [SkippableFact]
     public async Task HttpHealthCheck_WithInvalidPort_FailsGracefully()
     {
         Skip.IfNot(_dockerAvailable, "Docker is not available");
@@ -454,6 +441,31 @@ public class HttpHealthCheckerIntegrationTests : IAsyncLifetime
         {
             await httpClient.GetAsync(url);
         });
+    }
+
+    [SkippableFact]
+    public async Task HttpHealthCheck_WithTimeout_ReturnsConnectionFailed()
+    {
+        Skip.IfNot(_dockerAvailable, "Docker is not available");
+
+        // Arrange - Use the actual HttpHealthChecker with a non-routable IP
+        // 10.255.255.1 is typically not reachable and will timeout
+        using var httpClient = new HttpClient();
+        var healthChecker = new HttpHealthChecker(httpClient, NullLogger<HttpHealthChecker>.Instance);
+        var config = new HttpHealthCheckConfig
+        {
+            Path = "/health",
+            Port = 8080,
+            Timeout = TimeSpan.FromSeconds(2),
+            HealthyStatusCodes = [200]
+        };
+
+        // Act
+        var result = await healthChecker.CheckHealthAsync("10.255.255.1", config);
+
+        // Assert - Should return a connection failed result, not throw
+        result.IsHealthy.Should().BeFalse();
+        result.Error.Should().NotBeNullOrEmpty();
     }
 }
 
