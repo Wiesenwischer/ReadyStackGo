@@ -9,6 +9,7 @@ import {
   PlugInIcon,
   ListIcon,
   BoxIcon,
+  PulseIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { useEnvironment } from "../context/EnvironmentContext";
@@ -27,6 +28,12 @@ const navItems: NavItem[] = [
     icon: <GridIcon />,
     name: "Dashboard",
     path: "/",
+    requiresEnvironment: true,
+  },
+  {
+    icon: <PulseIcon />,
+    name: "Health",
+    path: "/health",
     requiresEnvironment: true,
   },
   {

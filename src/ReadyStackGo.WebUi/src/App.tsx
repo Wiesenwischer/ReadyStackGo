@@ -5,6 +5,7 @@ import Dashboard from "./pages/Dashboard";
 import Containers from "./pages/Containers";
 import Deployments from "./pages/Deployments";
 import DeploymentDetail from "./pages/DeploymentDetail";
+import HealthDashboard from "./pages/HealthDashboard";
 import StackCatalog from "./pages/StackCatalog";
 import ProductDetail from "./pages/ProductDetail";
 import DeployStack from "./pages/DeployStack";
@@ -81,6 +82,14 @@ export default function App() {
                   element={
                     <EnvironmentGuard>
                       <DeploymentDetail />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/health"
+                  element={
+                    <EnvironmentGuard>
+                      <HealthDashboard />
                     </EnvironmentGuard>
                   }
                 />
