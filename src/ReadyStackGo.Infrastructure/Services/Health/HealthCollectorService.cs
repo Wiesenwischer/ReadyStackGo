@@ -4,6 +4,8 @@ using ReadyStackGo.Application.UseCases.Health;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using DomainDeployment = ReadyStackGo.Domain.Deployment.Deployments.Deployment;
+using DomainHealthCheckConfig = ReadyStackGo.Domain.Deployment.RuntimeConfig.ServiceHealthCheckConfig;
+using AppHealthCheckConfig = ReadyStackGo.Application.Services.ServiceHealthCheckConfig;
 
 namespace ReadyStackGo.Infrastructure.Services.Health;
 
@@ -65,13 +67,16 @@ public class HealthCollectorService : IHealthCollectorService
 
             try
             {
+                // Map health check configs from deployment to application layer format
+                var serviceHealthConfigs = MapHealthCheckConfigs(deployment.HealthCheckConfigs);
+
                 var snapshot = await _healthMonitoringService.CaptureHealthSnapshotAsync(
                     environment.OrganizationId,
                     environmentId,
                     deployment.Id,
                     deployment.StackName,
                     deployment.StackVersion,
-                    serviceHealthConfigs: null, // TODO: Load from stack definition
+                    serviceHealthConfigs,
                     cancellationToken);
 
                 var summaryDto = HealthSnapshotMapper.MapToStackHealthSummary(snapshot);
@@ -152,13 +157,16 @@ public class HealthCollectorService : IHealthCollectorService
 
         try
         {
+            // Map health check configs from deployment to application layer format
+            var serviceHealthConfigs = MapHealthCheckConfigs(deployment.HealthCheckConfigs);
+
             var snapshot = await _healthMonitoringService.CaptureHealthSnapshotAsync(
                 environment.OrganizationId,
                 deployment.EnvironmentId,
                 deploymentId,
                 deployment.StackName,
                 deployment.StackVersion,
-                serviceHealthConfigs: null, // TODO: Load from stack definition
+                serviceHealthConfigs,
                 cancellationToken);
 
             var summaryDto = HealthSnapshotMapper.MapToStackHealthSummary(snapshot);
@@ -220,5 +228,41 @@ public class HealthCollectorService : IHealthCollectorService
     private IEnumerable<DomainDeployment> GetAllActiveDeployments()
     {
         return _deploymentRepository.GetAllActive();
+    }
+
+    /// <summary>
+    /// Maps domain health check configs to application layer format.
+    /// </summary>
+    private static IReadOnlyDictionary<string, AppHealthCheckConfig>? MapHealthCheckConfigs(
+        IReadOnlyCollection<DomainHealthCheckConfig>? domainConfigs)
+    {
+        if (domainConfigs == null || domainConfigs.Count == 0)
+            return null;
+
+        var result = new Dictionary<string, AppHealthCheckConfig>();
+
+        foreach (var config in domainConfigs)
+        {
+            // Parse timeout from string (e.g., "00:00:10") to seconds
+            var timeoutSeconds = 5;
+            if (!string.IsNullOrEmpty(config.Timeout) && TimeSpan.TryParse(config.Timeout, out var timeout))
+            {
+                timeoutSeconds = (int)timeout.TotalSeconds;
+            }
+
+            var appConfig = new AppHealthCheckConfig
+            {
+                Type = config.Type,
+                Path = config.Path ?? "/hc",
+                Port = config.Port,
+                TimeoutSeconds = timeoutSeconds,
+                UseHttps = config.Https,
+                ExpectedStatusCodes = config.ExpectedStatusCodes ?? new[] { 200 }
+            };
+
+            result[config.ServiceName] = appConfig;
+        }
+
+        return result.Count > 0 ? result : null;
     }
 }

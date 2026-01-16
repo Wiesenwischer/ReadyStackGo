@@ -2,6 +2,8 @@ using MediatR;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.Deployment.Observers;
 using ReadyStackGo.Domain.StackManagement.Manifests;
+using ReadyStackGo.Domain.StackManagement.Stacks;
+using RuntimeConfig = ReadyStackGo.Domain.Deployment.RuntimeConfig;
 
 namespace ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 
@@ -46,6 +48,9 @@ public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStac
             ? MapToDeploymentObserverConfig(product.MaintenanceObserver, request.Variables)
             : null;
 
+        // Extract health check configurations from services
+        var healthCheckConfigs = ExtractHealthCheckConfigs(stackDefinition.Services);
+
         // Create request DTO from domain object (mapping at application layer boundary)
         var deployRequest = new DeployStackRequest
         {
@@ -57,7 +62,8 @@ public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStac
             Variables = request.Variables,
             EnvironmentId = request.EnvironmentId,
             CatalogStackId = request.StackId,
-            MaintenanceObserver = observerConfig
+            MaintenanceObserver = observerConfig,
+            HealthCheckConfigs = healthCheckConfigs
         };
 
         // Use client-provided session ID if available, otherwise generate one
@@ -276,5 +282,39 @@ public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStac
             return TimeSpan.FromHours(hours);
 
         return null;
+    }
+
+    /// <summary>
+    /// Extracts health check configurations from service templates.
+    /// Maps ServiceHealthCheck (StackManagement) to ServiceHealthCheckConfig (Deployment).
+    /// </summary>
+    private static IReadOnlyList<RuntimeConfig.ServiceHealthCheckConfig>? ExtractHealthCheckConfigs(
+        IReadOnlyList<ServiceTemplate> services)
+    {
+        var configs = new List<RuntimeConfig.ServiceHealthCheckConfig>();
+
+        foreach (var service in services)
+        {
+            if (service.HealthCheck == null)
+                continue;
+
+            // Map ServiceHealthCheck from StackManagement to ServiceHealthCheckConfig in Deployment domain
+            var config = new RuntimeConfig.ServiceHealthCheckConfig
+            {
+                ServiceName = service.Name,
+                Type = service.HealthCheck.Type,
+                Path = service.HealthCheck.Path,
+                Port = service.HealthCheck.Port,
+                ExpectedStatusCodes = service.HealthCheck.ExpectedStatusCodes,
+                Https = service.HealthCheck.Https,
+                Interval = service.HealthCheck.Interval?.ToString(),
+                Timeout = service.HealthCheck.Timeout?.ToString(),
+                Retries = service.HealthCheck.Retries
+            };
+
+            configs.Add(config);
+        }
+
+        return configs.Count > 0 ? configs.AsReadOnly() : null;
     }
 }

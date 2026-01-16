@@ -2,6 +2,7 @@ using FluentAssertions;
 using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.RuntimeConfig;
 
 namespace ReadyStackGo.UnitTests.Domain.Deployment;
 
@@ -1081,6 +1082,222 @@ public class DeploymentTests
         // Assert - Variables should still be accessible
         deployment.Variables.Should().ContainKey("ENV_VAR");
         deployment.Variables["ENV_VAR"].Should().Be("test_value");
+    }
+
+    #endregion
+
+    #region HealthCheckConfigs Tests
+
+    [Fact]
+    public void SetHealthCheckConfigs_WithValidConfigs_StoresConfigs()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        var configs = new[]
+        {
+            new ServiceHealthCheckConfig
+            {
+                ServiceName = "api",
+                Type = "http",
+                Path = "/health",
+                Port = 8080,
+                Https = false
+            },
+            new ServiceHealthCheckConfig
+            {
+                ServiceName = "db",
+                Type = "tcp",
+                Port = 5432
+            }
+        };
+
+        // Act
+        deployment.SetHealthCheckConfigs(configs);
+
+        // Assert
+        deployment.HealthCheckConfigs.Should().HaveCount(2);
+        deployment.HealthCheckConfigs.Should().Contain(c => c.ServiceName == "api");
+        deployment.HealthCheckConfigs.Should().Contain(c => c.ServiceName == "db");
+    }
+
+    [Fact]
+    public void SetHealthCheckConfigs_WithNull_ClearsConfigs()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        deployment.SetHealthCheckConfigs(new[]
+        {
+            new ServiceHealthCheckConfig { ServiceName = "api", Type = "http" }
+        });
+
+        // Act
+        deployment.SetHealthCheckConfigs(null);
+
+        // Assert
+        deployment.HealthCheckConfigs.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void SetHealthCheckConfigs_OverwritesExistingConfigs()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        deployment.SetHealthCheckConfigs(new[]
+        {
+            new ServiceHealthCheckConfig { ServiceName = "old-service", Type = "docker" }
+        });
+
+        // Act
+        deployment.SetHealthCheckConfigs(new[]
+        {
+            new ServiceHealthCheckConfig { ServiceName = "new-service", Type = "http", Path = "/hc" }
+        });
+
+        // Assert
+        deployment.HealthCheckConfigs.Should().HaveCount(1);
+        deployment.HealthCheckConfigs.First().ServiceName.Should().Be("new-service");
+    }
+
+    [Fact]
+    public void GetHealthCheckConfig_WithExistingService_ReturnsConfig()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        deployment.SetHealthCheckConfigs(new[]
+        {
+            new ServiceHealthCheckConfig
+            {
+                ServiceName = "api",
+                Type = "http",
+                Path = "/health",
+                Port = 8080
+            }
+        });
+
+        // Act
+        var config = deployment.GetHealthCheckConfig("api");
+
+        // Assert
+        config.Should().NotBeNull();
+        config!.Type.Should().Be("http");
+        config.Path.Should().Be("/health");
+        config.Port.Should().Be(8080);
+    }
+
+    [Fact]
+    public void GetHealthCheckConfig_WithNonExistingService_ReturnsNull()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        deployment.SetHealthCheckConfigs(new[]
+        {
+            new ServiceHealthCheckConfig { ServiceName = "api", Type = "http" }
+        });
+
+        // Act
+        var config = deployment.GetHealthCheckConfig("nonexistent");
+
+        // Assert
+        config.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetHealthCheckConfig_IsCaseInsensitive()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        deployment.SetHealthCheckConfigs(new[]
+        {
+            new ServiceHealthCheckConfig { ServiceName = "Api", Type = "http" }
+        });
+
+        // Act
+        var config = deployment.GetHealthCheckConfig("api");
+
+        // Assert
+        config.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void HealthCheckConfigs_DefaultsToEmpty()
+    {
+        // Arrange & Act
+        var deployment = CreateTestDeployment();
+
+        // Assert
+        deployment.HealthCheckConfigs.Should().NotBeNull();
+        deployment.HealthCheckConfigs.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void HealthCheckConfigs_IsReadOnly()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        deployment.SetHealthCheckConfigs(new[]
+        {
+            new ServiceHealthCheckConfig { ServiceName = "api", Type = "http" }
+        });
+
+        // Assert
+        deployment.HealthCheckConfigs.Should().BeAssignableTo<IReadOnlyCollection<ServiceHealthCheckConfig>>();
+    }
+
+    [Fact]
+    public void SetHealthCheckConfigs_PreservesAfterStatusTransition()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        deployment.SetHealthCheckConfigs(new[]
+        {
+            new ServiceHealthCheckConfig
+            {
+                ServiceName = "api",
+                Type = "http",
+                Path = "/health"
+            }
+        });
+
+        // Act
+        deployment.MarkAsRunning(CreateTestServices());
+
+        // Assert
+        deployment.HealthCheckConfigs.Should().HaveCount(1);
+        deployment.HealthCheckConfigs.First().ServiceName.Should().Be("api");
+    }
+
+    [Fact]
+    public void SetHealthCheckConfigs_WithAllProperties_StoresAllProperties()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        var config = new ServiceHealthCheckConfig
+        {
+            ServiceName = "api",
+            Type = "http",
+            Path = "/hc",
+            Port = 8080,
+            ExpectedStatusCodes = new[] { 200, 204 },
+            Https = true,
+            Interval = "30s",
+            Timeout = "10s",
+            Retries = 3
+        };
+
+        // Act
+        deployment.SetHealthCheckConfigs(new[] { config });
+
+        // Assert
+        var storedConfig = deployment.HealthCheckConfigs.First();
+        storedConfig.ServiceName.Should().Be("api");
+        storedConfig.Type.Should().Be("http");
+        storedConfig.Path.Should().Be("/hc");
+        storedConfig.Port.Should().Be(8080);
+        storedConfig.ExpectedStatusCodes.Should().BeEquivalentTo(new[] { 200, 204 });
+        storedConfig.Https.Should().BeTrue();
+        storedConfig.Interval.Should().Be("30s");
+        storedConfig.Timeout.Should().Be("10s");
+        storedConfig.Retries.Should().Be(3);
     }
 
     #endregion

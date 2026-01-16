@@ -466,20 +466,24 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
 
     /// <summary>
     /// Converts an RsgoHealthCheck to a ServiceHealthCheck.
+    /// Supports both Docker HEALTHCHECK and RSGO HTTP/TCP health checks.
     /// </summary>
-    private static ServiceHealthCheck? ConvertToServiceHealthCheck(RsgoHealthCheck healthCheck)
+    private static ServiceHealthCheck ConvertToServiceHealthCheck(RsgoHealthCheck healthCheck)
     {
-        // Skip if this is an RSGO-specific health check (HTTP/TCP), not a Docker HEALTHCHECK
-        if (healthCheck.IsHttpHealthCheck || healthCheck.IsTcpHealthCheck || healthCheck.IsDisabled)
-            return null;
-
         return new ServiceHealthCheck
         {
+            // Docker HEALTHCHECK fields
             Test = healthCheck.Test ?? new List<string>(),
             Interval = ParseTimeSpan(healthCheck.Interval),
             Timeout = ParseTimeSpan(healthCheck.Timeout),
             Retries = healthCheck.Retries,
-            StartPeriod = ParseTimeSpan(healthCheck.StartPeriod)
+            StartPeriod = ParseTimeSpan(healthCheck.StartPeriod),
+            // RSGO HTTP/TCP health check fields
+            Type = healthCheck.Type,
+            Path = healthCheck.Path,
+            Port = healthCheck.Port,
+            ExpectedStatusCodes = healthCheck.ExpectedStatusCodes,
+            Https = healthCheck.Https
         };
     }
 
