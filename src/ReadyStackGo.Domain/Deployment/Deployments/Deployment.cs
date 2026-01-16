@@ -580,6 +580,22 @@ public class Deployment : AggregateRoot<DeploymentId>
     #region Service Management
 
     /// <summary>
+    /// Updates the services after an upgrade, replacing the current service list.
+    /// Used during in-place upgrades to preserve the deployment aggregate with its snapshots.
+    /// </summary>
+    public void UpdateServicesAfterUpgrade(IEnumerable<DeployedService> newServices)
+    {
+        SelfAssertArgumentTrue(Status == DeploymentStatus.Running,
+            "Can only update services on a running deployment.");
+
+        _services.Clear();
+        _services.AddRange(newServices);
+
+        RecordPhase(DeploymentPhase.Completed, $"Upgraded to version {StackVersion}");
+        AddDomainEvent(new DeploymentProgressUpdated(Id, DeploymentPhase.Completed, 100, $"Upgraded to version {StackVersion}"));
+    }
+
+    /// <summary>
     /// Updates the status of a specific service.
     /// </summary>
     public void UpdateServiceStatus(string serviceName, string status)

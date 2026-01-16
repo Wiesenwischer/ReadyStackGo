@@ -51,4 +51,19 @@ public interface IDeploymentRepository
     /// Saves all pending changes.
     /// </summary>
     void SaveChanges();
+
+    /// <summary>
+    /// Gets a deployment with its snapshots loaded.
+    /// </summary>
+    Deployment? GetWithSnapshots(DeploymentId id);
+
+    /// <summary>
+    /// Gets a deployment with snapshots by stack name within an environment.
+    /// </summary>
+    Deployment? GetWithSnapshotsByStackName(EnvironmentId environmentId, string stackName);
+
+    /// <summary>
+    /// Generates a new unique snapshot identity.
+    /// </summary>
+    DeploymentSnapshotId NextSnapshotIdentity();
 }

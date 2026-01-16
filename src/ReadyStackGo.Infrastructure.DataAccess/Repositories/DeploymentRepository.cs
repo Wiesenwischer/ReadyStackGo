@@ -75,4 +75,26 @@ public class DeploymentRepository : IDeploymentRepository
     {
         _context.SaveChanges();
     }
+
+    public Deployment? GetWithSnapshots(DeploymentId id)
+    {
+        return _context.Deployments
+            .Include(d => d.Snapshots)
+            .FirstOrDefault(d => d.Id == id);
+    }
+
+    public Deployment? GetWithSnapshotsByStackName(EnvironmentId environmentId, string stackName)
+    {
+        return _context.Deployments
+            .Include(d => d.Snapshots)
+            .Where(d => d.EnvironmentId == environmentId && d.StackName == stackName)
+            .Where(d => d.Status != DeploymentStatus.Removed)
+            .OrderByDescending(d => d.CreatedAt)
+            .FirstOrDefault();
+    }
+
+    public DeploymentSnapshotId NextSnapshotIdentity()
+    {
+        return DeploymentSnapshotId.Create();
+    }
 }
