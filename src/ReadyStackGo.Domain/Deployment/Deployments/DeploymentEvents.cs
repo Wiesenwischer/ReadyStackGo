@@ -122,3 +122,43 @@ public sealed class OperationModeChanged : DomainEvent
         Reason = reason;
     }
 }
+
+/// <summary>
+/// Event raised when a deployment rollback is initiated.
+/// </summary>
+public sealed class DeploymentRollbackInitiated : DomainEvent
+{
+    public DeploymentId DeploymentId { get; }
+    public DeploymentSnapshotId SnapshotId { get; }
+    public string TargetVersion { get; }
+
+    public DeploymentRollbackInitiated(
+        DeploymentId deploymentId,
+        DeploymentSnapshotId snapshotId,
+        string targetVersion)
+    {
+        DeploymentId = deploymentId;
+        SnapshotId = snapshotId;
+        TargetVersion = targetVersion;
+    }
+}
+
+/// <summary>
+/// Event raised when a deployment snapshot is created.
+/// </summary>
+public sealed class DeploymentSnapshotCreated : DomainEvent
+{
+    public DeploymentId DeploymentId { get; }
+    public DeploymentSnapshotId SnapshotId { get; }
+    public string StackVersion { get; }
+
+    public DeploymentSnapshotCreated(
+        DeploymentId deploymentId,
+        DeploymentSnapshotId snapshotId,
+        string stackVersion)
+    {
+        DeploymentId = deploymentId;
+        SnapshotId = snapshotId;
+        StackVersion = stackVersion;
+    }
+}

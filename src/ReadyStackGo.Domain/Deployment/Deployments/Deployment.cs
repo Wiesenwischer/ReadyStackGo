@@ -49,6 +49,12 @@ public class Deployment : AggregateRoot<DeploymentId>
     private readonly List<DeploymentPhaseRecord> _phaseHistory = new();
     public IReadOnlyCollection<DeploymentPhaseRecord> PhaseHistory => _phaseHistory.AsReadOnly();
 
+    // Deployment snapshots for rollback functionality (max 10)
+    private readonly List<DeploymentSnapshot> _snapshots = new();
+    public IReadOnlyCollection<DeploymentSnapshot> Snapshots => _snapshots.AsReadOnly();
+
+    private const int MaxSnapshots = 10;
+
     // For EF Core
     protected Deployment() { }
 
@@ -467,6 +473,107 @@ public class Deployment : AggregateRoot<DeploymentId>
 
         MarkAsFailed($"Deployment cancelled: {CancellationReason}");
     }
+
+    #endregion
+
+    #region Snapshots & Rollback
+
+    /// <summary>
+    /// Creates a snapshot of the current deployment state.
+    /// Used before upgrades to enable rollback.
+    /// </summary>
+    public DeploymentSnapshot CreateSnapshot(string? description = null)
+    {
+        SelfAssertArgumentTrue(Status == DeploymentStatus.Running,
+            "Can only create snapshot of a running deployment.");
+        SelfAssertArgumentTrue(!string.IsNullOrEmpty(StackVersion),
+            "Cannot create snapshot without a stack version.");
+
+        var snapshotId = DeploymentSnapshotId.Create();
+        var serviceSnapshots = _services.Select(s => new ServiceSnapshot(s.ServiceName, s.Image ?? "unknown")).ToList();
+
+        var snapshot = DeploymentSnapshot.Create(
+            snapshotId,
+            Id,
+            StackVersion!,
+            _variables,
+            serviceSnapshots,
+            description);
+
+        _snapshots.Add(snapshot);
+
+        // Enforce max snapshots limit (remove oldest)
+        while (_snapshots.Count > MaxSnapshots)
+        {
+            _snapshots.RemoveAt(0);
+        }
+
+        AddDomainEvent(new DeploymentSnapshotCreated(Id, snapshotId, StackVersion!));
+
+        return snapshot;
+    }
+
+    /// <summary>
+    /// Gets a snapshot by ID.
+    /// </summary>
+    public DeploymentSnapshot? GetSnapshot(DeploymentSnapshotId snapshotId)
+    {
+        return _snapshots.FirstOrDefault(s => s.Id == snapshotId);
+    }
+
+    /// <summary>
+    /// Initiates a rollback to a previous snapshot.
+    /// This prepares the deployment for re-deployment with the snapshot's configuration.
+    /// </summary>
+    public void RollbackTo(DeploymentSnapshotId snapshotId)
+    {
+        var snapshot = _snapshots.FirstOrDefault(s => s.Id == snapshotId)
+            ?? throw new InvalidOperationException($"Snapshot {snapshotId} not found.");
+
+        SelfAssertArgumentTrue(Status != DeploymentStatus.Failed && Status != DeploymentStatus.Removed,
+            "Cannot rollback a failed or removed deployment.");
+
+        // Store current state as a snapshot before rollback (if running)
+        if (Status == DeploymentStatus.Running && !string.IsNullOrEmpty(StackVersion))
+        {
+            CreateSnapshot($"Auto-snapshot before rollback to {snapshot.StackVersion}");
+        }
+
+        // Restore state from snapshot
+        StackVersion = snapshot.StackVersion;
+        _variables.Clear();
+        foreach (var (key, value) in snapshot.Variables)
+        {
+            _variables[key] = value;
+        }
+
+        // Set to pending for re-deployment
+        Status = DeploymentStatus.Pending;
+        CurrentPhase = DeploymentPhase.Initializing;
+        ProgressPercentage = 0;
+        ProgressMessage = $"Rolling back to version {snapshot.StackVersion}";
+        ErrorMessage = null;
+        IsCancellationRequested = false;
+        CancellationReason = null;
+
+        RecordPhase(DeploymentPhase.Initializing, $"Rollback to {snapshot.StackVersion} initiated");
+        AddDomainEvent(new DeploymentRollbackInitiated(Id, snapshotId, snapshot.StackVersion));
+    }
+
+    /// <summary>
+    /// Checks if rollback is possible from current state.
+    /// </summary>
+    public bool CanRollback()
+    {
+        return _snapshots.Count > 0
+            && Status != DeploymentStatus.Failed
+            && Status != DeploymentStatus.Removed;
+    }
+
+    /// <summary>
+    /// Gets the number of available snapshots.
+    /// </summary>
+    public int SnapshotCount => _snapshots.Count;
 
     #endregion
 

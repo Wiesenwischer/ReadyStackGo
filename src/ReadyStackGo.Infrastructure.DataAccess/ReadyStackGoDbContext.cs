@@ -23,6 +23,7 @@ public class ReadyStackGoDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Environment> Environments => Set<Environment>();
     public DbSet<Deployment> Deployments => Set<Deployment>();
+    public DbSet<DeploymentSnapshot> DeploymentSnapshots => Set<DeploymentSnapshot>();
     public DbSet<HealthSnapshot> HealthSnapshots => Set<HealthSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -33,5 +34,8 @@ public class ReadyStackGoDbContext : DbContext
 
         // Ignore ServiceHealthCheckConfig - it's stored as JSON, not as a separate entity
         modelBuilder.Ignore<RuntimeConfig.ServiceHealthCheckConfig>();
+
+        // Ignore ServiceSnapshot - it's stored as JSON within DeploymentSnapshot
+        modelBuilder.Ignore<ServiceSnapshot>();
     }
 }

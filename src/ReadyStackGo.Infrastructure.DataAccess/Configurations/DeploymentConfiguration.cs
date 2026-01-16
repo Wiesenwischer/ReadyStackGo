@@ -156,6 +156,12 @@ public class DeploymentConfiguration : IEntityTypeConfiguration<Deployment>
                 .IsRequired();
         });
 
+        // Configure Snapshots relationship
+        builder.HasMany(d => d.Snapshots)
+            .WithOne()
+            .HasForeignKey(s => s.DeploymentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Indexes (no unique constraint on ProjectName - allows re-deploying same stack name)
         builder.HasIndex(d => d.EnvironmentId);
 
