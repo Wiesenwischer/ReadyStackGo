@@ -6,7 +6,7 @@ using ReadyStackGo.IntegrationTests.Infrastructure;
 namespace ReadyStackGo.IntegrationTests;
 
 /// <summary>
-/// Integration tests for Deployment Snapshot and Rollback API Endpoints (v0.15 feature).
+/// Integration tests for Deployment Snapshot and Rollback API Endpoints.
 /// Tests snapshot listing, rollback initiation, and error handling.
 /// </summary>
 public class SnapshotEndpointsIntegrationTests : AuthenticatedTestBase

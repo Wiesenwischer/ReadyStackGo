@@ -1421,7 +1421,7 @@ public class DeploymentTests
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
         deployment.MarkAsRunning(CreateTestServices());
-        var snapshot = deployment.CreateSnapshot("Test");
+        var snapshot = deployment.CreateSnapshot("Test")!;
 
         // Act
         var retrieved = deployment.GetSnapshot(snapshot.Id);
@@ -1460,7 +1460,7 @@ public class DeploymentTests
         deployment.MarkAsRunning(services);
 
         // Act
-        var snapshot = deployment.CreateSnapshot();
+        var snapshot = deployment.CreateSnapshot()!;
 
         // Assert
         snapshot.Services.Should().HaveCount(2);
@@ -1480,7 +1480,7 @@ public class DeploymentTests
         deployment.SetStackVersion("1.0.0");
         deployment.SetVariables(new Dictionary<string, string> { ["VAR1"] = "old" });
         deployment.MarkAsRunning(CreateTestServices());
-        var snapshot = deployment.CreateSnapshot("Before upgrade");
+        var snapshot = deployment.CreateSnapshot("Before upgrade")!;
 
         // Change to version 2.0.0
         deployment.SetStackVersion("2.0.0");
@@ -1506,7 +1506,7 @@ public class DeploymentTests
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
         deployment.MarkAsRunning(CreateTestServices());
-        var originalSnapshot = deployment.CreateSnapshot("Original");
+        var originalSnapshot = deployment.CreateSnapshot("Original")!;
 
         deployment.SetStackVersion("2.0.0");
         var snapshotCountBefore = deployment.SnapshotCount;
@@ -1526,7 +1526,7 @@ public class DeploymentTests
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
         deployment.MarkAsRunning(CreateTestServices());
-        var snapshot = deployment.CreateSnapshot();
+        var snapshot = deployment.CreateSnapshot()!;
         deployment.MarkAsStopped();
         var snapshotCountBefore = deployment.SnapshotCount;
 
@@ -1578,7 +1578,7 @@ public class DeploymentTests
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
         deployment.MarkAsRunning(CreateTestServices());
-        var snapshot = deployment.CreateSnapshot();
+        var snapshot = deployment.CreateSnapshot()!;
         deployment.MarkAsRemoved();
 
         // Act
@@ -1646,7 +1646,7 @@ public class DeploymentTests
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
         deployment.MarkAsRunning(CreateTestServices());
-        var snapshot = deployment.CreateSnapshot();
+        var snapshot = deployment.CreateSnapshot()!;
 
         // Simulate a state with progress/error info
         deployment.UpdateProgress(DeploymentPhase.Starting, 50, "In progress");
@@ -1668,7 +1668,7 @@ public class DeploymentTests
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
         deployment.MarkAsRunning(CreateTestServices());
-        var snapshot = deployment.CreateSnapshot();
+        var snapshot = deployment.CreateSnapshot()!;
         deployment.ClearDomainEvents();
 
         // Act
@@ -1682,6 +1682,7 @@ public class DeploymentTests
     }
 
     #endregion
+
 
     #region UpdateServicesAfterUpgrade Tests
 

@@ -78,9 +78,16 @@ Rough outlook on planned versions and features.
 
 ## Planned
 
-### v0.14 – Health Dashboard + Rollback
+### v0.14 – Health Dashboard, Upgrade & Rollback
 - Stack Health Dashboard (UI for health status visualization)
-- Deployment Rollback (Restore Previous Stack Version)
+- Stack Upgrade (Update deployed stacks to newer catalog versions)
+  - SemVer-based version comparison
+  - Environment-level operation locking (one operation per environment)
+  - Pre-upgrade snapshot for recovery
+- Deployment Rollback (Manual recovery after failed upgrades)
+  - Only available after failed upgrade (not for downgrades)
+  - Single snapshot per deployment (previous version only)
+  - Product authors can disable via `metadata.rollback.enabled: false`
 
 ### v0.15 – Registry Management + Git Stack Sources
 - Settings Page for Registry Management

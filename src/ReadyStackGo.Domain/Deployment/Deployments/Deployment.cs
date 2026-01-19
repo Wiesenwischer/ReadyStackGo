@@ -482,7 +482,7 @@ public class Deployment : AggregateRoot<DeploymentId>
     /// Creates a snapshot of the current deployment state.
     /// Used before upgrades to enable rollback.
     /// </summary>
-    public DeploymentSnapshot CreateSnapshot(string? description = null)
+    public DeploymentSnapshot? CreateSnapshot(string? description = null)
     {
         SelfAssertArgumentTrue(Status == DeploymentStatus.Running,
             "Can only create snapshot of a running deployment.");

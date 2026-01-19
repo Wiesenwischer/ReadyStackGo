@@ -11,6 +11,7 @@ public class GetDeploymentSnapshotsResponse
     public string? StackName { get; set; }
     public string? CurrentVersion { get; set; }
     public bool CanRollback { get; set; }
+
     public List<DeploymentSnapshotDto> Snapshots { get; set; } = new();
 }
 
