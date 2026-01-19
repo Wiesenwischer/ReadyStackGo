@@ -278,7 +278,8 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
             tags: productTags,
             maintenanceObserver: maintenanceObserver,
             filePath: filePath,
-            relativePath: relativePath);
+            relativePath: relativePath,
+            productId: manifest.Metadata?.ProductId);
     }
 
     /// <summary>

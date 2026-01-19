@@ -12,6 +12,14 @@ public class RsgoProductMetadata
     public string? Name { get; set; }
 
     /// <summary>
+    /// Unique product identifier for grouping versions across different sources.
+    /// Uses reverse domain notation (e.g., "com.example.myproduct").
+    /// If not set, RSGO generates an ID as "sourceId:name".
+    /// This enables upgrading between versions from different sources (local, git, registry).
+    /// </summary>
+    public string? ProductId { get; set; }
+
+    /// <summary>
     /// Description of what the product does.
     /// </summary>
     public string? Description { get; set; }
