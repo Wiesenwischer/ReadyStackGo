@@ -178,9 +178,6 @@ test.describe('Health History Chart - Deployment Detail', () => {
     await page.goto('/deployments/test-stack');
     await page.waitForTimeout(2000);
 
-    // Check for legend items in the Health History section
-    const healthHistorySection = page.locator('text=Health History').locator('..');
-
     // Legend should show status colors
     await expect(page.getByText('Healthy').first()).toBeVisible();
     await expect(page.getByText('Degraded').first()).toBeVisible();
@@ -318,8 +315,6 @@ test.describe('Health History Chart - Deployment Detail', () => {
     const healthHistoryHeading = page.getByText('Health History');
     await expect(healthHistoryHeading).toBeVisible();
 
-    // Error message should be visible
-    const errorSection = page.locator('[class*="red"]').filter({ hasText: /Health History/i });
     // Error could be shown inline - just verify the section exists
     await expect(healthHistoryHeading).toBeVisible();
   });
