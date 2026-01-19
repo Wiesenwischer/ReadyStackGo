@@ -23,6 +23,7 @@ import {
   type StackHealthDto,
   type ServiceHealthDto
 } from "../api/health";
+import HealthHistoryChart from "../components/health/HealthHistoryChart";
 
 export default function DeploymentDetail() {
   const { stackName } = useParams<{ stackName: string }>();
@@ -674,6 +675,14 @@ export default function DeploymentDetail() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Health History Chart */}
+      {deployment?.deploymentId && (
+        <HealthHistoryChart
+          deploymentId={deployment.deploymentId}
+          className="mb-6"
+        />
       )}
 
       {/* Services */}

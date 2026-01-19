@@ -54,4 +54,5 @@ export { default as ChatIcon } from "./chat.svg?react";
 export { default as MoreDotIcon } from "./moredot.svg?react";
 export { default as AlertHexaIcon } from "./alert-hexa.svg?react";
 export { default as ErrorHexaIcon } from "./info-hexa.svg?react";
+export { default as PulseIcon } from "./pulse.svg?react";
 

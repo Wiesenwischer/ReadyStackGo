@@ -25,7 +25,7 @@ Each stack reports one of four health statuses:
 
 ## Dashboard Widget
 
-The dashboard shows a summary of all deployments with their current health:
+The main dashboard shows a compact summary of all deployments with their current health:
 
 ```
 ┌─────────────────────────────────────────┐
@@ -37,15 +37,59 @@ The dashboard shows a summary of all deployments with their current health:
 └─────────────────────────────────────────┘
 ```
 
+## Health Dashboard Page
+
+For a more comprehensive view, navigate to `/health` to access the dedicated Health Dashboard. This full-screen view provides:
+
+### Summary Cards
+At the top, four cards show the count of stacks by status:
+- **Healthy** - All services running normally
+- **Degraded** - Some services experiencing issues
+- **Unhealthy** - Critical services down or failing
+- **Total** - Total number of monitored stacks
+
+### Filters
+- **Status Filter** - Show only stacks with a specific status (All/Healthy/Degraded/Unhealthy)
+- **Search** - Find stacks by name or version
+
+### Expandable Stack Cards
+Each stack is displayed as a card showing:
+- Stack name and version
+- Last health check timestamp
+- Service count (healthy/total)
+- Operation mode badge (if not Normal)
+- Overall health status badge
+
+Click on a card to expand it and see:
+- Individual service status with container details
+- Restart counts per service
+- Link to the full deployment detail page
+
+### Real-time Updates
+The Health Dashboard receives live updates via SignalR:
+- Status changes appear immediately without refresh
+- A "Live" indicator shows the connection status
+- Automatic reconnection if connection is lost
+
 ## Deployment Detail View
 
-The deployment detail page shows:
+The deployment detail page (`/deployments/{stackName}`) shows:
 
-- Overall stack health status
+- Overall stack health status badge
 - Operation mode (Normal, Maintenance, Migrating, etc.)
+- Health summary card with service counts
+- **Health History Chart** - Visual timeline of health status over time
 - Individual service status with container details
-- Recent health history
-- Restart counts and uptime
+- Restart counts per service
+
+### Health History Chart
+
+The deployment detail page includes a chart showing health trends:
+- Displays the last 100 health check results
+- X-axis shows time, Y-axis shows health percentage (0-100%)
+- Color-coded based on current status (green/yellow/red)
+- Hover over data points to see exact values
+- Helps identify patterns and recurring issues
 
 ## Health Checks
 
