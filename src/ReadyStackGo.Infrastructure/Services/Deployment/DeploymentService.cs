@@ -690,15 +690,42 @@ public class DeploymentService : IDeploymentService
                 ? DeploymentUserId.FromIdentityAccess(currentUser.Id)
                 : DeploymentUserId.NewId();
 
-            // Create and persist deployment record
-            var deploymentId = _deploymentRepository.NextIdentity();
-            var deployment = Domain.Deployment.Deployments.Deployment.Start(
-                deploymentId,
-                new EnvironmentId(envGuid),
-                request.CatalogStackId ?? request.StackName, // Use CatalogStackId if available
-                request.StackName,
-                request.StackName, // Use stack name as project name
-                deploymentUserId);
+            // Check for existing deployment - we upgrade in place to preserve snapshots
+            var existingDeployment = _deploymentRepository.GetWithSnapshotsByStackName(
+                new EnvironmentId(envGuid), request.StackName);
+
+            Domain.Deployment.Deployments.Deployment deployment;
+            DeploymentId deploymentId;
+            bool isUpgrade = false;
+
+            if (existingDeployment != null &&
+                existingDeployment.Status == Domain.Deployment.Deployments.DeploymentStatus.Running &&
+                !string.IsNullOrEmpty(existingDeployment.StackVersion))
+            {
+                // Upgrade existing deployment - create snapshot first for rollback capability
+                var snapshotDescription = $"Auto-snapshot before upgrade to {plan.StackVersion}";
+                existingDeployment.CreateSnapshot(snapshotDescription);
+
+                _logger.LogInformation("Created snapshot of deployment {DeploymentId} before upgrade to {NewVersion}",
+                    existingDeployment.Id, plan.StackVersion);
+
+                // Reuse existing deployment for upgrade (preserves aggregate with snapshots)
+                deployment = existingDeployment;
+                deploymentId = existingDeployment.Id;
+                isUpgrade = true;
+            }
+            else
+            {
+                // Create new deployment record
+                deploymentId = _deploymentRepository.NextIdentity();
+                deployment = Domain.Deployment.Deployments.Deployment.Start(
+                    deploymentId,
+                    new EnvironmentId(envGuid),
+                    request.CatalogStackId ?? request.StackName, // Use CatalogStackId if available
+                    request.StackName,
+                    request.StackName, // Use stack name as project name
+                    deploymentUserId);
+            }
 
             deployment.SetStackVersion(plan.StackVersion);
 
@@ -729,13 +756,21 @@ public class DeploymentService : IDeploymentService
                 "running"
             )).ToList();
 
-            deployment.MarkAsRunning(deployedServices);
-
-            _deploymentRepository.Add(deployment);
+            if (isUpgrade)
+            {
+                // For upgrades, update services in-place (deployment already running)
+                deployment.UpdateServicesAfterUpgrade(deployedServices);
+                _deploymentRepository.Update(deployment);
+            }
+            else
+            {
+                deployment.MarkAsRunning(deployedServices);
+                _deploymentRepository.Add(deployment);
+            }
             _deploymentRepository.SaveChanges();
 
-            _logger.LogInformation("Successfully deployed stack {StackName} with deployment ID {DeploymentId}",
-                request.StackName, deploymentId);
+            _logger.LogInformation("Successfully {Action} stack {StackName} with deployment ID {DeploymentId}",
+                isUpgrade ? "upgraded" : "deployed", request.StackName, deploymentId);
 
             // Build success message with warning hint
             var message = $"Successfully deployed {request.StackName}";

@@ -130,3 +130,142 @@ export async function getDeployment(environmentId: string, deploymentId: string)
 export async function removeDeployment(environmentId: string, deploymentId: string): Promise<DeployComposeResponse> {
   return apiDelete<DeployComposeResponse>(`/api/environments/${environmentId}/deployments/${deploymentId}`);
 }
+
+// ============================================================================
+// Rollback API
+// ============================================================================
+
+/**
+ * Response from GET /api/environments/{envId}/deployments/{deploymentId}/snapshots
+ * Contains rollback information for a deployment.
+ */
+export interface RollbackInfoResponse {
+  success: boolean;
+  message?: string;
+  deploymentId?: string;
+  stackName?: string;
+  currentVersion?: string;
+  /** Whether rollback is currently available (Failed status + has PendingUpgradeSnapshot) */
+  canRollback: boolean;
+  /** The version that would be restored on rollback */
+  rollbackTargetVersion?: string;
+  /** When the snapshot was created (start of upgrade) */
+  snapshotCreatedAt?: string;
+  /** Description of the snapshot */
+  snapshotDescription?: string;
+  /** Legacy field - contains 0 or 1 snapshot for backwards compatibility */
+  snapshots: SnapshotDto[];
+}
+
+export interface SnapshotDto {
+  snapshotId: string;
+  stackVersion: string;
+  createdAt: string;
+  description?: string;
+  serviceCount: number;
+  variableCount: number;
+}
+
+/**
+ * Response from POST /api/environments/{envId}/deployments/{deploymentId}/rollback
+ */
+export interface RollbackResponse {
+  success: boolean;
+  message?: string;
+  deploymentId?: string;
+  targetVersion?: string;
+  previousVersion?: string;
+}
+
+/**
+ * Get rollback information for a deployment.
+ * Returns information about the pending upgrade snapshot and whether rollback is available.
+ */
+export async function getRollbackInfo(environmentId: string, deploymentId: string): Promise<RollbackInfoResponse> {
+  return apiGet<RollbackInfoResponse>(`/api/environments/${environmentId}/deployments/${deploymentId}/snapshots`);
+}
+
+/**
+ * Trigger rollback to the previous version.
+ * Only available when deployment status is Failed and has a PendingUpgradeSnapshot.
+ * No snapshotId needed - automatically uses the single PendingUpgradeSnapshot.
+ */
+export async function rollbackDeployment(environmentId: string, deploymentId: string): Promise<RollbackResponse> {
+  return apiPost<RollbackResponse>(`/api/environments/${environmentId}/deployments/${deploymentId}/rollback`, {});
+}
+
+// ============================================================================
+// Upgrade API
+// ============================================================================
+
+/**
+ * Response from GET /api/environments/{envId}/deployments/{deploymentId}/upgrade/check
+ */
+export interface CheckUpgradeResponse {
+  success: boolean;
+  message?: string;
+  /** Whether an upgrade is available (newer version exists in catalog) */
+  upgradeAvailable: boolean;
+  /** Currently deployed version */
+  currentVersion?: string;
+  /** Latest available version in the catalog */
+  latestVersion?: string;
+  /** Stack ID of the latest version (for use in upgrade request) */
+  latestStackId?: string;
+  /** Variables that are new in the latest version */
+  newVariables?: string[];
+  /** Variables that were removed in the latest version */
+  removedVariables?: string[];
+  /** Whether the deployment can be upgraded (must be Running status) */
+  canUpgrade: boolean;
+  /** Reason why upgrade is not available (if canUpgrade is false) */
+  cannotUpgradeReason?: string;
+}
+
+/**
+ * Request for upgrading a deployment.
+ */
+export interface UpgradeRequest {
+  /** Catalog stack ID of the new version */
+  stackId: string;
+  /** Optional variable overrides */
+  variables?: Record<string, string>;
+  /** Optional client session ID for SignalR progress tracking */
+  sessionId?: string;
+}
+
+/**
+ * Response from POST /api/environments/{envId}/deployments/{deploymentId}/upgrade
+ */
+export interface UpgradeResponse {
+  success: boolean;
+  message?: string;
+  deploymentId?: string;
+  previousVersion?: string;
+  newVersion?: string;
+  snapshotId?: string;
+  errors?: string[];
+  /** Whether rollback is available (only if upgrade failed before container start) */
+  canRollback: boolean;
+  /** Version to rollback to (if canRollback is true) */
+  rollbackVersion?: string;
+}
+
+/**
+ * Check if an upgrade is available for a deployment.
+ */
+export async function checkUpgrade(environmentId: string, deploymentId: string): Promise<CheckUpgradeResponse> {
+  return apiGet<CheckUpgradeResponse>(`/api/environments/${environmentId}/deployments/${deploymentId}/upgrade/check`);
+}
+
+/**
+ * Upgrade a deployment to a new version.
+ * Only available when deployment status is Running.
+ */
+export async function upgradeDeployment(
+  environmentId: string,
+  deploymentId: string,
+  request: UpgradeRequest
+): Promise<UpgradeResponse> {
+  return apiPost<UpgradeResponse>(`/api/environments/${environmentId}/deployments/${deploymentId}/upgrade`, request);
+}

@@ -1,6 +1,16 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router";
-import { getDeployment, type GetDeploymentResponse, type DeployedServiceInfo } from "../api/deployments";
+import {
+  getDeployment,
+  getRollbackInfo,
+  rollbackDeployment,
+  checkUpgrade,
+  upgradeDeployment,
+  type GetDeploymentResponse,
+  type DeployedServiceInfo,
+  type RollbackInfoResponse,
+  type CheckUpgradeResponse
+} from "../api/deployments";
 import { useEnvironment } from "../context/EnvironmentContext";
 import { useHealthHub } from "../hooks/useHealthHub";
 import {
@@ -24,6 +34,18 @@ export default function DeploymentDetail() {
   const [error, setError] = useState<string | null>(null);
   const [modeActionLoading, setModeActionLoading] = useState(false);
   const [modeActionError, setModeActionError] = useState<string | null>(null);
+
+  // Rollback state
+  const [rollbackInfo, setRollbackInfo] = useState<RollbackInfoResponse | null>(null);
+  const [rollbackLoading, setRollbackLoading] = useState(false);
+  const [rollbackError, setRollbackError] = useState<string | null>(null);
+  const [showRollbackConfirm, setShowRollbackConfirm] = useState(false);
+
+  // Upgrade state
+  const [upgradeInfo, setUpgradeInfo] = useState<CheckUpgradeResponse | null>(null);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
+  const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false);
 
   // SignalR Health Hub connection - subscribe to deployment for detailed health updates
   const { connectionState, subscribeToDeployment, unsubscribeFromDeployment } = useHealthHub({
@@ -107,6 +129,98 @@ export default function DeploymentDetail() {
 
     loadDeployment();
   }, [activeEnvironment, stackName]);
+
+  // Load rollback info when deployment is loaded
+  useEffect(() => {
+    const loadRollbackInfo = async () => {
+      if (!activeEnvironment || !deployment?.deploymentId) return;
+
+      try {
+        const info = await getRollbackInfo(activeEnvironment.id, deployment.deploymentId);
+        setRollbackInfo(info);
+      } catch (err) {
+        console.warn("Could not load rollback info:", err);
+      }
+    };
+
+    loadRollbackInfo();
+  }, [activeEnvironment, deployment?.deploymentId]);
+
+  // Load upgrade info when deployment is loaded
+  useEffect(() => {
+    const loadUpgradeInfo = async () => {
+      if (!activeEnvironment || !deployment?.deploymentId) return;
+
+      try {
+        const info = await checkUpgrade(activeEnvironment.id, deployment.deploymentId);
+        setUpgradeInfo(info);
+      } catch (err) {
+        console.warn("Could not load upgrade info:", err);
+      }
+    };
+
+    loadUpgradeInfo();
+  }, [activeEnvironment, deployment?.deploymentId]);
+
+  const handleRollback = async () => {
+    if (!activeEnvironment || !deployment?.deploymentId) return;
+
+    try {
+      setRollbackLoading(true);
+      setRollbackError(null);
+      const response = await rollbackDeployment(activeEnvironment.id, deployment.deploymentId);
+
+      if (response.success) {
+        // Refresh rollback info and deployment data
+        setShowRollbackConfirm(false);
+        const [newDeployment, newRollbackInfo] = await Promise.all([
+          getDeployment(activeEnvironment.id, decodeURIComponent(stackName!)),
+          getRollbackInfo(activeEnvironment.id, deployment.deploymentId)
+        ]);
+        if (newDeployment.success) {
+          setDeployment(newDeployment);
+        }
+        setRollbackInfo(newRollbackInfo);
+      } else {
+        setRollbackError(response.message || "Rollback failed");
+      }
+    } catch (err) {
+      setRollbackError(err instanceof Error ? err.message : "Rollback failed");
+    } finally {
+      setRollbackLoading(false);
+    }
+  };
+
+  const handleUpgrade = async () => {
+    if (!activeEnvironment || !deployment?.deploymentId || !upgradeInfo?.latestStackId) return;
+
+    try {
+      setUpgradeLoading(true);
+      setUpgradeError(null);
+      const response = await upgradeDeployment(activeEnvironment.id, deployment.deploymentId, {
+        stackId: upgradeInfo.latestStackId
+      });
+
+      if (response.success) {
+        // Refresh deployment and upgrade info
+        setShowUpgradeConfirm(false);
+        const [newDeployment, newUpgradeInfo] = await Promise.all([
+          getDeployment(activeEnvironment.id, decodeURIComponent(stackName!)),
+          checkUpgrade(activeEnvironment.id, deployment.deploymentId)
+        ]);
+        if (newDeployment.success) {
+          setDeployment(newDeployment);
+        }
+        setUpgradeInfo(newUpgradeInfo);
+      } else {
+        setUpgradeError(response.message || "Upgrade failed");
+      }
+    } catch (err) {
+      setUpgradeError(err instanceof Error ? err.message : "Upgrade failed");
+    } finally {
+      setUpgradeLoading(false);
+    }
+  };
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "-";
@@ -345,6 +459,184 @@ export default function DeploymentDetail() {
                   <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rollback Panel - only shown when canRollback is true */}
+      {rollbackInfo?.canRollback && (
+        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-800 dark:bg-amber-900/20">
+          <div className="flex items-start justify-between">
+            <div>
+              <h4 className="text-lg font-semibold text-amber-900 dark:text-amber-100 flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Rollback Available
+              </h4>
+              <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
+                The upgrade failed. You can rollback to version <strong>{rollbackInfo.rollbackTargetVersion}</strong>
+                {rollbackInfo.snapshotDescription && (
+                  <span className="block mt-1 text-amber-700 dark:text-amber-300">
+                    {rollbackInfo.snapshotDescription}
+                  </span>
+                )}
+              </p>
+              {rollbackInfo.snapshotCreatedAt && (
+                <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                  Snapshot created: {formatDate(rollbackInfo.snapshotCreatedAt)}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              {!showRollbackConfirm ? (
+                <button
+                  onClick={() => setShowRollbackConfirm(true)}
+                  className="inline-flex items-center justify-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                  </svg>
+                  Rollback
+                </button>
+              ) : (
+                <div className="flex flex-col items-end gap-2">
+                  <p className="text-sm text-amber-800 dark:text-amber-200">
+                    Are you sure you want to rollback?
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowRollbackConfirm(false)}
+                      disabled={rollbackLoading}
+                      className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-50 dark:border-amber-700 dark:bg-amber-900/50 dark:text-amber-200 dark:hover:bg-amber-900/70 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleRollback}
+                      disabled={rollbackLoading}
+                      className="inline-flex items-center justify-center gap-1 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {rollbackLoading ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Rolling back...
+                        </>
+                      ) : (
+                        'Confirm Rollback'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          {rollbackError && (
+            <div className="mt-4 rounded-md bg-red-100 p-3 dark:bg-red-900/30">
+              <p className="text-sm text-red-800 dark:text-red-200">{rollbackError}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Upgrade Panel - only shown when upgrade is available and can upgrade */}
+      {upgradeInfo?.upgradeAvailable && upgradeInfo.canUpgrade && (
+        <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-6 dark:border-blue-800 dark:bg-blue-900/20">
+          <div className="flex items-start justify-between">
+            <div>
+              <h4 className="text-lg font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Upgrade Available
+              </h4>
+              <p className="mt-1 text-sm text-blue-800 dark:text-blue-200">
+                A new version is available: <strong>{upgradeInfo.currentVersion}</strong> &rarr; <strong>{upgradeInfo.latestVersion}</strong>
+              </p>
+              {/* Show new/removed variables if any */}
+              {(upgradeInfo.newVariables?.length ?? 0) > 0 && (
+                <p className="mt-2 text-xs text-blue-600 dark:text-blue-400">
+                  New variables: {upgradeInfo.newVariables?.join(', ')}
+                </p>
+              )}
+              {(upgradeInfo.removedVariables?.length ?? 0) > 0 && (
+                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                  Removed variables: {upgradeInfo.removedVariables?.join(', ')}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              {!showUpgradeConfirm ? (
+                <button
+                  onClick={() => setShowUpgradeConfirm(true)}
+                  className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                  </svg>
+                  Upgrade
+                </button>
+              ) : (
+                <div className="flex flex-col items-end gap-2">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    Are you sure you want to upgrade?
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowUpgradeConfirm(false)}
+                      disabled={upgradeLoading}
+                      className="inline-flex items-center justify-center rounded-md border border-blue-300 bg-white px-3 py-1.5 text-sm font-medium text-blue-800 hover:bg-blue-50 dark:border-blue-700 dark:bg-blue-900/50 dark:text-blue-200 dark:hover:bg-blue-900/70 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleUpgrade}
+                      disabled={upgradeLoading}
+                      className="inline-flex items-center justify-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {upgradeLoading ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Upgrading...
+                        </>
+                      ) : (
+                        'Confirm Upgrade'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          {upgradeError && (
+            <div className="mt-4 rounded-md bg-red-100 p-3 dark:bg-red-900/30">
+              <p className="text-sm text-red-800 dark:text-red-200">{upgradeError}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Upgrade not available message - show reason if can't upgrade */}
+      {upgradeInfo?.upgradeAvailable && !upgradeInfo.canUpgrade && upgradeInfo.cannotUpgradeReason && (
+        <div className="mb-6 rounded-2xl border border-gray-200 bg-gray-50 p-6 dark:border-gray-700 dark:bg-gray-800/50">
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                Upgrade Available ({upgradeInfo.currentVersion} &rarr; {upgradeInfo.latestVersion})
+              </h4>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                {upgradeInfo.cannotUpgradeReason}
+              </p>
             </div>
           </div>
         </div>

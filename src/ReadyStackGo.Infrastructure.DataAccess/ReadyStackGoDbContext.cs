@@ -23,6 +23,7 @@ public class ReadyStackGoDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Environment> Environments => Set<Environment>();
     public DbSet<Deployment> Deployments => Set<Deployment>();
+    // DeploymentSnapshot is now an owned entity of Deployment, no separate DbSet needed
     public DbSet<HealthSnapshot> HealthSnapshots => Set<HealthSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -33,5 +34,8 @@ public class ReadyStackGoDbContext : DbContext
 
         // Ignore ServiceHealthCheckConfig - it's stored as JSON, not as a separate entity
         modelBuilder.Ignore<RuntimeConfig.ServiceHealthCheckConfig>();
+
+        // Ignore ServiceSnapshot - it's stored as JSON within DeploymentSnapshot
+        modelBuilder.Ignore<ServiceSnapshot>();
     }
 }

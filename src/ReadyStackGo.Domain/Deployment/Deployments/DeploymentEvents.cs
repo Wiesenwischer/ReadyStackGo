@@ -122,3 +122,68 @@ public sealed class OperationModeChanged : DomainEvent
         Reason = reason;
     }
 }
+
+/// <summary>
+/// Event raised when a deployment is rolled back to a previous version.
+/// This happens after a failed upgrade (before Point of No Return).
+/// </summary>
+public sealed class DeploymentRolledBack : DomainEvent
+{
+    public DeploymentId DeploymentId { get; }
+    public DeploymentSnapshotId SnapshotId { get; }
+    public string RestoredVersion { get; }
+
+    public DeploymentRolledBack(
+        DeploymentId deploymentId,
+        DeploymentSnapshotId snapshotId,
+        string restoredVersion)
+    {
+        DeploymentId = deploymentId;
+        SnapshotId = snapshotId;
+        RestoredVersion = restoredVersion;
+    }
+}
+
+/// <summary>
+/// Event raised when a deployment snapshot is created.
+/// </summary>
+public sealed class DeploymentSnapshotCreated : DomainEvent
+{
+    public DeploymentId DeploymentId { get; }
+    public DeploymentSnapshotId SnapshotId { get; }
+    public string StackVersion { get; }
+
+    public DeploymentSnapshotCreated(
+        DeploymentId deploymentId,
+        DeploymentSnapshotId snapshotId,
+        string stackVersion)
+    {
+        DeploymentId = deploymentId;
+        SnapshotId = snapshotId;
+        StackVersion = stackVersion;
+    }
+}
+
+/// <summary>
+/// Event raised when a deployment is successfully upgraded to a new version.
+/// This happens after the container start (Point of No Return passed).
+/// </summary>
+public sealed class DeploymentUpgraded : DomainEvent
+{
+    public DeploymentId DeploymentId { get; }
+    public string PreviousVersion { get; }
+    public string NewVersion { get; }
+    public DateTime UpgradedAt { get; }
+
+    public DeploymentUpgraded(
+        DeploymentId deploymentId,
+        string previousVersion,
+        string newVersion,
+        DateTime upgradedAt)
+    {
+        DeploymentId = deploymentId;
+        PreviousVersion = previousVersion;
+        NewVersion = newVersion;
+        UpgradedAt = upgradedAt;
+    }
+}

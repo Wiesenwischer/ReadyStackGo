@@ -13,6 +13,10 @@
 - **KEIN Footer** in Commit-Messages (kein "Generated with Claude Code", kein "Co-Authored-By")
 - Commit-Messages auf Deutsch oder Englisch, kurz und prägnant
 
+## Pull Request-Regeln
+
+- **KEIN Footer** in PR-Beschreibungen (kein "🤖 Generated with Claude Code" o.ä.)
+
 ## Projekt-Sprache
 
 - Dokumentation: Deutsch mit englischen Fachbegriffen
