@@ -124,22 +124,23 @@ public sealed class OperationModeChanged : DomainEvent
 }
 
 /// <summary>
-/// Event raised when a deployment rollback is initiated.
+/// Event raised when a deployment is rolled back to a previous version.
+/// This happens after a failed upgrade (before Point of No Return).
 /// </summary>
-public sealed class DeploymentRollbackInitiated : DomainEvent
+public sealed class DeploymentRolledBack : DomainEvent
 {
     public DeploymentId DeploymentId { get; }
     public DeploymentSnapshotId SnapshotId { get; }
-    public string TargetVersion { get; }
+    public string RestoredVersion { get; }
 
-    public DeploymentRollbackInitiated(
+    public DeploymentRolledBack(
         DeploymentId deploymentId,
         DeploymentSnapshotId snapshotId,
-        string targetVersion)
+        string restoredVersion)
     {
         DeploymentId = deploymentId;
         SnapshotId = snapshotId;
-        TargetVersion = targetVersion;
+        RestoredVersion = restoredVersion;
     }
 }
 
@@ -160,5 +161,29 @@ public sealed class DeploymentSnapshotCreated : DomainEvent
         DeploymentId = deploymentId;
         SnapshotId = snapshotId;
         StackVersion = stackVersion;
+    }
+}
+
+/// <summary>
+/// Event raised when a deployment is successfully upgraded to a new version.
+/// This happens after the container start (Point of No Return passed).
+/// </summary>
+public sealed class DeploymentUpgraded : DomainEvent
+{
+    public DeploymentId DeploymentId { get; }
+    public string PreviousVersion { get; }
+    public string NewVersion { get; }
+    public DateTime UpgradedAt { get; }
+
+    public DeploymentUpgraded(
+        DeploymentId deploymentId,
+        string previousVersion,
+        string newVersion,
+        DateTime upgradedAt)
+    {
+        DeploymentId = deploymentId;
+        PreviousVersion = previousVersion;
+        NewVersion = newVersion;
+        UpgradedAt = upgradedAt;
     }
 }

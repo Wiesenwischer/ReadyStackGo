@@ -8,6 +8,9 @@ namespace ReadyStackGo.IntegrationTests;
 /// <summary>
 /// Integration tests for Deployment Snapshot and Rollback API Endpoints.
 /// Tests snapshot listing, rollback initiation, and error handling.
+///
+/// Note: Rollback API uses PendingUpgradeSnapshot model - no SnapshotId parameter needed.
+/// Rollback is only available after a failed upgrade (before Point of No Return).
 /// </summary>
 public class SnapshotEndpointsIntegrationTests : AuthenticatedTestBase
 {
@@ -97,7 +100,7 @@ services:
     #region Get Snapshots - Success Cases
 
     [Fact]
-    public async Task GET_Snapshots_ForNewDeployment_ReturnsEmptyList()
+    public async Task GET_Snapshots_ForNewDeployment_ReturnsNoSnapshot()
     {
         // Arrange - Deploy a stack first
         var deploymentId = await DeployTestStack("empty-snapshots-test");
@@ -118,8 +121,8 @@ services:
         var result = await response.Content.ReadFromJsonAsync<GetSnapshotsResponse>();
         result.Should().NotBeNull();
         result!.Success.Should().BeTrue();
-        result.Snapshots.Should().BeEmpty("A newly deployed stack has no snapshots yet");
-        result.CanRollback.Should().BeFalse("Cannot rollback without snapshots");
+        result.HasPendingSnapshot.Should().BeFalse("A newly deployed stack has no pending upgrade snapshot");
+        result.CanRollback.Should().BeFalse("Cannot rollback without failed upgrade");
     }
 
     #endregion
@@ -129,15 +132,21 @@ services:
     [Fact]
     public async Task POST_Rollback_WithoutAuth_ReturnsUnauthorized()
     {
-        // Arrange
-        using var unauthenticatedClient = CreateUnauthenticatedClient();
-        var fakeDeploymentId = Guid.NewGuid().ToString();
-        var request = new { snapshotId = Guid.NewGuid().ToString() };
+        // Arrange - First deploy a stack with authenticated client
+        var deploymentId = await DeployTestStack("rollback-auth-test");
 
-        // Act
-        var response = await unauthenticatedClient.PostAsJsonAsync(
-            $"/api/environments/{EnvironmentId}/deployments/{fakeDeploymentId}/rollback",
-            request);
+        if (deploymentId == null)
+        {
+            // Skip test if deployment failed (Docker might not be available)
+            return;
+        }
+
+        using var unauthenticatedClient = CreateUnauthenticatedClient();
+
+        // Act - Try to rollback without authentication
+        var response = await unauthenticatedClient.PostAsync(
+            $"/api/environments/{EnvironmentId}/deployments/{deploymentId}/rollback",
+            null);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -152,12 +161,11 @@ services:
     {
         // Arrange
         var fakeDeploymentId = Guid.NewGuid().ToString();
-        var request = new { snapshotId = Guid.NewGuid().ToString() };
 
-        // Act
-        var response = await Client.PostAsJsonAsync(
+        // Act - No body needed
+        var response = await Client.PostAsync(
             $"/api/environments/invalid-env-id/deployments/{fakeDeploymentId}/rollback",
-            request);
+            null);
 
         // Assert
         response.StatusCode.Should().BeOneOf(HttpStatusCode.NotFound, HttpStatusCode.BadRequest);
@@ -166,13 +174,10 @@ services:
     [Fact]
     public async Task POST_Rollback_WithInvalidDeploymentId_ReturnsError()
     {
-        // Arrange
-        var request = new { snapshotId = Guid.NewGuid().ToString() };
-
-        // Act
-        var response = await Client.PostAsJsonAsync(
+        // Act - No body needed
+        var response = await Client.PostAsync(
             $"/api/environments/{EnvironmentId}/deployments/invalid-deployment-id/rollback",
-            request);
+            null);
 
         // Assert
         // Returns BadRequest because invalid GUID format fails early validation
@@ -184,80 +189,14 @@ services:
     {
         // Arrange
         var nonExistentDeploymentId = Guid.NewGuid().ToString();
-        var request = new { snapshotId = Guid.NewGuid().ToString() };
 
-        // Act
-        var response = await Client.PostAsJsonAsync(
+        // Act - No body needed
+        var response = await Client.PostAsync(
             $"/api/environments/{EnvironmentId}/deployments/{nonExistentDeploymentId}/rollback",
-            request);
+            null);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-    }
-
-    [Fact]
-    public async Task POST_Rollback_WithMissingSnapshotId_ReturnsBadRequest()
-    {
-        // Arrange
-        var fakeDeploymentId = Guid.NewGuid().ToString();
-        var request = new { snapshotId = (string?)null };
-
-        // Act
-        var response = await Client.PostAsJsonAsync(
-            $"/api/environments/{EnvironmentId}/deployments/{fakeDeploymentId}/rollback",
-            request);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-    }
-
-    [Fact]
-    public async Task POST_Rollback_WithInvalidSnapshotId_ReturnsError()
-    {
-        // Arrange - Deploy a stack first
-        var deploymentId = await DeployTestStack("rollback-invalid-snapshot-test");
-
-        if (deploymentId == null)
-        {
-            // Skip test if deployment failed
-            return;
-        }
-
-        var request = new { snapshotId = "invalid-snapshot-id" };
-
-        // Act
-        var response = await Client.PostAsJsonAsync(
-            $"/api/environments/{EnvironmentId}/deployments/{deploymentId}/rollback",
-            request);
-
-        // Assert
-        // Should return error because snapshot ID format is invalid
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.NotFound, HttpStatusCode.BadRequest);
-    }
-
-    [Fact]
-    public async Task POST_Rollback_WithNonExistentSnapshot_ReturnsNotFound()
-    {
-        // Arrange - Deploy a stack first
-        var deploymentId = await DeployTestStack("rollback-nonexistent-snapshot-test");
-
-        if (deploymentId == null)
-        {
-            // Skip test if deployment failed
-            return;
-        }
-
-        var nonExistentSnapshotId = Guid.NewGuid().ToString();
-        var request = new { snapshotId = nonExistentSnapshotId };
-
-        // Act
-        var response = await Client.PostAsJsonAsync(
-            $"/api/environments/{EnvironmentId}/deployments/{deploymentId}/rollback",
-            request);
-
-        // Assert
-        // Should return error because the deployment has no snapshots
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.NotFound, HttpStatusCode.BadRequest);
     }
 
     #endregion
@@ -265,10 +204,10 @@ services:
     #region Rollback - Business Logic
 
     [Fact]
-    public async Task POST_Rollback_WithNoSnapshots_ReturnsBadRequest()
+    public async Task POST_Rollback_WithNoSnapshot_ReturnsBadRequest()
     {
-        // Arrange - Deploy a stack (will have no snapshots)
-        var deploymentId = await DeployTestStack("rollback-no-snapshots-test");
+        // Arrange - Deploy a stack (will have no pending upgrade snapshot)
+        var deploymentId = await DeployTestStack("rollback-no-snapshot-test");
 
         if (deploymentId == null)
         {
@@ -276,16 +215,16 @@ services:
             return;
         }
 
-        var request = new { snapshotId = Guid.NewGuid().ToString() };
-
-        // Act
-        var response = await Client.PostAsJsonAsync(
+        // Act - No body needed, rollback uses PendingUpgradeSnapshot automatically
+        var response = await Client.PostAsync(
             $"/api/environments/{EnvironmentId}/deployments/{deploymentId}/rollback",
-            request);
+            null);
 
         // Assert
-        // Should return error because deployment has no snapshots to rollback to
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.NotFound, HttpStatusCode.BadRequest);
+        // Should return error because deployment has no pending upgrade snapshot
+        // Rollback is only available after a failed upgrade (before Point of No Return)
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
+            "Cannot rollback deployment without a pending upgrade snapshot");
     }
 
     #endregion
@@ -302,7 +241,7 @@ services:
         var response = await Client.GetAsync(
             $"/api/environments/{EnvironmentId}/deployments/{fakeDeploymentId}/snapshots");
 
-        // Assert - Should not return 404 (endpoint not found)
+        // Assert - Should not return 405 (method not allowed)
         // The endpoint exists, so we expect either a success or validation error
         response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed,
             "Snapshots GET endpoint should exist");
@@ -313,12 +252,11 @@ services:
     {
         // Arrange
         var fakeDeploymentId = Guid.NewGuid().ToString();
-        var request = new { snapshotId = Guid.NewGuid().ToString() };
 
-        // Act
-        var response = await Client.PostAsJsonAsync(
+        // Act - No body needed
+        var response = await Client.PostAsync(
             $"/api/environments/{EnvironmentId}/deployments/{fakeDeploymentId}/rollback",
-            request);
+            null);
 
         // Assert - Should not return 405 (method not allowed)
         response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed,
@@ -352,7 +290,9 @@ services:
         result!.Success.Should().BeTrue();
         result.DeploymentId.Should().NotBeNullOrEmpty();
         result.StackName.Should().NotBeNullOrEmpty();
-        result.Snapshots.Should().NotBeNull();
+        // HasPendingSnapshot should be false for a newly deployed stack
+        result.HasPendingSnapshot.Should().BeFalse();
+        result.CanRollback.Should().BeFalse();
     }
 
     #endregion
@@ -388,6 +328,10 @@ services:
 
     #region Response DTOs
 
+    /// <summary>
+    /// Response from GET /api/environments/{envId}/deployments/{deploymentId}/snapshots
+    /// Updated for PendingUpgradeSnapshot model.
+    /// </summary>
     private record GetSnapshotsResponse(
         bool Success,
         string? Message,
@@ -395,8 +339,21 @@ services:
         string? StackName,
         string? CurrentVersion,
         bool CanRollback,
-        List<SnapshotDto> Snapshots);
+        string? RollbackTargetVersion,
+        DateTime? SnapshotCreatedAt,
+        string? SnapshotDescription,
+        List<SnapshotDto> Snapshots)
+    {
+        /// <summary>
+        /// Whether a pending upgrade snapshot exists.
+        /// Calculated from presence of snapshots (0 or 1 in list).
+        /// </summary>
+        public bool HasPendingSnapshot => Snapshots?.Count > 0;
+    }
 
+    /// <summary>
+    /// DTO for the pending upgrade snapshot.
+    /// </summary>
     private record SnapshotDto(
         string SnapshotId,
         string StackVersion,
@@ -405,6 +362,9 @@ services:
         int ServiceCount,
         int VariableCount);
 
+    /// <summary>
+    /// Response from POST /api/environments/{envId}/deployments/{deploymentId}/rollback
+    /// </summary>
     private record RollbackResponse(
         bool Success,
         string? Message,

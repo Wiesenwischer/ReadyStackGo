@@ -4,6 +4,10 @@ using ReadyStackGo.Domain.Deployment.Environments;
 
 namespace ReadyStackGo.Application.UseCases.Deployments.RollbackDeployment;
 
+/// <summary>
+/// Handler for rolling back a deployment to its previous version.
+/// Rollback is only available after a failed upgrade (before Point of No Return).
+/// </summary>
 public class RollbackDeploymentHandler : IRequestHandler<RollbackDeploymentCommand, RollbackDeploymentResponse>
 {
     private readonly IDeploymentRepository _deploymentRepository;
@@ -25,18 +29,18 @@ public class RollbackDeploymentHandler : IRequestHandler<RollbackDeploymentComma
             });
         }
 
-        // Validate snapshot ID
-        if (!Guid.TryParse(request.SnapshotId, out var snapshotGuid))
+        // Validate environment ID
+        if (!Guid.TryParse(request.EnvironmentId, out var envGuid))
         {
             return Task.FromResult(new RollbackDeploymentResponse
             {
                 Success = false,
-                Message = "Invalid snapshot ID format."
+                Message = "Invalid environment ID format."
             });
         }
 
         var deploymentId = DeploymentId.FromGuid(deploymentGuid);
-        var deployment = _deploymentRepository.GetWithSnapshots(deploymentId);
+        var deployment = _deploymentRepository.GetById(deploymentId);
 
         if (deployment == null)
         {
@@ -48,15 +52,6 @@ public class RollbackDeploymentHandler : IRequestHandler<RollbackDeploymentComma
         }
 
         // Verify environment access
-        if (!Guid.TryParse(request.EnvironmentId, out var envGuid))
-        {
-            return Task.FromResult(new RollbackDeploymentResponse
-            {
-                Success = false,
-                Message = "Invalid environment ID format."
-            });
-        }
-
         var environmentId = new EnvironmentId(envGuid);
         if (deployment.EnvironmentId != environmentId)
         {
@@ -67,43 +62,40 @@ public class RollbackDeploymentHandler : IRequestHandler<RollbackDeploymentComma
             });
         }
 
-        // Check if rollback is possible
+        // Check deployment status - rollback only available after failed upgrade
+        if (deployment.Status != DeploymentStatus.Failed)
+        {
+            return Task.FromResult(new RollbackDeploymentResponse
+            {
+                Success = false,
+                Message = "Rollback only available after failed upgrade (before container start)."
+            });
+        }
+
+        // Check if rollback is possible (has pending snapshot)
         if (!deployment.CanRollback())
         {
             return Task.FromResult(new RollbackDeploymentResponse
             {
                 Success = false,
-                Message = "Rollback is not possible for this deployment. Either no snapshots exist or the deployment is in a terminal state."
-            });
-        }
-
-        // Find the snapshot
-        var snapshotId = DeploymentSnapshotId.FromGuid(snapshotGuid);
-        var snapshot = deployment.GetSnapshot(snapshotId);
-
-        if (snapshot == null)
-        {
-            return Task.FromResult(new RollbackDeploymentResponse
-            {
-                Success = false,
-                Message = "Snapshot not found."
+                Message = "No snapshot available for rollback. The upgrade may have passed the Point of No Return (container start)."
             });
         }
 
         var previousVersion = deployment.StackVersion;
-        var targetVersion = snapshot.StackVersion;
+        var targetVersion = deployment.GetRollbackTargetVersion();
 
         try
         {
-            // Initiate rollback (this sets the deployment to Pending state)
-            deployment.RollbackTo(snapshotId);
+            // Execute rollback (restores from PendingUpgradeSnapshot and clears it)
+            deployment.RollbackToPrevious();
             _deploymentRepository.Update(deployment);
             _deploymentRepository.SaveChanges();
 
             return Task.FromResult(new RollbackDeploymentResponse
             {
                 Success = true,
-                Message = $"Rollback to version {targetVersion} initiated. The deployment will be re-deployed with the snapshot configuration.",
+                Message = $"Rolled back from {previousVersion} to {targetVersion}. The deployment is now ready for re-deployment.",
                 DeploymentId = request.DeploymentId,
                 TargetVersion = targetVersion,
                 PreviousVersion = previousVersion

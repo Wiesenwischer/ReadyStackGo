@@ -28,6 +28,11 @@ public interface IDeploymentRepository
     Deployment? Get(DeploymentId id);
 
     /// <summary>
+    /// Gets a deployment by its ID (alias for Get).
+    /// </summary>
+    Deployment? GetById(DeploymentId id);
+
+    /// <summary>
     /// Gets all deployments for an environment.
     /// </summary>
     IEnumerable<Deployment> GetByEnvironment(EnvironmentId environmentId);

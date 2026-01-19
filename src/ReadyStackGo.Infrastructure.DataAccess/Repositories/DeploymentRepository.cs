@@ -33,9 +33,15 @@ public class DeploymentRepository : IDeploymentRepository
 
     public Deployment? Get(DeploymentId id)
     {
-        // Owned entities (Services) are loaded automatically by EF Core
+        // Owned entities (Services, PendingUpgradeSnapshot) are loaded automatically by EF Core
         return _context.Deployments
             .FirstOrDefault(d => d.Id == id);
+    }
+
+    public Deployment? GetById(DeploymentId id)
+    {
+        // Alias for Get - owned entities (Services, PendingUpgradeSnapshot) are loaded automatically
+        return Get(id);
     }
 
     public IEnumerable<Deployment> GetByEnvironment(EnvironmentId environmentId)
@@ -78,19 +84,15 @@ public class DeploymentRepository : IDeploymentRepository
 
     public Deployment? GetWithSnapshots(DeploymentId id)
     {
-        return _context.Deployments
-            .Include(d => d.Snapshots)
-            .FirstOrDefault(d => d.Id == id);
+        // With PendingUpgradeSnapshot as owned entity, it's automatically loaded
+        // This method is kept for backwards compatibility
+        return Get(id);
     }
 
     public Deployment? GetWithSnapshotsByStackName(EnvironmentId environmentId, string stackName)
     {
-        return _context.Deployments
-            .Include(d => d.Snapshots)
-            .Where(d => d.EnvironmentId == environmentId && d.StackName == stackName)
-            .Where(d => d.Status != DeploymentStatus.Removed)
-            .OrderByDescending(d => d.CreatedAt)
-            .FirstOrDefault();
+        // With PendingUpgradeSnapshot as owned entity, it's automatically loaded
+        return GetByStackName(environmentId, stackName);
     }
 
     public DeploymentSnapshotId NextSnapshotIdentity()

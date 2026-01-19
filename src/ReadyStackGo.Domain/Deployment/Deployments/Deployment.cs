@@ -49,11 +49,14 @@ public class Deployment : AggregateRoot<DeploymentId>
     private readonly List<DeploymentPhaseRecord> _phaseHistory = new();
     public IReadOnlyCollection<DeploymentPhaseRecord> PhaseHistory => _phaseHistory.AsReadOnly();
 
-    // Deployment snapshots for rollback functionality (max 10)
-    private readonly List<DeploymentSnapshot> _snapshots = new();
-    public IReadOnlyCollection<DeploymentSnapshot> Snapshots => _snapshots.AsReadOnly();
+    // Pending upgrade snapshot for rollback functionality
+    // Only exists during an upgrade process, before Point of No Return (container start)
+    public DeploymentSnapshot? PendingUpgradeSnapshot { get; private set; }
 
-    private const int MaxSnapshots = 10;
+    // Upgrade tracking
+    public DateTime? LastUpgradedAt { get; private set; }
+    public string? PreviousVersion { get; private set; }
+    public int UpgradeCount { get; private set; }
 
     // For EF Core
     protected Deployment() { }
@@ -476,11 +479,12 @@ public class Deployment : AggregateRoot<DeploymentId>
 
     #endregion
 
-    #region Snapshots & Rollback
+    #region Snapshots & Rollback (Point of No Return Semantics)
 
     /// <summary>
-    /// Creates a snapshot of the current deployment state.
-    /// Used before upgrades to enable rollback.
+    /// Creates a snapshot of the current deployment state before an upgrade.
+    /// Only one pending snapshot is allowed at a time.
+    /// The snapshot is cleared at Point of No Return (container start) or on successful upgrade.
     /// </summary>
     public DeploymentSnapshot? CreateSnapshot(string? description = null)
     {
@@ -488,11 +492,13 @@ public class Deployment : AggregateRoot<DeploymentId>
             "Can only create snapshot of a running deployment.");
         SelfAssertArgumentTrue(!string.IsNullOrEmpty(StackVersion),
             "Cannot create snapshot without a stack version.");
+        SelfAssertArgumentTrue(PendingUpgradeSnapshot == null,
+            "A pending upgrade snapshot already exists. Clear it before creating a new one.");
 
         var snapshotId = DeploymentSnapshotId.Create();
         var serviceSnapshots = _services.Select(s => new ServiceSnapshot(s.ServiceName, s.Image ?? "unknown")).ToList();
 
-        var snapshot = DeploymentSnapshot.Create(
+        PendingUpgradeSnapshot = DeploymentSnapshot.Create(
             snapshotId,
             Id,
             StackVersion!,
@@ -500,80 +506,111 @@ public class Deployment : AggregateRoot<DeploymentId>
             serviceSnapshots,
             description);
 
-        _snapshots.Add(snapshot);
-
-        // Enforce max snapshots limit (remove oldest)
-        while (_snapshots.Count > MaxSnapshots)
-        {
-            _snapshots.RemoveAt(0);
-        }
-
         AddDomainEvent(new DeploymentSnapshotCreated(Id, snapshotId, StackVersion!));
 
-        return snapshot;
+        return PendingUpgradeSnapshot;
     }
 
     /// <summary>
-    /// Gets a snapshot by ID.
+    /// Clears the pending upgrade snapshot.
+    /// Called at Point of No Return (when containers start) or after successful upgrade.
+    /// After this, rollback is no longer possible.
     /// </summary>
-    public DeploymentSnapshot? GetSnapshot(DeploymentSnapshotId snapshotId)
+    public void ClearSnapshot()
     {
-        return _snapshots.FirstOrDefault(s => s.Id == snapshotId);
+        PendingUpgradeSnapshot = null;
     }
 
     /// <summary>
-    /// Initiates a rollback to a previous snapshot.
-    /// This prepares the deployment for re-deployment with the snapshot's configuration.
+    /// Rolls back to the previous version using the pending upgrade snapshot.
+    /// Only available after a failed upgrade (before Point of No Return).
+    /// Consumes (clears) the snapshot.
     /// </summary>
-    public void RollbackTo(DeploymentSnapshotId snapshotId)
+    public void RollbackToPrevious()
     {
-        var snapshot = _snapshots.FirstOrDefault(s => s.Id == snapshotId)
-            ?? throw new InvalidOperationException($"Snapshot {snapshotId} not found.");
+        SelfAssertArgumentTrue(PendingUpgradeSnapshot != null,
+            "No snapshot available for rollback.");
+        SelfAssertArgumentTrue(Status == DeploymentStatus.Failed,
+            "Rollback only available after failed upgrade (before container start).");
 
-        SelfAssertArgumentTrue(Status != DeploymentStatus.Failed && Status != DeploymentStatus.Removed,
-            "Cannot rollback a failed or removed deployment.");
-
-        // Store current state as a snapshot before rollback (if running)
-        if (Status == DeploymentStatus.Running && !string.IsNullOrEmpty(StackVersion))
-        {
-            CreateSnapshot($"Auto-snapshot before rollback to {snapshot.StackVersion}");
-        }
+        var snapshot = PendingUpgradeSnapshot!;
+        var snapshotId = snapshot.Id;
+        var targetVersion = snapshot.StackVersion;
 
         // Restore state from snapshot
-        StackVersion = snapshot.StackVersion;
+        StackVersion = targetVersion;
         _variables.Clear();
         foreach (var (key, value) in snapshot.Variables)
         {
             _variables[key] = value;
         }
 
-        // Set to pending for re-deployment
+        // Clear the snapshot (consumed by rollback)
+        PendingUpgradeSnapshot = null;
+
+        // Reset status for re-deployment
         Status = DeploymentStatus.Pending;
         CurrentPhase = DeploymentPhase.Initializing;
         ProgressPercentage = 0;
-        ProgressMessage = $"Rolling back to version {snapshot.StackVersion}";
+        ProgressMessage = $"Rolling back to version {targetVersion}";
         ErrorMessage = null;
         IsCancellationRequested = false;
         CancellationReason = null;
 
-        RecordPhase(DeploymentPhase.Initializing, $"Rollback to {snapshot.StackVersion} initiated");
-        AddDomainEvent(new DeploymentRollbackInitiated(Id, snapshotId, snapshot.StackVersion));
+        RecordPhase(DeploymentPhase.Initializing, $"Rollback to {targetVersion} initiated");
+        AddDomainEvent(new DeploymentRolledBack(Id, snapshotId, targetVersion));
     }
 
     /// <summary>
-    /// Checks if rollback is possible from current state.
+    /// Checks if rollback is possible.
+    /// Rollback is only available when:
+    /// - A pending upgrade snapshot exists (upgrade was started)
+    /// - The deployment is in Failed status (upgrade failed before container start)
     /// </summary>
     public bool CanRollback()
     {
-        return _snapshots.Count > 0
-            && Status != DeploymentStatus.Failed
-            && Status != DeploymentStatus.Removed;
+        return PendingUpgradeSnapshot != null
+            && Status == DeploymentStatus.Failed;
     }
 
     /// <summary>
-    /// Gets the number of available snapshots.
+    /// Gets the version that would be restored on rollback.
+    /// Returns null if no rollback is available.
     /// </summary>
-    public int SnapshotCount => _snapshots.Count;
+    public string? GetRollbackTargetVersion()
+    {
+        return PendingUpgradeSnapshot?.StackVersion;
+    }
+
+    /// <summary>
+    /// Records a successful upgrade event, storing the previous version for reference.
+    /// Called after successful container start (Point of No Return passed).
+    /// </summary>
+    public void RecordUpgrade(string previousVersion, string newVersion)
+    {
+        SelfAssertArgumentNotEmpty(previousVersion, "Previous version is required.");
+        SelfAssertArgumentNotEmpty(newVersion, "New version is required.");
+
+        PreviousVersion = previousVersion;
+        LastUpgradedAt = SystemClock.UtcNow;
+        UpgradeCount++;
+        StackVersion = newVersion;
+
+        AddDomainEvent(new DeploymentUpgraded(
+            Id,
+            previousVersion,
+            newVersion,
+            LastUpgradedAt.Value));
+    }
+
+    /// <summary>
+    /// Checks if this deployment can be upgraded.
+    /// Only running deployments can be upgraded.
+    /// </summary>
+    public bool CanUpgrade()
+    {
+        return Status == DeploymentStatus.Running;
+    }
 
     #endregion
 

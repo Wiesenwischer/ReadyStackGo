@@ -1,62 +1,61 @@
 # ReadyStackGo – Health & Operation Mode Specification
 
-## 1. Ziele
+## 1. Goals
 
-Das Health-System von ReadyStackGo (RSGO) soll:
+The health system of ReadyStackGo (RSGO) should:
 
-- Auf **Org / Environment / Stack**-Ebene schnell zeigen:
-  - Läuft alles normal?
-  - Ist etwas _geplant_ eingeschränkt (Migration / Wartung)?
-  - Ist etwas _ungeplant_ kaputt?
-- **Erste-Party-Stacks** (ams.project etc.) mit tiefer Integration (NServiceBus, eigene Health-Endpunkte) unterstützen.
-- **Drittanbieter-Stacks** (Keycloak, Postgres, Fremdprodukte) sinnvoll aggregieren, auch wenn sie nur Docker-Status oder generische HTTP-Health liefern.
+- Quickly show on **Org / Environment / Stack** level:
+  - Is everything running normally?
+  - Is something _planned_ to be restricted (Migration / Maintenance)?
+  - Is something _unplanned_ broken?
+- Support **first-party stacks** (ams.project etc.) with deep integration (NServiceBus, custom health endpoints).
+- Sensibly aggregate **third-party stacks** (Keycloak, Postgres, external products), even if they only provide Docker status or generic HTTP health.
 
-Wichtiger Grundsatz:
+Important principle:
 
-> **RSGO ist die Quelle der Wahrheit für den Betriebsmodus (Normal, Migration, Wartung).  
-> Container liefern technische Zustände (up/down, Fehler, Bus-Status).**
+> **RSGO is the source of truth for the operation mode (Normal, Migration, Maintenance).
+> Containers provide technical states (up/down, errors, bus status).**
 
 ---
 
-## 2. Kernkonzepte
+## 2. Core Concepts
 
 ### 2.1 HealthStatus
 
-Enum für den technischen Zustand:
+Enum for the technical state:
 
 - `Healthy`
 - `Degraded`
 - `Unhealthy`
 - `Unknown`
 
-Wird für:
-- Overall-Status eines Stacks
+Used for:
+- Overall status of a stack
 - Bus
 - Infra
 - Self (Container/Services)
-verwendet.
 
 ### 2.2 OperationMode
 
-Enum für den _Betriebsmodus_ eines Stack-Deployments:
+Enum for the _operation mode_ of a stack deployment:
 
-- `Normal`  
-  → Normaler Betrieb, keine geplante Einschränkung.
-- `Migrating`  
-  → Geplante Migration/Upgrade läuft (z. B. DB-Migrationen, Stack-Upgrade).
-- `Maintenance`  
-  → Stack bewusst in Wartungsmodus versetzt (geplant).
-- `Stopped`  
-  → Stack absichtlich gestoppt (nicht verfügbar, aber kein Fehler).
-- `Failed` (optional)  
-  → Letzter Deploy/Upgrade/Migration fehlgeschlagen, manueller Eingriff nötig.
+- `Normal`
+  → Normal operation, no planned restriction.
+- `Migrating`
+  → Planned migration/upgrade running (e.g., DB migrations, stack upgrade).
+- `Maintenance`
+  → Stack deliberately put into maintenance mode (planned).
+- `Stopped`
+  → Stack intentionally stopped (not available, but no error).
+- `Failed` (optional)
+  → Last deploy/upgrade/migration failed, manual intervention required.
 
-**Wichtig:**  
-`OperationMode` wird **von RSGO gesteuert**, nicht von den Containern.
+**Important:**
+`OperationMode` is **controlled by RSGO**, not by the containers.
 
 ### 2.3 DeploymentStatus & MigrationStatus
 
-Zusätzliche Zustände in der Deployment-Domain:
+Additional states in the Deployment domain:
 
 - `DeploymentStatus`:
   - `Idle`
@@ -71,15 +70,15 @@ Zusätzliche Zustände in der Deployment-Domain:
   - `Succeeded`
   - `Failed`
 
-Diese Werte helfen, OperationMode konsistent zu setzen.
+These values help to set OperationMode consistently.
 
 ---
 
-## 3. Health-Domain-Model
+## 3. Health Domain Model
 
 ### 3.1 HealthSnapshot
 
-RSGO erzeugt regelmäßig Health-Snapshots pro Org/Env/Stack:
+RSGO creates regular health snapshots per Org/Env/Stack:
 
 ```csharp
 enum HealthStatus { Healthy, Degraded, Unhealthy, Unknown }
@@ -95,8 +94,8 @@ class HealthSnapshot {
     HealthStatus Overall;
     OperationMode OperationMode;
 
-    string? TargetVersion;       // z.B. "0.5.0" bei Upgrade
-    string? CurrentVersion;      // z.B. "0.4.2"
+    string? TargetVersion;       // e.g., "0.5.0" during upgrade
+    string? CurrentVersion;      // e.g., "0.4.2"
 
     BusHealth? Bus;
     InfraHealth? Infra;
@@ -106,21 +105,21 @@ class HealthSnapshot {
 
 ### 3.2 BusHealth
 
-Verwendet v. a. für NServiceBus-basierte Stacks (First-Party oder andere NSB-Apps):
+Primarily used for NServiceBus-based stacks (first-party or other NSB apps):
 
 ```csharp
 class BusHealth {
     HealthStatus Status;          // Healthy/Degraded/Unhealthy/Unknown
 
-    string? TransportKey;         // z.B. "primary-sql"
+    string? TransportKey;         // e.g., "primary-sql"
     bool HasCriticalError;
     string? CriticalErrorMessage;
 
     DateTime? LastHealthPingProcessedUtc;
     TimeSpan? TimeSinceLastPing;
-    TimeSpan? UnhealthyAfter;     // Config-Wert, ab wann "zu alt"
+    TimeSpan? UnhealthyAfter;     // Config value, when it's considered "too old"
 
-    // Optional: betroffene Endpunkte
+    // Optional: affected endpoints
     IReadOnlyList<BusEndpointHealth> Endpoints;
 }
 
@@ -134,7 +133,7 @@ class BusEndpointHealth {
 
 ### 3.3 InfraHealth
 
-Generische Infrastruktur-Checks (optional pro Stack):
+Generic infrastructure checks (optional per stack):
 
 ```csharp
 class InfraHealth {
@@ -144,21 +143,21 @@ class InfraHealth {
 }
 
 class DatabaseHealth {
-    string Id;             // z.B. "ams_project_db"
+    string Id;             // e.g., "ams_project_db"
     HealthStatus Status;
     int? LatencyMs;
     string? Error;
 }
 
 class DiskHealth {
-    string Mount;          // z.B. "/"
+    string Mount;          // e.g., "/"
     HealthStatus Status;
     double? FreePercent;
     string? Error;
 }
 
 class ExternalServiceHealth {
-    string Id;             // z.B. "smtp"
+    string Id;             // e.g., "smtp"
     HealthStatus Status;
     string? Error;
 }
@@ -166,7 +165,7 @@ class ExternalServiceHealth {
 
 ### 3.4 SelfHealth
 
-Zustand der vom Stack kontrollierten Container/Services:
+State of the containers/services controlled by the stack:
 
 ```csharp
 class SelfHealth {
@@ -174,8 +173,8 @@ class SelfHealth {
 }
 
 class ServiceHealth {
-    string Name;                // z.B. "ams-api"
-    HealthStatus Status;        // Aus Container-/Health-Endpoint-Sicht
+    string Name;                // e.g., "ams-api"
+    HealthStatus Status;        // From container/health endpoint perspective
     string? ContainerId;
     string? Reason;             // "Restarting", "CrashLoop", "HealthCheckFailed"
     int? RestartCount;
@@ -184,14 +183,14 @@ class ServiceHealth {
 
 ---
 
-## 4. Datenquelle & Integration
+## 4. Data Source & Integration
 
 ### 4.1 Container / Docker (Self)
 
-- RSGO verbindet sich per Docker API mit dem Environment-Host:
-  - Status von Containern (running, exited, restarting)
-  - Restart-Counts, Exit-Codes
-- Optional: HTTP-Health-URL aus Manifest:
+- RSGO connects to the Environment host via Docker API:
+  - Status of containers (running, exited, restarting)
+  - Restart counts, exit codes
+- Optional: HTTP health URL from manifest:
 
 ```yaml
 services:
@@ -203,33 +202,33 @@ services:
       timeout: 5s
 ```
 
-RSGO pollt diese Endpoints und setzt `ServiceHealth.Status` entsprechend.
+RSGO polls these endpoints and sets `ServiceHealth.Status` accordingly.
 
 ### 4.2 Bus (NServiceBus / EndpointHealth)
 
-Für NServiceBus-basierte Anwendungen:
+For NServiceBus-based applications:
 
-- Jeder Endpoint verwendet dein Paket `Wiesenwischer.NServiceBus.EndpointHealth` und einen ASP.NET Health-Endpoint (`/health`).
-- Dieser liefert:
-  - MessagePump-Status
+- Each endpoint uses your package `Wiesenwischer.NServiceBus.EndpointHealth` and an ASP.NET Health endpoint (`/health`).
+- This provides:
+  - MessagePump status
   - `HasCriticalError`
   - `LastHealthPingProcessedUtc`
   - `TransportKey`
 
 RSGO:
 
-- kennt per Manifest, welche Services Endpoints sind und wo deren Health-URLs liegen
-- ruft diese Health-Endpoints ab
-- aggregiert pro `TransportKey` und Stack den Bus-Status.
+- knows from the manifest which services are endpoints and where their health URLs are
+- retrieves these health endpoints
+- aggregates bus status per `TransportKey` and stack.
 
-Für **Nicht-NSB-Stacks**:
+For **non-NSB stacks**:
 
-- `BusHealth` kann einfach `null` oder `Status=Unknown` sein
-- oder du erlaubst generische „Messaging-Checks“ über Manifest (z. B. RabbitMQ HTTP API), ist aber optional/„Advanced“.
+- `BusHealth` can simply be `null` or `Status=Unknown`
+- or you allow generic "messaging checks" via manifest (e.g., RabbitMQ HTTP API), but this is optional/"Advanced".
 
-### 4.3 Infra (DB, Disk, externe Dienste)
+### 4.3 Infra (DB, Disk, external services)
 
-- Für First-Party-Stacks kann das Manifest DB-/Service-Checks definieren:
+- For first-party stacks, the manifest can define DB/service checks:
 
 ```yaml
 infra:
@@ -241,158 +240,158 @@ infra:
       url: smtp.example.com:587
 ```
 
-- RSGO kann:
-  - kurze Verbindungs-Pings zu DBs machen (konfigurierbar)
-  - freien Speicherplatz über Agent/Host-Metrics abfragen
-- Für Drittanbieter-Stacks:
-  - kann InfraHealth leer bleiben oder nur generische Checks enthalten (z. B. „DB-Container läuft“).
+- RSGO can:
+  - make short connection pings to DBs (configurable)
+  - query free disk space via agent/host metrics
+- For third-party stacks:
+  - InfraHealth can remain empty or contain only generic checks (e.g., "DB container is running").
 
 ---
 
-## 5. Aggregationslogik
+## 5. Aggregation Logic
 
-### 5.1 Overall-Status
+### 5.1 Overall Status
 
-Pseudo-Regel:
+Pseudo-rule:
 
-1. Wenn `OperationMode == Migrating` oder `Maintenance` oder `Stopped`:
-   - `overall` mindestens `Degraded`
-   - echte Fehler können `overall` auf `Unhealthy` heben (z. B. Migration fehlgeschlagen).
-2. Wenn `OperationMode == Normal`:
-   - `overall` ist das „Maximum“/„Schlechteste“ aus Bus/Infra/Self
-     - hat einer `Unhealthy` → `overall = Unhealthy`
-     - sonst wenn einer `Degraded` → `overall = Degraded`
-     - sonst `overall = Healthy`
-3. Wenn keine Daten verfügbar:
+1. If `OperationMode == Migrating` or `Maintenance` or `Stopped`:
+   - `overall` at least `Degraded`
+   - real errors can elevate `overall` to `Unhealthy` (e.g., migration failed).
+2. If `OperationMode == Normal`:
+   - `overall` is the "maximum"/"worst" of Bus/Infra/Self
+     - if one is `Unhealthy` → `overall = Unhealthy`
+     - otherwise if one is `Degraded` → `overall = Degraded`
+     - otherwise `overall = Healthy`
+3. If no data available:
    - `overall = Unknown`
 
-### 5.2 OperationMode wird von RSGO gesetzt
+### 5.2 OperationMode is Set by RSGO
 
-- Bei Deploy/Upgrade/Migration:
+- During Deploy/Upgrade/Migration:
   - `OperationMode = Migrating`
   - `DeploymentStatus = Upgrading`
   - `MigrationStatus = Running`
-- Bei geplanter Wartung:
+- During planned maintenance:
   - `OperationMode = Maintenance`
-- Bei bewusstem Stopp:
+- During deliberate stop:
   - `OperationMode = Stopped`
-- Bei fehlgeschlagenem Upgrade/Migration:
+- On failed upgrade/migration:
   - `OperationMode = Failed`
   - `DeploymentStatus = Failed`
   - `MigrationStatus = Failed`
 
-Die Health-Engine liest immer zuerst `OperationMode` und interpretiert Container-Zustände im Kontext:
+The health engine always reads `OperationMode` first and interprets container states in context:
 
-- `OperationMode=Normal` + viele kaputte Container → echte Störung.
-- `OperationMode=Migrating` + Dienste down → erwartete Einschränkung (Degraded).
+- `OperationMode=Normal` + many broken containers → real incident.
+- `OperationMode=Migrating` + services down → expected restriction (Degraded).
 
-### 5.3 Container-Lifecycle bei Maintenance Mode
+### 5.3 Container Lifecycle in Maintenance Mode
 
-Beim Wechsel in den Maintenance-Modus werden Container automatisch gestoppt:
+When switching to maintenance mode, containers are automatically stopped:
 
 ```
-Normal → Maintenance: Alle Stack-Container werden gestoppt
-Maintenance → Normal: Alle Stack-Container werden gestartet
+Normal → Maintenance: All stack containers are stopped
+Maintenance → Normal: All stack containers are started
 ```
 
-**Ausnahme:** Container mit dem Label `rsgo.maintenance=ignore` werden nicht gestoppt/gestartet.
-Dies ist nützlich für Infrastruktur-Container (z.B. Datenbanken), die während der Wartung weiterlaufen sollen.
+**Exception:** Containers with the label `rsgo.maintenance=ignore` are not stopped/started.
+This is useful for infrastructure containers (e.g., databases) that should continue running during maintenance.
 
-Beispiel in docker-compose.yml:
+Example in docker-compose.yml:
 ```yaml
 services:
   postgres:
     image: postgres:16
     labels:
       rsgo.stack: my-app
-      rsgo.maintenance: ignore  # Container bleibt bei Maintenance aktiv
+      rsgo.maintenance: ignore  # Container stays active during Maintenance
 ```
 
-Die Container-Lifecycle-Verwaltung erfolgt über die Docker API und wird durch den `ChangeOperationModeHandler` koordiniert.
+Container lifecycle management is done via Docker API and coordinated by the `ChangeOperationModeHandler`.
 
 ---
 
 ## 6. API
 
-### 6.1 Health-Endpoints im RSGO-Core
+### 6.1 Health Endpoints in RSGO Core
 
-- `GET /api/orgs/{orgId}/envs/{envId}/stacks/{stackId}/health`  
-  Antwort: `HealthSnapshot` als JSON
+- `GET /api/orgs/{orgId}/envs/{envId}/stacks/{stackId}/health`
+  Response: `HealthSnapshot` as JSON
 
-- `GET /api/orgs/{orgId}/envs/{envId}/health-summary`  
-  Antwort: Liste aller Stacks + `overall` + `operationMode`
+- `GET /api/orgs/{orgId}/envs/{envId}/health-summary`
+  Response: List of all stacks + `overall` + `operationMode`
 
-- Optional:  
-  `GET /api/orgs/{orgId}/envs/{envId}/stacks/{stackId}/health/history`  
-  → Letzte X Snapshots, um Trends/Ausfälle zu sehen.
+- Optional:
+  `GET /api/orgs/{orgId}/envs/{envId}/stacks/{stackId}/health/history`
+  → Last X snapshots to see trends/outages.
 
 ---
 
-## 7. UI-Verhalten
+## 7. UI Behavior
 
-### 7.1 Org / Env Übersicht
+### 7.1 Org / Env Overview
 
-Beispielanzeige für eine Organisation:
+Example display for an organization:
 
-- `Org A`  
-  - `Test` – 🟢 **Healthy** (2 Stacks, alle Healthy)  
-  - `Prod` – 🟠 **Degraded – Migration läuft (ams-project 0.4.2 → 0.5.0)**  
+- `Org A`
+  - `Test` – 🟢 **Healthy** (2 stacks, all Healthy)
+  - `Prod` – 🟠 **Degraded – Migration running (ams-project 0.4.2 → 0.5.0)**
 
-### 7.2 Environment-Detail
+### 7.2 Environment Detail
 
-Tabelle:
+Table:
 
 | Stack        | Overall                    | Mode        | Bus        | Infra             | Self               |
-|--------------|----------------------------|------------|-----------|-------------------|--------------------|
-| identity     | Healthy                    | Normal     | Healthy   | –                 | 3/3 Services ok    |
-| ams-project  | Degraded (Migration 0.5.0) | Migrating  | Unhealthy | DB: ERP busy      | 9/10 Services ok   |
-| monitoring   | Healthy                    | Normal     | –         | –                 | 2/2 Services ok    |
+|--------------|----------------------------|-------------|------------|-------------------|--------------------|
+| identity     | Healthy                    | Normal      | Healthy    | –                 | 3/3 Services ok    |
+| ams-project  | Degraded (Migration 0.5.0) | Migrating   | Unhealthy  | DB: ERP busy      | 9/10 Services ok   |
+| monitoring   | Healthy                    | Normal      | –          | –                 | 2/2 Services ok    |
 
-### 7.3 Stack-Detail
+### 7.3 Stack Detail
 
 Header:
 
-> 🟠 **Degraded – Migration läuft (0.4.2 → 0.5.0)**  
-> Schritt 2/4: Datenbankmigration.
+> 🟠 **Degraded – Migration running (0.4.2 → 0.5.0)**
+> Step 2/4: Database migration.
 
-Darunter Tabs:
+Below that, tabs:
 
-- Overview (Bus/Infra/Self zusammengefasst)
-- Services (Container-Status, Health-Endpoints)
-- Bus (NSB-Endpunkte & TransportKeys)
-- Infra (DB, Disk, externe Services)
+- Overview (Bus/Infra/Self summarized)
+- Services (Container status, Health endpoints)
+- Bus (NSB endpoints & TransportKeys)
+- Infra (DB, Disk, external services)
 
 ---
 
-## 8. Drittanbieter-Anwendungen (nicht von euch entwickelt)
+## 8. Third-Party Applications (not developed by you)
 
-### 8.1 Minimalfall: Nur Docker-Status
+### 8.1 Minimal Case: Only Docker Status
 
-Für fremde Stacks, die nur „normale“ Container sind:
+For external stacks that are just "regular" containers:
 
-- Manifest enthält nur Services mit Image/Ports etc.
-- Keine speziellen Health-URLs, kein NSB, keine DB-Checks.
-- RSGO kann trotzdem:
+- Manifest contains only services with image/ports etc.
+- No special health URLs, no NSB, no DB checks.
+- RSGO can still:
 
-  - Container-State abfragen (running, restarting, exited)
-  - daraus `SelfHealth` ableiten
-  - `overall` berechnen (aus Self + OperationMode)
+  - Query container state (running, restarting, exited)
+  - Derive `SelfHealth` from it
+  - Calculate `overall` (from Self + OperationMode)
 
-→ Für diese Stacks zeigt RSGO zumindest:
+→ For these stacks, RSGO at least shows:
 
-- „Laufen die Container?“
-- „Sind wir im Maintenance/Stopped?“
-- Ggf. `Unknown`, wenn keine Info.
+- "Are the containers running?"
+- "Are we in Maintenance/Stopped?"
+- Possibly `Unknown`, if no info available.
 
-### 8.2 HTTP-Health-Endpoints von Drittanbietern
+### 8.2 HTTP Health Endpoints from Third Parties
 
-Viele Produkte haben bereits HTTP-Health:
+Many products already have HTTP health:
 
-- Keycloak: z. B. `/health` oder produkt-spezifische Endpunkte
-- Datenbanken via Admin-API
-- Fremd-Webapps mit `/health` oder `/status`
+- Keycloak: e.g., `/health` or product-specific endpoints
+- Databases via Admin API
+- External web apps with `/health` or `/status`
 
-Im Manifest kannst du für Drittanbieter-Services auch `health`-Blöcke definieren:
+In the manifest, you can also define `health` blocks for third-party services:
 
 ```yaml
 services:
@@ -404,59 +403,59 @@ services:
       timeout: 5s
 ```
 
-RSGO behandelt sie genauso wie eure eigenen Services – nur ohne NSB-/Bus-Spezifika.
+RSGO treats them the same as your own services – just without NSB/bus specifics.
 
-### 8.3 OperationMode bei Drittanbietern
+### 8.3 OperationMode for Third Parties
 
-Da RSGO Fremdprodukte **nicht selbst migriert** (z. B. komplexe SAP-/ERP-Anwendungen):
+Since RSGO **does not migrate** external products itself (e.g., complex SAP/ERP applications):
 
-- `OperationMode = Migrating` wird i. d. R. **nur gesetzt**, wenn:
-  - RSGO einen **eigenen** Upgrade-/Migrations-Workflow für diesen Stack kennt  
-  - **oder** der Admin den Stack manuell in einen Wartungs-/Migrationsmodus versetzt.
+- `OperationMode = Migrating` is usually **only set** if:
+  - RSGO knows an **own** upgrade/migration workflow for this stack
+  - **or** the admin manually puts the stack into a maintenance/migration mode.
 
-Du kannst z. B. anbieten:
+You can offer for example:
 
-- Button: „Stack in Maintenance versetzen“
+- Button: "Put Stack in Maintenance"
   - `OperationMode = Maintenance`
-  - optional: RSGO stoppt dazu automatisch bestimmte Services
+  - optional: RSGO automatically stops certain services
 
-So kannst du auch bei fremden Stacks sauber signalisieren:
-- „Degraded (Wartung)“ statt „Unhealthy“.
+This way you can also clearly signal for external stacks:
+- "Degraded (Maintenance)" instead of "Unhealthy".
 
-### 8.4 Integrations-Adapter (optional, später)
+### 8.4 Integration Adapters (optional, later)
 
-Für wichtige Fremdprodukte kannst du später „Adapter-Manifest-Erweiterungen“ anbieten:
+For important external products, you can later offer "adapter manifest extensions":
 
-- Spezielle Health-Definitionen:
-  - `kind: "keycloak"` → RSGO weiß, wo sinnvoll zu prüfen ist.
-  - `kind: "prometheus"` → bestimmte Status-Endpunkte.
-- Evtl. auch einfache Lifecycle-Commands:
-  - z. B. „Reload config“, „Restart gracefully“.
+- Special health definitions:
+  - `kind: "keycloak"` → RSGO knows where to check sensibly.
+  - `kind: "prometheus"` → specific status endpoints.
+- Possibly also simple lifecycle commands:
+  - e.g., "Reload config", "Restart gracefully".
 
-Aber das ist nicht nötig für den ersten Wurf – grundlegende Health-Funktionalität funktioniert schon mit:
+But this is not necessary for the first version – basic health functionality already works with:
 
-- Docker-Status
-- optionalen HTTP-Health-URLs
+- Docker status
+- optional HTTP health URLs
 
 ---
 
-## 9. Zusammenfassung
+## 9. Summary
 
-- **RSGO steuert den Betriebsmodus („OperationMode“)**:
+- **RSGO controls the operation mode ("OperationMode")**:
   - Normal, Migrating, Maintenance, Stopped, Failed
-- **Container/Services liefern technische Health-Daten**:
-  - via Docker-Status, HTTP-Health, NSB-EndpointHealth, etc.
-- **Overall-Health** ist eine Kombination aus:
+- **Containers/Services provide technical health data**:
+  - via Docker status, HTTP health, NSB EndpointHealth, etc.
+- **Overall health** is a combination of:
   - OperationMode + Bus + Infra + Self
-- **Drittanbieter-Stacks**:
-  - funktionieren mindestens mit Docker-Status
-  - können über optionale HTTP-Health integriert werden
-  - können manuell in Maintenance gesetzt werden
-- **Erste-Party-Stacks**:
-  - nutzen zusätzlich BusHealth (NServiceBus + WatchDog)
-  - können Migrationen/Upgrades voll automatisiert im RSGO-Modus „Migrating“ laufen lassen.
+- **Third-party stacks**:
+  - work at least with Docker status
+  - can be integrated via optional HTTP health
+  - can be manually put into Maintenance
+- **First-party stacks**:
+  - additionally use BusHealth (NServiceBus + WatchDog)
+  - can run migrations/upgrades fully automated in RSGO mode "Migrating".
 
-Dieses Konzept erlaubt:
-- eine einfache, klare UX („grün/gelb/rot + Migration/Wartung“),
-- saubere Integration deiner bestehenden EndpointHealth/WatchDog-Ideen,
-- und eine sinnvolle Health-Anzeige auch für Stacks, die nicht von euch kommen.
+This concept allows:
+- a simple, clear UX ("green/yellow/red + Migration/Maintenance"),
+- clean integration of your existing EndpointHealth/WatchDog ideas,
+- and a sensible health display even for stacks that don't come from you.

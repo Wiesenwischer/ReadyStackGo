@@ -1,7 +1,6 @@
 namespace ReadyStackGo.IntegrationTests.DataAccess;
 
 using FluentAssertions;
-using Microsoft.EntityFrameworkCore;
 using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
@@ -9,8 +8,8 @@ using ReadyStackGo.Infrastructure.DataAccess.Repositories;
 using ReadyStackGo.IntegrationTests.Infrastructure;
 
 /// <summary>
-/// Integration tests for deployment snapshot persistence with real SQLite database.
-/// Tests EF Core configuration, JSON serialization, and repository methods.
+/// Integration tests for PendingUpgradeSnapshot persistence with real SQLite database.
+/// Tests EF Core owned entity configuration, JSON serialization, and repository methods.
 /// </summary>
 public class DeploymentSnapshotRepositoryIntegrationTests : IDisposable
 {
@@ -27,7 +26,7 @@ public class DeploymentSnapshotRepositoryIntegrationTests : IDisposable
 
     public void Dispose() => _fixture.Dispose();
 
-    private Deployment CreateTestDeployment(string stackName = "test-stack")
+    private Deployment CreateRunningDeployment(string stackName = "test-stack")
     {
         var deployment = Deployment.Start(
             _repository.NextIdentity(),
@@ -55,35 +54,33 @@ public class DeploymentSnapshotRepositoryIntegrationTests : IDisposable
     #region Snapshot Persistence Tests
 
     [Fact]
-    public void CreateSnapshot_ShouldPersistSnapshotWithDeployment()
+    public void CreateSnapshot_ShouldPersistPendingUpgradeSnapshot()
     {
         // Arrange
-        var deployment = CreateTestDeployment();
+        var deployment = CreateRunningDeployment();
         _repository.Add(deployment);
         _repository.SaveChanges();
 
         // Act
-        var snapshot = deployment.CreateSnapshot("Pre-upgrade snapshot");
+        var snapshot = deployment.CreateSnapshot("Before upgrade to v2.0");
         _repository.Update(deployment);
         _repository.SaveChanges();
 
         // Assert - use fresh context
         using var verifyContext = _fixture.CreateNewContext();
         var persistedDeployment = verifyContext.Deployments
-            .Include(d => d.Snapshots)
             .First(d => d.Id == deployment.Id);
 
-        persistedDeployment.Snapshots.Should().HaveCount(1);
-        var persistedSnapshot = persistedDeployment.Snapshots.First();
-        persistedSnapshot.StackVersion.Should().Be("1.0.0");
-        persistedSnapshot.Description.Should().Be("Pre-upgrade snapshot");
+        persistedDeployment.PendingUpgradeSnapshot.Should().NotBeNull();
+        persistedDeployment.PendingUpgradeSnapshot!.StackVersion.Should().Be("1.0.0");
+        persistedDeployment.PendingUpgradeSnapshot.Description.Should().Be("Before upgrade to v2.0");
     }
 
     [Fact]
     public void CreateSnapshot_ShouldPersistVariablesAsJson()
     {
         // Arrange
-        var deployment = CreateTestDeployment();
+        var deployment = CreateRunningDeployment();
         deployment.SetVariables(new Dictionary<string, string>
         {
             ["CONN_STRING"] = "Server=sql;Database=db;User=sa;Password=P@ss",
@@ -100,10 +97,9 @@ public class DeploymentSnapshotRepositoryIntegrationTests : IDisposable
         // Assert
         using var verifyContext = _fixture.CreateNewContext();
         var persistedDeployment = verifyContext.Deployments
-            .Include(d => d.Snapshots)
             .First(d => d.Id == deployment.Id);
 
-        var snapshot = persistedDeployment.Snapshots.First();
+        var snapshot = persistedDeployment.PendingUpgradeSnapshot!;
         snapshot.Variables.Should().HaveCount(2);
         snapshot.Variables["CONN_STRING"].Should().Be("Server=sql;Database=db;User=sa;Password=P@ss");
         snapshot.Variables["API_KEY"].Should().Be("secret-key-123");
@@ -113,7 +109,7 @@ public class DeploymentSnapshotRepositoryIntegrationTests : IDisposable
     public void CreateSnapshot_ShouldPersistServicesAsJson()
     {
         // Arrange
-        var deployment = CreateTestDeployment();
+        var deployment = CreateRunningDeployment();
         _repository.Add(deployment);
         _repository.SaveChanges();
 
@@ -125,53 +121,59 @@ public class DeploymentSnapshotRepositoryIntegrationTests : IDisposable
         // Assert
         using var verifyContext = _fixture.CreateNewContext();
         var persistedDeployment = verifyContext.Deployments
-            .Include(d => d.Snapshots)
             .First(d => d.Id == deployment.Id);
 
-        var snapshot = persistedDeployment.Snapshots.First();
+        var snapshot = persistedDeployment.PendingUpgradeSnapshot!;
         snapshot.Services.Should().HaveCount(2);
         snapshot.Services.Should().Contain(s => s.Name == "db" && s.Image == "postgres:15");
         snapshot.Services.Should().Contain(s => s.Name == "api" && s.Image == "myapp/api:1.0.0");
     }
 
+    #endregion
+
+    #region ClearSnapshot Tests
+
     [Fact]
-    public void CreateMultipleSnapshots_ShouldPersistAll()
+    public void ClearSnapshot_ShouldRemovePendingUpgradeSnapshot()
     {
         // Arrange
-        var deployment = CreateTestDeployment();
+        var deployment = CreateRunningDeployment();
         _repository.Add(deployment);
         _repository.SaveChanges();
 
+        deployment.CreateSnapshot("Before upgrade");
+        _repository.Update(deployment);
+        _repository.SaveChanges();
+
+        // Verify snapshot exists
+        using (var checkContext = _fixture.CreateNewContext())
+        {
+            var check = checkContext.Deployments.First(d => d.Id == deployment.Id);
+            check.PendingUpgradeSnapshot.Should().NotBeNull();
+        }
+
         // Act
-        deployment.CreateSnapshot("Snapshot 1");
-        deployment.SetStackVersion("2.0.0");
-        deployment.CreateSnapshot("Snapshot 2");
-        deployment.SetStackVersion("3.0.0");
-        deployment.CreateSnapshot("Snapshot 3");
+        deployment.ClearSnapshot();
         _repository.Update(deployment);
         _repository.SaveChanges();
 
         // Assert
         using var verifyContext = _fixture.CreateNewContext();
         var persistedDeployment = verifyContext.Deployments
-            .Include(d => d.Snapshots)
             .First(d => d.Id == deployment.Id);
 
-        persistedDeployment.Snapshots.Should().HaveCount(3);
-        persistedDeployment.Snapshots.Should().Contain(s => s.Description == "Snapshot 1" && s.StackVersion == "1.0.0");
-        persistedDeployment.Snapshots.Should().Contain(s => s.Description == "Snapshot 2" && s.StackVersion == "2.0.0");
-        persistedDeployment.Snapshots.Should().Contain(s => s.Description == "Snapshot 3" && s.StackVersion == "3.0.0");
+        persistedDeployment.PendingUpgradeSnapshot.Should().BeNull();
     }
 
     #endregion
 
-    #region GetWithSnapshots Tests
+    #region GetById Tests
 
     [Fact]
-    public void GetWithSnapshots_ShouldLoadSnapshotsWithDeployment()
+    public void GetById_ShouldLoadPendingUpgradeSnapshot()
     {
         // Arrange
-        var deployment = CreateTestDeployment();
+        var deployment = CreateRunningDeployment();
         _repository.Add(deployment);
         _repository.SaveChanges();
 
@@ -179,135 +181,88 @@ public class DeploymentSnapshotRepositoryIntegrationTests : IDisposable
         _repository.Update(deployment);
         _repository.SaveChanges();
 
+        // Clear tracking to force fresh load
+        _fixture.Context.ChangeTracker.Clear();
+
+        // Act
+        var loaded = _repository.GetById(deployment.Id);
+
+        // Assert
+        loaded.Should().NotBeNull();
+        loaded!.PendingUpgradeSnapshot.Should().NotBeNull();
+        loaded.PendingUpgradeSnapshot!.Description.Should().Be("Test snapshot");
+    }
+
+    [Fact]
+    public void GetById_ShouldReturnNullForNonExistentDeployment()
+    {
+        // Act
+        var result = _repository.GetById(DeploymentId.Create());
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetById_ShouldReturnDeploymentWithNullSnapshot()
+    {
+        // Arrange
+        var deployment = CreateRunningDeployment();
+        _repository.Add(deployment);
+        _repository.SaveChanges();
+
+        // Clear tracking
+        _fixture.Context.ChangeTracker.Clear();
+
+        // Act
+        var loaded = _repository.GetById(deployment.Id);
+
+        // Assert
+        loaded.Should().NotBeNull();
+        loaded!.PendingUpgradeSnapshot.Should().BeNull();
+    }
+
+    #endregion
+
+    #region GetWithSnapshots (Backwards Compatibility) Tests
+
+    [Fact]
+    public void GetWithSnapshots_ShouldLoadPendingUpgradeSnapshot()
+    {
+        // Arrange
+        var deployment = CreateRunningDeployment();
+        _repository.Add(deployment);
+        _repository.SaveChanges();
+
+        deployment.CreateSnapshot("Test snapshot");
+        _repository.Update(deployment);
+        _repository.SaveChanges();
+
+        // Clear tracking
+        _fixture.Context.ChangeTracker.Clear();
+
         // Act
         var loaded = _repository.GetWithSnapshots(deployment.Id);
 
         // Assert
         loaded.Should().NotBeNull();
-        loaded!.Snapshots.Should().HaveCount(1);
-        loaded.Snapshots.First().Description.Should().Be("Test snapshot");
-    }
-
-    [Fact]
-    public void GetWithSnapshots_ShouldReturnNullForNonExistentDeployment()
-    {
-        // Act
-        var result = _repository.GetWithSnapshots(DeploymentId.Create());
-
-        // Assert
-        result.Should().BeNull();
-    }
-
-    [Fact]
-    public void GetWithSnapshots_ShouldLoadEmptySnapshotsCollection()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        _repository.Add(deployment);
-        _repository.SaveChanges();
-
-        // Act
-        var loaded = _repository.GetWithSnapshots(deployment.Id);
-
-        // Assert
-        loaded.Should().NotBeNull();
-        loaded!.Snapshots.Should().BeEmpty();
+        loaded!.PendingUpgradeSnapshot.Should().NotBeNull();
+        loaded.PendingUpgradeSnapshot!.Description.Should().Be("Test snapshot");
     }
 
     #endregion
 
-    #region GetWithSnapshotsByStackName Tests
+    #region Cascade Delete Tests
 
     [Fact]
-    public void GetWithSnapshotsByStackName_ShouldLoadSnapshotsForStackName()
+    public void RemoveDeployment_ShouldDeletePendingUpgradeSnapshot()
     {
         // Arrange
-        var deployment = CreateTestDeployment("my-app");
+        var deployment = CreateRunningDeployment();
         _repository.Add(deployment);
         _repository.SaveChanges();
 
-        deployment.CreateSnapshot();
-        _repository.Update(deployment);
-        _repository.SaveChanges();
-
-        // Act
-        var loaded = _repository.GetWithSnapshotsByStackName(_envId, "my-app");
-
-        // Assert
-        loaded.Should().NotBeNull();
-        loaded!.StackName.Should().Be("my-app");
-        loaded.Snapshots.Should().HaveCount(1);
-    }
-
-    [Fact]
-    public void GetWithSnapshotsByStackName_ShouldReturnNullForNonExistentStack()
-    {
-        // Act
-        var result = _repository.GetWithSnapshotsByStackName(_envId, "nonexistent");
-
-        // Assert
-        result.Should().BeNull();
-    }
-
-    [Fact]
-    public void GetWithSnapshotsByStackName_ShouldNotReturnRemovedDeployments()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment("my-app");
-        _repository.Add(deployment);
-        _repository.SaveChanges();
-
-        deployment.CreateSnapshot();
-        deployment.MarkAsRemoved();
-        _repository.Update(deployment);
-        _repository.SaveChanges();
-
-        // Act
-        var result = _repository.GetWithSnapshotsByStackName(_envId, "my-app");
-
-        // Assert
-        result.Should().BeNull();
-    }
-
-    [Fact]
-    public void GetWithSnapshotsByStackName_ShouldReturnMostRecentNonRemovedDeployment()
-    {
-        // Arrange
-        var deployment1 = CreateTestDeployment("my-app");
-        deployment1.SetStackVersion("1.0.0");
-        _repository.Add(deployment1);
-        _repository.SaveChanges();
-
-        Thread.Sleep(10); // Ensure different CreatedAt
-
-        var deployment2 = CreateTestDeployment("my-app");
-        deployment2.SetStackVersion("2.0.0");
-        _repository.Add(deployment2);
-        _repository.SaveChanges();
-
-        // Act
-        var loaded = _repository.GetWithSnapshotsByStackName(_envId, "my-app");
-
-        // Assert
-        loaded.Should().NotBeNull();
-        loaded!.StackVersion.Should().Be("2.0.0");
-    }
-
-    #endregion
-
-    #region Snapshot Cascade Delete Tests
-
-    [Fact]
-    public void RemoveDeployment_ShouldDeleteAllSnapshots()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        _repository.Add(deployment);
-        _repository.SaveChanges();
-
-        deployment.CreateSnapshot("Snapshot 1");
-        deployment.SetStackVersion("2.0.0");
-        deployment.CreateSnapshot("Snapshot 2");
+        deployment.CreateSnapshot("Snapshot to be deleted");
         _repository.Update(deployment);
         _repository.SaveChanges();
 
@@ -318,18 +273,17 @@ public class DeploymentSnapshotRepositoryIntegrationTests : IDisposable
         // Assert
         using var verifyContext = _fixture.CreateNewContext();
         verifyContext.Deployments.Should().BeEmpty();
-        verifyContext.DeploymentSnapshots.Should().BeEmpty();
     }
 
     #endregion
 
-    #region Snapshot with Edge Cases
+    #region Edge Cases
 
     [Fact]
     public void CreateSnapshot_ShouldHandleEmptyVariables()
     {
         // Arrange
-        var deployment = CreateTestDeployment();
+        var deployment = CreateRunningDeployment();
         deployment.SetVariables(new Dictionary<string, string>()); // Empty
         _repository.Add(deployment);
         _repository.SaveChanges();
@@ -342,17 +296,16 @@ public class DeploymentSnapshotRepositoryIntegrationTests : IDisposable
         // Assert
         using var verifyContext = _fixture.CreateNewContext();
         var persistedDeployment = verifyContext.Deployments
-            .Include(d => d.Snapshots)
             .First(d => d.Id == deployment.Id);
 
-        persistedDeployment.Snapshots.First().Variables.Should().BeEmpty();
+        persistedDeployment.PendingUpgradeSnapshot!.Variables.Should().BeEmpty();
     }
 
     [Fact]
     public void CreateSnapshot_ShouldHandleSpecialCharactersInVariables()
     {
         // Arrange
-        var deployment = CreateTestDeployment();
+        var deployment = CreateRunningDeployment();
         deployment.SetVariables(new Dictionary<string, string>
         {
             ["CONN"] = "Server=sql;Password=P@ss\"'<>&{}[];",
@@ -369,9 +322,8 @@ public class DeploymentSnapshotRepositoryIntegrationTests : IDisposable
         // Assert
         using var verifyContext = _fixture.CreateNewContext();
         var snapshot = verifyContext.Deployments
-            .Include(d => d.Snapshots)
             .First(d => d.Id == deployment.Id)
-            .Snapshots.First();
+            .PendingUpgradeSnapshot!;
 
         snapshot.Variables["CONN"].Should().Be("Server=sql;Password=P@ss\"'<>&{}[];");
         snapshot.Variables["JSON_VALUE"].Should().Be("{\"key\": \"value\", \"nested\": {\"a\": 1}}");
@@ -381,7 +333,7 @@ public class DeploymentSnapshotRepositoryIntegrationTests : IDisposable
     public void CreateSnapshot_ShouldHandleNullDescription()
     {
         // Arrange
-        var deployment = CreateTestDeployment();
+        var deployment = CreateRunningDeployment();
         _repository.Add(deployment);
         _repository.SaveChanges();
 
@@ -393,9 +345,8 @@ public class DeploymentSnapshotRepositoryIntegrationTests : IDisposable
         // Assert
         using var verifyContext = _fixture.CreateNewContext();
         var snapshot = verifyContext.Deployments
-            .Include(d => d.Snapshots)
             .First(d => d.Id == deployment.Id)
-            .Snapshots.First();
+            .PendingUpgradeSnapshot!;
 
         snapshot.Description.Should().BeNull();
     }
@@ -428,9 +379,8 @@ public class DeploymentSnapshotRepositoryIntegrationTests : IDisposable
         // Assert
         using var verifyContext = _fixture.CreateNewContext();
         var snapshot = verifyContext.Deployments
-            .Include(d => d.Snapshots)
             .First(d => d.Id == deployment.Id)
-            .Snapshots.First();
+            .PendingUpgradeSnapshot!;
 
         snapshot.Services.First().Image.Should().Be("unknown"); // Fallback value
     }

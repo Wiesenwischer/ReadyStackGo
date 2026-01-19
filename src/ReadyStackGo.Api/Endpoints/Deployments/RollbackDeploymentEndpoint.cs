@@ -7,7 +7,9 @@ using ReadyStackGo.Application.UseCases.Deployments.RollbackDeployment;
 namespace ReadyStackGo.API.Endpoints.Deployments;
 
 /// <summary>
-/// POST /api/environments/{environmentId}/deployments/{deploymentId}/rollback - Rollback a deployment to a snapshot.
+/// POST /api/environments/{environmentId}/deployments/{deploymentId}/rollback - Rollback a deployment to previous version.
+/// Rollback is only available after a failed upgrade (before Point of No Return).
+/// No SnapshotId required - always rolls back to the single PendingUpgradeSnapshot.
 /// Accessible by: SystemAdmin, OrganizationOwner, Operator (scoped).
 /// </summary>
 [RequirePermission("Deployments", "Write")]
@@ -32,13 +34,8 @@ public class RollbackDeploymentEndpoint : Endpoint<RollbackDeploymentRequest, Ro
         var deploymentId = Route<string>("deploymentId")!;
         req.EnvironmentId = environmentId;
 
-        if (string.IsNullOrEmpty(req.SnapshotId))
-        {
-            ThrowError("SnapshotId is required", StatusCodes.Status400BadRequest);
-        }
-
         var response = await _mediator.Send(
-            new RollbackDeploymentCommand(environmentId, deploymentId, req.SnapshotId!), ct);
+            new RollbackDeploymentCommand(environmentId, deploymentId), ct);
 
         if (!response.Success)
         {
@@ -52,8 +49,11 @@ public class RollbackDeploymentEndpoint : Endpoint<RollbackDeploymentRequest, Ro
     }
 }
 
+/// <summary>
+/// Request for rollback endpoint.
+/// No body required - rollback always uses the PendingUpgradeSnapshot.
+/// </summary>
 public class RollbackDeploymentRequest
 {
     public string EnvironmentId { get; set; } = string.Empty;
-    public string? SnapshotId { get; set; }
 }

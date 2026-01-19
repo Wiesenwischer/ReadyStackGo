@@ -4,6 +4,10 @@ using ReadyStackGo.Domain.Deployment.Environments;
 
 namespace ReadyStackGo.Application.UseCases.Deployments.GetDeploymentSnapshots;
 
+/// <summary>
+/// Handler for getting rollback information for a deployment.
+/// With Point of No Return semantics, there's at most one snapshot (PendingUpgradeSnapshot).
+/// </summary>
 public class GetDeploymentSnapshotsHandler : IRequestHandler<GetDeploymentSnapshotsQuery, GetDeploymentSnapshotsResponse>
 {
     private readonly IDeploymentRepository _deploymentRepository;
@@ -25,7 +29,7 @@ public class GetDeploymentSnapshotsHandler : IRequestHandler<GetDeploymentSnapsh
         }
 
         var deploymentId = DeploymentId.FromGuid(deploymentGuid);
-        var deployment = _deploymentRepository.GetWithSnapshots(deploymentId);
+        var deployment = _deploymentRepository.GetById(deploymentId);
 
         if (deployment == null)
         {
@@ -56,27 +60,49 @@ public class GetDeploymentSnapshotsHandler : IRequestHandler<GetDeploymentSnapsh
             });
         }
 
-        var snapshotDtos = deployment.Snapshots
-            .OrderByDescending(s => s.CreatedAt)
-            .Select(s => new DeploymentSnapshotDto
-            {
-                SnapshotId = s.Id.Value.ToString(),
-                StackVersion = s.StackVersion,
-                CreatedAt = s.CreatedAt,
-                Description = s.Description,
-                ServiceCount = s.Services.Count,
-                VariableCount = s.Variables.Count
-            })
-            .ToList();
-
-        return Task.FromResult(new GetDeploymentSnapshotsResponse
+        var response = new GetDeploymentSnapshotsResponse
         {
             Success = true,
             DeploymentId = request.DeploymentId,
             StackName = deployment.StackName,
             CurrentVersion = deployment.StackVersion,
             CanRollback = deployment.CanRollback(),
-            Snapshots = snapshotDtos
-        });
+            RollbackTargetVersion = deployment.GetRollbackTargetVersion()
+        };
+
+        // If there's a pending upgrade snapshot, include it
+        var snapshot = deployment.PendingUpgradeSnapshot;
+        if (snapshot != null)
+        {
+            response.SnapshotCreatedAt = snapshot.CreatedAt;
+            response.SnapshotDescription = snapshot.Description;
+
+            // For backwards compatibility, also include in the list
+            response.Snapshots.Add(new DeploymentSnapshotDto
+            {
+                SnapshotId = snapshot.Id.Value.ToString(),
+                StackVersion = snapshot.StackVersion,
+                CreatedAt = snapshot.CreatedAt,
+                Description = snapshot.Description,
+                ServiceCount = snapshot.Services.Count,
+                VariableCount = snapshot.Variables.Count
+            });
+        }
+
+        // Add context message based on state
+        if (deployment.CanRollback())
+        {
+            response.Message = $"Rollback to version {deployment.GetRollbackTargetVersion()} is available.";
+        }
+        else if (deployment.Status == DeploymentStatus.Failed && snapshot == null)
+        {
+            response.Message = "Rollback not available - containers were already started (Point of No Return passed).";
+        }
+        else if (deployment.Status != DeploymentStatus.Failed)
+        {
+            response.Message = "Rollback only available after failed upgrade.";
+        }
+
+        return Task.FromResult(response);
     }
 }

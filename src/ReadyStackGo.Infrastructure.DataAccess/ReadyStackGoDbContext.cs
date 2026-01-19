@@ -23,7 +23,7 @@ public class ReadyStackGoDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Environment> Environments => Set<Environment>();
     public DbSet<Deployment> Deployments => Set<Deployment>();
-    public DbSet<DeploymentSnapshot> DeploymentSnapshots => Set<DeploymentSnapshot>();
+    // DeploymentSnapshot is now an owned entity of Deployment, no separate DbSet needed
     public DbSet<HealthSnapshot> HealthSnapshots => Set<HealthSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
