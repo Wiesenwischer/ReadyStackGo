@@ -79,7 +79,37 @@ public record ProductDetails(
     /// <summary>
     /// Last sync timestamp
     /// </summary>
-    DateTime LastSyncedAt
+    DateTime LastSyncedAt,
+
+    /// <summary>
+    /// All available versions of this product (sorted newest first)
+    /// </summary>
+    List<ProductVersionInfo> AvailableVersions
+);
+
+/// <summary>
+/// Information about a specific product version.
+/// </summary>
+public record ProductVersionInfo(
+    /// <summary>
+    /// Version string (e.g., "1.0.0", "2.0.0")
+    /// </summary>
+    string Version,
+
+    /// <summary>
+    /// Product ID for this specific version
+    /// </summary>
+    string ProductId,
+
+    /// <summary>
+    /// Default stack ID for deployment
+    /// </summary>
+    string DefaultStackId,
+
+    /// <summary>
+    /// Whether this is the currently displayed version
+    /// </summary>
+    bool IsCurrent
 );
 
 /// <summary>

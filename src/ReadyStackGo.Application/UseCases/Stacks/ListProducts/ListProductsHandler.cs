@@ -30,7 +30,7 @@ public class ListProductsHandler : IRequestHandler<ListProductsQuery, ListProduc
             TotalServices: p.TotalServices,
             TotalVariables: p.TotalVariables,
             Stacks: p.Stacks.Select(s => new ProductStackItem(
-                s.Id,
+                s.Id.Value,
                 s.Name,
                 s.Description,
                 s.GetServiceNames().ToList(),

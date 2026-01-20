@@ -1302,242 +1302,15 @@ public class DeploymentTests
 
     #endregion
 
-    #region Snapshot Tests (Point of No Return Semantics)
+    #region Rollback Tests (Simplified - No Snapshots)
 
     [Fact]
-    public void CreateSnapshot_FromRunning_CreatesPendingUpgradeSnapshot()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.SetStackVersion("1.0.0");
-        deployment.SetVariables(new Dictionary<string, string> { ["DB_HOST"] = "localhost" });
-        deployment.MarkAsRunning(CreateTestServices());
-        deployment.ClearDomainEvents();
-
-        // Act
-        var snapshot = deployment.CreateSnapshot("Before upgrade to v2.0");
-
-        // Assert
-        snapshot.Should().NotBeNull();
-        snapshot!.DeploymentId.Should().Be(deployment.Id);
-        snapshot.StackVersion.Should().Be("1.0.0");
-        snapshot.Description.Should().Be("Before upgrade to v2.0");
-        snapshot.Variables.Should().ContainKey("DB_HOST");
-        snapshot.Services.Should().HaveCount(2);
-        deployment.PendingUpgradeSnapshot.Should().NotBeNull();
-        deployment.PendingUpgradeSnapshot.Should().Be(snapshot);
-        deployment.DomainEvents.Should().ContainSingle(e => e is DeploymentSnapshotCreated);
-    }
-
-    [Fact]
-    public void CreateSnapshot_FromPending_ThrowsArgumentException()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.SetStackVersion("1.0.0");
-
-        // Act
-        var act = () => deployment.CreateSnapshot();
-
-        // Assert
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("*running*");
-    }
-
-    [Fact]
-    public void CreateSnapshot_WithoutStackVersion_ThrowsArgumentException()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
-
-        // Act
-        var act = () => deployment.CreateSnapshot();
-
-        // Assert
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("*version*");
-    }
-
-    [Fact]
-    public void CreateSnapshot_FromStopped_ThrowsArgumentException()
+    public void CanRollback_WhenFailedWithVersion_ReturnsTrue()
     {
         // Arrange
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
         deployment.MarkAsRunning(CreateTestServices());
-        deployment.MarkAsStopped();
-
-        // Act
-        var act = () => deployment.CreateSnapshot();
-
-        // Assert
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("*running*");
-    }
-
-    [Fact]
-    public void CreateSnapshot_WhenSnapshotAlreadyExists_ThrowsArgumentException()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.SetStackVersion("1.0.0");
-        deployment.MarkAsRunning(CreateTestServices());
-        deployment.CreateSnapshot("First snapshot");
-
-        // Act
-        var act = () => deployment.CreateSnapshot("Second snapshot");
-
-        // Assert
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("*already exists*");
-    }
-
-    [Fact]
-    public void CreateSnapshot_CapturesServiceImages()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.SetStackVersion("1.0.0");
-        var services = new[]
-        {
-            new DeployedService("db", "c1", "db-1", "mysql:8.0", "running"),
-            new DeployedService("app", "c2", "app-1", "myapp:1.5.0", "running")
-        };
-        deployment.MarkAsRunning(services);
-
-        // Act
-        var snapshot = deployment.CreateSnapshot()!;
-
-        // Assert
-        snapshot.Services.Should().HaveCount(2);
-        snapshot.Services.Should().Contain(s => s.Name == "db" && s.Image == "mysql:8.0");
-        snapshot.Services.Should().Contain(s => s.Name == "app" && s.Image == "myapp:1.5.0");
-    }
-
-    [Fact]
-    public void ClearSnapshot_RemovesPendingUpgradeSnapshot()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.SetStackVersion("1.0.0");
-        deployment.MarkAsRunning(CreateTestServices());
-        deployment.CreateSnapshot("Before upgrade");
-        deployment.PendingUpgradeSnapshot.Should().NotBeNull();
-
-        // Act
-        deployment.ClearSnapshot();
-
-        // Assert
-        deployment.PendingUpgradeSnapshot.Should().BeNull();
-    }
-
-    [Fact]
-    public void GetRollbackTargetVersion_WithSnapshot_ReturnsSnapshotVersion()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.SetStackVersion("1.0.0");
-        deployment.MarkAsRunning(CreateTestServices());
-        deployment.CreateSnapshot();
-
-        // Act
-        var targetVersion = deployment.GetRollbackTargetVersion();
-
-        // Assert
-        targetVersion.Should().Be("1.0.0");
-    }
-
-    [Fact]
-    public void GetRollbackTargetVersion_WithoutSnapshot_ReturnsNull()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.SetStackVersion("1.0.0");
-        deployment.MarkAsRunning(CreateTestServices());
-
-        // Act
-        var targetVersion = deployment.GetRollbackTargetVersion();
-
-        // Assert
-        targetVersion.Should().BeNull();
-    }
-
-    #endregion
-
-    #region Rollback Tests (Point of No Return Semantics)
-
-    [Fact]
-    public void RollbackToPrevious_WhenFailedWithSnapshot_RestoresState()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.SetStackVersion("1.0.0");
-        deployment.SetVariables(new Dictionary<string, string> { ["VAR1"] = "old" });
-        deployment.MarkAsRunning(CreateTestServices());
-        deployment.CreateSnapshot("Before upgrade to v2.0");
-
-        // Simulate upgrade that changed state and then failed (before container start)
-        deployment.SetStackVersion("2.0.0");
-        deployment.SetVariables(new Dictionary<string, string> { ["VAR1"] = "new", ["VAR2"] = "added" });
-        deployment.MarkAsFailed("Image pull failed");
-        deployment.ClearDomainEvents();
-
-        // Act
-        deployment.RollbackToPrevious();
-
-        // Assert
-        deployment.StackVersion.Should().Be("1.0.0");
-        deployment.Variables.Should().HaveCount(1);
-        deployment.Variables["VAR1"].Should().Be("old");
-        deployment.Status.Should().Be(DeploymentStatus.Pending);
-        deployment.CurrentPhase.Should().Be(DeploymentPhase.Initializing);
-        deployment.PendingUpgradeSnapshot.Should().BeNull(); // Consumed by rollback
-        deployment.DomainEvents.Should().Contain(e => e is DeploymentRolledBack);
-    }
-
-    [Fact]
-    public void RollbackToPrevious_WithoutSnapshot_ThrowsArgumentException()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.MarkAsFailed("Some error");
-
-        // Act
-        var act = () => deployment.RollbackToPrevious();
-
-        // Assert
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("*No snapshot available*");
-    }
-
-    [Fact]
-    public void RollbackToPrevious_WhenNotFailed_ThrowsArgumentException()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.SetStackVersion("1.0.0");
-        deployment.MarkAsRunning(CreateTestServices());
-        deployment.CreateSnapshot();
-
-        // Act - Try to rollback without being in Failed state
-        var act = () => deployment.RollbackToPrevious();
-
-        // Assert
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("*failed upgrade*");
-    }
-
-    [Fact]
-    public void CanRollback_WhenFailedWithSnapshot_ReturnsTrue()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.SetStackVersion("1.0.0");
-        deployment.MarkAsRunning(CreateTestServices());
-        deployment.CreateSnapshot();
-
-        // Simulate failed upgrade before container start
         deployment.MarkAsFailed("Image pull failed");
 
         // Assert
@@ -1545,9 +1318,9 @@ public class DeploymentTests
     }
 
     [Fact]
-    public void CanRollback_WhenFailedWithoutSnapshot_ReturnsFalse()
+    public void CanRollback_WhenFailedWithoutVersion_ReturnsFalse()
     {
-        // Arrange - Simulates upgrade that passed Point of No Return (snapshot was cleared)
+        // Arrange
         var deployment = CreateTestDeployment();
         deployment.MarkAsFailed("Container health check failed");
 
@@ -1556,15 +1329,14 @@ public class DeploymentTests
     }
 
     [Fact]
-    public void CanRollback_WhenRunningWithSnapshot_ReturnsFalse()
+    public void CanRollback_WhenRunning_ReturnsFalse()
     {
-        // Arrange - Running deployment can have snapshot (mid-upgrade), but can't rollback
+        // Arrange
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
         deployment.MarkAsRunning(CreateTestServices());
-        deployment.CreateSnapshot();
 
-        // Assert - Must be Failed to rollback
+        // Assert
         deployment.CanRollback().Should().BeFalse();
     }
 
@@ -1582,64 +1354,53 @@ public class DeploymentTests
     }
 
     [Fact]
-    public void RollbackToPrevious_ClearsErrorState()
+    public void GetRollbackTargetVersion_WhenCanRollback_ReturnsCurrentVersion()
     {
         // Arrange
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
         deployment.MarkAsRunning(CreateTestServices());
-        deployment.CreateSnapshot();
         deployment.MarkAsFailed("Upgrade failed");
 
         // Act
-        deployment.RollbackToPrevious();
+        var targetVersion = deployment.GetRollbackTargetVersion();
 
         // Assert
-        deployment.ErrorMessage.Should().BeNull();
-        deployment.IsCancellationRequested.Should().BeFalse();
-        deployment.CancellationReason.Should().BeNull();
-        deployment.ProgressPercentage.Should().Be(0);
+        targetVersion.Should().Be("1.0.0");
     }
 
     [Fact]
-    public void RollbackToPrevious_RaisesDeploymentRolledBackEvent()
+    public void GetRollbackTargetVersion_WhenCannotRollback_ReturnsNull()
     {
         // Arrange
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
         deployment.MarkAsRunning(CreateTestServices());
-        var snapshot = deployment.CreateSnapshot()!;
-        deployment.MarkAsFailed("Upgrade failed");
-        deployment.ClearDomainEvents();
 
         // Act
-        deployment.RollbackToPrevious();
+        var targetVersion = deployment.GetRollbackTargetVersion();
 
         // Assert
-        var domainEvent = deployment.DomainEvents.OfType<DeploymentRolledBack>().Single();
-        domainEvent.DeploymentId.Should().Be(deployment.Id);
-        domainEvent.SnapshotId.Should().Be(snapshot.Id);
-        domainEvent.RestoredVersion.Should().Be("1.0.0");
+        targetVersion.Should().BeNull();
     }
 
     [Fact]
-    public void RollbackToPrevious_ConsumesSnapshot()
+    public void GetRedeploymentData_ReturnsAllDeploymentData()
     {
         // Arrange
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
+        deployment.SetVariables(new Dictionary<string, string> { ["VAR1"] = "value1" });
         deployment.MarkAsRunning(CreateTestServices());
-        deployment.CreateSnapshot();
-        deployment.MarkAsFailed("Upgrade failed");
-
-        deployment.PendingUpgradeSnapshot.Should().NotBeNull();
 
         // Act
-        deployment.RollbackToPrevious();
+        var (stackId, version, variables) = deployment.GetRedeploymentData();
 
-        // Assert - Snapshot is consumed (deleted)
-        deployment.PendingUpgradeSnapshot.Should().BeNull();
-        deployment.CanRollback().Should().BeFalse();
+        // Assert
+        stackId.Should().Be("wordpress");
+        version.Should().Be("1.0.0");
+        variables.Should().ContainKey("VAR1");
+        variables["VAR1"].Should().Be("value1");
     }
 
     #endregion

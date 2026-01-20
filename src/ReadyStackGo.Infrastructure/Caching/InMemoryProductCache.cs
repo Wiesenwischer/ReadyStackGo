@@ -54,10 +54,38 @@ public class InMemoryProductCache : IProductCache
                 return product;
         }
 
-        // Fallback: Try as GroupId (old format sourceId:productName) - return latest version
+        // Fallback: Try as GroupId (explicit productId or sourceId:productName) - return latest version
         if (_productGroups.TryGetValue(productId, out var versions))
         {
             return GetLatestVersion(versions);
+        }
+
+        // Final fallback: Search by sourceId:productName or sourceId:productId pattern
+        // This supports lookups like "stacks:Whoami" or "stacks:io.traefik.whoami"
+        foreach (var group in _productGroups.Values)
+        {
+            var product = group.Values.FirstOrDefault(p =>
+                $"{p.SourceId}:{p.Name}" == productId);
+            if (product != null)
+                return GetLatestVersion(group);
+        }
+
+        // Also try matching sourceId:productId (GroupId pattern without source prefix)
+        // E.g., looking for "stacks:io.traefik.whoami" when GroupId is "io.traefik.whoami"
+        var lookupParts = productId.Split(':', 2);
+        if (lookupParts.Length == 2)
+        {
+            var sourceId = lookupParts[0];
+            var productIdPart = lookupParts[1];
+
+            // Try to find by GroupId matching the productId part
+            if (_productGroups.TryGetValue(productIdPart, out var groupByProductId))
+            {
+                // Verify we have a product from the expected source
+                var matchingProduct = groupByProductId.Values.FirstOrDefault(p => p.SourceId == sourceId);
+                if (matchingProduct != null)
+                    return GetLatestVersion(groupByProductId);
+            }
         }
 
         return null;
@@ -145,7 +173,7 @@ public class InMemoryProductCache : IProductCache
         {
             foreach (var product in group.Values)
             {
-                var stack = product.Stacks.FirstOrDefault(s => s.Id == stackId);
+                var stack = product.Stacks.FirstOrDefault(s => s.Id.Value == stackId);
                 if (stack != null)
                 {
                     return stack;

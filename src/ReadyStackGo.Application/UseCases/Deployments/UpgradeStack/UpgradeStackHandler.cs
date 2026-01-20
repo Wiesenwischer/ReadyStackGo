@@ -116,14 +116,8 @@ public class UpgradeStackHandler : IRequestHandler<UpgradeStackCommand, UpgradeS
             };
         }
 
-        // 8. Record upgrade in deployment (for tracking history)
-        var finalDeployment = _deploymentRepository.GetById(deployment.Id);
-        if (finalDeployment != null && !string.IsNullOrEmpty(previousVersion) && !string.IsNullOrEmpty(newVersion))
-        {
-            finalDeployment.RecordUpgrade(previousVersion, newVersion);
-            _deploymentRepository.Update(finalDeployment);
-            _deploymentRepository.SaveChanges();
-        }
+        // Note: RecordUpgrade is now called by DeploymentService during the upgrade flow
+        // to avoid concurrency issues (EF Core change tracking with Version token)
 
         _logger.LogInformation(
             "Successfully upgraded deployment {DeploymentId} from {PreviousVersion} to {NewVersion}",

@@ -331,4 +331,16 @@ public class ProductSourceService : IProductSourceService
         await EnsureInitializedAsync(cancellationToken);
         return _cache.GetStack(stackId);
     }
+
+    public async Task<IEnumerable<ProductDefinition>> GetProductVersionsAsync(string groupId, CancellationToken cancellationToken = default)
+    {
+        await EnsureInitializedAsync(cancellationToken);
+        return _cache.GetProductVersions(groupId);
+    }
+
+    public async Task<IEnumerable<ProductDefinition>> GetAvailableUpgradesAsync(string groupId, string currentVersion, CancellationToken cancellationToken = default)
+    {
+        await EnsureInitializedAsync(cancellationToken);
+        return _cache.GetAvailableUpgrades(groupId, currentVersion);
+    }
 }

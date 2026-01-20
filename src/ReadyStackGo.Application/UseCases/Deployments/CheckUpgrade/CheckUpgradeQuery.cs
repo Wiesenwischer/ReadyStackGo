@@ -39,6 +39,12 @@ public record CheckUpgradeResponse
     public string? LatestStackId { get; init; }
 
     /// <summary>
+    /// All available upgrade versions, sorted by version (newest first).
+    /// Includes versions from all sources that share the same GroupId.
+    /// </summary>
+    public List<AvailableVersion>? AvailableVersions { get; init; }
+
+    /// <summary>
     /// Variables that are new in the latest version.
     /// </summary>
     public List<string>? NewVariables { get; init; }
@@ -76,4 +82,25 @@ public record CheckUpgradeResponse
         CanUpgrade = true,
         Message = reason
     };
+}
+
+/// <summary>
+/// Represents an available version for upgrade.
+/// </summary>
+public record AvailableVersion
+{
+    /// <summary>
+    /// Version string (e.g., "2.0.0").
+    /// </summary>
+    public required string Version { get; init; }
+
+    /// <summary>
+    /// Stack ID for this version (for use in upgrade request).
+    /// </summary>
+    public required string StackId { get; init; }
+
+    /// <summary>
+    /// Source ID where this version is available.
+    /// </summary>
+    public required string SourceId { get; init; }
 }

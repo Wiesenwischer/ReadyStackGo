@@ -19,7 +19,7 @@ public class ListStacksHandler : IRequestHandler<ListStacksQuery, ListStacksResu
         var sourceNames = sources.ToDictionary(s => s.Id.Value, s => s.Name);
 
         var items = stacks.Select(s => new StackListItem(
-            s.Id,
+            s.Id.Value,
             s.SourceId,
             sourceNames.GetValueOrDefault(s.SourceId, s.SourceId),
             s.Name,

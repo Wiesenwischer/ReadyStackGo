@@ -165,56 +165,6 @@ public class DeploymentConfiguration : IEntityTypeConfiguration<Deployment>
                 .IsRequired();
         });
 
-        // Configure PendingUpgradeSnapshot as owned entity (one-to-one, nullable)
-        // The snapshot is only present during an upgrade, before Point of No Return
-        builder.OwnsOne(d => d.PendingUpgradeSnapshot, snap =>
-        {
-            snap.ToTable("PendingUpgradeSnapshots");
-
-            snap.WithOwner().HasForeignKey("DeploymentId");
-
-            snap.Property(s => s.Id)
-                .HasConversion(
-                    id => id.Value,
-                    value => new DeploymentSnapshotId(value))
-                .HasColumnName("Id")
-                .IsRequired();
-
-            snap.HasKey(s => s.Id);
-
-            snap.Property(s => s.DeploymentId)
-                .HasConversion(
-                    id => id.Value,
-                    value => new DeploymentId(value))
-                .IsRequired();
-
-            snap.Property(s => s.StackVersion)
-                .HasMaxLength(50)
-                .IsRequired();
-
-            snap.Property(s => s.CreatedAt)
-                .IsRequired();
-
-            snap.Property(s => s.Description)
-                .HasMaxLength(500);
-
-            // Configure Variables as JSON column
-            snap.Property(s => s.Variables)
-                .HasConversion(
-                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                    v => JsonSerializer.Deserialize<Dictionary<string, string>>(v, (JsonSerializerOptions?)null) ?? new())
-                .HasColumnName("VariablesJson")
-                .IsRequired();
-
-            // Configure Services as JSON column
-            snap.Property(s => s.Services)
-                .HasConversion(
-                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                    v => JsonSerializer.Deserialize<List<ServiceSnapshot>>(v, (JsonSerializerOptions?)null) ?? new())
-                .HasColumnName("ServicesJson")
-                .IsRequired();
-        });
-
         // Indexes (no unique constraint on ProjectName - allows re-deploying same stack name)
         builder.HasIndex(d => d.EnvironmentId);
 

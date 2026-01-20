@@ -199,7 +199,37 @@ public class DeploymentEngine : IDeploymentEngine
                 await EnsureDockerNetworkAsync(environmentId, defaultNetwork);
             }
 
-            // PHASE 1: Pull all images first (fail-fast if any image is unavailable)
+            // PHASE 1: Remove existing containers first (Point of No Return)
+            // This ensures rollback is meaningful - if we remove containers, we need rollback capability
+            await ReportProgress("RemovingOldContainers", $"Removing {plan.Steps.Count} existing containers...", 0);
+
+            var removedContainers = 0;
+            foreach (var step in plan.Steps)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    var existing = await _dockerService.GetContainerByNameAsync(environmentId, step.ContainerName);
+                    if (existing != null)
+                    {
+                        _logger.LogInformation("Removing existing container {Container} (Point of No Return)", step.ContainerName);
+                        await _dockerService.RemoveContainerAsync(environmentId, existing.Id, force: true);
+                        removedContainers++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "No existing container {Container} to remove", step.ContainerName);
+                }
+
+                var removePercent = plan.Steps.Count > 0 ? ((plan.Steps.IndexOf(step) + 1) * 100 / plan.Steps.Count) : 100;
+                await ReportProgress("RemovingOldContainers", $"Removed {removedContainers} containers", removePercent, step.ContextName);
+            }
+
+            _logger.LogInformation("Removed {Count} existing containers - Point of No Return passed", removedContainers);
+
+            // PHASE 2: Pull all images (fail here means rollback is needed)
             var pullWarnings = new Dictionary<string, string>();
             var pulledImages = 0;
             var totalImages = plan.Steps.Count;
@@ -505,7 +535,7 @@ public class DeploymentEngine : IDeploymentEngine
     }
 
     /// <summary>
-    /// Starts a container for a deployment step (assumes image is already pulled).
+    /// Starts a container for a deployment step (assumes image is already pulled and old container removed).
     /// </summary>
     private async Task StartContainerAsync(
         string environmentId,
@@ -516,20 +546,8 @@ public class DeploymentEngine : IDeploymentEngine
         _logger.LogInformation("Starting container for {Context} (order: {Order}) in environment {EnvironmentId}",
             step.ContextName, step.Order, environmentId);
 
-        // Stop and remove existing container if it exists
-        try
-        {
-            var existing = await _dockerService.GetContainerByNameAsync(environmentId, step.ContainerName);
-            if (existing != null)
-            {
-                _logger.LogInformation("Removing existing container {Container}", step.ContainerName);
-                await _dockerService.RemoveContainerAsync(environmentId, existing.Id, force: true);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "No existing container {Container} to remove", step.ContainerName);
-        }
+        // Note: Old containers are removed in Phase 1 (RemovingOldContainers) before image pull
+        // This ensures Point of No Return semantics - rollback is needed if anything fails after removal
 
         var (imageName, imageTag) = ParseImageReference(step.Image, step.Version);
 

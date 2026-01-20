@@ -3,12 +3,14 @@ using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.StackManagement.Stacks;
 
 namespace ReadyStackGo.Application.UseCases.Deployments.CheckUpgrade;
 
 /// <summary>
 /// Handler for checking if an upgrade is available for a deployment.
-/// Compares the deployed version with the latest version in the catalog.
+/// Compares the deployed version with all available versions in the catalog.
+/// Supports multi-version catalog with cross-source upgrades via GroupId.
 /// </summary>
 public class CheckUpgradeHandler : IRequestHandler<CheckUpgradeQuery, CheckUpgradeResponse>
 {
@@ -54,9 +56,8 @@ public class CheckUpgradeHandler : IRequestHandler<CheckUpgradeQuery, CheckUpgra
             };
         }
 
-        // 4. Check if deployment was created from catalog
-        var stackId = deployment.StackId;
-        if (string.IsNullOrEmpty(stackId) || !stackId.Contains(':'))
+        // 4. Parse the stack ID into structured components
+        if (!StackId.TryParse(deployment.StackId, out var parsedStackId) || parsedStackId == null)
         {
             return new CheckUpgradeResponse
             {
@@ -68,22 +69,9 @@ public class CheckUpgradeHandler : IRequestHandler<CheckUpgradeQuery, CheckUpgra
             };
         }
 
-        // 5. Extract product ID from stack ID (format: sourceId:productName:stackName)
-        var productId = ExtractProductId(stackId);
-        if (string.IsNullOrEmpty(productId))
-        {
-            return new CheckUpgradeResponse
-            {
-                Success = true,
-                UpgradeAvailable = false,
-                CurrentVersion = deployment.StackVersion,
-                CanUpgrade = true,
-                Message = "Could not determine product ID from stack ID."
-            };
-        }
-
-        // 6. Get product from catalog
-        var product = await _productSourceService.GetProductAsync(productId, cancellationToken);
+        // 5. Look up product using sourceId:productId format
+        var productLookupKey = $"{parsedStackId.SourceId}:{parsedStackId.ProductId.Value}";
+        var product = await _productSourceService.GetProductAsync(productLookupKey, cancellationToken);
         if (product == null)
         {
             return new CheckUpgradeResponse
@@ -96,23 +84,26 @@ public class CheckUpgradeHandler : IRequestHandler<CheckUpgradeQuery, CheckUpgra
             };
         }
 
-        // 7. Compare versions
-        var currentVersion = deployment.StackVersion;
-        var latestVersion = product.ProductVersion;
+        // 6. Get all available upgrades using the product's GroupId
+        var currentVersion = deployment.StackVersion ?? "0.0.0";
+        var groupId = product.GroupId;
 
-        var comparison = CompareVersions(currentVersion, latestVersion);
-        var upgradeAvailable = comparison.HasValue && comparison.Value < 0;
+        var availableUpgrades = (await _productSourceService.GetAvailableUpgradesAsync(
+            groupId, currentVersion, cancellationToken)).ToList();
 
-        // 8. If upgrade available, analyze changes
+        var upgradeAvailable = availableUpgrades.Count > 0;
+        var latestUpgrade = availableUpgrades.FirstOrDefault();
+
+        // 7. If upgrade available, analyze changes
         List<string>? newVars = null;
         List<string>? removedVars = null;
 
-        if (upgradeAvailable)
+        if (upgradeAvailable && latestUpgrade != null)
         {
             try
             {
-                var currentStack = await _productSourceService.GetStackAsync(stackId, cancellationToken);
-                var latestStack = product.DefaultStack;
+                var currentStack = await _productSourceService.GetStackAsync(parsedStackId.Value, cancellationToken);
+                var latestStack = latestUpgrade.DefaultStack;
 
                 if (currentStack != null && latestStack != null)
                 {
@@ -127,66 +118,35 @@ public class CheckUpgradeHandler : IRequestHandler<CheckUpgradeQuery, CheckUpgra
             }
         }
 
-        // 9. Build response
-        var latestStackId = product.DefaultStack?.Id ?? $"{productId}:{product.DefaultStack?.Name ?? "default"}";
+        // 8. Build response with all available versions
+        var latestVersion = latestUpgrade?.ProductVersion;
+        var latestStackId = latestUpgrade?.DefaultStack?.Id.Value;
+
+        // Build list of all available upgrade versions
+        var availableVersions = availableUpgrades
+            .Select(p => new AvailableVersion
+            {
+                Version = p.ProductVersion ?? "unknown",
+                StackId = p.DefaultStack?.Id.Value ?? p.Id,
+                SourceId = p.SourceId
+            })
+            .ToList();
 
         return new CheckUpgradeResponse
         {
             Success = true,
             UpgradeAvailable = upgradeAvailable,
-            CurrentVersion = currentVersion,
+            CurrentVersion = deployment.StackVersion,
             LatestVersion = latestVersion,
             LatestStackId = latestStackId,
+            AvailableVersions = availableVersions.Count > 0 ? availableVersions : null,
             NewVariables = newVars,
             RemovedVariables = removedVars,
             CanUpgrade = true,
             Message = upgradeAvailable
-                ? $"Upgrade available: {currentVersion} -> {latestVersion}"
-                : comparison == null
-                    ? "Version comparison not possible (non-SemVer format)"
-                    : "Already running the latest version"
+                ? $"Upgrade available: {deployment.StackVersion} -> {latestVersion} ({availableUpgrades.Count} version(s) available)"
+                : "Already running the latest version"
         };
-    }
-
-    /// <summary>
-    /// Extracts product ID from stack ID.
-    /// Stack ID format: sourceId:productName:stackName
-    /// Product ID format: sourceId:productName
-    /// </summary>
-    private static string? ExtractProductId(string stackId)
-    {
-        var parts = stackId.Split(':');
-        if (parts.Length >= 2)
-        {
-            return $"{parts[0]}:{parts[1]}";
-        }
-        return null;
-    }
-
-    /// <summary>
-    /// Compares two semantic versions.
-    /// Returns: -1 (v1 &lt; v2), 0 (equal), 1 (v1 &gt; v2)
-    /// Returns null if either version is not valid SemVer.
-    /// </summary>
-    private static int? CompareVersions(string? v1, string? v2)
-    {
-        if (string.IsNullOrEmpty(v1) && string.IsNullOrEmpty(v2)) return 0;
-        if (string.IsNullOrEmpty(v1)) return -1;
-        if (string.IsNullOrEmpty(v2)) return 1;
-
-        // Normalize: remove 'v' prefix
-        var normalized1 = v1.TrimStart('v', 'V');
-        var normalized2 = v2.TrimStart('v', 'V');
-
-        // Try semantic version comparison
-        if (Version.TryParse(normalized1, out var ver1) &&
-            Version.TryParse(normalized2, out var ver2))
-        {
-            return ver1.CompareTo(ver2);
-        }
-
-        // Return null if not valid SemVer
-        return null;
     }
 
     /// <summary>

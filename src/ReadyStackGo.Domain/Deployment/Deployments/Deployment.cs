@@ -49,10 +49,6 @@ public class Deployment : AggregateRoot<DeploymentId>
     private readonly List<DeploymentPhaseRecord> _phaseHistory = new();
     public IReadOnlyCollection<DeploymentPhaseRecord> PhaseHistory => _phaseHistory.AsReadOnly();
 
-    // Pending upgrade snapshot for rollback functionality
-    // Only exists during an upgrade process, before Point of No Return (container start)
-    public DeploymentSnapshot? PendingUpgradeSnapshot { get; private set; }
-
     // Upgrade tracking
     public DateTime? LastUpgradedAt { get; private set; }
     public string? PreviousVersion { get; private set; }
@@ -275,6 +271,23 @@ public class Deployment : AggregateRoot<DeploymentId>
     }
 
     /// <summary>
+    /// Resets a failed deployment back to running state for retry.
+    /// Used when retrying an upgrade after a previous failure.
+    /// </summary>
+    public void ResetToRunning()
+    {
+        SelfAssertArgumentTrue(Status == DeploymentStatus.Failed,
+            "Can only reset a failed deployment.");
+
+        Status = DeploymentStatus.Running;
+        CurrentPhase = DeploymentPhase.Completed;
+        ErrorMessage = null;
+        CompletedAt = null;
+
+        RecordPhase(DeploymentPhase.Completed, "Retry after failed upgrade");
+    }
+
+    /// <summary>
     /// Marks the deployment as stopped.
     /// </summary>
     public void MarkAsStopped()
@@ -479,112 +492,38 @@ public class Deployment : AggregateRoot<DeploymentId>
 
     #endregion
 
-    #region Snapshots & Rollback (Point of No Return Semantics)
+    #region Upgrade & Rollback
 
     /// <summary>
-    /// Creates a snapshot of the current deployment state before an upgrade.
-    /// Only one pending snapshot is allowed at a time.
-    /// The snapshot is cleared at Point of No Return (container start) or on successful upgrade.
+    /// Gets the data needed to redeploy this deployment (for rollback after failed upgrade).
+    /// The deployment already contains all necessary information: StackId, StackVersion, Variables.
     /// </summary>
-    public DeploymentSnapshot? CreateSnapshot(string? description = null)
+    public (string StackId, string? StackVersion, IReadOnlyDictionary<string, string> Variables) GetRedeploymentData()
     {
-        SelfAssertArgumentTrue(Status == DeploymentStatus.Running,
-            "Can only create snapshot of a running deployment.");
-        SelfAssertArgumentTrue(!string.IsNullOrEmpty(StackVersion),
-            "Cannot create snapshot without a stack version.");
-        SelfAssertArgumentTrue(PendingUpgradeSnapshot == null,
-            "A pending upgrade snapshot already exists. Clear it before creating a new one.");
-
-        var snapshotId = DeploymentSnapshotId.Create();
-        var serviceSnapshots = _services.Select(s => new ServiceSnapshot(s.ServiceName, s.Image ?? "unknown")).ToList();
-
-        PendingUpgradeSnapshot = DeploymentSnapshot.Create(
-            snapshotId,
-            Id,
-            StackVersion!,
-            _variables,
-            serviceSnapshots,
-            description);
-
-        AddDomainEvent(new DeploymentSnapshotCreated(Id, snapshotId, StackVersion!));
-
-        return PendingUpgradeSnapshot;
-    }
-
-    /// <summary>
-    /// Clears the pending upgrade snapshot.
-    /// Called at Point of No Return (when containers start) or after successful upgrade.
-    /// After this, rollback is no longer possible.
-    /// </summary>
-    public void ClearSnapshot()
-    {
-        PendingUpgradeSnapshot = null;
-    }
-
-    /// <summary>
-    /// Rolls back to the previous version using the pending upgrade snapshot.
-    /// Only available after a failed upgrade (before Point of No Return).
-    /// Consumes (clears) the snapshot.
-    /// </summary>
-    public void RollbackToPrevious()
-    {
-        SelfAssertArgumentTrue(PendingUpgradeSnapshot != null,
-            "No snapshot available for rollback.");
-        SelfAssertArgumentTrue(Status == DeploymentStatus.Failed,
-            "Rollback only available after failed upgrade (before container start).");
-
-        var snapshot = PendingUpgradeSnapshot!;
-        var snapshotId = snapshot.Id;
-        var targetVersion = snapshot.StackVersion;
-
-        // Restore state from snapshot
-        StackVersion = targetVersion;
-        _variables.Clear();
-        foreach (var (key, value) in snapshot.Variables)
-        {
-            _variables[key] = value;
-        }
-
-        // Clear the snapshot (consumed by rollback)
-        PendingUpgradeSnapshot = null;
-
-        // Reset status for re-deployment
-        Status = DeploymentStatus.Pending;
-        CurrentPhase = DeploymentPhase.Initializing;
-        ProgressPercentage = 0;
-        ProgressMessage = $"Rolling back to version {targetVersion}";
-        ErrorMessage = null;
-        IsCancellationRequested = false;
-        CancellationReason = null;
-
-        RecordPhase(DeploymentPhase.Initializing, $"Rollback to {targetVersion} initiated");
-        AddDomainEvent(new DeploymentRolledBack(Id, snapshotId, targetVersion));
+        return (StackId, StackVersion, Variables);
     }
 
     /// <summary>
     /// Checks if rollback is possible.
-    /// Rollback is only available when:
-    /// - A pending upgrade snapshot exists (upgrade was started)
-    /// - The deployment is in Failed status (upgrade failed before container start)
+    /// Rollback is available when the deployment is in Failed status (upgrade failed).
+    /// Rollback simply redeploys the current version using existing deployment data.
     /// </summary>
     public bool CanRollback()
     {
-        return PendingUpgradeSnapshot != null
-            && Status == DeploymentStatus.Failed;
+        return Status == DeploymentStatus.Failed && !string.IsNullOrEmpty(StackVersion);
     }
 
     /// <summary>
     /// Gets the version that would be restored on rollback.
-    /// Returns null if no rollback is available.
+    /// This is the current StackVersion (which wasn't changed since upgrade failed before completion).
     /// </summary>
     public string? GetRollbackTargetVersion()
     {
-        return PendingUpgradeSnapshot?.StackVersion;
+        return CanRollback() ? StackVersion : null;
     }
 
     /// <summary>
     /// Records a successful upgrade event, storing the previous version for reference.
-    /// Called after successful container start (Point of No Return passed).
     /// </summary>
     public void RecordUpgrade(string previousVersion, string newVersion)
     {
@@ -672,6 +611,24 @@ public class Deployment : AggregateRoot<DeploymentId>
     public int GetRunningServiceCount()
     {
         return _services.Count(s => s.Status == "running");
+    }
+
+    /// <summary>
+    /// Marks all services as removed (containers no longer exist).
+    /// Called when upgrade fails after containers have been removed.
+    /// </summary>
+    public void MarkAllServicesAsRemoved()
+    {
+        foreach (var service in _services)
+        {
+            var previousStatus = service.Status;
+            service.UpdateStatus("removed");
+
+            if (previousStatus != "removed")
+            {
+                AddDomainEvent(new ServiceStatusChanged(Id, service.ServiceName, previousStatus, "removed"));
+            }
+        }
     }
 
     #endregion

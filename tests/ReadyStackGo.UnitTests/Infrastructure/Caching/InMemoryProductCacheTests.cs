@@ -15,17 +15,19 @@ public class InMemoryProductCacheTests
         string sourceId,
         string name,
         string? version = null,
-        string? productId = null)
+        string? explicitProductId = null)
     {
         var stack = new StackDefinition(
             sourceId: sourceId,
             name: name,
+            productId: new ProductId(explicitProductId ?? name),
             services: new List<ServiceTemplate>
             {
                 new() { Name = "test-service", Image = "test:latest" }
             },
             productName: name,
-            productDisplayName: name);
+            productDisplayName: name,
+            productVersion: version);
 
         return new ProductDefinition(
             sourceId: sourceId,
@@ -33,7 +35,7 @@ public class InMemoryProductCacheTests
             displayName: name,
             stacks: new[] { stack },
             productVersion: version,
-            productId: productId);
+            productId: explicitProductId);
     }
 
     #endregion
@@ -421,6 +423,22 @@ public class InMemoryProductCacheTests
         var versions = _cache.GetProductVersions("local:Whoami").ToList();
         versions.Should().HaveCount(1);
         versions[0].ProductVersion.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetProduct_BySourceIdName_WhenExplicitProductIdSet_ReturnsProduct()
+    {
+        // Arrange - Product with explicit productId (different from sourceId:name)
+        var product = CreateProduct("stacks", "Whoami", "1.0.0", "io.traefik.whoami");
+        _cache.Set(product);
+
+        // Act - Search by old format (sourceId:name) even though productId is different
+        var found = _cache.GetProduct("stacks:Whoami");
+
+        // Assert - Should find the product via fallback search
+        found.Should().NotBeNull();
+        found!.ProductVersion.Should().Be("1.0.0");
+        found.GroupId.Should().Be("io.traefik.whoami");
     }
 
     #endregion

@@ -199,6 +199,18 @@ export async function rollbackDeployment(environmentId: string, deploymentId: st
 // ============================================================================
 
 /**
+ * Available version for upgrade
+ */
+export interface AvailableVersion {
+  /** Version string (e.g., "2.0.0") */
+  version: string;
+  /** Stack ID for this version (for use in upgrade request) */
+  stackId: string;
+  /** Source ID where this version is available */
+  sourceId: string;
+}
+
+/**
  * Response from GET /api/environments/{envId}/deployments/{deploymentId}/upgrade/check
  */
 export interface CheckUpgradeResponse {
@@ -212,6 +224,8 @@ export interface CheckUpgradeResponse {
   latestVersion?: string;
   /** Stack ID of the latest version (for use in upgrade request) */
   latestStackId?: string;
+  /** All available upgrade versions, sorted by version (newest first) */
+  availableVersions?: AvailableVersion[];
   /** Variables that are new in the latest version */
   newVariables?: string[];
   /** Variables that were removed in the latest version */

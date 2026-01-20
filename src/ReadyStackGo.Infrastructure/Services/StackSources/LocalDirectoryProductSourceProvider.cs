@@ -233,9 +233,12 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
         string? relativePath,
         string fallbackName)
     {
+        // Ensure manifest has a name (use fallback if not set in metadata)
+        manifest.Metadata.Name ??= fallbackName;
+
         // Product-level metadata
-        var productName = manifest.Metadata?.Name ?? fallbackName;
-        var productDisplayName = manifest.Metadata?.Name ?? fallbackName;
+        var productName = manifest.Metadata.Name;
+        var productDisplayName = manifest.Metadata.Name;
         var productDescription = manifest.Metadata?.Description;
         var productVersion = manifest.Metadata?.ProductVersion;
         var productCategory = manifest.Metadata?.Category;
@@ -261,7 +264,7 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
         else
         {
             // Single-stack manifest - create one stack from the manifest
-            var stack = CreateStackFromSingleStackManifest(manifest, sourceId, filePath, relativePath, productVersion, version, fallbackName);
+            var stack = CreateStackFromSingleStackManifest(manifest, sourceId, filePath, relativePath, productVersion, version);
             stacks.Add(stack);
             _logger.LogDebug("Loaded single-stack product {ProductName} with {VarCount} variables, {SvcCount} services",
                 productName, stack.Variables.Count, stack.Services.Count);
@@ -321,14 +324,14 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
 
         // Stack-level metadata
         var stackName = stackEntry.Metadata?.Name ?? stackKey;
-        var stackDescription = stackEntry.Metadata?.Description ?? manifest.Metadata?.Description;
-        var productName = manifest.Metadata?.Name ?? "Unknown";
+        var productId = ProductId.FromManifest(manifest);
 
         return new StackDefinition(
             sourceId: sourceId,
             name: stackName,
+            productId: productId,
             services: services,
-            description: stackDescription,
+            description: Description.From(stackEntry.Metadata?.Description),
             variables: variables,
             volumes: volumes,
             networks: networks,
@@ -336,16 +339,17 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
             relativePath: relativePath,
             lastSyncedAt: DateTime.UtcNow,
             version: productVersion ?? version,
-            productName: productName,
-            productDisplayName: manifest.Metadata?.Name ?? productName,
-            productDescription: manifest.Metadata?.Description,
+            productName: manifest.Metadata.Name,
+            productDisplayName: manifest.Metadata.Name,
+            productDescription: Description.From(manifest.Metadata.Description),
             productVersion: productVersion,
-            category: manifest.Metadata?.Category,
-            tags: manifest.Metadata?.Tags);
+            category: manifest.Metadata.Category,
+            tags: manifest.Metadata.Tags);
     }
 
     /// <summary>
     /// Creates a StackDefinition from a single-stack manifest.
+    /// The manifest's Metadata.Name must already be set.
     /// </summary>
     private StackDefinition CreateStackFromSingleStackManifest(
         RsgoManifest manifest,
@@ -353,21 +357,20 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
         string filePath,
         string? relativePath,
         string? productVersion,
-        string version,
-        string fallbackName)
+        string version)
     {
         var variables = _manifestParser.ExtractVariablesAsync(manifest).GetAwaiter().GetResult();
         var services = ExtractServiceTemplatesFromManifest(manifest);
         var volumes = ExtractVolumeDefinitionsFromManifest(manifest);
         var networks = ExtractNetworkDefinitionsFromManifest(manifest);
-        var stackName = manifest.Metadata?.Name ?? fallbackName;
-        var description = manifest.Metadata?.Description;
-        var category = manifest.Metadata?.Category;
-        var tags = manifest.Metadata?.Tags;
+        var productId = ProductId.FromManifest(manifest);
+
+        var description = Description.From(manifest.Metadata.Description);
 
         return new StackDefinition(
             sourceId: sourceId,
-            name: stackName,
+            name: manifest.Metadata.Name!,
+            productId: productId,
             services: services,
             description: description,
             variables: variables,
@@ -377,12 +380,12 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
             relativePath: relativePath,
             lastSyncedAt: DateTime.UtcNow,
             version: productVersion ?? version,
-            productName: stackName,
-            productDisplayName: stackName,
+            productName: manifest.Metadata.Name,
+            productDisplayName: manifest.Metadata.Name,
             productDescription: description,
             productVersion: productVersion,
-            category: category,
-            tags: tags);
+            category: manifest.Metadata.Category,
+            tags: manifest.Metadata.Tags);
     }
 
     /// <summary>
