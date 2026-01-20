@@ -12,6 +12,11 @@ public class RemoveDeploymentRequest
     /// Environment ID for RBAC scope check (from route).
     /// </summary>
     public string? EnvironmentId { get; set; }
+
+    /// <summary>
+    /// Session ID for SignalR progress notifications.
+    /// </summary>
+    public string? SessionId { get; set; }
 }
 
 /// <summary>
@@ -41,7 +46,7 @@ public class RemoveDeploymentEndpoint : Endpoint<RemoveDeploymentRequest, Deploy
         var deploymentId = Route<string>("deploymentId")!;
         req.EnvironmentId = environmentId;
 
-        var response = await _mediator.Send(new RemoveDeploymentByIdCommand(environmentId, deploymentId), ct);
+        var response = await _mediator.Send(new RemoveDeploymentByIdCommand(environmentId, deploymentId, req.SessionId), ct);
 
         if (!response.Success)
         {

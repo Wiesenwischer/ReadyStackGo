@@ -66,6 +66,15 @@ public interface IDeploymentService
     Task<DeployComposeResponse> RemoveDeploymentByIdAsync(string environmentId, string deploymentId);
 
     /// <summary>
+    /// Remove a deployed stack by deployment ID with progress reporting.
+    /// </summary>
+    Task<DeployComposeResponse> RemoveDeploymentByIdAsync(
+        string environmentId,
+        string deploymentId,
+        DeploymentServiceProgressCallback? progressCallback,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Deploy a stack from a catalog definition with progress reporting.
     /// The stack definition data (Services, Volumes, Networks) is passed as structured DTOs.
     /// No YAML parsing is needed - data is already in structured format from catalog.

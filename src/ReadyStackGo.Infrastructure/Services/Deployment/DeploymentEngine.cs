@@ -436,6 +436,129 @@ public class DeploymentEngine : IDeploymentEngine
         return result;
     }
 
+    public async Task<DeploymentResult> RemoveStackAsync(string environmentId, string stackVersion, DeploymentProgressCallback? progressCallback)
+    {
+        var result = new DeploymentResult
+        {
+            StackVersion = stackVersion,
+            DeploymentTime = DateTime.UtcNow
+        };
+
+        try
+        {
+            _logger.LogInformation("Removing stack version {Version} from environment {EnvironmentId} with progress tracking",
+                stackVersion, environmentId);
+
+            if (progressCallback != null)
+            {
+                await progressCallback("Initializing", "Finding containers to remove...", 5, null, 0, 0);
+            }
+
+            // Get all containers with the rsgo.stack label matching stackVersion
+            var containers = await _dockerService.ListContainersAsync(environmentId);
+            var stackContainers = containers
+                .Where(c => c.Labels.TryGetValue("rsgo.stack", out var stack) && stack == stackVersion)
+                .ToList();
+
+            var totalContainers = stackContainers.Count;
+            var removedCount = 0;
+
+            if (!stackContainers.Any())
+            {
+                _logger.LogWarning("No containers found for stack {Version} in environment {EnvironmentId}",
+                    stackVersion, environmentId);
+                if (progressCallback != null)
+                {
+                    await progressCallback("Complete", "No containers to remove", 100, null, 0, 0);
+                }
+            }
+            else
+            {
+                if (progressCallback != null)
+                {
+                    await progressCallback("RemovingContainers", $"Found {totalContainers} container(s) to remove", 10, null, totalContainers, 0);
+                }
+
+                // Remove all containers for this stack
+                foreach (var container in stackContainers)
+                {
+                    try
+                    {
+                        var containerName = container.Labels.TryGetValue("rsgo.context", out var ctx) ? ctx : container.Name;
+
+                        if (progressCallback != null)
+                        {
+                            var progressPercent = 10 + (int)((removedCount / (double)totalContainers) * 80);
+                            await progressCallback("RemovingContainers", $"Removing {containerName}...", progressPercent, containerName, totalContainers, removedCount);
+                        }
+
+                        _logger.LogInformation("Removing container {Name} ({Id})", container.Name, container.Id);
+                        await _dockerService.RemoveContainerAsync(environmentId, container.Id, force: true);
+
+                        removedCount++;
+
+                        // Extract context name from label
+                        if (container.Labels.TryGetValue("rsgo.context", out var contextName))
+                        {
+                            result.DeployedContexts.Add(contextName);
+                        }
+                        else
+                        {
+                            result.DeployedContexts.Add(container.Name);
+                        }
+
+                        if (progressCallback != null)
+                        {
+                            var progressPercent = 10 + (int)((removedCount / (double)totalContainers) * 80);
+                            await progressCallback("RemovingContainers", $"Removed {containerName}", progressPercent, null, totalContainers, removedCount);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to remove container {Name}", container.Name);
+                        result.Errors.Add($"Failed to remove {container.Name}: {ex.Message}");
+                    }
+                }
+            }
+
+            if (progressCallback != null)
+            {
+                await progressCallback("Cleanup", "Cleaning up configuration...", 95, null, totalContainers, removedCount);
+            }
+
+            // Clear release configuration
+            var releaseConfig = await _configStore.GetReleaseConfigAsync();
+            if (releaseConfig.InstalledStackVersion == stackVersion)
+            {
+                releaseConfig.InstalledStackVersion = null;
+                releaseConfig.InstalledContexts.Clear();
+                releaseConfig.InstallDate = null;
+                await _configStore.SaveReleaseConfigAsync(releaseConfig);
+            }
+
+            result.Success = result.Errors.Count == 0;
+            _logger.LogInformation("Stack removal completed for {Version}", stackVersion);
+
+            if (progressCallback != null)
+            {
+                await progressCallback("Complete", $"Successfully removed {removedCount} container(s)", 100, null, totalContainers, removedCount);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Stack removal failed");
+            result.Errors.Add($"Removal failed: {ex.Message}");
+            result.Success = false;
+
+            if (progressCallback != null)
+            {
+                await progressCallback("Error", $"Removal failed: {ex.Message}", 100, null, 0, 0);
+            }
+        }
+
+        return result;
+    }
+
     private Dictionary<string, string> GenerateGlobalEnvVars(
         Domain.IdentityAccess.Organizations.Organization? organization,
         FeaturesConfig featuresConfig,
