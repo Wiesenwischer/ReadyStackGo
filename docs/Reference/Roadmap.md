@@ -75,21 +75,30 @@ Rough outlook on planned versions and features.
   - Health configs extracted during deployment and persisted to database
   - `HealthCollectorService` uses health configs for HTTP/TCP checks
   - 41 unit tests + 15 integration tests with TestContainers
-
-## Planned
-
-### v0.14 – Health Dashboard, Upgrade & Rollback
-- Stack Health Dashboard (UI for health status visualization)
-- Stack Upgrade (Update deployed stacks to newer catalog versions)
+- **v0.14** – Health Dashboard, Upgrade & Rollback (2025-12-19)
+  - Stack Health Dashboard (UI for health status visualization)
+  - Health History with 24h retention and configurable intervals
+  - Stack Upgrade (Update deployed stacks to newer catalog versions)
   - SemVer-based version comparison
   - Environment-level operation locking (one operation per environment)
   - Pre-upgrade snapshot for recovery
-- Deployment Rollback (Manual recovery after failed upgrades)
+  - Deployment Rollback (Manual recovery after failed upgrades)
   - Only available after failed upgrade (not for downgrades)
   - Single snapshot per deployment (previous version only)
   - Product authors can disable via `metadata.rollback.enabled: false`
 
-### v0.15 – Registry Management + Git Stack Sources
+## Planned
+
+### v0.15 – Multi-Version Catalog, Registry Management & Git Stack Sources
+- Multi-Version Catalog Support
+  - Multiple versions per product in catalog
+  - New `metadata.productId` field for grouping versions across sources
+  - `ProductDefinition.GroupId` for version grouping (uses productId or falls back to sourceId:name)
+  - `IProductCache` extended with version-aware methods (GetProductVersions, GetAvailableUpgrades, etc.)
+  - Cross-source upgrade support (e.g., local → git repository)
+  - Version dropdown in deployment UI for selecting specific version
+  - Upgrade detection shows all available higher versions
+  - NO downgrade support (by design)
 - Settings Page for Registry Management
 - Multiple Docker Registries Configurable (Name, URL, Username, Password)
 - GitRepository StackSourceProvider (Load Stacks from Git Repos)

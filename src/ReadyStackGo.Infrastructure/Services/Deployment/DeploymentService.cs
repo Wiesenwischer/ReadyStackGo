@@ -491,7 +491,7 @@ public class DeploymentService : IDeploymentService
                 if (deployment.Status != Domain.Deployment.Deployments.DeploymentStatus.Removed)
                 {
                     deployment.MarkAsRemoved();
-                    _deploymentRepository.Update(deployment);
+                    // Note: Don't call Update() - entity is already tracked from GetByStackName() query
                     _deploymentRepository.SaveChanges();
                     _logger.LogInformation("Marked deployment {DeploymentId} as removed", deployment.Id);
                 }
@@ -579,7 +579,7 @@ public class DeploymentService : IDeploymentService
             if (deployment.Status != Domain.Deployment.Deployments.DeploymentStatus.Removed)
             {
                 deployment.MarkAsRemoved();
-                _deploymentRepository.Update(deployment);
+                // Note: Don't call Update() - entity is already tracked from Get() query
                 _deploymentRepository.SaveChanges();
                 _logger.LogInformation("Marked deployment {DeploymentId} as removed", deployment.Id);
             }
@@ -652,6 +652,31 @@ public class DeploymentService : IDeploymentService
             plan.EnvironmentId = environmentId;
             plan.StackName = request.StackName;
 
+            // Get current user
+            var currentUser = _userRepository.GetAll().FirstOrDefault();
+            var deploymentUserId = currentUser != null
+                ? DeploymentUserId.FromIdentityAccess(currentUser.Id)
+                : DeploymentUserId.NewId();
+
+            // Check for existing deployment (upgrade scenario)
+            var existingDeployment = _deploymentRepository.GetByStackName(
+                new EnvironmentId(envGuid), request.StackName);
+
+            // Check if this is an upgrade (existing running deployment) or a retry after failure
+            bool isUpgrade = existingDeployment != null &&
+                (existingDeployment.Status == Domain.Deployment.Deployments.DeploymentStatus.Running ||
+                 existingDeployment.Status == Domain.Deployment.Deployments.DeploymentStatus.Failed) &&
+                !string.IsNullOrEmpty(existingDeployment.StackVersion);
+
+            string? previousVersion = null;
+
+            if (isUpgrade)
+            {
+                previousVersion = existingDeployment!.StackVersion;
+                _logger.LogInformation("Upgrading deployment {DeploymentId} from {OldVersion} to {NewVersion}",
+                    existingDeployment.Id, previousVersion, plan.StackVersion);
+            }
+
             // Create progress adapter to convert DeploymentEngine callback to our callback
             DeploymentProgressCallback? engineCallback = null;
             if (progressCallback != null)
@@ -665,10 +690,24 @@ public class DeploymentService : IDeploymentService
             }
 
             // Execute deployment with progress callback
+            // For upgrades: old containers are removed and new ones created here
             var result = await _deploymentEngine.ExecuteDeploymentAsync(plan, engineCallback, cancellationToken);
 
             if (!result.Success)
             {
+                // Deployment failed
+                if (isUpgrade && existingDeployment != null)
+                {
+                    // Mark all services as removed (containers were deleted)
+                    existingDeployment.MarkAllServicesAsRemoved();
+
+                    // Mark deployment as Failed - can be redeployed using existing version/variables
+                    existingDeployment.MarkAsFailed(string.Join("; ", result.Errors));
+                    // Note: Don't call Update() - entity is already tracked from GetByStackName() query
+                    _deploymentRepository.SaveChanges();
+
+                    _logger.LogWarning("Upgrade failed for {StackName}. Deployment can be retried or rolled back.", request.StackName);
+                }
                 return new DeployStackResponse
                 {
                     Success = false,
@@ -683,94 +722,65 @@ public class DeploymentService : IDeploymentService
                 await progressCallback("Persisting", "Saving deployment record...", 95, null, result.DeployedContexts.Count, result.DeployedContexts.Count);
             }
 
-            // Get current user (use first admin for now - TODO: get from authentication context)
-            var currentUser = _userRepository.GetAll().FirstOrDefault();
-            // Convert IdentityAccess UserId to Deployment UserId
-            var deploymentUserId = currentUser != null
-                ? DeploymentUserId.FromIdentityAccess(currentUser.Id)
-                : DeploymentUserId.NewId();
+            // Create services list
+            var deployedServices = result.DeployedContexts.Select(c => new DeployedService(
+                c,
+                null,
+                c,
+                null,
+                "running"
+            )).ToList();
 
-            // Check for existing deployment - we upgrade in place to preserve snapshots
-            var existingDeployment = _deploymentRepository.GetWithSnapshotsByStackName(
-                new EnvironmentId(envGuid), request.StackName);
-
-            Domain.Deployment.Deployments.Deployment deployment;
             DeploymentId deploymentId;
-            bool isUpgrade = false;
 
-            if (existingDeployment != null &&
-                existingDeployment.Status == Domain.Deployment.Deployments.DeploymentStatus.Running &&
-                !string.IsNullOrEmpty(existingDeployment.StackVersion))
+            // For upgrades: mark old deployment as removed first
+            if (isUpgrade)
             {
-                // Upgrade existing deployment - create snapshot first for rollback capability
-                var snapshotDescription = $"Auto-snapshot before upgrade to {plan.StackVersion}";
-                existingDeployment.CreateSnapshot(snapshotDescription);
-
-                _logger.LogInformation("Created snapshot of deployment {DeploymentId} before upgrade to {NewVersion}",
-                    existingDeployment.Id, plan.StackVersion);
-
-                // Reuse existing deployment for upgrade (preserves aggregate with snapshots)
-                deployment = existingDeployment;
-                deploymentId = existingDeployment.Id;
-                isUpgrade = true;
+                existingDeployment!.MarkAsRemoved();
+                _deploymentRepository.SaveChanges();
+                _logger.LogInformation("Marked old deployment {DeploymentId} as removed for upgrade", existingDeployment.Id);
             }
-            else
-            {
-                // Create new deployment record
-                deploymentId = _deploymentRepository.NextIdentity();
-                deployment = Domain.Deployment.Deployments.Deployment.Start(
-                    deploymentId,
-                    new EnvironmentId(envGuid),
-                    request.CatalogStackId ?? request.StackName, // Use CatalogStackId if available
-                    request.StackName,
-                    request.StackName, // Use stack name as project name
-                    deploymentUserId);
-            }
+
+            // Create new deployment (same logic for both new install and upgrade)
+            deploymentId = _deploymentRepository.NextIdentity();
+            var deployment = Domain.Deployment.Deployments.Deployment.Start(
+                deploymentId,
+                new EnvironmentId(envGuid),
+                request.CatalogStackId ?? request.StackName,
+                request.StackName,
+                request.StackName,
+                deploymentUserId);
 
             deployment.SetStackVersion(plan.StackVersion);
 
-            // Store deployment variables for later use (e.g., maintenance observer)
             if (request.Variables != null && request.Variables.Count > 0)
             {
                 deployment.SetVariables(request.Variables);
             }
-
-            // Store maintenance observer configuration from product definition
             if (request.MaintenanceObserver != null)
             {
                 deployment.SetMaintenanceObserverConfig(request.MaintenanceObserver);
             }
-
-            // Store health check configurations from stack definition
             if (request.HealthCheckConfigs != null && request.HealthCheckConfigs.Count > 0)
             {
                 deployment.SetHealthCheckConfigs(request.HealthCheckConfigs);
             }
 
-            // Mark as running with services
-            var deployedServices = result.DeployedContexts.Select(c => new DeployedService(
-                c,
-                null, // Container ID will be populated by container inspection
-                c,    // Container name
-                null, // Image
-                "running"
-            )).ToList();
-
+            // Track upgrade history on new deployment
             if (isUpgrade)
             {
-                // For upgrades, update services in-place (deployment already running)
-                deployment.UpdateServicesAfterUpgrade(deployedServices);
-                _deploymentRepository.Update(deployment);
+                deployment.RecordUpgrade(previousVersion!, plan.StackVersion);
             }
-            else
-            {
-                deployment.MarkAsRunning(deployedServices);
-                _deploymentRepository.Add(deployment);
-            }
+
+            deployment.MarkAsRunning(deployedServices);
+            _deploymentRepository.Add(deployment);
             _deploymentRepository.SaveChanges();
 
-            _logger.LogInformation("Successfully {Action} stack {StackName} with deployment ID {DeploymentId}",
-                isUpgrade ? "upgraded" : "deployed", request.StackName, deploymentId);
+            _logger.LogInformation(
+                isUpgrade
+                    ? "Successfully upgraded stack {StackName} from {OldVersion} to {NewVersion}"
+                    : "Successfully deployed stack {StackName} with deployment ID {DeploymentId}",
+                request.StackName, previousVersion ?? plan.StackVersion, isUpgrade ? plan.StackVersion : deploymentId.ToString());
 
             // Build success message with warning hint
             var message = $"Successfully deployed {request.StackName}";

@@ -77,8 +77,7 @@ public class ChangeOperationModeHandler : IRequestHandler<ChangeOperationModeCom
             return ChangeOperationModeResponse.Fail(ex.Message);
         }
 
-        // Save changes
-        _deploymentRepository.Update(deployment);
+        // Save changes - no need for Update() since entity is already tracked from Get() query
         _deploymentRepository.SaveChanges();
 
         _logger.LogInformation(

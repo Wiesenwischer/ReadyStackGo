@@ -80,7 +80,14 @@ public class GetProductEndpoint : Endpoint<GetProductRequest, ProductDetailDto>
                     }).ToList()
                 }).ToList()
             }).ToList(),
-            LastSyncedAt = product.LastSyncedAt
+            LastSyncedAt = product.LastSyncedAt,
+            AvailableVersions = product.AvailableVersions.Select(v => new ProductVersionDto
+            {
+                Version = v.Version,
+                ProductId = v.ProductId,
+                DefaultStackId = v.DefaultStackId,
+                IsCurrent = v.IsCurrent
+            }).ToList()
         };
     }
 }
@@ -108,4 +115,16 @@ public class ProductDetailDto
     public int TotalVariables { get; init; }
     public List<ProductStackDto> Stacks { get; init; } = new();
     public DateTime LastSyncedAt { get; init; }
+    public List<ProductVersionDto> AvailableVersions { get; init; } = new();
+}
+
+/// <summary>
+/// DTO for product version information
+/// </summary>
+public class ProductVersionDto
+{
+    public required string Version { get; init; }
+    public required string ProductId { get; init; }
+    public required string DefaultStackId { get; init; }
+    public bool IsCurrent { get; init; }
 }

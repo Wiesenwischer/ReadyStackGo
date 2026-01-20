@@ -1,6 +1,5 @@
 namespace ReadyStackGo.Infrastructure.DataAccess.Repositories;
 
-using Microsoft.EntityFrameworkCore;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 
@@ -33,14 +32,14 @@ public class DeploymentRepository : IDeploymentRepository
 
     public Deployment? Get(DeploymentId id)
     {
-        // Owned entities (Services, PendingUpgradeSnapshot) are loaded automatically by EF Core
+        // Owned entities (Services) are loaded automatically by EF Core
         return _context.Deployments
             .FirstOrDefault(d => d.Id == id);
     }
 
     public Deployment? GetById(DeploymentId id)
     {
-        // Alias for Get - owned entities (Services, PendingUpgradeSnapshot) are loaded automatically
+        // Alias for Get - owned entities (Services) are loaded automatically
         return Get(id);
     }
 
@@ -80,23 +79,5 @@ public class DeploymentRepository : IDeploymentRepository
     public void SaveChanges()
     {
         _context.SaveChanges();
-    }
-
-    public Deployment? GetWithSnapshots(DeploymentId id)
-    {
-        // With PendingUpgradeSnapshot as owned entity, it's automatically loaded
-        // This method is kept for backwards compatibility
-        return Get(id);
-    }
-
-    public Deployment? GetWithSnapshotsByStackName(EnvironmentId environmentId, string stackName)
-    {
-        // With PendingUpgradeSnapshot as owned entity, it's automatically loaded
-        return GetByStackName(environmentId, stackName);
-    }
-
-    public DeploymentSnapshotId NextSnapshotIdentity()
-    {
-        return DeploymentSnapshotId.Create();
     }
 }

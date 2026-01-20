@@ -13,9 +13,19 @@ using ReadyStackGo.Domain.StackManagement.Manifests;
 public class ProductDefinition
 {
     /// <summary>
-    /// Unique identifier (format: sourceId:productName).
+    /// Unique identifier for this specific product version (format: sourceId:productName:productVersion).
     /// </summary>
-    public string Id => $"{SourceId}:{Name}";
+    public string Id => string.IsNullOrEmpty(ProductVersion)
+        ? $"{SourceId}:{Name}"
+        : $"{SourceId}:{Name}:{ProductVersion}";
+
+    /// <summary>
+    /// Group identifier for grouping different versions of the same product.
+    /// If metadata.productId is set, uses that value.
+    /// Otherwise falls back to "sourceId:name" for backward compatibility.
+    /// Products with the same GroupId are considered different versions of the same product.
+    /// </summary>
+    public string GroupId { get; }
 
     /// <summary>
     /// ID of the source this product came from.
@@ -117,7 +127,8 @@ public class ProductDefinition
         string? documentation = null,
         RsgoMaintenanceObserver? maintenanceObserver = null,
         string? filePath = null,
-        string? relativePath = null)
+        string? relativePath = null,
+        string? productId = null)
     {
         if (string.IsNullOrWhiteSpace(sourceId))
             throw new ArgumentException("SourceId cannot be empty.", nameof(sourceId));
@@ -141,6 +152,9 @@ public class ProductDefinition
         MaintenanceObserver = maintenanceObserver;
         FilePath = filePath;
         RelativePath = relativePath;
+
+        // GroupId: use explicit productId from manifest, or fall back to sourceId:name
+        GroupId = !string.IsNullOrWhiteSpace(productId) ? productId : $"{sourceId}:{name}";
     }
 
     /// <summary>

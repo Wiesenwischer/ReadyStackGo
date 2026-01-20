@@ -54,4 +54,16 @@ public interface IProductSourceService
     /// Get a specific stack by ID (format: sourceId:productName:stackName)
     /// </summary>
     Task<StackDefinition?> GetStackAsync(string stackId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get all versions of a product by its GroupId.
+    /// Returns versions sorted by version number (newest first).
+    /// </summary>
+    Task<IEnumerable<ProductDefinition>> GetProductVersionsAsync(string groupId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get available upgrades for a product from the current version.
+    /// Returns versions higher than currentVersion, sorted newest first.
+    /// </summary>
+    Task<IEnumerable<ProductDefinition>> GetAvailableUpgradesAsync(string groupId, string currentVersion, CancellationToken cancellationToken = default);
 }

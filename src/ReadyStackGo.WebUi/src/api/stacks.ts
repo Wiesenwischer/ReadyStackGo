@@ -154,6 +154,16 @@ export interface ProductStack {
   variables: StackVariable[];
 }
 
+/**
+ * Information about a specific product version.
+ */
+export interface ProductVersion {
+  version: string;
+  productId: string;
+  defaultStackId: string;
+  isCurrent: boolean;
+}
+
 export interface Product {
   id: string;
   sourceId: string;
@@ -168,6 +178,7 @@ export interface Product {
   totalVariables: number;
   stacks: ProductStack[];
   lastSyncedAt: string;
+  availableVersions?: ProductVersion[];
 }
 
 export async function getProducts(): Promise<Product[]> {

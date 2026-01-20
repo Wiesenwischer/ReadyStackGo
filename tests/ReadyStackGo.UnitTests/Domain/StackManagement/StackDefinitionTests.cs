@@ -30,8 +30,9 @@ public class StackDefinitionTests
         var stack = new StackDefinition(
             sourceId: "local",
             name: "MySQL Stack",
+            productId: ProductId.FromName("MySQL Stack"),
             services: services,
-            description: "MySQL database stack",
+            description: Description.From("MySQL database stack"),
             variables: variables,
             filePath: "/stacks/mysql/stack.yaml",
             relativePath: "mysql",
@@ -41,7 +42,7 @@ public class StackDefinitionTests
         // Assert
         stack.SourceId.Should().Be("local");
         stack.Name.Should().Be("MySQL Stack");
-        stack.Description.Should().Be("MySQL database stack");
+        stack.Description.Value.Should().Be("MySQL database stack");
         stack.Variables.Should().HaveCount(2);
         stack.Services.Should().HaveCount(2);
         stack.FilePath.Should().Be("/stacks/mysql/stack.yaml");
@@ -59,6 +60,7 @@ public class StackDefinitionTests
         var act = () => new StackDefinition(
             sourceId: "",
             name: "Test",
+            productId: ProductId.FromName("Test"),
             services: services);
 
         // Assert
@@ -76,6 +78,7 @@ public class StackDefinitionTests
         var act = () => new StackDefinition(
             sourceId: "local",
             name: "",
+            productId: ProductId.FromName("Test"),
             services: services);
 
         // Assert
@@ -90,6 +93,7 @@ public class StackDefinitionTests
         var stack = new StackDefinition(
             sourceId: "local",
             name: "Test",
+            productId: ProductId.FromName("Test"),
             services: null);
 
         // Assert
@@ -102,7 +106,7 @@ public class StackDefinitionTests
     #region Id Generation Tests
 
     [Fact]
-    public void Id_GeneratedFromSourceAndName()
+    public void Id_GeneratedFromSourceProductIdVersionAndName()
     {
         // Arrange
         var stack = CreateTestStack("local", "wordpress");
@@ -110,8 +114,26 @@ public class StackDefinitionTests
         // Act
         var id = stack.Id;
 
-        // Assert
-        id.Should().Be("local:wordpress");
+        // Assert - format is sourceId:productId:version:stackName (productId derived from name)
+        id.Value.Should().Be("local:wordpress:1.0.0:wordpress");
+    }
+
+    [Fact]
+    public void Id_WithoutVersion_ExcludesVersionFromId()
+    {
+        // Arrange
+        var services = new[] { CreateServiceTemplate("web", "nginx") };
+        var stack = new StackDefinition(
+            sourceId: "local",
+            name: "wordpress",
+            productId: ProductId.FromName("wordpress"),
+            services: services);
+
+        // Act
+        var id = stack.Id;
+
+        // Assert - format is sourceId:productId:stackName (no version)
+        id.Value.Should().Be("local:wordpress:wordpress");
     }
 
     [Fact]
@@ -122,7 +144,7 @@ public class StackDefinitionTests
         var stack2 = CreateTestStack("local", "wordpress");
 
         // Act & Assert
-        stack1.Id.Should().Be(stack2.Id);
+        stack1.Id.Value.Should().Be(stack2.Id.Value);
     }
 
     [Fact]
@@ -133,7 +155,7 @@ public class StackDefinitionTests
         var stack2 = CreateTestStack("remote", "wordpress");
 
         // Act & Assert
-        stack1.Id.Should().NotBe(stack2.Id);
+        stack1.Id.Value.Should().NotBe(stack2.Id.Value);
     }
 
     #endregion
@@ -164,6 +186,7 @@ public class StackDefinitionTests
         var stack = new StackDefinition(
             sourceId: "local",
             name: "test",
+            productId: ProductId.FromName("test"),
             services: services,
             variables: variables);
 
@@ -189,6 +212,7 @@ public class StackDefinitionTests
         var stack = new StackDefinition(
             sourceId: "local",
             name: "test",
+            productId: ProductId.FromName("test"),
             services: services,
             variables: variables);
 
@@ -226,6 +250,7 @@ public class StackDefinitionTests
         var stack = new StackDefinition(
             sourceId: "local",
             name: "test",
+            productId: ProductId.FromName("test"),
             services: services);
 
         // Act
@@ -249,6 +274,7 @@ public class StackDefinitionTests
         var stack = new StackDefinition(
             sourceId: "local",
             name: "test",
+            productId: ProductId.FromName("test"),
             services: services);
 
         // Act
@@ -270,6 +296,7 @@ public class StackDefinitionTests
         var stack = new StackDefinition(
             sourceId: "local",
             name: "test",
+            productId: ProductId.FromName("test"),
             services: services);
 
         // Act
@@ -291,6 +318,7 @@ public class StackDefinitionTests
         var stack = new StackDefinition(
             sourceId: "local",
             name: "test",
+            productId: ProductId.FromName("test"),
             services: services);
 
         // Act
@@ -310,6 +338,7 @@ public class StackDefinitionTests
         var stack = new StackDefinition(
             sourceId: "local",
             name: "test",
+            productId: ProductId.FromName("test"),
             services: services);
 
         // Act
@@ -331,6 +360,7 @@ public class StackDefinitionTests
         var stack = new StackDefinition(
             sourceId: "local",
             name: "test",
+            productId: ProductId.FromName("test"),
             services: services);
 
         // Assert
@@ -345,6 +375,7 @@ public class StackDefinitionTests
         var stack = new StackDefinition(
             sourceId: "local",
             name: "test",
+            productId: ProductId.FromName("test"),
             services: services);
 
         // Assert
@@ -369,6 +400,7 @@ public class StackDefinitionTests
         var stack = new StackDefinition(
             sourceId: "local",
             name: "test",
+            productId: ProductId.FromName("test"),
             services: services,
             volumes: volumes,
             networks: networks);
@@ -389,8 +421,9 @@ public class StackDefinitionTests
         return new StackDefinition(
             sourceId: sourceId,
             name: name,
+            productId: ProductId.FromName(name),
             services: new[] { CreateServiceTemplate("web", "nginx") },
-            description: "Test stack",
+            description: Description.From("Test stack"),
             filePath: $"/stacks/{name}/stack.yaml",
             relativePath: name,
             version: "1.0.0");

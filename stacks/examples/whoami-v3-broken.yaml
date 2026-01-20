@@ -1,0 +1,64 @@
+# Whoami Stack v3 - BROKEN VERSION for Rollback Testing
+# This version has an invalid image that will fail to deploy
+
+metadata:
+  name: Whoami
+  productId: io.traefik.whoami
+  description: Broken version 3 - uses invalid image to simulate upgrade failure
+  productVersion: "3.0.0"
+  category: Testing
+  tags:
+    - whoami
+    - testing
+    - debug
+    - broken
+
+variables:
+  WHOAMI_PORT:
+    label: Whoami Port
+    description: Port to access the whoami service
+    type: Port
+    default: "8081"
+    group: Network
+    order: 1
+
+  INSTANCE_NAME:
+    label: Instance Name
+    description: Name displayed by the whoami service
+    type: String
+    default: whoami
+    group: General
+    order: 1
+
+  VERBOSE_LOGGING:
+    label: Verbose Logging
+    description: Enable verbose output
+    type: Boolean
+    default: "false"
+    group: General
+    order: 2
+
+  NEW_V3_FEATURE:
+    label: New V3 Feature
+    description: Enable experimental v3 feature (this version is broken!)
+    type: Boolean
+    default: "true"
+    group: Experimental
+    order: 1
+
+services:
+  whoami:
+    # This image does not exist - will cause deployment failure
+    image: traefik/whoami:nonexistent-tag-that-does-not-exist-12345
+    ports:
+      - "${WHOAMI_PORT}:80"
+    environment:
+      WHOAMI_NAME: ${INSTANCE_NAME}
+      WHOAMI_VERBOSE: ${VERBOSE_LOGGING}
+      WHOAMI_V3: ${NEW_V3_FEATURE}
+    healthCheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      startPeriod: 10s

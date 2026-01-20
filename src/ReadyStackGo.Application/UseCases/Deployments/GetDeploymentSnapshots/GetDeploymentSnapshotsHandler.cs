@@ -6,7 +6,8 @@ namespace ReadyStackGo.Application.UseCases.Deployments.GetDeploymentSnapshots;
 
 /// <summary>
 /// Handler for getting rollback information for a deployment.
-/// With Point of No Return semantics, there's at most one snapshot (PendingUpgradeSnapshot).
+/// Rollback is available when a deployment is in Failed status - it redeploys the current version
+/// using the stored StackId, StackVersion, and Variables.
 /// </summary>
 public class GetDeploymentSnapshotsHandler : IRequestHandler<GetDeploymentSnapshotsQuery, GetDeploymentSnapshotsResponse>
 {
@@ -70,33 +71,10 @@ public class GetDeploymentSnapshotsHandler : IRequestHandler<GetDeploymentSnapsh
             RollbackTargetVersion = deployment.GetRollbackTargetVersion()
         };
 
-        // If there's a pending upgrade snapshot, include it
-        var snapshot = deployment.PendingUpgradeSnapshot;
-        if (snapshot != null)
-        {
-            response.SnapshotCreatedAt = snapshot.CreatedAt;
-            response.SnapshotDescription = snapshot.Description;
-
-            // For backwards compatibility, also include in the list
-            response.Snapshots.Add(new DeploymentSnapshotDto
-            {
-                SnapshotId = snapshot.Id.Value.ToString(),
-                StackVersion = snapshot.StackVersion,
-                CreatedAt = snapshot.CreatedAt,
-                Description = snapshot.Description,
-                ServiceCount = snapshot.Services.Count,
-                VariableCount = snapshot.Variables.Count
-            });
-        }
-
         // Add context message based on state
         if (deployment.CanRollback())
         {
             response.Message = $"Rollback to version {deployment.GetRollbackTargetVersion()} is available.";
-        }
-        else if (deployment.Status == DeploymentStatus.Failed && snapshot == null)
-        {
-            response.Message = "Rollback not available - containers were already started (Point of No Return passed).";
         }
         else if (deployment.Status != DeploymentStatus.Failed)
         {

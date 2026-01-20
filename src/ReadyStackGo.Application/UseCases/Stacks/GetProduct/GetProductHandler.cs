@@ -24,6 +24,17 @@ public class GetProductHandler : IRequestHandler<GetProductQuery, GetProductResu
         var sources = await _productSourceService.GetSourcesAsync(cancellationToken);
         var sourceNames = sources.ToDictionary(s => s.Id.Value, s => s.Name);
 
+        // Get all versions for this product
+        var allVersions = await _productSourceService.GetProductVersionsAsync(product.GroupId, cancellationToken);
+        var availableVersions = allVersions
+            .Select(v => new ProductVersionInfo(
+                Version: v.ProductVersion ?? "unknown",
+                ProductId: v.Id,
+                DefaultStackId: v.DefaultStack?.Id.Value ?? v.Stacks.FirstOrDefault()?.Id.Value ?? v.Id,
+                IsCurrent: v.Id == product.Id
+            ))
+            .ToList();
+
         var productDetails = new ProductDetails(
             Id: product.Id,
             SourceId: product.SourceId,
@@ -37,7 +48,7 @@ public class GetProductHandler : IRequestHandler<GetProductQuery, GetProductResu
             TotalServices: product.TotalServices,
             TotalVariables: product.TotalVariables,
             Stacks: product.Stacks.Select(s => new ProductStackDetails(
-                s.Id,
+                s.Id.Value,
                 s.Name,
                 s.Description,
                 s.GetServiceNames().ToList(),
@@ -58,7 +69,8 @@ public class GetProductHandler : IRequestHandler<GetProductQuery, GetProductResu
                     v.Options?.Select(o => new SelectOptionDetails(o.Value, o.Label ?? o.Value, o.Description)).ToList()
                 )).ToList()
             )).ToList(),
-            LastSyncedAt: product.LastSyncedAt
+            LastSyncedAt: product.LastSyncedAt,
+            AvailableVersions: availableVersions
         );
 
         return new GetProductResult(productDetails);

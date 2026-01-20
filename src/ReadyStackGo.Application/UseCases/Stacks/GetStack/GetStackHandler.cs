@@ -28,7 +28,7 @@ public class GetStackHandler : IRequestHandler<GetStackQuery, GetStackResult?>
         var productId = $"{stack.SourceId}:{stack.ProductName}";
 
         return new GetStackResult(
-            stack.Id,
+            stack.Id.Value,
             stack.SourceId,
             sourceName,
             stack.Name,

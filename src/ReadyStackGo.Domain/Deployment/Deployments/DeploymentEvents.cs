@@ -125,42 +125,19 @@ public sealed class OperationModeChanged : DomainEvent
 
 /// <summary>
 /// Event raised when a deployment is rolled back to a previous version.
-/// This happens after a failed upgrade (before Point of No Return).
+/// This happens after a failed upgrade.
 /// </summary>
 public sealed class DeploymentRolledBack : DomainEvent
 {
     public DeploymentId DeploymentId { get; }
-    public DeploymentSnapshotId SnapshotId { get; }
     public string RestoredVersion { get; }
 
     public DeploymentRolledBack(
         DeploymentId deploymentId,
-        DeploymentSnapshotId snapshotId,
         string restoredVersion)
     {
         DeploymentId = deploymentId;
-        SnapshotId = snapshotId;
         RestoredVersion = restoredVersion;
-    }
-}
-
-/// <summary>
-/// Event raised when a deployment snapshot is created.
-/// </summary>
-public sealed class DeploymentSnapshotCreated : DomainEvent
-{
-    public DeploymentId DeploymentId { get; }
-    public DeploymentSnapshotId SnapshotId { get; }
-    public string StackVersion { get; }
-
-    public DeploymentSnapshotCreated(
-        DeploymentId deploymentId,
-        DeploymentSnapshotId snapshotId,
-        string stackVersion)
-    {
-        DeploymentId = deploymentId;
-        SnapshotId = snapshotId;
-        StackVersion = stackVersion;
     }
 }
 

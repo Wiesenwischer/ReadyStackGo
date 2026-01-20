@@ -10,9 +10,9 @@ using ReadyStackGo.Domain.SharedKernel;
 public class StackDefinition
 {
     /// <summary>
-    /// Unique identifier (format: sourceId:stackName).
+    /// Unique identifier for this stack.
     /// </summary>
-    public string Id => $"{SourceId}:{Name}";
+    public StackId Id { get; }
 
     /// <summary>
     /// ID of the source this stack came from.
@@ -25,9 +25,9 @@ public class StackDefinition
     public string Name { get; }
 
     /// <summary>
-    /// Optional description.
+    /// Stack description. Uses Null Object Pattern - never null, use Description.Empty for no description.
     /// </summary>
-    public string? Description { get; }
+    public Description Description { get; }
 
     /// <summary>
     /// Variables (environment variables) for this stack.
@@ -72,6 +72,11 @@ public class StackDefinition
     #region Product Properties (for grouping stacks into products)
 
     /// <summary>
+    /// Unique identifier for the product this stack belongs to.
+    /// </summary>
+    public ProductId ProductId { get; }
+
+    /// <summary>
     /// Name of the parent product this stack belongs to.
     /// For single-stack products, this equals the stack name.
     /// For multi-stack products, all stacks share the same ProductName.
@@ -86,7 +91,7 @@ public class StackDefinition
     /// <summary>
     /// Description of the product (may differ from stack description).
     /// </summary>
-    public string? ProductDescription { get; }
+    public Description ProductDescription { get; }
 
     /// <summary>
     /// Product version (from metadata.productVersion).
@@ -108,8 +113,9 @@ public class StackDefinition
     public StackDefinition(
         string sourceId,
         string name,
+        ProductId productId,
         IEnumerable<ServiceTemplate>? services = null,
-        string? description = null,
+        Description? description = null,
         IEnumerable<Variable>? variables = null,
         IEnumerable<VolumeDefinition>? volumes = null,
         IEnumerable<NetworkDefinition>? networks = null,
@@ -120,7 +126,7 @@ public class StackDefinition
         // Product properties
         string? productName = null,
         string? productDisplayName = null,
-        string? productDescription = null,
+        Description? productDescription = null,
         string? productVersion = null,
         string? category = null,
         IEnumerable<string>? tags = null)
@@ -132,7 +138,8 @@ public class StackDefinition
 
         SourceId = sourceId;
         Name = name;
-        Description = description;
+        ProductId = productId;
+        Description = description ?? Description.Empty;
         Variables = (variables?.ToList() ?? new List<Variable>()).AsReadOnly();
         Services = (services?.ToList() ?? new List<ServiceTemplate>()).AsReadOnly();
         Volumes = (volumes?.ToList() ?? new List<VolumeDefinition>()).AsReadOnly();
@@ -145,10 +152,13 @@ public class StackDefinition
         // Product properties - default to stack values if not specified
         ProductName = productName ?? name;
         ProductDisplayName = productDisplayName ?? name;
-        ProductDescription = productDescription ?? description;
+        ProductDescription = productDescription ?? Description.Empty;
         ProductVersion = productVersion ?? version;
         Category = category;
         Tags = (tags?.ToList() ?? new List<string>()).AsReadOnly();
+
+        // Stack ID is composed of its identifying components
+        Id = new StackId(sourceId, productId, ProductVersion, name);
     }
 
     /// <summary>

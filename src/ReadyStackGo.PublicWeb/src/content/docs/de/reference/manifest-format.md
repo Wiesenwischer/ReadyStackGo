@@ -113,6 +113,7 @@ services:
 | Eigenschaft | Typ | Pflicht | Beschreibung |
 |-------------|-----|---------|--------------|
 | `name` | string | **Ja** | Anzeigename des Products |
+| `productId` | string | Nein | Eindeutiger Product-Identifier zur Gruppierung von Versionen über verschiedene Sources hinweg. Verwendet Reverse-Domain-Notation (z.B. `com.example.myproduct`). Falls nicht gesetzt, wird `sourceId:name` verwendet. |
 | `description` | string | Nein | Beschreibung des Products |
 | `productVersion` | string | **Ja*** | Version (z.B. "3.1.0"). *Pflicht für Products |
 | `author` | string | Nein | Autor oder Maintainer |
@@ -121,11 +122,26 @@ services:
 | `category` | string | Nein | Kategorie (z.B. "Database", "CMS") |
 | `tags` | string[] | Nein | Tags für Suche und Filter |
 
+#### Product-Identifikation
+
+Das `productId`-Feld wird verwendet, um verschiedene Versionen desselben Products zu gruppieren - auch wenn sie aus unterschiedlichen Quellen stammen (lokales Verzeichnis, Git-Repository, Registry).
+
+**Anwendungsfälle:**
+- Ein Product von der lokalen Entwicklung in ein Git-Repository migrieren, ohne die Versionshistorie zu verlieren
+- Upgrades zwischen Versionen aus verschiedenen Sources ermöglichen
+- Versehentliche Gruppierung von nicht zusammenhängenden Products mit demselben Namen verhindern
+
+**Empfehlungen:**
+- Reverse-Domain-Notation verwenden: `com.ihrefirma.produktname`
+- Über Versionen hinweg stabil halten - eine Änderung der `productId` erstellt eine neue Product-Gruppe
+- Falls nicht angegeben, generiert RSGO eine ID als `sourceId:name`
+
 **Beispiel:**
 
 ```yaml
 metadata:
   name: WordPress
+  productId: org.wordpress.stack        # Eindeutiger Identifier über alle Sources
   description: Produktionsreifer WordPress Stack mit MySQL Backend
   productVersion: "6.0.0"
   author: ReadyStackGo Team
