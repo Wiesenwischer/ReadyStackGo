@@ -130,8 +130,19 @@ export async function getDeployment(environmentId: string, deploymentId: string)
   return apiGet<GetDeploymentResponse>(`/api/environments/${environmentId}/deployments/${deploymentId}`);
 }
 
-export async function removeDeployment(environmentId: string, deploymentId: string): Promise<DeployComposeResponse> {
-  return apiDelete<DeployComposeResponse>(`/api/environments/${environmentId}/deployments/${deploymentId}`);
+export interface RemoveDeploymentRequest {
+  sessionId?: string;
+}
+
+export async function removeDeployment(
+  environmentId: string,
+  deploymentId: string,
+  request?: RemoveDeploymentRequest
+): Promise<DeployComposeResponse> {
+  return apiDelete<DeployComposeResponse>(
+    `/api/environments/${environmentId}/deployments/${deploymentId}`,
+    request
+  );
 }
 
 // ============================================================================

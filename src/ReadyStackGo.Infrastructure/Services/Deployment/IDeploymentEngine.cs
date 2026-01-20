@@ -52,4 +52,9 @@ public interface IDeploymentEngine
     /// Remove all containers from a deployed stack
     /// </summary>
     Task<DeploymentResult> RemoveStackAsync(string environmentId, string stackVersion);
+
+    /// <summary>
+    /// Remove all containers from a deployed stack with progress reporting
+    /// </summary>
+    Task<DeploymentResult> RemoveStackAsync(string environmentId, string stackVersion, DeploymentProgressCallback? progressCallback);
 }

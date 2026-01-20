@@ -7,6 +7,7 @@ import Deployments from "./pages/Deployments";
 import DeploymentDetail from "./pages/DeploymentDetail";
 import UpgradeStack from "./pages/UpgradeStack";
 import RollbackStack from "./pages/RollbackStack";
+import RemoveStack from "./pages/RemoveStack";
 import HealthDashboard from "./pages/HealthDashboard";
 import StackCatalog from "./pages/StackCatalog";
 import ProductDetail from "./pages/ProductDetail";
@@ -100,6 +101,14 @@ export default function App() {
                   element={
                     <EnvironmentGuard>
                       <RollbackStack />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/deployments/:stackName/remove"
+                  element={
+                    <EnvironmentGuard>
+                      <RemoveStack />
                     </EnvironmentGuard>
                   }
                 />

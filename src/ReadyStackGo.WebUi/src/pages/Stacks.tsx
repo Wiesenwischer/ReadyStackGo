@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router";
-import { listDeployments, removeDeployment, type DeploymentSummary } from "../api/deployments";
+import { listDeployments, type DeploymentSummary } from "../api/deployments";
 import { getProducts, syncSources, type Product } from "../api/stacks";
 import { useEnvironment } from "../context/EnvironmentContext";
 
@@ -11,7 +11,6 @@ export default function Stacks() {
   const [loading, setLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   const loadDeployments = useCallback(async () => {
@@ -65,20 +64,6 @@ export default function Stacks() {
     loadDeployments();
     loadProducts();
   }, [loadDeployments, loadProducts]);
-
-  const handleRemove = async (deploymentId: string) => {
-    if (!activeEnvironment || !deploymentId) return;
-
-    try {
-      setActionLoading(deploymentId);
-      await removeDeployment(activeEnvironment.id, deploymentId);
-      await loadDeployments();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to remove deployment");
-    } finally {
-      setActionLoading(null);
-    }
-  };
 
   const getStatusBadge = (status: string | null | undefined) => {
     const statusLower = (status || "unknown").toLowerCase();
@@ -279,13 +264,12 @@ export default function Stacks() {
                   </div>
 
                   <div className="col-span-1 flex items-center">
-                    <button
-                      onClick={() => deployment.deploymentId && handleRemove(deployment.deploymentId)}
-                      disabled={!deployment.deploymentId || actionLoading === deployment.deploymentId}
-                      className="inline-flex items-center justify-center rounded bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    <Link
+                      to={`/deployments/${encodeURIComponent(deployment.stackName)}/remove`}
+                      className="inline-flex items-center justify-center rounded bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
                     >
-                      {actionLoading === deployment.deploymentId ? "..." : "Remove"}
-                    </button>
+                      Remove
+                    </Link>
                   </div>
                 </div>
               ))}

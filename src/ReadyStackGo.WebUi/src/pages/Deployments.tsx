@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router";
-import { listDeployments, removeDeployment, type DeploymentSummary } from "../api/deployments";
+import { listDeployments, type DeploymentSummary } from "../api/deployments";
 import { useEnvironment } from "../context/EnvironmentContext";
 import { useHealthHub } from "../hooks/useHealthHub";
 import {
@@ -15,7 +15,6 @@ export default function Deployments() {
   const [healthData, setHealthData] = useState<Map<string, StackHealthSummaryDto>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // SignalR Health Hub connection
   const { connectionState, subscribeToEnvironment, unsubscribeFromEnvironment } = useHealthHub({
@@ -72,20 +71,6 @@ export default function Deployments() {
   useEffect(() => {
     loadDeployments();
   }, [loadDeployments]);
-
-  const handleRemove = async (deploymentId: string) => {
-    if (!activeEnvironment || !deploymentId) return;
-
-    try {
-      setActionLoading(deploymentId);
-      await removeDeployment(activeEnvironment.id, deploymentId);
-      await loadDeployments();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to remove deployment");
-    } finally {
-      setActionLoading(null);
-    }
-  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -203,8 +188,6 @@ export default function Deployments() {
                   key={deployment.deploymentId || deployment.stackName}
                   deployment={deployment}
                   health={health}
-                  onRemove={handleRemove}
-                  isRemoving={actionLoading === deployment.deploymentId}
                   formatDate={formatDate}
                 />
               );
@@ -219,12 +202,10 @@ export default function Deployments() {
 interface DeploymentRowProps {
   deployment: DeploymentSummary;
   health?: StackHealthSummaryDto;
-  onRemove: (deploymentId: string) => void;
-  isRemoving: boolean;
   formatDate: (date: string) => string;
 }
 
-function DeploymentRow({ deployment, health, onRemove, isRemoving, formatDate }: DeploymentRowProps) {
+function DeploymentRow({ deployment, health, formatDate }: DeploymentRowProps) {
   const statusPresentation = health
     ? getHealthStatusPresentation(health.overallStatus)
     : getHealthStatusPresentation('unknown');
@@ -284,13 +265,12 @@ function DeploymentRow({ deployment, health, onRemove, isRemoving, formatDate }:
           >
             Details
           </Link>
-          <button
-            onClick={() => deployment.deploymentId && onRemove(deployment.deploymentId)}
-            disabled={isRemoving}
-            className="inline-flex items-center justify-center rounded bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
+          <Link
+            to={`/deployments/${encodeURIComponent(deployment.stackName)}/remove`}
+            className="inline-flex items-center justify-center rounded bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
           >
-            {isRemoving ? "..." : "Remove"}
-          </button>
+            Remove
+          </Link>
         </div>
       </div>
     </div>

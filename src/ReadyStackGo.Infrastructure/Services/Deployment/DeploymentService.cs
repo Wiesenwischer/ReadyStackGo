@@ -602,6 +602,127 @@ public class DeploymentService : IDeploymentService
         }
     }
 
+    public async Task<DeployComposeResponse> RemoveDeploymentByIdAsync(
+        string environmentId,
+        string deploymentId,
+        DeploymentServiceProgressCallback? progressCallback,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Removing deployment {DeploymentId} from environment {EnvironmentId} with progress tracking",
+                deploymentId, environmentId);
+
+            // Report initial progress
+            if (progressCallback != null)
+            {
+                await progressCallback("Initializing", "Preparing to remove deployment...", 0, null, 0, 0);
+            }
+
+            if (!Guid.TryParse(environmentId, out var envGuid))
+            {
+                return new DeployComposeResponse
+                {
+                    Success = false,
+                    Message = "Invalid environment ID",
+                    Errors = new List<string> { "Invalid environment ID format" }
+                };
+            }
+
+            if (!Guid.TryParse(deploymentId, out var depGuid))
+            {
+                return new DeployComposeResponse
+                {
+                    Success = false,
+                    Message = "Invalid deployment ID",
+                    Errors = new List<string> { "Invalid deployment ID format" }
+                };
+            }
+
+            // Find the deployment first to get its stack name
+            var deployment = _deploymentRepository.Get(new DeploymentId(depGuid));
+            if (deployment == null || deployment.EnvironmentId != new EnvironmentId(envGuid))
+            {
+                return new DeployComposeResponse
+                {
+                    Success = false,
+                    Message = $"Deployment '{deploymentId}' not found in environment '{environmentId}'",
+                    Errors = new List<string> { "Deployment not found" }
+                };
+            }
+
+            var stackName = deployment.StackName;
+            var totalServices = deployment.Services.Count;
+
+            if (progressCallback != null)
+            {
+                await progressCallback("RemovingContainers", $"Removing {stackName}...", 10, null, totalServices, 0);
+            }
+
+            // Convert DeploymentServiceProgressCallback to DeploymentProgressCallback for the engine
+            DeploymentProgressCallback? engineCallback = null;
+            if (progressCallback != null)
+            {
+                engineCallback = async (phase, message, percent, total, completed, current) =>
+                {
+                    await progressCallback(phase, message, percent, total, completed, current);
+                };
+            }
+
+            // Remove the stack using the deployment engine with progress
+            var result = await _deploymentEngine.RemoveStackAsync(environmentId, stackName, engineCallback);
+
+            if (!result.Success)
+            {
+                if (progressCallback != null)
+                {
+                    await progressCallback("Error", "Removal failed", 100, null, totalServices, 0);
+                }
+                return new DeployComposeResponse
+                {
+                    Success = false,
+                    Message = "Failed to remove deployment",
+                    Errors = result.Errors
+                };
+            }
+
+            // Mark deployment as removed in database
+            if (deployment.Status != Domain.Deployment.Deployments.DeploymentStatus.Removed)
+            {
+                deployment.MarkAsRemoved();
+                _deploymentRepository.SaveChanges();
+                _logger.LogInformation("Marked deployment {DeploymentId} as removed", deployment.Id);
+            }
+
+            if (progressCallback != null)
+            {
+                await progressCallback("Complete", $"Successfully removed {stackName}", 100, null, totalServices, totalServices);
+            }
+
+            return new DeployComposeResponse
+            {
+                Success = true,
+                Message = $"Successfully removed {stackName}",
+                StackName = stackName,
+                DeploymentId = deploymentId
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to remove deployment {DeploymentId}", deploymentId);
+            if (progressCallback != null)
+            {
+                await progressCallback("Error", $"Failed: {ex.Message}", 100, null, 0, 0);
+            }
+            return new DeployComposeResponse
+            {
+                Success = false,
+                Message = $"Failed to remove deployment: {ex.Message}",
+                Errors = new List<string> { ex.Message }
+            };
+        }
+    }
+
     public async Task<DeployStackResponse> DeployStackAsync(
         string? environmentId,
         DeployStackRequest request,

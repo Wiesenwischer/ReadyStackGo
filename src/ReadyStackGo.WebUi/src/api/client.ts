@@ -134,10 +134,12 @@ export async function apiPut<T = void>(path: string, body?: unknown): Promise<T>
   return JSON.parse(text) as T;
 }
 
-export async function apiDelete<T = void>(path: string): Promise<T> {
+export async function apiDelete<T = void>(path: string, body?: unknown): Promise<T> {
+  const hasBody = body !== undefined;
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'DELETE',
-    headers: getAuthHeaders(false),
+    headers: getAuthHeaders(hasBody),
+    body: hasBody ? JSON.stringify(body) : undefined,
   });
 
   if (!response.ok) {
