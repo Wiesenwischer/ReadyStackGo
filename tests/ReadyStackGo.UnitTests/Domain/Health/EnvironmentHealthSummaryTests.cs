@@ -26,8 +26,8 @@ public class EnvironmentHealthSummaryTests
         HealthStatus overallStatus,
         OperationMode operationMode,
         string stackName,
-        int healthyServices = 3,
-        int totalServices = 3)
+        int? healthyServices = null,
+        int? totalServices = null)
     {
         return CreateSnapshotWithDeploymentId(
             DeploymentId.NewId(),
@@ -43,16 +43,37 @@ public class EnvironmentHealthSummaryTests
         HealthStatus overallStatus,
         OperationMode operationMode,
         string stackName,
-        int healthyServices = 3,
-        int totalServices = 3)
+        int? healthyServices = null,
+        int? totalServices = null)
     {
-        var services = Enumerable.Range(0, totalServices)
+        // Auto-configure services based on desired overall status if not explicitly provided
+        var total = totalServices ?? 3;
+        int healthy;
+
+        if (healthyServices.HasValue)
+        {
+            healthy = healthyServices.Value;
+        }
+        else
+        {
+            // Configure healthy count based on desired overall status
+            healthy = overallStatus switch
+            {
+                _ when overallStatus == HealthStatus.Healthy => total, // All healthy
+                _ when overallStatus == HealthStatus.Degraded && operationMode == OperationMode.Maintenance => total, // All healthy, mode sets Degraded
+                _ when overallStatus == HealthStatus.Degraded => total - 1, // One unhealthy would be Unhealthy, so use Maintenance mode
+                _ when overallStatus == HealthStatus.Unhealthy => 0, // All unhealthy
+                _ => total // Default: all healthy
+            };
+        }
+
+        var services = Enumerable.Range(0, total)
             .Select(i => ServiceHealth.Create(
                 $"service-{i}",
-                i < healthyServices ? HealthStatus.Healthy : HealthStatus.Unhealthy,
+                i < healthy ? HealthStatus.Healthy : HealthStatus.Unhealthy,
                 $"container-{i}",
                 $"container-name-{i}",
-                i < healthyServices ? null : "Service is down",
+                i < healthy ? null : "Service is down",
                 0))
             .ToList();
 

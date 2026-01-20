@@ -185,8 +185,12 @@ public sealed class HealthSnapshot : AggregateRoot<HealthSnapshotId>
 
     /// <summary>
     /// Indicates if this snapshot requires attention.
+    /// Maintenance mode with expected degradation (all services healthy but mode is Maintenance) does not require attention.
+    /// But Unhealthy status always requires attention, even in Maintenance mode.
     /// </summary>
-    public bool RequiresAttention => Overall.RequiresAttention;
+    public bool RequiresAttention =>
+        Overall == HealthStatus.Unhealthy ||
+        (OperationMode != OperationMode.Maintenance && Overall.RequiresAttention);
 
     /// <summary>
     /// Gets a human-readable status message.

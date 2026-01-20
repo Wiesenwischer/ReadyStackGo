@@ -27,7 +27,7 @@ public static class HealthSnapshotMapper
 
             // Summary
             StatusMessage = GenerateStatusMessage(snapshot),
-            RequiresAttention = snapshot.Overall.RequiresAttention,
+            RequiresAttention = snapshot.RequiresAttention,
             CapturedAtUtc = snapshot.CapturedAtUtc,
 
             // Self health
@@ -134,14 +134,14 @@ public static class HealthSnapshotMapper
     {
         if (snapshot.OperationMode == OperationMode.Maintenance)
         {
-            return "Stack is in maintenance mode";
+            return "Maintenance mode - services stopped";
         }
 
         // Normal operation - describe health
         var self = snapshot.Self;
         if (snapshot.Overall == HealthStatus.Healthy)
         {
-            return $"All {self.TotalCount} services healthy";
+            return $"All {self.TotalCount} services operational";
         }
 
         if (snapshot.Overall == HealthStatus.Degraded)

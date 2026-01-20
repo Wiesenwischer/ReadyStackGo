@@ -182,7 +182,8 @@ public class GetEnvironmentHealthSummaryHandlerTests
         stackDto.OperationMode.Should().Be("Maintenance");
         stackDto.HealthyServices.Should().Be(2);
         stackDto.TotalServices.Should().Be(2);
-        stackDto.RequiresAttention.Should().BeTrue();
+        // Maintenance mode is a planned state, does not require attention
+        stackDto.RequiresAttention.Should().BeFalse();
     }
 
     [Fact]
