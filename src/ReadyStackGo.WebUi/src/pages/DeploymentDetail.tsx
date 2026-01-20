@@ -1,20 +1,17 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router";
 import {
   getDeployment,
   getRollbackInfo,
-  rollbackDeployment,
   checkUpgrade,
-  upgradeDeployment,
+  markDeploymentFailed,
   type GetDeploymentResponse,
   type DeployedServiceInfo,
   type RollbackInfoResponse,
   type CheckUpgradeResponse
 } from "../api/deployments";
-import { getStack, type StackDetail } from "../api/stacks";
 import { useEnvironment } from "../context/EnvironmentContext";
 import { useHealthHub } from "../hooks/useHealthHub";
-import { useDeploymentHub, type DeploymentProgressUpdate } from "../hooks/useDeploymentHub";
 import {
   getHealthStatusPresentation,
   getOperationModePresentation,
@@ -26,14 +23,6 @@ import {
   type ServiceHealthDto
 } from "../api/health";
 import HealthHistoryChart from "../components/health/HealthHistoryChart";
-import VariableInput, { groupVariables } from "../components/variables/VariableInput";
-
-// Format phase names for display (PullingImages -> Pulling Images)
-const formatPhase = (phase: string | undefined): string => {
-  if (!phase) return '';
-  // Split on capital letters and join with spaces
-  return phase.replace(/([A-Z])/g, ' $1').trim();
-};
 
 export default function DeploymentDetail() {
   const { stackName } = useParams<{ stackName: string }>();
@@ -48,65 +37,13 @@ export default function DeploymentDetail() {
 
   // Rollback state
   const [rollbackInfo, setRollbackInfo] = useState<RollbackInfoResponse | null>(null);
-  const [rollbackLoading, setRollbackLoading] = useState(false);
-  const [rollbackError, setRollbackError] = useState<string | null>(null);
-  const [showRollbackConfirm, setShowRollbackConfirm] = useState(false);
 
-  // Upgrade state
+  // Upgrade state (simplified - just info, navigation handled via Link)
   const [upgradeInfo, setUpgradeInfo] = useState<CheckUpgradeResponse | null>(null);
-  const [upgradeError, setUpgradeError] = useState<string | null>(null);
-  const [selectedUpgradeVersion, setSelectedUpgradeVersion] = useState<string | null>(null);
-  const [upgradeInProgress, setUpgradeInProgress] = useState(false);
-  const [upgradeProgress, setUpgradeProgress] = useState<DeploymentProgressUpdate | null>(null);
-  const upgradeSessionIdRef = useRef<string | null>(null);
 
-  // Upgrade variables dialog state
-  const [showUpgradeVariables, setShowUpgradeVariables] = useState(false);
-  const [targetStack, setTargetStack] = useState<StackDetail | null>(null);
-  const [upgradeVariables, setUpgradeVariables] = useState<Record<string, string>>({});
-  const [loadingTargetStack, setLoadingTargetStack] = useState(false);
-
-  // Callback for upgrade progress updates
-  const handleUpgradeProgress = useCallback((update: DeploymentProgressUpdate) => {
-    const currentSessionId = upgradeSessionIdRef.current;
-    if (currentSessionId && update.sessionId === currentSessionId) {
-      setUpgradeProgress(update);
-
-      // Check if upgrade completed (success or error)
-      if (update.isComplete) {
-        if (update.isError) {
-          setUpgradeError(update.errorMessage || 'Upgrade failed');
-        }
-        // Will refresh data after a short delay
-        setTimeout(async () => {
-          setUpgradeInProgress(false);
-          setUpgradeProgress(null);
-          upgradeSessionIdRef.current = null;
-          // Refresh deployment and upgrade info
-          if (activeEnvironment && deployment?.deploymentId && stackName) {
-            const [newDeployment, newUpgradeInfo, newRollbackInfo] = await Promise.all([
-              getDeployment(activeEnvironment.id, decodeURIComponent(stackName)),
-              checkUpgrade(activeEnvironment.id, deployment.deploymentId),
-              getRollbackInfo(activeEnvironment.id, deployment.deploymentId)
-            ]);
-            if (newDeployment.success) {
-              setDeployment(newDeployment);
-            }
-            setUpgradeInfo(newUpgradeInfo);
-            setRollbackInfo(newRollbackInfo);
-          }
-        }, 1000);
-      }
-    }
-  }, [activeEnvironment, deployment?.deploymentId, stackName]);
-
-  // SignalR Deployment Hub for upgrade progress
-  const {
-    connectionState: deploymentHubState,
-    subscribeToDeployment: subscribeToUpgrade
-  } = useDeploymentHub({
-    onDeploymentProgress: handleUpgradeProgress,
-  });
+  // Mark as Failed state (for stuck deployments)
+  const [markFailedLoading, setMarkFailedLoading] = useState(false);
+  const [markFailedError, setMarkFailedError] = useState<string | null>(null);
 
   // SignalR Health Hub connection - subscribe to deployment for detailed health updates
   const { connectionState, subscribeToDeployment, unsubscribeFromDeployment } = useHealthHub({
@@ -223,133 +160,6 @@ export default function DeploymentDetail() {
     loadUpgradeInfo();
   }, [activeEnvironment, deployment?.deploymentId]);
 
-  const handleRollback = async () => {
-    if (!activeEnvironment || !deployment?.deploymentId) return;
-
-    try {
-      setRollbackLoading(true);
-      setRollbackError(null);
-      const response = await rollbackDeployment(activeEnvironment.id, deployment.deploymentId);
-
-      if (response.success) {
-        // Refresh rollback info and deployment data
-        setShowRollbackConfirm(false);
-        const [newDeployment, newRollbackInfo] = await Promise.all([
-          getDeployment(activeEnvironment.id, decodeURIComponent(stackName!)),
-          getRollbackInfo(activeEnvironment.id, deployment.deploymentId)
-        ]);
-        if (newDeployment.success) {
-          setDeployment(newDeployment);
-        }
-        setRollbackInfo(newRollbackInfo);
-      } else {
-        setRollbackError(response.message || "Rollback failed");
-      }
-    } catch (err) {
-      setRollbackError(err instanceof Error ? err.message : "Rollback failed");
-    } finally {
-      setRollbackLoading(false);
-    }
-  };
-
-  // Prepare upgrade: load target stack and show variables dialog
-  const handlePrepareUpgrade = async () => {
-    if (!activeEnvironment || !deployment?.deploymentId) return;
-
-    // Get the target stack ID
-    const targetStackId = selectedUpgradeVersion
-      ? upgradeInfo?.availableVersions?.find(v => v.version === selectedUpgradeVersion)?.stackId
-      : upgradeInfo?.latestStackId;
-
-    if (!targetStackId) return;
-
-    try {
-      setLoadingTargetStack(true);
-      setUpgradeError(null);
-
-      // Load the target stack definition to get variable definitions
-      const stackDetail = await getStack(targetStackId);
-      setTargetStack(stackDetail);
-
-      // Initialize variables with: current deployment values > stack defaults
-      const initialVariables: Record<string, string> = {};
-
-      // First, apply stack defaults
-      for (const variable of stackDetail.variables) {
-        if (variable.defaultValue !== undefined) {
-          initialVariables[variable.name] = variable.defaultValue;
-        }
-      }
-
-      // Then overlay with current deployment values
-      if (deployment.configuration) {
-        for (const [key, value] of Object.entries(deployment.configuration)) {
-          initialVariables[key] = value;
-        }
-      }
-
-      setUpgradeVariables(initialVariables);
-      setShowUpgradeVariables(true);
-    } catch (err) {
-      setUpgradeError(err instanceof Error ? err.message : "Failed to load stack configuration");
-    } finally {
-      setLoadingTargetStack(false);
-    }
-  };
-
-  // Execute the actual upgrade with the configured variables
-  const handleExecuteUpgrade = async () => {
-    if (!activeEnvironment || !deployment?.deploymentId) return;
-
-    // Get the target stack ID
-    const targetStackId = selectedUpgradeVersion
-      ? upgradeInfo?.availableVersions?.find(v => v.version === selectedUpgradeVersion)?.stackId
-      : upgradeInfo?.latestStackId;
-
-    if (!targetStackId) return;
-
-    try {
-      // Generate session ID for progress tracking
-      const sessionId = `upgrade-${deployment.stackName}-${Date.now()}`;
-      upgradeSessionIdRef.current = sessionId;
-
-      // Subscribe to progress updates before starting
-      await subscribeToUpgrade(sessionId);
-
-      // Show progress UI
-      setShowUpgradeVariables(false);
-      setUpgradeInProgress(true);
-      setUpgradeProgress(null);
-      setUpgradeError(null);
-
-      // Start upgrade with session ID and variables
-      const response = await upgradeDeployment(activeEnvironment.id, deployment.deploymentId, {
-        stackId: targetStackId,
-        variables: upgradeVariables,
-        sessionId: sessionId
-      });
-
-      // If the API returns immediately with an error, handle it
-      if (!response.success) {
-        setUpgradeInProgress(false);
-        setUpgradeError(response.message || "Upgrade failed");
-        upgradeSessionIdRef.current = null;
-      }
-      // Otherwise, progress updates will come via SignalR
-    } catch (err) {
-      setUpgradeInProgress(false);
-      setUpgradeError(err instanceof Error ? err.message : "Upgrade failed");
-      upgradeSessionIdRef.current = null;
-    }
-  };
-
-  // Cancel upgrade variables dialog
-  const handleCancelUpgradeVariables = () => {
-    setShowUpgradeVariables(false);
-    setTargetStack(null);
-    setUpgradeVariables({});
-  };
-
   const formatDate = (dateString?: string) => {
     if (!dateString) return "-";
     const date = new Date(dateString);
@@ -433,6 +243,41 @@ export default function DeploymentDetail() {
       setModeActionError(err instanceof Error ? err.message : 'Failed to exit maintenance mode');
     } finally {
       setModeActionLoading(false);
+    }
+  };
+
+  const handleMarkAsFailed = async () => {
+    if (!deployment?.deploymentId || !activeEnvironment) return;
+    try {
+      setMarkFailedLoading(true);
+      setMarkFailedError(null);
+      const response = await markDeploymentFailed(
+        activeEnvironment.id,
+        deployment.deploymentId,
+        "Manually marked as failed by user"
+      );
+      if (!response.success) {
+        setMarkFailedError(response.message || 'Failed to mark deployment as failed');
+      } else {
+        // Refresh the deployment data to get updated status
+        const refreshed = await getDeployment(activeEnvironment.id, decodeURIComponent(stackName || ''));
+        if (refreshed.success) {
+          setDeployment(refreshed);
+        }
+        // Also reload rollback info since status changed
+        if (deployment.deploymentId) {
+          try {
+            const info = await getRollbackInfo(activeEnvironment.id, deployment.deploymentId);
+            setRollbackInfo(info);
+          } catch {
+            // Ignore
+          }
+        }
+      }
+    } catch (err) {
+      setMarkFailedError(err instanceof Error ? err.message : 'Failed to mark deployment as failed');
+    } finally {
+      setMarkFailedLoading(false);
     }
   };
 
@@ -592,6 +437,42 @@ export default function DeploymentDetail() {
         </div>
       )}
 
+      {/* Stuck Deployment Panel - shown when deployment is in Installing or Upgrading status */}
+      {(deployment?.status === 'Installing' || deployment?.status === 'Upgrading') && (
+        <div className="mb-6 rounded-2xl border border-orange-200 bg-orange-50 p-6 dark:border-orange-800 dark:bg-orange-900/20">
+          <div className="flex items-start justify-between">
+            <div>
+              <h4 className="text-lg font-semibold text-orange-900 dark:text-orange-100 flex items-center gap-2">
+                <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {deployment.status === 'Installing' ? 'Installation in Progress' : 'Upgrade in Progress'}
+              </h4>
+              <p className="mt-1 text-sm text-orange-800 dark:text-orange-200">
+                This deployment appears to be stuck in <strong>{deployment.status}</strong> status.
+                If the operation has stalled or the application was restarted during the operation,
+                you can manually mark it as failed to enable recovery options.
+              </p>
+              {markFailedError && (
+                <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                  {markFailedError}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={handleMarkAsFailed}
+              disabled={markFailedLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 dark:bg-orange-700 dark:hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              {markFailedLoading ? 'Marking...' : 'Mark as Failed'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Rollback Panel - only shown when canRollback is true */}
       {rollbackInfo?.canRollback && (
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-800 dark:bg-amber-900/20">
@@ -617,62 +498,21 @@ export default function DeploymentDetail() {
                 </p>
               )}
             </div>
-            <div className="flex flex-col items-end gap-2">
-              {!showRollbackConfirm ? (
-                <button
-                  onClick={() => setShowRollbackConfirm(true)}
-                  className="inline-flex items-center justify-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                  </svg>
-                  Rollback
-                </button>
-              ) : (
-                <div className="flex flex-col items-end gap-2">
-                  <p className="text-sm text-amber-800 dark:text-amber-200">
-                    Are you sure you want to rollback?
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowRollbackConfirm(false)}
-                      disabled={rollbackLoading}
-                      className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-50 dark:border-amber-700 dark:bg-amber-900/50 dark:text-amber-200 dark:hover:bg-amber-900/70 disabled:opacity-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleRollback}
-                      disabled={rollbackLoading}
-                      className="inline-flex items-center justify-center gap-1 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-                    >
-                      {rollbackLoading ? (
-                        <>
-                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          Rolling back...
-                        </>
-                      ) : (
-                        'Confirm Rollback'
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <Link
+              to={`/deployments/${encodeURIComponent(stackName || '')}/rollback`}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+              Rollback
+            </Link>
           </div>
-          {rollbackError && (
-            <div className="mt-4 rounded-md bg-red-100 p-3 dark:bg-red-900/30">
-              <p className="text-sm text-red-800 dark:text-red-200">{rollbackError}</p>
-            </div>
-          )}
         </div>
       )}
 
-      {/* Upgrade Panel - only shown when upgrade is available, can upgrade, and not currently upgrading */}
-      {upgradeInfo?.upgradeAvailable && upgradeInfo.canUpgrade && !upgradeInProgress && (
+      {/* Upgrade Panel - navigates to upgrade page */}
+      {upgradeInfo?.upgradeAvailable && upgradeInfo.canUpgrade && (
         <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-6 dark:border-blue-800 dark:bg-blue-900/20">
           <div className="flex items-start justify-between">
             <div className="flex-1">
@@ -683,246 +523,24 @@ export default function DeploymentDetail() {
                 Upgrade Available
               </h4>
               <p className="mt-1 text-sm text-blue-800 dark:text-blue-200">
-                Current version: <strong>{upgradeInfo.currentVersion}</strong>
+                Version <strong>{upgradeInfo.currentVersion}</strong> &rarr; <strong>{upgradeInfo.latestVersion}</strong>
+                {(upgradeInfo.availableVersions?.length ?? 0) > 1 && (
+                  <span className="ml-2 text-blue-600 dark:text-blue-400">
+                    ({upgradeInfo.availableVersions?.length} versions available)
+                  </span>
+                )}
               </p>
-              {/* Version selector */}
-              {(upgradeInfo.availableVersions?.length ?? 0) > 1 ? (
-                <div className="mt-3">
-                  <label className="block text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
-                    Select target version:
-                  </label>
-                  <select
-                    value={selectedUpgradeVersion ?? upgradeInfo.latestVersion ?? ''}
-                    onChange={(e) => setSelectedUpgradeVersion(e.target.value)}
-                    className="block w-full max-w-xs rounded-md border border-blue-300 bg-white px-3 py-2 text-sm text-blue-900 focus:border-blue-500 focus:ring-blue-500 dark:border-blue-600 dark:bg-blue-900/50 dark:text-blue-100"
-                  >
-                    {upgradeInfo.availableVersions?.map((v) => (
-                      <option key={v.version} value={v.version}>
-                        {v.version}{v.version === upgradeInfo.latestVersion ? ' (latest)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <p className="mt-1 text-sm text-blue-800 dark:text-blue-200">
-                  Target version: <strong>{upgradeInfo.latestVersion}</strong>
-                </p>
-              )}
-              {/* Show new/removed variables if any */}
-              {(upgradeInfo.newVariables?.length ?? 0) > 0 && (
-                <p className="mt-2 text-xs text-blue-600 dark:text-blue-400">
-                  New variables: {upgradeInfo.newVariables?.join(', ')}
-                </p>
-              )}
-              {(upgradeInfo.removedVariables?.length ?? 0) > 0 && (
-                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                  Removed variables: {upgradeInfo.removedVariables?.join(', ')}
-                </p>
-              )}
             </div>
             <div className="flex flex-col items-end gap-2 ml-4">
-              <button
-                onClick={handlePrepareUpgrade}
-                disabled={loadingTargetStack}
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50"
+              <Link
+                to={`/deployments/${encodeURIComponent(stackName || '')}/upgrade`}
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
               >
-                {loadingTargetStack ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                    </svg>
-                    Upgrade
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-          {upgradeError && (
-            <div className="mt-4 rounded-md bg-red-100 p-3 dark:bg-red-900/30">
-              <p className="text-sm text-red-800 dark:text-red-200">{upgradeError}</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Upgrade Variables Dialog */}
-      {showUpgradeVariables && targetStack && (
-        <div className="mb-6 rounded-2xl border border-blue-200 bg-white p-6 dark:border-blue-800 dark:bg-gray-900">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                 </svg>
-                Configure Upgrade
-              </h4>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                Upgrading to version <strong>{selectedUpgradeVersion ?? upgradeInfo?.latestVersion}</strong>
-              </p>
-            </div>
-            <button
-              onClick={handleCancelUpgradeVariables}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Variable hints */}
-          {((upgradeInfo?.newVariables?.length ?? 0) > 0 || (upgradeInfo?.removedVariables?.length ?? 0) > 0) && (
-            <div className="mb-6 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-              {(upgradeInfo?.newVariables?.length ?? 0) > 0 && (
-                <p className="text-sm text-blue-800 dark:text-blue-200 mb-1">
-                  <span className="font-medium">New variables:</span> {upgradeInfo?.newVariables?.join(', ')}
-                </p>
-              )}
-              {(upgradeInfo?.removedVariables?.length ?? 0) > 0 && (
-                <p className="text-sm text-amber-700 dark:text-amber-400">
-                  <span className="font-medium">Removed variables:</span> {upgradeInfo?.removedVariables?.join(', ')}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Variables input */}
-          {targetStack.variables.length > 0 ? (
-            <div className="space-y-6 mb-6">
-              {(() => {
-                const groups = groupVariables(targetStack.variables);
-                return Array.from(groups.entries()).map(([groupName, groupVars]) => (
-                  <div key={groupName}>
-                    {groups.size > 1 && (
-                      <h5 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
-                        {groupName}
-                      </h5>
-                    )}
-                    <div className="space-y-4">
-                      {groupVars.map((v) => {
-                        const isNew = upgradeInfo?.newVariables?.includes(v.name);
-                        return (
-                          <div key={v.name} className={isNew ? 'ring-2 ring-blue-300 dark:ring-blue-600 rounded-lg p-3 -m-3' : ''}>
-                            {isNew && (
-                              <span className="inline-block mb-2 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/50 px-2 py-0.5 rounded">
-                                New in this version
-                              </span>
-                            )}
-                            <VariableInput
-                              variable={v}
-                              value={upgradeVariables[v.name] || ''}
-                              onChange={(newValue) =>
-                                setUpgradeVariables({ ...upgradeVariables, [v.name]: newValue })
-                              }
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ));
-              })()}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-              No configuration variables required for this stack.
-            </p>
-          )}
-
-          {/* Action buttons */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button
-              onClick={handleCancelUpgradeVariables}
-              className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleExecuteUpgrade}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-              </svg>
-              Start Upgrade
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Upgrade Progress Dialog */}
-      {upgradeInProgress && (
-        <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-6 dark:border-blue-800 dark:bg-blue-900/20">
-          <div className="flex flex-col items-center py-4">
-            <div className="w-12 h-12 mb-4 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <h4 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-1">
-              Upgrading Stack...
-            </h4>
-            <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">
-              Upgrading {deployment.stackName} to {selectedUpgradeVersion ?? upgradeInfo?.latestVersion}
-            </p>
-
-            {/* Progress Section */}
-            <div className="w-full max-w-md">
-              {/* Progress Bar */}
-              <div className="mb-4">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-blue-700 dark:text-blue-300">
-                    {formatPhase(upgradeProgress?.phase) || 'Initializing'}
-                  </span>
-                  <span className="text-blue-700 dark:text-blue-300">
-                    {upgradeProgress?.percentComplete ?? 0}%
-                  </span>
-                </div>
-                <div className="h-3 bg-blue-200 rounded-full dark:bg-blue-800 overflow-hidden">
-                  <div
-                    className="h-full bg-blue-600 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${upgradeProgress?.percentComplete ?? 0}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Status Message */}
-              <div className="text-center">
-                <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
-                  {upgradeProgress?.message || 'Starting upgrade...'}
-                </p>
-
-                {/* Service Progress */}
-                {upgradeProgress && upgradeProgress.totalServices > 0 && (
-                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                    {upgradeProgress.phase === 'PullingImages' ? 'Images' : 'Services'}: {upgradeProgress.completedServices} / {upgradeProgress.totalServices}
-                    {upgradeProgress.currentService && (
-                      <span className="ml-2">
-                        (current: <span className="font-mono">{upgradeProgress.currentService}</span>)
-                      </span>
-                    )}
-                  </p>
-                )}
-              </div>
-
-              {/* Connection Status */}
-              <div className="mt-4 flex items-center justify-center gap-2 text-xs text-blue-600 dark:text-blue-400">
-                <span className={`w-2 h-2 rounded-full ${
-                  deploymentHubState === 'connected' ? 'bg-green-500' :
-                  deploymentHubState === 'connecting' ? 'bg-yellow-500' :
-                  deploymentHubState === 'reconnecting' ? 'bg-yellow-500' :
-                  'bg-red-500'
-                }`} />
-                {deploymentHubState === 'connected' ? 'Live updates' :
-                 deploymentHubState === 'connecting' ? 'Connecting...' :
-                 deploymentHubState === 'reconnecting' ? 'Reconnecting...' :
-                 'Updates unavailable'}
-              </div>
+                Upgrade
+              </Link>
             </div>
           </div>
         </div>

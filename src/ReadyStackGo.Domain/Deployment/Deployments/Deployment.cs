@@ -8,6 +8,13 @@ using ReadyStackGo.Domain.Deployment.Observers;
 /// <summary>
 /// Aggregate root representing a stack deployment to an environment.
 /// Rich domain model with state machine, progress tracking, and business rules.
+///
+/// State machine:
+/// - Installing -> Running, Failed
+/// - Upgrading -> Running, Failed
+/// - Running -> Upgrading, Removed (OperationMode: Normal or Maintenance)
+/// - Failed -> Upgrading (retry/rollback), Removed
+/// - Removed -> (terminal)
 /// </summary>
 public class Deployment : AggregateRoot<DeploymentId>
 {
@@ -63,7 +70,8 @@ public class Deployment : AggregateRoot<DeploymentId>
         string stackId,
         string stackName,
         string projectName,
-        UserId deployedBy)
+        UserId deployedBy,
+        DeploymentStatus initialStatus)
     {
         SelfAssertArgumentNotNull(id, "DeploymentId is required.");
         SelfAssertArgumentNotNull(environmentId, "EnvironmentId is required.");
@@ -78,21 +86,22 @@ public class Deployment : AggregateRoot<DeploymentId>
         StackName = stackName;
         ProjectName = projectName;
         DeployedBy = deployedBy;
-        Status = DeploymentStatus.Pending;
+        Status = initialStatus;
         CurrentPhase = DeploymentPhase.Initializing;
         ProgressPercentage = 0;
         CreatedAt = SystemClock.UtcNow;
 
-        RecordPhase(DeploymentPhase.Initializing, "Deployment initialized");
+        RecordPhase(DeploymentPhase.Initializing, $"{initialStatus} initialized");
         AddDomainEvent(new DeploymentStarted(Id, EnvironmentId, StackName));
     }
 
     #region Factory Methods
 
     /// <summary>
-    /// Starts a new deployment.
+    /// Starts a new installation deployment.
+    /// Creates a deployment in Installing status.
     /// </summary>
-    public static Deployment Start(
+    public static Deployment StartInstallation(
         DeploymentId id,
         EnvironmentId environmentId,
         string stackId,
@@ -100,7 +109,25 @@ public class Deployment : AggregateRoot<DeploymentId>
         string projectName,
         UserId deployedBy)
     {
-        return new Deployment(id, environmentId, stackId, stackName, projectName, deployedBy);
+        return new Deployment(id, environmentId, stackId, stackName, projectName, deployedBy, DeploymentStatus.Installing);
+    }
+
+    /// <summary>
+    /// Starts an upgrade deployment.
+    /// Creates a deployment in Upgrading status.
+    /// </summary>
+    public static Deployment StartUpgrade(
+        DeploymentId id,
+        EnvironmentId environmentId,
+        string stackId,
+        string stackName,
+        string projectName,
+        UserId deployedBy,
+        string? previousVersion = null)
+    {
+        var deployment = new Deployment(id, environmentId, stackId, stackName, projectName, deployedBy, DeploymentStatus.Upgrading);
+        deployment.PreviousVersion = previousVersion;
+        return deployment;
     }
 
     #endregion
@@ -109,18 +136,18 @@ public class Deployment : AggregateRoot<DeploymentId>
 
     /// <summary>
     /// Valid state transitions:
-    /// Pending -> Running, Failed
-    /// Running -> Stopped, Failed
-    /// Stopped -> Running (restart), Removed
-    /// Failed -> (terminal)
+    /// Installing -> Running, Failed
+    /// Upgrading -> Running, Failed
+    /// Running -> Upgrading, Removed
+    /// Failed -> Upgrading (retry/rollback), Removed
     /// Removed -> (terminal)
     /// </summary>
     private static readonly Dictionary<DeploymentStatus, DeploymentStatus[]> ValidTransitions = new()
     {
-        { DeploymentStatus.Pending, new[] { DeploymentStatus.Running, DeploymentStatus.Failed } },
-        { DeploymentStatus.Running, new[] { DeploymentStatus.Stopped, DeploymentStatus.Failed } },
-        { DeploymentStatus.Stopped, new[] { DeploymentStatus.Running, DeploymentStatus.Removed } },
-        { DeploymentStatus.Failed, Array.Empty<DeploymentStatus>() },
+        { DeploymentStatus.Installing, new[] { DeploymentStatus.Running, DeploymentStatus.Failed } },
+        { DeploymentStatus.Upgrading, new[] { DeploymentStatus.Running, DeploymentStatus.Failed } },
+        { DeploymentStatus.Running, new[] { DeploymentStatus.Upgrading, DeploymentStatus.Removed } },
+        { DeploymentStatus.Failed, new[] { DeploymentStatus.Upgrading, DeploymentStatus.Removed } },
         { DeploymentStatus.Removed, Array.Empty<DeploymentStatus>() }
     };
 
@@ -146,12 +173,17 @@ public class Deployment : AggregateRoot<DeploymentId>
     /// <summary>
     /// Checks if this deployment is in a terminal state.
     /// </summary>
-    public bool IsTerminal => Status is DeploymentStatus.Failed or DeploymentStatus.Removed;
+    public bool IsTerminal => Status == DeploymentStatus.Removed;
 
     /// <summary>
-    /// Checks if this deployment is active (can be interacted with).
+    /// Checks if this deployment is in progress (installing or upgrading).
     /// </summary>
-    public bool IsActive => Status is DeploymentStatus.Pending or DeploymentStatus.Running;
+    public bool IsInProgress => Status is DeploymentStatus.Installing or DeploymentStatus.Upgrading;
+
+    /// <summary>
+    /// Checks if this deployment is operational.
+    /// </summary>
+    public bool IsOperational => Status == DeploymentStatus.Running;
 
     #endregion
 
@@ -163,6 +195,15 @@ public class Deployment : AggregateRoot<DeploymentId>
     public void SetStackVersion(string version)
     {
         StackVersion = version;
+    }
+
+    /// <summary>
+    /// Sets the stack ID (catalog reference). Used during upgrades when the
+    /// catalog stack ID changes (e.g., upgrading to a new version).
+    /// </summary>
+    public void SetStackId(string stackId)
+    {
+        StackId = stackId;
     }
 
     /// <summary>
@@ -213,8 +254,8 @@ public class Deployment : AggregateRoot<DeploymentId>
     {
         SelfAssertArgumentTrue(percentage >= 0 && percentage <= 100,
             "Progress percentage must be between 0 and 100.");
-        SelfAssertArgumentTrue(!IsTerminal,
-            "Cannot update progress on a terminal deployment.");
+        SelfAssertArgumentTrue(IsInProgress,
+            "Cannot update progress on a non-in-progress deployment.");
 
         CurrentPhase = phase;
         ProgressPercentage = percentage;
@@ -234,21 +275,28 @@ public class Deployment : AggregateRoot<DeploymentId>
     #region State Transitions
 
     /// <summary>
-    /// Marks the deployment as running with deployed services.
+    /// Marks the deployment as running.
+    /// Called when installation or upgrade completes successfully.
+    /// Services should already be added via AddService/SetServiceContainerInfo.
     /// </summary>
-    public void MarkAsRunning(IEnumerable<DeployedService> services)
+    public void MarkAsRunning()
     {
         EnsureValidTransition(DeploymentStatus.Running);
 
+        var wasUpgrade = Status == DeploymentStatus.Upgrading;
+
         Status = DeploymentStatus.Running;
+        OperationMode = OperationMode.Normal;
         CurrentPhase = DeploymentPhase.Completed;
         ProgressPercentage = 100;
         CompletedAt = SystemClock.UtcNow;
+        ErrorMessage = null;
 
-        _services.Clear();
-        _services.AddRange(services);
+        var message = wasUpgrade
+            ? $"Upgrade to version {StackVersion} completed successfully"
+            : "Deployment completed successfully";
 
-        RecordPhase(DeploymentPhase.Completed, "Deployment completed successfully");
+        RecordPhase(DeploymentPhase.Completed, message);
         AddDomainEvent(new DeploymentCompleted(Id, Status));
     }
 
@@ -257,9 +305,8 @@ public class Deployment : AggregateRoot<DeploymentId>
     /// </summary>
     public void MarkAsFailed(string errorMessage)
     {
-        // Failed can be reached from any non-terminal state
-        SelfAssertArgumentTrue(!IsTerminal,
-            "Cannot fail an already terminal deployment.");
+        SelfAssertArgumentTrue(IsInProgress,
+            "Can only fail an in-progress deployment.");
 
         Status = DeploymentStatus.Failed;
         CurrentPhase = DeploymentPhase.Failed;
@@ -271,61 +318,43 @@ public class Deployment : AggregateRoot<DeploymentId>
     }
 
     /// <summary>
-    /// Resets a failed deployment back to running state for retry.
-    /// Used when retrying an upgrade after a previous failure.
+    /// Starts an upgrade from a running deployment.
+    /// Transitions from Running to Upgrading.
     /// </summary>
-    public void ResetToRunning()
+    public void StartUpgradeProcess(string targetVersion)
     {
-        SelfAssertArgumentTrue(Status == DeploymentStatus.Failed,
-            "Can only reset a failed deployment.");
+        SelfAssertArgumentNotEmpty(targetVersion, "Target version is required.");
+        SelfAssertArgumentTrue(Status == DeploymentStatus.Running,
+            "Can only upgrade a running deployment.");
 
-        Status = DeploymentStatus.Running;
-        CurrentPhase = DeploymentPhase.Completed;
+        PreviousVersion = StackVersion;
+        Status = DeploymentStatus.Upgrading;
+        CurrentPhase = DeploymentPhase.Initializing;
+        ProgressPercentage = 0;
+        CompletedAt = null;
+
+        RecordPhase(DeploymentPhase.Initializing, $"Upgrading to version {targetVersion}");
+        AddDomainEvent(new DeploymentStarted(Id, EnvironmentId, StackName));
+    }
+
+    /// <summary>
+    /// Starts a rollback/retry from a failed deployment.
+    /// Transitions from Failed to Upgrading.
+    /// </summary>
+    public void StartRollbackProcess(string targetVersion)
+    {
+        SelfAssertArgumentNotEmpty(targetVersion, "Target version is required.");
+        SelfAssertArgumentTrue(Status == DeploymentStatus.Failed,
+            "Can only rollback a failed deployment.");
+
+        Status = DeploymentStatus.Upgrading;
+        CurrentPhase = DeploymentPhase.Initializing;
+        ProgressPercentage = 0;
         ErrorMessage = null;
         CompletedAt = null;
 
-        RecordPhase(DeploymentPhase.Completed, "Retry after failed upgrade");
-    }
-
-    /// <summary>
-    /// Marks the deployment as stopped.
-    /// </summary>
-    public void MarkAsStopped()
-    {
-        EnsureValidTransition(DeploymentStatus.Stopped);
-
-        Status = DeploymentStatus.Stopped;
-        SetOperationModeStopped();
-
-        foreach (var service in _services)
-        {
-            service.UpdateStatus("stopped");
-        }
-
-        AddDomainEvent(new DeploymentStopped(Id));
-    }
-
-    /// <summary>
-    /// Restarts a stopped deployment.
-    /// </summary>
-    public void Restart()
-    {
-        EnsureValidTransition(DeploymentStatus.Running);
-        SelfAssertArgumentTrue(Status == DeploymentStatus.Stopped,
-            "Can only restart a stopped deployment.");
-
-        Status = DeploymentStatus.Running;
-        SetOperationModeNormal();
-        CurrentPhase = DeploymentPhase.Starting;
-        ProgressPercentage = 0;
-
-        foreach (var service in _services)
-        {
-            service.UpdateStatus("starting");
-        }
-
-        RecordPhase(DeploymentPhase.Starting, "Deployment restarting");
-        AddDomainEvent(new DeploymentRestarted(Id));
+        RecordPhase(DeploymentPhase.Initializing, $"Rolling back to version {targetVersion}");
+        AddDomainEvent(new DeploymentStarted(Id, EnvironmentId, StackName));
     }
 
     /// <summary>
@@ -335,6 +364,8 @@ public class Deployment : AggregateRoot<DeploymentId>
     {
         SelfAssertArgumentTrue(Status != DeploymentStatus.Removed,
             "Deployment is already removed.");
+        SelfAssertArgumentTrue(Status == DeploymentStatus.Running || Status == DeploymentStatus.Failed,
+            "Can only remove a running or failed deployment.");
 
         Status = DeploymentStatus.Removed;
 
@@ -354,17 +385,18 @@ public class Deployment : AggregateRoot<DeploymentId>
 
     #endregion
 
-    #region Operation Mode
+    #region Operation Mode (only valid when Running)
 
     /// <summary>
     /// Puts the deployment into maintenance mode.
+    /// Only valid when deployment is Running.
     /// </summary>
     public void EnterMaintenance(string? reason = null)
     {
         SelfAssertArgumentTrue(Status == DeploymentStatus.Running,
             "Can only enter maintenance on a running deployment.");
-        SelfAssertArgumentTrue(OperationMode.CanTransitionTo(OperationMode.Maintenance),
-            $"Cannot transition from {OperationMode.Name} to Maintenance.");
+        SelfAssertArgumentTrue(OperationMode == OperationMode.Normal,
+            "Deployment is already in maintenance mode.");
 
         OperationMode = OperationMode.Maintenance;
         AddDomainEvent(new OperationModeChanged(Id, OperationMode.Maintenance, reason));
@@ -375,6 +407,8 @@ public class Deployment : AggregateRoot<DeploymentId>
     /// </summary>
     public void ExitMaintenance()
     {
+        SelfAssertArgumentTrue(Status == DeploymentStatus.Running,
+            "Can only exit maintenance on a running deployment.");
         SelfAssertArgumentTrue(OperationMode == OperationMode.Maintenance,
             "Deployment is not in maintenance mode.");
 
@@ -382,95 +416,17 @@ public class Deployment : AggregateRoot<DeploymentId>
         AddDomainEvent(new OperationModeChanged(Id, OperationMode.Normal, "Exited maintenance mode"));
     }
 
-    /// <summary>
-    /// Starts a migration/upgrade process.
-    /// </summary>
-    public void StartMigration(string targetVersion)
-    {
-        SelfAssertArgumentNotEmpty(targetVersion, "Target version is required.");
-        SelfAssertArgumentTrue(OperationMode.CanTransitionTo(OperationMode.Migrating),
-            $"Cannot transition from {OperationMode.Name} to Migrating.");
-
-        OperationMode = OperationMode.Migrating;
-        AddDomainEvent(new OperationModeChanged(Id, OperationMode.Migrating, $"Migrating to version {targetVersion}"));
-    }
-
-    /// <summary>
-    /// Completes a migration successfully.
-    /// </summary>
-    public void CompleteMigration(string newVersion)
-    {
-        SelfAssertArgumentTrue(OperationMode == OperationMode.Migrating,
-            "Deployment is not in migration mode.");
-
-        StackVersion = newVersion;
-        OperationMode = OperationMode.Normal;
-        AddDomainEvent(new OperationModeChanged(Id, OperationMode.Normal, $"Migration to {newVersion} completed"));
-    }
-
-    /// <summary>
-    /// Fails a migration.
-    /// </summary>
-    public void FailMigration(string errorMessage)
-    {
-        SelfAssertArgumentTrue(OperationMode == OperationMode.Migrating,
-            "Deployment is not in migration mode.");
-
-        OperationMode = OperationMode.Failed;
-        ErrorMessage = errorMessage;
-        AddDomainEvent(new OperationModeChanged(Id, OperationMode.Failed, errorMessage));
-    }
-
-    /// <summary>
-    /// Recovers from a failed state by returning to normal operation.
-    /// </summary>
-    public void RecoverFromFailure()
-    {
-        SelfAssertArgumentTrue(OperationMode == OperationMode.Failed,
-            "Deployment is not in failed state.");
-
-        OperationMode = OperationMode.Normal;
-        ErrorMessage = null;
-        AddDomainEvent(new OperationModeChanged(Id, OperationMode.Normal, "Recovered from failure"));
-    }
-
-    /// <summary>
-    /// Sets the operation mode to stopped when the deployment is stopped.
-    /// Called internally when MarkAsStopped is invoked.
-    /// </summary>
-    private void SetOperationModeStopped()
-    {
-        if (OperationMode != OperationMode.Stopped)
-        {
-            OperationMode = OperationMode.Stopped;
-            AddDomainEvent(new OperationModeChanged(Id, OperationMode.Stopped, "Deployment stopped"));
-        }
-    }
-
-    /// <summary>
-    /// Resets the operation mode to normal when the deployment is restarted.
-    /// Called internally when Restart is invoked.
-    /// </summary>
-    private void SetOperationModeNormal()
-    {
-        if (OperationMode == OperationMode.Stopped)
-        {
-            OperationMode = OperationMode.Normal;
-            AddDomainEvent(new OperationModeChanged(Id, OperationMode.Normal, "Deployment restarted"));
-        }
-    }
-
     #endregion
 
     #region Cancellation
 
     /// <summary>
-    /// Requests cancellation of a pending deployment.
+    /// Requests cancellation of an in-progress deployment.
     /// </summary>
     public void RequestCancellation(string reason)
     {
-        SelfAssertArgumentTrue(Status == DeploymentStatus.Pending,
-            "Can only cancel a pending deployment.");
+        SelfAssertArgumentTrue(IsInProgress,
+            "Can only cancel an in-progress deployment.");
         SelfAssertArgumentNotEmpty(reason, "Cancellation reason is required.");
 
         IsCancellationRequested = true;
@@ -556,19 +512,41 @@ public class Deployment : AggregateRoot<DeploymentId>
     #region Service Management
 
     /// <summary>
-    /// Updates the services after an upgrade, replacing the current service list.
-    /// Used during in-place upgrades to preserve the deployment aggregate with its snapshots.
+    /// Adds a service to the deployment.
+    /// Called when a container is being created.
     /// </summary>
-    public void UpdateServicesAfterUpgrade(IEnumerable<DeployedService> newServices)
+    public void AddService(string serviceName, string? image, string status)
     {
-        SelfAssertArgumentTrue(Status == DeploymentStatus.Running,
-            "Can only update services on a running deployment.");
+        SelfAssertArgumentNotEmpty(serviceName, "Service name is required.");
+        SelfAssertArgumentNotEmpty(status, "Status is required.");
 
-        _services.Clear();
-        _services.AddRange(newServices);
+        var service = new DeployedService(serviceName, null, null, image, status);
+        _services.Add(service);
+    }
 
-        RecordPhase(DeploymentPhase.Completed, $"Upgraded to version {StackVersion}");
-        AddDomainEvent(new DeploymentProgressUpdated(Id, DeploymentPhase.Completed, 100, $"Upgraded to version {StackVersion}"));
+    /// <summary>
+    /// Sets container info for a service after the container has been created.
+    /// </summary>
+    public void SetServiceContainerInfo(string serviceName, string containerId, string containerName, string status)
+    {
+        var service = _services.FirstOrDefault(s => s.ServiceName == serviceName);
+        SelfAssertArgumentTrue(service != null, $"Service '{serviceName}' not found.");
+
+        service!.UpdateContainerInfo(containerId, containerName);
+        service.UpdateStatus(status);
+    }
+
+    /// <summary>
+    /// Removes a service from the deployment.
+    /// Called after a container has been stopped and removed.
+    /// </summary>
+    public void RemoveService(string serviceName)
+    {
+        var service = _services.FirstOrDefault(s => s.ServiceName == serviceName);
+        if (service != null)
+        {
+            _services.Remove(service);
+        }
     }
 
     /// <summary>
@@ -656,7 +634,7 @@ public class Deployment : AggregateRoot<DeploymentId>
     /// </summary>
     public bool IsOverdue(TimeSpan expectedDuration)
     {
-        return Status == DeploymentStatus.Pending && GetElapsedTime() > expectedDuration;
+        return IsInProgress && GetElapsedTime() > expectedDuration;
     }
 
     #endregion

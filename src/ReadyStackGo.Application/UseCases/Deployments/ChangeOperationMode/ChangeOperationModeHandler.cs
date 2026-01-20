@@ -9,6 +9,7 @@ using ReadyStackGo.Domain.Deployment.Health;
 
 /// <summary>
 /// Handler for changing the operation mode of a deployment.
+/// Supports transitions between Normal and Maintenance modes only.
 /// Entering maintenance mode stops containers, exiting starts them again.
 /// Containers with label rsgo.maintenance=ignore are not affected.
 /// </summary>
@@ -49,6 +50,13 @@ public class ChangeOperationModeHandler : IRequestHandler<ChangeOperationModeCom
             return ChangeOperationModeResponse.Fail("Deployment not found");
         }
 
+        // Validate deployment is running - OperationMode only applies to running deployments
+        if (deployment.Status != DeploymentStatus.Running)
+        {
+            return ChangeOperationModeResponse.Fail(
+                $"Cannot change operation mode. Deployment is {deployment.Status}, must be Running.");
+        }
+
         // Parse target mode
         if (!OperationMode.TryFromName(request.NewMode, out var targetMode) || targetMode == null)
         {
@@ -69,7 +77,7 @@ public class ChangeOperationModeHandler : IRequestHandler<ChangeOperationModeCom
         // Execute the appropriate transition
         try
         {
-            ExecuteModeTransition(deployment, targetMode, request.Reason, request.TargetVersion);
+            ExecuteModeTransition(deployment, targetMode, request.Reason);
         }
         catch (ArgumentException ex)
         {
@@ -159,13 +167,12 @@ public class ChangeOperationModeHandler : IRequestHandler<ChangeOperationModeCom
                 DeploymentId = deployment.Id.Value.ToString(),
                 StackName = deployment.StackName,
                 CurrentVersion = deployment.StackVersion,
-                OverallStatus = deployment.Status == DeploymentStatus.Running ? "Healthy" : "Unknown",
+                OverallStatus = deployment.OperationMode == OperationMode.Normal ? "Healthy" : "Degraded",
                 OperationMode = deployment.OperationMode.Name,
                 HealthyServices = deployment.Services.Count(s => s.Status == "running"),
                 TotalServices = deployment.Services.Count,
                 StatusMessage = GetStatusMessage(deployment),
-                RequiresAttention = deployment.OperationMode == OperationMode.Failed ||
-                                    deployment.OperationMode == OperationMode.Maintenance,
+                RequiresAttention = deployment.OperationMode == OperationMode.Maintenance,
                 CapturedAtUtc = DateTime.UtcNow
             };
 
@@ -181,7 +188,7 @@ public class ChangeOperationModeHandler : IRequestHandler<ChangeOperationModeCom
                 TotalStacks = 1,
                 HealthyCount = deployment.OperationMode == OperationMode.Normal ? 1 : 0,
                 DegradedCount = deployment.OperationMode == OperationMode.Maintenance ? 1 : 0,
-                UnhealthyCount = deployment.OperationMode == OperationMode.Failed ? 1 : 0,
+                UnhealthyCount = 0,
                 Stacks = new List<StackHealthSummaryDto> { healthSummary }
             };
 
@@ -210,66 +217,23 @@ public class ChangeOperationModeHandler : IRequestHandler<ChangeOperationModeCom
         return deployment.OperationMode.Name switch
         {
             "Maintenance" => "Stack is in maintenance mode",
-            "Migrating" => $"Migrating to version {deployment.StackVersion}",
-            "Failed" => deployment.ErrorMessage ?? "Operation failed",
-            "Stopped" => "Stack is stopped",
-            _ => deployment.Status == DeploymentStatus.Running
-                ? "All services running"
-                : $"Status: {deployment.Status}"
+            _ => "All services running"
         };
     }
 
     private static void ExecuteModeTransition(
         Deployment deployment,
         OperationMode targetMode,
-        string? reason,
-        string? targetVersion)
+        string? reason)
     {
-        // Route to the appropriate domain method based on target mode
+        // Only two transitions are valid: Normal <-> Maintenance
         if (targetMode == OperationMode.Maintenance)
         {
             deployment.EnterMaintenance(reason);
         }
         else if (targetMode == OperationMode.Normal)
         {
-            // Determine which exit method to use based on current mode
-            if (deployment.OperationMode == OperationMode.Maintenance)
-            {
-                deployment.ExitMaintenance();
-            }
-            else if (deployment.OperationMode == OperationMode.Migrating)
-            {
-                // If exiting migration to normal, treat as completion
-                deployment.CompleteMigration(targetVersion ?? deployment.StackVersion ?? "unknown");
-            }
-            else if (deployment.OperationMode == OperationMode.Failed)
-            {
-                deployment.RecoverFromFailure();
-            }
-            else
-            {
-                throw new ArgumentException(
-                    $"Cannot transition from {deployment.OperationMode.Name} to Normal");
-            }
-        }
-        else if (targetMode == OperationMode.Migrating)
-        {
-            if (string.IsNullOrEmpty(targetVersion))
-            {
-                throw new ArgumentException("Target version is required when entering migration mode");
-            }
-            deployment.StartMigration(targetVersion);
-        }
-        else if (targetMode == OperationMode.Failed)
-        {
-            // Failed is typically set by system, but allow manual override
-            deployment.FailMigration(reason ?? "Manual failure state");
-        }
-        else if (targetMode == OperationMode.Stopped)
-        {
-            // Stopped is set via MarkAsStopped which also changes DeploymentStatus
-            throw new ArgumentException(
-                "Use the stop deployment endpoint to stop a deployment");
+            deployment.ExitMaintenance();
         }
         else
         {

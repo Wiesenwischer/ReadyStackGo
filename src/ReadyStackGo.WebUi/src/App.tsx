@@ -5,6 +5,8 @@ import Dashboard from "./pages/Dashboard";
 import Containers from "./pages/Containers";
 import Deployments from "./pages/Deployments";
 import DeploymentDetail from "./pages/DeploymentDetail";
+import UpgradeStack from "./pages/UpgradeStack";
+import RollbackStack from "./pages/RollbackStack";
 import HealthDashboard from "./pages/HealthDashboard";
 import StackCatalog from "./pages/StackCatalog";
 import ProductDetail from "./pages/ProductDetail";
@@ -82,6 +84,22 @@ export default function App() {
                   element={
                     <EnvironmentGuard>
                       <DeploymentDetail />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/deployments/:stackName/upgrade"
+                  element={
+                    <EnvironmentGuard>
+                      <UpgradeStack />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/deployments/:stackName/rollback"
+                  element={
+                    <EnvironmentGuard>
+                      <RollbackStack />
                     </EnvironmentGuard>
                   }
                 />

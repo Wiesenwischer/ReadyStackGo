@@ -47,7 +47,7 @@ public class DeploymentRepositoryIntegrationTests : IDisposable
         var deploymentId = DeploymentId.Create();
         var userId = new UserId(Guid.NewGuid());
 
-        var deployment = Deployment.Start(
+        var deployment = Deployment.StartInstallation(
             deploymentId,
             envId,
             "stack-123",
@@ -69,7 +69,7 @@ public class DeploymentRepositoryIntegrationTests : IDisposable
         persisted!.StackName.Should().Be("test-stack");
         persisted.StackVersion.Should().Be("1.0.0");
         persisted.ProjectName.Should().Be("rsgo-test-stack");
-        persisted.Status.Should().Be(DeploymentStatus.Pending);
+        persisted.Status.Should().Be(DeploymentStatus.Installing);
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class DeploymentRepositoryIntegrationTests : IDisposable
         var deploymentId = DeploymentId.Create();
         var userId = new UserId(Guid.NewGuid());
 
-        var deployment = Deployment.Start(
+        var deployment = Deployment.StartInstallation(
             deploymentId,
             envId,
             "stack-123",
@@ -120,7 +120,7 @@ public class DeploymentRepositoryIntegrationTests : IDisposable
         var deploymentId = DeploymentId.Create();
         var userId = new UserId(Guid.NewGuid());
 
-        var deployment = Deployment.Start(
+        var deployment = Deployment.StartInstallation(
             deploymentId,
             envId,
             "stack-123",
@@ -166,7 +166,7 @@ public class DeploymentRepositoryIntegrationTests : IDisposable
         var deploymentId = DeploymentId.Create();
         var userId = new UserId(Guid.NewGuid());
 
-        var deployment = Deployment.Start(
+        var deployment = Deployment.StartInstallation(
             deploymentId,
             envId,
             "stack-123",
@@ -196,7 +196,7 @@ public class DeploymentRepositoryIntegrationTests : IDisposable
         var deploymentId = DeploymentId.Create();
         var userId = new UserId(Guid.NewGuid());
 
-        var deployment = Deployment.Start(
+        var deployment = Deployment.StartInstallation(
             deploymentId,
             envId,
             "stack-123",
@@ -233,7 +233,7 @@ public class DeploymentRepositoryIntegrationTests : IDisposable
         var deploymentId = DeploymentId.Create();
         var userId = new UserId(Guid.NewGuid());
 
-        var deployment = Deployment.Start(
+        var deployment = Deployment.StartInstallation(
             deploymentId,
             envId,
             "stack-123",
@@ -276,7 +276,7 @@ public class DeploymentRepositoryIntegrationTests : IDisposable
         var deploymentId = DeploymentId.Create();
         var userId = new UserId(Guid.NewGuid());
 
-        var deployment = Deployment.Start(
+        var deployment = Deployment.StartInstallation(
             deploymentId,
             envId,
             "stack-123",

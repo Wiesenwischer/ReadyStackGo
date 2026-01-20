@@ -213,7 +213,7 @@ public class DeploymentService : IDeploymentService
 
             // Create and persist deployment record for YAML-based deployment
             var deploymentId = _deploymentRepository.NextIdentity();
-            var deployment = Domain.Deployment.Deployments.Deployment.Start(
+            var deployment = Domain.Deployment.Deployments.Deployment.StartInstallation(
                 deploymentId,
                 new EnvironmentId(envGuid),
                 request.StackName, // YAML-based deployments use StackName as StackId
@@ -229,16 +229,14 @@ public class DeploymentService : IDeploymentService
                 deployment.SetVariables(request.Variables);
             }
 
-            // Mark as running with services
-            var deployedServices = result.DeployedContexts.Select(c => new DeployedService(
-                c,
-                null, // Container ID will be populated by container inspection
-                c,    // Container name
-                null, // Image
-                "running"
-            )).ToList();
+            // Add services from deployment result
+            foreach (var container in result.DeployedContainers)
+            {
+                deployment.AddService(container.ServiceName, container.Image, "starting");
+                deployment.SetServiceContainerInfo(container.ServiceName, container.ContainerId, container.ContainerName, container.Status);
+            }
 
-            deployment.MarkAsRunning(deployedServices);
+            deployment.MarkAsRunning();
 
             _deploymentRepository.Add(deployment);
             _deploymentRepository.SaveChanges();
@@ -610,6 +608,10 @@ public class DeploymentService : IDeploymentService
         DeploymentServiceProgressCallback? progressCallback,
         CancellationToken cancellationToken = default)
     {
+        // Track upgrade state for exception handling
+        bool isUpgrade = false;
+        Domain.Deployment.Deployments.Deployment? existingDeployment = null;
+
         try
         {
             _logger.LogInformation("Deploying stack {StackName} to environment {EnvironmentId} (catalog: {CatalogStackId})",
@@ -659,11 +661,11 @@ public class DeploymentService : IDeploymentService
                 : DeploymentUserId.NewId();
 
             // Check for existing deployment (upgrade scenario)
-            var existingDeployment = _deploymentRepository.GetByStackName(
+            existingDeployment = _deploymentRepository.GetByStackName(
                 new EnvironmentId(envGuid), request.StackName);
 
             // Check if this is an upgrade (existing running deployment) or a retry after failure
-            bool isUpgrade = existingDeployment != null &&
+            isUpgrade = existingDeployment != null &&
                 (existingDeployment.Status == Domain.Deployment.Deployments.DeploymentStatus.Running ||
                  existingDeployment.Status == Domain.Deployment.Deployments.DeploymentStatus.Failed) &&
                 !string.IsNullOrEmpty(existingDeployment.StackVersion);
@@ -675,6 +677,18 @@ public class DeploymentService : IDeploymentService
                 previousVersion = existingDeployment!.StackVersion;
                 _logger.LogInformation("Upgrading deployment {DeploymentId} from {OldVersion} to {NewVersion}",
                     existingDeployment.Id, previousVersion, plan.StackVersion);
+
+                // Transition deployment to Upgrading status before executing
+                // This is required so MarkAsFailed can work if deployment fails
+                if (existingDeployment.Status == Domain.Deployment.Deployments.DeploymentStatus.Running)
+                {
+                    existingDeployment.StartUpgradeProcess(plan.StackVersion ?? "unknown");
+                }
+                else if (existingDeployment.Status == Domain.Deployment.Deployments.DeploymentStatus.Failed)
+                {
+                    existingDeployment.StartRollbackProcess(plan.StackVersion ?? "unknown");
+                }
+                _deploymentRepository.SaveChanges();
             }
 
             // Create progress adapter to convert DeploymentEngine callback to our callback
@@ -703,7 +717,6 @@ public class DeploymentService : IDeploymentService
 
                     // Mark deployment as Failed - can be redeployed using existing version/variables
                     existingDeployment.MarkAsFailed(string.Join("; ", result.Errors));
-                    // Note: Don't call Update() - entity is already tracked from GetByStackName() query
                     _deploymentRepository.SaveChanges();
 
                     _logger.LogWarning("Upgrade failed for {StackName}. Deployment can be retried or rolled back.", request.StackName);
@@ -722,59 +735,91 @@ public class DeploymentService : IDeploymentService
                 await progressCallback("Persisting", "Saving deployment record...", 95, null, result.DeployedContexts.Count, result.DeployedContexts.Count);
             }
 
-            // Create services list
-            var deployedServices = result.DeployedContexts.Select(c => new DeployedService(
-                c,
-                null,
-                c,
-                null,
-                "running"
-            )).ToList();
-
             DeploymentId deploymentId;
+            Domain.Deployment.Deployments.Deployment deployment;
 
-            // For upgrades: mark old deployment as removed first
             if (isUpgrade)
             {
-                existingDeployment!.MarkAsRemoved();
-                _deploymentRepository.SaveChanges();
-                _logger.LogInformation("Marked old deployment {DeploymentId} as removed for upgrade", existingDeployment.Id);
-            }
+                // For upgrades: update the existing deployment in-place
+                deployment = existingDeployment!;
+                deploymentId = deployment.Id;
 
-            // Create new deployment (same logic for both new install and upgrade)
-            deploymentId = _deploymentRepository.NextIdentity();
-            var deployment = Domain.Deployment.Deployments.Deployment.Start(
-                deploymentId,
-                new EnvironmentId(envGuid),
-                request.CatalogStackId ?? request.StackName,
-                request.StackName,
-                request.StackName,
-                deploymentUserId);
+                // Update stack ID if it changed (e.g., different version in catalog)
+                if (!string.IsNullOrEmpty(request.CatalogStackId))
+                {
+                    deployment.SetStackId(request.CatalogStackId);
+                }
 
-            deployment.SetStackVersion(plan.StackVersion);
+                deployment.SetStackVersion(plan.StackVersion);
 
-            if (request.Variables != null && request.Variables.Count > 0)
-            {
-                deployment.SetVariables(request.Variables);
-            }
-            if (request.MaintenanceObserver != null)
-            {
-                deployment.SetMaintenanceObserverConfig(request.MaintenanceObserver);
-            }
-            if (request.HealthCheckConfigs != null && request.HealthCheckConfigs.Count > 0)
-            {
-                deployment.SetHealthCheckConfigs(request.HealthCheckConfigs);
-            }
+                if (request.Variables != null && request.Variables.Count > 0)
+                {
+                    deployment.SetVariables(request.Variables);
+                }
+                if (request.MaintenanceObserver != null)
+                {
+                    deployment.SetMaintenanceObserverConfig(request.MaintenanceObserver);
+                }
+                if (request.HealthCheckConfigs != null && request.HealthCheckConfigs.Count > 0)
+                {
+                    deployment.SetHealthCheckConfigs(request.HealthCheckConfigs);
+                }
 
-            // Track upgrade history on new deployment
-            if (isUpgrade)
-            {
+                // Track upgrade history
                 deployment.RecordUpgrade(previousVersion!, plan.StackVersion);
-            }
 
-            deployment.MarkAsRunning(deployedServices);
-            _deploymentRepository.Add(deployment);
-            _deploymentRepository.SaveChanges();
+                // Remove old services and add new ones
+                foreach (var service in deployment.Services.ToList())
+                {
+                    deployment.RemoveService(service.ServiceName);
+                }
+                foreach (var container in result.DeployedContainers)
+                {
+                    deployment.AddService(container.ServiceName, container.Image, "starting");
+                    deployment.SetServiceContainerInfo(container.ServiceName, container.ContainerId, container.ContainerName, container.Status);
+                }
+
+                deployment.MarkAsRunning();
+                _deploymentRepository.SaveChanges();
+            }
+            else
+            {
+                // For new installs: create new deployment
+                deploymentId = _deploymentRepository.NextIdentity();
+                deployment = Domain.Deployment.Deployments.Deployment.StartInstallation(
+                    deploymentId,
+                    new EnvironmentId(envGuid),
+                    request.CatalogStackId ?? request.StackName,
+                    request.StackName,
+                    request.StackName,
+                    deploymentUserId);
+
+                deployment.SetStackVersion(plan.StackVersion);
+
+                if (request.Variables != null && request.Variables.Count > 0)
+                {
+                    deployment.SetVariables(request.Variables);
+                }
+                if (request.MaintenanceObserver != null)
+                {
+                    deployment.SetMaintenanceObserverConfig(request.MaintenanceObserver);
+                }
+                if (request.HealthCheckConfigs != null && request.HealthCheckConfigs.Count > 0)
+                {
+                    deployment.SetHealthCheckConfigs(request.HealthCheckConfigs);
+                }
+
+                // Add services from deployment result
+                foreach (var container in result.DeployedContainers)
+                {
+                    deployment.AddService(container.ServiceName, container.Image, "starting");
+                    deployment.SetServiceContainerInfo(container.ServiceName, container.ContainerId, container.ContainerName, container.Status);
+                }
+
+                deployment.MarkAsRunning();
+                _deploymentRepository.Add(deployment);
+                _deploymentRepository.SaveChanges();
+            }
 
             _logger.LogInformation(
                 isUpgrade
@@ -813,6 +858,23 @@ public class DeploymentService : IDeploymentService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to deploy stack {StackName}", request.StackName);
+
+            // If this was an upgrade and we have an existing deployment, mark it as failed
+            // This prevents the deployment from being stuck in "Upgrading" status
+            if (isUpgrade && existingDeployment != null)
+            {
+                try
+                {
+                    existingDeployment.MarkAsFailed($"Exception during upgrade: {ex.Message}");
+                    _deploymentRepository.SaveChanges();
+                    _logger.LogWarning("Marked deployment {DeploymentId} as failed due to exception", existingDeployment.Id);
+                }
+                catch (Exception saveEx)
+                {
+                    _logger.LogError(saveEx, "Failed to mark deployment as failed after exception");
+                }
+            }
+
             return DeployStackResponse.Failed($"Deployment failed: {ex.Message}", ex.Message);
         }
     }

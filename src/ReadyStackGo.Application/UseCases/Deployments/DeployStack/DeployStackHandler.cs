@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.Deployment.Observers;
 using ReadyStackGo.Domain.StackManagement.Manifests;
@@ -12,16 +13,19 @@ public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStac
     private readonly IProductSourceService _productSourceService;
     private readonly IDeploymentService _deploymentService;
     private readonly IDeploymentNotificationService? _notificationService;
+    private readonly ILogger<DeployStackHandler> _logger;
     private readonly TimeProvider _timeProvider;
 
     public DeployStackHandler(
         IProductSourceService productSourceService,
         IDeploymentService deploymentService,
+        ILogger<DeployStackHandler> logger,
         IDeploymentNotificationService? notificationService = null,
         TimeProvider? timeProvider = null)
     {
         _productSourceService = productSourceService;
         _deploymentService = deploymentService;
+        _logger = logger;
         _notificationService = notificationService;
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
@@ -70,6 +74,10 @@ public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStac
         var sessionId = !string.IsNullOrEmpty(request.SessionId)
             ? request.SessionId
             : $"{request.StackName}-{_timeProvider.GetUtcNow():yyyyMMddHHmmssfff}";
+
+        _logger.LogInformation(
+            "DeployStackHandler: Deploying {StackName} with sessionId {SessionId}, notificationService available: {HasNotificationService}",
+            request.StackName, sessionId, _notificationService != null);
 
         // Create progress callback that sends notifications via SignalR
         DeploymentServiceProgressCallback? progressCallback = null;

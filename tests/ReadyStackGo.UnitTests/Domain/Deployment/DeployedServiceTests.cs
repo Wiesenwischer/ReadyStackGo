@@ -27,7 +27,6 @@ public class DeployedServiceTests
         service.ContainerName.Should().Be("myapp_web_1");
         service.Image.Should().Be("nginx:latest");
         service.Status.Should().Be("running");
-        service.Id.Should().NotBeEmpty();
     }
 
     [Fact]
@@ -47,17 +46,6 @@ public class DeployedServiceTests
         service.ContainerName.Should().BeNull();
         service.Image.Should().BeNull();
         service.Status.Should().Be("pending");
-    }
-
-    [Fact]
-    public void Constructor_GeneratesUniqueId()
-    {
-        // Act
-        var service1 = new DeployedService("web", null, null, null, "running");
-        var service2 = new DeployedService("web", null, null, null, "running");
-
-        // Assert
-        service1.Id.Should().NotBe(service2.Id);
     }
 
     #endregion
@@ -132,13 +120,11 @@ public class DeployedServiceTests
     {
         // Arrange
         var service = new DeployedService("web", "abc123", "myapp_web_1", "nginx:latest", "running");
-        var originalId = service.Id;
 
         // Act
         service.UpdateContainerInfo("new-id", "new-name");
 
         // Assert
-        service.Id.Should().Be(originalId);
         service.ServiceName.Should().Be("web");
         service.Image.Should().Be("nginx:latest");
         service.Status.Should().Be("running");

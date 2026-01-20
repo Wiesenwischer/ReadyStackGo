@@ -84,7 +84,7 @@ public class GetEnvironmentHealthSummaryHandlerTests
     private Deployment CreateTestDeployment(DeploymentId deploymentId, string stackName)
     {
         var userId = UserId.NewId();
-        return Deployment.Start(deploymentId, _envId, stackName, stackName, stackName, userId);
+        return Deployment.StartInstallation(deploymentId, _envId, stackName, stackName, stackName, userId);
     }
 
     private void SetupActiveDeployments(params (DeploymentId id, string stackName)[] deployments)
@@ -153,7 +153,7 @@ public class GetEnvironmentHealthSummaryHandlerTests
         // Arrange
         var environment = CreateTestEnvironment("Test Environment");
         var deploymentId = DeploymentId.NewId();
-        var snapshot = CreateSnapshot(deploymentId, "test-stack", HealthStatus.Degraded, OperationMode.Migrating);
+        var snapshot = CreateSnapshot(deploymentId, "test-stack", HealthStatus.Degraded, OperationMode.Maintenance);
 
         _environmentRepoMock
             .Setup(r => r.Get(_envId))
@@ -179,10 +179,11 @@ public class GetEnvironmentHealthSummaryHandlerTests
         stackDto.StackName.Should().Be("test-stack");
         stackDto.CurrentVersion.Should().Be("1.0.0");
         stackDto.OverallStatus.Should().Be("Degraded");
-        stackDto.OperationMode.Should().Be("Migrating");
+        stackDto.OperationMode.Should().Be("Maintenance");
         stackDto.HealthyServices.Should().Be(2);
         stackDto.TotalServices.Should().Be(2);
-        stackDto.RequiresAttention.Should().BeTrue();
+        // Maintenance mode is a planned state, does not require attention
+        stackDto.RequiresAttention.Should().BeFalse();
     }
 
     [Fact]

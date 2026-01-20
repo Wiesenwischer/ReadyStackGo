@@ -1,12 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, Link, useNavigate } from "react-router";
-import { getProduct, type Product, type ProductStack, type ProductVersion } from "../api/stacks";
+import { useParams, Link } from "react-router";
+import { getProduct, type Product, type ProductStack } from "../api/stacks";
 import { useEnvironment } from "../context/EnvironmentContext";
 
 export default function ProductDetail() {
   const { productId } = useParams<{ productId: string }>();
   const { activeEnvironment } = useEnvironment();
-  const navigate = useNavigate();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,15 +38,6 @@ export default function ProductDetail() {
     // TODO: Implement deploy all stacks
     alert('Deploy all stacks coming soon! For now, deploy each stack individually.');
   };
-
-  const handleVersionChange = (version: ProductVersion) => {
-    if (!version.isCurrent) {
-      // Navigate to the product page for the selected version
-      navigate(`/catalog/${encodeURIComponent(version.productId)}`);
-    }
-  };
-
-  const hasMultipleVersions = product?.availableVersions && product.availableVersions.length > 1;
 
   if (loading) {
     return (
@@ -106,16 +96,16 @@ export default function ProductDetail() {
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                 {product.name}
               </h1>
-              {hasMultipleVersions ? (
-                <VersionSelector
-                  versions={product.availableVersions!}
-                  onVersionChange={handleVersionChange}
-                />
-              ) : product.version ? (
+              {product.version && (
                 <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
                   v{product.version}
+                  {product.availableVersions && product.availableVersions.length > 1 && (
+                    <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
+                      ({product.availableVersions.length} versions)
+                    </span>
+                  )}
                 </span>
-              ) : null}
+              )}
             </div>
 
             {product.description && (
@@ -317,70 +307,3 @@ function StackCard({ stack, disabled }: StackCardProps) {
   );
 }
 
-// Version Selector Component
-interface VersionSelectorProps {
-  versions: ProductVersion[];
-  onVersionChange: (version: ProductVersion) => void;
-}
-
-function VersionSelector({ versions, onVersionChange }: VersionSelectorProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const currentVersion = versions.find(v => v.isCurrent);
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center gap-2 rounded-full bg-brand-100 px-3 py-1 text-sm font-medium text-brand-800 hover:bg-brand-200 dark:bg-brand-900/30 dark:text-brand-300 dark:hover:bg-brand-900/50"
-      >
-        v{currentVersion?.version || 'unknown'}
-        <svg
-          className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-10"
-            onClick={() => setIsOpen(false)}
-          />
-
-          {/* Dropdown */}
-          <div className="absolute left-0 top-full mt-1 z-20 min-w-[140px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
-            <div className="px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Available Versions
-            </div>
-            {versions.map((version) => (
-              <button
-                key={version.productId}
-                onClick={() => {
-                  onVersionChange(version);
-                  setIsOpen(false);
-                }}
-                className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-between ${
-                  version.isCurrent
-                    ? 'text-brand-600 dark:text-brand-400 font-medium'
-                    : 'text-gray-700 dark:text-gray-300'
-                }`}
-              >
-                <span>v{version.version}</span>
-                {version.isCurrent && (
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                )}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}

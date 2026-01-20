@@ -112,17 +112,17 @@ public class DeploymentConfiguration : IEntityTypeConfiguration<Deployment>
             .Metadata.SetPropertyAccessMode(PropertyAccessMode.Field);
 
         // Configure DeployedServices as owned collection
+        // DeployedService has no domain identity - EF Core generates the key
         builder.OwnsMany(d => d.Services, s =>
         {
             s.ToTable("DeployedServices");
 
             s.WithOwner().HasForeignKey("DeploymentId");
 
-            s.Property(ds => ds.Id)
-                .HasColumnName("Id")
-                .IsRequired();
+            s.Property<int>("Id")
+                .ValueGeneratedOnAdd();
 
-            s.HasKey(ds => ds.Id);
+            s.HasKey("Id");
 
             s.Property(ds => ds.ServiceName)
                 .HasMaxLength(100)

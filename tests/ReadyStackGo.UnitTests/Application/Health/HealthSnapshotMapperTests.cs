@@ -10,6 +10,7 @@ namespace ReadyStackGo.UnitTests.Application.Health;
 /// <summary>
 /// Unit tests for HealthSnapshotMapper.
 /// Ensures proper mapping from domain HealthSnapshot to DTOs.
+/// Note: OperationMode is now simplified to only Normal and Maintenance.
 /// </summary>
 public class HealthSnapshotMapperTests
 {
@@ -193,24 +194,21 @@ public class HealthSnapshotMapperTests
 
         var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, _envId);
 
-        dto.StatusMessage.Should().Contain("maintenance");
+        dto.StatusMessage.Should().Contain("Maintenance");
     }
 
     [Fact]
-    public void MapToStackHealthDto_GeneratesStatusMessage_ForMigratingMode()
+    public void MapToStackHealthDto_GeneratesStatusMessage_ForNormalMode()
     {
         var selfHealth = CreateSelfHealth(("api", HealthStatus.Healthy));
         var snapshot = HealthSnapshot.Capture(
             _orgId, _envId, _deploymentId, "my-stack",
-            OperationMode.Migrating,
-            currentVersion: "1.0.0",
-            targetVersion: "2.0.0",
+            OperationMode.Normal,
             self: selfHealth);
 
         var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, _envId);
 
-        dto.StatusMessage.Should().Contain("1.0.0");
-        dto.StatusMessage.Should().Contain("2.0.0");
+        dto.StatusMessage.Should().Contain("operational");
     }
 
     [Fact]
@@ -225,6 +223,35 @@ public class HealthSnapshotMapperTests
         var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, _envId);
 
         dto.RequiresAttention.Should().BeTrue();
+    }
+
+    [Fact]
+    public void MapToStackHealthDto_RequiresAttention_FalseForHealthyNormal()
+    {
+        var selfHealth = CreateSelfHealth(("api", HealthStatus.Healthy));
+        var snapshot = HealthSnapshot.Capture(
+            _orgId, _envId, _deploymentId, "my-stack",
+            OperationMode.Normal,
+            self: selfHealth);
+
+        var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, _envId);
+
+        dto.RequiresAttention.Should().BeFalse();
+    }
+
+    [Fact]
+    public void MapToStackHealthDto_RequiresAttention_FalseForMaintenance()
+    {
+        // Maintenance mode is a planned state, does not require attention
+        var selfHealth = CreateSelfHealth(("api", HealthStatus.Healthy));
+        var snapshot = HealthSnapshot.Capture(
+            _orgId, _envId, _deploymentId, "my-stack",
+            OperationMode.Maintenance,
+            self: selfHealth);
+
+        var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, _envId);
+
+        dto.RequiresAttention.Should().BeFalse();
     }
 
     #endregion
@@ -370,6 +397,38 @@ public class HealthSnapshotMapperTests
 
         detailedDto.Self.HealthyCount.Should().Be(summaryDto.HealthyServices);
         detailedDto.Self.TotalCount.Should().Be(summaryDto.TotalServices);
+    }
+
+    #endregion
+
+    #region OperationMode Mapping
+
+    [Fact]
+    public void MapToStackHealthDto_MapsNormalOperationMode()
+    {
+        var selfHealth = CreateSelfHealth(("api", HealthStatus.Healthy));
+        var snapshot = HealthSnapshot.Capture(
+            _orgId, _envId, _deploymentId, "my-stack",
+            OperationMode.Normal,
+            self: selfHealth);
+
+        var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, _envId);
+
+        dto.OperationMode.Should().Be("Normal");
+    }
+
+    [Fact]
+    public void MapToStackHealthDto_MapsMaintenanceOperationMode()
+    {
+        var selfHealth = CreateSelfHealth(("api", HealthStatus.Healthy));
+        var snapshot = HealthSnapshot.Capture(
+            _orgId, _envId, _deploymentId, "my-stack",
+            OperationMode.Maintenance,
+            self: selfHealth);
+
+        var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, _envId);
+
+        dto.OperationMode.Should().Be("Maintenance");
     }
 
     #endregion

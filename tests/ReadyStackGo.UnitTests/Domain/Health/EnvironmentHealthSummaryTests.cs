@@ -26,8 +26,8 @@ public class EnvironmentHealthSummaryTests
         HealthStatus overallStatus,
         OperationMode operationMode,
         string stackName,
-        int healthyServices = 3,
-        int totalServices = 3)
+        int? healthyServices = null,
+        int? totalServices = null)
     {
         return CreateSnapshotWithDeploymentId(
             DeploymentId.NewId(),
@@ -43,16 +43,37 @@ public class EnvironmentHealthSummaryTests
         HealthStatus overallStatus,
         OperationMode operationMode,
         string stackName,
-        int healthyServices = 3,
-        int totalServices = 3)
+        int? healthyServices = null,
+        int? totalServices = null)
     {
-        var services = Enumerable.Range(0, totalServices)
+        // Auto-configure services based on desired overall status if not explicitly provided
+        var total = totalServices ?? 3;
+        int healthy;
+
+        if (healthyServices.HasValue)
+        {
+            healthy = healthyServices.Value;
+        }
+        else
+        {
+            // Configure healthy count based on desired overall status
+            healthy = overallStatus switch
+            {
+                _ when overallStatus == HealthStatus.Healthy => total, // All healthy
+                _ when overallStatus == HealthStatus.Degraded && operationMode == OperationMode.Maintenance => total, // All healthy, mode sets Degraded
+                _ when overallStatus == HealthStatus.Degraded => total - 1, // One unhealthy would be Unhealthy, so use Maintenance mode
+                _ when overallStatus == HealthStatus.Unhealthy => 0, // All unhealthy
+                _ => total // Default: all healthy
+            };
+        }
+
+        var services = Enumerable.Range(0, total)
             .Select(i => ServiceHealth.Create(
                 $"service-{i}",
-                i < healthyServices ? HealthStatus.Healthy : HealthStatus.Unhealthy,
+                i < healthy ? HealthStatus.Healthy : HealthStatus.Unhealthy,
                 $"container-{i}",
                 $"container-name-{i}",
-                i < healthyServices ? null : "Service is down",
+                i < healthy ? null : "Service is down",
                 0))
             .ToList();
 
@@ -116,8 +137,8 @@ public class EnvironmentHealthSummaryTests
         var snapshots = new[]
         {
             CreateSnapshot(HealthStatus.Healthy, OperationMode.Normal, "stack-1"),
-            CreateSnapshot(HealthStatus.Degraded, OperationMode.Migrating, "stack-2"),
-            CreateSnapshot(HealthStatus.Unhealthy, OperationMode.Failed, "stack-3"),
+            CreateSnapshot(HealthStatus.Degraded, OperationMode.Maintenance, "stack-2"),
+            CreateSnapshot(HealthStatus.Unhealthy, OperationMode.Normal, "stack-3"),
             CreateSnapshot(HealthStatus.Healthy, OperationMode.Normal, "stack-4")
         };
 
@@ -136,7 +157,7 @@ public class EnvironmentHealthSummaryTests
         var snapshots = new[]
         {
             CreateSnapshot(HealthStatus.Healthy, OperationMode.Normal, "stack-1"),
-            CreateSnapshot(HealthStatus.Unhealthy, OperationMode.Failed, "stack-2")
+            CreateSnapshot(HealthStatus.Unhealthy, OperationMode.Normal, "stack-2")
         };
 
         var summary = EnvironmentHealthSummary.FromSnapshots(environment, snapshots);
@@ -151,7 +172,7 @@ public class EnvironmentHealthSummaryTests
         var snapshots = new[]
         {
             CreateSnapshot(HealthStatus.Healthy, OperationMode.Normal, "stack-1"),
-            CreateSnapshot(HealthStatus.Degraded, OperationMode.Migrating, "stack-2")
+            CreateSnapshot(HealthStatus.Degraded, OperationMode.Maintenance, "stack-2")
         };
 
         var summary = EnvironmentHealthSummary.FromSnapshots(environment, snapshots);
@@ -200,7 +221,7 @@ public class EnvironmentHealthSummaryTests
         var environment = CreateTestEnvironment();
         var snapshots = new[]
         {
-            CreateSnapshot(HealthStatus.Unhealthy, OperationMode.Failed, "stack-1")
+            CreateSnapshot(HealthStatus.Unhealthy, OperationMode.Normal, "stack-1")
         };
 
         var summary = EnvironmentHealthSummary.FromSnapshots(environment, snapshots);
@@ -214,7 +235,7 @@ public class EnvironmentHealthSummaryTests
         var environment = CreateTestEnvironment();
         var snapshots = new[]
         {
-            CreateSnapshot(HealthStatus.Degraded, OperationMode.Migrating, "stack-1")
+            CreateSnapshot(HealthStatus.Degraded, OperationMode.Normal, "stack-1")
         };
 
         var summary = EnvironmentHealthSummary.FromSnapshots(environment, snapshots);
@@ -257,8 +278,8 @@ public class EnvironmentHealthSummaryTests
         var snapshots = new[]
         {
             CreateSnapshot(HealthStatus.Healthy, OperationMode.Normal, "stack-1"),
-            CreateSnapshot(HealthStatus.Unhealthy, OperationMode.Failed, "stack-2"),
-            CreateSnapshot(HealthStatus.Unhealthy, OperationMode.Failed, "stack-3")
+            CreateSnapshot(HealthStatus.Unhealthy, OperationMode.Normal, "stack-2"),
+            CreateSnapshot(HealthStatus.Unhealthy, OperationMode.Normal, "stack-3")
         };
 
         var summary = EnvironmentHealthSummary.FromSnapshots(environment, snapshots);
@@ -277,8 +298,8 @@ public class EnvironmentHealthSummaryTests
         var snapshots = new[]
         {
             CreateSnapshot(HealthStatus.Healthy, OperationMode.Normal, "healthy-stack"),
-            CreateSnapshot(HealthStatus.Degraded, OperationMode.Migrating, "degraded-stack"),
-            CreateSnapshot(HealthStatus.Unhealthy, OperationMode.Failed, "unhealthy-stack")
+            CreateSnapshot(HealthStatus.Degraded, OperationMode.Normal, "degraded-stack"),
+            CreateSnapshot(HealthStatus.Unhealthy, OperationMode.Normal, "unhealthy-stack")
         };
 
         var summary = EnvironmentHealthSummary.FromSnapshots(environment, snapshots);
@@ -316,7 +337,7 @@ public class EnvironmentHealthSummaryTests
         var snapshots = new[]
         {
             CreateSnapshot(HealthStatus.Healthy, OperationMode.Normal, "stack-1"),
-            CreateSnapshot(HealthStatus.Unhealthy, OperationMode.Failed, "stack-2")
+            CreateSnapshot(HealthStatus.Unhealthy, OperationMode.Normal, "stack-2")
         };
 
         var summary = EnvironmentHealthSummary.FromSnapshots(environment, snapshots);
@@ -342,15 +363,15 @@ public class EnvironmentHealthSummaryTests
     {
         var environment = CreateTestEnvironment();
         // 2 healthy, 3 total = 1 unhealthy service, so overall is Unhealthy
-        var snapshot = CreateSnapshot(HealthStatus.Unhealthy, OperationMode.Migrating, "test-stack", 2, 3);
+        var snapshot = CreateSnapshot(HealthStatus.Unhealthy, OperationMode.Maintenance, "test-stack", 2, 3);
 
         var summary = EnvironmentHealthSummary.FromSnapshots(environment, new[] { snapshot });
         var stackSummary = summary.Stacks.Single();
 
         stackSummary.StackName.Should().Be("test-stack");
-        // With 1 unhealthy service, the overall status is Unhealthy (worse than Degraded from Migrating mode)
+        // With 1 unhealthy service, the overall status is Unhealthy (worse than Degraded from Maintenance mode)
         stackSummary.OverallStatus.Should().Be(HealthStatus.Unhealthy);
-        stackSummary.OperationMode.Should().Be(OperationMode.Migrating);
+        stackSummary.OperationMode.Should().Be(OperationMode.Maintenance);
         stackSummary.HealthyServices.Should().Be(2);
         stackSummary.TotalServices.Should().Be(3);
         stackSummary.RequiresAttention.Should().BeTrue();
@@ -380,7 +401,7 @@ public class EnvironmentHealthSummaryTests
         var deploymentId2 = DeploymentId.NewId();
 
         var snapshot1 = CreateSnapshotWithDeploymentId(deploymentId1, HealthStatus.Healthy, OperationMode.Normal, "stack-1");
-        var snapshot2 = CreateSnapshotWithDeploymentId(deploymentId2, HealthStatus.Degraded, OperationMode.Migrating, "stack-2");
+        var snapshot2 = CreateSnapshotWithDeploymentId(deploymentId2, HealthStatus.Degraded, OperationMode.Maintenance, "stack-2");
 
         var summary = EnvironmentHealthSummary.FromSnapshots(environment, new[] { snapshot1, snapshot2 });
 

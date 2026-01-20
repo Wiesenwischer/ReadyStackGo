@@ -33,9 +33,9 @@ public class DeploymentNotificationService : IDeploymentNotificationService
     {
         var groupName = $"deployment:{sessionId}";
 
-        _logger.LogDebug(
-            "Sending deployment progress for session {SessionId}: {Phase} - {Percent}%",
-            sessionId, phase, percentComplete);
+        _logger.LogInformation(
+            "Sending deployment progress for session {SessionId}: {Phase} - {Percent}% (group: {GroupName})",
+            sessionId, phase, percentComplete, groupName);
 
         var payload = new
         {

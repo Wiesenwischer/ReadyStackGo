@@ -305,7 +305,7 @@ public class DeploymentEngine : IDeploymentEngine
                     var beforeStartPercent = totalSteps > 0 ? (completedSteps * 100 / totalSteps) : 0;
                     await ReportProgress("StartingServices", $"Starting {step.ContextName}...", beforeStartPercent, step.ContextName);
 
-                    await StartContainerAsync(environmentId, step, defaultNetwork, stackName);
+                    var containerInfo = await StartContainerAsync(environmentId, step, defaultNetwork, stackName);
 
                     // Add any pull warnings for this step
                     if (pullWarnings.TryGetValue(step.ContextName, out var warning))
@@ -314,6 +314,7 @@ public class DeploymentEngine : IDeploymentEngine
                     }
 
                     result.DeployedContexts.Add(step.ContextName);
+                    result.DeployedContainers.Add(containerInfo);
                     completedSteps++;
 
                     // Phase-local progress: 0-100% within this phase
@@ -536,8 +537,9 @@ public class DeploymentEngine : IDeploymentEngine
 
     /// <summary>
     /// Starts a container for a deployment step (assumes image is already pulled and old container removed).
+    /// Returns the container info for tracking.
     /// </summary>
-    private async Task StartContainerAsync(
+    private async Task<DeployedContainerInfo> StartContainerAsync(
         string environmentId,
         DeploymentStep step,
         string defaultNetwork,
@@ -586,6 +588,15 @@ public class DeploymentEngine : IDeploymentEngine
             imageTag,
             step.EnvVars.Count,
             networks.Count);
+
+        return new DeployedContainerInfo
+        {
+            ServiceName = step.ContextName,
+            ContainerId = containerId,
+            ContainerName = step.ContainerName,
+            Image = $"{imageName}:{imageTag}",
+            Status = "running"
+        };
     }
 
     private async Task UpdateReleaseConfigAsync(DeploymentPlan plan)
