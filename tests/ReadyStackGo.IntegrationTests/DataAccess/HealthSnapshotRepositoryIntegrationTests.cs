@@ -99,7 +99,7 @@ public class HealthSnapshotRepositoryIntegrationTests : IDisposable
     public void Add_ShouldPersistOperationMode()
     {
         // Arrange
-        var snapshot = CreateSnapshot("test-stack", operationMode: OperationMode.Migrating);
+        var snapshot = CreateSnapshot("test-stack", operationMode: OperationMode.Maintenance);
 
         // Act
         _repository.Add(snapshot);
@@ -110,7 +110,7 @@ public class HealthSnapshotRepositoryIntegrationTests : IDisposable
         var persisted = verifyContext.HealthSnapshots.Find(snapshot.Id);
 
         persisted.Should().NotBeNull();
-        persisted!.OperationMode.Should().Be(OperationMode.Migrating);
+        persisted!.OperationMode.Should().Be(OperationMode.Maintenance);
     }
 
     [Fact]

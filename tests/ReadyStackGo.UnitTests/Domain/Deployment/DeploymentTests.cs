@@ -2,6 +2,7 @@ using FluentAssertions;
 using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Domain.Deployment.RuntimeConfig;
 
 namespace ReadyStackGo.UnitTests.Domain.Deployment;
@@ -13,10 +14,10 @@ using Deployment = ReadyStackGo.Domain.Deployment.Deployments.Deployment;
 /// </summary>
 public class DeploymentTests
 {
-    #region Creation Tests
+    #region Creation Tests - StartInstallation
 
     [Fact]
-    public void Start_WithValidData_CreatesDeployment()
+    public void StartInstallation_WithValidData_CreatesDeployment()
     {
         // Arrange
         var deploymentId = DeploymentId.NewId();
@@ -24,7 +25,7 @@ public class DeploymentTests
         var userId = UserId.NewId();
 
         // Act
-        var deployment = Deployment.Start(
+        var deployment = Deployment.StartInstallation(
             deploymentId,
             environmentId,
             "wordpress", // stackId
@@ -38,7 +39,7 @@ public class DeploymentTests
         deployment.StackName.Should().Be("wordpress");
         deployment.ProjectName.Should().Be("wordpress-prod");
         deployment.DeployedBy.Should().Be(userId);
-        deployment.Status.Should().Be(DeploymentStatus.Pending);
+        deployment.Status.Should().Be(DeploymentStatus.Installing);
         deployment.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
         deployment.CompletedAt.Should().BeNull();
         deployment.ErrorMessage.Should().BeNull();
@@ -46,10 +47,10 @@ public class DeploymentTests
     }
 
     [Fact]
-    public void Start_WithEmptyStackName_ThrowsArgumentException()
+    public void StartInstallation_WithEmptyStackName_ThrowsArgumentException()
     {
         // Act
-        var act = () => Deployment.Start(
+        var act = () => Deployment.StartInstallation(
             DeploymentId.NewId(),
             EnvironmentId.NewId(),
             "stackId",
@@ -62,10 +63,10 @@ public class DeploymentTests
     }
 
     [Fact]
-    public void Start_WithEmptyProjectName_ThrowsArgumentException()
+    public void StartInstallation_WithEmptyProjectName_ThrowsArgumentException()
     {
         // Act
-        var act = () => Deployment.Start(
+        var act = () => Deployment.StartInstallation(
             DeploymentId.NewId(),
             EnvironmentId.NewId(),
             "wordpress", // stackId
@@ -78,10 +79,10 @@ public class DeploymentTests
     }
 
     [Fact]
-    public void Start_WithNullEnvironmentId_ThrowsArgumentException()
+    public void StartInstallation_WithNullEnvironmentId_ThrowsArgumentException()
     {
         // Act
-        var act = () => Deployment.Start(
+        var act = () => Deployment.StartInstallation(
             DeploymentId.NewId(),
             null!,
             "wordpress", // stackId
@@ -94,10 +95,10 @@ public class DeploymentTests
     }
 
     [Fact]
-    public void Start_WithNullDeployedBy_ThrowsArgumentException()
+    public void StartInstallation_WithNullDeployedBy_ThrowsArgumentException()
     {
         // Act
-        var act = () => Deployment.Start(
+        var act = () => Deployment.StartInstallation(
             DeploymentId.NewId(),
             EnvironmentId.NewId(),
             "wordpress", // stackId
@@ -110,14 +111,14 @@ public class DeploymentTests
     }
 
     [Fact]
-    public void Start_RaisesDeploymentStartedEvent()
+    public void StartInstallation_RaisesDeploymentStartedEvent()
     {
         // Arrange
         var deploymentId = DeploymentId.NewId();
         var environmentId = EnvironmentId.NewId();
 
         // Act
-        var deployment = Deployment.Start(
+        var deployment = Deployment.StartInstallation(
             deploymentId,
             environmentId,
             "wordpress", // stackId
@@ -130,6 +131,52 @@ public class DeploymentTests
         domainEvent.DeploymentId.Should().Be(deploymentId);
         domainEvent.EnvironmentId.Should().Be(environmentId);
         domainEvent.StackName.Should().Be("wordpress");
+    }
+
+    #endregion
+
+    #region Creation Tests - StartUpgrade
+
+    [Fact]
+    public void StartUpgrade_WithValidData_CreatesDeploymentInUpgradingStatus()
+    {
+        // Arrange
+        var deploymentId = DeploymentId.NewId();
+        var environmentId = EnvironmentId.NewId();
+        var userId = UserId.NewId();
+
+        // Act
+        var deployment = Deployment.StartUpgrade(
+            deploymentId,
+            environmentId,
+            "wordpress", // stackId
+            "wordpress",
+            "wordpress-prod",
+            userId,
+            "1.0.0"); // previous version
+
+        // Assert
+        deployment.Id.Should().Be(deploymentId);
+        deployment.Status.Should().Be(DeploymentStatus.Upgrading);
+        deployment.PreviousVersion.Should().Be("1.0.0");
+        deployment.DomainEvents.Should().ContainSingle(e => e is DeploymentStarted);
+    }
+
+    [Fact]
+    public void StartUpgrade_WithoutPreviousVersion_CreateDeployment()
+    {
+        // Act
+        var deployment = Deployment.StartUpgrade(
+            DeploymentId.NewId(),
+            EnvironmentId.NewId(),
+            "wordpress",
+            "wordpress",
+            "wordpress-prod",
+            UserId.NewId());
+
+        // Assert
+        deployment.Status.Should().Be(DeploymentStatus.Upgrading);
+        deployment.PreviousVersion.Should().BeNull();
     }
 
     #endregion
@@ -154,7 +201,7 @@ public class DeploymentTests
     #region Status Transition Tests
 
     [Fact]
-    public void MarkAsRunning_FromPending_ChangesStatusAndAddsServices()
+    public void MarkAsRunning_FromInstalling_ChangesStatusAndAddsServices()
     {
         // Arrange
         var deployment = CreateTestDeployment();
@@ -165,7 +212,12 @@ public class DeploymentTests
         };
 
         // Act
-        deployment.MarkAsRunning(services);
+        foreach (var svc in services)
+        {
+            deployment.AddService(svc.ServiceName, svc.Image, "starting");
+            if (svc.ContainerId != null) deployment.SetServiceContainerInfo(svc.ServiceName, svc.ContainerId, svc.ContainerName!, svc.Status);
+        }
+        deployment.MarkAsRunning();
 
         // Assert
         deployment.Status.Should().Be(DeploymentStatus.Running);
@@ -176,21 +228,37 @@ public class DeploymentTests
     }
 
     [Fact]
+    public void MarkAsRunning_FromUpgrading_ChangesStatusAndAddsServices()
+    {
+        // Arrange
+        var deployment = CreateTestUpgradeDeployment();
+
+        // Act
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
+
+        // Assert
+        deployment.Status.Should().Be(DeploymentStatus.Running);
+        deployment.CompletedAt.Should().NotBeNull();
+    }
+
+    [Fact]
     public void MarkAsRunning_FromRunning_ThrowsInvalidOperationException()
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Act
-        var act = () => deployment.MarkAsRunning(CreateTestServices());
+        var act = () => deployment.MarkAsRunning();
 
         // Assert
         act.Should().Throw<ArgumentException>();
     }
 
     [Fact]
-    public void MarkAsFailed_SetsStatusAndErrorMessage()
+    public void MarkAsFailed_FromInstalling_SetsStatusAndErrorMessage()
     {
         // Arrange
         var deployment = CreateTestDeployment();
@@ -202,6 +270,20 @@ public class DeploymentTests
         deployment.Status.Should().Be(DeploymentStatus.Failed);
         deployment.ErrorMessage.Should().Be("Docker compose failed: connection refused");
         deployment.CompletedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void MarkAsFailed_FromUpgrading_SetsStatusAndErrorMessage()
+    {
+        // Arrange
+        var deployment = CreateTestUpgradeDeployment();
+
+        // Act
+        deployment.MarkAsFailed("Image pull failed");
+
+        // Assert
+        deployment.Status.Should().Be(DeploymentStatus.Failed);
+        deployment.ErrorMessage.Should().Be("Image pull failed");
     }
 
     [Fact]
@@ -221,39 +303,28 @@ public class DeploymentTests
     }
 
     [Fact]
-    public void MarkAsStopped_FromRunning_ChangesStatus()
+    public void MarkAsFailed_FromRunning_ThrowsArgumentException()
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Act
-        deployment.MarkAsStopped();
+        var act = () => deployment.MarkAsFailed("Error");
 
         // Assert
-        deployment.Status.Should().Be(DeploymentStatus.Stopped);
-        deployment.Services.Should().OnlyContain(s => s.Status == "stopped");
+        act.Should().Throw<ArgumentException>()
+            .WithMessage("*in-progress*");
     }
 
     [Fact]
-    public void MarkAsStopped_FromPending_ThrowsInvalidOperationException()
+    public void MarkAsRemoved_FromRunning_ChangesStatus()
     {
         // Arrange
         var deployment = CreateTestDeployment();
-
-        // Act
-        var act = () => deployment.MarkAsStopped();
-
-        // Assert
-        act.Should().Throw<ArgumentException>();
-    }
-
-    [Fact]
-    public void MarkAsRemoved_ChangesStatus()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Act
         deployment.MarkAsRemoved();
@@ -261,6 +332,126 @@ public class DeploymentTests
         // Assert
         deployment.Status.Should().Be(DeploymentStatus.Removed);
         deployment.Services.Should().OnlyContain(s => s.Status == "removed");
+    }
+
+    [Fact]
+    public void MarkAsRemoved_FromFailed_ChangesStatus()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        deployment.MarkAsFailed("Error");
+
+        // Act
+        deployment.MarkAsRemoved();
+
+        // Assert
+        deployment.Status.Should().Be(DeploymentStatus.Removed);
+    }
+
+    [Fact]
+    public void MarkAsRemoved_FromInstalling_ThrowsArgumentException()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+
+        // Act
+        var act = () => deployment.MarkAsRemoved();
+
+        // Assert
+        act.Should().Throw<ArgumentException>();
+    }
+
+    #endregion
+
+    #region Upgrade Process Tests
+
+    [Fact]
+    public void StartUpgradeProcess_FromRunning_TransitionsToUpgrading()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        deployment.SetStackVersion("1.0.0");
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
+        deployment.ClearDomainEvents();
+
+        // Act
+        deployment.StartUpgradeProcess("2.0.0");
+
+        // Assert
+        deployment.Status.Should().Be(DeploymentStatus.Upgrading);
+        deployment.PreviousVersion.Should().Be("1.0.0");
+        deployment.CurrentPhase.Should().Be(DeploymentPhase.Initializing);
+        deployment.ProgressPercentage.Should().Be(0);
+        deployment.DomainEvents.Should().ContainSingle(e => e is DeploymentStarted);
+    }
+
+    [Fact]
+    public void StartUpgradeProcess_FromInstalling_ThrowsArgumentException()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+
+        // Act
+        var act = () => deployment.StartUpgradeProcess("2.0.0");
+
+        // Assert
+        act.Should().Throw<ArgumentException>()
+            .WithMessage("*running*");
+    }
+
+    [Fact]
+    public void StartUpgradeProcess_WithEmptyVersion_ThrowsArgumentException()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
+
+        // Act
+        var act = () => deployment.StartUpgradeProcess("");
+
+        // Assert
+        act.Should().Throw<ArgumentException>();
+    }
+
+    #endregion
+
+    #region Rollback Process Tests
+
+    [Fact]
+    public void StartRollbackProcess_FromFailed_TransitionsToUpgrading()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        deployment.SetStackVersion("1.0.0");
+        deployment.MarkAsFailed("Upgrade failed");
+        deployment.ClearDomainEvents();
+
+        // Act
+        deployment.StartRollbackProcess("1.0.0");
+
+        // Assert
+        deployment.Status.Should().Be(DeploymentStatus.Upgrading);
+        deployment.CurrentPhase.Should().Be(DeploymentPhase.Initializing);
+        deployment.ErrorMessage.Should().BeNull();
+        deployment.DomainEvents.Should().ContainSingle(e => e is DeploymentStarted);
+    }
+
+    [Fact]
+    public void StartRollbackProcess_FromRunning_ThrowsArgumentException()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
+
+        // Act
+        var act = () => deployment.StartRollbackProcess("1.0.0");
+
+        // Assert
+        act.Should().Throw<ArgumentException>()
+            .WithMessage("*failed*");
     }
 
     #endregion
@@ -272,7 +463,8 @@ public class DeploymentTests
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Assert
         deployment.Services.Should().BeAssignableTo<IReadOnlyCollection<DeployedService>>();
@@ -283,7 +475,8 @@ public class DeploymentTests
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Act
         deployment.UpdateServiceStatus("wordpress-db", "exited");
@@ -298,7 +491,8 @@ public class DeploymentTests
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Act - Should not throw
         deployment.UpdateServiceStatus("nonexistent", "running");
@@ -392,7 +586,6 @@ public class DeploymentTests
         service.ContainerName.Should().Be("wordpress-db-1");
         service.Image.Should().Be("mysql:8.0");
         service.Status.Should().Be("running");
-        service.Id.Should().NotBe(Guid.Empty);
     }
 
     [Fact]
@@ -427,7 +620,7 @@ public class DeploymentTests
     #region State Machine Tests
 
     [Fact]
-    public void CanTransitionTo_FromPending_CanGoToRunningOrFailed()
+    public void CanTransitionTo_FromInstalling_CanGoToRunningOrFailed()
     {
         // Arrange
         var deployment = CreateTestDeployment();
@@ -435,51 +628,50 @@ public class DeploymentTests
         // Assert
         deployment.CanTransitionTo(DeploymentStatus.Running).Should().BeTrue();
         deployment.CanTransitionTo(DeploymentStatus.Failed).Should().BeTrue();
-        deployment.CanTransitionTo(DeploymentStatus.Stopped).Should().BeFalse();
+        deployment.CanTransitionTo(DeploymentStatus.Upgrading).Should().BeFalse();
         deployment.CanTransitionTo(DeploymentStatus.Removed).Should().BeFalse();
     }
 
     [Fact]
-    public void CanTransitionTo_FromRunning_CanGoToStoppedOrFailed()
+    public void CanTransitionTo_FromUpgrading_CanGoToRunningOrFailed()
     {
         // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
-
-        // Assert
-        deployment.CanTransitionTo(DeploymentStatus.Stopped).Should().BeTrue();
-        deployment.CanTransitionTo(DeploymentStatus.Failed).Should().BeTrue();
-        deployment.CanTransitionTo(DeploymentStatus.Running).Should().BeFalse();
-        deployment.CanTransitionTo(DeploymentStatus.Pending).Should().BeFalse();
-    }
-
-    [Fact]
-    public void CanTransitionTo_FromStopped_CanGoToRunningOrRemoved()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
-        deployment.MarkAsStopped();
+        var deployment = CreateTestUpgradeDeployment();
 
         // Assert
         deployment.CanTransitionTo(DeploymentStatus.Running).Should().BeTrue();
-        deployment.CanTransitionTo(DeploymentStatus.Removed).Should().BeTrue();
-        deployment.CanTransitionTo(DeploymentStatus.Stopped).Should().BeFalse();
-        deployment.CanTransitionTo(DeploymentStatus.Pending).Should().BeFalse();
+        deployment.CanTransitionTo(DeploymentStatus.Failed).Should().BeTrue();
+        deployment.CanTransitionTo(DeploymentStatus.Removed).Should().BeFalse();
     }
 
     [Fact]
-    public void CanTransitionTo_FromFailed_CannotGoAnywhere()
+    public void CanTransitionTo_FromRunning_CanGoToUpgradingOrRemoved()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
+
+        // Assert
+        deployment.CanTransitionTo(DeploymentStatus.Upgrading).Should().BeTrue();
+        deployment.CanTransitionTo(DeploymentStatus.Removed).Should().BeTrue();
+        deployment.CanTransitionTo(DeploymentStatus.Failed).Should().BeFalse();
+        deployment.CanTransitionTo(DeploymentStatus.Running).Should().BeFalse();
+        deployment.CanTransitionTo(DeploymentStatus.Installing).Should().BeFalse();
+    }
+
+    [Fact]
+    public void CanTransitionTo_FromFailed_CanGoToUpgradingOrRemoved()
     {
         // Arrange
         var deployment = CreateTestDeployment();
         deployment.MarkAsFailed("Error");
 
-        // Assert - Terminal state
+        // Assert
+        deployment.CanTransitionTo(DeploymentStatus.Upgrading).Should().BeTrue();
+        deployment.CanTransitionTo(DeploymentStatus.Removed).Should().BeTrue();
         deployment.CanTransitionTo(DeploymentStatus.Running).Should().BeFalse();
-        deployment.CanTransitionTo(DeploymentStatus.Stopped).Should().BeFalse();
-        deployment.CanTransitionTo(DeploymentStatus.Removed).Should().BeFalse();
-        deployment.CanTransitionTo(DeploymentStatus.Pending).Should().BeFalse();
+        deployment.CanTransitionTo(DeploymentStatus.Installing).Should().BeFalse();
     }
 
     [Fact]
@@ -487,18 +679,19 @@ public class DeploymentTests
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
         deployment.MarkAsRemoved();
 
         // Assert - Terminal state
         deployment.CanTransitionTo(DeploymentStatus.Running).Should().BeFalse();
-        deployment.CanTransitionTo(DeploymentStatus.Stopped).Should().BeFalse();
+        deployment.CanTransitionTo(DeploymentStatus.Upgrading).Should().BeFalse();
         deployment.CanTransitionTo(DeploymentStatus.Failed).Should().BeFalse();
-        deployment.CanTransitionTo(DeploymentStatus.Pending).Should().BeFalse();
+        deployment.CanTransitionTo(DeploymentStatus.Installing).Should().BeFalse();
     }
 
     [Fact]
-    public void GetValidNextStates_FromPending_ReturnsRunningAndFailed()
+    public void GetValidNextStates_FromInstalling_ReturnsRunningAndFailed()
     {
         // Arrange
         var deployment = CreateTestDeployment();
@@ -513,14 +706,36 @@ public class DeploymentTests
     }
 
     [Fact]
-    public void IsTerminal_ForFailedDeployment_ReturnsTrue()
+    public void GetValidNextStates_FromRunning_ReturnsUpgradingAndRemoved()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
+
+        // Act
+        var validStates = deployment.GetValidNextStates().ToList();
+
+        // Assert
+        validStates.Should().HaveCount(2);
+        validStates.Should().Contain(DeploymentStatus.Upgrading);
+        validStates.Should().Contain(DeploymentStatus.Removed);
+    }
+
+    [Fact]
+    public void GetValidNextStates_FromFailed_ReturnsUpgradingAndRemoved()
     {
         // Arrange
         var deployment = CreateTestDeployment();
         deployment.MarkAsFailed("Error");
 
+        // Act
+        var validStates = deployment.GetValidNextStates().ToList();
+
         // Assert
-        deployment.IsTerminal.Should().BeTrue();
+        validStates.Should().HaveCount(2);
+        validStates.Should().Contain(DeploymentStatus.Upgrading);
+        validStates.Should().Contain(DeploymentStatus.Removed);
     }
 
     [Fact]
@@ -528,7 +743,8 @@ public class DeploymentTests
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
         deployment.MarkAsRemoved();
 
         // Assert
@@ -536,7 +752,18 @@ public class DeploymentTests
     }
 
     [Fact]
-    public void IsTerminal_ForPendingDeployment_ReturnsFalse()
+    public void IsTerminal_ForFailedDeployment_ReturnsFalse()
+    {
+        // Arrange - Failed is NOT terminal in new state machine (can retry/rollback)
+        var deployment = CreateTestDeployment();
+        deployment.MarkAsFailed("Error");
+
+        // Assert
+        deployment.IsTerminal.Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsTerminal_ForInstallingDeployment_ReturnsFalse()
     {
         // Arrange
         var deployment = CreateTestDeployment();
@@ -546,32 +773,57 @@ public class DeploymentTests
     }
 
     [Fact]
-    public void IsActive_ForPendingAndRunning_ReturnsTrue()
+    public void IsInProgress_ForInstalling_ReturnsTrue()
     {
         // Arrange
-        var pendingDeployment = CreateTestDeployment();
-        var runningDeployment = CreateTestDeployment();
-        runningDeployment.MarkAsRunning(CreateTestServices());
+        var deployment = CreateTestDeployment();
 
         // Assert
-        pendingDeployment.IsActive.Should().BeTrue();
-        runningDeployment.IsActive.Should().BeTrue();
+        deployment.IsInProgress.Should().BeTrue();
     }
 
     [Fact]
-    public void IsActive_ForStoppedAndFailed_ReturnsFalse()
+    public void IsInProgress_ForUpgrading_ReturnsTrue()
     {
         // Arrange
-        var stoppedDeployment = CreateTestDeployment();
-        stoppedDeployment.MarkAsRunning(CreateTestServices());
-        stoppedDeployment.MarkAsStopped();
-
-        var failedDeployment = CreateTestDeployment();
-        failedDeployment.MarkAsFailed("Error");
+        var deployment = CreateTestUpgradeDeployment();
 
         // Assert
-        stoppedDeployment.IsActive.Should().BeFalse();
-        failedDeployment.IsActive.Should().BeFalse();
+        deployment.IsInProgress.Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsInProgress_ForRunning_ReturnsFalse()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
+
+        // Assert
+        deployment.IsInProgress.Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsOperational_ForRunning_ReturnsTrue()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
+
+        // Assert
+        deployment.IsOperational.Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsOperational_ForInstalling_ReturnsFalse()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+
+        // Assert
+        deployment.IsOperational.Should().BeFalse();
     }
 
     #endregion
@@ -609,17 +861,19 @@ public class DeploymentTests
     }
 
     [Fact]
-    public void UpdateProgress_OnTerminalDeployment_ThrowsArgumentException()
+    public void UpdateProgress_OnRunningDeployment_ThrowsArgumentException()
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsFailed("Error");
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Act
         var act = () => deployment.UpdateProgress(DeploymentPhase.Starting, 50, "Message");
 
         // Assert
-        act.Should().Throw<ArgumentException>();
+        act.Should().Throw<ArgumentException>()
+            .WithMessage("*in-progress*");
     }
 
     [Fact]
@@ -631,7 +885,8 @@ public class DeploymentTests
         // Act
         deployment.UpdateProgress(DeploymentPhase.ValidatingPrerequisites, 10, "Validating");
         deployment.UpdateProgress(DeploymentPhase.PullingImages, 50, "Pulling");
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Assert - Initializing + 2 updates + Completed
         deployment.PhaseHistory.Should().HaveCountGreaterThanOrEqualTo(4);
@@ -643,51 +898,90 @@ public class DeploymentTests
 
     #endregion
 
-    #region Restart Tests
+    #region Operation Mode Tests
 
     [Fact]
-    public void Restart_FromStopped_TransitionsToRunning()
+    public void EnterMaintenance_FromRunning_ChangesOperationMode()
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
-        deployment.MarkAsStopped();
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
         deployment.ClearDomainEvents();
 
         // Act
-        deployment.Restart();
+        deployment.EnterMaintenance("Planned maintenance");
 
         // Assert
+        deployment.OperationMode.Should().Be(OperationMode.Maintenance);
         deployment.Status.Should().Be(DeploymentStatus.Running);
-        deployment.CurrentPhase.Should().Be(DeploymentPhase.Starting);
-        deployment.DomainEvents.Should().ContainSingle(e => e is DeploymentRestarted);
+        deployment.DomainEvents.Should().ContainSingle(e => e is OperationModeChanged);
     }
 
     [Fact]
-    public void Restart_FromPending_ThrowsArgumentException()
+    public void EnterMaintenance_FromInstalling_ThrowsArgumentException()
     {
         // Arrange
         var deployment = CreateTestDeployment();
 
         // Act
-        var act = () => deployment.Restart();
+        var act = () => deployment.EnterMaintenance("Reason");
 
         // Assert
-        act.Should().Throw<ArgumentException>();
+        act.Should().Throw<ArgumentException>()
+            .WithMessage("*running*");
     }
 
     [Fact]
-    public void Restart_FromFailed_ThrowsArgumentException()
+    public void EnterMaintenance_WhenAlreadyInMaintenance_ThrowsArgumentException()
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsFailed("Error");
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
+        deployment.EnterMaintenance("First");
 
         // Act
-        var act = () => deployment.Restart();
+        var act = () => deployment.EnterMaintenance("Second");
 
         // Assert
-        act.Should().Throw<ArgumentException>();
+        act.Should().Throw<ArgumentException>()
+            .WithMessage("*already*maintenance*");
+    }
+
+    [Fact]
+    public void ExitMaintenance_FromMaintenance_ChangesOperationMode()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
+        deployment.EnterMaintenance("Reason");
+        deployment.ClearDomainEvents();
+
+        // Act
+        deployment.ExitMaintenance();
+
+        // Assert
+        deployment.OperationMode.Should().Be(OperationMode.Normal);
+        deployment.Status.Should().Be(DeploymentStatus.Running);
+        deployment.DomainEvents.Should().ContainSingle(e => e is OperationModeChanged);
+    }
+
+    [Fact]
+    public void ExitMaintenance_WhenNotInMaintenance_ThrowsArgumentException()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
+
+        // Act
+        var act = () => deployment.ExitMaintenance();
+
+        // Assert
+        act.Should().Throw<ArgumentException>()
+            .WithMessage("*not in maintenance*");
     }
 
     #endregion
@@ -695,7 +989,7 @@ public class DeploymentTests
     #region Cancellation Tests
 
     [Fact]
-    public void RequestCancellation_FromPending_SetsCancellationFlag()
+    public void RequestCancellation_FromInstalling_SetsCancellationFlag()
     {
         // Arrange
         var deployment = CreateTestDeployment();
@@ -711,17 +1005,33 @@ public class DeploymentTests
     }
 
     [Fact]
+    public void RequestCancellation_FromUpgrading_SetsCancellationFlag()
+    {
+        // Arrange
+        var deployment = CreateTestUpgradeDeployment();
+        deployment.ClearDomainEvents();
+
+        // Act
+        deployment.RequestCancellation("User cancelled upgrade");
+
+        // Assert
+        deployment.IsCancellationRequested.Should().BeTrue();
+    }
+
+    [Fact]
     public void RequestCancellation_FromRunning_ThrowsArgumentException()
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Act
         var act = () => deployment.RequestCancellation("Reason");
 
         // Assert
-        act.Should().Throw<ArgumentException>();
+        act.Should().Throw<ArgumentException>()
+            .WithMessage("*in-progress*");
     }
 
     [Fact]
@@ -775,7 +1085,8 @@ public class DeploymentTests
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Assert
         deployment.AreAllServicesHealthy().Should().BeTrue();
@@ -786,7 +1097,8 @@ public class DeploymentTests
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
         deployment.UpdateServiceStatus("wordpress-db", "exited");
 
         // Assert
@@ -798,7 +1110,8 @@ public class DeploymentTests
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
         deployment.UpdateServiceStatus("wordpress-db", "exited");
 
         // Act
@@ -814,7 +1127,8 @@ public class DeploymentTests
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
         deployment.UpdateServiceStatus("wordpress-db", "exited");
 
         // Assert
@@ -826,7 +1140,8 @@ public class DeploymentTests
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
         deployment.ClearDomainEvents();
 
         // Act
@@ -840,6 +1155,23 @@ public class DeploymentTests
         domainEvent.NewStatus.Should().Be("exited");
     }
 
+    [Fact]
+    public void MarkAllServicesAsRemoved_UpdatesAllServices()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
+        deployment.ClearDomainEvents();
+
+        // Act
+        deployment.MarkAllServicesAsRemoved();
+
+        // Assert
+        deployment.Services.Should().OnlyContain(s => s.Status == "removed");
+        deployment.DomainEvents.Should().HaveCount(2); // One per service
+    }
+
     #endregion
 
     #region Duration & Metrics Tests
@@ -849,7 +1181,8 @@ public class DeploymentTests
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Act
         var duration = deployment.GetDuration();
@@ -883,7 +1216,7 @@ public class DeploymentTests
     }
 
     [Fact]
-    public void IsOverdue_WhenPendingAndExceedsExpectedDuration_ReturnsTrue()
+    public void IsOverdue_WhenInstallingAndExceedsExpectedDuration_ReturnsTrue()
     {
         // Arrange
         var deployment = CreateTestDeployment();
@@ -901,7 +1234,8 @@ public class DeploymentTests
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Assert
         deployment.IsOverdue(TimeSpan.FromTicks(1)).Should().BeFalse();
@@ -912,26 +1246,12 @@ public class DeploymentTests
     #region Domain Events Tests
 
     [Fact]
-    public void MarkAsStopped_RaisesDeploymentStoppedEvent()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
-        deployment.ClearDomainEvents();
-
-        // Act
-        deployment.MarkAsStopped();
-
-        // Assert
-        deployment.DomainEvents.Should().ContainSingle(e => e is DeploymentStopped);
-    }
-
-    [Fact]
     public void MarkAsRemoved_RaisesDeploymentRemovedEvent()
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
         deployment.ClearDomainEvents();
 
         // Act
@@ -956,7 +1276,7 @@ public class DeploymentTests
 
         // Assert
         result.Should().Contain("wordpress");
-        result.Should().Contain("Pending");
+        result.Should().Contain("Installing");
         result.Should().Contain("Initializing");
     }
 
@@ -1077,7 +1397,8 @@ public class DeploymentTests
         deployment.SetVariables(variables);
 
         // Act - Transition status
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Assert - Variables should still be accessible
         deployment.Variables.Should().ContainKey("ENV_VAR");
@@ -1259,7 +1580,8 @@ public class DeploymentTests
         });
 
         // Act
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Assert
         deployment.HealthCheckConfigs.Should().HaveCount(1);
@@ -1310,7 +1632,6 @@ public class DeploymentTests
         // Arrange
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
-        deployment.MarkAsRunning(CreateTestServices());
         deployment.MarkAsFailed("Image pull failed");
 
         // Assert
@@ -1334,7 +1655,8 @@ public class DeploymentTests
         // Arrange
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Assert
         deployment.CanRollback().Should().BeFalse();
@@ -1346,7 +1668,8 @@ public class DeploymentTests
         // Arrange
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
         deployment.MarkAsRemoved();
 
         // Assert
@@ -1359,7 +1682,6 @@ public class DeploymentTests
         // Arrange
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
-        deployment.MarkAsRunning(CreateTestServices());
         deployment.MarkAsFailed("Upgrade failed");
 
         // Act
@@ -1375,7 +1697,8 @@ public class DeploymentTests
         // Arrange
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Act
         var targetVersion = deployment.GetRollbackTargetVersion();
@@ -1391,7 +1714,8 @@ public class DeploymentTests
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
         deployment.SetVariables(new Dictionary<string, string> { ["VAR1"] = "value1" });
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Act
         var (stackId, version, variables) = deployment.GetRedeploymentData();
@@ -1413,7 +1737,8 @@ public class DeploymentTests
         // Arrange
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
         deployment.ClearDomainEvents();
 
         // Act
@@ -1434,7 +1759,8 @@ public class DeploymentTests
         // Arrange
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Act
         deployment.RecordUpgrade("1.0.0", "2.0.0");
@@ -1453,7 +1779,8 @@ public class DeploymentTests
         // Arrange
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
         deployment.ClearDomainEvents();
 
         // Act
@@ -1473,7 +1800,8 @@ public class DeploymentTests
         // Arrange
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Act
         var act = () => deployment.RecordUpgrade("", "2.0.0");
@@ -1488,7 +1816,8 @@ public class DeploymentTests
         // Arrange
         var deployment = CreateTestDeployment();
         deployment.SetStackVersion("1.0.0");
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Act
         var act = () => deployment.RecordUpgrade("1.0.0", "");
@@ -1502,14 +1831,15 @@ public class DeploymentTests
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
 
         // Assert
         deployment.CanUpgrade().Should().BeTrue();
     }
 
     [Fact]
-    public void CanUpgrade_WhenPending_ReturnsFalse()
+    public void CanUpgrade_WhenInstalling_ReturnsFalse()
     {
         // Arrange
         var deployment = CreateTestDeployment();
@@ -1519,12 +1849,10 @@ public class DeploymentTests
     }
 
     [Fact]
-    public void CanUpgrade_WhenStopped_ReturnsFalse()
+    public void CanUpgrade_WhenUpgrading_ReturnsFalse()
     {
         // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
-        deployment.MarkAsStopped();
+        var deployment = CreateTestUpgradeDeployment();
 
         // Assert
         deployment.CanUpgrade().Should().BeFalse();
@@ -1546,7 +1874,8 @@ public class DeploymentTests
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
         deployment.MarkAsRemoved();
 
         // Assert
@@ -1585,77 +1914,68 @@ public class DeploymentTests
 
     #endregion
 
-    #region UpdateServicesAfterUpgrade Tests
+    #region Service Management Tests
 
     [Fact]
-    public void UpdateServicesAfterUpgrade_ReplacesServices()
+    public void AddService_AddsServiceToDeployment()
     {
         // Arrange
         var deployment = CreateTestDeployment();
-        deployment.SetStackVersion("1.0.0");
-        deployment.MarkAsRunning(new[]
-        {
-            new DeployedService("old-service", "c1", "old-1", "old:1.0", "running")
-        });
-        deployment.ClearDomainEvents();
 
         // Act
-        deployment.UpdateServicesAfterUpgrade(new[]
-        {
-            new DeployedService("new-service", "c2", "new-1", "new:2.0", "running")
-        });
+        deployment.AddService("web", "nginx:latest", "starting");
 
         // Assert
         deployment.Services.Should().HaveCount(1);
-        deployment.Services.First().ServiceName.Should().Be("new-service");
-        deployment.DomainEvents.Should().ContainSingle(e => e is DeploymentProgressUpdated);
+        deployment.Services.First().ServiceName.Should().Be("web");
+        deployment.Services.First().Image.Should().Be("nginx:latest");
+        deployment.Services.First().Status.Should().Be("starting");
     }
 
     [Fact]
-    public void UpdateServicesAfterUpgrade_FromPending_ThrowsArgumentException()
+    public void SetServiceContainerInfo_UpdatesContainerDetails()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        deployment.AddService("web", "nginx:latest", "starting");
+
+        // Act
+        deployment.SetServiceContainerInfo("web", "container123", "myapp_web_1", "running");
+
+        // Assert
+        var service = deployment.Services.First();
+        service.ContainerId.Should().Be("container123");
+        service.ContainerName.Should().Be("myapp_web_1");
+        service.Status.Should().Be("running");
+    }
+
+    [Fact]
+    public void RemoveService_RemovesServiceFromDeployment()
+    {
+        // Arrange
+        var deployment = CreateTestDeployment();
+        deployment.AddService("web", "nginx:latest", "running");
+        deployment.AddService("db", "mysql:8.0", "running");
+
+        // Act
+        deployment.RemoveService("web");
+
+        // Assert
+        deployment.Services.Should().HaveCount(1);
+        deployment.Services.First().ServiceName.Should().Be("db");
+    }
+
+    [Fact]
+    public void RemoveService_NonExistent_DoesNotThrow()
     {
         // Arrange
         var deployment = CreateTestDeployment();
 
         // Act
-        var act = () => deployment.UpdateServicesAfterUpgrade(CreateTestServices());
+        var act = () => deployment.RemoveService("nonexistent");
 
         // Assert
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("*running*");
-    }
-
-    [Fact]
-    public void UpdateServicesAfterUpgrade_FromStopped_ThrowsArgumentException()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.MarkAsRunning(CreateTestServices());
-        deployment.MarkAsStopped();
-
-        // Act
-        var act = () => deployment.UpdateServicesAfterUpgrade(CreateTestServices());
-
-        // Assert
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("*running*");
-    }
-
-    [Fact]
-    public void UpdateServicesAfterUpgrade_RecordsPhaseHistory()
-    {
-        // Arrange
-        var deployment = CreateTestDeployment();
-        deployment.SetStackVersion("2.0.0");
-        deployment.MarkAsRunning(CreateTestServices());
-
-        // Act
-        deployment.UpdateServicesAfterUpgrade(CreateTestServices());
-
-        // Assert
-        deployment.PhaseHistory.Should().Contain(p =>
-            p.Phase == DeploymentPhase.Completed &&
-            p.Message.Contains("2.0.0"));
+        act.Should().NotThrow();
     }
 
     #endregion
@@ -1664,7 +1984,7 @@ public class DeploymentTests
 
     private static Deployment CreateTestDeployment()
     {
-        return Deployment.Start(
+        return Deployment.StartInstallation(
             DeploymentId.NewId(),
             EnvironmentId.NewId(),
             "wordpress", // stackId
@@ -1673,13 +1993,40 @@ public class DeploymentTests
             UserId.NewId());
     }
 
-    private static IEnumerable<DeployedService> CreateTestServices()
+    private static Deployment CreateTestUpgradeDeployment()
     {
-        return new[]
-        {
-            new DeployedService("wordpress-db", "abc123", "wordpress-db-1", "mysql:8.0", "running"),
-            new DeployedService("wordpress-app", "def456", "wordpress-app-1", "wordpress:latest", "running")
-        };
+        return Deployment.StartUpgrade(
+            DeploymentId.NewId(),
+            EnvironmentId.NewId(),
+            "wordpress", // stackId
+            "wordpress",
+            "wordpress-prod",
+            UserId.NewId(),
+            "1.0.0"); // previous version
+    }
+
+    private static void AddTestServicesToDeployment(Deployment deployment)
+    {
+        deployment.AddService("wordpress-db", "mysql:8.0", "starting");
+        deployment.SetServiceContainerInfo("wordpress-db", "abc123", "wordpress-db-1", "running");
+        deployment.AddService("wordpress-app", "wordpress:latest", "starting");
+        deployment.SetServiceContainerInfo("wordpress-app", "def456", "wordpress-app-1", "running");
+    }
+
+    private static Deployment CreateRunningDeployment()
+    {
+        var deployment = CreateTestDeployment();
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
+        return deployment;
+    }
+
+    private static Deployment CreateRunningUpgradeDeployment()
+    {
+        var deployment = CreateTestUpgradeDeployment();
+        AddTestServicesToDeployment(deployment);
+        deployment.MarkAsRunning();
+        return deployment;
     }
 
     #endregion

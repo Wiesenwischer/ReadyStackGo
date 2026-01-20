@@ -132,24 +132,9 @@ public static class HealthSnapshotMapper
 
     private static string GenerateStatusMessage(HealthSnapshot snapshot)
     {
-        if (snapshot.OperationMode == OperationMode.Migrating)
-        {
-            return $"Migrating from {snapshot.CurrentVersion ?? "unknown"} to {snapshot.TargetVersion ?? "unknown"}";
-        }
-
         if (snapshot.OperationMode == OperationMode.Maintenance)
         {
             return "Stack is in maintenance mode";
-        }
-
-        if (snapshot.OperationMode == OperationMode.Stopped)
-        {
-            return "Stack is stopped";
-        }
-
-        if (snapshot.OperationMode == OperationMode.Failed)
-        {
-            return "Stack deployment failed";
         }
 
         // Normal operation - describe health

@@ -53,6 +53,16 @@ public interface IDeploymentRepository
     IEnumerable<Deployment> GetAllActive();
 
     /// <summary>
+    /// Gets all deployments with the specified status.
+    /// </summary>
+    IEnumerable<Deployment> GetByStatus(DeploymentStatus status);
+
+    /// <summary>
+    /// Gets all deployments with any of the specified statuses.
+    /// </summary>
+    IEnumerable<Deployment> GetByStatuses(params DeploymentStatus[] statuses);
+
+    /// <summary>
     /// Saves all pending changes.
     /// </summary>
     void SaveChanges();

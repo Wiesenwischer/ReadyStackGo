@@ -6,22 +6,20 @@ namespace ReadyStackGo.UnitTests.Domain.Health;
 /// <summary>
 /// Unit tests for OperationMode smart enum.
 /// Tests behavior encapsulation and state transitions.
+/// OperationMode is simplified to only Normal and Maintenance.
 /// </summary>
 public class OperationModeTests
 {
     #region Static Instances
 
     [Fact]
-    public void OperationMode_HasFiveDefinedModes()
+    public void OperationMode_HasTwoDefinedModes()
     {
         var allModes = OperationMode.GetAll().ToList();
 
-        allModes.Should().HaveCount(5);
+        allModes.Should().HaveCount(2);
         allModes.Should().Contain(OperationMode.Normal);
-        allModes.Should().Contain(OperationMode.Migrating);
         allModes.Should().Contain(OperationMode.Maintenance);
-        allModes.Should().Contain(OperationMode.Stopped);
-        allModes.Should().Contain(OperationMode.Failed);
     }
 
     [Fact]
@@ -33,16 +31,25 @@ public class OperationModeTests
         values.Should().OnlyHaveUniqueItems();
     }
 
+    [Fact]
+    public void Normal_HasValueZero()
+    {
+        OperationMode.Normal.Value.Should().Be(0);
+    }
+
+    [Fact]
+    public void Maintenance_HasValueOne()
+    {
+        OperationMode.Maintenance.Value.Should().Be(1);
+    }
+
     #endregion
 
     #region IsAvailable
 
     [Theory]
     [InlineData("Normal", true)]
-    [InlineData("Migrating", false)]
     [InlineData("Maintenance", false)]
-    [InlineData("Stopped", false)]
-    [InlineData("Failed", false)]
     public void IsAvailable_ReturnsCorrectValue(string modeName, bool expectedAvailable)
     {
         var mode = OperationMode.FromName(modeName);
@@ -52,100 +59,16 @@ public class OperationModeTests
 
     #endregion
 
-    #region AllowsDeployment
-
-    [Theory]
-    [InlineData("Normal", true)]
-    [InlineData("Migrating", false)]
-    [InlineData("Maintenance", false)]
-    [InlineData("Stopped", false)]
-    [InlineData("Failed", true)]  // Can retry after failure
-    public void AllowsDeployment_ReturnsCorrectValue(string modeName, bool expectedAllows)
-    {
-        var mode = OperationMode.FromName(modeName);
-
-        mode.AllowsDeployment.Should().Be(expectedAllows);
-    }
-
-    #endregion
-
-    #region CanStart / CanStop
-
-    [Theory]
-    [InlineData("Normal", false)]
-    [InlineData("Migrating", false)]
-    [InlineData("Maintenance", false)]
-    [InlineData("Stopped", true)]
-    [InlineData("Failed", true)]
-    public void CanStart_ReturnsCorrectValue(string modeName, bool expectedCanStart)
-    {
-        var mode = OperationMode.FromName(modeName);
-
-        mode.CanStart.Should().Be(expectedCanStart);
-    }
-
-    [Theory]
-    [InlineData("Normal", true)]
-    [InlineData("Migrating", true)]
-    [InlineData("Maintenance", true)]
-    [InlineData("Stopped", false)]
-    [InlineData("Failed", false)]
-    public void CanStop_ReturnsCorrectValue(string modeName, bool expectedCanStop)
-    {
-        var mode = OperationMode.FromName(modeName);
-
-        mode.CanStop.Should().Be(expectedCanStop);
-    }
-
-    #endregion
-
-    #region RequiresAttention
-
-    [Theory]
-    [InlineData("Normal", false)]
-    [InlineData("Migrating", false)]
-    [InlineData("Maintenance", false)]
-    [InlineData("Stopped", false)]
-    [InlineData("Failed", true)]
-    public void RequiresAttention_ReturnsCorrectValue(string modeName, bool expectedAttention)
-    {
-        var mode = OperationMode.FromName(modeName);
-
-        mode.RequiresAttention.Should().Be(expectedAttention);
-    }
-
-    #endregion
-
     #region ExpectsDegradedHealth
 
     [Theory]
     [InlineData("Normal", false)]
-    [InlineData("Migrating", true)]
     [InlineData("Maintenance", true)]
-    [InlineData("Stopped", true)]
-    [InlineData("Failed", false)]
     public void ExpectsDegradedHealth_ReturnsCorrectValue(string modeName, bool expectedDegraded)
     {
         var mode = OperationMode.FromName(modeName);
 
         mode.ExpectsDegradedHealth.Should().Be(expectedDegraded);
-    }
-
-    #endregion
-
-    #region IsPlannedRestriction
-
-    [Theory]
-    [InlineData("Normal", false)]
-    [InlineData("Migrating", true)]
-    [InlineData("Maintenance", true)]
-    [InlineData("Stopped", true)]
-    [InlineData("Failed", false)]
-    public void IsPlannedRestriction_ReturnsCorrectValue(string modeName, bool expectedPlanned)
-    {
-        var mode = OperationMode.FromName(modeName);
-
-        mode.IsPlannedRestriction.Should().Be(expectedPlanned);
     }
 
     #endregion
@@ -159,27 +82,9 @@ public class OperationModeTests
     }
 
     [Fact]
-    public void MinimumHealthStatus_Migrating_IsDegraded()
-    {
-        OperationMode.Migrating.MinimumHealthStatus.Should().Be(HealthStatus.Degraded);
-    }
-
-    [Fact]
     public void MinimumHealthStatus_Maintenance_IsDegraded()
     {
         OperationMode.Maintenance.MinimumHealthStatus.Should().Be(HealthStatus.Degraded);
-    }
-
-    [Fact]
-    public void MinimumHealthStatus_Stopped_IsDegraded()
-    {
-        OperationMode.Stopped.MinimumHealthStatus.Should().Be(HealthStatus.Degraded);
-    }
-
-    [Fact]
-    public void MinimumHealthStatus_Failed_IsUnhealthy()
-    {
-        OperationMode.Failed.MinimumHealthStatus.Should().Be(HealthStatus.Unhealthy);
     }
 
     #endregion
@@ -187,29 +92,16 @@ public class OperationModeTests
     #region State Transitions
 
     [Fact]
-    public void Normal_CanTransitionTo_MigratingMaintenanceStopped()
+    public void Normal_CanTransitionTo_Maintenance()
     {
         var validTransitions = OperationMode.Normal.GetValidTransitions().ToList();
 
-        validTransitions.Should().Contain(OperationMode.Migrating);
+        validTransitions.Should().ContainSingle();
         validTransitions.Should().Contain(OperationMode.Maintenance);
-        validTransitions.Should().Contain(OperationMode.Stopped);
-        validTransitions.Should().NotContain(OperationMode.Failed);
-        validTransitions.Should().NotContain(OperationMode.Normal);
     }
 
     [Fact]
-    public void Migrating_CanTransitionTo_NormalOrFailed()
-    {
-        var validTransitions = OperationMode.Migrating.GetValidTransitions().ToList();
-
-        validTransitions.Should().Contain(OperationMode.Normal);
-        validTransitions.Should().Contain(OperationMode.Failed);
-        validTransitions.Should().HaveCount(2);
-    }
-
-    [Fact]
-    public void Maintenance_CanTransitionTo_NormalOnly()
+    public void Maintenance_CanTransitionTo_Normal()
     {
         var validTransitions = OperationMode.Maintenance.GetValidTransitions().ToList();
 
@@ -217,37 +109,11 @@ public class OperationModeTests
         validTransitions.Should().Contain(OperationMode.Normal);
     }
 
-    [Fact]
-    public void Stopped_CanTransitionTo_NormalOnly()
-    {
-        var validTransitions = OperationMode.Stopped.GetValidTransitions().ToList();
-
-        validTransitions.Should().ContainSingle();
-        validTransitions.Should().Contain(OperationMode.Normal);
-    }
-
-    [Fact]
-    public void Failed_CanTransitionTo_NormalOrMigrating()
-    {
-        var validTransitions = OperationMode.Failed.GetValidTransitions().ToList();
-
-        validTransitions.Should().Contain(OperationMode.Normal);
-        validTransitions.Should().Contain(OperationMode.Migrating);
-        validTransitions.Should().HaveCount(2);
-    }
-
     [Theory]
-    [InlineData("Normal", "Migrating", true)]
     [InlineData("Normal", "Maintenance", true)]
-    [InlineData("Normal", "Stopped", true)]
-    [InlineData("Normal", "Failed", false)]
-    [InlineData("Migrating", "Normal", true)]
-    [InlineData("Migrating", "Failed", true)]
-    [InlineData("Migrating", "Stopped", false)]
-    [InlineData("Stopped", "Normal", true)]
-    [InlineData("Stopped", "Migrating", false)]
-    [InlineData("Failed", "Normal", true)]
-    [InlineData("Failed", "Migrating", true)]
+    [InlineData("Normal", "Normal", false)]
+    [InlineData("Maintenance", "Normal", true)]
+    [InlineData("Maintenance", "Maintenance", false)]
     public void CanTransitionTo_ReturnsCorrectValue(string from, string to, bool expected)
     {
         var fromMode = OperationMode.FromName(from);
@@ -262,10 +128,7 @@ public class OperationModeTests
 
     [Theory]
     [InlineData(0, "Normal")]
-    [InlineData(1, "Migrating")]
-    [InlineData(2, "Maintenance")]
-    [InlineData(3, "Stopped")]
-    [InlineData(4, "Failed")]
+    [InlineData(1, "Maintenance")]
     public void FromValue_ReturnsCorrectMode(int value, string expectedName)
     {
         var mode = OperationMode.FromValue(value);
@@ -283,8 +146,9 @@ public class OperationModeTests
 
     [Theory]
     [InlineData("normal", "Normal")]
-    [InlineData("MIGRATING", "Migrating")]
+    [InlineData("NORMAL", "Normal")]
     [InlineData("Maintenance", "Maintenance")]
+    [InlineData("maintenance", "Maintenance")]
     public void FromName_IsCaseInsensitive(string input, string expectedName)
     {
         var mode = OperationMode.FromName(input);
@@ -298,6 +162,56 @@ public class OperationModeTests
         var act = () => OperationMode.FromName("InvalidMode");
 
         act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void FromName_OldModeNames_ThrowArgumentException()
+    {
+        // Old mode names from previous implementation should not work
+        var act1 = () => OperationMode.FromName("Migrating");
+        var act2 = () => OperationMode.FromName("Stopped");
+        var act3 = () => OperationMode.FromName("Failed");
+
+        act1.Should().Throw<ArgumentException>();
+        act2.Should().Throw<ArgumentException>();
+        act3.Should().Throw<ArgumentException>();
+    }
+
+    #endregion
+
+    #region TryFromValue / TryFromName
+
+    [Theory]
+    [InlineData(0, true, "Normal")]
+    [InlineData(1, true, "Maintenance")]
+    [InlineData(2, false, null)]
+    [InlineData(999, false, null)]
+    public void TryFromValue_ReturnsExpectedResult(int value, bool expectedSuccess, string? expectedName)
+    {
+        var success = OperationMode.TryFromValue(value, out var mode);
+
+        success.Should().Be(expectedSuccess);
+        if (expectedSuccess)
+        {
+            mode.Should().NotBeNull();
+            mode!.Name.Should().Be(expectedName);
+        }
+    }
+
+    [Theory]
+    [InlineData("Normal", true, "Normal")]
+    [InlineData("Maintenance", true, "Maintenance")]
+    [InlineData("Invalid", false, null)]
+    public void TryFromName_ReturnsExpectedResult(string name, bool expectedSuccess, string? expectedName)
+    {
+        var success = OperationMode.TryFromName(name, out var mode);
+
+        success.Should().Be(expectedSuccess);
+        if (expectedSuccess)
+        {
+            mode.Should().NotBeNull();
+            mode!.Name.Should().Be(expectedName);
+        }
     }
 
     #endregion
@@ -319,7 +233,7 @@ public class OperationModeTests
     public void Equality_DifferentModes_AreNotEqual()
     {
         var mode1 = OperationMode.Normal;
-        var mode2 = OperationMode.Failed;
+        var mode2 = OperationMode.Maintenance;
 
         (mode1 == mode2).Should().BeFalse();
         (mode1 != mode2).Should().BeTrue();
@@ -333,7 +247,7 @@ public class OperationModeTests
     public void ToString_ReturnsName()
     {
         OperationMode.Normal.ToString().Should().Be("Normal");
-        OperationMode.Failed.ToString().Should().Be("Failed");
+        OperationMode.Maintenance.ToString().Should().Be("Maintenance");
     }
 
     #endregion
@@ -343,9 +257,29 @@ public class OperationModeTests
     [Fact]
     public void ImplicitConversion_ToInt_ReturnsValue()
     {
-        int value = OperationMode.Migrating;
+        int normalValue = OperationMode.Normal;
+        int maintenanceValue = OperationMode.Maintenance;
 
-        value.Should().Be(1);
+        normalValue.Should().Be(0);
+        maintenanceValue.Should().Be(1);
+    }
+
+    #endregion
+
+    #region Description
+
+    [Fact]
+    public void Description_Normal_HasDescription()
+    {
+        OperationMode.Normal.Description.Should().NotBeNullOrEmpty();
+        OperationMode.Normal.Description.Should().Contain("Normal");
+    }
+
+    [Fact]
+    public void Description_Maintenance_HasDescription()
+    {
+        OperationMode.Maintenance.Description.Should().NotBeNullOrEmpty();
+        OperationMode.Maintenance.Description.Should().Contain("maintenance");
     }
 
     #endregion

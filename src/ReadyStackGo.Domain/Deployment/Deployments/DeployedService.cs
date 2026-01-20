@@ -1,11 +1,10 @@
 namespace ReadyStackGo.Domain.Deployment.Deployments;
 
-using ReadyStackGo.Domain.SharedKernel;
-
 /// <summary>
-/// Entity representing a deployed service within a deployment.
+/// Owned entity representing a deployed service within a deployment.
+/// Has no independent identity - exists only in the context of a Deployment aggregate.
 /// </summary>
-public class DeployedService : Entity<Guid>
+public class DeployedService
 {
     public string ServiceName { get; private set; } = null!;
     public string? ContainerId { get; private set; }
@@ -23,7 +22,6 @@ public class DeployedService : Entity<Guid>
         string? image,
         string status)
     {
-        Id = Guid.NewGuid();
         ServiceName = serviceName;
         ContainerId = containerId;
         ContainerName = containerName;

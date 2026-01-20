@@ -1,5 +1,6 @@
 namespace ReadyStackGo.Infrastructure.DataAccess.Repositories;
 
+using Microsoft.EntityFrameworkCore;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 
@@ -70,8 +71,27 @@ public class DeploymentRepository : IDeploymentRepository
 
     public IEnumerable<Deployment> GetAllActive()
     {
+        // Active = Running or in progress (Installing/Upgrading)
         return _context.Deployments
-            .Where(d => d.Status == DeploymentStatus.Running || d.Status == DeploymentStatus.Stopped)
+            .Where(d => d.Status == DeploymentStatus.Running ||
+                        d.Status == DeploymentStatus.Installing ||
+                        d.Status == DeploymentStatus.Upgrading)
+            .OrderByDescending(d => d.CreatedAt)
+            .ToList();
+    }
+
+    public IEnumerable<Deployment> GetByStatus(DeploymentStatus status)
+    {
+        return _context.Deployments
+            .Where(d => d.Status == status)
+            .OrderByDescending(d => d.CreatedAt)
+            .ToList();
+    }
+
+    public IEnumerable<Deployment> GetByStatuses(params DeploymentStatus[] statuses)
+    {
+        return _context.Deployments
+            .Where(d => statuses.Contains(d.Status))
             .OrderByDescending(d => d.CreatedAt)
             .ToList();
     }

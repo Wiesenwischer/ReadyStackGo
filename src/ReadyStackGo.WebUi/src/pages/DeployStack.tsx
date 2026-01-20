@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router';
 import { deployCompose, deployStack } from '../api/deployments';
 import { useEnvironment } from '../context/EnvironmentContext';
-import { type StackDetail, getStack } from '../api/stacks';
+import { type StackDetail, getStack, getProduct, type Product, type ProductVersion } from '../api/stacks';
 import VariableInput, { groupVariables } from '../components/variables/VariableInput';
 import { useDeploymentHub, type DeploymentProgressUpdate } from '../hooks/useDeploymentHub';
 
@@ -49,6 +49,8 @@ export default function DeployStack() {
 
   const [state, setState] = useState<DeployState>(isCustomDeploy ? 'configure' : 'loading');
   const [stack, setStack] = useState<StackDetail | null>(null);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [selectedStackId, setSelectedStackId] = useState<string | null>(stackId || null);
   const [stackName, setStackName] = useState('');
   const [yamlContent, setYamlContent] = useState('');
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
@@ -105,6 +107,17 @@ export default function DeployStack() {
         const detail = await getStack(stackId);
         setStack(detail);
         setStackName(detail.name);
+        setSelectedStackId(stackId);
+
+        // Load product to get available versions
+        if (detail.productId) {
+          try {
+            const productData = await getProduct(detail.productId);
+            setProduct(productData);
+          } catch {
+            // Product load failure is not critical, version selection just won't be available
+          }
+        }
 
         // Initialize variable values with defaults
         const initialValues: Record<string, string> = {};
@@ -122,6 +135,36 @@ export default function DeployStack() {
 
     loadStack();
   }, [stackId, isCustomDeploy]);
+
+  // Handle version change
+  const handleVersionChange = async (version: ProductVersion) => {
+    if (!product) return;
+
+    try {
+      // Find the stack for the selected version (use default stack of that version)
+      const newStackId = version.defaultStackId;
+      setSelectedStackId(newStackId);
+
+      // Load the stack details for the new version
+      const detail = await getStack(newStackId);
+      setStack(detail);
+      setStackName(detail.name);
+
+      // Re-initialize variables, keeping values where applicable
+      const initialValues: Record<string, string> = {};
+      detail.variables.forEach(v => {
+        // Keep existing value if variable exists, otherwise use default
+        if (variableValues[v.name] !== undefined) {
+          initialValues[v.name] = variableValues[v.name];
+        } else {
+          initialValues[v.name] = v.defaultValue || '';
+        }
+      });
+      setVariableValues(initialValues);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load version');
+    }
+  };
 
   // Handle .env file import
   const handleEnvFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -212,7 +255,7 @@ export default function DeployStack() {
         });
       } else {
         // Catalog deploy: use new API with stackId (no YAML needed)
-        response = await deployStack(activeEnvironment.id, stackId!, {
+        response = await deployStack(activeEnvironment.id, selectedStackId!, {
           stackName,
           variables: variableValues,
           sessionId,
@@ -447,11 +490,38 @@ export default function DeployStack() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Configuration */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Stack Name */}
+          {/* Stack Name & Version */}
           <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Stack Configuration
             </h2>
+
+            {/* Version Selection (only if multiple versions available) */}
+            {!isCustomDeploy && product?.availableVersions && product.availableVersions.length > 1 && (
+              <div className="mb-4">
+                <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Version
+                </label>
+                <select
+                  value={stack?.version || ''}
+                  onChange={(e) => {
+                    const version = product.availableVersions?.find(v => v.version === e.target.value);
+                    if (version) handleVersionChange(version);
+                  }}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-brand-500"
+                >
+                  {product.availableVersions.map((v) => (
+                    <option key={v.productId} value={v.version}>
+                      {v.version}{v.isCurrent ? ' (current)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {product.availableVersions.length} versions available
+                </p>
+              </div>
+            )}
+
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                 Stack Name <span className="text-red-500">*</span>
@@ -562,7 +632,7 @@ services:
             {/* Deploy Button */}
             <button
               onClick={handleDeploy}
-              disabled={!activeEnvironment || !stackName.trim() || (isCustomDeploy && !yamlContent.trim())}
+              disabled={!activeEnvironment || !stackName.trim() || (!isCustomDeploy && !selectedStackId) || (isCustomDeploy && !yamlContent.trim())}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -42,11 +42,22 @@ Das Banner zeigt außerdem:
 1. Navigieren Sie zu **Deployments** und wählen Sie Ihr Deployment
 2. Wenn ein Upgrade verfügbar ist, klicken Sie auf den **Upgrade**-Button
 3. Bestätigen Sie das Upgrade im Dialog
-4. Überwachen Sie den Fortschritt in Echtzeit
+4. Überwachen Sie den Fortschritt in Echtzeit über die Live-Fortschrittsanzeige
 
 :::caution[Voraussetzungen]
 Ein Deployment muss im Status **Running** sein, um aktualisiert zu werden. Gestoppte, fehlgeschlagene oder ausstehende Deployments können nicht direkt aktualisiert werden.
 :::
+
+### Echtzeit-Fortschrittsverfolgung
+
+ReadyStackGo bietet Live-Fortschrittsupdates während Upgrades via SignalR:
+
+- **Fortschrittsbalken** - Zeigt den Gesamtfortschritt in Prozent
+- **Aktuelle Phase** - Zeigt die aktuelle Operation an (Images laden, Services starten, etc.)
+- **Service-Zähler** - Zeigt, wie viele Services bereits verarbeitet wurden
+- **Live-Status** - Grüner Indikator bestätigt Echtzeit-Verbindung
+
+Die Fortschrittsupdates erfolgen automatisch ohne Seitenaktualisierung. Bei temporärem Verbindungsverlust zeigt die UI "Verbindung wird wiederhergestellt..." an und setzt die Updates nach Wiederherstellung fort.
 
 ### Variablenbehandlung beim Upgrade
 
@@ -84,15 +95,26 @@ Wenn Sie ein bernsteinfarbenes "Rollback verfügbar"-Banner auf der Deployment-D
 
 1. Navigieren Sie zum fehlgeschlagenen Deployment
 2. Klicken Sie auf den **Rollback**-Button im bernsteinfarbenen Banner
-3. Bestätigen Sie den Rollback
-4. Das Deployment wird auf die vorherige Version zurückgesetzt
+3. Bestätigen Sie den Rollback auf der dedizierten Rollback-Seite
+4. Überwachen Sie den Rollback-Fortschritt in Echtzeit
+5. Das Deployment wird auf die vorherige Version zurückgesetzt
 
 :::note[Was wird wiederhergestellt]
 Ein Rollback stellt wieder her:
 - **Stack Version** - Kehrt zur vorherigen Version zurück
 - **Variablen** - Stellt die ursprünglichen Variablenwerte wieder her
-- **Deployment-Status** - Setzt das Deployment für erneutes Deployment auf Pending zurück
+- **Services** - Stellt die vorherigen Container-Images wieder bereit
 :::
+
+### Rollback-Fortschrittsverfolgung
+
+Genau wie bei Upgrades bieten auch Rollbacks Echtzeit-Fortschrittsupdates:
+
+- **Fortschrittsbalken** - Zeigt den Rollback-Fortschritt in Prozent
+- **Aktuelle Phase** - Zeigt Operationen wie "Alte Container entfernen", "Images laden", "Services starten"
+- **Live-Updates** - Automatische Updates via SignalR-Verbindung
+
+Die Rollback-Seite zeigt vor dem Start einen Bestätigungsbildschirm, der Ihnen ermöglicht zu überprüfen, auf welche Version zurückgesetzt wird.
 
 ---
 
@@ -154,7 +176,14 @@ GET /api/environments/{environmentId}/deployments/{deploymentId}/rollback
 
 ```http
 POST /api/environments/{environmentId}/deployments/{deploymentId}/rollback
+Content-Type: application/json
+
+{
+  "sessionId": "signalr-session-id"
+}
 ```
+
+Die `sessionId` ist optional, aber für Echtzeit-Fortschrittsverfolgung empfohlen. Wenn angegeben, sollte der Client sich beim SignalR Deployment Hub mit dieser Session-ID anmelden, bevor der Endpunkt aufgerufen wird.
 
 ---
 

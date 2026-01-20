@@ -9,4 +9,5 @@ namespace ReadyStackGo.Application.UseCases.Deployments.RollbackDeployment;
 /// </summary>
 public record RollbackDeploymentCommand(
     string EnvironmentId,
-    string DeploymentId) : IRequest<RollbackDeploymentResponse>;
+    string DeploymentId,
+    string? SessionId = null) : IRequest<RollbackDeploymentResponse>;

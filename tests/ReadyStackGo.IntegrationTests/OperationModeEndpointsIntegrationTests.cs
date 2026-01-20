@@ -14,7 +14,8 @@ namespace ReadyStackGo.IntegrationTests;
 
 /// <summary>
 /// Integration tests for Operation Mode API Endpoint.
-/// Tests the ability to change deployment operation mode (Normal, Maintenance, Migrating, etc.)
+/// Tests the ability to change deployment operation mode (Normal, Maintenance).
+/// Note: Migrating mode is no longer supported - use DeploymentStatus.Upgrading instead.
 /// </summary>
 public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
 {
@@ -72,39 +73,18 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
     }
 
     [Fact]
-    public async Task PUT_ChangeOperationMode_StartMigration_RequiresTargetVersion()
+    public async Task PUT_ChangeOperationMode_MigratingMode_ReturnsBadRequest()
     {
+        // Migrating mode is no longer supported as an OperationMode
+        // Upgrades are now handled via DeploymentStatus.Upgrading
+
         // Arrange
         var deploymentId = await CreateTestDeploymentAsync("migration-test");
 
         var request = new
         {
-            mode = "Migrating",
+            mode = "Migrating", // This mode no longer exists
             targetVersion = "2.0.0"
-        };
-
-        // Act
-        var response = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", request);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var result = await response.Content.ReadFromJsonAsync<ChangeOperationModeResponse>();
-        result.Should().NotBeNull();
-        result!.Success.Should().BeTrue();
-        result.NewMode.Should().Be("Migrating");
-    }
-
-    [Fact]
-    public async Task PUT_ChangeOperationMode_MigrationWithoutVersion_ReturnsBadRequest()
-    {
-        // Arrange
-        var deploymentId = await CreateTestDeploymentAsync("migration-no-version-test");
-
-        var request = new
-        {
-            mode = "Migrating"
-            // No targetVersion provided
         };
 
         // Act
@@ -322,27 +302,30 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
     }
 
     [Fact]
-    public async Task OperationModeFlow_MigrationCycle_WorksCorrectly()
+    public async Task OperationModeFlow_MaintenanceToggle_WorksCorrectly()
     {
+        // Note: Migration is no longer an OperationMode - it's now a DeploymentStatus
+        // This test verifies the maintenance toggle flow
+
         // Arrange
-        var stackName = "flow-migration-test";
+        var stackName = "flow-toggle-test";
         var deploymentId = await CreateTestDeploymentAsync(stackName);
 
-        // Step 1: Start migration
-        var startRequest = new { mode = "Migrating", targetVersion = "2.0.0" };
-        var startResponse = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", startRequest);
-        startResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        // Step 1: Enter maintenance
+        var enterRequest = new { mode = "Maintenance", reason = "Maintenance window" };
+        var enterResponse = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", enterRequest);
+        enterResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var startResult = await startResponse.Content.ReadFromJsonAsync<ChangeOperationModeResponse>();
-        startResult!.NewMode.Should().Be("Migrating");
+        var enterResult = await enterResponse.Content.ReadFromJsonAsync<ChangeOperationModeResponse>();
+        enterResult!.NewMode.Should().Be("Maintenance");
 
-        // Step 2: Complete migration (back to normal)
-        var completeRequest = new { mode = "Normal", targetVersion = "2.0.0" };
-        var completeResponse = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", completeRequest);
-        completeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        // Step 2: Exit maintenance (back to normal)
+        var exitRequest = new { mode = "Normal" };
+        var exitResponse = await Client.PutAsJsonAsync($"/api/environments/{EnvironmentId}/deployments/{deploymentId}/operation-mode", exitRequest);
+        exitResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var completeResult = await completeResponse.Content.ReadFromJsonAsync<ChangeOperationModeResponse>();
-        completeResult!.NewMode.Should().Be("Normal");
+        var exitResult = await exitResponse.Content.ReadFromJsonAsync<ChangeOperationModeResponse>();
+        exitResult!.NewMode.Should().Be("Normal");
     }
 
     #endregion
@@ -367,7 +350,7 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
 
         // Create deployment
         var deploymentId = deploymentRepository.NextIdentity();
-        var deployment = Deployment.Start(
+        var deployment = Deployment.StartInstallation(
             deploymentId,
             environmentId,
             stackName, // stackId (same as stackName for test deployments)
@@ -377,12 +360,10 @@ public class OperationModeEndpointsIntegrationTests : AuthenticatedTestBase
 
         deployment.SetStackVersion("1.0.0");
 
-        // Mark as running (with empty services list - no Docker needed)
-        var services = new List<DeployedService>
-        {
-            new("web", null, $"{stackName}-web-1", "nginx:latest", "running")
-        };
-        deployment.MarkAsRunning(services);
+        // Mark as running (with services - no Docker needed)
+        deployment.AddService("web", "nginx:latest", "starting");
+        deployment.SetServiceContainerInfo("web", "container1", $"{stackName}-web-1", "running");
+        deployment.MarkAsRunning();
 
         deploymentRepository.Add(deployment);
         deploymentRepository.SaveChanges();

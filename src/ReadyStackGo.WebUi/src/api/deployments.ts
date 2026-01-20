@@ -96,8 +96,11 @@ export interface GetDeploymentResponse {
   message?: string;
   deploymentId?: string;
   stackName?: string;
+  stackVersion?: string;
   environmentId?: string;
   deployedAt?: string;
+  /** Current deployment status: Installing, Upgrading, Running, Failed, Removed */
+  status?: string;
   services: DeployedServiceInfo[];
   configuration: Record<string, string>;
 }
@@ -186,12 +189,27 @@ export async function getRollbackInfo(environmentId: string, deploymentId: strin
 }
 
 /**
+ * Request for triggering a rollback.
+ */
+export interface RollbackRequest {
+  /** Optional client session ID for SignalR progress tracking */
+  sessionId?: string;
+}
+
+/**
  * Trigger rollback to the previous version.
  * Only available when deployment status is Failed and has a PendingUpgradeSnapshot.
  * No snapshotId needed - automatically uses the single PendingUpgradeSnapshot.
  */
-export async function rollbackDeployment(environmentId: string, deploymentId: string): Promise<RollbackResponse> {
-  return apiPost<RollbackResponse>(`/api/environments/${environmentId}/deployments/${deploymentId}/rollback`, {});
+export async function rollbackDeployment(
+  environmentId: string,
+  deploymentId: string,
+  request?: RollbackRequest
+): Promise<RollbackResponse> {
+  return apiPost<RollbackResponse>(
+    `/api/environments/${environmentId}/deployments/${deploymentId}/rollback`,
+    request ?? {}
+  );
 }
 
 // ============================================================================
@@ -282,4 +300,40 @@ export async function upgradeDeployment(
   request: UpgradeRequest
 ): Promise<UpgradeResponse> {
   return apiPost<UpgradeResponse>(`/api/environments/${environmentId}/deployments/${deploymentId}/upgrade`, request);
+}
+
+// ============================================================================
+// Mark Deployment Failed API
+// ============================================================================
+
+/**
+ * Request for marking a deployment as failed.
+ */
+export interface MarkDeploymentFailedRequest {
+  /** Optional reason for marking as failed */
+  reason?: string;
+}
+
+/**
+ * Response from POST /api/environments/{envId}/deployments/{deploymentId}/mark-failed
+ */
+export interface MarkDeploymentFailedResponse {
+  success: boolean;
+  message?: string;
+  previousStatus?: string;
+}
+
+/**
+ * Mark a stuck deployment as failed.
+ * Only available when deployment status is Installing or Upgrading.
+ */
+export async function markDeploymentFailed(
+  environmentId: string,
+  deploymentId: string,
+  reason?: string
+): Promise<MarkDeploymentFailedResponse> {
+  return apiPost<MarkDeploymentFailedResponse>(
+    `/api/environments/${environmentId}/deployments/${deploymentId}/mark-failed`,
+    { reason }
+  );
 }

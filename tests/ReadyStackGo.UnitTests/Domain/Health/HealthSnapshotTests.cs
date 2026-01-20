@@ -9,6 +9,7 @@ namespace ReadyStackGo.UnitTests.Domain.Health;
 /// <summary>
 /// Unit tests for HealthSnapshot aggregate root.
 /// Tests capture behavior and overall status calculation.
+/// Note: OperationMode is now simplified to only Normal and Maintenance.
 /// </summary>
 public class HealthSnapshotTests
 {
@@ -141,34 +142,6 @@ public class HealthSnapshotTests
     }
 
     [Fact]
-    public void Overall_MigratingMode_AtLeastDegraded()
-    {
-        var selfHealth = CreateSelfHealth(HealthStatus.Healthy, HealthStatus.Healthy);
-
-        var snapshot = HealthSnapshot.Capture(
-            _orgId, _envId, _deploymentId, "my-stack",
-            OperationMode.Migrating,
-            self: selfHealth);
-
-        // Even with all healthy services, migrating mode means at least degraded
-        snapshot.Overall.Should().Be(HealthStatus.Degraded);
-    }
-
-    [Fact]
-    public void Overall_FailedMode_AtLeastUnhealthy()
-    {
-        var selfHealth = CreateSelfHealth(HealthStatus.Healthy, HealthStatus.Healthy);
-
-        var snapshot = HealthSnapshot.Capture(
-            _orgId, _envId, _deploymentId, "my-stack",
-            OperationMode.Failed,
-            self: selfHealth);
-
-        // Failed mode forces unhealthy
-        snapshot.Overall.Should().Be(HealthStatus.Unhealthy);
-    }
-
-    [Fact]
     public void Overall_MaintenanceMode_AtLeastDegraded()
     {
         var selfHealth = CreateSelfHealth(HealthStatus.Healthy);
@@ -178,7 +151,22 @@ public class HealthSnapshotTests
             OperationMode.Maintenance,
             self: selfHealth);
 
+        // Maintenance mode means at least degraded
         snapshot.Overall.Should().Be(HealthStatus.Degraded);
+    }
+
+    [Fact]
+    public void Overall_MaintenanceMode_CanBeWorseThanDegraded()
+    {
+        var selfHealth = CreateSelfHealth(HealthStatus.Unhealthy);
+
+        var snapshot = HealthSnapshot.Capture(
+            _orgId, _envId, _deploymentId, "my-stack",
+            OperationMode.Maintenance,
+            self: selfHealth);
+
+        // Unhealthy service in maintenance mode should still be Unhealthy
+        snapshot.Overall.Should().Be(HealthStatus.Unhealthy);
     }
 
     #endregion
@@ -199,15 +187,16 @@ public class HealthSnapshotTests
     }
 
     [Fact]
-    public void IsHealthy_HealthyButMigrating_ReturnsFalse()
+    public void IsHealthy_HealthyButMaintenance_ReturnsFalse()
     {
         var selfHealth = CreateSelfHealth(HealthStatus.Healthy);
 
         var snapshot = HealthSnapshot.Capture(
             _orgId, _envId, _deploymentId, "my-stack",
-            OperationMode.Migrating,
+            OperationMode.Maintenance,
             self: selfHealth);
 
+        // Maintenance mode means not fully healthy
         snapshot.IsHealthy.Should().BeFalse();
     }
 
@@ -255,13 +244,27 @@ public class HealthSnapshotTests
     }
 
     [Fact]
-    public void RequiresAttention_FailedMode_ReturnsTrue()
+    public void RequiresAttention_MaintenanceMode_ReturnsFalse()
     {
+        // Maintenance mode is a planned state, does not require attention
         var selfHealth = CreateSelfHealth(HealthStatus.Healthy);
 
         var snapshot = HealthSnapshot.Capture(
             _orgId, _envId, _deploymentId, "my-stack",
-            OperationMode.Failed,
+            OperationMode.Maintenance,
+            self: selfHealth);
+
+        snapshot.RequiresAttention.Should().BeFalse();
+    }
+
+    [Fact]
+    public void RequiresAttention_Unhealthy_ReturnsTrue()
+    {
+        var selfHealth = CreateSelfHealth(HealthStatus.Unhealthy);
+
+        var snapshot = HealthSnapshot.Capture(
+            _orgId, _envId, _deploymentId, "my-stack",
+            OperationMode.Normal,
             self: selfHealth);
 
         snapshot.RequiresAttention.Should().BeTrue();
@@ -272,20 +275,6 @@ public class HealthSnapshotTests
     #region GetStatusMessage
 
     [Fact]
-    public void GetStatusMessage_Migrating_IndicatesMigration()
-    {
-        var snapshot = HealthSnapshot.Capture(
-            _orgId, _envId, _deploymentId, "my-stack",
-            OperationMode.Migrating,
-            currentVersion: "1.0.0",
-            targetVersion: "2.0.0");
-
-        snapshot.GetStatusMessage().Should().Contain("Migration");
-        snapshot.GetStatusMessage().Should().Contain("1.0.0");
-        snapshot.GetStatusMessage().Should().Contain("2.0.0");
-    }
-
-    [Fact]
     public void GetStatusMessage_Maintenance_IndicatesMaintenance()
     {
         var snapshot = HealthSnapshot.Capture(
@@ -293,26 +282,6 @@ public class HealthSnapshotTests
             OperationMode.Maintenance);
 
         snapshot.GetStatusMessage().Should().Contain("Maintenance");
-    }
-
-    [Fact]
-    public void GetStatusMessage_Stopped_IndicatesStopped()
-    {
-        var snapshot = HealthSnapshot.Capture(
-            _orgId, _envId, _deploymentId, "my-stack",
-            OperationMode.Stopped);
-
-        snapshot.GetStatusMessage().Should().Contain("stopped");
-    }
-
-    [Fact]
-    public void GetStatusMessage_Failed_IndicatesIntervention()
-    {
-        var snapshot = HealthSnapshot.Capture(
-            _orgId, _envId, _deploymentId, "my-stack",
-            OperationMode.Failed);
-
-        snapshot.GetStatusMessage().Should().Contain("intervention");
     }
 
     [Fact]
@@ -326,6 +295,33 @@ public class HealthSnapshotTests
             self: selfHealth);
 
         snapshot.GetStatusMessage().Should().Contain("operational");
+    }
+
+    [Fact]
+    public void GetStatusMessage_Degraded_IndicatesDegraded()
+    {
+        var selfHealth = CreateSelfHealth(HealthStatus.Degraded);
+
+        var snapshot = HealthSnapshot.Capture(
+            _orgId, _envId, _deploymentId, "my-stack",
+            OperationMode.Normal,
+            self: selfHealth);
+
+        snapshot.GetStatusMessage().Should().Contain("degraded");
+    }
+
+    [Fact]
+    public void GetStatusMessage_Unhealthy_IndicatesIssues()
+    {
+        var selfHealth = CreateSelfHealth(HealthStatus.Unhealthy);
+
+        var snapshot = HealthSnapshot.Capture(
+            _orgId, _envId, _deploymentId, "my-stack",
+            OperationMode.Normal,
+            self: selfHealth);
+
+        var message = snapshot.GetStatusMessage().ToLowerInvariant();
+        (message.Contains("unhealthy") || message.Contains("issues") || message.Contains("attention")).Should().BeTrue();
     }
 
     #endregion
@@ -392,6 +388,33 @@ public class HealthSnapshotTests
             self: selfHealth);
 
         snapshot.Overall.Should().Be(HealthStatus.Degraded);
+    }
+
+    #endregion
+
+    #region OperationMode Consistency
+
+    [Fact]
+    public void Capture_WithNormalMode_HasNormalOperationMode()
+    {
+        var snapshot = HealthSnapshot.Capture(
+            _orgId, _envId, _deploymentId, "my-stack",
+            OperationMode.Normal);
+
+        snapshot.OperationMode.Should().Be(OperationMode.Normal);
+        snapshot.OperationMode.IsAvailable.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Capture_WithMaintenanceMode_HasMaintenanceOperationMode()
+    {
+        var snapshot = HealthSnapshot.Capture(
+            _orgId, _envId, _deploymentId, "my-stack",
+            OperationMode.Maintenance);
+
+        snapshot.OperationMode.Should().Be(OperationMode.Maintenance);
+        snapshot.OperationMode.IsAvailable.Should().BeFalse();
+        snapshot.OperationMode.ExpectsDegradedHealth.Should().BeTrue();
     }
 
     #endregion

@@ -3,34 +3,25 @@ namespace ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Domain.SharedKernel;
 
 /// <summary>
-/// Operation mode of a stack deployment.
-/// Controlled by RSGO, not by the containers.
-/// Uses the Enumeration Class pattern to encapsulate behavior.
+/// Operation mode of a running deployment.
+/// Only valid when DeploymentStatus == Running.
+/// Controls runtime behavior, not deployment lifecycle.
 /// </summary>
 public sealed class OperationMode : ValueObject
 {
-    public static readonly OperationMode Normal = new(0, "Normal", "Normal operation, no planned restrictions", isPlannedRestriction: false);
-    public static readonly OperationMode Migrating = new(1, "Migrating", "Planned migration/upgrade is running", isPlannedRestriction: true);
-    public static readonly OperationMode Maintenance = new(2, "Maintenance", "Stack is in planned maintenance mode", isPlannedRestriction: true);
-    public static readonly OperationMode Stopped = new(3, "Stopped", "Stack is intentionally stopped", isPlannedRestriction: true);
-    public static readonly OperationMode Failed = new(4, "Failed", "Last operation failed, manual intervention required", isPlannedRestriction: false);
+    public static readonly OperationMode Normal = new(0, "Normal", "Normal operation");
+    public static readonly OperationMode Maintenance = new(1, "Maintenance", "Stack is in maintenance mode, containers stopped");
 
     private static readonly Dictionary<int, OperationMode> _byValue = new()
     {
         { Normal.Value, Normal },
-        { Migrating.Value, Migrating },
-        { Maintenance.Value, Maintenance },
-        { Stopped.Value, Stopped },
-        { Failed.Value, Failed }
+        { Maintenance.Value, Maintenance }
     };
 
     private static readonly Dictionary<string, OperationMode> _byName = new(StringComparer.OrdinalIgnoreCase)
     {
         { Normal.Name, Normal },
-        { Migrating.Name, Migrating },
-        { Maintenance.Name, Maintenance },
-        { Stopped.Name, Stopped },
-        { Failed.Name, Failed }
+        { Maintenance.Name, Maintenance }
     };
 
     /// <summary>
@@ -48,21 +39,15 @@ public sealed class OperationMode : ValueObject
     /// </summary>
     public string Description { get; }
 
-    /// <summary>
-    /// Indicates if this is a planned restriction (expected degradation).
-    /// </summary>
-    public bool IsPlannedRestriction { get; }
-
-    private OperationMode(int value, string name, string description, bool isPlannedRestriction)
+    private OperationMode(int value, string name, string description)
     {
         Value = value;
         Name = name;
         Description = description;
-        IsPlannedRestriction = isPlannedRestriction;
     }
 
     // For EF Core
-    private OperationMode() : this(0, string.Empty, string.Empty, false) { }
+    private OperationMode() : this(0, string.Empty, string.Empty) { }
 
     /// <summary>
     /// Indicates if the stack is available for normal operations.
@@ -70,29 +55,9 @@ public sealed class OperationMode : ValueObject
     public bool IsAvailable => this == Normal;
 
     /// <summary>
-    /// Indicates if deployments are allowed in this mode.
-    /// </summary>
-    public bool AllowsDeployment => this == Normal || this == Failed;
-
-    /// <summary>
-    /// Indicates if the stack can be started.
-    /// </summary>
-    public bool CanStart => this == Stopped || this == Failed;
-
-    /// <summary>
-    /// Indicates if the stack can be stopped.
-    /// </summary>
-    public bool CanStop => this == Normal || this == Migrating || this == Maintenance;
-
-    /// <summary>
-    /// Indicates if the mode requires user attention.
-    /// </summary>
-    public bool RequiresAttention => this == Failed;
-
-    /// <summary>
     /// Indicates if health degradation is expected in this mode.
     /// </summary>
-    public bool ExpectsDegradedHealth => this == Migrating || this == Maintenance || this == Stopped;
+    public bool ExpectsDegradedHealth => this == Maintenance;
 
     /// <summary>
     /// Returns the minimum overall health status for this operation mode.
@@ -100,10 +65,7 @@ public sealed class OperationMode : ValueObject
     public HealthStatus MinimumHealthStatus => this switch
     {
         _ when this == Normal => HealthStatus.Healthy,
-        _ when this == Migrating => HealthStatus.Degraded,
         _ when this == Maintenance => HealthStatus.Degraded,
-        _ when this == Stopped => HealthStatus.Degraded,
-        _ when this == Failed => HealthStatus.Unhealthy,
         _ => HealthStatus.Unknown
     };
 
@@ -114,11 +76,8 @@ public sealed class OperationMode : ValueObject
     {
         return this switch
         {
-            _ when this == Normal => new[] { Migrating, Maintenance, Stopped },
-            _ when this == Migrating => new[] { Normal, Failed },
+            _ when this == Normal => new[] { Maintenance },
             _ when this == Maintenance => new[] { Normal },
-            _ when this == Stopped => new[] { Normal },
-            _ when this == Failed => new[] { Normal, Migrating },
             _ => Enumerable.Empty<OperationMode>()
         };
     }
@@ -158,10 +117,7 @@ public sealed class OperationMode : ValueObject
     public static IEnumerable<OperationMode> GetAll()
     {
         yield return Normal;
-        yield return Migrating;
         yield return Maintenance;
-        yield return Stopped;
-        yield return Failed;
     }
 
     protected override IEnumerable<object?> GetEqualityComponents()

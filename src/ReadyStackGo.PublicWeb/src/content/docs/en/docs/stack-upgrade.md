@@ -42,11 +42,22 @@ The banner also shows:
 1. Navigate to **Deployments** and select your deployment
 2. If an upgrade is available, click the **Upgrade** button
 3. Confirm the upgrade in the dialog
-4. Monitor the progress in real-time
+4. Monitor the progress in real-time via the live progress indicator
 
 :::caution[Prerequisites]
 A deployment must be in **Running** status to be upgraded. Stopped, failed, or pending deployments cannot be upgraded directly.
 :::
+
+### Real-Time Progress Tracking
+
+ReadyStackGo provides live progress updates during upgrades via SignalR:
+
+- **Progress Bar** - Shows overall completion percentage
+- **Current Phase** - Displays the current operation (Pulling Images, Starting Services, etc.)
+- **Service Counter** - Shows how many services have been processed
+- **Live Status** - Green indicator confirms real-time connection
+
+The progress updates automatically without page refresh. If the connection is temporarily lost, the UI will show "Reconnecting..." and resume updates when restored.
 
 ### Variable Handling During Upgrade
 
@@ -84,15 +95,26 @@ If you see an amber "Rollback Available" banner on the deployment detail page, y
 
 1. Navigate to the failed deployment
 2. Click the **Rollback** button in the amber banner
-3. Confirm the rollback
-4. The deployment is restored to its previous version
+3. Confirm the rollback on the dedicated rollback page
+4. Monitor the rollback progress in real-time
+5. The deployment is restored to its previous version
 
 :::note[What Gets Restored]
 A rollback restores:
 - **Stack Version** - Returns to the previous version
 - **Variables** - Restores the original variable values
-- **Deployment Status** - Sets the deployment back to Pending for redeployment
+- **Services** - Redeploys using the previous container images
 :::
+
+### Rollback Progress Tracking
+
+Just like upgrades, rollbacks also provide real-time progress updates:
+
+- **Progress Bar** - Shows rollback completion percentage
+- **Current Phase** - Displays operations like "Removing Old Containers", "Pulling Images", "Starting Services"
+- **Live Updates** - Automatic updates via SignalR connection
+
+The rollback page shows a confirmation screen before starting, allowing you to review what version you're rolling back to.
 
 ---
 
@@ -154,7 +176,14 @@ GET /api/environments/{environmentId}/deployments/{deploymentId}/rollback
 
 ```http
 POST /api/environments/{environmentId}/deployments/{deploymentId}/rollback
+Content-Type: application/json
+
+{
+  "sessionId": "signalr-session-id"
+}
 ```
+
+The `sessionId` is optional but recommended for real-time progress tracking. If provided, the client should subscribe to the SignalR deployment hub with this session ID before calling the endpoint.
 
 ---
 

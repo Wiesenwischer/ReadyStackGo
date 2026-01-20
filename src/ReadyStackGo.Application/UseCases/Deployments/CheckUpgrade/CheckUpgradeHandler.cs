@@ -30,9 +30,12 @@ public class CheckUpgradeHandler : IRequestHandler<CheckUpgradeQuery, CheckUpgra
 
     public async Task<CheckUpgradeResponse> Handle(CheckUpgradeQuery request, CancellationToken cancellationToken)
     {
+        _logger.LogInformation("CheckUpgrade: Starting check for deployment {DeploymentId}", request.DeploymentId);
+
         // 1. Parse and validate deployment ID
         if (!Guid.TryParse(request.DeploymentId, out var deploymentGuid))
         {
+            _logger.LogWarning("CheckUpgrade: Invalid deployment ID format: {DeploymentId}", request.DeploymentId);
             return CheckUpgradeResponse.Failed("Invalid deployment ID format.");
         }
 
@@ -40,12 +43,17 @@ public class CheckUpgradeHandler : IRequestHandler<CheckUpgradeQuery, CheckUpgra
         var deployment = _deploymentRepository.GetById(new DeploymentId(deploymentGuid));
         if (deployment == null)
         {
+            _logger.LogWarning("CheckUpgrade: Deployment not found: {DeploymentId}", request.DeploymentId);
             return CheckUpgradeResponse.Failed("Deployment not found.");
         }
+
+        _logger.LogInformation("CheckUpgrade: Found deployment {StackName}, Status={Status}, StackId={StackId}, Version={Version}",
+            deployment.StackName, deployment.Status, deployment.StackId, deployment.StackVersion);
 
         // 3. Check if deployment can be upgraded
         if (!deployment.CanUpgrade())
         {
+            _logger.LogInformation("CheckUpgrade: Deployment cannot be upgraded. Status={Status}", deployment.Status);
             return new CheckUpgradeResponse
             {
                 Success = true,
@@ -59,6 +67,7 @@ public class CheckUpgradeHandler : IRequestHandler<CheckUpgradeQuery, CheckUpgra
         // 4. Parse the stack ID into structured components
         if (!StackId.TryParse(deployment.StackId, out var parsedStackId) || parsedStackId == null)
         {
+            _logger.LogWarning("CheckUpgrade: Could not parse StackId: {StackId}", deployment.StackId);
             return new CheckUpgradeResponse
             {
                 Success = true,
@@ -69,11 +78,17 @@ public class CheckUpgradeHandler : IRequestHandler<CheckUpgradeQuery, CheckUpgra
             };
         }
 
+        _logger.LogInformation("CheckUpgrade: Parsed StackId - SourceId={SourceId}, ProductId={ProductId}",
+            parsedStackId.SourceId, parsedStackId.ProductId.Value);
+
         // 5. Look up product using sourceId:productId format
         var productLookupKey = $"{parsedStackId.SourceId}:{parsedStackId.ProductId.Value}";
+        _logger.LogInformation("CheckUpgrade: Looking up product with key: {ProductLookupKey}", productLookupKey);
+
         var product = await _productSourceService.GetProductAsync(productLookupKey, cancellationToken);
         if (product == null)
         {
+            _logger.LogWarning("CheckUpgrade: Product not found in catalog: {ProductLookupKey}", productLookupKey);
             return new CheckUpgradeResponse
             {
                 Success = true,
@@ -84,12 +99,22 @@ public class CheckUpgradeHandler : IRequestHandler<CheckUpgradeQuery, CheckUpgra
             };
         }
 
+        _logger.LogInformation("CheckUpgrade: Found product {ProductName}, GroupId={GroupId}, Version={Version}",
+            product.Name, product.GroupId, product.ProductVersion);
+
         // 6. Get all available upgrades using the product's GroupId
         var currentVersion = deployment.StackVersion ?? "0.0.0";
         var groupId = product.GroupId;
 
+        _logger.LogInformation("CheckUpgrade: Looking for upgrades from version {CurrentVersion} in group {GroupId}",
+            currentVersion, groupId);
+
         var availableUpgrades = (await _productSourceService.GetAvailableUpgradesAsync(
             groupId, currentVersion, cancellationToken)).ToList();
+
+        _logger.LogInformation("CheckUpgrade: Found {Count} available upgrades: {Versions}",
+            availableUpgrades.Count,
+            string.Join(", ", availableUpgrades.Select(u => u.ProductVersion)));
 
         var upgradeAvailable = availableUpgrades.Count > 0;
         var latestUpgrade = availableUpgrades.FirstOrDefault();

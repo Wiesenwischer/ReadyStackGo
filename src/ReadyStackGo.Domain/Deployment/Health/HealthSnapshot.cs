@@ -186,24 +186,15 @@ public sealed class HealthSnapshot : AggregateRoot<HealthSnapshotId>
     /// <summary>
     /// Indicates if this snapshot requires attention.
     /// </summary>
-    public bool RequiresAttention => Overall.RequiresAttention || OperationMode.RequiresAttention;
+    public bool RequiresAttention => Overall.RequiresAttention;
 
     /// <summary>
     /// Gets a human-readable status message.
     /// </summary>
     public string GetStatusMessage()
     {
-        if (OperationMode == OperationMode.Migrating && TargetVersion != null)
-            return $"Migration in progress ({CurrentVersion} → {TargetVersion})";
-
         if (OperationMode == OperationMode.Maintenance)
             return "Maintenance mode";
-
-        if (OperationMode == OperationMode.Stopped)
-            return "Stack stopped";
-
-        if (OperationMode == OperationMode.Failed)
-            return "Last operation failed - manual intervention required";
 
         if (Overall == HealthStatus.Unhealthy)
             return $"Unhealthy: {Self.TotalCount - Self.HealthyCount} service(s) down";

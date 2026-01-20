@@ -49,7 +49,7 @@ public class HealthCollectorService : IHealthCollectorService
         }
 
         var deployments = _deploymentRepository.GetByEnvironment(environmentId)
-            .Where(d => d.Status == DeploymentStatus.Running || d.Status == DeploymentStatus.Stopped)
+            .Where(d => d.Status == DeploymentStatus.Running)
             .ToList();
 
         if (!deployments.Any())
@@ -139,8 +139,8 @@ public class HealthCollectorService : IHealthCollectorService
             return;
         }
 
-        // Only collect health for active deployments
-        if (deployment.Status != DeploymentStatus.Running && deployment.Status != DeploymentStatus.Stopped)
+        // Only collect health for running deployments
+        if (deployment.Status != DeploymentStatus.Running)
         {
             _logger.LogDebug("Skipping health collection for deployment {DeploymentId} with status {Status}",
                 deploymentId, deployment.Status);

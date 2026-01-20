@@ -75,9 +75,22 @@ public class DeploymentResult
     public bool Success { get; set; }
     public string? StackVersion { get; set; }
     public List<string> DeployedContexts { get; set; } = new();
+    public List<DeployedContainerInfo> DeployedContainers { get; set; } = new();
     public List<string> Errors { get; set; } = new();
     public List<string> Warnings { get; set; } = new();
     public DateTime DeploymentTime { get; set; }
+}
+
+/// <summary>
+/// Detailed information about a deployed container.
+/// </summary>
+public class DeployedContainerInfo
+{
+    public required string ServiceName { get; set; }
+    public required string ContainerId { get; set; }
+    public required string ContainerName { get; set; }
+    public required string Image { get; set; }
+    public required string Status { get; set; }
 }
 
 // ============================================================================

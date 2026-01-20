@@ -91,6 +91,9 @@ public class Program
         // Maintenance Observer Background Service (v0.11)
         builder.Services.AddHostedService<MaintenanceObserverBackgroundService>();
 
+        // Deployment Recovery Service - handles stuck deployments on startup (v0.15)
+        builder.Services.AddHostedService<DeploymentRecoveryService>();
+
         // Add CORS for development
         builder.Services.AddCors(options =>
         {

@@ -1,6 +1,7 @@
 using FastEndpoints;
 using MediatR;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using ReadyStackGo.Api.Authorization;
 using ReadyStackGo.Application.UseCases.Deployments.RollbackDeployment;
 
@@ -16,10 +17,12 @@ namespace ReadyStackGo.API.Endpoints.Deployments;
 public class RollbackDeploymentEndpoint : Endpoint<RollbackDeploymentRequest, RollbackDeploymentResponse>
 {
     private readonly IMediator _mediator;
+    private readonly ILogger<RollbackDeploymentEndpoint> _logger;
 
-    public RollbackDeploymentEndpoint(IMediator mediator)
+    public RollbackDeploymentEndpoint(IMediator mediator, ILogger<RollbackDeploymentEndpoint> logger)
     {
         _mediator = mediator;
+        _logger = logger;
     }
 
     public override void Configure()
@@ -34,8 +37,12 @@ public class RollbackDeploymentEndpoint : Endpoint<RollbackDeploymentRequest, Ro
         var deploymentId = Route<string>("deploymentId")!;
         req.EnvironmentId = environmentId;
 
+        _logger.LogInformation(
+            "RollbackDeploymentEndpoint: Received rollback request for deployment {DeploymentId} with SessionId: {SessionId}",
+            deploymentId, req.SessionId ?? "(null)");
+
         var response = await _mediator.Send(
-            new RollbackDeploymentCommand(environmentId, deploymentId), ct);
+            new RollbackDeploymentCommand(environmentId, deploymentId, req.SessionId), ct);
 
         if (!response.Success)
         {
@@ -51,9 +58,10 @@ public class RollbackDeploymentEndpoint : Endpoint<RollbackDeploymentRequest, Ro
 
 /// <summary>
 /// Request for rollback endpoint.
-/// No body required - rollback always uses the PendingUpgradeSnapshot.
+/// SessionId is optional - if provided, progress notifications will be sent to this session.
 /// </summary>
 public class RollbackDeploymentRequest
 {
     public string EnvironmentId { get; set; } = string.Empty;
+    public string? SessionId { get; set; }
 }
