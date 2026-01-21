@@ -8,6 +8,7 @@ using ReadyStackGo.Domain.Deployment.Registries;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Roles;
 using ReadyStackGo.Domain.IdentityAccess.Users;
+using ReadyStackGo.Domain.StackManagement.Sources;
 using ReadyStackGo.Infrastructure.DataAccess.Repositories;
 
 namespace ReadyStackGo.Infrastructure.DataAccess;
@@ -36,6 +37,7 @@ public static class DependencyInjection
         services.AddScoped<IDeploymentRepository, DeploymentRepository>();
         services.AddScoped<IHealthSnapshotRepository, HealthSnapshotRepository>();
         services.AddScoped<IRegistryRepository, RegistryRepository>();
+        services.AddScoped<IStackSourceRepository, StackSourceRepository>();
 
         return services;
     }

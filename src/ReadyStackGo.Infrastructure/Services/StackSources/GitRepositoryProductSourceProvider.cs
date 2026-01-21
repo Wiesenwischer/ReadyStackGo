@@ -96,11 +96,16 @@ public class GitRepositoryProductSourceProvider : IProductSourceProvider
         {
             Directory.CreateDirectory(cacheRoot);
 
+            // Build the Git URL with credentials if provided
+            var gitUrl = BuildAuthenticatedUrl(source);
+
             if (Directory.Exists(repoDir))
             {
                 // Repository exists - do a git pull
                 _logger.LogDebug("Updating existing repository at {Path}", repoDir);
                 await RunGitCommandAsync(repoDir, $"checkout {source.GitBranch}", cancellationToken);
+                // Set remote URL with credentials for pull
+                await RunGitCommandAsync(repoDir, $"remote set-url origin {gitUrl}", cancellationToken);
                 await RunGitCommandAsync(repoDir, "pull --ff-only", cancellationToken);
             }
             else
@@ -109,7 +114,7 @@ public class GitRepositoryProductSourceProvider : IProductSourceProvider
                 _logger.LogInformation("Cloning repository {GitUrl} to {Path}", source.GitUrl, repoDir);
                 await RunGitCommandAsync(
                     cacheRoot,
-                    $"clone --branch {source.GitBranch} --single-branch --depth 1 {source.GitUrl} {source.Id.Value}",
+                    $"clone --branch {source.GitBranch} --single-branch --depth 1 {gitUrl} {source.Id.Value}",
                     cancellationToken);
             }
 
@@ -128,6 +133,41 @@ public class GitRepositoryProductSourceProvider : IProductSourceProvider
 
             return null;
         }
+    }
+
+    /// <summary>
+    /// Builds a Git URL with embedded credentials for HTTPS URLs.
+    /// For git:// or ssh:// URLs, credentials are not embedded.
+    /// </summary>
+    private static string BuildAuthenticatedUrl(StackSource source)
+    {
+        if (string.IsNullOrEmpty(source.GitUsername) || string.IsNullOrEmpty(source.GitPassword))
+        {
+            return source.GitUrl!;
+        }
+
+        if (!Uri.TryCreate(source.GitUrl, UriKind.Absolute, out var uri))
+        {
+            return source.GitUrl!;
+        }
+
+        // Only embed credentials for HTTP/HTTPS URLs
+        if (uri.Scheme != "https" && uri.Scheme != "http")
+        {
+            return source.GitUrl!;
+        }
+
+        // Build URL with credentials: https://username:password@host/path
+        var encodedUsername = Uri.EscapeDataString(source.GitUsername);
+        var encodedPassword = Uri.EscapeDataString(source.GitPassword);
+
+        var builder = new UriBuilder(uri)
+        {
+            UserName = encodedUsername,
+            Password = encodedPassword
+        };
+
+        return builder.Uri.ToString();
     }
 
     private async Task RunGitCommandAsync(string workingDirectory, string arguments, CancellationToken cancellationToken)

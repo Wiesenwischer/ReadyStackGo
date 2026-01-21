@@ -31,12 +31,7 @@ public class ListStackSourcesHandler : IRequestHandler<ListStackSourcesQuery, Li
 
     private static string GetSourceType(StackSource source)
     {
-        return source.Type switch
-        {
-            StackSourceType.LocalDirectory => "local-directory",
-            StackSourceType.GitRepository => "git-repository",
-            _ => "unknown"
-        };
+        return source.Type.ToString();
     }
 
     private static Dictionary<string, string> GetSourceDetails(StackSource source)
@@ -54,6 +49,12 @@ public class ListStackSourcesHandler : IRequestHandler<ListStackSourcesQuery, Li
 
         if (!string.IsNullOrEmpty(source.GitBranch))
             details["branch"] = source.GitBranch;
+
+        if (!string.IsNullOrEmpty(source.GitUsername))
+            details["username"] = source.GitUsername;
+
+        if (!string.IsNullOrEmpty(source.GitPassword))
+            details["hasPassword"] = "true";
 
         return details;
     }
