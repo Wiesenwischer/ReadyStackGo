@@ -6,17 +6,12 @@ using ReadyStackGo.Application.UseCases.Registries;
 
 namespace ReadyStackGo.Api.Endpoints.Registries;
 
-public class SetDefaultRegistryRequest
-{
-    public string RegistryId { get; set; } = string.Empty;
-}
-
 /// <summary>
-/// POST /api/registries/{registryId}/default - Set a registry as the default.
+/// POST /api/registries/{id}/default - Set a registry as the default.
 /// Accessible by: SystemAdmin, OrganizationOwner.
 /// </summary>
 [RequirePermission("Registries", "Update")]
-public class SetDefaultRegistryEndpoint : Endpoint<SetDefaultRegistryRequest, RegistryResponse>
+public class SetDefaultRegistryEndpoint : Endpoint<EmptyRequest, RegistryResponse>
 {
     private readonly IMediator _mediator;
 
@@ -27,14 +22,14 @@ public class SetDefaultRegistryEndpoint : Endpoint<SetDefaultRegistryRequest, Re
 
     public override void Configure()
     {
-        Post("/api/registries/{registryId}/default");
-        PreProcessor<RbacPreProcessor<SetDefaultRegistryRequest>>();
+        Post("/api/registries/{id}/default");
+        PreProcessor<RbacPreProcessor<EmptyRequest>>();
     }
 
-    public override async Task HandleAsync(SetDefaultRegistryRequest req, CancellationToken ct)
+    public override async Task HandleAsync(EmptyRequest req, CancellationToken ct)
     {
-        // Organization is resolved in the handler
-        var response = await _mediator.Send(new SetDefaultRegistryCommand(req.RegistryId), ct);
+        var registryId = Route<string>("id")!;
+        var response = await _mediator.Send(new SetDefaultRegistryCommand(registryId), ct);
 
         if (!response.Success)
         {

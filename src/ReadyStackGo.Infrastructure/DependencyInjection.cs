@@ -11,6 +11,7 @@ using ReadyStackGo.Infrastructure.DataAccess;
 using ReadyStackGo.Infrastructure.Docker;
 using ReadyStackGo.Infrastructure.Parsing;
 using ReadyStackGo.Infrastructure.Security;
+using ReadyStackGo.Infrastructure.Services;
 using ReadyStackGo.Infrastructure.Services.Deployment;
 using ReadyStackGo.Infrastructure.Services.Health;
 using ReadyStackGo.Infrastructure.Services.StackSources;
@@ -42,6 +43,9 @@ public static class DependencyInjection
         // RSGo Manifest services
         services.AddSingleton<IManifestProvider, ManifestProvider>();
         services.AddSingleton<IRsgoManifestParser, RsgoManifestParser>();
+
+        // Registry credential provider for Docker image pulls
+        services.AddScoped<IRegistryCredentialProvider, RegistryCredentialProvider>();
 
         // Deployment services
         services.AddScoped<IDeploymentEngine, DeploymentEngine>();

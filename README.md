@@ -127,6 +127,7 @@ Die ausführliche Dokumentation findest du im Ordner [`docs/`](./docs):
 - [Konfiguration](./docs/Configuration/Overview.md) – Konfigurationskonzepte
 - [Config-Dateien](./docs/Configuration/Config-Files.md) – `rsgo.*.json` Dateien
 - [Manifest-Spezifikation](./docs/Configuration/Manifest-Specification.md) – Manifest-Format
+- [Docker Registries](./docs/Configuration/Registries.md) – Registry-Verwaltung & Image Patterns
 - [Feature Flags](./docs/Configuration/Feature-Flags.md) – Feature-Flag-System
 
 ### Weitere Themen
@@ -134,7 +135,7 @@ Die ausführliche Dokumentation findest du im Ordner [`docs/`](./docs):
 - [Security](./docs/Security/Overview.md) – Sicherheitsarchitektur
 - [TLS](./docs/Security/TLS-Configuration.md) – TLS-Konfiguration
 - [CI/CD](./docs/CI-CD/Pipeline-Integration.md) – CI/CD-Integration
-- [Roadmap](./docs/Roadmap/Roadmap.md) – Zukunftspläne
+- [Roadmap](./docs/Reference/Roadmap.md) – Zukunftspläne
 
 ### Vollständige Dokumentation
 Siehe [Dokumentations-Übersicht](./docs/Home.md) für die vollständige Übersicht.

@@ -20,17 +20,20 @@ public class DockerService : IDockerService, IDisposable
     private readonly IEnvironmentRepository _environmentRepository;
     private readonly IConfiguration _configuration;
     private readonly ILogger<DockerService> _logger;
+    private readonly IRegistryCredentialProvider? _registryCredentialProvider;
     private readonly ConcurrentDictionary<string, DockerClient> _clientCache = new();
     private bool _disposed;
 
     public DockerService(
         IEnvironmentRepository environmentRepository,
         IConfiguration configuration,
-        ILogger<DockerService> logger)
+        ILogger<DockerService> logger,
+        IRegistryCredentialProvider? registryCredentialProvider = null)
     {
         _environmentRepository = environmentRepository;
         _configuration = configuration;
         _logger = logger;
+        _registryCredentialProvider = registryCredentialProvider;
     }
 
     public async Task<IEnumerable<ContainerDto>> ListContainersAsync(string environmentId, CancellationToken cancellationToken = default)
@@ -350,8 +353,9 @@ public class DockerService : IDockerService, IDisposable
     /// <summary>
     /// Get authentication config for a Docker image.
     /// Priority:
-    /// 1. Environment variables via IConfiguration (Docker:Username, Docker:Password)
-    /// 2. Docker config file (~/.docker/config.json)
+    /// 1. Database registries with ImagePattern matching
+    /// 2. Environment variables via IConfiguration (Docker:Username, Docker:Password)
+    /// 3. Docker config file (~/.docker/config.json)
     /// </summary>
     private AuthConfig? GetAuthConfigForImage(string image)
     {
@@ -361,14 +365,21 @@ public class DockerService : IDockerService, IDisposable
             var registry = GetRegistryFromImage(image);
             _logger.LogInformation("Looking for credentials for image {Image}, registry: {Registry}", image, registry);
 
-            // 1. Try environment variables first (via IConfiguration)
+            // 1. Try database registries first (ImagePattern matching)
+            var authFromDb = GetAuthConfigFromDatabaseRegistry(image);
+            if (authFromDb != null)
+            {
+                return authFromDb;
+            }
+
+            // 2. Try environment variables (via IConfiguration)
             var authFromEnv = GetAuthConfigFromConfiguration(registry);
             if (authFromEnv != null)
             {
                 return authFromEnv;
             }
 
-            // 2. Fallback to Docker config file
+            // 3. Fallback to Docker config file
             return GetAuthConfigFromDockerConfig(image, registry);
         }
         catch (Exception ex)
@@ -376,6 +387,31 @@ public class DockerService : IDockerService, IDisposable
             _logger.LogWarning(ex, "Failed to read Docker credentials for image {Image}", image);
             return null;
         }
+    }
+
+    /// <summary>
+    /// Get authentication config from database registries using ImagePattern matching.
+    /// </summary>
+    private AuthConfig? GetAuthConfigFromDatabaseRegistry(string image)
+    {
+        if (_registryCredentialProvider == null)
+        {
+            return null;
+        }
+
+        var credentials = _registryCredentialProvider.GetCredentialsForImage(image);
+        if (credentials == null)
+        {
+            return null;
+        }
+
+        _logger.LogInformation("Using credentials from database registry for image {Image}", image);
+        return new AuthConfig
+        {
+            Username = credentials.Username,
+            Password = credentials.Password,
+            ServerAddress = credentials.ServerAddress
+        };
     }
 
     /// <summary>
