@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Logging;
@@ -309,6 +310,19 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
         var services = ExtractServiceTemplatesFromStackEntry(stackEntry);
         var volumes = ExtractVolumeDefinitionsFromStackEntry(stackEntry);
         var networks = ExtractNetworkDefinitionsFromStackEntry(stackEntry);
+
+        // Include shared networks from manifest (similar to sharedVariables)
+        if (manifest.Networks != null)
+        {
+            foreach (var (networkName, networkDef) in manifest.Networks)
+            {
+                // Only add if not already defined in stack (stack-specific takes precedence)
+                if (!networks.Any(n => n.Name == networkName))
+                {
+                    networks.Add(ConvertToNetworkDefinition(networkName, networkDef));
+                }
+            }
+        }
 
         // Extract variables: shared + stack-specific
         var variables = new List<Variable>();
