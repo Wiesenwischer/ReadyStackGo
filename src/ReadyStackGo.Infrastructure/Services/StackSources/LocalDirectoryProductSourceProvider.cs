@@ -210,6 +210,13 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
             // Parse RSGo Manifest from file to resolve includes for multi-stack manifests
             var manifest = await _manifestParser.ParseFromFileAsync(filePath, cancellationToken);
 
+            // Skip fragments (manifests without productVersion) - they are only loaded via include
+            if (!manifest.IsProduct)
+            {
+                _logger.LogDebug("Skipping fragment {File} - no productVersion set", filePath);
+                return null;
+            }
+
             return CreateProductFromManifest(manifest, sourceId, yamlContent, filePath, relativePath, fileName);
         }
         catch (Exception ex)
