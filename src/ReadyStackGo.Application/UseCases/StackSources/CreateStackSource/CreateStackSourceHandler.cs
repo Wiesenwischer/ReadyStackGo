@@ -74,7 +74,9 @@ public class CreateStackSourceHandler : IRequestHandler<CreateStackSourceCommand
                         request.GitUrl,
                         request.Branch ?? "main",
                         request.Path,
-                        request.FilePattern ?? "*.yml;*.yaml");
+                        request.FilePattern ?? "*.yml;*.yaml",
+                        request.GitUsername,
+                        request.GitPassword);
                     break;
 
                 default:

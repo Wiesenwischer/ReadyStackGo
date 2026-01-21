@@ -17,6 +17,8 @@ public record CreateStackSourceRequest
     // For GitRepository
     public string? GitUrl { get; init; }
     public string? Branch { get; init; }
+    public string? GitUsername { get; init; }
+    public string? GitPassword { get; init; }
 }
 
 public record CreateStackSourceResult(

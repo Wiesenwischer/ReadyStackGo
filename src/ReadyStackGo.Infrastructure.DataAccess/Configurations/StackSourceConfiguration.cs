@@ -52,6 +52,12 @@ public class StackSourceConfiguration : IEntityTypeConfiguration<StackSource>
         builder.Property(s => s.GitBranch)
             .HasMaxLength(255);
 
+        builder.Property(s => s.GitUsername)
+            .HasMaxLength(255);
+
+        builder.Property(s => s.GitPassword)
+            .HasMaxLength(1000);  // Encrypted value may be longer
+
         // Indexes
         builder.HasIndex(s => s.Name).IsUnique();
         builder.HasIndex(s => s.Type);

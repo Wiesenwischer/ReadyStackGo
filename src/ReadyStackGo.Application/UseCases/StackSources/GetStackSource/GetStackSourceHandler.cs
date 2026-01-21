@@ -32,7 +32,9 @@ public class GetStackSourceHandler : IRequestHandler<GetStackSourceQuery, GetSta
             source.Path,
             source.FilePattern,
             source.GitUrl,
-            source.GitBranch
+            source.GitBranch,
+            source.GitUsername,
+            !string.IsNullOrEmpty(source.GitPassword)
         );
     }
 }

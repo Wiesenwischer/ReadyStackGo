@@ -26,6 +26,8 @@ export interface StackSourceDetailDto {
   filePattern?: string;
   gitUrl?: string;
   gitBranch?: string;
+  gitUsername?: string;
+  hasGitPassword: boolean;
 }
 
 /**
@@ -41,6 +43,8 @@ export interface CreateStackSourceRequest {
   // For GitRepository
   gitUrl?: string;
   branch?: string;
+  gitUsername?: string;
+  gitPassword?: string;
 }
 
 /**

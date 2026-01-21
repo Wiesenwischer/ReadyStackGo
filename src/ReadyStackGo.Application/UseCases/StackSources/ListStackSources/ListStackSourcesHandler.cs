@@ -50,6 +50,12 @@ public class ListStackSourcesHandler : IRequestHandler<ListStackSourcesQuery, Li
         if (!string.IsNullOrEmpty(source.GitBranch))
             details["branch"] = source.GitBranch;
 
+        if (!string.IsNullOrEmpty(source.GitUsername))
+            details["username"] = source.GitUsername;
+
+        if (!string.IsNullOrEmpty(source.GitPassword))
+            details["hasPassword"] = "true";
+
         return details;
     }
 }

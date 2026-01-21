@@ -47,7 +47,9 @@ public class GetSourceEndpoint : Endpoint<GetSourceRequest, StackSourceDetailDto
             Path = result.Path,
             FilePattern = result.FilePattern,
             GitUrl = result.GitUrl,
-            GitBranch = result.GitBranch
+            GitBranch = result.GitBranch,
+            GitUsername = result.GitUsername,
+            HasGitPassword = result.HasGitPassword
         };
     }
 }
@@ -69,4 +71,6 @@ public class StackSourceDetailDto
     public string? FilePattern { get; init; }
     public string? GitUrl { get; init; }
     public string? GitBranch { get; init; }
+    public string? GitUsername { get; init; }
+    public bool HasGitPassword { get; init; }
 }

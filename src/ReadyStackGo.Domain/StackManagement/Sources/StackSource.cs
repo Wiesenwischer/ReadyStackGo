@@ -20,6 +20,8 @@ public class StackSource : AggregateRoot<StackSourceId>
     public string? FilePattern { get; private set; }
     public string? GitUrl { get; private set; }
     public string? GitBranch { get; private set; }
+    public string? GitUsername { get; private set; }
+    public string? GitPassword { get; private set; }  // Encrypted
 
     // For EF Core
     protected StackSource() { }
@@ -69,7 +71,9 @@ public class StackSource : AggregateRoot<StackSourceId>
         string gitUrl,
         string? branch = "main",
         string? path = null,
-        string filePattern = "*.yml;*.yaml")
+        string filePattern = "*.yml;*.yaml",
+        string? username = null,
+        string? password = null)
     {
         if (string.IsNullOrWhiteSpace(gitUrl))
             throw new ArgumentException("Git URL is required for Git repository source.", nameof(gitUrl));
@@ -79,10 +83,24 @@ public class StackSource : AggregateRoot<StackSourceId>
             GitUrl = gitUrl,
             GitBranch = branch ?? "main",
             Path = path,
-            FilePattern = filePattern
+            FilePattern = filePattern,
+            GitUsername = username,
+            GitPassword = password
         };
 
         return source;
+    }
+
+    /// <summary>
+    /// Updates the Git credentials.
+    /// </summary>
+    public void UpdateGitCredentials(string? username, string? password)
+    {
+        if (Type != StackSourceType.GitRepository)
+            throw new InvalidOperationException("Git credentials can only be set for Git repository sources.");
+
+        GitUsername = username;
+        GitPassword = password;
     }
 
     /// <summary>

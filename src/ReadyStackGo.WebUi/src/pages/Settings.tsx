@@ -443,6 +443,11 @@ export default function Settings() {
                       {source.details.branch && (
                         <p className="mt-1 text-xs text-gray-500">
                           Branch: {source.details.branch}
+                          {source.details.username && (
+                            <span className="ml-2 text-green-600 dark:text-green-400">
+                              • Authenticated as {source.details.username}
+                            </span>
+                          )}
                         </p>
                       )}
                       {source.lastSyncedAt && (
@@ -754,6 +759,8 @@ function StackSourceModal({
     filePattern: "*.yml;*.yaml",
     gitUrl: "",
     branch: "main",
+    gitUsername: "",
+    gitPassword: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -772,7 +779,13 @@ function StackSourceModal({
         filePattern: formData.filePattern || undefined,
         ...(sourceType === "LocalDirectory"
           ? { path: formData.path }
-          : { gitUrl: formData.gitUrl, branch: formData.branch || "main", path: formData.path || undefined }),
+          : {
+              gitUrl: formData.gitUrl,
+              branch: formData.branch || "main",
+              path: formData.path || undefined,
+              gitUsername: formData.gitUsername || undefined,
+              gitPassword: formData.gitPassword || undefined,
+            }),
       };
 
       const response = await createStackSource(request);
@@ -937,6 +950,42 @@ function StackSourceModal({
                     Optional path within the repository
                   </p>
                 </div>
+              </div>
+
+              {/* Git Credentials (optional) */}
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-2">
+                <p className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Authentication (optional, for private repositories)
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Username
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.gitUsername}
+                      onChange={(e) => setFormData({ ...formData, gitUsername: e.target.value })}
+                      placeholder="git-user"
+                      className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Password / Token
+                    </label>
+                    <input
+                      type="password"
+                      value={formData.gitPassword}
+                      onChange={(e) => setFormData({ ...formData, gitPassword: e.target.value })}
+                      placeholder="••••••••"
+                      className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:text-white"
+                    />
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-gray-500">
+                  For GitHub/GitLab, use a Personal Access Token instead of your password
+                </p>
               </div>
             </>
           )}

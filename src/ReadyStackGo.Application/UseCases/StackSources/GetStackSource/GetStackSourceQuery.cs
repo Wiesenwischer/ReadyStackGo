@@ -14,5 +14,7 @@ public record GetStackSourceResult(
     string? Path,
     string? FilePattern,
     string? GitUrl,
-    string? GitBranch
+    string? GitBranch,
+    string? GitUsername,
+    bool HasGitPassword
 );
