@@ -55,7 +55,7 @@ public static class DependencyInjection
         services.AddSingleton<IProductCache, InMemoryProductCache>();
         services.AddSingleton<IProductSourceProvider, LocalDirectoryProductSourceProvider>();
         services.AddSingleton<IProductSourceProvider, GitRepositoryProductSourceProvider>();
-        services.AddSingleton<IProductSourceService, ProductSourceService>();
+        services.AddScoped<IProductSourceService, DatabaseProductSourceService>();
 
         // Health Monitoring (v0.11)
         services.AddScoped<IHealthMonitoringService, HealthMonitoringService>();

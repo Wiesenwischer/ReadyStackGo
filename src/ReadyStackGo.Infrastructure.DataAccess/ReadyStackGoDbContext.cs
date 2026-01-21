@@ -8,6 +8,7 @@ using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Domain.Deployment.Registries;
+using ReadyStackGo.Domain.StackManagement.Sources;
 using RuntimeConfig = ReadyStackGo.Domain.Deployment.RuntimeConfig;
 
 /// <summary>
@@ -26,6 +27,7 @@ public class ReadyStackGoDbContext : DbContext
     public DbSet<Deployment> Deployments => Set<Deployment>();
     public DbSet<HealthSnapshot> HealthSnapshots => Set<HealthSnapshot>();
     public DbSet<Registry> Registries => Set<Registry>();
+    public DbSet<StackSource> StackSources => Set<StackSource>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -254,7 +254,315 @@ public class StackSourceEndpointsIntegrationTests : AuthenticatedTestBase
 
     #endregion
 
+    #region Create Stack Source Tests (v0.15)
+
+    [Fact]
+    public async Task POST_CreateStackSource_LocalDirectory_ReturnsCreated()
+    {
+        // Arrange
+        var request = new
+        {
+            id = $"test-local-{Guid.NewGuid():N}".Substring(0, 30),
+            name = "Test Local Source",
+            type = "LocalDirectory",
+            path = "/test/stacks"
+        };
+
+        // Act
+        var response = await Client.PostAsJsonAsync("/api/stack-sources", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var result = await response.Content.ReadFromJsonAsync<CreateSourceResponse>();
+        result.Should().NotBeNull();
+        result!.Success.Should().BeTrue();
+        result.SourceId.Should().Be(request.id);
+    }
+
+    [Fact]
+    public async Task POST_CreateStackSource_GitRepository_ReturnsCreated()
+    {
+        // Arrange
+        var request = new
+        {
+            id = $"test-git-{Guid.NewGuid():N}".Substring(0, 30),
+            name = "Test Git Source",
+            type = "GitRepository",
+            gitUrl = "https://github.com/test/repo.git",
+            branch = "main"
+        };
+
+        // Act
+        var response = await Client.PostAsJsonAsync("/api/stack-sources", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var result = await response.Content.ReadFromJsonAsync<CreateSourceResponse>();
+        result.Should().NotBeNull();
+        result!.Success.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task POST_CreateStackSource_WithoutId_ReturnsBadRequest()
+    {
+        // Arrange
+        var request = new
+        {
+            name = "Test Source",
+            type = "LocalDirectory",
+            path = "/test/stacks"
+        };
+
+        // Act
+        var response = await Client.PostAsJsonAsync("/api/stack-sources", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task POST_CreateStackSource_InvalidType_ReturnsBadRequest()
+    {
+        // Arrange
+        var request = new
+        {
+            id = $"test-{Guid.NewGuid():N}".Substring(0, 30),
+            name = "Test Source",
+            type = "InvalidType"
+        };
+
+        // Act
+        var response = await Client.PostAsJsonAsync("/api/stack-sources", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task POST_CreateStackSource_WithoutAuth_ReturnsUnauthorized()
+    {
+        // Arrange
+        using var unauthClient = CreateUnauthenticatedClient();
+        var request = new
+        {
+            id = "test",
+            name = "Test Source",
+            type = "LocalDirectory",
+            path = "/test"
+        };
+
+        // Act
+        var response = await unauthClient.PostAsJsonAsync("/api/stack-sources", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    #endregion
+
+    #region Get Stack Source Tests (v0.15)
+
+    [Fact]
+    public async Task GET_GetStackSource_ValidId_ReturnsSource()
+    {
+        // Arrange - Create a source first
+        var sourceId = $"test-get-{Guid.NewGuid():N}".Substring(0, 30);
+        var createRequest = new
+        {
+            id = sourceId,
+            name = "Test Source for Get",
+            type = "LocalDirectory",
+            path = "/test/stacks"
+        };
+        await Client.PostAsJsonAsync("/api/stack-sources", createRequest);
+
+        // Act
+        var response = await Client.GetAsync($"/api/stack-sources/{sourceId}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var source = await response.Content.ReadFromJsonAsync<StackSourceDetailDto>();
+        source.Should().NotBeNull();
+        source!.Id.Should().Be(sourceId);
+        source.Name.Should().Be("Test Source for Get");
+        source.Type.Should().Be("LocalDirectory");
+    }
+
+    [Fact]
+    public async Task GET_GetStackSource_InvalidId_ReturnsNotFound()
+    {
+        // Act
+        var response = await Client.GetAsync("/api/stack-sources/nonexistent-source");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    #endregion
+
+    #region Update Stack Source Tests (v0.15)
+
+    [Fact]
+    public async Task PUT_UpdateStackSource_Name_ReturnsOk()
+    {
+        // Arrange - Create a source first
+        var sourceId = $"test-update-{Guid.NewGuid():N}".Substring(0, 30);
+        var createRequest = new
+        {
+            id = sourceId,
+            name = "Original Name",
+            type = "LocalDirectory",
+            path = "/test/stacks"
+        };
+        await Client.PostAsJsonAsync("/api/stack-sources", createRequest);
+
+        // Act - Update the source
+        var updateRequest = new { name = "Updated Name" };
+        var response = await Client.PutAsJsonAsync($"/api/stack-sources/{sourceId}", updateRequest);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Verify the update
+        var getResponse = await Client.GetAsync($"/api/stack-sources/{sourceId}");
+        var source = await getResponse.Content.ReadFromJsonAsync<StackSourceDetailDto>();
+        source!.Name.Should().Be("Updated Name");
+    }
+
+    [Fact]
+    public async Task PUT_UpdateStackSource_Enable_ReturnsOk()
+    {
+        // Arrange - Create a source first
+        var sourceId = $"test-enable-{Guid.NewGuid():N}".Substring(0, 30);
+        var createRequest = new
+        {
+            id = sourceId,
+            name = "Test Enable",
+            type = "LocalDirectory",
+            path = "/test/stacks"
+        };
+        await Client.PostAsJsonAsync("/api/stack-sources", createRequest);
+
+        // Act - Disable the source
+        var disableRequest = new { enabled = false };
+        var response = await Client.PutAsJsonAsync($"/api/stack-sources/{sourceId}", disableRequest);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Verify it's disabled
+        var getResponse = await Client.GetAsync($"/api/stack-sources/{sourceId}");
+        var source = await getResponse.Content.ReadFromJsonAsync<StackSourceDetailDto>();
+        source!.Enabled.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task PUT_UpdateStackSource_InvalidId_ReturnsNotFound()
+    {
+        // Act
+        var updateRequest = new { name = "New Name" };
+        var response = await Client.PutAsJsonAsync("/api/stack-sources/nonexistent-source", updateRequest);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    #endregion
+
+    #region Delete Stack Source Tests (v0.15)
+
+    [Fact]
+    public async Task DELETE_DeleteStackSource_ValidId_ReturnsOk()
+    {
+        // Arrange - Create a source first
+        var sourceId = $"test-delete-{Guid.NewGuid():N}".Substring(0, 30);
+        var createRequest = new
+        {
+            id = sourceId,
+            name = "Test Delete",
+            type = "LocalDirectory",
+            path = "/test/stacks"
+        };
+        await Client.PostAsJsonAsync("/api/stack-sources", createRequest);
+
+        // Act
+        var response = await Client.DeleteAsync($"/api/stack-sources/{sourceId}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Verify it's deleted
+        var getResponse = await Client.GetAsync($"/api/stack-sources/{sourceId}");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DELETE_DeleteStackSource_InvalidId_ReturnsNotFound()
+    {
+        // Act
+        var response = await Client.DeleteAsync("/api/stack-sources/nonexistent-source");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    #endregion
+
+    #region Sync Single Source Tests (v0.15)
+
+    [Fact]
+    public async Task POST_SyncSingleSource_ValidId_ReturnsOk()
+    {
+        // Arrange - Create a source first
+        var sourceId = $"test-sync-{Guid.NewGuid():N}".Substring(0, 30);
+        var createRequest = new
+        {
+            id = sourceId,
+            name = "Test Sync",
+            type = "LocalDirectory",
+            path = "/test/stacks"
+        };
+        await Client.PostAsJsonAsync("/api/stack-sources", createRequest);
+
+        // Act
+        var response = await Client.PostAsync($"/api/stack-sources/{sourceId}/sync", null);
+
+        // Assert - Sync should return OK even if sync finds no stacks (path doesn't exist)
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task POST_SyncSingleSource_InvalidId_ReturnsNotFound()
+    {
+        // Act
+        var response = await Client.PostAsync("/api/stack-sources/nonexistent-source/sync", null);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    #endregion
+
     #region DTOs
+
+    private record CreateSourceResponse(
+        bool Success,
+        string? Message,
+        string? SourceId
+    );
+
+    private record StackSourceDetailDto(
+        string Id,
+        string Name,
+        string Type,
+        bool Enabled,
+        DateTime? LastSyncedAt,
+        DateTime CreatedAt,
+        string? Path,
+        string? FilePattern,
+        string? GitUrl,
+        string? GitBranch
+    );
 
     private record StackDefinitionDto(
         string Id,

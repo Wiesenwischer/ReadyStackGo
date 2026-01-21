@@ -40,4 +40,9 @@ public interface IStackSourceRepository
     /// Checks if a stack source with the given ID exists.
     /// </summary>
     Task<bool> ExistsAsync(StackSourceId id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Saves changes to the database.
+    /// </summary>
+    Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }
