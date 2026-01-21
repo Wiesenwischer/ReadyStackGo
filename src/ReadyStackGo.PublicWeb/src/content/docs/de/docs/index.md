@@ -8,3 +8,5 @@ Hier finden Sie detaillierte Anleitungen zur Nutzung von ReadyStackGo.
 ## Anleitungen
 
 - [Stack Deployment](/de/docs/stack-deployment/) - Schritt-für-Schritt Anleitung zum Deployen eines Stacks
+- [Stack Upgrade](/de/docs/stack-upgrade/) - Stacks auf neue Versionen aktualisieren
+- [Registry Management](/de/docs/registry-management/) - Docker Registries verwalten und Image Patterns konfigurieren

@@ -74,6 +74,14 @@ public sealed class Permission : ValueObject
         public static Permission Read => new("Stacks", "Read");
     }
 
+    public static class Registries
+    {
+        public static Permission Create => new("Registries", "Create");
+        public static Permission Read => new("Registries", "Read");
+        public static Permission Update => new("Registries", "Update");
+        public static Permission Delete => new("Registries", "Delete");
+    }
+
     public static class Dashboard
     {
         public static Permission Read => new("Dashboard", "Read");

@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
+using ReadyStackGo.Domain.Deployment.Registries;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Roles;
 using ReadyStackGo.Domain.IdentityAccess.Users;
@@ -34,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<IEnvironmentRepository, EnvironmentRepository>();
         services.AddScoped<IDeploymentRepository, DeploymentRepository>();
         services.AddScoped<IHealthSnapshotRepository, HealthSnapshotRepository>();
+        services.AddScoped<IRegistryRepository, RegistryRepository>();
 
         return services;
     }

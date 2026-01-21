@@ -13,6 +13,7 @@ import StackCatalog from "./pages/StackCatalog";
 import ProductDetail from "./pages/ProductDetail";
 import DeployStack from "./pages/DeployStack";
 import Environments from "./pages/Environments";
+import Settings from "./pages/Settings";
 import SetupEnvironment from "./pages/SetupEnvironment";
 import Login from "./pages/Auth/Login";
 import Wizard from "./pages/Wizard";
@@ -146,6 +147,8 @@ export default function App() {
                 />
                 {/* Environments page - doesn't require active environment */}
                 <Route path="/environments" element={<Environments />} />
+                {/* Settings page - doesn't require active environment */}
+                <Route path="/settings" element={<Settings />} />
               </Route>
               {/* 404 catch-all route */}
               <Route path="*" element={<NotFound />} />

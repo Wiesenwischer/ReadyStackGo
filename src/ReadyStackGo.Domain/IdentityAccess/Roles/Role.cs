@@ -73,6 +73,10 @@ public class Role : AggregateRoot<RoleId>
             Permission.StackSources.Read,
             Permission.StackSources.Update,
             Permission.StackSources.Delete,
+            Permission.Registries.Create,
+            Permission.Registries.Read,
+            Permission.Registries.Update,
+            Permission.Registries.Delete,
             Permission.Stacks.Read,
             Permission.Dashboard.Read,
         });
@@ -90,6 +94,7 @@ public class Role : AggregateRoot<RoleId>
             Permission.Deployments.Delete,
             Permission.Environments.Read,
             Permission.StackSources.Read,
+            Permission.Registries.Read,
             Permission.Stacks.Read,
             Permission.Dashboard.Read,
         });

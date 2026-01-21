@@ -90,6 +90,13 @@ Rough outlook on planned versions and features.
 ## Planned
 
 ### v0.15 – Multi-Version Catalog, Registry Management & Git Stack Sources
+- Settings Page with Registry Management UI ✅
+  - CRUD for Docker Registries (Name, URL, Username, Password)
+  - Image Patterns for automatic credential matching (glob-style: `library/*`, `ghcr.io/**`)
+  - Default registry support
+  - Sidebar navigation link
+  - Database-first credential resolution during deployment
+  - 64 integration tests (Endpoints + Repository)
 - Multi-Version Catalog Support
   - Multiple versions per product in catalog
   - New `metadata.productId` field for grouping versions across sources
@@ -99,8 +106,6 @@ Rough outlook on planned versions and features.
   - Version dropdown in deployment UI for selecting specific version
   - Upgrade detection shows all available higher versions
   - NO downgrade support (by design)
-- Settings Page for Registry Management
-- Multiple Docker Registries Configurable (Name, URL, Username, Password)
 - GitRepository StackSourceProvider (Load Stacks from Git Repos)
 
 ### v0.16 – Release & TLS Management

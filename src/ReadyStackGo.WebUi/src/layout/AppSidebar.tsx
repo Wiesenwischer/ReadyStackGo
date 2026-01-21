@@ -10,6 +10,7 @@ import {
   ListIcon,
   BoxIcon,
   PulseIcon,
+  SettingsIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { useEnvironment } from "../context/EnvironmentContext";
@@ -58,6 +59,11 @@ const navItems: NavItem[] = [
     icon: <PlugInIcon />,
     name: "Environments",
     path: "/environments",
+  },
+  {
+    icon: <SettingsIcon />,
+    name: "Settings",
+    path: "/settings",
   },
 ];
 
