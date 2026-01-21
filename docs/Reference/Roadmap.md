@@ -99,8 +99,11 @@ Rough outlook on planned versions and features.
   - Version dropdown in deployment UI for selecting specific version
   - Upgrade detection shows all available higher versions
   - NO downgrade support (by design)
-- Settings Page for Registry Management
-- Multiple Docker Registries Configurable (Name, URL, Username, Password)
+- Settings Page with Registry Management UI ✓
+  - CRUD for Docker Registries (Name, URL, Username, Password)
+  - Image Patterns for automatic credential matching (glob-style: `library/*`, `ghcr.io/**`)
+  - Default registry support
+  - Sidebar navigation link
 - GitRepository StackSourceProvider (Load Stacks from Git Repos)
 
 ### v0.16 – Release & TLS Management
