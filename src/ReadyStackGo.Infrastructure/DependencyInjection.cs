@@ -16,6 +16,7 @@ using ReadyStackGo.Infrastructure.Services.Deployment;
 using ReadyStackGo.Infrastructure.Services.Health;
 using ReadyStackGo.Infrastructure.Services.StackSources;
 using ReadyStackGo.Infrastructure.Tls;
+using ReadyStackGo.Infrastructure.LetsEncrypt;
 
 namespace ReadyStackGo.Infrastructure;
 
@@ -34,6 +35,14 @@ public static class DependencyInjection
 
         // TLS services
         services.AddSingleton<ITlsService, TlsService>();
+        services.AddSingleton<ITlsConfigService, TlsConfigService>();
+
+        // Let's Encrypt services
+        services.AddSingleton<IPendingChallengeStore, InMemoryPendingChallengeStore>();
+        services.AddSingleton<ManualDnsProvider>();
+        services.AddSingleton<IDnsProviderFactory, DnsProviderFactory>();
+        services.AddScoped<ILetsEncryptService, LetsEncryptService>();
+        services.AddHttpClient("Cloudflare");
 
         // Configuration services
         services.AddSingleton<IConfigStore, ConfigStore>();
@@ -84,6 +93,11 @@ public static class DependencyInjection
         {
             ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
         });
+
+        // Version Check Service (v0.16)
+        services.AddMemoryCache();
+        services.AddSingleton<IVersionCheckService, VersionCheckService>();
+        services.AddHttpClient("GitHub");
 
         // Domain Services
         services.AddScoped<SystemAdminRegistrationService>();

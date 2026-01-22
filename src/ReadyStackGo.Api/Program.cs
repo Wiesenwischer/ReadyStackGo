@@ -94,6 +94,11 @@ public class Program
         // Deployment Recovery Service - handles stuck deployments on startup (v0.15)
         builder.Services.AddHostedService<DeploymentRecoveryService>();
 
+        // Certificate Renewal Background Service (v0.16)
+        builder.Services.Configure<CertificateRenewalOptions>(
+            builder.Configuration.GetSection(CertificateRenewalOptions.SectionName));
+        builder.Services.AddHostedService<CertificateRenewalBackgroundService>();
+
         // Add CORS for development
         builder.Services.AddCors(options =>
         {

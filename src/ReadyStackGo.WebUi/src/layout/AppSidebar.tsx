@@ -24,7 +24,8 @@ type NavItem = {
   requiresEnvironment?: boolean;
 };
 
-const navItems: NavItem[] = [
+// Operational menu items - require active environment
+const operationalItems: NavItem[] = [
   {
     icon: <GridIcon />,
     name: "Dashboard",
@@ -55,6 +56,10 @@ const navItems: NavItem[] = [
     path: "/catalog",
     requiresEnvironment: true,
   },
+];
+
+// Configuration menu items - don't require active environment
+const configItems: NavItem[] = [
   {
     icon: <PlugInIcon />,
     name: "Environments",
@@ -67,8 +72,6 @@ const navItems: NavItem[] = [
   },
 ];
 
-const othersItems: NavItem[] = [];
-
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const { environments } = useEnvironment();
@@ -76,13 +79,13 @@ const AppSidebar: React.FC = () => {
 
   const hasEnvironments = environments.length > 0;
 
-  // Filter nav items based on whether environments exist
-  const filteredNavItems = useMemo(() => {
-    return navItems.filter(item => !item.requiresEnvironment || hasEnvironments);
+  // Filter operational items based on whether environments exist
+  const filteredOperationalItems = useMemo(() => {
+    return operationalItems.filter(item => !item.requiresEnvironment || hasEnvironments);
   }, [hasEnvironments]);
 
   const [openSubmenu, setOpenSubmenu] = useState<{
-    type: "main" | "others";
+    type: "main" | "config";
     index: number;
   } | null>(null);
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
@@ -97,18 +100,19 @@ const AppSidebar: React.FC = () => {
   );
 
   useEffect(() => {
-    let matchedSubmenu: { type: "main" | "others"; index: number } | null = null;
+    let matchedSubmenu: { type: "main" | "config"; index: number } | null = null;
 
-    ["main", "others"].forEach((menuType) => {
-      const items = menuType === "main" ? navItems : othersItems;
+    const menuGroups: { type: "main" | "config"; items: NavItem[] }[] = [
+      { type: "main", items: operationalItems },
+      { type: "config", items: configItems },
+    ];
+
+    menuGroups.forEach(({ type, items }) => {
       items.forEach((nav, index) => {
         if (nav.subItems) {
           nav.subItems.forEach((subItem) => {
             if (isActive(subItem.path)) {
-              matchedSubmenu = {
-                type: menuType as "main" | "others",
-                index,
-              };
+              matchedSubmenu = { type, index };
             }
           });
         }
@@ -135,7 +139,7 @@ const AppSidebar: React.FC = () => {
     }
   }, [openSubmenu]);
 
-  const handleSubmenuToggle = (index: number, menuType: "main" | "others") => {
+  const handleSubmenuToggle = (index: number, menuType: "main" | "config") => {
     setOpenSubmenu((prevOpenSubmenu) => {
       if (
         prevOpenSubmenu &&
@@ -148,7 +152,7 @@ const AppSidebar: React.FC = () => {
     });
   };
 
-  const renderMenuItems = (items: NavItem[], menuType: "main" | "others") => (
+  const renderMenuItems = (items: NavItem[], menuType: "main" | "config") => (
     <ul className="flex flex-col gap-4">
       {items.map((nav, index) => (
         <li key={nav.name}>
@@ -316,23 +320,46 @@ const AppSidebar: React.FC = () => {
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
         <nav className="mb-6">
           <div className="flex flex-col gap-4">
+            {/* Operational Menu Items */}
+            {filteredOperationalItems.length > 0 && (
+              <div>
+                <h2
+                  className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
+                    !isExpanded && !isHovered
+                      ? "lg:justify-center"
+                      : "justify-start"
+                  }`}
+                >
+                  {isExpanded || isHovered || isMobileOpen ? (
+                    "Menu"
+                  ) : (
+                    <div className="size-6">
+                      <HorizontaLDots />
+                    </div>
+                  )}
+                </h2>
+                {renderMenuItems(filteredOperationalItems, "main")}
+              </div>
+            )}
+
+            {/* Configuration Menu Items */}
             <div>
               <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
+                className={`mb-4 mt-2 text-xs uppercase flex leading-[20px] text-gray-400 ${
                   !isExpanded && !isHovered
                     ? "lg:justify-center"
                     : "justify-start"
                 }`}
               >
                 {isExpanded || isHovered || isMobileOpen ? (
-                  "Menu"
+                  "Configuration"
                 ) : (
                   <div className="size-6">
                     <HorizontaLDots />
                   </div>
                 )}
               </h2>
-              {renderMenuItems(filteredNavItems, "main")}
+              {renderMenuItems(configItems, "config")}
             </div>
           </div>
         </nav>
