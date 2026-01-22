@@ -103,7 +103,7 @@ Rough outlook on planned versions and features.
   - Upgrade detection shows all available higher versions
   - Git Repository Stack Source Provider (Load Stacks from Git Repos)
   - Stack Sources Management UI (Add/Edit/Delete sources, credentials for private repos)
-- **v0.16** – TLS & Certificate Management (2025-01-22)
+- **v0.16** – TLS & Certificate Management + Release Info (2025-01-22)
   - Settings UI refactoring with tab navigation (General, TLS, Registries, Stack Sources)
   - TLS Certificate Management
     - Self-signed certificate (auto-generated on first start)
@@ -120,34 +120,35 @@ Rough outlook on planned versions and features.
     - Re-Encryption mode (proxy terminates and re-encrypts)
     - ForwardedHeaders middleware configuration
     - X-Forwarded-For/Proto/Host header processing
+  - Release Info in Sidebar
+    - Version display (current server version)
+    - Update notification banner (when new version available)
+    - Link to GitHub release notes
+    - Dismissable notification with localStorage persistence
   - Public Website TLS Documentation (DE/EN)
 
 ## Planned
 
-### v0.17 – Release Management
-- Release Management UI (Version info, changelog display)
-- Update notification system
-
-### v0.18 – Metrics & Audit
+### v0.17 – Metrics & Audit
 - Metrics & Alerting
 - Audit Logs
 
-### v0.19 – Docker Volumes Management
+### v0.18 – Docker Volumes Management
 - Docker Volumes View (List All Volumes per Environment)
 - Volume Details (Size, Mount Points, Labels)
 - Create/Delete Volumes
 - Detect Orphaned Volumes
 
-### v0.20 – CI/CD Integration
+### v0.19 – CI/CD Integration
 - Webhooks for External CI/CD Systems
 - API for Automated Deployments
 
-### v0.21 – Multi-User Support
+### v0.20 – Multi-User Support
 - User Management UI
 - Create/Edit Users
 - Password Reset Flow
 
-### v0.22 – Feature Flags
+### v0.21 – Feature Flags
 - Feature Flags UI in Admin
 - Feature Toggle at Organization Level
 - Environment Variables for Feature Flags
