@@ -86,18 +86,14 @@ Rough outlook on planned versions and features.
   - Only available after failed upgrade (not for downgrades)
   - Single snapshot per deployment (previous version only)
   - Product authors can disable via `metadata.rollback.enabled: false`
-
-## Planned
-
-### v0.15 – Multi-Version Catalog, Registry Management & Git Stack Sources
-- Settings Page with Registry Management UI ✅
+- **v0.15** – Multi-Version Catalog, Registry Management & Git Stack Sources (2025-01-12)
+  - Settings Page with Registry Management UI
   - CRUD for Docker Registries (Name, URL, Username, Password)
   - Image Patterns for automatic credential matching (glob-style: `library/*`, `ghcr.io/**`)
   - Default registry support
-  - Sidebar navigation link
   - Database-first credential resolution during deployment
   - 64 integration tests (Endpoints + Repository)
-- Multi-Version Catalog Support
+  - Multi-Version Catalog Support
   - Multiple versions per product in catalog
   - New `metadata.productId` field for grouping versions across sources
   - `ProductDefinition.GroupId` for version grouping (uses productId or falls back to sourceId:name)
@@ -105,33 +101,53 @@ Rough outlook on planned versions and features.
   - Cross-source upgrade support (e.g., local → git repository)
   - Version dropdown in deployment UI for selecting specific version
   - Upgrade detection shows all available higher versions
-  - NO downgrade support (by design)
-- GitRepository StackSourceProvider (Load Stacks from Git Repos)
+  - Git Repository Stack Source Provider (Load Stacks from Git Repos)
+  - Stack Sources Management UI (Add/Edit/Delete sources, credentials for private repos)
+- **v0.16** – TLS & Certificate Management (2025-01-22)
+  - Settings UI refactoring with tab navigation (General, TLS, Registries, Stack Sources)
+  - TLS Certificate Management
+    - Self-signed certificate (auto-generated on first start)
+    - Custom certificate upload (PFX and PEM formats)
+    - Certificate info display (subject, issuer, expiry, thumbprint)
+  - Let's Encrypt Integration
+    - HTTP-01 Challenge (port 80 validation)
+    - DNS-01 Challenge with Manual and Cloudflare provider
+    - Automatic certificate renewal (30 days before expiry)
+    - Staging mode for testing
+  - Reverse Proxy Support
+    - SSL Termination mode (proxy handles HTTPS, backend receives HTTP)
+    - SSL Passthrough mode (proxy forwards encrypted traffic)
+    - Re-Encryption mode (proxy terminates and re-encrypts)
+    - ForwardedHeaders middleware configuration
+    - X-Forwarded-For/Proto/Host header processing
+  - Public Website TLS Documentation (DE/EN)
 
-### v0.16 – Release & TLS Management
-- Release Management UI
-- Custom TLS Certificates
+## Planned
 
-### v0.17 – Metrics & Audit
+### v0.17 – Release Management
+- Release Management UI (Version info, changelog display)
+- Update notification system
+
+### v0.18 – Metrics & Audit
 - Metrics & Alerting
 - Audit Logs
 
-### v0.18 – Docker Volumes Management
+### v0.19 – Docker Volumes Management
 - Docker Volumes View (List All Volumes per Environment)
 - Volume Details (Size, Mount Points, Labels)
 - Create/Delete Volumes
 - Detect Orphaned Volumes
 
-### v0.19 – CI/CD Integration
+### v0.20 – CI/CD Integration
 - Webhooks for External CI/CD Systems
 - API for Automated Deployments
 
-### v0.20 – Multi-User Support
+### v0.21 – Multi-User Support
 - User Management UI
 - Create/Edit Users
 - Password Reset Flow
 
-### v0.21 – Feature Flags
+### v0.22 – Feature Flags
 - Feature Flags UI in Admin
 - Feature Toggle at Organization Level
 - Environment Variables for Feature Flags
