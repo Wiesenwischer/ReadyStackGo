@@ -129,15 +129,15 @@ Rough outlook on planned versions and features.
 
 ## Planned
 
-### v0.17 – Metrics & Audit
-- Metrics & Alerting
-- Audit Logs
-
-### v0.18 – Docker Volumes Management
+### v0.17 – Docker Volumes Management
 - Docker Volumes View (List All Volumes per Environment)
 - Volume Details (Size, Mount Points, Labels)
 - Create/Delete Volumes
 - Detect Orphaned Volumes
+
+### v0.18 – Metrics & Audit
+- Metrics & Alerting
+- Audit Logs
 
 ### v0.19 – CI/CD Integration
 - Webhooks for External CI/CD Systems
