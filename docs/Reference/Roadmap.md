@@ -86,27 +86,28 @@ Rough outlook on planned versions and features.
   - Only available after failed upgrade (not for downgrades)
   - Single snapshot per deployment (previous version only)
   - Product authors can disable via `metadata.rollback.enabled: false`
+- **v0.15** – Multi-Version Catalog, Registry Management & Git Stack Sources (2026-01-22)
+  - Settings Page with Registry Management UI
+    - CRUD for Docker Registries (Name, URL, Username, Password)
+    - Image Patterns for automatic credential matching (glob-style: `library/*`, `ghcr.io/**`)
+    - Default registry support
+    - Sidebar navigation link
+    - Database-first credential resolution during deployment
+    - 64 integration tests (Endpoints + Repository)
+  - Multi-Version Catalog Support
+    - Multiple versions per product in catalog
+    - New `metadata.productId` field for grouping versions across sources
+    - `ProductDefinition.GroupId` for version grouping (uses productId or falls back to sourceId:name)
+    - `IProductCache` extended with version-aware methods (GetProductVersions, GetAvailableUpgrades, etc.)
+    - Cross-source upgrade support (e.g., local → git repository)
+    - Version dropdown in deployment UI for selecting specific version
+    - Upgrade detection shows all available higher versions
+    - NO downgrade support (by design)
+  - GitRepository StackSourceProvider (Load Stacks from Git Repos)
+  - Stack Sources Management UI (CRUD for Local Directory and Git Repository sources)
+  - Git credentials support for private repositories
 
 ## Planned
-
-### v0.15 – Multi-Version Catalog, Registry Management & Git Stack Sources
-- Settings Page with Registry Management UI ✅
-  - CRUD for Docker Registries (Name, URL, Username, Password)
-  - Image Patterns for automatic credential matching (glob-style: `library/*`, `ghcr.io/**`)
-  - Default registry support
-  - Sidebar navigation link
-  - Database-first credential resolution during deployment
-  - 64 integration tests (Endpoints + Repository)
-- Multi-Version Catalog Support
-  - Multiple versions per product in catalog
-  - New `metadata.productId` field for grouping versions across sources
-  - `ProductDefinition.GroupId` for version grouping (uses productId or falls back to sourceId:name)
-  - `IProductCache` extended with version-aware methods (GetProductVersions, GetAvailableUpgrades, etc.)
-  - Cross-source upgrade support (e.g., local → git repository)
-  - Version dropdown in deployment UI for selecting specific version
-  - Upgrade detection shows all available higher versions
-  - NO downgrade support (by design)
-- GitRepository StackSourceProvider (Load Stacks from Git Repos)
 
 ### v0.16 – Release & TLS Management
 - Release Management UI
