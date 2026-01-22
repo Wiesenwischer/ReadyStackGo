@@ -59,6 +59,8 @@ export const translations = {
 		'features.health.desc': 'Echtzeit-Überwachung aller Container und Services mit automatischen Statusaktualisierungen.',
 		'features.maintenance.title': 'Wartungsmodus',
 		'features.maintenance.desc': 'Kontrollierte Wartungsfenster mit automatischem Container-Lifecycle-Management.',
+		'features.tls.title': 'TLS & Zertifikate',
+		'features.tls.desc': 'Flexibles HTTPS-Management mit eigenen Zertifikaten, Let\'s Encrypt und Reverse Proxy-Unterstützung.',
 
 		// Feature Pages
 		'featurepage.multistack.subtitle': 'Definiere komplexe Anwendungen mit mehreren Docker Stacks und gemeinsamen Variablen in einem einzigen Manifest.',
@@ -66,6 +68,7 @@ export const translations = {
 		'featurepage.manifest.subtitle': 'Ein flexibles, typisiertes Format für Stack-Definitionen mit Validierung, Metadaten und Docker Compose Kompatibilität.',
 		'featurepage.health.subtitle': 'Überwache den Zustand deiner Container und Services in Echtzeit mit automatischen Benachrichtigungen.',
 		'featurepage.maintenance.subtitle': 'Verwalte Wartungsfenster mit automatischem Stoppen und Starten von Containern.',
+		'featurepage.tls.subtitle': 'Verwalte HTTPS-Zertifikate flexibel - von selbstsignierten über eigene Zertifikate bis hin zu Let\'s Encrypt mit automatischer Erneuerung.',
 
 		// Installation
 		'install.title': 'In Sekunden einsatzbereit',
@@ -145,6 +148,8 @@ export const translations = {
 		'features.health.desc': 'Real-time monitoring of all containers and services with automatic status updates.',
 		'features.maintenance.title': 'Maintenance Mode',
 		'features.maintenance.desc': 'Controlled maintenance windows with automatic container lifecycle management.',
+		'features.tls.title': 'TLS & Certificates',
+		'features.tls.desc': 'Flexible HTTPS management with custom certificates, Let\'s Encrypt and reverse proxy support.',
 
 		// Feature Pages
 		'featurepage.multistack.subtitle': 'Define complex applications with multiple Docker Stacks and shared variables in a single manifest.',
@@ -152,6 +157,7 @@ export const translations = {
 		'featurepage.manifest.subtitle': 'A flexible, typed format for stack definitions with validation, metadata and Docker Compose compatibility.',
 		'featurepage.health.subtitle': 'Monitor the health of your containers and services in real-time with automatic notifications.',
 		'featurepage.maintenance.subtitle': 'Manage maintenance windows with automatic container stop and start.',
+		'featurepage.tls.subtitle': 'Manage HTTPS certificates flexibly - from self-signed through custom certificates to Let\'s Encrypt with automatic renewal.',
 
 		// Installation
 		'install.title': 'Ready in Seconds',

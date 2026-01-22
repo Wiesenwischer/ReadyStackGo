@@ -1,7 +1,9 @@
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using FastEndpoints;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using ReadyStackGo.Api.BackgroundServices;
 using ReadyStackGo.Api.Hubs;
@@ -122,13 +124,24 @@ public class Program
         // Initialize wizard timeout (timer starts at container startup, not browser access)
         await InitializeWizardTimeoutAsync(app);
 
+        // Configure reverse proxy / forwarded headers if enabled
+        var reverseProxyConfig = await ConfigureReverseProxyAsync(app);
+
         // Configure the HTTP request pipeline
         if (app.Environment.IsDevelopment())
         {
             app.UseCors("DevCorsPolicy");
         }
 
-        app.UseHttpsRedirection();
+        // Only use HTTPS redirect if not in a mode where proxy handles SSL
+        // - Skip for SSL Termination (proxy handles all SSL)
+        // - Skip for Re-Encryption (proxy handles client SSL, backend handles its own)
+        // - Keep for SSL Passthrough (backend handles TLS directly)
+        // - Keep when not behind a proxy
+        if (!reverseProxyConfig.SkipHttpsRedirect)
+        {
+            app.UseHttpsRedirection();
+        }
 
         // Log web root path for debugging
         var logger = app.Services.GetRequiredService<ILogger<Program>>();
@@ -227,5 +240,122 @@ public class Program
         {
             logger.LogError(ex, "Failed to bootstrap TLS certificate. The application will continue but HTTPS may not work properly.");
         }
+    }
+
+    /// <summary>
+    /// Configure reverse proxy / forwarded headers middleware if enabled in TLS config
+    /// </summary>
+    /// <returns>Configuration result indicating whether HTTPS redirect should be skipped</returns>
+    private static async Task<ReverseProxyConfigResult> ConfigureReverseProxyAsync(WebApplication app)
+    {
+        using var scope = app.Services.CreateScope();
+        var configStore = scope.ServiceProvider.GetRequiredService<ReadyStackGo.Infrastructure.Configuration.IConfigStore>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+        try
+        {
+            var tlsConfig = await configStore.GetTlsConfigAsync();
+            var proxyConfig = tlsConfig.ReverseProxy;
+
+            if (proxyConfig == null || !proxyConfig.Enabled)
+            {
+                logger.LogDebug("Reverse proxy mode is disabled");
+                return new ReverseProxyConfigResult { Enabled = false, SkipHttpsRedirect = false };
+            }
+
+            logger.LogInformation("Reverse proxy mode is enabled. SSL Mode: {SslMode}", proxyConfig.SslMode);
+
+            // For SSL Passthrough, the proxy forwards encrypted traffic directly to backend
+            // We don't process forwarded headers (traffic is encrypted) but we still need HTTPS
+            if (proxyConfig.SslMode == Infrastructure.Configuration.ReverseProxySslMode.Passthrough)
+            {
+                logger.LogInformation("SSL Passthrough mode: Backend handles TLS directly. No forwarded headers processing.");
+
+                // Configure path base if set (still useful for routing)
+                if (!string.IsNullOrEmpty(proxyConfig.PathBase))
+                {
+                    app.UsePathBase(proxyConfig.PathBase);
+                    logger.LogInformation("Using path base: {PathBase}", proxyConfig.PathBase);
+                }
+
+                return new ReverseProxyConfigResult { Enabled = true, SkipHttpsRedirect = false };
+            }
+
+            // For Termination and ReEncryption modes, process forwarded headers
+            // - Termination: Proxy terminates SSL, sends HTTP to backend
+            // - ReEncryption: Proxy terminates SSL, then re-encrypts to backend
+
+            // Build forwarded headers options
+            var forwardedHeadersOptions = new ForwardedHeadersOptions();
+
+            // Configure which headers to trust
+            if (proxyConfig.TrustForwardedFor)
+                forwardedHeadersOptions.ForwardedHeaders |= ForwardedHeaders.XForwardedFor;
+            if (proxyConfig.TrustForwardedProto)
+                forwardedHeadersOptions.ForwardedHeaders |= ForwardedHeaders.XForwardedProto;
+            if (proxyConfig.TrustForwardedHost)
+                forwardedHeadersOptions.ForwardedHeaders |= ForwardedHeaders.XForwardedHost;
+
+            // Configure forward limit
+            if (proxyConfig.ForwardLimit.HasValue)
+            {
+                forwardedHeadersOptions.ForwardLimit = proxyConfig.ForwardLimit.Value;
+            }
+
+            // Configure known proxies
+            if (proxyConfig.KnownProxies.Count > 0)
+            {
+                foreach (var proxy in proxyConfig.KnownProxies)
+                {
+                    if (IPAddress.TryParse(proxy, out var ipAddress))
+                    {
+                        forwardedHeadersOptions.KnownProxies.Add(ipAddress);
+                        logger.LogDebug("Added known proxy: {Proxy}", proxy);
+                    }
+                    else
+                    {
+                        // Could be a CIDR notation - add to known networks
+                        logger.LogWarning("Proxy address '{Proxy}' is not a valid IP address. CIDR notation not yet supported.", proxy);
+                    }
+                }
+            }
+            else
+            {
+                // Clear known proxies and networks to trust all proxies
+                // This is less secure but simpler for Docker networks
+                forwardedHeadersOptions.KnownProxies.Clear();
+                forwardedHeadersOptions.KnownNetworks.Clear();
+                logger.LogWarning("No known proxies configured. Trusting all forwarded headers. This is less secure.");
+            }
+
+            // Apply forwarded headers middleware
+            app.UseForwardedHeaders(forwardedHeadersOptions);
+
+            // Configure path base if set
+            if (!string.IsNullOrEmpty(proxyConfig.PathBase))
+            {
+                app.UsePathBase(proxyConfig.PathBase);
+                logger.LogInformation("Using path base: {PathBase}", proxyConfig.PathBase);
+            }
+
+            logger.LogInformation("Reverse proxy configuration applied. Forwarded headers: {Headers}",
+                forwardedHeadersOptions.ForwardedHeaders);
+
+            // Skip HTTPS redirect for both Termination and ReEncryption modes
+            // - Termination: Proxy already handles SSL, backend receives HTTP
+            // - ReEncryption: Proxy handles client SSL, creates new HTTPS connection (no redirect needed)
+            return new ReverseProxyConfigResult { Enabled = true, SkipHttpsRedirect = true };
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to configure reverse proxy. Continuing without forwarded headers support.");
+            return new ReverseProxyConfigResult { Enabled = false, SkipHttpsRedirect = false };
+        }
+    }
+
+    private record ReverseProxyConfigResult
+    {
+        public bool Enabled { get; init; }
+        public bool SkipHttpsRedirect { get; init; }
     }
 }

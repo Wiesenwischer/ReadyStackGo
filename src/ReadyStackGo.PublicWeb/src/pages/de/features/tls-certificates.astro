@@ -1,0 +1,118 @@
+---
+import LandingLayout from '../../../layouts/LandingLayout.astro';
+import Header from '../../../components/Header.astro';
+import FeaturePage from '../../../components/FeaturePage.astro';
+import Footer from '../../../components/Footer.astro';
+
+const lang = 'de';
+const icon = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>`;
+---
+
+<LandingLayout title="TLS & Zertifikate - ReadyStackGo">
+	<Header lang={lang} />
+	<main class="flex-1">
+		<FeaturePage
+			lang={lang}
+			titleKey="features.tls.title"
+			subtitleKey="featurepage.tls.subtitle"
+			icon={icon}
+		>
+			<h2>Flexible Zertifikatsverwaltung</h2>
+			<p>
+				ReadyStackGo bietet umfassende TLS/HTTPS-Unterstützung mit verschiedenen Zertifikatsoptionen.
+				Ob selbstsigniert für Entwicklung, eigene Zertifikate für interne Nutzung oder Let's Encrypt
+				für Produktionsumgebungen - du hast die volle Kontrolle.
+			</p>
+
+			<h2>Zertifikatsoptionen</h2>
+			<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 my-6">
+				<div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+					<h4 class="font-semibold text-blue-800 dark:text-blue-300 mb-2">Selbstsigniert</h4>
+					<p class="text-blue-700 dark:text-blue-400 text-sm">Automatisch generiert beim ersten Start. Ideal für lokale Entwicklung und Tests.</p>
+				</div>
+				<div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+					<h4 class="font-semibold text-green-800 dark:text-green-300 mb-2">Eigene Zertifikate</h4>
+					<p class="text-green-700 dark:text-green-400 text-sm">Lade PFX- oder PEM-Zertifikate hoch. Perfekt für Firmen-CAs oder gekaufte Zertifikate.</p>
+				</div>
+				<div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+					<h4 class="font-semibold text-purple-800 dark:text-purple-300 mb-2">Let's Encrypt</h4>
+					<p class="text-purple-700 dark:text-purple-400 text-sm">Automatische, kostenlose Zertifikate mit HTTP-01 oder DNS-01 Challenge.</p>
+				</div>
+			</div>
+
+			<h2>Let's Encrypt Integration</h2>
+			<p>
+				ReadyStackGo unterstützt automatische Zertifikatsausstellung über Let's Encrypt mit zwei Challenge-Typen:
+			</p>
+			<ul>
+				<li><strong>HTTP-01:</strong> Einfachste Methode. ReadyStackGo muss auf Port 80 erreichbar sein.</li>
+				<li><strong>DNS-01:</strong> Für Wildcard-Zertifikate oder wenn Port 80 nicht zugänglich ist.</li>
+			</ul>
+			<div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4 my-6">
+				<h4 class="font-semibold text-brand-800 dark:text-brand-300 mb-2">DNS-01 Provider:</h4>
+				<ul class="text-brand-700 dark:text-brand-400 space-y-1">
+					<li><strong>Manuell:</strong> TXT-Records werden in der UI angezeigt</li>
+					<li><strong>Cloudflare:</strong> Automatische DNS-Einträge via API</li>
+				</ul>
+			</div>
+
+			<h2>Reverse Proxy-Unterstützung</h2>
+			<p>
+				Betreibst du ReadyStackGo hinter einem Reverse Proxy wie nginx, Traefik oder HAProxy?
+				Kein Problem! Der Reverse Proxy-Modus bietet drei SSL-Handling-Optionen:
+			</p>
+			<div class="grid md:grid-cols-3 gap-4 my-6">
+				<div class="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+					<h4 class="font-semibold text-gray-800 dark:text-gray-300 mb-2">SSL Termination</h4>
+					<p class="text-gray-700 dark:text-gray-400 text-sm">Der Proxy terminiert SSL. ReadyStackGo empfängt HTTP. Kein Zertifikat nötig.</p>
+				</div>
+				<div class="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+					<h4 class="font-semibold text-gray-800 dark:text-gray-300 mb-2">SSL Passthrough</h4>
+					<p class="text-gray-700 dark:text-gray-400 text-sm">Der Proxy leitet verschlüsselten Traffic direkt weiter. ReadyStackGo braucht ein Zertifikat.</p>
+				</div>
+				<div class="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+					<h4 class="font-semibold text-gray-800 dark:text-gray-300 mb-2">Re-Encryption</h4>
+					<p class="text-gray-700 dark:text-gray-400 text-sm">Der Proxy terminiert und verschlüsselt neu. Beide Seiten brauchen Zertifikate.</p>
+				</div>
+			</div>
+
+			<h2>Automatische Erneuerung</h2>
+			<p>
+				Let's Encrypt-Zertifikate werden automatisch erneuert:
+			</p>
+			<ul>
+				<li>Hintergrund-Service prüft alle 12 Stunden</li>
+				<li>Erneuerung 30 Tage vor Ablauf</li>
+				<li>Status und letzte Erneuerung in der UI sichtbar</li>
+				<li>Fehler werden geloggt und angezeigt</li>
+			</ul>
+
+			<h2>Forwarded Headers</h2>
+			<p>
+				Im Reverse Proxy-Modus werden automatisch X-Forwarded-* Header verarbeitet:
+			</p>
+			<ul>
+				<li><strong>X-Forwarded-For:</strong> Echte Client-IP erkennen</li>
+				<li><strong>X-Forwarded-Proto:</strong> HTTPS-Erkennung für korrekte Redirects</li>
+				<li><strong>X-Forwarded-Host:</strong> Original-Hostname für URL-Generierung</li>
+			</ul>
+
+			<h2>Vorteile</h2>
+			<ul>
+				<li><strong>Flexibilität:</strong> Passende Lösung für jedes Szenario</li>
+				<li><strong>Automatisierung:</strong> Let's Encrypt mit Auto-Renewal</li>
+				<li><strong>Proxy-Ready:</strong> Nahtlose Integration mit Edge-Proxies</li>
+				<li><strong>UI-Verwaltung:</strong> Alles über die Settings-Seite konfigurierbar</li>
+			</ul>
+
+			<div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mt-6">
+				<h4 class="font-semibold text-blue-800 dark:text-blue-300 mb-2">Dokumentation</h4>
+				<p class="text-blue-700 dark:text-blue-400">
+					Eine ausführliche Anleitung mit Schritt-für-Schritt-Anleitungen für alle Konfigurationsoptionen
+					findest du in der <a href="/de/docs/tls-configuration/" class="underline hover:no-underline">TLS-Dokumentation</a>.
+				</p>
+			</div>
+		</FeaturePage>
+	</main>
+	<Footer lang={lang} />
+</LandingLayout>

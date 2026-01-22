@@ -34,6 +34,26 @@ public interface ITlsConfigService
     /// Resets to self-signed certificate.
     /// </summary>
     Task<TlsUpdateResult> ResetToSelfSignedAsync();
+
+    /// <summary>
+    /// Updates reverse proxy configuration.
+    /// </summary>
+    Task<TlsUpdateResult> UpdateReverseProxyAsync(ReverseProxyUpdate update);
+}
+
+/// <summary>
+/// Reverse proxy update request
+/// </summary>
+public record ReverseProxyUpdate
+{
+    public bool? Enabled { get; init; }
+    public string? SslMode { get; init; }
+    public bool? TrustForwardedFor { get; init; }
+    public bool? TrustForwardedProto { get; init; }
+    public bool? TrustForwardedHost { get; init; }
+    public List<string>? KnownProxies { get; init; }
+    public int? ForwardLimit { get; init; }
+    public string? PathBase { get; init; }
 }
 
 public record TlsConfigInfo
@@ -42,6 +62,19 @@ public record TlsConfigInfo
     public CertificateInfo? CertificateInfo { get; init; }
     public bool HttpEnabled { get; init; }
     public bool RequiresRestart { get; init; }
+    public ReverseProxyInfo? ReverseProxy { get; init; }
+}
+
+public record ReverseProxyInfo
+{
+    public bool Enabled { get; init; }
+    public string SslMode { get; init; } = "Termination";
+    public bool TrustForwardedFor { get; init; }
+    public bool TrustForwardedProto { get; init; }
+    public bool TrustForwardedHost { get; init; }
+    public List<string> KnownProxies { get; init; } = new();
+    public int? ForwardLimit { get; init; }
+    public string? PathBase { get; init; }
 }
 
 public record CertificateInfo

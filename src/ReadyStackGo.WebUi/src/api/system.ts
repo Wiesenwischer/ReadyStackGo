@@ -24,10 +24,35 @@ export interface CertificateInfo {
   isExpiringSoon: boolean;
 }
 
+export type ReverseProxySslMode = 'Termination' | 'Passthrough' | 'ReEncryption';
+
+export interface ReverseProxyConfig {
+  enabled: boolean;
+  sslMode: ReverseProxySslMode;
+  trustForwardedFor: boolean;
+  trustForwardedProto: boolean;
+  trustForwardedHost: boolean;
+  knownProxies: string[];
+  forwardLimit?: number;
+  pathBase?: string;
+}
+
 export interface TlsConfig {
   mode: string;
   certificateInfo?: CertificateInfo;
   httpEnabled: boolean;
+  reverseProxy?: ReverseProxyConfig;
+}
+
+export interface ReverseProxyUpdate {
+  enabled?: boolean;
+  sslMode?: ReverseProxySslMode;
+  trustForwardedFor?: boolean;
+  trustForwardedProto?: boolean;
+  trustForwardedHost?: boolean;
+  knownProxies?: string[];
+  forwardLimit?: number;
+  pathBase?: string;
 }
 
 export interface UpdateTlsConfigRequest {
@@ -37,6 +62,7 @@ export interface UpdateTlsConfigRequest {
   privateKeyPem?: string;
   httpEnabled?: boolean;
   resetToSelfSigned?: boolean;
+  reverseProxy?: ReverseProxyUpdate;
 }
 
 export interface UpdateTlsConfigResponse {

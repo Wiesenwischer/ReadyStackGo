@@ -95,6 +95,33 @@ public class UpdateTlsConfigHandler : IRequestHandler<UpdateTlsConfigCommand, Up
                 };
             }
 
+            // Handle reverse proxy configuration
+            if (request.ReverseProxy != null)
+            {
+                _logger.LogInformation("Updating reverse proxy configuration");
+
+                var proxyUpdate = new Services.ReverseProxyUpdate
+                {
+                    Enabled = request.ReverseProxy.Enabled,
+                    SslMode = request.ReverseProxy.SslMode,
+                    TrustForwardedFor = request.ReverseProxy.TrustForwardedFor,
+                    TrustForwardedProto = request.ReverseProxy.TrustForwardedProto,
+                    TrustForwardedHost = request.ReverseProxy.TrustForwardedHost,
+                    KnownProxies = request.ReverseProxy.KnownProxies,
+                    ForwardLimit = request.ReverseProxy.ForwardLimit,
+                    PathBase = request.ReverseProxy.PathBase
+                };
+
+                var result = await _tlsConfigService.UpdateReverseProxyAsync(proxyUpdate);
+
+                return new UpdateTlsConfigResponse
+                {
+                    Success = result.Success,
+                    Message = result.Message,
+                    RequiresRestart = result.RequiresRestart
+                };
+            }
+
             return new UpdateTlsConfigResponse
             {
                 Success = false,

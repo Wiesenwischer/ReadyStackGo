@@ -33,4 +33,55 @@ public record UpdateTlsConfigCommand : IRequest<UpdateTlsConfigResponse>
     /// Reset to self-signed certificate.
     /// </summary>
     public bool ResetToSelfSigned { get; init; }
+
+    /// <summary>
+    /// Reverse proxy configuration updates.
+    /// </summary>
+    public ReverseProxyUpdate? ReverseProxy { get; init; }
+}
+
+/// <summary>
+/// Reverse proxy configuration update (for running behind nginx, Traefik, etc.)
+/// </summary>
+public record ReverseProxyUpdate
+{
+    /// <summary>
+    /// Enable or disable reverse proxy mode.
+    /// </summary>
+    public bool? Enabled { get; init; }
+
+    /// <summary>
+    /// SSL handling mode: Termination, Passthrough, or ReEncryption.
+    /// </summary>
+    public string? SslMode { get; init; }
+
+    /// <summary>
+    /// Trust the X-Forwarded-For header.
+    /// </summary>
+    public bool? TrustForwardedFor { get; init; }
+
+    /// <summary>
+    /// Trust the X-Forwarded-Proto header.
+    /// </summary>
+    public bool? TrustForwardedProto { get; init; }
+
+    /// <summary>
+    /// Trust the X-Forwarded-Host header.
+    /// </summary>
+    public bool? TrustForwardedHost { get; init; }
+
+    /// <summary>
+    /// List of known proxy IP addresses.
+    /// </summary>
+    public List<string>? KnownProxies { get; init; }
+
+    /// <summary>
+    /// Number of proxies in front of the application.
+    /// </summary>
+    public int? ForwardLimit { get; init; }
+
+    /// <summary>
+    /// Base path if the app is hosted at a subpath.
+    /// </summary>
+    public string? PathBase { get; init; }
 }

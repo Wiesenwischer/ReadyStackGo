@@ -31,6 +31,19 @@ public class GetTlsConfigHandler : IRequestHandler<GetTlsConfigQuery, GetTlsConf
                     IsExpired = config.CertificateInfo.IsExpired,
                     IsExpiringSoon = config.CertificateInfo.IsExpiringSoon
                 }
+                : null,
+            ReverseProxy = config.ReverseProxy != null
+                ? new ReverseProxyDto
+                {
+                    Enabled = config.ReverseProxy.Enabled,
+                    SslMode = config.ReverseProxy.SslMode,
+                    TrustForwardedFor = config.ReverseProxy.TrustForwardedFor,
+                    TrustForwardedProto = config.ReverseProxy.TrustForwardedProto,
+                    TrustForwardedHost = config.ReverseProxy.TrustForwardedHost,
+                    KnownProxies = config.ReverseProxy.KnownProxies,
+                    ForwardLimit = config.ReverseProxy.ForwardLimit,
+                    PathBase = config.ReverseProxy.PathBase
+                }
                 : null
         };
     }

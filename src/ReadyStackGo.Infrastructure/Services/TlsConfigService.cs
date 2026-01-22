@@ -33,12 +33,29 @@ public class TlsConfigService : ITlsConfigService
         var config = await _configStore.GetTlsConfigAsync();
         var certInfo = await GetCertificateInfoAsync();
 
+        ReverseProxyInfo? reverseProxyInfo = null;
+        if (config.ReverseProxy != null)
+        {
+            reverseProxyInfo = new ReverseProxyInfo
+            {
+                Enabled = config.ReverseProxy.Enabled,
+                SslMode = config.ReverseProxy.SslMode.ToString(),
+                TrustForwardedFor = config.ReverseProxy.TrustForwardedFor,
+                TrustForwardedProto = config.ReverseProxy.TrustForwardedProto,
+                TrustForwardedHost = config.ReverseProxy.TrustForwardedHost,
+                KnownProxies = config.ReverseProxy.KnownProxies,
+                ForwardLimit = config.ReverseProxy.ForwardLimit,
+                PathBase = config.ReverseProxy.PathBase
+            };
+        }
+
         return new TlsConfigInfo
         {
             Mode = config.TlsMode.ToString(),
             HttpEnabled = config.HttpEnabled,
             CertificateInfo = certInfo,
-            RequiresRestart = false
+            RequiresRestart = false,
+            ReverseProxy = reverseProxyInfo
         };
     }
 
@@ -261,6 +278,49 @@ public class TlsConfigService : ITlsConfigService
         {
             _logger.LogError(ex, "Failed to reset to self-signed certificate");
             return TlsUpdateResult.Error($"Failed to reset: {ex.Message}");
+        }
+    }
+
+    public async Task<TlsUpdateResult> UpdateReverseProxyAsync(Application.Services.ReverseProxyUpdate update)
+    {
+        try
+        {
+            var config = await _configStore.GetTlsConfigAsync();
+
+            // Initialize reverse proxy config if not exists
+            config.ReverseProxy ??= new ReverseProxyConfig();
+
+            // Apply updates (only update fields that are provided)
+            if (update.Enabled.HasValue)
+                config.ReverseProxy.Enabled = update.Enabled.Value;
+            if (!string.IsNullOrEmpty(update.SslMode) && Enum.TryParse<Configuration.ReverseProxySslMode>(update.SslMode, true, out var sslMode))
+                config.ReverseProxy.SslMode = sslMode;
+            if (update.TrustForwardedFor.HasValue)
+                config.ReverseProxy.TrustForwardedFor = update.TrustForwardedFor.Value;
+            if (update.TrustForwardedProto.HasValue)
+                config.ReverseProxy.TrustForwardedProto = update.TrustForwardedProto.Value;
+            if (update.TrustForwardedHost.HasValue)
+                config.ReverseProxy.TrustForwardedHost = update.TrustForwardedHost.Value;
+            if (update.KnownProxies != null)
+                config.ReverseProxy.KnownProxies = update.KnownProxies;
+            if (update.ForwardLimit.HasValue)
+                config.ReverseProxy.ForwardLimit = update.ForwardLimit.Value;
+            if (update.PathBase != null)
+                config.ReverseProxy.PathBase = string.IsNullOrWhiteSpace(update.PathBase) ? null : update.PathBase;
+
+            await _configStore.SaveTlsConfigAsync(config);
+
+            var message = config.ReverseProxy.Enabled
+                ? "Reverse proxy mode enabled. Application restart required to apply changes."
+                : "Reverse proxy configuration updated. Application restart required to apply changes.";
+
+            _logger.LogInformation("Reverse proxy configuration updated: Enabled={Enabled}", config.ReverseProxy.Enabled);
+            return TlsUpdateResult.Ok(message, requiresRestart: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update reverse proxy configuration");
+            return TlsUpdateResult.Error($"Failed to update: {ex.Message}");
         }
     }
 
