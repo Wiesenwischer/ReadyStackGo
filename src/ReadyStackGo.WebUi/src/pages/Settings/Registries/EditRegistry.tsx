@@ -7,6 +7,14 @@ import {
   type UpdateRegistryRequest,
 } from "../../../api/registries";
 
+const KNOWN_REGISTRIES = [
+  { label: "Docker Hub", url: "https://index.docker.io/v1/" },
+  { label: "GitHub Container Registry", url: "https://ghcr.io" },
+  { label: "GitLab Container Registry", url: "https://registry.gitlab.com" },
+  { label: "Quay.io", url: "https://quay.io" },
+  { label: "Custom", url: "" },
+];
+
 export default function EditRegistry() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -22,6 +30,15 @@ export default function EditRegistry() {
   });
   const [patternsInput, setPatternsInput] = useState("");
   const [clearCredentials, setClearCredentials] = useState(false);
+  const [selectedRegistry, setSelectedRegistry] = useState<string>("custom");
+
+  const handleRegistryChange = (value: string) => {
+    setSelectedRegistry(value);
+    const registry = KNOWN_REGISTRIES.find((r) => r.url === value);
+    if (registry && registry.url !== "") {
+      setFormData({ ...formData, url: registry.url, name: registry.label });
+    }
+  };
 
   useEffect(() => {
     const loadRegistry = async () => {
@@ -156,6 +173,27 @@ export default function EditRegistry() {
           )}
 
           <div className="space-y-6 max-w-2xl">
+            {/* Registry Selection */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Quick Select Registry
+              </label>
+              <select
+                value={selectedRegistry}
+                onChange={(e) => handleRegistryChange(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:text-white"
+              >
+                {KNOWN_REGISTRIES.map((registry) => (
+                  <option key={registry.url || "custom"} value={registry.url}>
+                    {registry.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Quick fill from known registries or keep your custom configuration
+              </p>
+            </div>
+
             {/* Basic Info */}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -169,6 +207,9 @@ export default function EditRegistry() {
                 required
                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:text-white"
               />
+              <p className="mt-1 text-xs text-gray-500">
+                Custom name for this registry
+              </p>
             </div>
 
             <div>
@@ -183,6 +224,9 @@ export default function EditRegistry() {
                 required
                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm font-mono focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:text-white"
               />
+              <p className="mt-1 text-xs text-gray-500">
+                Registry URL (can be adjusted if needed)
+              </p>
             </div>
 
             {/* Credentials */}

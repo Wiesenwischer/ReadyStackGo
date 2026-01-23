@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   getRegistries,
-  deleteRegistry,
   setDefaultRegistry,
   type RegistryDto,
 } from "../../../api/registries";
@@ -41,26 +40,6 @@ export default function RegistriesList() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to set default registry");
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete the registry "${name}"?`)) {
-      return;
-    }
-
-    try {
-      setActionLoading(id);
-      const response = await deleteRegistry(id);
-      if (response.success) {
-        await loadRegistries();
-      } else {
-        setError(response.message || "Failed to delete registry");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete registry");
     } finally {
       setActionLoading(null);
     }
@@ -214,13 +193,12 @@ export default function RegistriesList() {
                         {actionLoading === registry.id ? "..." : "Set Default"}
                       </button>
                     )}
-                    <button
-                      onClick={() => handleDelete(registry.id, registry.name)}
-                      disabled={actionLoading === registry.id}
-                      className="inline-flex items-center justify-center rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    <Link
+                      to={`/settings/registries/${registry.id}/delete`}
+                      className="inline-flex items-center justify-center rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
                     >
-                      {actionLoading === registry.id ? "..." : "Delete"}
-                    </button>
+                      Delete
+                    </Link>
                   </div>
                 </div>
               </div>

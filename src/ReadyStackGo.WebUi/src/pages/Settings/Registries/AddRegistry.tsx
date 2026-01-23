@@ -2,17 +2,36 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createRegistry, type CreateRegistryRequest } from "../../../api/registries";
 
+const KNOWN_REGISTRIES = [
+  { label: "Docker Hub", url: "https://index.docker.io/v1/" },
+  { label: "GitHub Container Registry", url: "https://ghcr.io" },
+  { label: "GitLab Container Registry", url: "https://registry.gitlab.com" },
+  { label: "Quay.io", url: "https://quay.io" },
+  { label: "Custom", url: "" },
+];
+
 export default function AddRegistry() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    name: "",
-    url: "",
+    name: "Docker Hub",
+    url: "https://index.docker.io/v1/",
     username: "",
     password: "",
   });
   const [patternsInput, setPatternsInput] = useState("");
+  const [selectedRegistry, setSelectedRegistry] = useState<string>("https://index.docker.io/v1/");
+
+  const handleRegistryChange = (value: string) => {
+    setSelectedRegistry(value);
+    const registry = KNOWN_REGISTRIES.find((r) => r.url === value);
+    if (registry && registry.url !== "") {
+      setFormData({ ...formData, url: registry.url, name: registry.label });
+    } else {
+      setFormData({ ...formData, url: "", name: "" });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,6 +108,27 @@ export default function AddRegistry() {
           )}
 
           <div className="space-y-6 max-w-2xl">
+            {/* Registry Selection */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Registry Type <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={selectedRegistry}
+                onChange={(e) => handleRegistryChange(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:text-white"
+              >
+                {KNOWN_REGISTRIES.map((registry) => (
+                  <option key={registry.url || "custom"} value={registry.url}>
+                    {registry.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Select a known registry or choose Custom to enter your own URL
+              </p>
+            </div>
+
             {/* Basic Info */}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -102,6 +142,9 @@ export default function AddRegistry() {
                 required
                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:text-white"
               />
+              <p className="mt-1 text-xs text-gray-500">
+                Custom name for this registry (can be changed even for known registries)
+              </p>
             </div>
 
             <div>
@@ -117,7 +160,7 @@ export default function AddRegistry() {
                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm font-mono focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:text-white"
               />
               <p className="mt-1 text-xs text-gray-500">
-                Examples: https://index.docker.io/v1/, https://ghcr.io
+                Registry URL (can be adjusted if needed)
               </p>
             </div>
 
