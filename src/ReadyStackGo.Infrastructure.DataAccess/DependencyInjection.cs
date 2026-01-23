@@ -34,6 +34,7 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IEnvironmentRepository, EnvironmentRepository>();
+        services.AddScoped<IEnvironmentVariableRepository, EnvironmentVariableRepository>();
         services.AddScoped<IDeploymentRepository, DeploymentRepository>();
         services.AddScoped<IHealthSnapshotRepository, HealthSnapshotRepository>();
         services.AddScoped<IRegistryRepository, RegistryRepository>();
