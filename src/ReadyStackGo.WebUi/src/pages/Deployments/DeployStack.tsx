@@ -5,6 +5,7 @@ import { useEnvironment } from '../../context/EnvironmentContext';
 import { type StackDetail, getStack, getProduct, type Product, type ProductVersion } from '../../api/stacks';
 import VariableInput, { groupVariables } from '../../components/variables/VariableInput';
 import { useDeploymentHub, type DeploymentProgressUpdate } from '../../hooks/useDeploymentHub';
+import { getEnvironmentVariables, saveEnvironmentVariables } from '../../api/environments';
 
 // Format phase names for display (PullingImages -> Pulling Images)
 const formatPhase = (phase: string | undefined): string => {
@@ -124,6 +125,22 @@ export default function DeployStack() {
         detail.variables.forEach(v => {
           initialValues[v.name] = v.defaultValue || '';
         });
+
+        // Load saved environment variables and merge with defaults
+        if (activeEnvironment) {
+          try {
+            const savedVars = await getEnvironmentVariables(activeEnvironment.id);
+            // Merge saved values with defaults (saved values take precedence)
+            Object.keys(savedVars.variables).forEach(key => {
+              if (initialValues.hasOwnProperty(key)) {
+                initialValues[key] = savedVars.variables[key];
+              }
+            });
+          } catch {
+            // If loading fails, just use defaults
+          }
+        }
+
         setVariableValues(initialValues);
 
         setState('configure');
@@ -191,6 +208,18 @@ export default function DeployStack() {
     if (envFileInputRef.current) {
       envFileInputRef.current.value = '';
     }
+  };
+
+  // Handle reset to defaults
+  const handleResetToDefaults = () => {
+    if (!stack) return;
+
+    // Reset all variables to their default values
+    const defaultValues: Record<string, string> = {};
+    stack.variables.forEach(v => {
+      defaultValues[v.name] = v.defaultValue || '';
+    });
+    setVariableValues(defaultValues);
   };
 
   const handleDeploy = async () => {
@@ -269,6 +298,18 @@ export default function DeployStack() {
       }
 
       setDeployWarnings(response.warnings || []);
+
+      // Save variable values for this environment (fire and forget)
+      if (activeEnvironment) {
+        try {
+          await saveEnvironmentVariables(activeEnvironment.id, {
+            variables: variableValues
+          });
+        } catch {
+          // Ignore save errors - deployment was successful
+        }
+      }
+
       // State will be set to 'success' by SignalR callback when deployment completes
       // But if no SignalR connection, set it immediately
       if (connectionState !== 'connected') {
@@ -626,6 +667,17 @@ services:
                   </svg>
                   Import .env
                 </label>
+
+                {/* Reset to Defaults Button */}
+                <button
+                  onClick={handleResetToDefaults}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-gray-100 px-6 py-3 text-center font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 mb-3"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Reset to Defaults
+                </button>
               </>
             )}
 
