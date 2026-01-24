@@ -1,0 +1,70 @@
+# E2E Test Stack - Variable Types
+# Test stack with diverse variable types for persistence testing
+
+metadata:
+  name: Variable Types Test Stack
+  productId: e2e-test-types
+  description: Test stack for variable type persistence testing
+  productVersion: "1.0.0"
+  category: Testing
+  tags:
+    - e2e
+    - testing
+    - types
+
+variables:
+  ENABLE_FEATURE:
+    label: Enable Feature
+    description: Toggle feature on/off
+    type: Boolean
+    default: "false"
+    group: General
+    order: 1
+
+  MAX_CONNECTIONS:
+    label: Max Connections
+    description: Maximum number of connections
+    type: Number
+    default: "50"
+    group: General
+    order: 2
+
+  LOG_LEVEL:
+    label: Log Level
+    description: Application log level
+    type: Select
+    default: "info"
+    options:
+      - value: "debug"
+        label: "Debug"
+      - value: "info"
+        label: "Info"
+      - value: "warn"
+        label: "Warning"
+      - value: "error"
+        label: "Error"
+    group: General
+    order: 3
+
+  DESCRIPTION:
+    label: Description
+    description: Multi-line description
+    type: MultiLine
+    default: "Default description"
+    group: General
+    order: 4
+
+services:
+  test-app:
+    image: nginx:alpine
+    environment:
+      ENABLE_FEATURE: ${ENABLE_FEATURE}
+      MAX_CONNECTIONS: ${MAX_CONNECTIONS}
+      LOG_LEVEL: ${LOG_LEVEL}
+      DESCRIPTION: ${DESCRIPTION}
+    healthCheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      startPeriod: 10s

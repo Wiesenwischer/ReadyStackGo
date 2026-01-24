@@ -71,3 +71,28 @@ export async function deleteEnvironment(id: string): Promise<DeleteEnvironmentRe
 export async function setDefaultEnvironment(id: string): Promise<SetDefaultEnvironmentResponse> {
   return apiPost<SetDefaultEnvironmentResponse>(`/api/environments/${id}/default`, {});
 }
+
+// Environment Variables
+export interface GetEnvironmentVariablesResponse {
+  variables: Record<string, string>;
+}
+
+export interface SaveEnvironmentVariablesRequest {
+  variables: Record<string, string>;
+}
+
+export interface SaveEnvironmentVariablesResponse {
+  success: boolean;
+  message?: string;
+}
+
+export async function getEnvironmentVariables(environmentId: string): Promise<GetEnvironmentVariablesResponse> {
+  return apiGet<GetEnvironmentVariablesResponse>(`/api/environments/${environmentId}/variables`);
+}
+
+export async function saveEnvironmentVariables(
+  environmentId: string,
+  request: SaveEnvironmentVariablesRequest
+): Promise<SaveEnvironmentVariablesResponse> {
+  return apiPost<SaveEnvironmentVariablesResponse>(`/api/environments/${environmentId}/variables`, request);
+}

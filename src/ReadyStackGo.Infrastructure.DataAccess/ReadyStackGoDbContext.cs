@@ -24,6 +24,7 @@ public class ReadyStackGoDbContext : DbContext
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Environment> Environments => Set<Environment>();
+    public DbSet<EnvironmentVariable> EnvironmentVariables => Set<EnvironmentVariable>();
     public DbSet<Deployment> Deployments => Set<Deployment>();
     public DbSet<HealthSnapshot> HealthSnapshots => Set<HealthSnapshot>();
     public DbSet<Registry> Registries => Set<Registry>();
