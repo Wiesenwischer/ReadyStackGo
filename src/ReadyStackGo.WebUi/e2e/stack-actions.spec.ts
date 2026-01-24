@@ -10,12 +10,12 @@ test.describe('Stack Actions', () => {
     // Login first
     await page.goto('/login');
     await page.fill('input[type="text"]', 'admin');
-    await page.fill('input[type="password"]', 'admin');
+    await page.fill('input[type="password"]', 'Admin1234');
     await page.click('button[type="submit"]');
     await page.waitForURL(/\/(dashboard)?$/, { timeout: 10000 });
 
     // Navigate to stacks page
-    await page.goto('/stacks');
+    await page.goto('/deployments');
     await page.waitForTimeout(2000);
   });
 
@@ -176,12 +176,12 @@ test.describe('Deployed Stacks', () => {
     // Login first
     await page.goto('/login');
     await page.fill('input[type="text"]', 'admin');
-    await page.fill('input[type="password"]', 'admin');
+    await page.fill('input[type="password"]', 'Admin1234');
     await page.click('button[type="submit"]');
     await page.waitForURL(/\/(dashboard)?$/, { timeout: 10000 });
 
     // Navigate to stacks page
-    await page.goto('/stacks');
+    await page.goto('/deployments');
     await page.waitForTimeout(2000);
   });
 

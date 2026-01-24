@@ -4,7 +4,7 @@ import { Page } from '@playwright/test';
  * Helper function to log in a user via the UI
  * This simulates real user behavior and sets up authentication
  */
-export async function login(page: Page, username: string = 'admin', password: string = 'admin') {
+export async function login(page: Page, username: string = 'admin', password: string = 'Admin1234') {
   // Navigate to login page
   await page.goto('/login');
 

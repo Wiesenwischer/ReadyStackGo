@@ -32,7 +32,7 @@ test.describe('Authentication', () => {
 
     // Fill in credentials
     await page.fill('input[type="text"]', 'admin');
-    await page.fill('input[type="password"]', 'admin');
+    await page.fill('input[type="password"]', 'Admin1234');
 
     // Submit form
     await page.click('button[type="submit"]');
@@ -88,7 +88,7 @@ test.describe('Authentication', () => {
     // First login
     await page.goto('/login');
     await page.fill('input[type="text"]', 'admin');
-    await page.fill('input[type="password"]', 'admin');
+    await page.fill('input[type="password"]', 'Admin1234');
     await page.click('button[type="submit"]');
     await page.waitForURL(/\/(dashboard)?$/);
 
@@ -155,7 +155,7 @@ test.describe('Authentication', () => {
 
     // Fill and submit
     await page.fill('input[type="text"]', 'admin');
-    await page.fill('input[type="password"]', 'admin');
+    await page.fill('input[type="password"]', 'Admin1234');
     await page.click('button[type="submit"]');
 
     // Wait a bit for API call

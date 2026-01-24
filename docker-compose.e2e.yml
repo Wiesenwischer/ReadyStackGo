@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  readystackgo-e2e:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: readystackgo-e2e
+    ports:
+      - "5259:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConfigPath=/app/config
+      - DataPath=/app/data
+    volumes:
+      # Copy entrypoint script into container
+      - ./e2e-entrypoint.sh:/app/e2e-entrypoint.sh:ro
+      # Use tmpfs for data to start fresh each time
+      - e2e-data:/app/data
+      # Mount test stacks for E2E testing
+      - ./src/ReadyStackGo.WebUi/e2e/test-data/stacks:/app/test-stacks:ro
+      # Mount Docker socket for actual deployments in E2E tests
+      - /var/run/docker.sock:/var/run/docker.sock
+    entrypoint: ["/bin/sh", "/app/e2e-entrypoint.sh"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  e2e-data:
+    driver: local

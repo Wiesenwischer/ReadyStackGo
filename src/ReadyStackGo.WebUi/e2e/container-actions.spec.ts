@@ -104,7 +104,7 @@ test.describe('Container Actions', () => {
     // First login to get auth token
     await page.goto('/login');
     await page.fill('input[type="text"]', 'admin');
-    await page.fill('input[type="password"]', 'admin');
+    await page.fill('input[type="password"]', 'Admin1234');
     await page.click('button[type="submit"]');
     await page.waitForURL(/\/(dashboard)?$/, { timeout: 10000 });
 
@@ -221,7 +221,7 @@ test.describe('Container Actions', () => {
     // First login
     await page.goto('/login');
     await page.fill('input[type="text"]', 'admin');
-    await page.fill('input[type="password"]', 'admin');
+    await page.fill('input[type="password"]', 'Admin1234');
     await page.click('button[type="submit"]');
     await page.waitForURL(/\/(dashboard)?$/, { timeout: 10000 });
 
