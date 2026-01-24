@@ -43,7 +43,7 @@ test.describe.serial('Environment Variable Persistence', () => {
         });
         console.log(`✓ Cleaned up ${networkIds.length} leftover network(s) from previous runs`);
       }
-    } catch (error) {
+    } catch {
       // Ignore errors
     }
   });
@@ -84,7 +84,7 @@ test.describe.serial('Environment Variable Persistence', () => {
         });
         console.log(`✓ Cleaned up ${networkIds.length} test network(s)`);
       }
-    } catch (error) {
+    } catch {
       // Ignore errors - resources might not exist
     }
   });

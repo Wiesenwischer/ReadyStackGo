@@ -132,7 +132,7 @@ export default function DeployStack() {
             const savedVars = await getEnvironmentVariables(activeEnvironment.id);
             // Merge saved values with defaults (saved values take precedence)
             Object.keys(savedVars.variables).forEach(key => {
-              if (initialValues.hasOwnProperty(key)) {
+              if (Object.prototype.hasOwnProperty.call(initialValues, key)) {
                 initialValues[key] = savedVars.variables[key];
               }
             });
