@@ -22,6 +22,7 @@ import {
   RegistriesList,
   AddRegistry,
   EditRegistry,
+  DeleteRegistry,
   TlsOverview,
   TlsConfigSelect,
   ConfigureLetsEncrypt,
@@ -170,6 +171,7 @@ export default function App() {
                 <Route path="/settings/registries" element={<RegistriesList />} />
                 <Route path="/settings/registries/add" element={<AddRegistry />} />
                 <Route path="/settings/registries/:id/edit" element={<EditRegistry />} />
+                <Route path="/settings/registries/:id/delete" element={<DeleteRegistry />} />
                 <Route path="/settings/tls" element={<TlsOverview />} />
                 <Route path="/settings/tls/configure" element={<TlsConfigSelect />} />
                 <Route path="/settings/tls/letsencrypt" element={<ConfigureLetsEncrypt />} />
