@@ -124,6 +124,149 @@ services:
 
             // Verify TotalServices count
             product.TotalServices.Should().Be(3, "product should have 3 total services (2 from projectmanagement + 1 from memo)");
+
+            // Additional debugging: Print actual service counts per stack
+            foreach (var stack in product.Stacks)
+            {
+                Console.WriteLine($"Stack: {stack.Name}, Services: {stack.Services.Count}");
+                foreach (var service in stack.Services)
+                {
+                    Console.WriteLine($"  - {service.Name}: {service.Image}");
+                }
+            }
+        }
+        finally
+        {
+            // Cleanup
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task LoadProductsAsync_RealBusinessServicesManifest_LoadsAllServices()
+    {
+        // Arrange - Use the actual Business Services manifest structure
+        var tempDir = Path.Combine(Path.GetTempPath(), $"rsgo-test-real-{Guid.NewGuid()}");
+        Directory.CreateDirectory(tempDir);
+        var contextsDir = Path.Combine(tempDir, "Contexts");
+        Directory.CreateDirectory(contextsDir);
+
+        try
+        {
+            // Create the exact structure from the real Business Services manifest
+            var mainManifest = @"
+metadata:
+  name: Business Services
+  productId: business-services
+  description: Business Services - all bounded context services
+  productVersion: '3.1.0-pre'
+  category: Business
+
+sharedVariables:
+  REDIS_CONNECTION:
+    label: Redis Connection
+    type: String
+    default: cachedata:6379
+
+stacks:
+  projectmanagement:
+    include: Contexts/projectmanagement.yaml
+  memo:
+    include: Contexts/memo.yaml
+";
+            await File.WriteAllTextAsync(Path.Combine(tempDir, "business-services.yaml"), mainManifest);
+
+            // Create the projectmanagement fragment
+            var projectManagementFragment = @"
+metadata:
+  name: ProjectManagement
+  description: Project Management bounded context
+
+services:
+  project-api:
+    image: amssolution/project-api:latest
+    containerName: project-api
+    ports:
+      - '7700:8080'
+    environment:
+      REDIS_CONNECTION: ${REDIS_CONNECTION}
+
+  project-web:
+    image: amssolution/project-web:latest
+    containerName: project-web
+    ports:
+      - '7701:3000'
+";
+            await File.WriteAllTextAsync(Path.Combine(contextsDir, "projectmanagement.yaml"), projectManagementFragment);
+
+            // Create the memo fragment
+            var memoFragment = @"
+metadata:
+  name: Memo
+  description: Memo bounded context
+
+services:
+  memo-api:
+    image: amssolution/memo-api:latest
+    containerName: memo-api
+    ports:
+      - '7702:8080'
+    environment:
+      REDIS_CONNECTION: ${REDIS_CONNECTION}
+";
+            await File.WriteAllTextAsync(Path.Combine(contextsDir, "memo.yaml"), memoFragment);
+
+            // Create StackSource
+            var source = StackSource.CreateLocalDirectory(
+                id: StackSourceId.Create("test-source"),
+                name: "Test Source",
+                path: tempDir
+            );
+
+            // Act
+            var products = await _provider.LoadProductsAsync(source);
+            var productsList = products.ToList();
+
+            // Assert - Product level
+            productsList.Should().HaveCount(1);
+            var product = productsList[0];
+            product.Name.Should().Be("Business Services");
+            product.IsMultiStack.Should().BeTrue();
+            product.Stacks.Should().HaveCount(2);
+
+            // CRITICAL ASSERTION: Verify TotalServices is NOT 0
+            product.TotalServices.Should().BeGreaterThan(0, "TotalServices should not be 0 - includes should be resolved");
+            product.TotalServices.Should().Be(3, "Should have 3 total services");
+
+            // Debug output
+            Console.WriteLine($"\n=== DEBUGGING OUTPUT ===");
+            Console.WriteLine($"Product: {product.Name}");
+            Console.WriteLine($"IsMultiStack: {product.IsMultiStack}");
+            Console.WriteLine($"Stack Count: {product.Stacks.Count}");
+            Console.WriteLine($"TotalServices: {product.TotalServices}");
+            Console.WriteLine($"\nStacks:");
+
+            foreach (var stack in product.Stacks)
+            {
+                Console.WriteLine($"\n  Stack: {stack.Name}");
+                Console.WriteLine($"  Services.Count: {stack.Services.Count}");
+                foreach (var service in stack.Services)
+                {
+                    Console.WriteLine($"    - {service.Name}: {service.Image}");
+                }
+            }
+
+            // Verify each stack individually
+            var pmStack = product.Stacks.FirstOrDefault(s => s.Name == "ProjectManagement");
+            pmStack.Should().NotBeNull();
+            pmStack!.Services.Should().HaveCount(2, "ProjectManagement stack should have 2 services");
+
+            var memoStack = product.Stacks.FirstOrDefault(s => s.Name == "Memo");
+            memoStack.Should().NotBeNull();
+            memoStack!.Services.Should().HaveCount(1, "Memo stack should have 1 service");
         }
         finally
         {
