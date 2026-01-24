@@ -851,6 +851,194 @@ stacks:
 
     #endregion
 
+    #region Include Resolution Integration Tests
+
+    [Fact]
+    public async Task ParseFromFileAsync_MultiStackWithIncludes_ResolvesServicesFromIncludeFiles()
+    {
+        // Arrange - Create temporary test files
+        var tempDir = Path.Combine(Path.GetTempPath(), $"rsgo-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            // Create the main manifest file with includes
+            var mainManifest = @"
+metadata:
+  name: Business Services
+  productId: business-services
+  description: Business Services - all bounded context services
+  productVersion: '3.1.0-pre'
+  category: Business
+
+sharedVariables:
+  REDIS_CONNECTION:
+    label: Redis Connection
+    type: String
+    default: cachedata:6379
+
+stacks:
+  projectmanagement:
+    include: projectmanagement.yaml
+  memo:
+    include: memo.yaml
+";
+            var mainFilePath = Path.Combine(tempDir, "business-services.yaml");
+            await File.WriteAllTextAsync(mainFilePath, mainManifest);
+
+            // Create first include file (projectmanagement.yaml)
+            var projectManagementFragment = @"
+metadata:
+  name: ProjectManagement
+  description: Project Management bounded context
+
+services:
+  project-api:
+    image: amssolution/project-api:latest
+    containerName: project-api
+    ports:
+      - '7700:8080'
+    environment:
+      REDIS_CONNECTION: ${REDIS_CONNECTION}
+
+  project-web:
+    image: amssolution/project-web:latest
+    containerName: project-web
+    ports:
+      - '7701:3000'
+";
+            await File.WriteAllTextAsync(Path.Combine(tempDir, "projectmanagement.yaml"), projectManagementFragment);
+
+            // Create second include file (memo.yaml)
+            var memoFragment = @"
+metadata:
+  name: Memo
+  description: Memo bounded context
+
+services:
+  memo-api:
+    image: amssolution/memo-api:latest
+    containerName: memo-api
+    ports:
+      - '7702:8080'
+    environment:
+      REDIS_CONNECTION: ${REDIS_CONNECTION}
+";
+            await File.WriteAllTextAsync(Path.Combine(tempDir, "memo.yaml"), memoFragment);
+
+            // Act
+            var result = await _parser.ParseFromFileAsync(mainFilePath);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.IsMultiStack.Should().BeTrue();
+            result.IsProduct.Should().BeTrue();
+            result.Stacks.Should().HaveCount(2);
+
+            // Verify that includes were resolved and services were loaded
+            var projectManagementStack = result.Stacks!["projectmanagement"];
+            projectManagementStack.Should().NotBeNull();
+            projectManagementStack.Services.Should().NotBeNull("Include should be resolved and services loaded");
+            projectManagementStack.Services.Should().HaveCount(2, "projectmanagement.yaml defines 2 services");
+            projectManagementStack.Services.Should().ContainKey("project-api");
+            projectManagementStack.Services.Should().ContainKey("project-web");
+            projectManagementStack.Services!["project-api"].Image.Should().Be("amssolution/project-api:latest");
+
+            var memoStack = result.Stacks["memo"];
+            memoStack.Should().NotBeNull();
+            memoStack.Services.Should().NotBeNull("Include should be resolved and services loaded");
+            memoStack.Services.Should().HaveCount(1, "memo.yaml defines 1 service");
+            memoStack.Services.Should().ContainKey("memo-api");
+            memoStack.Services!["memo-api"].Image.Should().Be("amssolution/memo-api:latest");
+
+            // Verify metadata from include files
+            projectManagementStack.Metadata.Should().NotBeNull();
+            projectManagementStack.Metadata!.Name.Should().Be("ProjectManagement");
+            projectManagementStack.Metadata.Description.Should().Be("Project Management bounded context");
+        }
+        finally
+        {
+            // Cleanup
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ParseFromFileAsync_MultiStackWithNestedIncludes_ResolvesServicesFromSubdirectory()
+    {
+        // Arrange - Create temporary test files with subdirectory
+        var tempDir = Path.Combine(Path.GetTempPath(), $"rsgo-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(tempDir);
+        var contextsDir = Path.Combine(tempDir, "Contexts");
+        Directory.CreateDirectory(contextsDir);
+
+        try
+        {
+            // Create the main manifest file with includes in subdirectory
+            var mainManifest = @"
+metadata:
+  name: Business Services
+  productVersion: '3.1.0-pre'
+
+sharedVariables:
+  EVENTSTORE_DB:
+    type: EventStoreConnectionString
+    default: 'esdb://admin:changeit@eventstore-db:2113?tls=false'
+
+stacks:
+  analytics:
+    include: Contexts/analytics.yaml
+";
+            var mainFilePath = Path.Combine(tempDir, "business-services.yaml");
+            await File.WriteAllTextAsync(mainFilePath, mainManifest);
+
+            // Create include file in subdirectory
+            var analyticsFragment = @"
+metadata:
+  name: Analytics
+  description: Analytics bounded context services
+
+services:
+  analytics-web:
+    image: amssolution/analytics-web:linux-v3.1.0-pre
+    containerName: analytics-web
+    environment:
+      NODE_ENV: ${NODE_ENV}
+    restart: unless-stopped
+";
+            await File.WriteAllTextAsync(Path.Combine(contextsDir, "analytics.yaml"), analyticsFragment);
+
+            // Act
+            var result = await _parser.ParseFromFileAsync(mainFilePath);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.IsMultiStack.Should().BeTrue();
+            result.Stacks.Should().HaveCount(1);
+
+            var analyticsStack = result.Stacks!["analytics"];
+            analyticsStack.Should().NotBeNull();
+            analyticsStack.Services.Should().NotBeNull("Include from subdirectory should be resolved");
+            analyticsStack.Services.Should().HaveCount(1);
+            analyticsStack.Services.Should().ContainKey("analytics-web");
+            analyticsStack.Services!["analytics-web"].Image.Should().Be("amssolution/analytics-web:linux-v3.1.0-pre");
+            analyticsStack.Services["analytics-web"].Restart.Should().Be("unless-stopped");
+        }
+        finally
+        {
+            // Cleanup
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+    }
+
+    #endregion
+
     #region Maintenance Observer Tests
 
     [Fact]
