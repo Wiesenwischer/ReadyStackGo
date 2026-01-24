@@ -1,0 +1,45 @@
+# E2E Test Stack B - RSGo Manifest Format
+# Second test stack for product isolation testing
+
+metadata:
+  name: E2E Test Stack B
+  productId: e2e-test-stack-b
+  description: Second test stack for isolation testing
+  productVersion: "1.0.0"
+  category: Testing
+  tags:
+    - e2e
+    - testing
+    - isolation
+
+variables:
+  APP_NAME:
+    label: Application Name
+    description: Name of the application
+    type: String
+    default: stack-b-default
+    group: General
+    order: 1
+
+  APP_PORT:
+    label: Application Port
+    description: Port for the application
+    type: Port
+    default: "9000"
+    group: Network
+    order: 2
+
+services:
+  test-app-b:
+    image: nginx:alpine
+    ports:
+      - "${APP_PORT}:80"
+    environment:
+      APP_NAME: ${APP_NAME}
+      APP_PORT: ${APP_PORT}
+    healthCheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      startPeriod: 10s
