@@ -423,3 +423,9 @@ rsgo.*.json
 
 # Private stack manifests (not for public repo)
 stacks/ams.project/
+
+# E2E test isolated directories
+**/e2e/test-config/
+**/e2e/test-data/
+# But allow test stack manifests
+!**/e2e/test-data/stacks/

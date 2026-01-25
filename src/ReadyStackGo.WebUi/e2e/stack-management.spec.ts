@@ -10,17 +10,17 @@ test.describe('Stack Management', () => {
     // Login first
     await page.goto('/login');
     await page.fill('input[type="text"]', 'admin');
-    await page.fill('input[type="password"]', 'admin');
+    await page.fill('input[type="password"]', 'Admin1234');
     await page.click('button[type="submit"]');
     await page.waitForURL(/\/(dashboard)?$/, { timeout: 10000 });
 
     // Navigate to stacks page
-    await page.goto('/stacks');
+    await page.goto('/deployments');
   });
 
   test('should display stacks page with correct title', async ({ page }) => {
     // Title check
-    await expect(page.locator('h1')).toContainText('Stack Management');
+    await expect(page.locator('h1')).toContainText('Deployments');
 
     // Should have Sync Sources button
     await expect(page.getByRole('button', { name: /sync sources/i })).toBeVisible();
@@ -65,7 +65,7 @@ test.describe('Stack Management', () => {
 
   test('should show loading state initially', async ({ page }) => {
     // Navigate to fresh page
-    await page.goto('/stacks');
+    await page.goto('/deployments');
 
     // Should briefly show loading message or stacks
     const loadingMessage = page.getByText(/loading/i);
@@ -90,7 +90,7 @@ test.describe('Stack Management', () => {
 
     // Should be on stacks page
     await expect(page).toHaveURL(/.*stacks/);
-    await expect(page.locator('h1')).toContainText('Stack Management');
+    await expect(page.locator('h1')).toContainText('Deployments');
   });
 
   test('should open Deploy Custom modal when clicking button', async ({ page }) => {

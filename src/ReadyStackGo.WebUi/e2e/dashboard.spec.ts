@@ -93,7 +93,7 @@ test.describe('Dashboard Stats - Authenticated User', () => {
 
   test('should update stats after stack deployment', async ({ page }) => {
     // Navigate to stacks page first
-    await page.goto('/stacks');
+    await page.goto('/deployments');
     await page.waitForTimeout(2000);
 
     // Ensure stack is not deployed
@@ -112,7 +112,7 @@ test.describe('Dashboard Stats - Authenticated User', () => {
     const initialDeployed = parseInt(initialDeployedText || '0');
 
     // Deploy a stack
-    await page.goto('/stacks');
+    await page.goto('/deployments');
     await page.waitForTimeout(1000);
     const deployButton = page.getByRole('button', { name: /^deploy$/i }).first();
     await deployButton.click();
@@ -129,7 +129,7 @@ test.describe('Dashboard Stats - Authenticated User', () => {
     expect(updatedDeployed).toBeGreaterThan(initialDeployed);
 
     // Cleanup - remove the stack
-    await page.goto('/stacks');
+    await page.goto('/deployments');
     await page.waitForTimeout(1000);
     const removeBtn = page.getByRole('button', { name: /^remove$/i }).first();
     if (await removeBtn.isVisible().catch(() => false)) {

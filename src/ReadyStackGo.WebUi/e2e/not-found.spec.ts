@@ -11,7 +11,7 @@ test.describe('404 Not Found Page', () => {
     await page.goto('/login');
     await page.evaluate(() => localStorage.clear());
     await page.fill('input[type="text"]', 'admin');
-    await page.fill('input[type="password"]', 'admin');
+    await page.fill('input[type="password"]', 'Admin1234');
     await page.click('button[type="submit"]');
     await page.waitForURL(/\/(dashboard)?$/, { timeout: 5000 });
   });

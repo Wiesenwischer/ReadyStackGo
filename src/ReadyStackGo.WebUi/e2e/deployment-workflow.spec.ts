@@ -10,12 +10,12 @@ test.describe('Deployment Workflow', () => {
   test.beforeEach(async ({ page }) => {
     // Login before each test
     await login(page);
-    await page.goto('/stacks');
+    await page.goto('/deployments');
   });
 
   test('should display stacks page with Deploy Stack button', async ({ page }) => {
     // Title check
-    await expect(page.locator('h1')).toContainText('Stack Management');
+    await expect(page.locator('h1')).toContainText('Deployments');
 
     // Should have Deploy Stack button
     await expect(page.getByRole('button', { name: /deploy stack/i })).toBeVisible();
@@ -222,7 +222,7 @@ services:
     await page.waitForTimeout(1000);
 
     // Should still be on stacks page
-    await expect(page.locator('h1')).toContainText('Stack Management');
+    await expect(page.locator('h1')).toContainText('Deployments');
   });
 
   test('should handle parse error for invalid YAML', async ({ page }) => {
@@ -254,7 +254,7 @@ services:
 
     // Should be on stacks page
     await expect(page).toHaveURL(/.*stacks/);
-    await expect(page.locator('h1')).toContainText('Stack Management');
+    await expect(page.locator('h1')).toContainText('Deployments');
   });
 
   test('should display error message when API is unavailable', async ({ page }) => {
@@ -263,7 +263,7 @@ services:
       route.abort();
     });
 
-    await page.goto('/stacks');
+    await page.goto('/deployments');
     await page.waitForTimeout(1000);
 
     // Should show error message or no deployments message
@@ -282,7 +282,7 @@ test.describe('Deployment Actions', () => {
   test.beforeEach(async ({ page }) => {
     // Login before each test
     await login(page);
-    await page.goto('/stacks');
+    await page.goto('/deployments');
     // Wait for page to load
     await page.waitForTimeout(2000);
   });
@@ -342,7 +342,7 @@ test.describe('Deploy Stack Modal Flow', () => {
   test.beforeEach(async ({ page }) => {
     // Login before each test
     await login(page);
-    await page.goto('/stacks');
+    await page.goto('/deployments');
     await page.waitForTimeout(1000);
   });
 
