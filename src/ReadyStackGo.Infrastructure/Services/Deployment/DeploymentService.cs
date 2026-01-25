@@ -1048,7 +1048,8 @@ public class DeploymentService : IDeploymentService
                 Version = ExtractImageVersion(resolvedImage),
                 ContainerName = resolvedContainerName,
                 Order = order++,
-                DependsOn = service.DependsOn.ToList()
+                DependsOn = service.DependsOn.ToList(),
+                Lifecycle = service.Lifecycle
             };
 
             // Map ports - resolve ${VAR} placeholders in port mappings

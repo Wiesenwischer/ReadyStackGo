@@ -344,6 +344,9 @@ public class DeploymentEngine : IDeploymentEngine
                             initStep.ContextName);
 
                         _logger.LogInformation("Init container {ContextName} completed successfully", initStep.ContextName);
+
+                        // TODO: Remove this delay after testing - added to make init phase more visible in UI
+                        await Task.Delay(2000, cancellationToken);
                     }
                     catch (Exception ex)
                     {
