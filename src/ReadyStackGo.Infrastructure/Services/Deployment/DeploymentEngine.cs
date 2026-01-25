@@ -727,6 +727,75 @@ public class DeploymentEngine : IDeploymentEngine
         };
     }
 
+    /// <summary>
+    /// Starts an init container and waits for it to complete successfully (exit code 0).
+    /// Init containers are run-once containers like database migrators that must complete before regular services start.
+    /// </summary>
+    private async Task<DeployedContainerInfo> StartInitContainerAndWaitAsync(
+        string environmentId,
+        DeploymentStep step,
+        string defaultNetwork,
+        string stackName,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Starting init container {ContextName}...", step.ContextName);
+
+        // Start the init container (uses restart: on-failure)
+        var containerInfo = await StartContainerAsync(environmentId, step, defaultNetwork, stackName);
+
+        // Wait for the container to complete
+        _logger.LogInformation("Waiting for init container {ContextName} to complete...", step.ContextName);
+
+        var maxWaitSeconds = 300; // 5 minutes timeout for init containers
+        var pollIntervalMs = 500; // Check every 500ms
+        var elapsed = 0;
+
+        while (elapsed < maxWaitSeconds * 1000)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var container = await _dockerService.GetContainerByNameAsync(environmentId, step.ContainerName);
+            if (container == null)
+            {
+                throw new InvalidOperationException($"Init container {step.ContainerName} disappeared during execution");
+            }
+
+            // Check if container has exited
+            if (container.Status.StartsWith("exited", StringComparison.OrdinalIgnoreCase))
+            {
+                // Container has stopped - check exit code
+                var exitCode = await _dockerService.GetContainerExitCodeAsync(environmentId, container.Id);
+
+                if (exitCode == 0)
+                {
+                    _logger.LogInformation("Init container {ContextName} completed successfully (exit code 0)", step.ContextName);
+                    containerInfo.Status = "completed";
+                    return containerInfo;
+                }
+                else
+                {
+                    // Init container failed - get logs for diagnosis
+                    var logs = await _dockerService.GetContainerLogsAsync(environmentId, container.Id, tail: 50);
+                    _logger.LogError("Init container {ContextName} failed with exit code {ExitCode}", step.ContextName, exitCode);
+
+                    throw new InvalidOperationException(
+                        $"Init container '{step.ContextName}' failed with exit code {exitCode}. " +
+                        $"Last 50 log lines:\n{logs}");
+                }
+            }
+
+            // Container still running - wait and check again
+            await Task.Delay(pollIntervalMs, cancellationToken);
+            elapsed += pollIntervalMs;
+        }
+
+        // Timeout reached
+        var timeoutLogs = await _dockerService.GetContainerLogsAsync(environmentId, containerInfo.ContainerId, tail: 50);
+        throw new TimeoutException(
+            $"Init container '{step.ContextName}' did not complete within {maxWaitSeconds} seconds. " +
+            $"Last 50 log lines:\n{timeoutLogs}");
+    }
+
     private async Task UpdateReleaseConfigAsync(DeploymentPlan plan)
     {
         var releaseConfig = new ReleaseConfig
