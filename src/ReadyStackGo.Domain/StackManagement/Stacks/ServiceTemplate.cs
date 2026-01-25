@@ -58,6 +58,12 @@ public record ServiceTemplate
     public string? RestartPolicy { get; init; }
 
     /// <summary>
+    /// Service lifecycle type (Service or Init).
+    /// Init containers run once before regular services start.
+    /// </summary>
+    public Manifests.ServiceLifecycle Lifecycle { get; init; } = Manifests.ServiceLifecycle.Service;
+
+    /// <summary>
     /// Command to run in the container.
     /// </summary>
     public string? Command { get; init; }

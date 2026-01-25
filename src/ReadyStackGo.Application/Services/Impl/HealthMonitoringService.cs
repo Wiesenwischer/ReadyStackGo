@@ -344,6 +344,7 @@ public class HealthMonitoringService : IHealthMonitoringService
 
     /// <summary>
     /// Determines the health status based on Docker container state and health check.
+    /// Init containers (lifecycle=init) in "exited" state are considered healthy if they exited successfully (exit code 0).
     /// </summary>
     private static HealthStatus DetermineHealthStatusFromDocker(ContainerDto container)
     {
@@ -359,7 +360,25 @@ public class HealthMonitoringService : IHealthMonitoringService
             };
         }
 
-        // Fall back to container state
+        // Special handling for init containers (run-once containers like database migrators)
+        var isInitContainer = container.Labels.TryGetValue("rsgo.lifecycle", out var lifecycle) &&
+                              lifecycle.Equals("init", StringComparison.OrdinalIgnoreCase);
+
+        if (isInitContainer && container.State.Equals("exited", StringComparison.OrdinalIgnoreCase))
+        {
+            // Init containers are expected to exit after completion
+            // Check the exit code from the Status field (e.g., "Exited (0) 5 minutes ago")
+            if (container.Status.Contains("Exited (0)", StringComparison.OrdinalIgnoreCase))
+            {
+                return HealthStatus.Healthy; // Successful completion
+            }
+            else
+            {
+                return HealthStatus.Unhealthy; // Failed with non-zero exit code
+            }
+        }
+
+        // Fall back to container state for regular services
         return container.State.ToLowerInvariant() switch
         {
             "running" => HealthStatus.Healthy,

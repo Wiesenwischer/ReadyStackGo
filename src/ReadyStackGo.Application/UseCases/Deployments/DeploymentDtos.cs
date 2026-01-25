@@ -1,3 +1,5 @@
+using ReadyStackGo.Domain.StackManagement.Manifests;
+
 namespace ReadyStackGo.Application.UseCases.Deployments;
 
 // ============================================================================
@@ -51,6 +53,12 @@ public class DeploymentStep
     /// These are the resolved network names (already prefixed with stack name if not external).
     /// </summary>
     public List<string> Networks { get; set; } = new();
+
+    /// <summary>
+    /// Service lifecycle type (Service or Init).
+    /// Init containers run once before regular services and only restart on failure.
+    /// </summary>
+    public ServiceLifecycle Lifecycle { get; set; } = ServiceLifecycle.Service;
 }
 
 /// <summary>

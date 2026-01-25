@@ -485,7 +485,8 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
             Entrypoint = service.Entrypoint,
             WorkingDir = service.WorkingDir,
             User = service.User,
-            HealthCheck = service.HealthCheck != null ? ConvertToServiceHealthCheck(service.HealthCheck) : null
+            HealthCheck = service.HealthCheck != null ? ConvertToServiceHealthCheck(service.HealthCheck) : null,
+            Lifecycle = service.Lifecycle
         };
     }
 

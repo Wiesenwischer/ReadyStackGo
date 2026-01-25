@@ -628,12 +628,12 @@ public class DeploymentEngineTests
         pullingUpdates.Should().NotBeEmpty();
         startingUpdates.Should().NotBeEmpty();
 
-        // Pulling phase should be in 5-90% range (based on phase weights - pulling is slow)
-        pullingUpdates.Should().OnlyContain(p => p.Percent >= 5 && p.Percent <= 90,
-            "PullingImages phase maps to overall 5-90%");
-        // Starting phase should be in 90-100% range (based on phase weights - starting is fast)
-        startingUpdates.Should().OnlyContain(p => p.Percent >= 90 && p.Percent <= 100,
-            "StartingServices phase maps to overall 90-100%");
+        // Pulling phase should be in 5-70% range (based on phase weights - pulling is slow)
+        pullingUpdates.Should().OnlyContain(p => p.Percent >= 5 && p.Percent <= 70,
+            "PullingImages phase maps to overall 10-70%");
+        // Starting phase should be in 80-100% range (InitializingContainers is 70-80%, StartingServices is 80-100%)
+        startingUpdates.Should().OnlyContain(p => p.Percent >= 80 && p.Percent <= 100,
+            "StartingServices phase maps to overall 80-100%");
     }
 
     [Fact]

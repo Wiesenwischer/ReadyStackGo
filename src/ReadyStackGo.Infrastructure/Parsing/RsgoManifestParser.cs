@@ -5,6 +5,8 @@ using ReadyStackGo.Application.UseCases.Deployments;
 using ReadyStackGo.Domain.StackManagement.Manifests;
 using ReadyStackGo.Domain.StackManagement.Stacks;
 using ReadyStackGo.Infrastructure.Docker;
+using YamlDotNet.Core;
+using YamlDotNet.Core.Events;
 using YamlDotNet.RepresentationModel;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -32,6 +34,7 @@ public class RsgoManifestParser : IRsgoManifestParser
         _yamlDeserializer = new DeserializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
             .IgnoreUnmatchedProperties()
+            .WithTypeConverter(new CaseInsensitiveEnumTypeConverter())
             .Build();
     }
 
@@ -616,7 +619,8 @@ public class RsgoManifestParser : IRsgoManifestParser
                     service.ContainerName ?? DockerNamingUtility.CreateContainerName(stackName, serviceName),
                     resolvedVariables),
                 Internal = service.Ports == null || service.Ports.Count == 0,
-                Order = order++
+                Order = order++,
+                Lifecycle = service.Lifecycle
             };
 
             // Resolve networks
@@ -985,5 +989,56 @@ public class RsgoManifestParser : IRsgoManifestParser
             return image.Substring(colonIndex + 1);
         }
         return "latest";
+    }
+}
+
+/// <summary>
+/// Case-insensitive YAML type converter for enums.
+/// Allows "init" to be deserialized to ServiceLifecycle.Init.
+/// </summary>
+internal class CaseInsensitiveEnumTypeConverter : IYamlTypeConverter
+{
+    public bool Accepts(Type type)
+    {
+        return type.IsEnum;
+    }
+
+    public object? ReadYaml(IParser parser, Type type, ObjectDeserializer nestedObjectDeserializer)
+    {
+        if (parser.Current is YamlDotNet.Core.Events.Scalar scalar)
+        {
+            parser.MoveNext();
+
+            if (string.IsNullOrEmpty(scalar.Value))
+            {
+                return Enum.ToObject(type, 0);
+            }
+
+            // Try case-insensitive enum parsing
+            foreach (var enumValue in Enum.GetValues(type))
+            {
+                if (enumValue.ToString()!.Equals(scalar.Value, StringComparison.OrdinalIgnoreCase))
+                {
+                    return enumValue;
+                }
+            }
+
+            // Fallback to default parsing
+            return Enum.Parse(type, scalar.Value, ignoreCase: true);
+        }
+
+        throw new YamlException($"Expected scalar value for enum type {type.Name}");
+    }
+
+    public void WriteYaml(IEmitter emitter, object? value, Type type, ObjectSerializer nestedObjectSerializer)
+    {
+        if (value == null)
+        {
+            emitter.Emit(new YamlDotNet.Core.Events.Scalar(string.Empty));
+        }
+        else
+        {
+            emitter.Emit(new YamlDotNet.Core.Events.Scalar(value.ToString()!));
+        }
     }
 }

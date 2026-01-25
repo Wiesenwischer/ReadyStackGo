@@ -94,6 +94,26 @@ public interface IDockerService
         string environmentId,
         string stackName,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the exit code of a stopped container.
+    /// Returns null if the container is still running or doesn't exist.
+    /// </summary>
+    Task<int?> GetContainerExitCodeAsync(string environmentId, string containerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the logs from a container.
+    /// </summary>
+    /// <param name="environmentId">Environment ID</param>
+    /// <param name="containerId">Container ID</param>
+    /// <param name="tail">Number of lines to return from the end of the logs (default: all)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Container logs as string</returns>
+    Task<string> GetContainerLogsAsync(
+        string environmentId,
+        string containerId,
+        int? tail = null,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>

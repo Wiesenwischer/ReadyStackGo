@@ -5,6 +5,7 @@ using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.StackManagement.Manifests;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Parsing;
 using static ReadyStackGo.Infrastructure.Docker.DockerNamingUtility;
@@ -109,6 +110,10 @@ public class DeploymentEngine : IDeploymentEngine
             DeploymentTime = DateTime.UtcNow
         };
 
+        // Separate init containers from regular services
+        var initSteps = plan.Steps.Where(s => s.Lifecycle == ServiceLifecycle.Init).ToList();
+        var regularSteps = plan.Steps.Where(s => s.Lifecycle == ServiceLifecycle.Service).ToList();
+
         var totalSteps = plan.Steps.Count;
         var completedSteps = 0;
 
@@ -117,11 +122,13 @@ public class DeploymentEngine : IDeploymentEngine
         // Pulling images takes the most time (network download), starting containers is fast
         var phaseWeights = new Dictionary<string, (int Start, int End)>
         {
-            ["Initializing"] = (0, 2),        // 0-2%
-            ["Network"] = (2, 5),             // 2-5%
-            ["PullingImages"] = (5, 90),      // 5-90% (85% of total - this is the slow part)
-            ["StartingServices"] = (90, 100), // 90-100% (10% - starting is fast)
-            ["Complete"] = (100, 100)         // 100% (instant)
+            ["Initializing"] = (0, 2),              // 0-2%
+            ["Network"] = (2, 5),                   // 2-5%
+            ["RemovingOldContainers"] = (5, 10),    // 5-10%
+            ["PullingImages"] = (10, 70),           // 10-70% (60% - this is the slow part)
+            ["InitializingContainers"] = (70, 80),  // 70-80% (10% - init containers)
+            ["StartingServices"] = (80, 100),       // 80-100% (20% - regular services)
+            ["Complete"] = (100, 100)               // 100% (instant)
         };
 
         // Helper to calculate overall progress from phase-local progress (0-100)
@@ -292,17 +299,83 @@ public class DeploymentEngine : IDeploymentEngine
 
             await ReportPullProgress($"All {totalImages} images ready", 100);
 
-            // PHASE 2: Start all containers in dependency order
-            await ReportProgress("StartingServices", $"Starting {totalSteps} services...", 0);
+            // PHASE: Initialize containers (run-once init containers)
+            if (initSteps.Count > 0)
+            {
+                _logger.LogInformation("Phase: Initializing {Count} init container(s) before starting services", initSteps.Count);
+                await ReportProgress("InitializingContainers", $"Running {initSteps.Count} init container(s)...", 0);
 
-            foreach (var step in plan.Steps)
+                var completedInits = 0;
+                foreach (var initStep in initSteps)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    try
+                    {
+                        var beforeInitPercent = initSteps.Count > 0 ? (completedInits * 100 / initSteps.Count) : 0;
+                        await ReportProgress("InitializingContainers",
+                            $"Running init container {initStep.ContextName}...",
+                            beforeInitPercent,
+                            initStep.ContextName);
+
+                        _logger.LogInformation("Starting init container {ContextName} and waiting for completion...", initStep.ContextName);
+                        var containerInfo = await StartInitContainerAndWaitAsync(
+                            environmentId,
+                            initStep,
+                            defaultNetwork,
+                            stackName,
+                            cancellationToken);
+
+                        // Add any pull warnings for this step
+                        if (pullWarnings.TryGetValue(initStep.ContextName, out var warning))
+                        {
+                            result.Warnings.Add(warning);
+                        }
+
+                        result.DeployedContexts.Add(initStep.ContextName);
+                        result.DeployedContainers.Add(containerInfo);
+                        completedSteps++;
+                        completedInits++;
+
+                        var afterInitPercent = initSteps.Count > 0 ? (completedInits * 100 / initSteps.Count) : 100;
+                        await ReportProgress("InitializingContainers",
+                            $"Completed {completedInits}/{initSteps.Count} init container(s)",
+                            afterInitPercent,
+                            initStep.ContextName);
+
+                        _logger.LogInformation("Init container {ContextName} completed successfully", initStep.ContextName);
+
+                        // TODO: Remove this delay after testing - added to make init phase more visible in UI
+                        await Task.Delay(2000, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Init container {ContextName} failed", initStep.ContextName);
+                        result.Errors.Add($"Init container '{initStep.ContextName}' failed: {ex.Message}");
+                        result.Success = false;
+                        return result;
+                    }
+                }
+
+                _logger.LogInformation("All {Count} init container(s) completed successfully", initSteps.Count);
+            }
+            else
+            {
+                _logger.LogInformation("No init containers to run, proceeding to start services");
+            }
+
+            // PHASE: Start regular services in dependency order
+            await ReportProgress("StartingServices", $"Starting {regularSteps.Count} service(s)...", 0);
+
+            var completedServices = 0;
+            foreach (var step in regularSteps)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
                 try
                 {
                     // Phase-local progress: where we are before starting this service
-                    var beforeStartPercent = totalSteps > 0 ? (completedSteps * 100 / totalSteps) : 0;
+                    var beforeStartPercent = regularSteps.Count > 0 ? (completedServices * 100 / regularSteps.Count) : 0;
                     await ReportProgress("StartingServices", $"Starting {step.ContextName}...", beforeStartPercent, step.ContextName);
 
                     var containerInfo = await StartContainerAsync(environmentId, step, defaultNetwork, stackName);
@@ -316,17 +389,18 @@ public class DeploymentEngine : IDeploymentEngine
                     result.DeployedContexts.Add(step.ContextName);
                     result.DeployedContainers.Add(containerInfo);
                     completedSteps++;
+                    completedServices++;
 
                     // Phase-local progress: 0-100% within this phase
-                    var afterStartPercent = totalSteps > 0 ? (completedSteps * 100 / totalSteps) : 100;
-                    await ReportProgress("StartingServices", $"Started {completedSteps}/{totalSteps} services", afterStartPercent, step.ContextName);
+                    var afterStartPercent = regularSteps.Count > 0 ? (completedServices * 100 / regularSteps.Count) : 100;
+                    await ReportProgress("StartingServices", $"Started {completedServices}/{regularSteps.Count} service(s)", afterStartPercent, step.ContextName);
 
-                    _logger.LogInformation("Successfully started context {Context}", step.ContextName);
+                    _logger.LogInformation("Successfully started service {Context}", step.ContextName);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to start context {Context}", step.ContextName);
-                    result.Errors.Add($"Failed to start {step.ContextName}: {ex.Message}");
+                    _logger.LogError(ex, "Failed to start service {Context}", step.ContextName);
+                    result.Errors.Add($"Failed to start service '{step.ContextName}': {ex.Message}");
                     result.Success = false;
                     return result;
                 }
@@ -683,6 +757,9 @@ public class DeploymentEngine : IDeploymentEngine
             step.ContainerName, string.Join(", ", networks));
 
         // Create and start container
+        // Init containers use "no" restart policy (run once, fail fast), regular services use "unless-stopped"
+        var restartPolicy = step.Lifecycle == ServiceLifecycle.Init ? "no" : "unless-stopped";
+
         var request = new CreateContainerRequest
         {
             Name = step.ContainerName,
@@ -696,9 +773,10 @@ public class DeploymentEngine : IDeploymentEngine
             {
                 ["rsgo.stack"] = stackName,
                 ["rsgo.context"] = step.ContextName,
-                ["rsgo.environment"] = environmentId
+                ["rsgo.environment"] = environmentId,
+                ["rsgo.lifecycle"] = step.Lifecycle.ToString().ToLowerInvariant()
             },
-            RestartPolicy = "unless-stopped"
+            RestartPolicy = restartPolicy
         };
 
         var containerId = await _dockerService.CreateAndStartContainerAsync(environmentId, request);
@@ -720,6 +798,75 @@ public class DeploymentEngine : IDeploymentEngine
             Image = $"{imageName}:{imageTag}",
             Status = "running"
         };
+    }
+
+    /// <summary>
+    /// Starts an init container and waits for it to complete successfully (exit code 0).
+    /// Init containers are run-once containers like database migrators that must complete before regular services start.
+    /// </summary>
+    private async Task<DeployedContainerInfo> StartInitContainerAndWaitAsync(
+        string environmentId,
+        DeploymentStep step,
+        string defaultNetwork,
+        string stackName,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Starting init container {ContextName}...", step.ContextName);
+
+        // Start the init container (uses restart: on-failure)
+        var containerInfo = await StartContainerAsync(environmentId, step, defaultNetwork, stackName);
+
+        // Wait for the container to complete
+        _logger.LogInformation("Waiting for init container {ContextName} to complete...", step.ContextName);
+
+        var maxWaitSeconds = 300; // 5 minutes timeout for init containers
+        var pollIntervalMs = 500; // Check every 500ms
+        var elapsed = 0;
+
+        while (elapsed < maxWaitSeconds * 1000)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var container = await _dockerService.GetContainerByNameAsync(environmentId, step.ContainerName);
+            if (container == null)
+            {
+                throw new InvalidOperationException($"Init container {step.ContainerName} disappeared during execution");
+            }
+
+            // Check if container has exited
+            if (container.Status.StartsWith("exited", StringComparison.OrdinalIgnoreCase))
+            {
+                // Container has stopped - check exit code
+                var exitCode = await _dockerService.GetContainerExitCodeAsync(environmentId, container.Id);
+
+                if (exitCode == 0)
+                {
+                    _logger.LogInformation("Init container {ContextName} completed successfully (exit code 0)", step.ContextName);
+                    containerInfo.Status = "completed";
+                    return containerInfo;
+                }
+                else
+                {
+                    // Init container failed - get logs for diagnosis
+                    var logs = await _dockerService.GetContainerLogsAsync(environmentId, container.Id, tail: 50);
+                    _logger.LogError("Init container {ContextName} failed with exit code {ExitCode}", step.ContextName, exitCode);
+
+                    throw new InvalidOperationException(
+                        $"Init container '{step.ContextName}' failed with exit code {exitCode}. " +
+                        $"Last 50 log lines:\n{logs}");
+                }
+            }
+
+            // Container still running - wait and check again
+            await Task.Delay(pollIntervalMs, cancellationToken);
+            elapsed += pollIntervalMs;
+        }
+
+        // Timeout reached
+        var timeoutLogs = await _dockerService.GetContainerLogsAsync(environmentId, containerInfo.ContainerId, tail: 50);
+        throw new TimeoutException(
+            $"Init container '{step.ContextName}' did not complete within {maxWaitSeconds} seconds. " +
+            $"Last 50 log lines:\n{timeoutLogs}");
     }
 
     private async Task UpdateReleaseConfigAsync(DeploymentPlan plan)
