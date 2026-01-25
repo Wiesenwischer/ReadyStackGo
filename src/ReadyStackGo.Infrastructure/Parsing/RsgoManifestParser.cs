@@ -5,6 +5,7 @@ using ReadyStackGo.Application.UseCases.Deployments;
 using ReadyStackGo.Domain.StackManagement.Manifests;
 using ReadyStackGo.Domain.StackManagement.Stacks;
 using ReadyStackGo.Infrastructure.Docker;
+using YamlDotNet.RepresentationModel;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 using DeploymentNetworkDefinition = ReadyStackGo.Application.UseCases.Deployments.NetworkDefinition;
@@ -40,11 +41,20 @@ public class RsgoManifestParser : IRsgoManifestParser
         {
             _logger.LogDebug("Parsing RSGo manifest YAML content");
 
+            // Pre-process to extract services.include before deserialization
+            yamlContent = ExtractServiceIncludes(yamlContent, out var serviceIncludes);
+
             var manifest = _yamlDeserializer.Deserialize<RsgoManifest>(yamlContent);
 
             if (manifest == null)
             {
                 throw new InvalidOperationException("Failed to deserialize RSGo manifest");
+            }
+
+            // Set extracted service includes
+            if (serviceIncludes != null && serviceIncludes.Count > 0)
+            {
+                manifest.ServiceIncludes = serviceIncludes;
             }
 
             var serviceCount = manifest.Services?.Count ?? 0;
@@ -80,11 +90,18 @@ public class RsgoManifestParser : IRsgoManifestParser
         var yamlContent = await File.ReadAllTextAsync(filePath, cancellationToken);
         var manifest = await ParseAsync(yamlContent);
 
-        // Resolve includes if this is a multi-stack manifest
+        var baseDir = Path.GetDirectoryName(filePath) ?? ".";
+
+        // Resolve stack includes if this is a multi-stack manifest
         if (manifest.IsMultiStack && manifest.Stacks != null)
         {
-            var baseDir = Path.GetDirectoryName(filePath) ?? ".";
             await ResolveIncludesAsync(manifest, baseDir, cancellationToken);
+        }
+
+        // Resolve service includes if specified
+        if (manifest.ServiceIncludes != null && manifest.ServiceIncludes.Count > 0)
+        {
+            await ResolveServiceIncludesAsync(manifest, baseDir, cancellationToken);
         }
 
         return manifest;
@@ -154,25 +171,84 @@ public class RsgoManifestParser : IRsgoManifestParser
 
                 try
                 {
-                    var includeContent = await File.ReadAllTextAsync(includePath, cancellationToken);
-                    var fragment = await ParseAsync(includeContent);
+                    // Use ParseFromFileAsync to resolve nested service includes
+                    var fragment = await ParseFromFileAsync(includePath, cancellationToken);
 
-                    // Copy fragment content to stack entry
-                    stackEntry.Metadata = fragment.Metadata != null
-                        ? new RsgoStackMetadata
+                    // Check if the included file is a multi-stack product (not a simple fragment)
+                    if (fragment.IsMultiStack && fragment.Stacks != null && fragment.Stacks.Count > 0)
+                    {
+                        // Multi-stack products used as includes: flatten all services from all sub-stacks
+                        _logger.LogWarning("Include {Path} is a multi-stack product - flattening {Count} sub-stacks into single stack '{StackKey}'",
+                            includePath, fragment.Stacks.Count, stackKey);
+
+                        var allServices = new Dictionary<string, RsgoService>();
+                        var allVolumes = new Dictionary<string, RsgoVolume>();
+                        var allNetworks = new Dictionary<string, RsgoNetwork>();
+
+                        // Collect services from all sub-stacks
+                        foreach (var (_, subStack) in fragment.Stacks)
                         {
-                            Name = fragment.Metadata.Name,
-                            Description = fragment.Metadata.Description,
-                            Category = fragment.Metadata.Category,
-                            Tags = fragment.Metadata.Tags
-                        }
-                        : null;
-                    stackEntry.Variables = fragment.Variables;
-                    stackEntry.Services = fragment.Services;
-                    stackEntry.Volumes = fragment.Volumes;
-                    stackEntry.Networks = fragment.Networks;
+                            if (subStack.Services != null)
+                            {
+                                foreach (var (serviceName, service) in subStack.Services)
+                                {
+                                    allServices[serviceName] = service;
+                                }
+                            }
 
-                    _logger.LogDebug("Resolved include for stack '{StackKey}' from {Path}", stackKey, includePath);
+                            if (subStack.Volumes != null)
+                            {
+                                foreach (var (volumeName, volume) in subStack.Volumes)
+                                {
+                                    allVolumes[volumeName] = volume;
+                                }
+                            }
+
+                            if (subStack.Networks != null)
+                            {
+                                foreach (var (networkName, network) in subStack.Networks)
+                                {
+                                    allNetworks[networkName] = network;
+                                }
+                            }
+                        }
+
+                        stackEntry.Metadata = fragment.Metadata != null
+                            ? new RsgoStackMetadata
+                            {
+                                Name = fragment.Metadata.Name,
+                                Description = fragment.Metadata.Description,
+                                Category = fragment.Metadata.Category,
+                                Tags = fragment.Metadata.Tags
+                            }
+                            : null;
+                        stackEntry.Variables = fragment.SharedVariables; // Use sharedVariables from multi-stack product
+                        stackEntry.Services = allServices.Count > 0 ? allServices : null;
+                        stackEntry.Volumes = allVolumes.Count > 0 ? allVolumes : null;
+                        stackEntry.Networks = allNetworks.Count > 0 ? allNetworks : null;
+
+                        _logger.LogInformation("Flattened multi-stack include '{StackKey}': collected {ServiceCount} services from {StackCount} sub-stacks",
+                            stackKey, allServices.Count, fragment.Stacks.Count);
+                    }
+                    else
+                    {
+                        // Normal single-stack fragment - copy as-is
+                        stackEntry.Metadata = fragment.Metadata != null
+                            ? new RsgoStackMetadata
+                            {
+                                Name = fragment.Metadata.Name,
+                                Description = fragment.Metadata.Description,
+                                Category = fragment.Metadata.Category,
+                                Tags = fragment.Metadata.Tags
+                            }
+                            : null;
+                        stackEntry.Variables = fragment.Variables;
+                        stackEntry.Services = fragment.Services;
+                        stackEntry.Volumes = fragment.Volumes;
+                        stackEntry.Networks = fragment.Networks;
+
+                        _logger.LogDebug("Resolved include for stack '{StackKey}' from {Path}", stackKey, includePath);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -180,6 +256,147 @@ public class RsgoManifestParser : IRsgoManifestParser
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Resolves service includes by loading services from referenced files and merging them into the manifest.
+    /// </summary>
+    /// <summary>
+    /// Extracts services.include from YAML content before deserialization.
+    /// YamlDotNet can't handle mixed dictionary entries (service definitions + include list),
+    /// so we extract the include list manually and remove it from the YAML.
+    /// </summary>
+    private string ExtractServiceIncludes(string yamlContent, out List<string>? serviceIncludes)
+    {
+        serviceIncludes = null;
+
+        using var stringReader = new StringReader(yamlContent);
+        var yaml = new YamlStream();
+
+        try
+        {
+            yaml.Load(stringReader);
+        }
+        catch
+        {
+            // If parsing fails, return original content
+            return yamlContent;
+        }
+
+        if (yaml.Documents.Count == 0)
+            return yamlContent;
+
+        var root = yaml.Documents[0].RootNode as YamlDotNet.RepresentationModel.YamlMappingNode;
+        if (root == null)
+            return yamlContent;
+
+        // Look for services node
+        var servicesKey = new YamlDotNet.RepresentationModel.YamlScalarNode("services");
+        if (!root.Children.ContainsKey(servicesKey))
+            return yamlContent;
+
+        var servicesNode = root.Children[servicesKey] as YamlDotNet.RepresentationModel.YamlMappingNode;
+        if (servicesNode == null)
+            return yamlContent;
+
+        // Look for include key within services
+        var includeKey = new YamlDotNet.RepresentationModel.YamlScalarNode("include");
+        if (!servicesNode.Children.ContainsKey(includeKey))
+            return yamlContent;
+
+        var includeNode = servicesNode.Children[includeKey] as YamlDotNet.RepresentationModel.YamlSequenceNode;
+        if (includeNode != null)
+        {
+            // Extract the include list
+            serviceIncludes = includeNode.Children
+                .OfType<YamlDotNet.RepresentationModel.YamlScalarNode>()
+                .Select(n => n.Value ?? "")
+                .Where(v => !string.IsNullOrEmpty(v))
+                .ToList();
+
+            _logger.LogDebug("Extracted {Count} service includes from YAML", serviceIncludes.Count);
+        }
+
+        // Remove include from services node using regex (simpler than rebuilding YAML tree)
+        // Match "  include:\n    - file1\n    - file2\n" pattern under services
+        var includePattern = new Regex(
+            @"^(\s+)include:\s*\r?\n(\s+-\s+.+\r?\n?)+",
+            RegexOptions.Multiline);
+
+        yamlContent = includePattern.Replace(yamlContent, "");
+
+        return yamlContent;
+    }
+
+    private async Task ResolveServiceIncludesAsync(RsgoManifest manifest, string baseDir, CancellationToken cancellationToken)
+    {
+        if (manifest.ServiceIncludes == null || manifest.ServiceIncludes.Count == 0)
+            return;
+
+        // Initialize Services dictionary if it doesn't exist
+        manifest.Services ??= new Dictionary<string, RsgoService>();
+
+        foreach (var includeFile in manifest.ServiceIncludes)
+        {
+            var includePath = Path.Combine(baseDir, includeFile);
+
+            if (!File.Exists(includePath))
+            {
+                _logger.LogWarning("Service include file not found: {Path}", includePath);
+                continue;
+            }
+
+            try
+            {
+                var includeContent = await File.ReadAllTextAsync(includePath, cancellationToken);
+                var fragment = await ParseAsync(includeContent);
+
+                // Merge services from fragment into main manifest
+                if (fragment.Services != null)
+                {
+                    foreach (var (serviceName, service) in fragment.Services)
+                    {
+                        if (manifest.Services.ContainsKey(serviceName))
+                        {
+                            _logger.LogWarning("Service '{ServiceName}' from {Path} conflicts with existing service - skipping",
+                                serviceName, includeFile);
+                            continue;
+                        }
+
+                        manifest.Services[serviceName] = service;
+                    }
+
+                    _logger.LogDebug("Merged {Count} services from {Path}",
+                        fragment.Services.Count, includeFile);
+                }
+
+                // Also merge volumes and networks if needed
+                if (fragment.Volumes != null)
+                {
+                    manifest.Volumes ??= new Dictionary<string, RsgoVolume>();
+                    foreach (var (volumeName, volume) in fragment.Volumes)
+                    {
+                        manifest.Volumes.TryAdd(volumeName, volume);
+                    }
+                }
+
+                if (fragment.Networks != null)
+                {
+                    manifest.Networks ??= new Dictionary<string, RsgoNetwork>();
+                    foreach (var (networkName, network) in fragment.Networks)
+                    {
+                        manifest.Networks.TryAdd(networkName, network);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to resolve service include from {Path}", includeFile);
+            }
+        }
+
+        _logger.LogInformation("Resolved {IncludeCount} service includes, total services: {ServiceCount}",
+            manifest.ServiceIncludes.Count, manifest.Services.Count);
     }
 
     public Task<List<Variable>> ExtractVariablesAsync(RsgoManifest manifest)

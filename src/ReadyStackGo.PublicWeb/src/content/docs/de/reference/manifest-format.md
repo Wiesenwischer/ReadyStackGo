@@ -446,6 +446,8 @@ stacks:
 
 ## Include-Mechanismus
 
+### Stack Includes
+
 Include-Pfade sind relativ zum Product-Manifest:
 
 ```
@@ -457,6 +459,59 @@ stacks/
 ```
 
 ---
+
+### Service Includes
+
+Services können aus mehreren Dateien inkludiert werden, um große Service-Definitionen besser zu organisieren:
+
+```yaml
+# business-services.yaml - Fragment (keine productVersion!)
+metadata:
+  name: Business Services
+  description: Alle Business-Service-Komponenten
+
+variables:
+  REDIS_CONNECTION:
+    label: Redis Connection
+    type: String
+    default: cachedata:6379
+
+services:
+  include:
+    - Contexts/projectmanagement.yaml
+    - Contexts/memo.yaml
+    - Contexts/discussions.yaml
+  # Direkte Services können auch kombiniert werden:
+  health-monitor:
+    image: monitor:latest
+    ports:
+      - "5100:80"
+```
+
+Die inkludierten Dateien enthalten Services:
+
+```yaml
+# Contexts/projectmanagement.yaml
+metadata:
+  name: ProjectManagement
+
+services:
+  project-api:
+    image: myregistry/project-api:latest
+    environment:
+      REDIS_CONNECTION: ${REDIS_CONNECTION}
+
+  project-web:
+    image: myregistry/project-web:latest
+```
+
+**Service-Include Merkmale:**
+- Services aus allen Include-Dateien werden in ein einzelnes Dictionary gemergt
+- Kann mit direkten Service-Definitionen kombiniert werden
+- Perfekt für große Fragments mit vielen Services (z.B. Microservices nach Bounded Contexts organisiert)
+- Include-Pfade sind relativ zum Fragment-Manifest
+
+
 
 ## Variablen-Substitution
 

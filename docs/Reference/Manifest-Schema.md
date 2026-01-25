@@ -492,6 +492,65 @@ healthCheck:
 | `retries` | integer | Retries before marking unhealthy |
 | `startPeriod` | string | Grace period before checks start |
 
+### Service Includes
+
+Services can be loaded from multiple files to better organize large service definitions:
+
+```yaml
+services:
+  include:
+    - Contexts/projectmanagement.yaml
+    - Contexts/memo.yaml
+  # Direct services can also be combined:
+  health-monitor:
+    image: monitor:latest
+```
+
+**Service Include Features:**
+- Services from all include files are merged into a single dictionary
+- Can be combined with direct service definitions
+- Perfect for large fragments with many services (bounded contexts)
+- Include paths are relative to the fragment manifest
+
+**Example Use Case - Bounded Contexts:**
+
+```yaml
+# business-services.yaml (fragment)
+metadata:
+  name: Business Services
+  description: All business bounded context services
+
+variables:
+  REDIS_CONNECTION:
+    label: Redis Connection
+    type: String
+    default: cachedata:6379
+
+services:
+  include:
+    - Contexts/projectmanagement.yaml
+    - Contexts/memo.yaml
+    - Contexts/discussions.yaml
+```
+
+Each included file is a standard fragment with its own services:
+
+```yaml
+# Contexts/projectmanagement.yaml
+metadata:
+  name: ProjectManagement
+  description: Project Management bounded context
+
+services:
+  project-api:
+    image: amssolution/project-api:latest
+    environment:
+      REDIS_CONNECTION: ${REDIS_CONNECTION}
+
+  project-web:
+    image: amssolution/project-web:latest
+```
+
 ### RSGO Labels
 
 ReadyStackGo uses special container labels for stack identification and operation mode management.

@@ -851,6 +851,410 @@ stacks:
 
     #endregion
 
+    #region Include Resolution Integration Tests
+
+    [Fact]
+    public async Task ParseFromFileAsync_MultiStackWithIncludes_ResolvesServicesFromIncludeFiles()
+    {
+        // Arrange - Create temporary test files
+        var tempDir = Path.Combine(Path.GetTempPath(), $"rsgo-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            // Create the main manifest file with includes
+            var mainManifest = @"
+metadata:
+  name: Business Services
+  productId: business-services
+  description: Business Services - all bounded context services
+  productVersion: '3.1.0-pre'
+  category: Business
+
+sharedVariables:
+  REDIS_CONNECTION:
+    label: Redis Connection
+    type: String
+    default: cachedata:6379
+
+stacks:
+  projectmanagement:
+    include: projectmanagement.yaml
+  memo:
+    include: memo.yaml
+";
+            var mainFilePath = Path.Combine(tempDir, "business-services.yaml");
+            await File.WriteAllTextAsync(mainFilePath, mainManifest);
+
+            // Create first include file (projectmanagement.yaml)
+            var projectManagementFragment = @"
+metadata:
+  name: ProjectManagement
+  description: Project Management bounded context
+
+services:
+  project-api:
+    image: amssolution/project-api:latest
+    containerName: project-api
+    ports:
+      - '7700:8080'
+    environment:
+      REDIS_CONNECTION: ${REDIS_CONNECTION}
+
+  project-web:
+    image: amssolution/project-web:latest
+    containerName: project-web
+    ports:
+      - '7701:3000'
+";
+            await File.WriteAllTextAsync(Path.Combine(tempDir, "projectmanagement.yaml"), projectManagementFragment);
+
+            // Create second include file (memo.yaml)
+            var memoFragment = @"
+metadata:
+  name: Memo
+  description: Memo bounded context
+
+services:
+  memo-api:
+    image: amssolution/memo-api:latest
+    containerName: memo-api
+    ports:
+      - '7702:8080'
+    environment:
+      REDIS_CONNECTION: ${REDIS_CONNECTION}
+";
+            await File.WriteAllTextAsync(Path.Combine(tempDir, "memo.yaml"), memoFragment);
+
+            // Act
+            var result = await _parser.ParseFromFileAsync(mainFilePath);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.IsMultiStack.Should().BeTrue();
+            result.IsProduct.Should().BeTrue();
+            result.Stacks.Should().HaveCount(2);
+
+            // Verify that includes were resolved and services were loaded
+            var projectManagementStack = result.Stacks!["projectmanagement"];
+            projectManagementStack.Should().NotBeNull();
+            projectManagementStack.Services.Should().NotBeNull("Include should be resolved and services loaded");
+            projectManagementStack.Services.Should().HaveCount(2, "projectmanagement.yaml defines 2 services");
+            projectManagementStack.Services.Should().ContainKey("project-api");
+            projectManagementStack.Services.Should().ContainKey("project-web");
+            projectManagementStack.Services!["project-api"].Image.Should().Be("amssolution/project-api:latest");
+
+            var memoStack = result.Stacks["memo"];
+            memoStack.Should().NotBeNull();
+            memoStack.Services.Should().NotBeNull("Include should be resolved and services loaded");
+            memoStack.Services.Should().HaveCount(1, "memo.yaml defines 1 service");
+            memoStack.Services.Should().ContainKey("memo-api");
+            memoStack.Services!["memo-api"].Image.Should().Be("amssolution/memo-api:latest");
+
+            // Verify metadata from include files
+            projectManagementStack.Metadata.Should().NotBeNull();
+            projectManagementStack.Metadata!.Name.Should().Be("ProjectManagement");
+            projectManagementStack.Metadata.Description.Should().Be("Project Management bounded context");
+        }
+        finally
+        {
+            // Cleanup
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ParseFromFileAsync_MultiStackWithNestedIncludes_ResolvesServicesFromSubdirectory()
+    {
+        // Arrange - Create temporary test files with subdirectory
+        var tempDir = Path.Combine(Path.GetTempPath(), $"rsgo-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(tempDir);
+        var contextsDir = Path.Combine(tempDir, "Contexts");
+        Directory.CreateDirectory(contextsDir);
+
+        try
+        {
+            // Create the main manifest file with includes in subdirectory
+            var mainManifest = @"
+metadata:
+  name: Business Services
+  productVersion: '3.1.0-pre'
+
+sharedVariables:
+  EVENTSTORE_DB:
+    type: EventStoreConnectionString
+    default: 'esdb://admin:changeit@eventstore-db:2113?tls=false'
+
+stacks:
+  analytics:
+    include: Contexts/analytics.yaml
+";
+            var mainFilePath = Path.Combine(tempDir, "business-services.yaml");
+            await File.WriteAllTextAsync(mainFilePath, mainManifest);
+
+            // Create include file in subdirectory
+            var analyticsFragment = @"
+metadata:
+  name: Analytics
+  description: Analytics bounded context services
+
+services:
+  analytics-web:
+    image: amssolution/analytics-web:linux-v3.1.0-pre
+    containerName: analytics-web
+    environment:
+      NODE_ENV: ${NODE_ENV}
+    restart: unless-stopped
+";
+            await File.WriteAllTextAsync(Path.Combine(contextsDir, "analytics.yaml"), analyticsFragment);
+
+            // Act
+            var result = await _parser.ParseFromFileAsync(mainFilePath);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.IsMultiStack.Should().BeTrue();
+            result.Stacks.Should().HaveCount(1);
+
+            var analyticsStack = result.Stacks!["analytics"];
+            analyticsStack.Should().NotBeNull();
+            analyticsStack.Services.Should().NotBeNull("Include from subdirectory should be resolved");
+            analyticsStack.Services.Should().HaveCount(1);
+            analyticsStack.Services.Should().ContainKey("analytics-web");
+            analyticsStack.Services!["analytics-web"].Image.Should().Be("amssolution/analytics-web:linux-v3.1.0-pre");
+            analyticsStack.Services["analytics-web"].Restart.Should().Be("unless-stopped");
+        }
+        finally
+        {
+            // Cleanup
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+    }
+
+    #endregion
+
+    #region Multi-Stack Include Error Cases
+
+    [Fact]
+    public async Task ParseFromFileAsync_IncludeReferencesMultiStackProduct_FlattensAllServices()
+    {
+        // This test verifies the fix for the bug where ams.project includes BusinessServices/business-services.yaml
+        // which is itself a multi-stack product. The parser now flattens all services from all sub-stacks
+        // into a single stack.
+
+        // Arrange
+        var tempDir = Path.Combine(Path.GetTempPath(), $"rsgo-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(tempDir);
+        var businessDir = Path.Combine(tempDir, "BusinessServices");
+        Directory.CreateDirectory(businessDir);
+
+        try
+        {
+            // Create main product manifest (like ams-project.yaml)
+            var mainManifest = @"
+metadata:
+  name: ams.project
+  productVersion: '3.1.0-pre'
+
+stacks:
+  business-services:
+    include: BusinessServices/business-services.yaml
+";
+            var mainFilePath = Path.Combine(tempDir, "ams-project.yaml");
+            await File.WriteAllTextAsync(mainFilePath, mainManifest);
+
+            // Create multi-stack product as include
+            var businessServicesManifest = @"
+metadata:
+  name: Business Services
+  productId: business-services
+  productVersion: '3.1.0-pre'
+
+stacks:
+  projectmanagement:
+    services:
+      project-api:
+        image: test/project-api:latest
+      project-web:
+        image: test/project-web:latest
+  memo:
+    services:
+      memo-api:
+        image: test/memo-api:latest
+";
+            await File.WriteAllTextAsync(Path.Combine(businessDir, "business-services.yaml"), businessServicesManifest);
+
+            // Act
+            var result = await _parser.ParseFromFileAsync(mainFilePath);
+
+            // Assert - FIX: Services should be flattened from all sub-stacks
+            result.Stacks.Should().HaveCount(1);
+            var businessStack = result.Stacks!["business-services"];
+            businessStack.Should().NotBeNull();
+
+            // All services from all sub-stacks should be collected
+            businessStack.Services.Should().NotBeNull("Services should be flattened from multi-stack include");
+            businessStack.Services.Should().HaveCount(3, "Should have 3 services: project-api, project-web, memo-api");
+            businessStack.Services.Should().ContainKey("project-api");
+            businessStack.Services.Should().ContainKey("project-web");
+            businessStack.Services.Should().ContainKey("memo-api");
+
+            // Verify metadata is preserved
+            businessStack.Metadata.Should().NotBeNull();
+            businessStack.Metadata!.Name.Should().Be("Business Services");
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+    }
+
+    #endregion
+
+    #region Service Include Tests
+
+    [Fact]
+    public async Task ParseFromFileAsync_WithServiceIncludes_MergesAllServicesIntoSingleStack()
+    {
+        // This test verifies the new services.include mechanism for business-services.yaml
+        // All services from included files are merged into a single services dictionary
+
+        // Arrange
+        var tempDir = Path.Combine(Path.GetTempPath(), $"rsgo-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(tempDir);
+        var contextsDir = Path.Combine(tempDir, "Contexts");
+        Directory.CreateDirectory(contextsDir);
+
+        try
+        {
+            // Create main manifest with services.include (no productVersion - it's a fragment!)
+            var mainManifest = @"
+metadata:
+  name: Business Services
+  description: Business Services - all bounded context services
+
+variables:
+  REDIS_CONNECTION:
+    label: Redis Connection
+    type: String
+    default: cachedata:6379
+
+services:
+  include:
+    - Contexts/projectmanagement.yaml
+    - Contexts/memo.yaml
+";
+            var mainFilePath = Path.Combine(tempDir, "business-services.yaml");
+            await File.WriteAllTextAsync(mainFilePath, mainManifest);
+
+            // Create include files
+            var projectManagementFragment = @"
+metadata:
+  name: ProjectManagement
+
+services:
+  project-api:
+    image: test/project-api:latest
+  project-web:
+    image: test/project-web:latest
+";
+            await File.WriteAllTextAsync(Path.Combine(contextsDir, "projectmanagement.yaml"), projectManagementFragment);
+
+            var memoFragment = @"
+metadata:
+  name: Memo
+
+services:
+  memo-api:
+    image: test/memo-api:latest
+";
+            await File.WriteAllTextAsync(Path.Combine(contextsDir, "memo.yaml"), memoFragment);
+
+            // Act
+            var result = await _parser.ParseFromFileAsync(mainFilePath);
+
+            // Assert - All services from includes should be merged
+            result.Should().NotBeNull();
+            result.IsSingleStack.Should().BeTrue("Should be a single-stack manifest");
+            result.IsProduct.Should().BeFalse("Should be a fragment, not a product");
+            result.Services.Should().NotBeNull("Services should be merged from includes");
+            result.Services.Should().HaveCount(3, "Should have 3 services total");
+            result.Services.Should().ContainKey("project-api");
+            result.Services.Should().ContainKey("project-web");
+            result.Services.Should().ContainKey("memo-api");
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ParseFromFileAsync_WithServiceIncludesAndDirectServices_MergesBoth()
+    {
+        // Test that services.include can be combined with direct service definitions
+
+        // Arrange
+        var tempDir = Path.Combine(Path.GetTempPath(), $"rsgo-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(tempDir);
+        var contextsDir = Path.Combine(tempDir, "Contexts");
+        Directory.CreateDirectory(contextsDir);
+
+        try
+        {
+            // Create main manifest with both include and direct services
+            var mainManifest = @"
+metadata:
+  name: Mixed Services
+
+services:
+  include:
+    - Contexts/included.yaml
+  direct-service:
+    image: test/direct:latest
+";
+            var mainFilePath = Path.Combine(tempDir, "mixed.yaml");
+            await File.WriteAllTextAsync(mainFilePath, mainManifest);
+
+            // Create include file
+            var includedFragment = @"
+services:
+  included-service:
+    image: test/included:latest
+";
+            await File.WriteAllTextAsync(Path.Combine(contextsDir, "included.yaml"), includedFragment);
+
+            // Act
+            var result = await _parser.ParseFromFileAsync(mainFilePath);
+
+            // Assert
+            result.Services.Should().HaveCount(2);
+            result.Services.Should().ContainKey("direct-service");
+            result.Services.Should().ContainKey("included-service");
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+    }
+
+    #endregion
+
     #region Maintenance Observer Tests
 
     [Fact]
