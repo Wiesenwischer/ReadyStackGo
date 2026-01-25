@@ -5,6 +5,7 @@ using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.StackManagement.Manifests;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Parsing;
 using static ReadyStackGo.Infrastructure.Docker.DockerNamingUtility;
@@ -683,6 +684,9 @@ public class DeploymentEngine : IDeploymentEngine
             step.ContainerName, string.Join(", ", networks));
 
         // Create and start container
+        // Init containers use "on-failure" restart policy, regular services use "unless-stopped"
+        var restartPolicy = step.Lifecycle == ServiceLifecycle.Init ? "on-failure" : "unless-stopped";
+
         var request = new CreateContainerRequest
         {
             Name = step.ContainerName,
@@ -696,9 +700,10 @@ public class DeploymentEngine : IDeploymentEngine
             {
                 ["rsgo.stack"] = stackName,
                 ["rsgo.context"] = step.ContextName,
-                ["rsgo.environment"] = environmentId
+                ["rsgo.environment"] = environmentId,
+                ["rsgo.lifecycle"] = step.Lifecycle.ToString().ToLowerInvariant()
             },
-            RestartPolicy = "unless-stopped"
+            RestartPolicy = restartPolicy
         };
 
         var containerId = await _dockerService.CreateAndStartContainerAsync(environmentId, request);

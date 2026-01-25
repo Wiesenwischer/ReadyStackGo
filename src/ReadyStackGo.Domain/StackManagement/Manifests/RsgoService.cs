@@ -16,6 +16,13 @@ public class RsgoService
     public string? ContainerName { get; set; }
 
     /// <summary>
+    /// Service lifecycle type (defaults to Service).
+    /// Use "init" for run-once containers like database migrators.
+    /// Init containers run before regular services and only restart on failure.
+    /// </summary>
+    public ServiceLifecycle Lifecycle { get; set; } = ServiceLifecycle.Service;
+
+    /// <summary>
     /// Environment variables for this service.
     /// Values can reference variables using ${VAR_NAME} syntax.
     /// </summary>

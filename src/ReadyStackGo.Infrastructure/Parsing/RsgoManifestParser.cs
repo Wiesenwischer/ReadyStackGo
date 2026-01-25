@@ -616,7 +616,8 @@ public class RsgoManifestParser : IRsgoManifestParser
                     service.ContainerName ?? DockerNamingUtility.CreateContainerName(stackName, serviceName),
                     resolvedVariables),
                 Internal = service.Ports == null || service.Ports.Count == 0,
-                Order = order++
+                Order = order++,
+                Lifecycle = service.Lifecycle
             };
 
             // Resolve networks
