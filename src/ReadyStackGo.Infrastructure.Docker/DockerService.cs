@@ -762,6 +762,66 @@ public class DockerService : IDockerService, IDisposable
         return startedIds;
     }
 
+    public async Task<int?> GetContainerExitCodeAsync(string environmentId, string containerId, CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+
+        try
+        {
+            var inspection = await client.Containers.InspectContainerAsync(containerId, cancellationToken);
+
+            // Only return exit code if container has exited
+            if (inspection.State.Running)
+            {
+                _logger.LogDebug("Container {ContainerId} is still running", containerId);
+                return null;
+            }
+
+            var exitCode = (int)inspection.State.ExitCode;
+            _logger.LogDebug("Container {ContainerId} exited with code {ExitCode}", containerId, exitCode);
+            return exitCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get exit code for container {ContainerId}", containerId);
+            return null;
+        }
+    }
+
+    public async Task<string> GetContainerLogsAsync(
+        string environmentId,
+        string containerId,
+        int? tail = null,
+        CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+
+        try
+        {
+            _logger.LogDebug("Getting logs for container {ContainerId} (tail: {Tail})", containerId, tail ?? -1);
+
+            var logsParams = new ContainerLogsParameters
+            {
+                ShowStdout = true,
+                ShowStderr = true,
+                Timestamps = false,
+                Tail = tail?.ToString() ?? "all"
+            };
+
+            using var logsStream = await client.Containers.GetContainerLogsAsync(containerId, false, logsParams, cancellationToken);
+
+            using var reader = new StreamReader(logsStream);
+            var logs = await reader.ReadToEndAsync(cancellationToken);
+
+            return logs;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get logs for container {ContainerId}", containerId);
+            return string.Empty;
+        }
+    }
+
     private Task<DockerClient> GetDockerClientAsync(string environmentId)
     {
         // Check cache first
