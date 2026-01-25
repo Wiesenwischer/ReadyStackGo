@@ -103,7 +103,10 @@ Rough outlook on planned versions and features.
   - Upgrade detection shows all available higher versions
   - Git Repository Stack Source Provider (Load Stacks from Git Repos)
   - Stack Sources Management UI (Add/Edit/Delete sources, credentials for private repos)
-- **v0.16** – TLS & Certificate Management + Release Info (2025-01-22)
+- **v0.16** – Remove Deployment + Progress Notifications (2026-01-20)
+  - Remove Deployment page with SignalR progress notifications
+  - DDD Redesign and Rollback Progress Notifications
+- **v0.17** – TLS & Certificate Management + Release Info (2026-01-22)
   - Settings UI refactoring with tab navigation (General, TLS, Registries, Stack Sources)
   - TLS Certificate Management
     - Self-signed certificate (auto-generated on first start)
@@ -126,36 +129,38 @@ Rough outlook on planned versions and features.
     - Link to GitHub release notes
     - Dismissable notification with localStorage persistence
   - Public Website TLS Documentation (DE/EN)
+  - Stack Sources Git Credentials Support
+  - Registry Management improvements
 
 ## Planned
 
-### v0.17 – Init Container UI/UX Improvements
+### v0.18 – Init Container UI/UX Improvements
 - Deployment removal status feedback (show progress when removing containers)
 - Real-time init container logs during deployment (visible in UI)
 - Separate init container counting (not counted as regular services)
 - Init containers excluded from health monitoring (only shown during deployment)
 - Optional: Automatic cleanup of exited init containers after successful deployment
 
-### v0.18 – Docker Volumes Management
+### v0.19 – Docker Volumes Management
 - Docker Volumes View (List All Volumes per Environment)
 - Volume Details (Size, Mount Points, Labels)
 - Create/Delete Volumes
 - Detect Orphaned Volumes
 
-### v0.19 – Metrics & Audit
+### v0.20 – Metrics & Audit
 - Metrics & Alerting
 - Audit Logs
 
-### v0.20 – CI/CD Integration
+### v0.21 – CI/CD Integration
 - Webhooks for External CI/CD Systems
 - API for Automated Deployments
 
-### v0.21 – Multi-User Support
+### v0.22 – Multi-User Support
 - User Management UI
 - Create/Edit Users
 - Password Reset Flow
 
-### v0.22 – Feature Flags
+### v0.23 – Feature Flags
 - Feature Flags UI in Admin
 - Feature Toggle at Organization Level
 - Environment Variables for Feature Flags
