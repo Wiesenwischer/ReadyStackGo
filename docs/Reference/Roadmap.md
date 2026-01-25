@@ -129,11 +129,18 @@ Rough outlook on planned versions and features.
 
 ## Planned
 
-### v0.17 – Docker Volumes Management
-- Docker Volumes View (List All Volumes per Environment)
-- Volume Details (Size, Mount Points, Labels)
-- Create/Delete Volumes
-- Detect Orphaned Volumes
+### v0.17 – Init Container UX & Docker Volumes Management
+- **Init Container UI/UX Improvements**
+  - Deployment removal status feedback (show progress when removing containers)
+  - Real-time init container logs during deployment (visible in UI)
+  - Separate init container counting (not counted as regular services)
+  - Init containers excluded from health monitoring (only shown during deployment)
+  - Optional: Automatic cleanup of exited init containers after successful deployment
+- **Docker Volumes Management**
+  - Docker Volumes View (List All Volumes per Environment)
+  - Volume Details (Size, Mount Points, Labels)
+  - Create/Delete Volumes
+  - Detect Orphaned Volumes
 
 ### v0.18 – Metrics & Audit
 - Metrics & Alerting
