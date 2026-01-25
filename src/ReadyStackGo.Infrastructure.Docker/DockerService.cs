@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text;
 using System.Text.Json;
 using Docker.DotNet;
 using Docker.DotNet.Models;
@@ -810,10 +811,25 @@ public class DockerService : IDockerService, IDisposable
 
             using var logsStream = await client.Containers.GetContainerLogsAsync(containerId, false, logsParams, cancellationToken);
 
-            using var reader = new StreamReader(logsStream);
-            var logs = await reader.ReadToEndAsync(cancellationToken);
+            // Read from MultiplexedStream frame by frame
+            var logs = new StringBuilder();
+            var buffer = new byte[4096];
 
-            return logs;
+            while (true)
+            {
+                var result = await logsStream.ReadOutputAsync(buffer, 0, buffer.Length, cancellationToken);
+                if (result.EOF)
+                {
+                    break;
+                }
+
+                if (result.Count > 0)
+                {
+                    logs.Append(System.Text.Encoding.UTF8.GetString(buffer, 0, result.Count));
+                }
+            }
+
+            return logs.ToString();
         }
         catch (Exception ex)
         {
