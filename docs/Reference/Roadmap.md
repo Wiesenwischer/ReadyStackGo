@@ -129,33 +129,33 @@ Rough outlook on planned versions and features.
 
 ## Planned
 
-### v0.17 – Init Container UX & Docker Volumes Management
-- **Init Container UI/UX Improvements**
-  - Deployment removal status feedback (show progress when removing containers)
-  - Real-time init container logs during deployment (visible in UI)
-  - Separate init container counting (not counted as regular services)
-  - Init containers excluded from health monitoring (only shown during deployment)
-  - Optional: Automatic cleanup of exited init containers after successful deployment
-- **Docker Volumes Management**
-  - Docker Volumes View (List All Volumes per Environment)
-  - Volume Details (Size, Mount Points, Labels)
-  - Create/Delete Volumes
-  - Detect Orphaned Volumes
+### v0.17 – Init Container UI/UX Improvements
+- Deployment removal status feedback (show progress when removing containers)
+- Real-time init container logs during deployment (visible in UI)
+- Separate init container counting (not counted as regular services)
+- Init containers excluded from health monitoring (only shown during deployment)
+- Optional: Automatic cleanup of exited init containers after successful deployment
 
-### v0.18 – Metrics & Audit
+### v0.18 – Docker Volumes Management
+- Docker Volumes View (List All Volumes per Environment)
+- Volume Details (Size, Mount Points, Labels)
+- Create/Delete Volumes
+- Detect Orphaned Volumes
+
+### v0.19 – Metrics & Audit
 - Metrics & Alerting
 - Audit Logs
 
-### v0.19 – CI/CD Integration
+### v0.20 – CI/CD Integration
 - Webhooks for External CI/CD Systems
 - API for Automated Deployments
 
-### v0.20 – Multi-User Support
+### v0.21 – Multi-User Support
 - User Management UI
 - Create/Edit Users
 - Password Reset Flow
 
-### v0.21 – Feature Flags
+### v0.22 – Feature Flags
 - Feature Flags UI in Admin
 - Feature Toggle at Organization Level
 - Environment Variables for Feature Flags
