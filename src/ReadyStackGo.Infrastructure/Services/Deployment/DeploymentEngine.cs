@@ -754,8 +754,8 @@ public class DeploymentEngine : IDeploymentEngine
             step.ContainerName, string.Join(", ", networks));
 
         // Create and start container
-        // Init containers use "on-failure" restart policy, regular services use "unless-stopped"
-        var restartPolicy = step.Lifecycle == ServiceLifecycle.Init ? "on-failure" : "unless-stopped";
+        // Init containers use "no" restart policy (run once, fail fast), regular services use "unless-stopped"
+        var restartPolicy = step.Lifecycle == ServiceLifecycle.Init ? "no" : "unless-stopped";
 
         var request = new CreateContainerRequest
         {

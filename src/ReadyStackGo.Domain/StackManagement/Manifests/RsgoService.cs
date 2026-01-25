@@ -18,7 +18,8 @@ public class RsgoService
     /// <summary>
     /// Service lifecycle type (defaults to Service).
     /// Use "init" for run-once containers like database migrators.
-    /// Init containers run before regular services and only restart on failure.
+    /// Init containers run before regular services and do not restart (fail fast).
+    /// If an init container fails, re-deploy the stack to retry.
     /// </summary>
     public ServiceLifecycle Lifecycle { get; set; } = ServiceLifecycle.Service;
 
