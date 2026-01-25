@@ -277,4 +277,126 @@ services:
             }
         }
     }
+
+    [Fact]
+    public async Task LoadProductsAsync_ThroughCache_PreservesServiceCounts()
+    {
+        // Arrange - Create test directory structure matching real Business Services
+        var tempDir = Path.Combine(Path.GetTempPath(), $"rsgo-test-cache-{Guid.NewGuid()}");
+        Directory.CreateDirectory(tempDir);
+        var contextsDir = Path.Combine(tempDir, "Contexts");
+        Directory.CreateDirectory(contextsDir);
+
+        try
+        {
+            // Create main manifest
+            var mainManifest = @"
+metadata:
+  name: Business Services
+  productId: business-services
+  description: Business Services - all bounded context services
+  productVersion: '3.1.0-pre'
+  category: Business
+
+sharedVariables:
+  REDIS_CONNECTION:
+    label: Redis Connection
+    type: String
+    default: cachedata:6379
+
+stacks:
+  projectmanagement:
+    include: Contexts/projectmanagement.yaml
+  memo:
+    include: Contexts/memo.yaml
+";
+            await File.WriteAllTextAsync(Path.Combine(tempDir, "business-services.yaml"), mainManifest);
+
+            // Create include files
+            var projectManagementFragment = @"
+metadata:
+  name: ProjectManagement
+  description: Project Management bounded context
+
+services:
+  project-api:
+    image: amssolution/project-api:latest
+    containerName: project-api
+    ports:
+      - '7700:8080'
+
+  project-web:
+    image: amssolution/project-web:latest
+    containerName: project-web
+    ports:
+      - '7701:3000'
+";
+            await File.WriteAllTextAsync(Path.Combine(contextsDir, "projectmanagement.yaml"), projectManagementFragment);
+
+            var memoFragment = @"
+metadata:
+  name: Memo
+  description: Memo bounded context
+
+services:
+  memo-api:
+    image: amssolution/memo-api:latest
+    containerName: memo-api
+    ports:
+      - '7702:8080'
+";
+            await File.WriteAllTextAsync(Path.Combine(contextsDir, "memo.yaml"), memoFragment);
+
+            // Create StackSource
+            var source = StackSource.CreateLocalDirectory(
+                id: StackSourceId.Create("test-source"),
+                name: "Test Source",
+                path: tempDir
+            );
+
+            // Act - Load products via provider
+            var products = await _provider.LoadProductsAsync(source);
+            var productsList = products.ToList();
+
+            // Simulate adding to cache (like ProductSourceService does)
+            var cache = new ReadyStackGo.Infrastructure.Caching.InMemoryProductCache();
+            cache.SetMany(productsList);
+
+            // Retrieve from cache by productId (like GetProductHandler does)
+            var retrievedProduct = cache.GetProduct("business-services");
+
+            // Assert - Product should be found with correct service counts
+            retrievedProduct.Should().NotBeNull("product should be retrievable from cache by productId");
+            retrievedProduct!.Name.Should().Be("Business Services");
+            retrievedProduct.ProductVersion.Should().Be("3.1.0-pre");
+            retrievedProduct.IsMultiStack.Should().BeTrue();
+            retrievedProduct.Stacks.Should().HaveCount(2, "should have 2 stacks");
+
+            // CRITICAL: TotalServices should NOT be 0
+            retrievedProduct.TotalServices.Should().BeGreaterThan(0, "TotalServices should not be 0 after cache round-trip");
+            retrievedProduct.TotalServices.Should().Be(3, "should have 3 total services (2 from projectmanagement + 1 from memo)");
+
+            // Verify individual stacks
+            var pmStack = retrievedProduct.Stacks.FirstOrDefault(s => s.Name == "ProjectManagement");
+            pmStack.Should().NotBeNull();
+            pmStack!.Services.Should().HaveCount(2, "ProjectManagement stack should have 2 services");
+
+            var memoStack = retrievedProduct.Stacks.FirstOrDefault(s => s.Name == "Memo");
+            memoStack.Should().NotBeNull();
+            memoStack!.Services.Should().HaveCount(1, "Memo stack should have 1 service");
+
+            // Also test retrieval by full ID (sourceId:name:version)
+            var retrievedById = cache.GetProduct("test-source:Business Services:3.1.0-pre");
+            retrievedById.Should().NotBeNull("product should also be retrievable by full ID");
+            retrievedById!.TotalServices.Should().Be(3, "TotalServices should be 3 when retrieved by full ID");
+        }
+        finally
+        {
+            // Cleanup
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+    }
 }

@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 
 namespace ReadyStackGo.Application.UseCases.Stacks.GetProduct;
@@ -6,20 +7,28 @@ namespace ReadyStackGo.Application.UseCases.Stacks.GetProduct;
 public class GetProductHandler : IRequestHandler<GetProductQuery, GetProductResult?>
 {
     private readonly IProductSourceService _productSourceService;
+    private readonly ILogger<GetProductHandler> _logger;
 
-    public GetProductHandler(IProductSourceService productSourceService)
+    public GetProductHandler(IProductSourceService productSourceService, ILogger<GetProductHandler> logger)
     {
         _productSourceService = productSourceService;
+        _logger = logger;
     }
 
     public async Task<GetProductResult?> Handle(GetProductQuery request, CancellationToken cancellationToken)
     {
+        _logger.LogInformation("GetProduct request for ProductId: {ProductId}", request.ProductId);
+
         var product = await _productSourceService.GetProductAsync(request.ProductId, cancellationToken);
 
         if (product == null)
         {
+            _logger.LogWarning("Product not found for ProductId: {ProductId}", request.ProductId);
             return null;
         }
+
+        _logger.LogInformation("Found product: Name={Name}, Version={Version}, IsMultiStack={IsMultiStack}, StackCount={StackCount}, TotalServices={TotalServices}",
+            product.Name, product.ProductVersion, product.IsMultiStack, product.Stacks.Count, product.TotalServices);
 
         var sources = await _productSourceService.GetSourcesAsync(cancellationToken);
         var sourceNames = sources.ToDictionary(s => s.Id.Value, s => s.Name);

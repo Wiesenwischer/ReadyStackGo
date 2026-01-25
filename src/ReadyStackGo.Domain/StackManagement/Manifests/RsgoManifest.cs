@@ -47,6 +47,13 @@ public class RsgoManifest
     public Dictionary<string, RsgoVariable>? Variables { get; set; }
 
     /// <summary>
+    /// List of service include files. Services from these files are merged into the Services dictionary.
+    /// This allows splitting large service definitions across multiple files for better organization.
+    /// Example: ["Contexts/projectmanagement.yaml", "Contexts/memo.yaml"]
+    /// </summary>
+    public List<string>? ServiceIncludes { get; set; }
+
+    /// <summary>
     /// Service definitions (for single-stack manifests or fragments).
     /// </summary>
     public Dictionary<string, RsgoService>? Services { get; set; }
