@@ -45,22 +45,74 @@ main
    - Falls `$ARGUMENTS` leer ist, nimm das **nächste geplante Feature** (niedrigste Version unter "Planned").
 2. Lies die **Projektrichtlinien** (`CLAUDE.md`) für Branch-Konventionen, Commit-Regeln und Test-Anforderungen.
 3. Lies relevante **bestehende Implementierungen** um Patterns und Architektur zu verstehen.
-4. Erstelle eine Zusammenfassung des Features mit:
-   - Was genau implementiert werden soll
-   - Welche bestehenden Dateien betroffen sind
-   - Welche neuen Dateien erstellt werden müssen
 
-## Schritt 2: Offene Punkte klären
+## Schritt 2: Phasen-Planung & Implementierungsplan erstellen
+
+Bevor irgendwelcher Code geschrieben wird, muss eine **Planungsdatei** für die Phase erstellt werden.
+
+### Planungsdatei anlegen: `docs/Plans/PLAN-<phase-name>.md`
+
+Beispiel: `docs/Plans/PLAN-init-container-ux.md`
+
+Die Planungsdatei enthält:
+
+```markdown
+# Phase: <Phasen-Titel> (v0.XX)
+
+## Ziel
+<Kurze Beschreibung was diese Phase erreichen soll>
+
+## Analyse
+<Zusammenfassung der Codebase-Analyse: bestehende Patterns, betroffene Dateien, Abhängigkeiten>
+
+## Features / Schritte
+
+Reihenfolge basierend auf Abhängigkeiten und logischem Aufbau:
+
+- [ ] **Feature 1: <Name>** – <Kurzbeschreibung>
+  - Betroffene Dateien: ...
+  - Abhängig von: -
+- [ ] **Feature 2: <Name>** – <Kurzbeschreibung>
+  - Betroffene Dateien: ...
+  - Abhängig von: Feature 1
+- [ ] **Feature 3: <Name>** – <Kurzbeschreibung>
+  - Betroffene Dateien: ...
+  - Abhängig von: -
+- [ ] **Dokumentation & Website** – Wiki, Public Website, Roadmap
+- [ ] **Phase abschließen** – Alle Tests grün, PR gegen main
+
+## Offene Punkte
+- [ ] <Frage oder Unklarheit>
+- [ ] <Technische Entscheidung die geklärt werden muss>
+
+## Entscheidungen
+| Entscheidung | Optionen | Gewählt | Begründung |
+|---|---|---|---|
+| <Thema> | A, B, C | B | <Warum B gewählt wurde> |
+```
+
+### Fortschritts-Tracking
+
+Status-Markierungen für Features/Schritte:
+- `[ ]` – Offen (noch nicht begonnen)
+- `[x]` – Erledigt (erfolgreich implementiert)
+- `[-]` – Übersprungen (bewusst nicht implementiert, mit Begründung)
+
+**Aktualisiere die Planungsdatei nach jedem abgeschlossenen Feature!**
+
+## Schritt 3: Offene Punkte klären
 
 Bevor du mit der Implementierung beginnst:
 - Identifiziere **Unklarheiten** und **Entscheidungen** die getroffen werden müssen
+- Dokumentiere diese in der Planungsdatei unter "Offene Punkte"
 - Frage den User explizit nach offenen Punkten
 - Kläre technische Ansätze wenn es mehrere Möglichkeiten gibt
+- Dokumentiere getroffene Entscheidungen in der Tabelle "Entscheidungen"
 - Stelle sicher, dass der **Scope** klar definiert ist
 
 **Implementiere NICHTS bevor alle Fragen geklärt sind!**
 
-## Schritt 3: Branches erstellen
+## Schritt 4: Branches erstellen
 
 ### Prüfe ob ein Integration Branch für die aktuelle Phase existiert:
 ```bash
@@ -80,15 +132,15 @@ git checkout integration/<phase-name>
 git checkout -b feature/<feature-name>
 ```
 
-## Schritt 4: Implementierung planen
+## Schritt 5: Feature-Implementierung planen
 
-Nutze den Plan Mode um einen detaillierten Implementierungsplan zu erstellen:
+Nutze den Plan Mode um für das aktuelle Feature einen detaillierten Implementierungsplan zu erstellen:
 - Identifiziere alle betroffenen Dateien
 - Plane die Reihenfolge der Änderungen
 - Berücksichtige bestehende Patterns im Codebase
 - Plane die Test-Strategie
 
-## Schritt 5: Tests schreiben
+## Schritt 6: Tests schreiben
 
 Für jedes Feature müssen **drei Test-Ebenen** abgedeckt werden:
 
@@ -115,7 +167,7 @@ Für jedes Feature müssen **drei Test-Ebenen** abgedeckt werden:
 - Teste Fehlerfälle auch in der UI (Fehlermeldungen, Validierung)
 - Nutze aussagekräftige Selektoren (data-testid, ARIA roles)
 
-## Schritt 6: Feature implementieren
+## Schritt 7: Feature implementieren
 
 - Implementiere das Feature gemäß dem Plan aus Schritt 4
 - Halte dich an die bestehende Architektur (DDD, Clean Architecture, MediatR)
@@ -127,7 +179,7 @@ Für jedes Feature müssen **drei Test-Ebenen** abgedeckt werden:
   docker compose up -d
   ```
 
-## Schritt 7: Verifizierung
+## Schritt 8: Verifizierung
 
 **ALLE Tests müssen grün sein bevor ein PR erstellt wird!**
 
@@ -149,7 +201,7 @@ Für jedes Feature müssen **drei Test-Ebenen** abgedeckt werden:
    ```
    Anwendung auf http://localhost:8080 prüfen.
 
-## Schritt 8: Feature-PR erstellen
+## Schritt 9: Feature-PR erstellen
 
 1. Alle Änderungen committen (kurze, prägnante Commit-Messages, KEIN Footer)
 2. Branch pushen
@@ -161,7 +213,16 @@ Für jedes Feature müssen **drei Test-Ebenen** abgedeckt werden:
 5. CI-Checks abwarten
 6. PR mergen und Feature Branch löschen
 
-## Schritt 9: Dokumentation & Website (pro Phase)
+## Schritt 10: Planungsdatei aktualisieren
+
+Nach jedem abgeschlossenen Feature die Planungsdatei aktualisieren:
+- Feature als `[x]` markieren
+- Eventuelle Erkenntnisse oder Abweichungen dokumentieren
+- Übersprungene Features als `[-]` markieren mit Begründung
+
+**Wiederhole Schritte 5-10 für jedes Feature der Phase.**
+
+## Schritt 11: Dokumentation & Website (pro Phase)
 
 Wenn **alle Features einer Phase** implementiert sind, folgende Schritte durchführen:
 
@@ -181,7 +242,7 @@ Wenn **alle Features einer Phase** implementiert sind, folgende Schritte durchf�
 - Feature von "Planned" nach "Released" verschieben in `docs/Reference/Roadmap.md`
 - Release-Datum hinzufügen
 
-## Schritt 10: Phase abschließen
+## Schritt 12: Phase abschließen
 
 Wenn alle Features, Docs und Website-Updates fertig sind:
 
