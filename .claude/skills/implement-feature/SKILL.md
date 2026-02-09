@@ -11,6 +11,33 @@ Implementiere ein neues Feature für ReadyStackGo.
 
 **Feature**: $ARGUMENTS
 
+---
+
+## Phasen- und Branch-Konzept
+
+Jede Roadmap-Version (z.B. v0.18) ist eine **Phase** mit mehreren Features. Die Branch-Struktur:
+
+```
+main
+ └── integration/<phase-name>          (langlebig, mehrere Tage)
+      ├── feature/<feature-name>       (kurzlebig, max 1 Tag)
+      ├── feature/<feature-name>       (kurzlebig, max 1 Tag)
+      └── feature/<feature-name>       (kurzlebig, max 1 Tag)
+```
+
+- **Integration Branch**: `integration/<phase-name>` – Sammelbranch für alle Features einer Phase
+- **Feature Branches**: `feature/<name>` – Einzelne Features, werden in den Integration Branch gemerged
+- **Branch-Namen OHNE Versionsnummern** (z.B. `integration/init-container-ux`, nicht `integration/v0.18`)
+- Feature Branches nutzen das Prefix `feature/` damit der **Auto-Labeler** sie korrekt als `feature` labelt
+
+### Auto-Labeler Regeln (Release Drafter)
+- `feature/*` → Label `feature`
+- `refactor/*` → Label `enhancement`
+- `fix/*`, `bugfix/*`, `hotfix/*` → Label `bug`
+- `chore/*` → Label `maintenance`
+
+---
+
 ## Schritt 1: Kontext erfassen
 
 1. Lies die **Roadmap** (`docs/Reference/Roadmap.md`) und identifiziere das nächste geplante Feature unter "Planned".
@@ -33,15 +60,25 @@ Bevor du mit der Implementierung beginnst:
 
 **Implementiere NICHTS bevor alle Fragen geklärt sind!**
 
-## Schritt 3: Feature-Branch erstellen
+## Schritt 3: Branches erstellen
 
+### Prüfe ob ein Integration Branch für die aktuelle Phase existiert:
 ```bash
-git checkout main
-git pull
-git checkout -b feature/<feature-name>
+git checkout main && git pull
+git branch -a | grep integration/
 ```
 
-Branch-Name gemäß CLAUDE.md: `feature/<name>` ohne Versionsnummern.
+### Falls kein Integration Branch existiert:
+```bash
+git checkout -b integration/<phase-name>
+git push -u origin integration/<phase-name>
+```
+
+### Feature Branch vom Integration Branch ableiten:
+```bash
+git checkout integration/<phase-name>
+git checkout -b feature/<feature-name>
+```
 
 ## Schritt 4: Implementierung planen
 
@@ -92,6 +129,8 @@ Für jedes Feature müssen **drei Test-Ebenen** abgedeckt werden:
 
 ## Schritt 7: Verifizierung
 
+**ALLE Tests müssen grün sein bevor ein PR erstellt wird!**
+
 1. **Unit Tests ausführen:**
    ```bash
    dotnet test tests/ReadyStackGo.UnitTests/
@@ -110,13 +149,46 @@ Für jedes Feature müssen **drei Test-Ebenen** abgedeckt werden:
    ```
    Anwendung auf http://localhost:8080 prüfen.
 
-## Schritt 8: PR erstellen
+## Schritt 8: Feature-PR erstellen
 
 1. Alle Änderungen committen (kurze, prägnante Commit-Messages, KEIN Footer)
 2. Branch pushen
-3. PR erstellen mit:
-   - Aussagekräftiger Beschreibung
-   - Auflistung der Änderungen
-   - **KEIN Footer** (kein "Generated with Claude Code" o.ä.)
-4. CI-Checks abwarten
-5. PR mergen und Branch löschen
+3. PR erstellen **gegen den Integration Branch** (nicht gegen main!):
+   ```bash
+   gh pr create --base integration/<phase-name> --title "..." --body "..."
+   ```
+4. **KEIN Footer** in PR-Beschreibungen
+5. CI-Checks abwarten
+6. PR mergen und Feature Branch löschen
+
+## Schritt 9: Dokumentation & Website (pro Phase)
+
+Wenn **alle Features einer Phase** implementiert sind, folgende Schritte durchführen:
+
+### Wiki / Dokumentation (`docs/`)
+- Neue oder geänderte Features dokumentieren (Deutsch mit englischen Fachbegriffen)
+- Bestehende Seiten aktualisieren wenn sich Verhalten ändert
+- Wird automatisch ins GitHub Wiki synchronisiert (`.github/workflows/wiki.yml`)
+
+### Public Website (`src/ReadyStackGo.PublicWeb/`)
+- **Neue Features** in der Feature-Übersicht auflisten
+- **User-Dokumentation** erweitern (Astro/Starlight, bilingual DE/EN)
+- Content-Pfad: `src/ReadyStackGo.PublicWeb/src/content/docs/`
+  - Deutsche Docs: `de/`
+  - Englische Docs: `en/`
+
+### Roadmap aktualisieren
+- Feature von "Planned" nach "Released" verschieben in `docs/Reference/Roadmap.md`
+- Release-Datum hinzufügen
+
+## Schritt 10: Phase abschließen
+
+Wenn alle Features, Docs und Website-Updates fertig sind:
+
+1. **Alle Tests nochmal ausführen** (Unit, Integration, E2E) – alles muss grün sein
+2. **PR vom Integration Branch gegen main erstellen:**
+   ```bash
+   gh pr create --base main --title "v0.XX – <Phase-Titel>" --body "..."
+   ```
+3. CI-Checks abwarten
+4. PR mergen und Integration Branch löschen
