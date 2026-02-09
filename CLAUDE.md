@@ -40,6 +40,12 @@
   - `docker compose down -v` - Container stoppen und Volumes löschen
 - **Port: 8080** - Die Anwendung läuft auf http://localhost:8080 (NICHT 5080!)
 
+## Context7 (MCP Server)
+
+- Bei Fragen zu externen Libraries (Playwright, ASP.NET, Blazor, Docker, YamlDotNet, MediatR, FluentAssertions, Astro/Starlight, etc.) immer **Context7** verwenden um aktuelle Dokumentation abzurufen
+- Syntax: `use context7` im Prompt oder direkt die Context7 MCP Tools nutzen
+- Besonders wichtig bei: Library-Updates, neuen API-Methoden, versionsspezifischen Features
+
 ## Sonstiges
 
 - SSL-Verifizierung für Git ist deaktiviert (abgelaufenes TFS-Zertifikat)
