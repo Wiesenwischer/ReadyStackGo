@@ -421,6 +421,9 @@ rsgo.*.json
 # Claude Code local settings
 .claude/settings.local.json
 
+# MCP server config (contains API keys)
+.mcp.json
+
 # Private stack manifests (not for public repo)
 stacks/ams.project/
 
