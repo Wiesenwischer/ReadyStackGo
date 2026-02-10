@@ -28,6 +28,7 @@ import {
   ConfigureLetsEncrypt,
   UploadCertificate,
   ResetToSelfSigned,
+  CiCdList,
 } from "./pages/Settings";
 import SetupEnvironment from "./pages/Environments/SetupEnvironment";
 import Login from "./pages/Auth/Login";
@@ -177,6 +178,7 @@ export default function App() {
                 <Route path="/settings/tls/letsencrypt" element={<ConfigureLetsEncrypt />} />
                 <Route path="/settings/tls/upload" element={<UploadCertificate />} />
                 <Route path="/settings/tls/selfsigned" element={<ResetToSelfSigned />} />
+                <Route path="/settings/cicd" element={<CiCdList />} />
               </Route>
               {/* 404 catch-all route */}
               <Route path="*" element={<NotFound />} />
