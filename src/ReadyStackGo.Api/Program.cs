@@ -10,8 +10,10 @@ using ReadyStackGo.Api.Hubs;
 using ReadyStackGo.Api.Services;
 using ReadyStackGo.Application;
 using ReadyStackGo.Application.Services;
+using Microsoft.AspNetCore.Authentication;
 using ReadyStackGo.Infrastructure;
 using ReadyStackGo.Infrastructure.DataAccess;
+using ReadyStackGo.Infrastructure.Security.Authentication;
 
 namespace ReadyStackGo.Api;
 
@@ -26,10 +28,10 @@ public class Program
         builder.Services.AddInfrastructure(builder.Configuration);
         builder.Services.AddFastEndpoints();
 
-        // Add JWT Authentication
+        // Add Authentication with multi-scheme support (JWT + API Key)
         var jwtSettings = builder.Configuration.GetSection("Jwt");
-        builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(options =>
+        builder.Services.AddAuthentication("MultiScheme")
+            .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
             {
                 // Disable claim mapping to preserve original JWT claim names
                 // This allows us to use "roles" claim without ASP.NET Core transforming it
@@ -65,6 +67,17 @@ public class Program
 
                         return Task.CompletedTask;
                     }
+                };
+            })
+            .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
+                ApiKeyAuthenticationHandler.SchemeName, null)
+            .AddPolicyScheme("MultiScheme", "API Key or JWT", options =>
+            {
+                options.ForwardDefaultSelector = context =>
+                {
+                    if (context.Request.Headers.ContainsKey(ApiKeyAuthenticationHandler.HeaderName))
+                        return ApiKeyAuthenticationHandler.SchemeName;
+                    return JwtBearerDefaults.AuthenticationScheme;
                 };
             });
 
