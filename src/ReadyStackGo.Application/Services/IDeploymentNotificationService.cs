@@ -14,8 +14,10 @@ public interface IDeploymentNotificationService
     /// <param name="message">Human-readable status message.</param>
     /// <param name="percentComplete">Progress percentage (0-100).</param>
     /// <param name="currentService">Name of the service currently being deployed.</param>
-    /// <param name="totalServices">Total number of services in the deployment.</param>
-    /// <param name="completedServices">Number of services successfully deployed.</param>
+    /// <param name="totalServices">Total number of regular services in the deployment.</param>
+    /// <param name="completedServices">Number of regular services successfully deployed.</param>
+    /// <param name="totalInitContainers">Total number of init containers.</param>
+    /// <param name="completedInitContainers">Number of init containers completed.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task NotifyProgressAsync(
         string sessionId,
@@ -25,6 +27,8 @@ public interface IDeploymentNotificationService
         string? currentService,
         int totalServices,
         int completedServices,
+        int totalInitContainers,
+        int completedInitContainers,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -55,5 +59,18 @@ public interface IDeploymentNotificationService
         string? failedService,
         int totalServices,
         int completedServices,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Send an init container log line to connected clients.
+    /// </summary>
+    /// <param name="sessionId">Unique deployment session ID.</param>
+    /// <param name="containerName">Name of the init container.</param>
+    /// <param name="logLine">The log line content.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task NotifyInitContainerLogAsync(
+        string sessionId,
+        string containerName,
+        string logLine,
         CancellationToken cancellationToken = default);
 }

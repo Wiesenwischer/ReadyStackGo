@@ -29,6 +29,8 @@ public class DeploymentNotificationService : IDeploymentNotificationService
         string? currentService,
         int totalServices,
         int completedServices,
+        int totalInitContainers,
+        int completedInitContainers,
         CancellationToken cancellationToken = default)
     {
         var groupName = $"deployment:{sessionId}";
@@ -46,6 +48,8 @@ public class DeploymentNotificationService : IDeploymentNotificationService
             CurrentService = currentService,
             TotalServices = totalServices,
             CompletedServices = completedServices,
+            TotalInitContainers = totalInitContainers,
+            CompletedInitContainers = completedInitContainers,
             Status = "InProgress"
         };
 
@@ -120,5 +124,25 @@ public class DeploymentNotificationService : IDeploymentNotificationService
         await _hubContext.Clients
             .Group(groupName)
             .SendAsync("DeploymentFailed", payload, cancellationToken);
+    }
+
+    public async Task NotifyInitContainerLogAsync(
+        string sessionId,
+        string containerName,
+        string logLine,
+        CancellationToken cancellationToken = default)
+    {
+        var groupName = $"deployment:{sessionId}";
+
+        var payload = new
+        {
+            SessionId = sessionId,
+            ContainerName = containerName,
+            LogLine = logLine
+        };
+
+        await _hubContext.Clients
+            .Group(groupName)
+            .SendAsync("InitContainerLog", payload, cancellationToken);
     }
 }

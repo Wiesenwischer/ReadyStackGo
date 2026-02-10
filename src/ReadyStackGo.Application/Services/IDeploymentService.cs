@@ -12,7 +12,16 @@ public delegate Task DeploymentServiceProgressCallback(
     int progressPercent,
     string? currentService,
     int totalServices,
-    int completedServices);
+    int completedServices,
+    int totalInitContainers,
+    int completedInitContainers);
+
+/// <summary>
+/// Callback delegate for streaming init container log lines.
+/// </summary>
+/// <param name="containerName">Name of the init container producing the log.</param>
+/// <param name="logLine">A single log line from the container.</param>
+public delegate Task InitContainerLogCallback(string containerName, string logLine);
 
 /// <summary>
 /// Service for managing Docker Compose stack deployments.
@@ -38,6 +47,7 @@ public interface IDeploymentService
         string environmentId,
         DeployComposeRequest request,
         DeploymentServiceProgressCallback? progressCallback,
+        InitContainerLogCallback? logCallback = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -83,5 +93,6 @@ public interface IDeploymentService
         string? environmentId,
         DeployStackRequest request,
         DeploymentServiceProgressCallback? progressCallback,
+        InitContainerLogCallback? logCallback = null,
         CancellationToken cancellationToken = default);
 }

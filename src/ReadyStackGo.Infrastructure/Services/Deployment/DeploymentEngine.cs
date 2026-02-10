@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.UseCases.Deployments;
 using ReadyStackGo.Application.Services;
@@ -96,12 +97,13 @@ public class DeploymentEngine : IDeploymentEngine
 
     public Task<DeploymentResult> ExecuteDeploymentAsync(DeploymentPlan plan)
     {
-        return ExecuteDeploymentAsync(plan, null, CancellationToken.None);
+        return ExecuteDeploymentAsync(plan, null, null, CancellationToken.None);
     }
 
     public async Task<DeploymentResult> ExecuteDeploymentAsync(
         DeploymentPlan plan,
         DeploymentProgressCallback? progressCallback,
+        InitContainerLogCallback? logCallback = null,
         CancellationToken cancellationToken = default)
     {
         var result = new DeploymentResult
@@ -114,8 +116,10 @@ public class DeploymentEngine : IDeploymentEngine
         var initSteps = plan.Steps.Where(s => s.Lifecycle == ServiceLifecycle.Init).ToList();
         var regularSteps = plan.Steps.Where(s => s.Lifecycle == ServiceLifecycle.Service).ToList();
 
-        var totalSteps = plan.Steps.Count;
-        var completedSteps = 0;
+        var totalRegularServices = regularSteps.Count;
+        var completedRegularServices = 0;
+        var totalInitContainers = initSteps.Count;
+        var completedInitContainers = 0;
 
         // Define deployment phases with their weights (end of last phase = 100)
         // Each phase reports its own 0-100% progress internally
@@ -147,7 +151,8 @@ public class DeploymentEngine : IDeploymentEngine
             if (progressCallback != null)
             {
                 var overallPercent = CalculateOverallProgress(phase, phaseProgress);
-                await progressCallback(phase, message, overallPercent, currentService, totalSteps, completedSteps);
+                await progressCallback(phase, message, overallPercent, currentService,
+                    totalRegularServices, completedRegularServices, totalInitContainers, completedInitContainers);
             }
         }
 
@@ -249,7 +254,8 @@ public class DeploymentEngine : IDeploymentEngine
                 if (progressCallback != null)
                 {
                     var overallPercent = CalculateOverallProgress("PullingImages", phaseProgress);
-                    await progressCallback("PullingImages", message, overallPercent, currentService, totalImages, pulledImages);
+                    await progressCallback("PullingImages", message, overallPercent, currentService,
+                        totalImages, pulledImages, totalInitContainers, completedInitContainers);
                 }
             }
 
@@ -305,14 +311,43 @@ public class DeploymentEngine : IDeploymentEngine
                 _logger.LogInformation("Phase: Initializing {Count} init container(s) before starting services", initSteps.Count);
                 await ReportProgress("InitializingContainers", $"Running {initSteps.Count} init container(s)...", 0);
 
-                var completedInits = 0;
                 foreach (var initStep in initSteps)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
+                    // Collect log lines for persistence (max 500 lines to keep DB size reasonable)
+                    const int maxLogLines = 500;
+                    var collectedLogLines = new List<string>();
+
+                    // Wrap the log callback to also collect lines
+                    InitContainerLogCallback? wrappedLogCallback = null;
+                    if (logCallback != null)
+                    {
+                        wrappedLogCallback = async (containerName, logLine) =>
+                        {
+                            if (collectedLogLines.Count < maxLogLines)
+                            {
+                                collectedLogLines.Add(logLine);
+                            }
+                            await logCallback(containerName, logLine);
+                        };
+                    }
+                    else
+                    {
+                        // Even without a SignalR callback, collect logs for persistence
+                        wrappedLogCallback = (_, logLine) =>
+                        {
+                            if (collectedLogLines.Count < maxLogLines)
+                            {
+                                collectedLogLines.Add(logLine);
+                            }
+                            return Task.CompletedTask;
+                        };
+                    }
+
                     try
                     {
-                        var beforeInitPercent = initSteps.Count > 0 ? (completedInits * 100 / initSteps.Count) : 0;
+                        var beforeInitPercent = initSteps.Count > 0 ? (completedInitContainers * 100 / initSteps.Count) : 0;
                         await ReportProgress("InitializingContainers",
                             $"Running init container {initStep.ContextName}...",
                             beforeInitPercent,
@@ -324,6 +359,7 @@ public class DeploymentEngine : IDeploymentEngine
                             initStep,
                             defaultNetwork,
                             stackName,
+                            wrappedLogCallback,
                             cancellationToken);
 
                         // Add any pull warnings for this step
@@ -334,23 +370,34 @@ public class DeploymentEngine : IDeploymentEngine
 
                         result.DeployedContexts.Add(initStep.ContextName);
                         result.DeployedContainers.Add(containerInfo);
-                        completedSteps++;
-                        completedInits++;
+                        result.InitContainerResults.Add(new InitContainerResultInfo
+                        {
+                            ServiceName = initStep.ContextName,
+                            Success = true,
+                            ExitCode = 0,
+                            LogLines = collectedLogLines
+                        });
+                        completedInitContainers++;
 
-                        var afterInitPercent = initSteps.Count > 0 ? (completedInits * 100 / initSteps.Count) : 100;
+                        var afterInitPercent = initSteps.Count > 0 ? (completedInitContainers * 100 / initSteps.Count) : 100;
                         await ReportProgress("InitializingContainers",
-                            $"Completed {completedInits}/{initSteps.Count} init container(s)",
+                            $"Completed {completedInitContainers}/{initSteps.Count} init container(s)",
                             afterInitPercent,
                             initStep.ContextName);
 
                         _logger.LogInformation("Init container {ContextName} completed successfully", initStep.ContextName);
 
-                        // TODO: Remove this delay after testing - added to make init phase more visible in UI
-                        await Task.Delay(2000, cancellationToken);
                     }
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Init container {ContextName} failed", initStep.ContextName);
+                        result.InitContainerResults.Add(new InitContainerResultInfo
+                        {
+                            ServiceName = initStep.ContextName,
+                            Success = false,
+                            ExitCode = -1,
+                            LogLines = collectedLogLines
+                        });
                         result.Errors.Add($"Init container '{initStep.ContextName}' failed: {ex.Message}");
                         result.Success = false;
                         return result;
@@ -358,6 +405,26 @@ public class DeploymentEngine : IDeploymentEngine
                 }
 
                 _logger.LogInformation("All {Count} init container(s) completed successfully", initSteps.Count);
+
+                // Clean up completed init containers (they are no longer needed)
+                await ReportProgress("InitializingContainers", "Cleaning up init containers...", 100);
+                foreach (var containerInfo in result.DeployedContainers
+                    .Where(c => initSteps.Any(s => s.ContextName == c.ServiceName))
+                    .ToList())
+                {
+                    try
+                    {
+                        _logger.LogInformation("Removing completed init container {ContainerName} ({ContainerId})",
+                            containerInfo.ContainerName, containerInfo.ContainerId);
+                        await _dockerService.RemoveContainerAsync(environmentId, containerInfo.ContainerId, force: true);
+                        result.DeployedContainers.Remove(containerInfo);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to remove init container {ContainerName}", containerInfo.ContainerName);
+                        // Non-fatal: continue even if cleanup fails
+                    }
+                }
             }
             else
             {
@@ -367,7 +434,6 @@ public class DeploymentEngine : IDeploymentEngine
             // PHASE: Start regular services in dependency order
             await ReportProgress("StartingServices", $"Starting {regularSteps.Count} service(s)...", 0);
 
-            var completedServices = 0;
             foreach (var step in regularSteps)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -375,7 +441,7 @@ public class DeploymentEngine : IDeploymentEngine
                 try
                 {
                     // Phase-local progress: where we are before starting this service
-                    var beforeStartPercent = regularSteps.Count > 0 ? (completedServices * 100 / regularSteps.Count) : 0;
+                    var beforeStartPercent = regularSteps.Count > 0 ? (completedRegularServices * 100 / regularSteps.Count) : 0;
                     await ReportProgress("StartingServices", $"Starting {step.ContextName}...", beforeStartPercent, step.ContextName);
 
                     var containerInfo = await StartContainerAsync(environmentId, step, defaultNetwork, stackName);
@@ -388,12 +454,11 @@ public class DeploymentEngine : IDeploymentEngine
 
                     result.DeployedContexts.Add(step.ContextName);
                     result.DeployedContainers.Add(containerInfo);
-                    completedSteps++;
-                    completedServices++;
+                    completedRegularServices++;
 
                     // Phase-local progress: 0-100% within this phase
-                    var afterStartPercent = regularSteps.Count > 0 ? (completedServices * 100 / regularSteps.Count) : 100;
-                    await ReportProgress("StartingServices", $"Started {completedServices}/{regularSteps.Count} service(s)", afterStartPercent, step.ContextName);
+                    var afterStartPercent = regularSteps.Count > 0 ? (completedRegularServices * 100 / regularSteps.Count) : 100;
+                    await ReportProgress("StartingServices", $"Started {completedRegularServices}/{regularSteps.Count} service(s)", afterStartPercent, step.ContextName);
 
                     _logger.LogInformation("Successfully started service {Context}", step.ContextName);
                 }
@@ -413,7 +478,7 @@ public class DeploymentEngine : IDeploymentEngine
             _logger.LogInformation("Stack deployment completed successfully");
 
             // Report 100% completion
-            await ReportProgress("Complete", $"Successfully deployed {stackName} with {totalSteps} services", 100);
+            await ReportProgress("Complete", $"Successfully deployed {stackName} with {plan.Steps.Count} services", 100);
         }
         catch (OperationCanceledException)
         {
@@ -525,7 +590,7 @@ public class DeploymentEngine : IDeploymentEngine
 
             if (progressCallback != null)
             {
-                await progressCallback("Initializing", "Finding containers to remove...", 5, null, 0, 0);
+                await progressCallback("Initializing", "Finding containers to remove...", 5, null, 0, 0, 0, 0);
             }
 
             // Get all containers with the rsgo.stack label matching stackVersion
@@ -543,14 +608,14 @@ public class DeploymentEngine : IDeploymentEngine
                     stackVersion, environmentId);
                 if (progressCallback != null)
                 {
-                    await progressCallback("Complete", "No containers to remove", 100, null, 0, 0);
+                    await progressCallback("Complete", "No containers to remove", 100, null, 0, 0, 0, 0);
                 }
             }
             else
             {
                 if (progressCallback != null)
                 {
-                    await progressCallback("RemovingContainers", $"Found {totalContainers} container(s) to remove", 10, null, totalContainers, 0);
+                    await progressCallback("RemovingContainers", $"Found {totalContainers} container(s) to remove", 10, null, totalContainers, 0, 0, 0);
                 }
 
                 // Remove all containers for this stack
@@ -563,7 +628,7 @@ public class DeploymentEngine : IDeploymentEngine
                         if (progressCallback != null)
                         {
                             var progressPercent = 10 + (int)((removedCount / (double)totalContainers) * 80);
-                            await progressCallback("RemovingContainers", $"Removing {containerName}...", progressPercent, containerName, totalContainers, removedCount);
+                            await progressCallback("RemovingContainers", $"Removing {containerName}...", progressPercent, containerName, totalContainers, removedCount, 0, 0);
                         }
 
                         _logger.LogInformation("Removing container {Name} ({Id})", container.Name, container.Id);
@@ -584,7 +649,7 @@ public class DeploymentEngine : IDeploymentEngine
                         if (progressCallback != null)
                         {
                             var progressPercent = 10 + (int)((removedCount / (double)totalContainers) * 80);
-                            await progressCallback("RemovingContainers", $"Removed {containerName}", progressPercent, null, totalContainers, removedCount);
+                            await progressCallback("RemovingContainers", $"Removed {containerName}", progressPercent, null, totalContainers, removedCount, 0, 0);
                         }
                     }
                     catch (Exception ex)
@@ -597,7 +662,7 @@ public class DeploymentEngine : IDeploymentEngine
 
             if (progressCallback != null)
             {
-                await progressCallback("Cleanup", "Cleaning up configuration...", 95, null, totalContainers, removedCount);
+                await progressCallback("Cleanup", "Cleaning up configuration...", 95, null, totalContainers, removedCount, 0, 0);
             }
 
             // Clear release configuration
@@ -615,7 +680,7 @@ public class DeploymentEngine : IDeploymentEngine
 
             if (progressCallback != null)
             {
-                await progressCallback("Complete", $"Successfully removed {removedCount} container(s)", 100, null, totalContainers, removedCount);
+                await progressCallback("Complete", $"Successfully removed {removedCount} container(s)", 100, null, totalContainers, removedCount, 0, 0);
             }
         }
         catch (Exception ex)
@@ -626,7 +691,7 @@ public class DeploymentEngine : IDeploymentEngine
 
             if (progressCallback != null)
             {
-                await progressCallback("Error", $"Removal failed: {ex.Message}", 100, null, 0, 0);
+                await progressCallback("Error", $"Removal failed: {ex.Message}", 100, null, 0, 0, 0, 0);
             }
         }
 
@@ -809,6 +874,7 @@ public class DeploymentEngine : IDeploymentEngine
         DeploymentStep step,
         string defaultNetwork,
         string stackName,
+        InitContainerLogCallback? logCallback,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation("Starting init container {ContextName}...", step.ContextName);
@@ -816,57 +882,106 @@ public class DeploymentEngine : IDeploymentEngine
         // Start the init container (uses restart: on-failure)
         var containerInfo = await StartContainerAsync(environmentId, step, defaultNetwork, stackName);
 
-        // Wait for the container to complete
-        _logger.LogInformation("Waiting for init container {ContextName} to complete...", step.ContextName);
+        // Start background log streaming if a callback is provided
+        using var logCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        Task? logStreamingTask = null;
 
-        var maxWaitSeconds = 300; // 5 minutes timeout for init containers
-        var pollIntervalMs = 500; // Check every 500ms
-        var elapsed = 0;
-
-        while (elapsed < maxWaitSeconds * 1000)
+        if (logCallback != null)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var container = await _dockerService.GetContainerByNameAsync(environmentId, step.ContainerName);
-            if (container == null)
-            {
-                throw new InvalidOperationException($"Init container {step.ContainerName} disappeared during execution");
-            }
-
-            // Check if container has exited
-            if (container.Status.StartsWith("exited", StringComparison.OrdinalIgnoreCase))
-            {
-                // Container has stopped - check exit code
-                var exitCode = await _dockerService.GetContainerExitCodeAsync(environmentId, container.Id);
-
-                if (exitCode == 0)
-                {
-                    _logger.LogInformation("Init container {ContextName} completed successfully (exit code 0)", step.ContextName);
-                    containerInfo.Status = "completed";
-                    return containerInfo;
-                }
-                else
-                {
-                    // Init container failed - get logs for diagnosis
-                    var logs = await _dockerService.GetContainerLogsAsync(environmentId, container.Id, tail: 50);
-                    _logger.LogError("Init container {ContextName} failed with exit code {ExitCode}", step.ContextName, exitCode);
-
-                    throw new InvalidOperationException(
-                        $"Init container '{step.ContextName}' failed with exit code {exitCode}. " +
-                        $"Last 50 log lines:\n{logs}");
-                }
-            }
-
-            // Container still running - wait and check again
-            await Task.Delay(pollIntervalMs, cancellationToken);
-            elapsed += pollIntervalMs;
+            logStreamingTask = StreamInitContainerLogsAsync(
+                environmentId, containerInfo.ContainerId, step.ContextName, logCallback, logCts.Token);
         }
 
-        // Timeout reached
-        var timeoutLogs = await _dockerService.GetContainerLogsAsync(environmentId, containerInfo.ContainerId, tail: 50);
-        throw new TimeoutException(
-            $"Init container '{step.ContextName}' did not complete within {maxWaitSeconds} seconds. " +
-            $"Last 50 log lines:\n{timeoutLogs}");
+        try
+        {
+            // Wait for the container to complete
+            _logger.LogInformation("Waiting for init container {ContextName} to complete...", step.ContextName);
+
+            var maxWaitSeconds = 300; // 5 minutes timeout for init containers
+            var pollIntervalMs = 500; // Check every 500ms
+            var elapsed = 0;
+
+            while (elapsed < maxWaitSeconds * 1000)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var container = await _dockerService.GetContainerByNameAsync(environmentId, step.ContainerName);
+                if (container == null)
+                {
+                    throw new InvalidOperationException($"Init container {step.ContainerName} disappeared during execution");
+                }
+
+                // Check if container has exited
+                if (container.Status.StartsWith("exited", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Container has stopped - check exit code
+                    var exitCode = await _dockerService.GetContainerExitCodeAsync(environmentId, container.Id);
+
+                    if (exitCode == 0)
+                    {
+                        _logger.LogInformation("Init container {ContextName} completed successfully (exit code 0)", step.ContextName);
+                        containerInfo.Status = "completed";
+                        return containerInfo;
+                    }
+                    else
+                    {
+                        // Init container failed - get logs for diagnosis
+                        var logs = await _dockerService.GetContainerLogsAsync(environmentId, container.Id, tail: 50);
+                        _logger.LogError("Init container {ContextName} failed with exit code {ExitCode}", step.ContextName, exitCode);
+
+                        throw new InvalidOperationException(
+                            $"Init container '{step.ContextName}' failed with exit code {exitCode}. " +
+                            $"Last 50 log lines:\n{logs}");
+                    }
+                }
+
+                // Container still running - wait and check again
+                await Task.Delay(pollIntervalMs, cancellationToken);
+                elapsed += pollIntervalMs;
+            }
+
+            // Timeout reached
+            var timeoutLogs = await _dockerService.GetContainerLogsAsync(environmentId, containerInfo.ContainerId, tail: 50);
+            throw new TimeoutException(
+                $"Init container '{step.ContextName}' did not complete within {maxWaitSeconds} seconds. " +
+                $"Last 50 log lines:\n{timeoutLogs}");
+        }
+        finally
+        {
+            // Stop log streaming when container exits or on error
+            await logCts.CancelAsync();
+            if (logStreamingTask != null)
+            {
+                try { await logStreamingTask; } catch (OperationCanceledException) { }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Streams container logs in the background and forwards each line to the callback.
+    /// </summary>
+    private async Task StreamInitContainerLogsAsync(
+        string environmentId,
+        string containerId,
+        string containerName,
+        InitContainerLogCallback logCallback,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (var logLine in _dockerService.StreamContainerLogsAsync(environmentId, containerId, cancellationToken))
+            {
+                await logCallback(containerName, logLine);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when container exits - log streaming is stopped via cancellation
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Log streaming ended for init container {ContainerName}", containerName);
+        }
     }
 
     private async Task UpdateReleaseConfigAsync(DeploymentPlan plan)

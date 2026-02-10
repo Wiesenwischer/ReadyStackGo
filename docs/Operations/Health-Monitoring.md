@@ -91,6 +91,10 @@ The deployment detail page includes a chart showing health trends:
 - Hover over data points to see exact values
 - Helps identify patterns and recurring issues
 
+## Init Container Exclusion
+
+Init containers (`rsgo.lifecycle=init`) are automatically excluded from health monitoring. They are run-once containers (e.g., database migrators) that exit after completion and are cleaned up automatically. Only regular service containers (`rsgo.lifecycle=service`) appear in health snapshots and the Health Dashboard.
+
 ## Health Checks
 
 ### Container Health
@@ -98,7 +102,7 @@ The deployment detail page includes a chart showing health trends:
 ReadyStackGo monitors container status via the Docker API:
 
 - Container state (running, stopped, restarting, exited)
-- Restart count (high restart counts indicate issues)
+- Restart count (only fetched for unhealthy containers to minimize API calls)
 - Exit codes for stopped containers
 
 ### HTTP Health Checks

@@ -114,6 +114,18 @@ public interface IDockerService
         string containerId,
         int? tail = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Streams container logs in real-time (follows new output).
+    /// Each yielded string is one log line.
+    /// </summary>
+    /// <param name="environmentId">Environment ID</param>
+    /// <param name="containerId">Container ID</param>
+    /// <param name="cancellationToken">Cancellation token to stop streaming</param>
+    IAsyncEnumerable<string> StreamContainerLogsAsync(
+        string environmentId,
+        string containerId,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>

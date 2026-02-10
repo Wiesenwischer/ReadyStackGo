@@ -102,6 +102,14 @@ public class DeploymentConfiguration : IEntityTypeConfiguration<Deployment>
                 v => string.IsNullOrEmpty(v) ? null : JsonSerializer.Deserialize<MaintenanceObserverConfig>(v, observerConfigOptions))
             .HasColumnName("MaintenanceObserverConfigJson");
 
+        // Configure InitContainerResults as JSON column
+        builder.Property(d => d.InitContainerResults)
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                v => JsonSerializer.Deserialize<List<InitContainerResult>>(v, (JsonSerializerOptions?)null) ?? new())
+            .HasColumnName("InitContainerResultsJson")
+            .Metadata.SetPropertyAccessMode(PropertyAccessMode.Field);
+
         // Configure HealthCheckConfigs as JSON column (value objects, not entities)
         // Use the public property with backing field access mode
         builder.Property(d => d.HealthCheckConfigs)

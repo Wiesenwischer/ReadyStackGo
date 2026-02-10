@@ -91,6 +91,14 @@ export interface ListDeploymentsResponse {
   deployments: DeploymentSummary[];
 }
 
+export interface InitContainerResultDto {
+  serviceName: string;
+  success: boolean;
+  exitCode: number;
+  executedAtUtc: string;
+  logOutput?: string;
+}
+
 export interface GetDeploymentResponse {
   success: boolean;
   message?: string;
@@ -102,6 +110,7 @@ export interface GetDeploymentResponse {
   /** Current deployment status: Installing, Upgrading, Running, Failed, Removed */
   status?: string;
   services: DeployedServiceInfo[];
+  initContainerResults: InitContainerResultDto[];
   configuration: Record<string, string>;
 }
 

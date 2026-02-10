@@ -47,7 +47,7 @@ public class RemoveDeploymentByIdHandler : IRequestHandler<RemoveDeploymentByIdC
             request.DeploymentId, request.SessionId);
 
         // Create progress callback that sends SignalR notifications
-        DeploymentServiceProgressCallback progressCallback = async (phase, message, percent, currentService, totalServices, completedServices) =>
+        DeploymentServiceProgressCallback progressCallback = async (phase, message, percent, currentService, totalServices, completedServices, totalInitContainers, completedInitContainers) =>
         {
             if (phase == "Complete")
             {
@@ -74,7 +74,9 @@ public class RemoveDeploymentByIdHandler : IRequestHandler<RemoveDeploymentByIdC
                     percent,
                     currentService,
                     totalServices,
-                    completedServices);
+                    completedServices,
+                    totalInitContainers,
+                    completedInitContainers);
             }
         };
 

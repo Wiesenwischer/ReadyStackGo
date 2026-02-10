@@ -131,15 +131,11 @@ Rough outlook on planned versions and features.
   - Public Website TLS Documentation (DE/EN)
   - Stack Sources Git Credentials Support
   - Registry Management improvements
-
-## Planned
-
-### v0.18 – Init Container UI/UX Improvements
-- Deployment removal status feedback (show progress when removing containers)
-- Real-time init container logs during deployment (visible in UI)
-- Separate init container counting (not counted as regular services)
-- Init containers excluded from health monitoring (only shown during deployment)
-- Optional: Automatic cleanup of exited init containers after successful deployment
+- **v0.18** – Init Container UI/UX Improvements (2026-02-10)
+  - Separate Init Container Counting in Deployment Progress
+  - Real-time Init Container Log Streaming via SignalR
+  - Init Containers Excluded from Health Monitoring
+  - Automatic Init Container Cleanup After Successful Init Phase
 
 ### v0.19 – Docker Volumes Management
 - Docker Volumes View (List All Volumes per Environment)

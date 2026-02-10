@@ -1,3 +1,4 @@
+using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Deployments;
 using ReadyStackGo.Infrastructure.Parsing;
 
@@ -10,15 +11,19 @@ namespace ReadyStackGo.Infrastructure.Services.Deployment;
 /// <param name="message">Human-readable progress message</param>
 /// <param name="progressPercent">Progress percentage (0-100)</param>
 /// <param name="currentService">Currently processing service name</param>
-/// <param name="totalServices">Total number of services to deploy</param>
-/// <param name="completedServices">Number of services already deployed</param>
+/// <param name="totalServices">Total number of regular services to deploy</param>
+/// <param name="completedServices">Number of regular services already deployed</param>
+/// <param name="totalInitContainers">Total number of init containers</param>
+/// <param name="completedInitContainers">Number of init containers already completed</param>
 public delegate Task DeploymentProgressCallback(
     string phase,
     string message,
     int progressPercent,
     string? currentService,
     int totalServices,
-    int completedServices);
+    int completedServices,
+    int totalInitContainers,
+    int completedInitContainers);
 
 /// <summary>
 /// Service for deploying stacks based on manifests
@@ -41,6 +46,7 @@ public interface IDeploymentEngine
     Task<DeploymentResult> ExecuteDeploymentAsync(
         DeploymentPlan plan,
         DeploymentProgressCallback? progressCallback,
+        InitContainerLogCallback? logCallback = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

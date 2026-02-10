@@ -13,6 +13,8 @@ export interface DeploymentProgressUpdate {
   currentService?: string;
   totalServices: number;
   completedServices: number;
+  totalInitContainers: number;
+  completedInitContainers: number;
   status: string;
   // Added by frontend handlers
   isComplete?: boolean;
@@ -20,8 +22,15 @@ export interface DeploymentProgressUpdate {
   errorMessage?: string;
 }
 
+export interface InitContainerLogEntry {
+  sessionId: string;
+  containerName: string;
+  logLine: string;
+}
+
 export interface UseDeploymentHubOptions {
   onDeploymentProgress?: (update: DeploymentProgressUpdate) => void;
+  onInitContainerLog?: (log: InitContainerLogEntry) => void;
   onConnectionStateChanged?: (state: ConnectionState) => void;
 }
 
@@ -91,6 +100,10 @@ export function useDeploymentHub(options: UseDeploymentHubOptions = {}): UseDepl
         isError: true
       };
       optionsRef.current.onDeploymentProgress?.(update);
+    });
+
+    connection.on('InitContainerLog', (payload: InitContainerLogEntry) => {
+      optionsRef.current.onInitContainerLog?.(payload);
     });
 
     // Connection state handlers

@@ -39,7 +39,7 @@ public class DeployComposeHandler : IRequestHandler<DeployComposeCommand, Deploy
         DeploymentServiceProgressCallback? progressCallback = null;
         if (_notificationService != null)
         {
-            progressCallback = async (phase, message, percent, currentService, totalServices, completedServices) =>
+            progressCallback = async (phase, message, percent, currentService, totalServices, completedServices, totalInitContainers, completedInitContainers) =>
             {
                 await _notificationService.NotifyProgressAsync(
                     sessionId,
@@ -49,7 +49,20 @@ public class DeployComposeHandler : IRequestHandler<DeployComposeCommand, Deploy
                     currentService,
                     totalServices,
                     completedServices,
+                    totalInitContainers,
+                    completedInitContainers,
                     cancellationToken);
+            };
+        }
+
+        // Create log callback for init container log streaming
+        InitContainerLogCallback? logCallback = null;
+        if (_notificationService != null)
+        {
+            logCallback = async (containerName, logLine) =>
+            {
+                await _notificationService.NotifyInitContainerLogAsync(
+                    sessionId, containerName, logLine, cancellationToken);
             };
         }
 
@@ -57,6 +70,7 @@ public class DeployComposeHandler : IRequestHandler<DeployComposeCommand, Deploy
             request.EnvironmentId,
             deployRequest,
             progressCallback,
+            logCallback,
             cancellationToken);
 
         // Send final notification
