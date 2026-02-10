@@ -315,6 +315,36 @@ public class DeploymentEngine : IDeploymentEngine
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
+                    // Collect log lines for persistence (max 500 lines to keep DB size reasonable)
+                    const int maxLogLines = 500;
+                    var collectedLogLines = new List<string>();
+
+                    // Wrap the log callback to also collect lines
+                    InitContainerLogCallback? wrappedLogCallback = null;
+                    if (logCallback != null)
+                    {
+                        wrappedLogCallback = async (containerName, logLine) =>
+                        {
+                            if (collectedLogLines.Count < maxLogLines)
+                            {
+                                collectedLogLines.Add(logLine);
+                            }
+                            await logCallback(containerName, logLine);
+                        };
+                    }
+                    else
+                    {
+                        // Even without a SignalR callback, collect logs for persistence
+                        wrappedLogCallback = (_, logLine) =>
+                        {
+                            if (collectedLogLines.Count < maxLogLines)
+                            {
+                                collectedLogLines.Add(logLine);
+                            }
+                            return Task.CompletedTask;
+                        };
+                    }
+
                     try
                     {
                         var beforeInitPercent = initSteps.Count > 0 ? (completedInitContainers * 100 / initSteps.Count) : 0;
@@ -329,7 +359,7 @@ public class DeploymentEngine : IDeploymentEngine
                             initStep,
                             defaultNetwork,
                             stackName,
-                            logCallback,
+                            wrappedLogCallback,
                             cancellationToken);
 
                         // Add any pull warnings for this step
@@ -340,6 +370,13 @@ public class DeploymentEngine : IDeploymentEngine
 
                         result.DeployedContexts.Add(initStep.ContextName);
                         result.DeployedContainers.Add(containerInfo);
+                        result.InitContainerResults.Add(new InitContainerResultInfo
+                        {
+                            ServiceName = initStep.ContextName,
+                            Success = true,
+                            ExitCode = 0,
+                            LogLines = collectedLogLines
+                        });
                         completedInitContainers++;
 
                         var afterInitPercent = initSteps.Count > 0 ? (completedInitContainers * 100 / initSteps.Count) : 100;
@@ -354,6 +391,13 @@ public class DeploymentEngine : IDeploymentEngine
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Init container {ContextName} failed", initStep.ContextName);
+                        result.InitContainerResults.Add(new InitContainerResultInfo
+                        {
+                            ServiceName = initStep.ContextName,
+                            Success = false,
+                            ExitCode = -1,
+                            LogLines = collectedLogLines
+                        });
                         result.Errors.Add($"Init container '{initStep.ContextName}' failed: {ex.Message}");
                         result.Success = false;
                         return result;

@@ -1093,7 +1093,7 @@ public class DeploymentEngineTests
     }
 
     [Fact]
-    public async Task ExecuteDeploymentAsync_WithoutLogCallback_ShouldNotStreamLogs()
+    public async Task ExecuteDeploymentAsync_WithoutLogCallback_ShouldStillCollectLogsForPersistence()
     {
         // Arrange
         var plan = new DeploymentPlan { StackVersion = "1.0.0", EnvironmentId = _testEnvId.ToString() };
@@ -1130,16 +1130,20 @@ public class DeploymentEngineTests
             .Setup(x => x.GetContainerExitCodeAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(0);
 
-        // Act - null logCallback should not trigger StreamContainerLogsAsync
+        _dockerServiceMock
+            .Setup(x => x.StreamContainerLogsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(AsyncEnumerableFromLines());
+
+        // Act - null logCallback should still stream logs for persistence
         var result = await _sut.ExecuteDeploymentAsync(plan, null, null, CancellationToken.None);
 
         // Assert
         result.Success.Should().BeTrue();
 
-        // StreamContainerLogsAsync should never be called when no log callback is provided
+        // StreamContainerLogsAsync IS called to collect logs for persistence even without external callback
         _dockerServiceMock.Verify(
             x => x.StreamContainerLogsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+            Times.Once);
     }
 
     [Fact]

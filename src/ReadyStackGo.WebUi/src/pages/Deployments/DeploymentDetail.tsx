@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router";
 import {
   getDeployment,
@@ -7,6 +7,7 @@ import {
   markDeploymentFailed,
   type GetDeploymentResponse,
   type DeployedServiceInfo,
+  type InitContainerResultDto,
   type RollbackInfoResponse,
   type CheckUpgradeResponse
 } from "../../api/deployments";
@@ -607,6 +608,14 @@ export default function DeploymentDetail() {
         />
       )}
 
+      {/* Init Container Results */}
+      {deployment.initContainerResults && deployment.initContainerResults.length > 0 && (
+        <InitContainerResultsPanel
+          results={deployment.initContainerResults}
+          formatDate={formatDate}
+        />
+      )}
+
       {/* Services */}
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div className="px-4 py-6 md:px-6 xl:px-7.5">
@@ -725,6 +734,87 @@ function ServiceHealthRow({ service }: ServiceHealthRowProps) {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+interface InitContainerResultsPanelProps {
+  results: InitContainerResultDto[];
+  formatDate: (dateString?: string) => string;
+}
+
+function InitContainerResultsPanel({ results, formatDate }: InitContainerResultsPanelProps) {
+  const [expandedLogs, setExpandedLogs] = useState<Record<string, boolean>>({});
+
+  const toggleLog = useCallback((serviceName: string) => {
+    setExpandedLogs(prev => ({
+      ...prev,
+      [serviceName]: !prev[serviceName]
+    }));
+  }, []);
+
+  return (
+    <div className="mb-6 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+      <div className="px-4 py-6 md:px-6 xl:px-7.5">
+        <h4 className="text-xl font-semibold text-black dark:text-white">
+          Init Containers ({results.length})
+        </h4>
+      </div>
+      <div className="border-t border-stroke dark:border-strokedark divide-y divide-gray-100 dark:divide-gray-800">
+        {results.map((result) => (
+          <div key={result.serviceName}>
+            <div
+              className={`px-4 py-4 md:px-6 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${result.logOutput ? 'cursor-pointer' : ''}`}
+              onClick={() => result.logOutput && toggleLog(result.serviceName)}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  {result.success ? (
+                    <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  )}
+                  <h5 className="font-medium text-gray-900 dark:text-white">
+                    {result.serviceName}
+                  </h5>
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                    result.success
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                      : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                  }`}>
+                    {result.success ? 'completed' : `failed (exit ${result.exitCode})`}
+                  </span>
+                  {result.logOutput && (
+                    <span className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                      <svg className={`w-3.5 h-3.5 transition-transform ${expandedLogs[result.serviceName] ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                      Logs
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {formatDate(result.executedAtUtc)}
+                </span>
+              </div>
+            </div>
+            {/* Log output panel */}
+            {result.logOutput && expandedLogs[result.serviceName] && (
+              <div className="px-4 pb-4 md:px-6">
+                <div className="bg-gray-900 rounded-lg p-3 max-h-80 overflow-y-auto">
+                  {result.logOutput.split('\n').map((line, i) => (
+                    <div key={i} className="font-mono text-xs text-green-400 whitespace-pre-wrap break-all leading-relaxed">{line}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

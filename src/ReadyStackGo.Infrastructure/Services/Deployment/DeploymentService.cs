@@ -230,6 +230,13 @@ public class DeploymentService : IDeploymentService
                 deployment.SetVariables(request.Variables);
             }
 
+            // Record init container results (with log output)
+            foreach (var initResult in result.InitContainerResults)
+            {
+                var logOutput = initResult.LogLines.Count > 0 ? string.Join("\n", initResult.LogLines) : null;
+                deployment.RecordInitContainerResult(initResult.ServiceName, initResult.Success, initResult.ExitCode, logOutput);
+            }
+
             // Add services from deployment result
             foreach (var container in result.DeployedContainers)
             {
@@ -311,23 +318,7 @@ public class DeploymentService : IDeploymentService
                 });
             }
 
-            return Task.FromResult(new GetDeploymentResponse
-            {
-                Success = true,
-                StackName = deployment.StackName,
-                StackVersion = deployment.StackVersion,
-                DeploymentId = deployment.Id.ToString(),
-                EnvironmentId = environmentId,
-                DeployedAt = deployment.CreatedAt,
-                Status = deployment.Status.ToString(),
-                OperationMode = deployment.OperationMode.Name,
-                Services = deployment.Services.Select(s => new DeployedServiceInfo
-                {
-                    ServiceName = s.ServiceName,
-                    ContainerId = s.ContainerId,
-                    Status = s.Status
-                }).ToList()
-            });
+            return Task.FromResult(MapDeploymentToResponse(deployment, environmentId));
         }
         catch (Exception ex)
         {
@@ -376,23 +367,7 @@ public class DeploymentService : IDeploymentService
                 });
             }
 
-            return Task.FromResult(new GetDeploymentResponse
-            {
-                Success = true,
-                StackName = deployment.StackName,
-                StackVersion = deployment.StackVersion,
-                DeploymentId = deployment.Id.ToString(),
-                EnvironmentId = environmentId,
-                DeployedAt = deployment.CreatedAt,
-                Status = deployment.Status.ToString(),
-                OperationMode = deployment.OperationMode.Name,
-                Services = deployment.Services.Select(s => new DeployedServiceInfo
-                {
-                    ServiceName = s.ServiceName,
-                    ContainerId = s.ContainerId,
-                    Status = s.Status
-                }).ToList()
-            });
+            return Task.FromResult(MapDeploymentToResponse(deployment, environmentId));
         }
         catch (Exception ex)
         {
@@ -891,6 +866,14 @@ public class DeploymentService : IDeploymentService
                 // Track upgrade history
                 deployment.RecordUpgrade(previousVersion!, plan.StackVersion);
 
+                // Record init container results (clear old ones from previous deployment)
+                deployment.ClearInitContainerResults();
+                foreach (var initResult in result.InitContainerResults)
+                {
+                    var logOutput = initResult.LogLines.Count > 0 ? string.Join("\n", initResult.LogLines) : null;
+                    deployment.RecordInitContainerResult(initResult.ServiceName, initResult.Success, initResult.ExitCode, logOutput);
+                }
+
                 // Remove old services and add new ones
                 foreach (var service in deployment.Services.ToList())
                 {
@@ -930,6 +913,13 @@ public class DeploymentService : IDeploymentService
                 if (request.HealthCheckConfigs != null && request.HealthCheckConfigs.Count > 0)
                 {
                     deployment.SetHealthCheckConfigs(request.HealthCheckConfigs);
+                }
+
+                // Record init container results (with log output)
+                foreach (var initResult in result.InitContainerResults)
+                {
+                    var logOutput = initResult.LogLines.Count > 0 ? string.Join("\n", initResult.LogLines) : null;
+                    deployment.RecordInitContainerResult(initResult.ServiceName, initResult.Success, initResult.ExitCode, logOutput);
                 }
 
                 // Add services from deployment result
@@ -1188,5 +1178,36 @@ public class DeploymentService : IDeploymentService
         // Replace original list contents
         steps.Clear();
         steps.AddRange(sorted);
+    }
+
+    private static GetDeploymentResponse MapDeploymentToResponse(
+        Domain.Deployment.Deployments.Deployment deployment,
+        string environmentId)
+    {
+        return new GetDeploymentResponse
+        {
+            Success = true,
+            StackName = deployment.StackName,
+            StackVersion = deployment.StackVersion,
+            DeploymentId = deployment.Id.ToString(),
+            EnvironmentId = environmentId,
+            DeployedAt = deployment.CreatedAt,
+            Status = deployment.Status.ToString(),
+            OperationMode = deployment.OperationMode.Name,
+            Services = deployment.Services.Select(s => new DeployedServiceInfo
+            {
+                ServiceName = s.ServiceName,
+                ContainerId = s.ContainerId,
+                Status = s.Status
+            }).ToList(),
+            InitContainerResults = deployment.InitContainerResults.Select(r => new InitContainerResultDto
+            {
+                ServiceName = r.ServiceName,
+                Success = r.Success,
+                ExitCode = r.ExitCode,
+                ExecutedAtUtc = r.ExecutedAtUtc,
+                LogOutput = r.LogOutput
+            }).ToList()
+        };
     }
 }

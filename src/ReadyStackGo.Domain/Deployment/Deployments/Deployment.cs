@@ -56,6 +56,10 @@ public class Deployment : AggregateRoot<DeploymentId>
     private readonly List<DeploymentPhaseRecord> _phaseHistory = new();
     public IReadOnlyCollection<DeploymentPhaseRecord> PhaseHistory => _phaseHistory.AsReadOnly();
 
+    // Init container execution results (persisted as JSON)
+    private readonly List<InitContainerResult> _initContainerResults = new();
+    public IReadOnlyCollection<InitContainerResult> InitContainerResults => _initContainerResults.AsReadOnly();
+
     // Upgrade tracking
     public DateTime? LastUpgradedAt { get; private set; }
     public string? PreviousVersion { get; private set; }
@@ -505,6 +509,29 @@ public class Deployment : AggregateRoot<DeploymentId>
     public bool CanUpgrade()
     {
         return Status == DeploymentStatus.Running;
+    }
+
+    #endregion
+
+    #region Init Container Results
+
+    /// <summary>
+    /// Records the result of an init container execution.
+    /// Called after each init container completes (success or failure).
+    /// </summary>
+    public void RecordInitContainerResult(string serviceName, bool success, int exitCode, string? logOutput = null)
+    {
+        SelfAssertArgumentNotEmpty(serviceName, "Service name is required.");
+
+        _initContainerResults.Add(new InitContainerResult(serviceName, success, exitCode, SystemClock.UtcNow, logOutput));
+    }
+
+    /// <summary>
+    /// Clears init container results (used during upgrade/rollback to replace old results).
+    /// </summary>
+    public void ClearInitContainerResults()
+    {
+        _initContainerResults.Clear();
     }
 
     #endregion

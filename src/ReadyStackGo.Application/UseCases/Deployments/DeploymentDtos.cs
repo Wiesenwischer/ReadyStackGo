@@ -84,9 +84,21 @@ public class DeploymentResult
     public string? StackVersion { get; set; }
     public List<string> DeployedContexts { get; set; } = new();
     public List<DeployedContainerInfo> DeployedContainers { get; set; } = new();
+    public List<InitContainerResultInfo> InitContainerResults { get; set; } = new();
     public List<string> Errors { get; set; } = new();
     public List<string> Warnings { get; set; } = new();
     public DateTime DeploymentTime { get; set; }
+}
+
+/// <summary>
+/// Result of an init container execution (returned by DeploymentEngine).
+/// </summary>
+public class InitContainerResultInfo
+{
+    public required string ServiceName { get; set; }
+    public bool Success { get; set; }
+    public int ExitCode { get; set; }
+    public List<string> LogLines { get; set; } = new();
 }
 
 /// <summary>
@@ -474,7 +486,20 @@ public class GetDeploymentResponse
     public string? Status { get; set; }
     public string? OperationMode { get; set; }
     public List<DeployedServiceInfo> Services { get; set; } = new();
+    public List<InitContainerResultDto> InitContainerResults { get; set; } = new();
     public Dictionary<string, string> Configuration { get; set; } = new();
+}
+
+/// <summary>
+/// Init container result for API response.
+/// </summary>
+public class InitContainerResultDto
+{
+    public required string ServiceName { get; set; }
+    public bool Success { get; set; }
+    public int ExitCode { get; set; }
+    public DateTime ExecutedAtUtc { get; set; }
+    public string? LogOutput { get; set; }
 }
 
 /// <summary>
