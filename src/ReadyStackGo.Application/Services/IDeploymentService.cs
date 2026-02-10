@@ -12,7 +12,9 @@ public delegate Task DeploymentServiceProgressCallback(
     int progressPercent,
     string? currentService,
     int totalServices,
-    int completedServices);
+    int completedServices,
+    int totalInitContainers,
+    int completedInitContainers);
 
 /// <summary>
 /// Service for managing Docker Compose stack deployments.

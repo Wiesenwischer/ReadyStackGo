@@ -13,6 +13,8 @@ export interface DeploymentProgressUpdate {
   currentService?: string;
   totalServices: number;
   completedServices: number;
+  totalInitContainers: number;
+  completedInitContainers: number;
   status: string;
   // Added by frontend handlers
   isComplete?: boolean;

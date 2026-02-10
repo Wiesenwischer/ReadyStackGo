@@ -39,7 +39,7 @@ public class DeployComposeHandler : IRequestHandler<DeployComposeCommand, Deploy
         DeploymentServiceProgressCallback? progressCallback = null;
         if (_notificationService != null)
         {
-            progressCallback = async (phase, message, percent, currentService, totalServices, completedServices) =>
+            progressCallback = async (phase, message, percent, currentService, totalServices, completedServices, totalInitContainers, completedInitContainers) =>
             {
                 await _notificationService.NotifyProgressAsync(
                     sessionId,
@@ -49,6 +49,8 @@ public class DeployComposeHandler : IRequestHandler<DeployComposeCommand, Deploy
                     currentService,
                     totalServices,
                     completedServices,
+                    totalInitContainers,
+                    completedInitContainers,
                     cancellationToken);
             };
         }

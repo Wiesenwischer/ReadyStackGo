@@ -114,8 +114,10 @@ public class DeploymentEngine : IDeploymentEngine
         var initSteps = plan.Steps.Where(s => s.Lifecycle == ServiceLifecycle.Init).ToList();
         var regularSteps = plan.Steps.Where(s => s.Lifecycle == ServiceLifecycle.Service).ToList();
 
-        var totalSteps = plan.Steps.Count;
-        var completedSteps = 0;
+        var totalRegularServices = regularSteps.Count;
+        var completedRegularServices = 0;
+        var totalInitContainers = initSteps.Count;
+        var completedInitContainers = 0;
 
         // Define deployment phases with their weights (end of last phase = 100)
         // Each phase reports its own 0-100% progress internally
@@ -147,7 +149,8 @@ public class DeploymentEngine : IDeploymentEngine
             if (progressCallback != null)
             {
                 var overallPercent = CalculateOverallProgress(phase, phaseProgress);
-                await progressCallback(phase, message, overallPercent, currentService, totalSteps, completedSteps);
+                await progressCallback(phase, message, overallPercent, currentService,
+                    totalRegularServices, completedRegularServices, totalInitContainers, completedInitContainers);
             }
         }
 
@@ -249,7 +252,8 @@ public class DeploymentEngine : IDeploymentEngine
                 if (progressCallback != null)
                 {
                     var overallPercent = CalculateOverallProgress("PullingImages", phaseProgress);
-                    await progressCallback("PullingImages", message, overallPercent, currentService, totalImages, pulledImages);
+                    await progressCallback("PullingImages", message, overallPercent, currentService,
+                        totalImages, pulledImages, totalInitContainers, completedInitContainers);
                 }
             }
 
@@ -305,14 +309,13 @@ public class DeploymentEngine : IDeploymentEngine
                 _logger.LogInformation("Phase: Initializing {Count} init container(s) before starting services", initSteps.Count);
                 await ReportProgress("InitializingContainers", $"Running {initSteps.Count} init container(s)...", 0);
 
-                var completedInits = 0;
                 foreach (var initStep in initSteps)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
                     try
                     {
-                        var beforeInitPercent = initSteps.Count > 0 ? (completedInits * 100 / initSteps.Count) : 0;
+                        var beforeInitPercent = initSteps.Count > 0 ? (completedInitContainers * 100 / initSteps.Count) : 0;
                         await ReportProgress("InitializingContainers",
                             $"Running init container {initStep.ContextName}...",
                             beforeInitPercent,
@@ -334,19 +337,16 @@ public class DeploymentEngine : IDeploymentEngine
 
                         result.DeployedContexts.Add(initStep.ContextName);
                         result.DeployedContainers.Add(containerInfo);
-                        completedSteps++;
-                        completedInits++;
+                        completedInitContainers++;
 
-                        var afterInitPercent = initSteps.Count > 0 ? (completedInits * 100 / initSteps.Count) : 100;
+                        var afterInitPercent = initSteps.Count > 0 ? (completedInitContainers * 100 / initSteps.Count) : 100;
                         await ReportProgress("InitializingContainers",
-                            $"Completed {completedInits}/{initSteps.Count} init container(s)",
+                            $"Completed {completedInitContainers}/{initSteps.Count} init container(s)",
                             afterInitPercent,
                             initStep.ContextName);
 
                         _logger.LogInformation("Init container {ContextName} completed successfully", initStep.ContextName);
 
-                        // TODO: Remove this delay after testing - added to make init phase more visible in UI
-                        await Task.Delay(2000, cancellationToken);
                     }
                     catch (Exception ex)
                     {
@@ -367,7 +367,6 @@ public class DeploymentEngine : IDeploymentEngine
             // PHASE: Start regular services in dependency order
             await ReportProgress("StartingServices", $"Starting {regularSteps.Count} service(s)...", 0);
 
-            var completedServices = 0;
             foreach (var step in regularSteps)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -375,7 +374,7 @@ public class DeploymentEngine : IDeploymentEngine
                 try
                 {
                     // Phase-local progress: where we are before starting this service
-                    var beforeStartPercent = regularSteps.Count > 0 ? (completedServices * 100 / regularSteps.Count) : 0;
+                    var beforeStartPercent = regularSteps.Count > 0 ? (completedRegularServices * 100 / regularSteps.Count) : 0;
                     await ReportProgress("StartingServices", $"Starting {step.ContextName}...", beforeStartPercent, step.ContextName);
 
                     var containerInfo = await StartContainerAsync(environmentId, step, defaultNetwork, stackName);
@@ -388,12 +387,11 @@ public class DeploymentEngine : IDeploymentEngine
 
                     result.DeployedContexts.Add(step.ContextName);
                     result.DeployedContainers.Add(containerInfo);
-                    completedSteps++;
-                    completedServices++;
+                    completedRegularServices++;
 
                     // Phase-local progress: 0-100% within this phase
-                    var afterStartPercent = regularSteps.Count > 0 ? (completedServices * 100 / regularSteps.Count) : 100;
-                    await ReportProgress("StartingServices", $"Started {completedServices}/{regularSteps.Count} service(s)", afterStartPercent, step.ContextName);
+                    var afterStartPercent = regularSteps.Count > 0 ? (completedRegularServices * 100 / regularSteps.Count) : 100;
+                    await ReportProgress("StartingServices", $"Started {completedRegularServices}/{regularSteps.Count} service(s)", afterStartPercent, step.ContextName);
 
                     _logger.LogInformation("Successfully started service {Context}", step.ContextName);
                 }
@@ -413,7 +411,7 @@ public class DeploymentEngine : IDeploymentEngine
             _logger.LogInformation("Stack deployment completed successfully");
 
             // Report 100% completion
-            await ReportProgress("Complete", $"Successfully deployed {stackName} with {totalSteps} services", 100);
+            await ReportProgress("Complete", $"Successfully deployed {stackName} with {plan.Steps.Count} services", 100);
         }
         catch (OperationCanceledException)
         {
@@ -525,7 +523,7 @@ public class DeploymentEngine : IDeploymentEngine
 
             if (progressCallback != null)
             {
-                await progressCallback("Initializing", "Finding containers to remove...", 5, null, 0, 0);
+                await progressCallback("Initializing", "Finding containers to remove...", 5, null, 0, 0, 0, 0);
             }
 
             // Get all containers with the rsgo.stack label matching stackVersion
@@ -543,14 +541,14 @@ public class DeploymentEngine : IDeploymentEngine
                     stackVersion, environmentId);
                 if (progressCallback != null)
                 {
-                    await progressCallback("Complete", "No containers to remove", 100, null, 0, 0);
+                    await progressCallback("Complete", "No containers to remove", 100, null, 0, 0, 0, 0);
                 }
             }
             else
             {
                 if (progressCallback != null)
                 {
-                    await progressCallback("RemovingContainers", $"Found {totalContainers} container(s) to remove", 10, null, totalContainers, 0);
+                    await progressCallback("RemovingContainers", $"Found {totalContainers} container(s) to remove", 10, null, totalContainers, 0, 0, 0);
                 }
 
                 // Remove all containers for this stack
@@ -563,7 +561,7 @@ public class DeploymentEngine : IDeploymentEngine
                         if (progressCallback != null)
                         {
                             var progressPercent = 10 + (int)((removedCount / (double)totalContainers) * 80);
-                            await progressCallback("RemovingContainers", $"Removing {containerName}...", progressPercent, containerName, totalContainers, removedCount);
+                            await progressCallback("RemovingContainers", $"Removing {containerName}...", progressPercent, containerName, totalContainers, removedCount, 0, 0);
                         }
 
                         _logger.LogInformation("Removing container {Name} ({Id})", container.Name, container.Id);
@@ -584,7 +582,7 @@ public class DeploymentEngine : IDeploymentEngine
                         if (progressCallback != null)
                         {
                             var progressPercent = 10 + (int)((removedCount / (double)totalContainers) * 80);
-                            await progressCallback("RemovingContainers", $"Removed {containerName}", progressPercent, null, totalContainers, removedCount);
+                            await progressCallback("RemovingContainers", $"Removed {containerName}", progressPercent, null, totalContainers, removedCount, 0, 0);
                         }
                     }
                     catch (Exception ex)
@@ -597,7 +595,7 @@ public class DeploymentEngine : IDeploymentEngine
 
             if (progressCallback != null)
             {
-                await progressCallback("Cleanup", "Cleaning up configuration...", 95, null, totalContainers, removedCount);
+                await progressCallback("Cleanup", "Cleaning up configuration...", 95, null, totalContainers, removedCount, 0, 0);
             }
 
             // Clear release configuration
@@ -615,7 +613,7 @@ public class DeploymentEngine : IDeploymentEngine
 
             if (progressCallback != null)
             {
-                await progressCallback("Complete", $"Successfully removed {removedCount} container(s)", 100, null, totalContainers, removedCount);
+                await progressCallback("Complete", $"Successfully removed {removedCount} container(s)", 100, null, totalContainers, removedCount, 0, 0);
             }
         }
         catch (Exception ex)
@@ -626,7 +624,7 @@ public class DeploymentEngine : IDeploymentEngine
 
             if (progressCallback != null)
             {
-                await progressCallback("Error", $"Removal failed: {ex.Message}", 100, null, 0, 0);
+                await progressCallback("Error", $"Removal failed: {ex.Message}", 100, null, 0, 0, 0, 0);
             }
         }
 

@@ -83,7 +83,7 @@ public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStac
         DeploymentServiceProgressCallback? progressCallback = null;
         if (_notificationService != null)
         {
-            progressCallback = async (phase, message, percent, currentService, totalServices, completedServices) =>
+            progressCallback = async (phase, message, percent, currentService, totalServices, completedServices, totalInitContainers, completedInitContainers) =>
             {
                 await _notificationService.NotifyProgressAsync(
                     sessionId,
@@ -93,6 +93,8 @@ public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStac
                     currentService,
                     totalServices,
                     completedServices,
+                    totalInitContainers,
+                    completedInitContainers,
                     cancellationToken);
             };
         }

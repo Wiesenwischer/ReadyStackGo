@@ -451,9 +451,14 @@ export default function DeployStack() {
                 </p>
 
                 {/* Service Progress */}
-                {progressUpdate && progressUpdate.totalServices > 0 && (
+                {progressUpdate && (progressUpdate.totalServices > 0 || progressUpdate.totalInitContainers > 0) && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    {progressUpdate.phase === 'PullingImages' ? 'Images' : 'Services'}: {progressUpdate.completedServices} / {progressUpdate.totalServices}
+                    {progressUpdate.phase === 'PullingImages'
+                      ? `Images: ${progressUpdate.completedServices} / ${progressUpdate.totalServices}`
+                      : progressUpdate.phase === 'InitializingContainers'
+                        ? `Init Containers: ${progressUpdate.completedInitContainers} / ${progressUpdate.totalInitContainers}`
+                        : `Services: ${progressUpdate.completedServices} / ${progressUpdate.totalServices}`
+                    }
                     {progressUpdate.currentService && (
                       <span className="ml-2">
                         (current: <span className="font-mono">{progressUpdate.currentService}</span>)

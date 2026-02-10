@@ -8,6 +8,7 @@ using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Domain.StackManagement.Manifests;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Services.Deployment;
 using Xunit;
@@ -604,7 +605,7 @@ public class DeploymentEngineTests
             .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("container-id");
 
-        DeploymentProgressCallback progressCallback = (phase, message, percent, _, _, _) =>
+        DeploymentProgressCallback progressCallback = (phase, message, percent, _, _, _, _, _) =>
         {
             progressUpdates.Add((phase, message, percent));
             return Task.CompletedTask;
@@ -694,6 +695,323 @@ public class DeploymentEngineTests
         result.Success.Should().BeFalse();
         result.Errors.Should().Contain(e => e.Contains("cancelled"));
         startCalled.Should().BeFalse("no containers should be started when cancelled during pull phase");
+    }
+
+    #endregion
+
+    #region Init Container Counting
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_WithInitContainers_ShouldReportSeparateInitCounts()
+    {
+        // Arrange
+        var progressUpdates = new List<(string Phase, int TotalServices, int CompletedServices, int TotalInitContainers, int CompletedInitContainers)>();
+
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            StackName = "test-stack",
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "db-init",
+                    Image = "flyway",
+                    Version = "latest",
+                    ContainerName = "rsgo-db-init",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Lifecycle = ServiceLifecycle.Init,
+                    Order = 0
+                },
+                new()
+                {
+                    ContextName = "db",
+                    Image = "postgres",
+                    Version = "15",
+                    ContainerName = "rsgo-db",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Order = 1
+                },
+                new()
+                {
+                    ContextName = "api",
+                    Image = "nginx",
+                    Version = "latest",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string> { "db" },
+                    Order = 2
+                }
+            }
+        };
+
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("container-id");
+
+        // Mock init container completion (exited with code 0)
+        _dockerServiceMock
+            .Setup(x => x.GetContainerByNameAsync(It.IsAny<string>(), "rsgo-db-init", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ContainerDto { Id = "init-container-id", Name = "rsgo-db-init", Image = "flyway:latest", State = "exited", Status = "exited(0)", Labels = new Dictionary<string, string>() });
+
+        _dockerServiceMock
+            .Setup(x => x.GetContainerExitCodeAsync(It.IsAny<string>(), "init-container-id", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+
+        DeploymentProgressCallback progressCallback = (phase, message, percent, currentService, totalServices, completedServices, totalInitContainers, completedInitContainers) =>
+        {
+            progressUpdates.Add((phase, totalServices, completedServices, totalInitContainers, completedInitContainers));
+            return Task.CompletedTask;
+        };
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan, progressCallback, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeTrue();
+
+        // Verify init container phase reports correct counts
+        var initPhaseUpdates = progressUpdates.Where(p => p.Phase == "InitializingContainers").ToList();
+        initPhaseUpdates.Should().NotBeEmpty("init container phase should be reported");
+        initPhaseUpdates.Should().OnlyContain(p => p.TotalInitContainers == 1,
+            "there is 1 init container");
+        initPhaseUpdates.Should().OnlyContain(p => p.TotalServices == 2,
+            "there are 2 regular services");
+
+        // Verify service phase reports correct counts
+        var servicePhaseUpdates = progressUpdates.Where(p => p.Phase == "StartingServices").ToList();
+        servicePhaseUpdates.Should().NotBeEmpty("service phase should be reported");
+        servicePhaseUpdates.Should().OnlyContain(p => p.TotalServices == 2,
+            "there are 2 regular services");
+        servicePhaseUpdates.Should().OnlyContain(p => p.TotalInitContainers == 1,
+            "init container count should be passed through");
+
+        // Verify completed init containers increments
+        var lastInitUpdate = initPhaseUpdates.Last();
+        lastInitUpdate.CompletedInitContainers.Should().Be(1, "the init container should be completed");
+    }
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_WithoutInitContainers_ShouldReportZeroInitCounts()
+    {
+        // Arrange
+        var progressUpdates = new List<(string Phase, int TotalInitContainers, int CompletedInitContainers)>();
+
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            StackName = "test-stack",
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "api",
+                    Image = "nginx",
+                    Version = "latest",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Order = 0
+                }
+            }
+        };
+
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("container-id");
+
+        DeploymentProgressCallback progressCallback = (phase, message, percent, currentService, totalServices, completedServices, totalInitContainers, completedInitContainers) =>
+        {
+            progressUpdates.Add((phase, totalInitContainers, completedInitContainers));
+            return Task.CompletedTask;
+        };
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan, progressCallback, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeTrue();
+
+        // All updates should have zero init container counts
+        progressUpdates.Should().OnlyContain(p => p.TotalInitContainers == 0,
+            "there are no init containers");
+        progressUpdates.Should().OnlyContain(p => p.CompletedInitContainers == 0,
+            "no init containers to complete");
+
+        // No InitializingContainers phase should be reported
+        progressUpdates.Should().NotContain(p => p.Phase == "InitializingContainers",
+            "no init containers means no init phase");
+    }
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_WithMultipleInitContainers_ShouldIncrementCompletedCount()
+    {
+        // Arrange
+        var initPhaseUpdates = new List<(int CompletedInitContainers, int TotalInitContainers)>();
+
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            StackName = "test-stack",
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "migration-1",
+                    Image = "flyway",
+                    Version = "latest",
+                    ContainerName = "rsgo-migration-1",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Lifecycle = ServiceLifecycle.Init,
+                    Order = 0
+                },
+                new()
+                {
+                    ContextName = "migration-2",
+                    Image = "liquibase",
+                    Version = "latest",
+                    ContainerName = "rsgo-migration-2",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Lifecycle = ServiceLifecycle.Init,
+                    Order = 1
+                },
+                new()
+                {
+                    ContextName = "api",
+                    Image = "nginx",
+                    Version = "latest",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Order = 2
+                }
+            }
+        };
+
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("container-id");
+
+        // Mock both init containers completing successfully
+        _dockerServiceMock
+            .Setup(x => x.GetContainerByNameAsync(It.IsAny<string>(), "rsgo-migration-1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ContainerDto { Id = "init-1-id", Name = "rsgo-migration-1", Image = "flyway:latest", State = "exited", Status = "exited(0)", Labels = new Dictionary<string, string>() });
+
+        _dockerServiceMock
+            .Setup(x => x.GetContainerByNameAsync(It.IsAny<string>(), "rsgo-migration-2", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ContainerDto { Id = "init-2-id", Name = "rsgo-migration-2", Image = "liquibase:latest", State = "exited", Status = "exited(0)", Labels = new Dictionary<string, string>() });
+
+        _dockerServiceMock
+            .Setup(x => x.GetContainerExitCodeAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+
+        DeploymentProgressCallback progressCallback = (phase, message, percent, currentService, totalServices, completedServices, totalInitContainers, completedInitContainers) =>
+        {
+            if (phase == "InitializingContainers")
+            {
+                initPhaseUpdates.Add((completedInitContainers, totalInitContainers));
+            }
+            return Task.CompletedTask;
+        };
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan, progressCallback, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeTrue();
+
+        // Should have progress updates showing 0/2, then 1/2, then 2/2
+        initPhaseUpdates.Should().Contain(u => u.TotalInitContainers == 2,
+            "total should always be 2");
+        initPhaseUpdates.Should().Contain(u => u.CompletedInitContainers == 0,
+            "should report 0 completed at start");
+        initPhaseUpdates.Should().Contain(u => u.CompletedInitContainers == 1,
+            "should report 1 completed after first init");
+        initPhaseUpdates.Should().Contain(u => u.CompletedInitContainers == 2,
+            "should report 2 completed after both inits");
+    }
+
+    [Fact]
+    public async Task RemoveStackAsync_WithProgress_ShouldReportZeroInitCounts()
+    {
+        // Arrange
+        var progressUpdates = new List<(string Phase, int TotalInitContainers, int CompletedInitContainers)>();
+
+        _dockerServiceMock
+            .Setup(x => x.ListContainersAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ContainerDto>
+            {
+                new()
+                {
+                    Id = "container-1",
+                    Name = "rsgo-api",
+                    Image = "nginx:latest",
+                    State = "running",
+                    Status = "running",
+                    Labels = new Dictionary<string, string> { ["rsgo.stack"] = "test-stack", ["rsgo.context"] = "api" }
+                }
+            });
+
+        _dockerServiceMock
+            .Setup(x => x.RemoveContainerAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _configStoreMock
+            .Setup(x => x.GetReleaseConfigAsync())
+            .ReturnsAsync(new ReleaseConfig { InstalledStackVersion = "test-stack" });
+
+        _configStoreMock
+            .Setup(x => x.SaveReleaseConfigAsync(It.IsAny<ReleaseConfig>()))
+            .Returns(Task.CompletedTask);
+
+        DeploymentProgressCallback progressCallback = (phase, message, percent, currentService, totalServices, completedServices, totalInitContainers, completedInitContainers) =>
+        {
+            progressUpdates.Add((phase, totalInitContainers, completedInitContainers));
+            return Task.CompletedTask;
+        };
+
+        // Act
+        var result = await _sut.RemoveStackAsync(_testEnvId.ToString(), "test-stack", progressCallback);
+
+        // Assert
+        result.Success.Should().BeTrue();
+
+        // Removal never has init containers
+        progressUpdates.Should().OnlyContain(p => p.TotalInitContainers == 0 && p.CompletedInitContainers == 0,
+            "removal operations should always report zero init container counts");
     }
 
     #endregion

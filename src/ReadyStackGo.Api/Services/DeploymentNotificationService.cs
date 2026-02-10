@@ -29,6 +29,8 @@ public class DeploymentNotificationService : IDeploymentNotificationService
         string? currentService,
         int totalServices,
         int completedServices,
+        int totalInitContainers,
+        int completedInitContainers,
         CancellationToken cancellationToken = default)
     {
         var groupName = $"deployment:{sessionId}";
@@ -46,6 +48,8 @@ public class DeploymentNotificationService : IDeploymentNotificationService
             CurrentService = currentService,
             TotalServices = totalServices,
             CompletedServices = completedServices,
+            TotalInitContainers = totalInitContainers,
+            CompletedInitContainers = completedInitContainers,
             Status = "InProgress"
         };
 

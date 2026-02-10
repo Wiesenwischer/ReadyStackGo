@@ -133,7 +133,7 @@ public class DeploymentService : IDeploymentService
             // Report initial progress
             if (progressCallback != null)
             {
-                await progressCallback("Validating", "Validating manifest...", 5, null, 0, 0);
+                await progressCallback("Validating", "Validating manifest...", 5, null, 0, 0, 0, 0);
             }
 
             // Validate manifest
@@ -151,7 +151,7 @@ public class DeploymentService : IDeploymentService
             // Report progress
             if (progressCallback != null)
             {
-                await progressCallback("Parsing", "Parsing RSGo manifest...", 10, null, 0, 0);
+                await progressCallback("Parsing", "Parsing RSGo manifest...", 10, null, 0, 0, 0, 0);
             }
 
             // Parse manifest once
@@ -159,7 +159,7 @@ public class DeploymentService : IDeploymentService
 
             if (progressCallback != null)
             {
-                await progressCallback("Planning", "Creating deployment plan...", 15, null, 0, 0);
+                await progressCallback("Planning", "Creating deployment plan...", 15, null, 0, 0, 0, 0);
             }
 
             // Create deployment plan
@@ -177,11 +177,11 @@ public class DeploymentService : IDeploymentService
             DeploymentProgressCallback? engineCallback = null;
             if (progressCallback != null)
             {
-                engineCallback = async (phase, message, percent, currentService, totalServices, completedServices) =>
+                engineCallback = async (phase, message, percent, currentService, totalServices, completedServices, totalInitContainers, completedInitContainers) =>
                 {
                     // Scale the engine progress (0-100) to our range (20-90)
                     var scaledPercent = 20 + (percent * 70 / 100);
-                    await progressCallback(phase, message, scaledPercent, currentService, totalServices, completedServices);
+                    await progressCallback(phase, message, scaledPercent, currentService, totalServices, completedServices, totalInitContainers, completedInitContainers);
                 };
             }
 
@@ -201,7 +201,7 @@ public class DeploymentService : IDeploymentService
             // Report progress
             if (progressCallback != null)
             {
-                await progressCallback("Persisting", "Saving deployment record...", 95, null, result.DeployedContexts.Count, result.DeployedContexts.Count);
+                await progressCallback("Persisting", "Saving deployment record...", 95, null, result.DeployedContexts.Count, result.DeployedContexts.Count, 0, 0);
             }
 
             // Get current user (use first admin for now - TODO: get from authentication context)
@@ -254,7 +254,7 @@ public class DeploymentService : IDeploymentService
             // Report completion
             if (progressCallback != null)
             {
-                await progressCallback("Complete", message, 100, null, result.DeployedContexts.Count, result.DeployedContexts.Count);
+                await progressCallback("Complete", message, 100, null, result.DeployedContexts.Count, result.DeployedContexts.Count, 0, 0);
             }
 
             return new DeployComposeResponse
@@ -616,7 +616,7 @@ public class DeploymentService : IDeploymentService
             // Report initial progress
             if (progressCallback != null)
             {
-                await progressCallback("Initializing", "Preparing to remove deployment...", 0, null, 0, 0);
+                await progressCallback("Initializing", "Preparing to remove deployment...", 0, null, 0, 0, 0, 0);
             }
 
             if (!Guid.TryParse(environmentId, out var envGuid))
@@ -656,16 +656,16 @@ public class DeploymentService : IDeploymentService
 
             if (progressCallback != null)
             {
-                await progressCallback("RemovingContainers", $"Removing {stackName}...", 10, null, totalServices, 0);
+                await progressCallback("RemovingContainers", $"Removing {stackName}...", 10, null, totalServices, 0, 0, 0);
             }
 
             // Convert DeploymentServiceProgressCallback to DeploymentProgressCallback for the engine
             DeploymentProgressCallback? engineCallback = null;
             if (progressCallback != null)
             {
-                engineCallback = async (phase, message, percent, total, completed, current) =>
+                engineCallback = async (phase, message, percent, currentService, totalServices, completedServices, totalInitContainers, completedInitContainers) =>
                 {
-                    await progressCallback(phase, message, percent, total, completed, current);
+                    await progressCallback(phase, message, percent, currentService, totalServices, completedServices, totalInitContainers, completedInitContainers);
                 };
             }
 
@@ -676,7 +676,7 @@ public class DeploymentService : IDeploymentService
             {
                 if (progressCallback != null)
                 {
-                    await progressCallback("Error", "Removal failed", 100, null, totalServices, 0);
+                    await progressCallback("Error", "Removal failed", 100, null, totalServices, 0, 0, 0);
                 }
                 return new DeployComposeResponse
                 {
@@ -696,7 +696,7 @@ public class DeploymentService : IDeploymentService
 
             if (progressCallback != null)
             {
-                await progressCallback("Complete", $"Successfully removed {stackName}", 100, null, totalServices, totalServices);
+                await progressCallback("Complete", $"Successfully removed {stackName}", 100, null, totalServices, totalServices, 0, 0);
             }
 
             return new DeployComposeResponse
@@ -712,7 +712,7 @@ public class DeploymentService : IDeploymentService
             _logger.LogError(ex, "Failed to remove deployment {DeploymentId}", deploymentId);
             if (progressCallback != null)
             {
-                await progressCallback("Error", $"Failed: {ex.Message}", 100, null, 0, 0);
+                await progressCallback("Error", $"Failed: {ex.Message}", 100, null, 0, 0, 0, 0);
             }
             return new DeployComposeResponse
             {
@@ -755,7 +755,7 @@ public class DeploymentService : IDeploymentService
             // Report initial progress
             if (progressCallback != null)
             {
-                await progressCallback("Validating", "Validating services...", 5, null, 0, 0);
+                await progressCallback("Validating", "Validating services...", 5, null, 0, 0, 0, 0);
             }
 
             // Validate we have services to deploy
@@ -767,7 +767,7 @@ public class DeploymentService : IDeploymentService
             // Report progress
             if (progressCallback != null)
             {
-                await progressCallback("Planning", "Creating deployment plan...", 15, null, 0, 0);
+                await progressCallback("Planning", "Creating deployment plan...", 15, null, 0, 0, 0, 0);
             }
 
             // Create deployment plan directly from structured data (no YAML parsing needed)
@@ -816,11 +816,11 @@ public class DeploymentService : IDeploymentService
             DeploymentProgressCallback? engineCallback = null;
             if (progressCallback != null)
             {
-                engineCallback = async (phase, message, percent, currentService, totalServices, completedServices) =>
+                engineCallback = async (phase, message, percent, currentService, totalServices, completedServices, totalInitContainers, completedInitContainers) =>
                 {
                     // Scale the engine progress (0-100) to our range (20-90)
                     var scaledPercent = 20 + (percent * 70 / 100);
-                    await progressCallback(phase, message, scaledPercent, currentService, totalServices, completedServices);
+                    await progressCallback(phase, message, scaledPercent, currentService, totalServices, completedServices, totalInitContainers, completedInitContainers);
                 };
             }
 
@@ -853,7 +853,7 @@ public class DeploymentService : IDeploymentService
             // Report progress
             if (progressCallback != null)
             {
-                await progressCallback("Persisting", "Saving deployment record...", 95, null, result.DeployedContexts.Count, result.DeployedContexts.Count);
+                await progressCallback("Persisting", "Saving deployment record...", 95, null, result.DeployedContexts.Count, result.DeployedContexts.Count, 0, 0);
             }
 
             DeploymentId deploymentId;
@@ -958,7 +958,7 @@ public class DeploymentService : IDeploymentService
             // Report completion
             if (progressCallback != null)
             {
-                await progressCallback("Complete", message, 100, null, result.DeployedContexts.Count, result.DeployedContexts.Count);
+                await progressCallback("Complete", message, 100, null, result.DeployedContexts.Count, result.DeployedContexts.Count, 0, 0);
             }
 
             return new DeployStackResponse
