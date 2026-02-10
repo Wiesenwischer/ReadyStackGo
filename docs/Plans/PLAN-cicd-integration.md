@@ -58,6 +58,8 @@ Primärer Use Case: Nach einem erfolgreichen Build in der ams.project-Pipeline s
 | Webhook vs. REST | A) Bestehende Endpoints, B) Separate Hooks | B) Separate Hooks | Einfachere DTOs (stackName statt stackId), eigene Permissions (`Hooks.Redeploy`), kein SignalR nötig. Pipeline-freundlich. |
 | Redeploy-Implementierung | A) Neuer Deploy-Pfad, B) DeployStackCommand wiederverwenden | B) Wiederverwenden | Redeploy = gleiche Parameter an DeployStackCommand. Kein neuer Deploy-Pfad nötig. Engine stoppt alte Container, pullt frische Images, startet neu. |
 | Key-Format | A) UUID, B) Prefix + Random | B) `rsgo_` + 32 alphanumerisch | Erkennbar als RSGo-Key, einfach in Logs/Configs zu identifizieren. Prefix für Format-Validierung. |
+| DB-Migration | A) EF Migrations, B) Manual CREATE TABLE, C) EnsureCreated beibehalten | C) EnsureCreated | Pre-v1.0 akzeptabel. Bestehende User löschen DB bei Upgrade. Kein Migration-Overhead. |
+| API Key Scope | A) Alle Endpoints, B) Nur Hooks | B) Nur Hooks | Klarere Security-Grenze. `/api/hooks/*` nur per API Key, reguläre Endpoints nur per JWT. |
 
 ## Features / Schritte
 
@@ -183,9 +185,12 @@ Feature 4, 5, 6 können parallel nach Feature 3 implementiert werden.
 
 ## Offene Punkte
 
-- [ ] Verifizieren ob `DeploymentEngine` bei Redeploy frische Images pullt (oder gecachte nutzt)
-- [ ] Prüfen wie SQLite-Schema bei bestehenden Installationen erweitert wird (neue ApiKeys-Tabelle)
-- [ ] Klären ob API Keys auch für reguläre REST-Endpoints (nicht nur Hooks) nutzbar sein sollen
+- [x] Verifizieren ob `DeploymentEngine` bei Redeploy frische Images pullt (oder gecachte nutzt)
+  - **Ergebnis**: `PullImageAsync` nutzt Docker's `CreateImageAsync` (= `docker pull`), kontaktiert Registry und lädt neue Layer. Funktioniert korrekt für CI/CD Redeploys.
+- [x] Prüfen wie SQLite-Schema bei bestehenden Installationen erweitert wird (neue ApiKeys-Tabelle)
+  - **Entscheidung**: `EnsureCreated()` beibehalten. Für pre-v1.0 akzeptabel – bestehende User löschen DB bei Upgrade.
+- [x] Klären ob API Keys auch für reguläre REST-Endpoints (nicht nur Hooks) nutzbar sein sollen
+  - **Entscheidung**: Nur für `/api/hooks/*` Endpoints. Klarere Security-Grenze, reguläre Endpoints erfordern JWT.
 
 ## Typischer Pipeline-Flow
 

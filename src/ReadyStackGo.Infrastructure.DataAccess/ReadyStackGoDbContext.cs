@@ -1,6 +1,7 @@
 namespace ReadyStackGo.Infrastructure.DataAccess;
 
 using Microsoft.EntityFrameworkCore;
+using ReadyStackGo.Domain.IdentityAccess.ApiKeys;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Roles;
 using ReadyStackGo.Domain.IdentityAccess.Users;
@@ -29,6 +30,7 @@ public class ReadyStackGoDbContext : DbContext
     public DbSet<HealthSnapshot> HealthSnapshots => Set<HealthSnapshot>();
     public DbSet<Registry> Registries => Set<Registry>();
     public DbSet<StackSource> StackSources => Set<StackSource>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
