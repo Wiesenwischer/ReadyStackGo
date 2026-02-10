@@ -60,4 +60,17 @@ public interface IDeploymentNotificationService
         int totalServices,
         int completedServices,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Send an init container log line to connected clients.
+    /// </summary>
+    /// <param name="sessionId">Unique deployment session ID.</param>
+    /// <param name="containerName">Name of the init container.</param>
+    /// <param name="logLine">The log line content.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task NotifyInitContainerLogAsync(
+        string sessionId,
+        string containerName,
+        string logLine,
+        CancellationToken cancellationToken = default);
 }

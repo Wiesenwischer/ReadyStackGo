@@ -94,13 +94,14 @@ public class DeploymentService : IDeploymentService
 
     public Task<DeployComposeResponse> DeployComposeAsync(string environmentId, DeployComposeRequest request)
     {
-        return DeployComposeAsync(environmentId, request, null, CancellationToken.None);
+        return DeployComposeAsync(environmentId, request, null, null, CancellationToken.None);
     }
 
     public async Task<DeployComposeResponse> DeployComposeAsync(
         string environmentId,
         DeployComposeRequest request,
         DeploymentServiceProgressCallback? progressCallback,
+        InitContainerLogCallback? logCallback = null,
         CancellationToken cancellationToken = default)
     {
         try
@@ -186,7 +187,7 @@ public class DeploymentService : IDeploymentService
             }
 
             // Execute deployment with progress callback
-            var result = await _deploymentEngine.ExecuteDeploymentAsync(plan, engineCallback, cancellationToken);
+            var result = await _deploymentEngine.ExecuteDeploymentAsync(plan, engineCallback, logCallback, cancellationToken);
 
             if (!result.Success)
             {
@@ -727,6 +728,7 @@ public class DeploymentService : IDeploymentService
         string? environmentId,
         DeployStackRequest request,
         DeploymentServiceProgressCallback? progressCallback,
+        InitContainerLogCallback? logCallback = null,
         CancellationToken cancellationToken = default)
     {
         // Track upgrade state for exception handling
@@ -826,7 +828,7 @@ public class DeploymentService : IDeploymentService
 
             // Execute deployment with progress callback
             // For upgrades: old containers are removed and new ones created here
-            var result = await _deploymentEngine.ExecuteDeploymentAsync(plan, engineCallback, cancellationToken);
+            var result = await _deploymentEngine.ExecuteDeploymentAsync(plan, engineCallback, logCallback, cancellationToken);
 
             if (!result.Success)
             {

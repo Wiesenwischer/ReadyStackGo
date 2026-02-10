@@ -125,4 +125,24 @@ public class DeploymentNotificationService : IDeploymentNotificationService
             .Group(groupName)
             .SendAsync("DeploymentFailed", payload, cancellationToken);
     }
+
+    public async Task NotifyInitContainerLogAsync(
+        string sessionId,
+        string containerName,
+        string logLine,
+        CancellationToken cancellationToken = default)
+    {
+        var groupName = $"deployment:{sessionId}";
+
+        var payload = new
+        {
+            SessionId = sessionId,
+            ContainerName = containerName,
+            LogLine = logLine
+        };
+
+        await _hubContext.Clients
+            .Group(groupName)
+            .SendAsync("InitContainerLog", payload, cancellationToken);
+    }
 }

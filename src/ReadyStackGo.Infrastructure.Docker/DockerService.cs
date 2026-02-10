@@ -838,6 +838,70 @@ public class DockerService : IDockerService, IDisposable
         }
     }
 
+    public async IAsyncEnumerable<string> StreamContainerLogsAsync(
+        string environmentId,
+        string containerId,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+
+        MultiplexedStream? logsStream = null;
+        try
+        {
+            _logger.LogDebug("Starting log stream for container {ContainerId}", containerId);
+
+            var logsParams = new ContainerLogsParameters
+            {
+                ShowStdout = true,
+                ShowStderr = true,
+                Timestamps = false,
+                Follow = true
+            };
+
+            logsStream = await client.Containers.GetContainerLogsAsync(containerId, false, logsParams, cancellationToken);
+
+            var buffer = new byte[4096];
+            var lineBuffer = new StringBuilder();
+
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var result = await logsStream.ReadOutputAsync(buffer, 0, buffer.Length, cancellationToken);
+                if (result.EOF)
+                {
+                    // Yield any remaining partial line
+                    if (lineBuffer.Length > 0)
+                    {
+                        yield return lineBuffer.ToString();
+                    }
+                    break;
+                }
+
+                if (result.Count > 0)
+                {
+                    var text = Encoding.UTF8.GetString(buffer, 0, result.Count);
+
+                    // Split into lines, buffering partial lines
+                    foreach (var ch in text)
+                    {
+                        if (ch == '\n')
+                        {
+                            yield return lineBuffer.ToString();
+                            lineBuffer.Clear();
+                        }
+                        else if (ch != '\r')
+                        {
+                            lineBuffer.Append(ch);
+                        }
+                    }
+                }
+            }
+        }
+        finally
+        {
+            logsStream?.Dispose();
+        }
+    }
+
     private Task<DockerClient> GetDockerClientAsync(string environmentId)
     {
         // Check cache first
