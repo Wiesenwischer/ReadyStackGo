@@ -137,19 +137,23 @@ Rough outlook on planned versions and features.
   - Init Containers Excluded from Health Monitoring
   - Automatic Init Container Cleanup After Successful Init Phase
 
-### v0.19 – Docker Volumes Management
+### v0.19 – CI/CD Integration
+- API Key Authentication for Pipeline Access
+- Deploy Webhook (`POST /api/hooks/deploy`) for Automated Deployments
+- Upgrade Webhook (`POST /api/hooks/upgrade`) for Automated Upgrades
+- Webhook Secret Token Validation (HMAC-SHA256)
+- API Key Management UI in Settings
+- Pipeline Examples (Azure DevOps, GitHub Actions)
+
+### v0.20 – Docker Volumes Management
 - Docker Volumes View (List All Volumes per Environment)
 - Volume Details (Size, Mount Points, Labels)
 - Create/Delete Volumes
 - Detect Orphaned Volumes
 
-### v0.20 – Metrics & Audit
+### v0.21 – Metrics & Audit
 - Metrics & Alerting
 - Audit Logs
-
-### v0.21 – CI/CD Integration
-- Webhooks for External CI/CD Systems
-- API for Automated Deployments
 
 ### v0.22 – Multi-User Support
 - User Management UI

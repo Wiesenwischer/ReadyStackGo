@@ -44,7 +44,12 @@ main
    - Falls `$ARGUMENTS` angegeben wurde, suche dieses spezifische Feature.
    - Falls `$ARGUMENTS` leer ist, nimm das **nächste geplante Feature** (niedrigste Version unter "Planned").
 2. Lies die **Projektrichtlinien** (`CLAUDE.md`) für Branch-Konventionen, Commit-Regeln und Test-Anforderungen.
-3. Lies relevante **bestehende Implementierungen** um Patterns und Architektur zu verstehen.
+3. **Prüfe ob bereits eine Specification/Plan-Datei existiert** in `docs/Plans/`:
+   - Suche nach `PLAN-*.md` Dateien die zur Phase/Feature passen (z.B. `PLAN-cicd-integration.md` für CI/CD)
+   - **Falls vorhanden: Lies die Spec VOLLSTÄNDIG** – sie enthält Architektur-Entscheidungen, Feature-Aufteilung, betroffene Dateien, Abhängigkeiten und Test-Anforderungen
+   - Die Spec ist die **primäre Quelle** für den Implementierungsplan. Erstelle keinen neuen Plan wenn eine Spec existiert – nutze sie als Basis
+   - Falls keine Spec existiert: Erstelle eine neue Planungsdatei in Schritt 2
+4. Lies relevante **bestehende Implementierungen** um Patterns und Architektur zu verstehen (die Spec referenziert Pattern-Vorbilder mit Dateipfaden).
 
 ## Schritt 2: Phasen-Planung & Implementierungsplan erstellen
 
