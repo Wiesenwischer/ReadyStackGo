@@ -307,4 +307,131 @@ public class HealthMonitoringServiceTests
     }
 
     #endregion
+
+    #region Init Container Exclusion Tests
+
+    [Fact]
+    public async Task CaptureHealthSnapshot_InitContainers_AreExcludedFromHealthMonitoring()
+    {
+        // Arrange - Mix of init container and regular service
+        var containers = new[]
+        {
+            new ContainerDto
+            {
+                Id = "init-1", Name = "migration", Image = "flyway:latest",
+                State = "exited", Status = "Exited (0) 5 minutes ago",
+                HealthStatus = "none",
+                Labels = new Dictionary<string, string>
+                {
+                    ["rsgo.stack"] = "test-stack",
+                    ["rsgo.lifecycle"] = "init"
+                }
+            },
+            new ContainerDto
+            {
+                Id = "svc-1", Name = "api", Image = "nginx:latest",
+                State = "running", Status = "Up 1 hour",
+                HealthStatus = "healthy",
+                Labels = new Dictionary<string, string>
+                {
+                    ["rsgo.stack"] = "test-stack",
+                    ["rsgo.lifecycle"] = "service"
+                }
+            }
+        };
+
+        _dockerServiceMock
+            .Setup(d => d.ListContainersAsync(_envId.Value.ToString(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(containers);
+
+        _deploymentRepoMock
+            .Setup(r => r.Get(_deploymentId))
+            .Returns((Deployment?)null);
+
+        // Act
+        var snapshot = await _service.CaptureHealthSnapshotAsync(
+            _orgId, _envId, _deploymentId, "test-stack", "1.0.0", serviceHealthConfigs: null);
+
+        // Assert - Only the regular service should appear
+        snapshot.Self.Services.Should().HaveCount(1);
+        snapshot.Self.Services.Single().Name.Should().Be("api");
+    }
+
+    [Fact]
+    public async Task CaptureHealthSnapshot_OnlyInitContainers_ReturnsEmptyHealth()
+    {
+        // Arrange - Stack with only init containers (all exited)
+        var containers = new[]
+        {
+            new ContainerDto
+            {
+                Id = "init-1", Name = "migration", Image = "flyway:latest",
+                State = "exited", Status = "Exited (0) 5 minutes ago",
+                HealthStatus = "none",
+                Labels = new Dictionary<string, string>
+                {
+                    ["rsgo.stack"] = "test-stack",
+                    ["rsgo.lifecycle"] = "init"
+                }
+            }
+        };
+
+        _dockerServiceMock
+            .Setup(d => d.ListContainersAsync(_envId.Value.ToString(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(containers);
+
+        _deploymentRepoMock
+            .Setup(r => r.Get(_deploymentId))
+            .Returns((Deployment?)null);
+
+        // Act
+        var snapshot = await _service.CaptureHealthSnapshotAsync(
+            _orgId, _envId, _deploymentId, "test-stack", "1.0.0", serviceHealthConfigs: null);
+
+        // Assert - No services in health snapshot (init containers excluded)
+        snapshot.Self.Services.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CaptureHealthSnapshot_ExitedRegularService_IsNotExcluded()
+    {
+        // Arrange - Exited regular service (lifecycle=service) should still be monitored
+        var containers = new[]
+        {
+            new ContainerDto
+            {
+                Id = "svc-1", Name = "api", Image = "nginx:latest",
+                State = "exited", Status = "Exited (1) 5 minutes ago",
+                HealthStatus = "none",
+                Labels = new Dictionary<string, string>
+                {
+                    ["rsgo.stack"] = "test-stack",
+                    ["rsgo.lifecycle"] = "service"
+                }
+            }
+        };
+
+        _dockerServiceMock
+            .Setup(d => d.ListContainersAsync(_envId.Value.ToString(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(containers);
+
+        _dockerServiceMock
+            .Setup(d => d.GetContainerRestartCountAsync(_envId.Value.ToString(), "svc-1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+
+        _deploymentRepoMock
+            .Setup(r => r.Get(_deploymentId))
+            .Returns((Deployment?)null);
+
+        // Act
+        var snapshot = await _service.CaptureHealthSnapshotAsync(
+            _orgId, _envId, _deploymentId, "test-stack", "1.0.0", serviceHealthConfigs: null);
+
+        // Assert - Exited regular service IS monitored and shows as unhealthy
+        snapshot.Self.Services.Should().HaveCount(1);
+        snapshot.Self.Services.Single().Name.Should().Be("api");
+        snapshot.Self.Services.Single().Status.Should().Be(HealthStatus.Unhealthy);
+    }
+
+    #endregion
 }
