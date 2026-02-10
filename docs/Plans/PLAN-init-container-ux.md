@@ -31,47 +31,30 @@ Init Container Handling in der UI verbessern: Separate Zählung, Log-Streaming, 
 
 Reihenfolge basierend auf Abhängigkeiten und logischem Aufbau:
 
-- [x] **Feature 1: Separate Init-Container-Zählung im Deployment-Progress** – Init-Container und reguläre Services getrennt zählen und in der UI anzeigen
-  - Betroffene Dateien:
-    - `src/ReadyStackGo.Infrastructure/Services/Deployment/DeploymentEngine.cs` (Progress-Callback erweitern)
-    - `src/ReadyStackGo.Infrastructure/Services/Deployment/IDeploymentEngine.cs` (Callback-Delegate)
-    - `src/ReadyStackGo.Application/Services/IDeploymentService.cs` (Callback-Delegate)
-    - `src/ReadyStackGo.Application/Services/IDeploymentNotificationService.cs` (Notification-Methoden)
-    - `src/ReadyStackGo.Api/Hubs/DeploymentNotificationService.cs` (SignalR-Implementierung)
-    - `src/ReadyStackGo.WebUi/src/hooks/useDeploymentHub.ts` (DTO erweitern)
-    - `src/ReadyStackGo.WebUi/src/pages/Deployments/DeployStack.tsx` (UI-Anzeige)
-    - `src/ReadyStackGo.WebUi/src/pages/Deployments/UpgradeStack.tsx` (UI-Anzeige)
-    - `src/ReadyStackGo.WebUi/src/pages/Deployments/RollbackStack.tsx` (UI-Anzeige)
-  - Abhängig von: -
+- [x] **Feature 1: Separate Init-Container-Zählung im Deployment-Progress** (PR #73)
+  - Init-Container und reguläre Services getrennt zählen und in der UI anzeigen
+  - `DeploymentProgressCallback` um `totalInitContainers` / `completedInitContainers` erweitert
+  - UI zeigt während Init-Phase "Init Containers: X/Y", während Service-Phase "Services: X/Y"
 
-- [ ] **Feature 2: Real-time Init-Container-Logs während Deployment** – Init-Container-Logs über SignalR an die UI streamen
-  - Betroffene Dateien:
-    - `src/ReadyStackGo.Infrastructure.Docker/DockerService.cs` (Log-Streaming-Methode)
-    - `src/ReadyStackGo.Application/Services/IDockerService.cs` (Interface)
-    - `src/ReadyStackGo.Infrastructure/Services/Deployment/DeploymentEngine.cs` (Log-Callback)
-    - `src/ReadyStackGo.Application/Services/IDeploymentNotificationService.cs` (Log-Notification)
-    - `src/ReadyStackGo.Api/Hubs/DeploymentNotificationService.cs` (SignalR Log-Event)
-    - `src/ReadyStackGo.WebUi/src/hooks/useDeploymentHub.ts` (Log-Event-Handler)
-    - `src/ReadyStackGo.WebUi/src/pages/Deployments/DeployStack.tsx` (Log-Panel in UI)
-  - Abhängig von: Feature 1
+- [x] **Feature 2: Real-time Init-Container-Logs während Deployment** (PR #74)
+  - Init-Container-Logs über SignalR an die UI streamen
+  - `StreamContainerLogsAsync` in DockerService mit `IAsyncEnumerable<string>`
+  - `InitContainerLogCallback` Delegate durch alle Schichten
+  - Collapsible Log-Panel in DeployStack/UpgradeStack/RollbackStack UI
 
-- [ ] **Feature 3: Init-Container aus Health Monitoring ausschließen** – Init-Container nicht als reguläre Services im Health Dashboard zählen
-  - Betroffene Dateien:
-    - `src/ReadyStackGo.Application/Services/Impl/HealthMonitoringService.cs` (Filter erweitern)
-    - `src/ReadyStackGo.Domain/Deployment/Deployments/DeployedService.cs` (IsInitContainer Property)
-    - `src/ReadyStackGo.Domain/Deployment/Deployments/Deployment.cs` (Service-Zählung)
-    - `src/ReadyStackGo.WebUi/src/components/health/HealthStackCard.tsx` (Anzeige)
-    - `src/ReadyStackGo.WebUi/src/components/dashboard/HealthWidget.tsx` (Anzeige)
-  - Abhängig von: -
+- [x] **Feature 3: Init-Container aus Health Monitoring ausschließen** (PR #75)
+  - Container mit `rsgo.lifecycle=init` Label werden in `CollectSelfHealthAsync()` gefiltert
+  - `IsInitContainer()` Helper in `HealthMonitoringService`
+  - 3 Unit Tests: Init excluded, only-init returns empty, exited regular service still monitored
 
-- [ ] **Feature 4: Automatische Bereinigung beendeter Init-Container** – Nach erfolgreichem Deployment Init-Container entfernen
-  - Betroffene Dateien:
-    - `src/ReadyStackGo.Infrastructure/Services/Deployment/DeploymentEngine.cs` (Cleanup-Phase)
-    - `src/ReadyStackGo.Domain/Deployment/Deployments/Deployment.cs` (Service-Management)
-  - Abhängig von: Feature 1
+- [x] **Feature 4: Automatische Bereinigung beendeter Init-Container** (PR #76)
+  - Nach erfolgreicher Init-Phase: `RemoveContainerAsync` für jeden Init-Container
+  - Init-Container aus `result.DeployedContainers` entfernt (nicht als Services persistiert)
+  - Cleanup-Fehler sind nicht-fatal (Deployment läuft weiter)
+  - 4 Unit Tests: Erfolg, Fehler, non-fatal, mehrere Container
 
-- [ ] **Dokumentation & Website** – Wiki, Public Website, Roadmap
-- [ ] **Phase abschließen** – Alle Tests grün, PR gegen main
+- [x] **Dokumentation & Website** – Roadmap, Container-Lifecycle, Health-Monitoring
+- [x] **Phase abschließen** – Alle Tests grün, PR gegen main
 
 ## Offene Punkte
 - [x] **Log-Streaming Ansatz** → SignalR-Streaming gewählt
