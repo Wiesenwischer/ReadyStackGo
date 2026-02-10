@@ -12,16 +12,24 @@
 ## Commit-Regeln
 
 - **KEIN Footer** in Commit-Messages (kein "Generated with Claude Code", kein "Co-Authored-By")
-- Commit-Messages auf Deutsch oder Englisch, kurz und prägnant
+- Commit-Messages und Beschreibungen **komplett auf Englisch**
 
 ## Pull Request-Regeln
 
 - **KEIN Footer** in PR-Beschreibungen (kein "🤖 Generated with Claude Code" o.ä.)
+- PR-Titel und Beschreibungen **komplett auf Englisch**
 
 ## Projekt-Sprache
 
 - Dokumentation: Deutsch mit englischen Fachbegriffen
-- Code/Kommentare: Englisch
+- Code und Kommentare: **Englisch** (keine deutschen Kommentare im Code!)
+- Commits und PRs: **Englisch**
+
+## Code-Qualität
+
+- **Alles muss kompilieren** – vor jedem Commit `dotnet build` ausführen
+- **Keine Kompilierungsfehler** – Code darf nicht committed werden wenn er nicht kompiliert
+- **Keine Warnungen** – Compiler-Warnungen müssen behoben werden, nicht unterdrückt
 
 ## Tests
 
