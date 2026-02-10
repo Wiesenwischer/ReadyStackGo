@@ -79,6 +79,9 @@ public class Role : AggregateRoot<RoleId>
             Permission.Registries.Delete,
             Permission.Stacks.Read,
             Permission.Dashboard.Read,
+            Permission.ApiKeys.Create,
+            Permission.ApiKeys.Read,
+            Permission.ApiKeys.Delete,
         });
 
     public static Role Operator => new(

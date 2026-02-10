@@ -87,6 +87,20 @@ public sealed class Permission : ValueObject
         public static Permission Read => new("Dashboard", "Read");
     }
 
+    public static class ApiKeys
+    {
+        public static Permission Create => new("ApiKeys", "Create");
+        public static Permission Read => new("ApiKeys", "Read");
+        public static Permission Delete => new("ApiKeys", "Delete");
+    }
+
+    public static class Hooks
+    {
+        public static Permission Redeploy => new("Hooks", "Redeploy");
+        public static Permission Upgrade => new("Hooks", "Upgrade");
+        public static Permission SyncSources => new("Hooks", "SyncSources");
+    }
+
     protected override IEnumerable<object?> GetEqualityComponents()
     {
         yield return Resource;
