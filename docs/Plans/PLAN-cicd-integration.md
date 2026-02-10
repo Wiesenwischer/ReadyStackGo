@@ -65,7 +65,7 @@ Primärer Use Case: Nach einem erfolgreichen Build in der ams.project-Pipeline s
 
 Reihenfolge basierend auf Abhängigkeiten:
 
-- [ ] **Feature 1: API Key Domain + Data Access** (PR gegen integration)
+- [x] **Feature 1: API Key Domain + Data Access** (PR #80 gegen integration)
   - `ApiKeyId` Value Object (Pattern wie `RegistryId`)
   - `ApiKey` Aggregate Root: Name, KeyHash (SHA-256), KeyPrefix (erste 12 Zeichen), OrganizationId, EnvironmentId? (Scope), Permissions (List\<string\>), CreatedAt, LastUsedAt?, ExpiresAt?, IsRevoked, RevokedAt?, RevokedReason?
   - Methoden: `Create(...)`, `Revoke(reason?)`, `RecordUsage()`, `IsExpired()`, `IsValid()`, `HasPermission(string)` mit Wildcard-Support (`*.*`, `Resource.*`)
@@ -81,7 +81,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Branch: `feature/cicd-api-key-domain`
   - Abhängig von: -
 
-- [ ] **Feature 2: API Key Authentication Middleware** (PR gegen integration)
+- [x] **Feature 2: API Key Authentication Middleware** (PR #81 gegen integration)
   - ASP.NET Core `AuthenticationHandler<ApiKeyAuthenticationSchemeOptions>` in `Infrastructure.Security`
   - Scheme: `"ApiKey"`, Header: `"X-Api-Key"`
   - Flow: Header lesen → Format prüfen (`rsgo_` Prefix) → SHA-256 Hash → DB-Lookup via `IApiKeyRepository.GetByKeyHash()` → Validierung (revoked/expired) → ClaimsPrincipal bauen
@@ -93,7 +93,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Branch: `feature/cicd-api-key-auth`
   - Abhängig von: Feature 1
 
-- [ ] **Feature 3: API Key Management (CRUD + UI)** (PR gegen integration)
+- [x] **Feature 3: API Key Management (CRUD + UI)** (PR #82 gegen integration)
   - **Application Layer** (`src/ReadyStackGo.Application/UseCases/ApiKeys/`):
     - `ApiKeyDtos.cs`: `ApiKeyDto` (id, name, keyPrefix, orgId, envId?, permissions, createdAt, lastUsedAt?, expiresAt?, isRevoked), `ApiKeyCreatedDto` (id, name, keyPrefix, **fullKey** – nur einmalig!)
     - `CreateApiKey/`: Command (Name, EnvironmentId?, Permissions[], ExpiresAt?) + Handler (Key generieren: `rsgo_` + 32 random alphanumerisch, SHA-256 hashen, Prefix extrahieren, ApiKey.Create(), speichern, fullKey einmalig zurückgeben)

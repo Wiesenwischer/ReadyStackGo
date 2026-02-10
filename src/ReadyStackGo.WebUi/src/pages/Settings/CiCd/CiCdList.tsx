@@ -59,7 +59,8 @@ export default function CiCdList() {
         permissions: newKeyPermissions,
       };
       if (newKeyExpiry) {
-        request.expiresAt = new Date(newKeyExpiry).toISOString();
+        const date = new Date(newKeyExpiry + "T23:59:59");
+        request.expiresAt = date.toISOString();
       }
 
       const response = await createApiKey(request);
@@ -279,10 +280,10 @@ export default function CiCdList() {
             <thead className="bg-gray-50 dark:bg-gray-800/50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Key Prefix</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Permissions</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Created</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Last Used</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Expires</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</th>
                 <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Actions</th>
               </tr>
@@ -292,11 +293,6 @@ export default function CiCdList() {
                 <tr key={key.id} className={key.isRevoked ? "opacity-60" : ""}>
                   <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
                     {key.name}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-4">
-                    <code className="rounded bg-gray-100 px-2 py-1 font-mono text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">
-                      {key.keyPrefix}...
-                    </code>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-wrap gap-1">
@@ -315,6 +311,9 @@ export default function CiCdList() {
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                     {formatDate(key.lastUsedAt)}
+                  </td>
+                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                    {key.expiresAt ? new Date(key.expiresAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "Never"}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">{getStatusBadge(key)}</td>
                   <td className="whitespace-nowrap px-6 py-4 text-right">
@@ -379,7 +378,7 @@ export default function CiCdList() {
                   Expiry (optional)
                 </label>
                 <input
-                  type="datetime-local"
+                  type="date"
                   value={newKeyExpiry}
                   onChange={(e) => setNewKeyExpiry(e.target.value)}
                   className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
