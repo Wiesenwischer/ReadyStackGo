@@ -99,10 +99,22 @@ public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStac
             };
         }
 
+        // Create log callback for init container log streaming
+        InitContainerLogCallback? logCallback = null;
+        if (_notificationService != null)
+        {
+            logCallback = async (containerName, logLine) =>
+            {
+                await _notificationService.NotifyInitContainerLogAsync(
+                    sessionId, containerName, logLine, cancellationToken);
+            };
+        }
+
         var result = await _deploymentService.DeployStackAsync(
             request.EnvironmentId,
             deployRequest,
             progressCallback,
+            logCallback,
             cancellationToken);
 
         // Send final notification

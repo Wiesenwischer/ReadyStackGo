@@ -612,7 +612,7 @@ public class DeploymentEngineTests
         };
 
         // Act
-        var result = await _sut.ExecuteDeploymentAsync(plan, progressCallback, CancellationToken.None);
+        var result = await _sut.ExecuteDeploymentAsync(plan, progressCallback, null, CancellationToken.None);
 
         // Assert
         result.Success.Should().BeTrue();
@@ -689,7 +689,7 @@ public class DeploymentEngineTests
             .ReturnsAsync("container-id");
 
         // Act
-        var result = await _sut.ExecuteDeploymentAsync(plan, null, cts.Token);
+        var result = await _sut.ExecuteDeploymentAsync(plan, null, null, cts.Token);
 
         // Assert
         result.Success.Should().BeFalse();
@@ -778,7 +778,7 @@ public class DeploymentEngineTests
         };
 
         // Act
-        var result = await _sut.ExecuteDeploymentAsync(plan, progressCallback, CancellationToken.None);
+        var result = await _sut.ExecuteDeploymentAsync(plan, progressCallback, null, CancellationToken.None);
 
         // Assert
         result.Success.Should().BeTrue();
@@ -847,7 +847,7 @@ public class DeploymentEngineTests
         };
 
         // Act
-        var result = await _sut.ExecuteDeploymentAsync(plan, progressCallback, CancellationToken.None);
+        var result = await _sut.ExecuteDeploymentAsync(plan, progressCallback, null, CancellationToken.None);
 
         // Assert
         result.Success.Should().BeTrue();
@@ -948,7 +948,7 @@ public class DeploymentEngineTests
         };
 
         // Act
-        var result = await _sut.ExecuteDeploymentAsync(plan, progressCallback, CancellationToken.None);
+        var result = await _sut.ExecuteDeploymentAsync(plan, progressCallback, null, CancellationToken.None);
 
         // Assert
         result.Success.Should().BeTrue();
@@ -1012,6 +1012,198 @@ public class DeploymentEngineTests
         // Removal never has init containers
         progressUpdates.Should().OnlyContain(p => p.TotalInitContainers == 0 && p.CompletedInitContainers == 0,
             "removal operations should always report zero init container counts");
+    }
+
+    #endregion
+
+    #region Feature 2: Init Container Log Streaming
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_WithLogCallback_ShouldStreamInitContainerLogs()
+    {
+        // Arrange
+        var logEntries = new List<(string ContainerName, string LogLine)>();
+        var plan = new DeploymentPlan { StackVersion = "1.0.0", EnvironmentId = _testEnvId.ToString() };
+        plan.Steps = new List<DeploymentStep>
+        {
+            new()
+            {
+                ContextName = "migration",
+                Image = "flyway",
+                Version = "latest",
+                ContainerName = "rsgo-migration",
+                EnvVars = new Dictionary<string, string>(),
+                Ports = new List<string>(),
+                Volumes = new Dictionary<string, string>(),
+                DependsOn = new List<string>(),
+                Lifecycle = ServiceLifecycle.Init,
+                Order = 0
+            },
+            new()
+            {
+                ContextName = "api",
+                Image = "nginx",
+                Version = "latest",
+                ContainerName = "rsgo-api",
+                EnvVars = new Dictionary<string, string>(),
+                Ports = new List<string>(),
+                Volumes = new Dictionary<string, string>(),
+                DependsOn = new List<string>(),
+                Order = 1
+            }
+        };
+
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("container-id");
+
+        // Init container exits immediately
+        _dockerServiceMock
+            .Setup(x => x.GetContainerByNameAsync(It.IsAny<string>(), "rsgo-migration", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ContainerDto { Id = "init-id", Name = "rsgo-migration", Image = "flyway:latest", State = "exited", Status = "exited(0)", Labels = new Dictionary<string, string>() });
+
+        _dockerServiceMock
+            .Setup(x => x.GetContainerExitCodeAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+
+        // Mock log streaming to yield some lines
+        _dockerServiceMock
+            .Setup(x => x.StreamContainerLogsAsync(It.IsAny<string>(), "container-id", It.IsAny<CancellationToken>()))
+            .Returns(AsyncEnumerableFromLines("Running migration v1...", "Migration complete."));
+
+        InitContainerLogCallback logCallback = (containerName, logLine) =>
+        {
+            logEntries.Add((containerName, logLine));
+            return Task.CompletedTask;
+        };
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan, null, logCallback, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeTrue();
+
+        // Log callback should have been called with the container name and log lines
+        logEntries.Should().Contain(e => e.ContainerName == "migration" && e.LogLine == "Running migration v1...");
+        logEntries.Should().Contain(e => e.ContainerName == "migration" && e.LogLine == "Migration complete.");
+    }
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_WithoutLogCallback_ShouldNotStreamLogs()
+    {
+        // Arrange
+        var plan = new DeploymentPlan { StackVersion = "1.0.0", EnvironmentId = _testEnvId.ToString() };
+        plan.Steps = new List<DeploymentStep>
+        {
+            new()
+            {
+                ContextName = "migration",
+                Image = "flyway",
+                Version = "latest",
+                ContainerName = "rsgo-migration",
+                EnvVars = new Dictionary<string, string>(),
+                Ports = new List<string>(),
+                Volumes = new Dictionary<string, string>(),
+                DependsOn = new List<string>(),
+                Lifecycle = ServiceLifecycle.Init,
+                Order = 0
+            }
+        };
+
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("container-id");
+
+        _dockerServiceMock
+            .Setup(x => x.GetContainerByNameAsync(It.IsAny<string>(), "rsgo-migration", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ContainerDto { Id = "init-id", Name = "rsgo-migration", Image = "flyway:latest", State = "exited", Status = "exited(0)", Labels = new Dictionary<string, string>() });
+
+        _dockerServiceMock
+            .Setup(x => x.GetContainerExitCodeAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+
+        // Act - null logCallback should not trigger StreamContainerLogsAsync
+        var result = await _sut.ExecuteDeploymentAsync(plan, null, null, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeTrue();
+
+        // StreamContainerLogsAsync should never be called when no log callback is provided
+        _dockerServiceMock.Verify(
+            x => x.StreamContainerLogsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_WithoutInitContainers_ShouldNotStreamLogs()
+    {
+        // Arrange
+        var logEntries = new List<(string ContainerName, string LogLine)>();
+        var plan = new DeploymentPlan { StackVersion = "1.0.0", EnvironmentId = _testEnvId.ToString() };
+        plan.Steps = new List<DeploymentStep>
+        {
+            new()
+            {
+                ContextName = "api",
+                Image = "nginx",
+                Version = "latest",
+                ContainerName = "rsgo-api",
+                EnvVars = new Dictionary<string, string>(),
+                Ports = new List<string>(),
+                Volumes = new Dictionary<string, string>(),
+                DependsOn = new List<string>(),
+                Order = 0
+            }
+        };
+
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("container-id");
+
+        InitContainerLogCallback logCallback = (containerName, logLine) =>
+        {
+            logEntries.Add((containerName, logLine));
+            return Task.CompletedTask;
+        };
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan, null, logCallback, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeTrue();
+
+        // No init containers, so no log entries
+        logEntries.Should().BeEmpty();
+
+        // StreamContainerLogsAsync should never be called
+        _dockerServiceMock.Verify(
+            x => x.StreamContainerLogsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    /// <summary>
+    /// Helper to create an IAsyncEnumerable from a list of strings.
+    /// </summary>
+    private static async IAsyncEnumerable<string> AsyncEnumerableFromLines(
+        params string[] lines)
+    {
+        foreach (var line in lines)
+        {
+            yield return line;
+            await Task.Yield(); // Ensure async behavior
+        }
     }
 
     #endregion

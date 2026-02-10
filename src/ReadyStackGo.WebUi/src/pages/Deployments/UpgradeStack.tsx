@@ -10,7 +10,7 @@ import {
 import { getStack, type StackDetail } from '../../api/stacks';
 import { useEnvironment } from '../../context/EnvironmentContext';
 import VariableInput, { groupVariables } from '../../components/variables/VariableInput';
-import { useDeploymentHub, type DeploymentProgressUpdate } from '../../hooks/useDeploymentHub';
+import { useDeploymentHub, type DeploymentProgressUpdate, type InitContainerLogEntry } from '../../hooks/useDeploymentHub';
 
 // Format phase names for display (PullingImages -> Pulling Images)
 const formatPhase = (phase: string | undefined): string => {
@@ -63,6 +63,9 @@ export default function UpgradeStack() {
   // Upgrade progress state
   const upgradeSessionIdRef = useRef<string | null>(null);
   const [progressUpdate, setProgressUpdate] = useState<DeploymentProgressUpdate | null>(null);
+  const [initContainerLogs, setInitContainerLogs] = useState<Record<string, string[]>>({});
+  const [showInitLogs, setShowInitLogs] = useState(false);
+  const logEndRef = useRef<HTMLDivElement>(null);
 
   // SignalR hub for real-time upgrade progress
   const handleUpgradeProgress = useCallback((update: DeploymentProgressUpdate) => {
@@ -81,8 +84,19 @@ export default function UpgradeStack() {
     }
   }, []);
 
+  const handleInitContainerLog = useCallback((log: InitContainerLogEntry) => {
+    const currentSessionId = upgradeSessionIdRef.current;
+    if (currentSessionId && log.sessionId === currentSessionId) {
+      setInitContainerLogs(prev => ({
+        ...prev,
+        [log.containerName]: [...(prev[log.containerName] || []), log.logLine]
+      }));
+    }
+  }, []);
+
   const { subscribeToDeployment, connectionState } = useDeploymentHub({
     onDeploymentProgress: handleUpgradeProgress,
+    onInitContainerLog: handleInitContainerLog,
   });
 
   // Load deployment and upgrade info
@@ -265,6 +279,8 @@ export default function UpgradeStack() {
     setState('upgrading');
     setError('');
     setProgressUpdate(null);
+    setInitContainerLogs({});
+    setShowInitLogs(false);
 
     // Subscribe to SignalR before starting
     if (connectionState === 'connected') {
@@ -436,6 +452,34 @@ export default function UpgradeStack() {
                  connectionState === 'reconnecting' ? 'Reconnecting...' :
                  'Updates unavailable'}
               </div>
+
+              {/* Init Container Logs (collapsible) */}
+              {Object.keys(initContainerLogs).length > 0 && (
+                <div className="mt-4 w-full">
+                  <button
+                    onClick={() => setShowInitLogs(!showInitLogs)}
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-t-lg hover:bg-gray-200 dark:hover:bg-gray-700"
+                  >
+                    <span>Init Container Logs</span>
+                    <svg className={`w-4 h-4 transition-transform ${showInitLogs ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {showInitLogs && (
+                    <div className="bg-gray-900 rounded-b-lg p-3 max-h-60 overflow-y-auto">
+                      {Object.entries(initContainerLogs).map(([name, lines]) => (
+                        <div key={name} className="mb-2 last:mb-0">
+                          <div className="text-xs font-bold text-blue-400 mb-1">{name}</div>
+                          {lines.map((line, i) => (
+                            <div key={i} className="font-mono text-xs text-green-400 whitespace-pre-wrap break-all leading-relaxed">{line}</div>
+                          ))}
+                        </div>
+                      ))}
+                      <div ref={logEndRef} />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

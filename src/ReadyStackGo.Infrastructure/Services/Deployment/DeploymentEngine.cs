@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.UseCases.Deployments;
 using ReadyStackGo.Application.Services;
@@ -96,12 +97,13 @@ public class DeploymentEngine : IDeploymentEngine
 
     public Task<DeploymentResult> ExecuteDeploymentAsync(DeploymentPlan plan)
     {
-        return ExecuteDeploymentAsync(plan, null, CancellationToken.None);
+        return ExecuteDeploymentAsync(plan, null, null, CancellationToken.None);
     }
 
     public async Task<DeploymentResult> ExecuteDeploymentAsync(
         DeploymentPlan plan,
         DeploymentProgressCallback? progressCallback,
+        InitContainerLogCallback? logCallback = null,
         CancellationToken cancellationToken = default)
     {
         var result = new DeploymentResult
@@ -327,6 +329,7 @@ public class DeploymentEngine : IDeploymentEngine
                             initStep,
                             defaultNetwork,
                             stackName,
+                            logCallback,
                             cancellationToken);
 
                         // Add any pull warnings for this step
@@ -807,6 +810,7 @@ public class DeploymentEngine : IDeploymentEngine
         DeploymentStep step,
         string defaultNetwork,
         string stackName,
+        InitContainerLogCallback? logCallback,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation("Starting init container {ContextName}...", step.ContextName);
@@ -814,57 +818,106 @@ public class DeploymentEngine : IDeploymentEngine
         // Start the init container (uses restart: on-failure)
         var containerInfo = await StartContainerAsync(environmentId, step, defaultNetwork, stackName);
 
-        // Wait for the container to complete
-        _logger.LogInformation("Waiting for init container {ContextName} to complete...", step.ContextName);
+        // Start background log streaming if a callback is provided
+        using var logCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        Task? logStreamingTask = null;
 
-        var maxWaitSeconds = 300; // 5 minutes timeout for init containers
-        var pollIntervalMs = 500; // Check every 500ms
-        var elapsed = 0;
-
-        while (elapsed < maxWaitSeconds * 1000)
+        if (logCallback != null)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var container = await _dockerService.GetContainerByNameAsync(environmentId, step.ContainerName);
-            if (container == null)
-            {
-                throw new InvalidOperationException($"Init container {step.ContainerName} disappeared during execution");
-            }
-
-            // Check if container has exited
-            if (container.Status.StartsWith("exited", StringComparison.OrdinalIgnoreCase))
-            {
-                // Container has stopped - check exit code
-                var exitCode = await _dockerService.GetContainerExitCodeAsync(environmentId, container.Id);
-
-                if (exitCode == 0)
-                {
-                    _logger.LogInformation("Init container {ContextName} completed successfully (exit code 0)", step.ContextName);
-                    containerInfo.Status = "completed";
-                    return containerInfo;
-                }
-                else
-                {
-                    // Init container failed - get logs for diagnosis
-                    var logs = await _dockerService.GetContainerLogsAsync(environmentId, container.Id, tail: 50);
-                    _logger.LogError("Init container {ContextName} failed with exit code {ExitCode}", step.ContextName, exitCode);
-
-                    throw new InvalidOperationException(
-                        $"Init container '{step.ContextName}' failed with exit code {exitCode}. " +
-                        $"Last 50 log lines:\n{logs}");
-                }
-            }
-
-            // Container still running - wait and check again
-            await Task.Delay(pollIntervalMs, cancellationToken);
-            elapsed += pollIntervalMs;
+            logStreamingTask = StreamInitContainerLogsAsync(
+                environmentId, containerInfo.ContainerId, step.ContextName, logCallback, logCts.Token);
         }
 
-        // Timeout reached
-        var timeoutLogs = await _dockerService.GetContainerLogsAsync(environmentId, containerInfo.ContainerId, tail: 50);
-        throw new TimeoutException(
-            $"Init container '{step.ContextName}' did not complete within {maxWaitSeconds} seconds. " +
-            $"Last 50 log lines:\n{timeoutLogs}");
+        try
+        {
+            // Wait for the container to complete
+            _logger.LogInformation("Waiting for init container {ContextName} to complete...", step.ContextName);
+
+            var maxWaitSeconds = 300; // 5 minutes timeout for init containers
+            var pollIntervalMs = 500; // Check every 500ms
+            var elapsed = 0;
+
+            while (elapsed < maxWaitSeconds * 1000)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var container = await _dockerService.GetContainerByNameAsync(environmentId, step.ContainerName);
+                if (container == null)
+                {
+                    throw new InvalidOperationException($"Init container {step.ContainerName} disappeared during execution");
+                }
+
+                // Check if container has exited
+                if (container.Status.StartsWith("exited", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Container has stopped - check exit code
+                    var exitCode = await _dockerService.GetContainerExitCodeAsync(environmentId, container.Id);
+
+                    if (exitCode == 0)
+                    {
+                        _logger.LogInformation("Init container {ContextName} completed successfully (exit code 0)", step.ContextName);
+                        containerInfo.Status = "completed";
+                        return containerInfo;
+                    }
+                    else
+                    {
+                        // Init container failed - get logs for diagnosis
+                        var logs = await _dockerService.GetContainerLogsAsync(environmentId, container.Id, tail: 50);
+                        _logger.LogError("Init container {ContextName} failed with exit code {ExitCode}", step.ContextName, exitCode);
+
+                        throw new InvalidOperationException(
+                            $"Init container '{step.ContextName}' failed with exit code {exitCode}. " +
+                            $"Last 50 log lines:\n{logs}");
+                    }
+                }
+
+                // Container still running - wait and check again
+                await Task.Delay(pollIntervalMs, cancellationToken);
+                elapsed += pollIntervalMs;
+            }
+
+            // Timeout reached
+            var timeoutLogs = await _dockerService.GetContainerLogsAsync(environmentId, containerInfo.ContainerId, tail: 50);
+            throw new TimeoutException(
+                $"Init container '{step.ContextName}' did not complete within {maxWaitSeconds} seconds. " +
+                $"Last 50 log lines:\n{timeoutLogs}");
+        }
+        finally
+        {
+            // Stop log streaming when container exits or on error
+            await logCts.CancelAsync();
+            if (logStreamingTask != null)
+            {
+                try { await logStreamingTask; } catch (OperationCanceledException) { }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Streams container logs in the background and forwards each line to the callback.
+    /// </summary>
+    private async Task StreamInitContainerLogsAsync(
+        string environmentId,
+        string containerId,
+        string containerName,
+        InitContainerLogCallback logCallback,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (var logLine in _dockerService.StreamContainerLogsAsync(environmentId, containerId, cancellationToken))
+            {
+                await logCallback(containerName, logLine);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when container exits - log streaming is stopped via cancellation
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Log streaming ended for init container {ContainerName}", containerName);
+        }
     }
 
     private async Task UpdateReleaseConfigAsync(DeploymentPlan plan)

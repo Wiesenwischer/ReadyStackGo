@@ -1,3 +1,4 @@
+using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Deployments;
 using ReadyStackGo.Infrastructure.Parsing;
 
@@ -45,6 +46,7 @@ public interface IDeploymentEngine
     Task<DeploymentResult> ExecuteDeploymentAsync(
         DeploymentPlan plan,
         DeploymentProgressCallback? progressCallback,
+        InitContainerLogCallback? logCallback = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
