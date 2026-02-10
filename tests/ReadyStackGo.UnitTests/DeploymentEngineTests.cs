@@ -1207,4 +1207,345 @@ public class DeploymentEngineTests
     }
 
     #endregion
+
+    #region Feature 4: Init Container Cleanup
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_AfterInitContainersComplete_ShouldRemoveInitContainers()
+    {
+        // Arrange
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            StackName = "test-stack",
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "migration",
+                    Image = "flyway",
+                    Version = "latest",
+                    ContainerName = "rsgo-migration",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Lifecycle = ServiceLifecycle.Init,
+                    Order = 0
+                },
+                new()
+                {
+                    ContextName = "api",
+                    Image = "nginx",
+                    Version = "latest",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Order = 1
+                }
+            }
+        };
+
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("container-id");
+
+        // Phase 1 (RemovingOldContainers): no pre-existing container
+        // Init wait poll: container has exited successfully
+        _dockerServiceMock
+            .SetupSequence(x => x.GetContainerByNameAsync(It.IsAny<string>(), "rsgo-migration", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ContainerDto?)null) // Phase 1: no pre-existing container
+            .ReturnsAsync(new ContainerDto { Id = "init-container-id", Name = "rsgo-migration", Image = "flyway:latest", State = "exited", Status = "exited(0)", Labels = new Dictionary<string, string>() }); // Init wait
+
+        _dockerServiceMock
+            .Setup(x => x.GetContainerExitCodeAsync(It.IsAny<string>(), "init-container-id", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+
+        _dockerServiceMock
+            .Setup(x => x.RemoveContainerAsync(It.IsAny<string>(), "container-id", true, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan);
+
+        // Assert
+        result.Success.Should().BeTrue();
+
+        // RemoveContainerAsync should be called once for post-init cleanup
+        _dockerServiceMock.Verify(
+            x => x.RemoveContainerAsync(It.IsAny<string>(), "container-id", true, It.IsAny<CancellationToken>()),
+            Times.Once,
+            "Init container should be removed after successful completion");
+
+        // Init container should NOT appear in DeployedContainers
+        result.DeployedContainers.Should().NotContain(c => c.ServiceName == "migration",
+            "Init container should be removed from DeployedContainers after cleanup");
+
+        // Regular service should still appear
+        result.DeployedContainers.Should().Contain(c => c.ServiceName == "api",
+            "Regular service should remain in DeployedContainers");
+    }
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_WhenInitContainerFails_ShouldNotAttemptCleanup()
+    {
+        // Arrange
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            StackName = "test-stack",
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "migration",
+                    Image = "flyway",
+                    Version = "latest",
+                    ContainerName = "rsgo-migration",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Lifecycle = ServiceLifecycle.Init,
+                    Order = 0
+                },
+                new()
+                {
+                    ContextName = "api",
+                    Image = "nginx",
+                    Version = "latest",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Order = 1
+                }
+            }
+        };
+
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("container-id");
+
+        // Phase 1 (RemovingOldContainers): no pre-existing containers
+        // Init wait poll: container has exited with non-zero code
+        _dockerServiceMock
+            .SetupSequence(x => x.GetContainerByNameAsync(It.IsAny<string>(), "rsgo-migration", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ContainerDto?)null) // Phase 1: no pre-existing container
+            .ReturnsAsync(new ContainerDto { Id = "init-container-id", Name = "rsgo-migration", Image = "flyway:latest", State = "exited", Status = "exited(1)", Labels = new Dictionary<string, string>() }); // Init wait: failed
+
+        _dockerServiceMock
+            .Setup(x => x.GetContainerExitCodeAsync(It.IsAny<string>(), "init-container-id", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1); // Non-zero exit code = failure
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan);
+
+        // Assert
+        result.Success.Should().BeFalse("deployment should fail when init container fails");
+
+        // RemoveContainerAsync should NOT be called for post-init cleanup
+        // (deployment aborts before reaching cleanup code)
+        _dockerServiceMock.Verify(
+            x => x.RemoveContainerAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "No cleanup should occur when init container fails (deployment aborts)");
+
+        // Regular service should NOT have been started
+        result.DeployedContexts.Should().NotContain("api",
+            "Regular services should not be started when init container fails");
+    }
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_WhenCleanupFails_ShouldContinueDeployment()
+    {
+        // Arrange
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            StackName = "test-stack",
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "migration",
+                    Image = "flyway",
+                    Version = "latest",
+                    ContainerName = "rsgo-migration",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Lifecycle = ServiceLifecycle.Init,
+                    Order = 0
+                },
+                new()
+                {
+                    ContextName = "api",
+                    Image = "nginx",
+                    Version = "latest",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Order = 1
+                }
+            }
+        };
+
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("container-id");
+
+        // Phase 1: no pre-existing container; Init wait: exited successfully
+        _dockerServiceMock
+            .SetupSequence(x => x.GetContainerByNameAsync(It.IsAny<string>(), "rsgo-migration", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ContainerDto?)null)
+            .ReturnsAsync(new ContainerDto { Id = "init-container-id", Name = "rsgo-migration", Image = "flyway:latest", State = "exited", Status = "exited(0)", Labels = new Dictionary<string, string>() });
+
+        _dockerServiceMock
+            .Setup(x => x.GetContainerExitCodeAsync(It.IsAny<string>(), "init-container-id", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+
+        // Post-init cleanup throws an exception
+        _dockerServiceMock
+            .Setup(x => x.RemoveContainerAsync(It.IsAny<string>(), "container-id", true, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Container is in use by another process"));
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan);
+
+        // Assert - deployment should still succeed despite cleanup failure
+        result.Success.Should().BeTrue("cleanup failure should not abort the deployment");
+        result.DeployedContexts.Should().Contain("api",
+            "Regular services should still be deployed");
+    }
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_WithMultipleInitContainers_ShouldRemoveAll()
+    {
+        // Arrange
+        var removedContainerIds = new List<string>();
+
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            StackName = "test-stack",
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "migration-1",
+                    Image = "flyway",
+                    Version = "latest",
+                    ContainerName = "rsgo-migration-1",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Lifecycle = ServiceLifecycle.Init,
+                    Order = 0
+                },
+                new()
+                {
+                    ContextName = "migration-2",
+                    Image = "liquibase",
+                    Version = "latest",
+                    ContainerName = "rsgo-migration-2",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Lifecycle = ServiceLifecycle.Init,
+                    Order = 1
+                },
+                new()
+                {
+                    ContextName = "api",
+                    Image = "nginx",
+                    Version = "latest",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Order = 2
+                }
+            }
+        };
+
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Return distinct container IDs for each init container
+        var containerIdSequence = 0;
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => $"container-{++containerIdSequence}");
+
+        // Phase 1 (RemovingOldContainers): no pre-existing containers
+        // Init wait poll: containers have exited successfully
+        _dockerServiceMock
+            .SetupSequence(x => x.GetContainerByNameAsync(It.IsAny<string>(), "rsgo-migration-1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ContainerDto?)null) // Phase 1: no pre-existing container
+            .ReturnsAsync(new ContainerDto { Id = "init-1-id", Name = "rsgo-migration-1", Image = "flyway:latest", State = "exited", Status = "exited(0)", Labels = new Dictionary<string, string>() }); // Init wait
+
+        _dockerServiceMock
+            .SetupSequence(x => x.GetContainerByNameAsync(It.IsAny<string>(), "rsgo-migration-2", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ContainerDto?)null) // Phase 1: no pre-existing container
+            .ReturnsAsync(new ContainerDto { Id = "init-2-id", Name = "rsgo-migration-2", Image = "liquibase:latest", State = "exited", Status = "exited(0)", Labels = new Dictionary<string, string>() }); // Init wait
+
+        _dockerServiceMock
+            .Setup(x => x.GetContainerExitCodeAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+
+        _dockerServiceMock
+            .Setup(x => x.RemoveContainerAsync(It.IsAny<string>(), It.IsAny<string>(), true, It.IsAny<CancellationToken>()))
+            .Callback<string, string, bool, CancellationToken>((_, containerId, _, _) => removedContainerIds.Add(containerId))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan);
+
+        // Assert
+        result.Success.Should().BeTrue();
+
+        // Both init containers should have been removed
+        removedContainerIds.Should().HaveCount(2,
+            "both init containers should be removed");
+
+        // Init containers should NOT appear in DeployedContainers
+        result.DeployedContainers.Should().NotContain(c => c.ServiceName == "migration-1");
+        result.DeployedContainers.Should().NotContain(c => c.ServiceName == "migration-2");
+
+        // Regular service should appear
+        result.DeployedContainers.Should().Contain(c => c.ServiceName == "api");
+
+        // Init containers should still appear in DeployedContexts (for logging)
+        result.DeployedContexts.Should().Contain("migration-1");
+        result.DeployedContexts.Should().Contain("migration-2");
+    }
+
+    #endregion
 }

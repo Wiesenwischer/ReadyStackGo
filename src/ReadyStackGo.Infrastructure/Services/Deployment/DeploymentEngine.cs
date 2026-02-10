@@ -361,6 +361,26 @@ public class DeploymentEngine : IDeploymentEngine
                 }
 
                 _logger.LogInformation("All {Count} init container(s) completed successfully", initSteps.Count);
+
+                // Clean up completed init containers (they are no longer needed)
+                await ReportProgress("InitializingContainers", "Cleaning up init containers...", 100);
+                foreach (var containerInfo in result.DeployedContainers
+                    .Where(c => initSteps.Any(s => s.ContextName == c.ServiceName))
+                    .ToList())
+                {
+                    try
+                    {
+                        _logger.LogInformation("Removing completed init container {ContainerName} ({ContainerId})",
+                            containerInfo.ContainerName, containerInfo.ContainerId);
+                        await _dockerService.RemoveContainerAsync(environmentId, containerInfo.ContainerId, force: true);
+                        result.DeployedContainers.Remove(containerInfo);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to remove init container {ContainerName}", containerInfo.ContainerName);
+                        // Non-fatal: continue even if cleanup fails
+                    }
+                }
             }
             else
             {
