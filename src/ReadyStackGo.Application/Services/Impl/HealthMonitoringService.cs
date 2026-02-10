@@ -137,9 +137,12 @@ public class HealthMonitoringService : IHealthMonitoringService
             // Use fast ListContainersAsync first
             var containers = await _dockerService.ListContainersAsync(environmentId, cancellationToken);
 
-            // Filter containers belonging to this stack (by project label or name prefix)
+            // Filter containers belonging to this stack, excluding init containers
+            // Init containers (lifecycle=init) are run-once containers (e.g., database migrators)
+            // that exit after completion and should not appear in health monitoring
             var stackContainers = containers
                 .Where(c => BelongsToStack(c, stackName))
+                .Where(c => !IsInitContainer(c))
                 .ToList();
 
             if (!stackContainers.Any())
@@ -306,6 +309,14 @@ public class HealthMonitoringService : IHealthMonitoringService
     }
 
     /// <summary>
+    /// Determines if a container is an init container (lifecycle=init).
+    /// Init containers are excluded from health monitoring.
+    /// </summary>
+    private static bool IsInitContainer(ContainerDto container) =>
+        container.Labels.TryGetValue("rsgo.lifecycle", out var lifecycle) &&
+        lifecycle.Equals("init", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Determines if a container belongs to the specified stack.
     /// </summary>
     private static bool BelongsToStack(ContainerDto container, string stackName)
@@ -344,7 +355,7 @@ public class HealthMonitoringService : IHealthMonitoringService
 
     /// <summary>
     /// Determines the health status based on Docker container state and health check.
-    /// Init containers (lifecycle=init) in "exited" state are considered healthy if they exited successfully (exit code 0).
+    /// Note: Init containers are filtered out before reaching this method.
     /// </summary>
     private static HealthStatus DetermineHealthStatusFromDocker(ContainerDto container)
     {
@@ -360,25 +371,7 @@ public class HealthMonitoringService : IHealthMonitoringService
             };
         }
 
-        // Special handling for init containers (run-once containers like database migrators)
-        var isInitContainer = container.Labels.TryGetValue("rsgo.lifecycle", out var lifecycle) &&
-                              lifecycle.Equals("init", StringComparison.OrdinalIgnoreCase);
-
-        if (isInitContainer && container.State.Equals("exited", StringComparison.OrdinalIgnoreCase))
-        {
-            // Init containers are expected to exit after completion
-            // Check the exit code from the Status field (e.g., "Exited (0) 5 minutes ago")
-            if (container.Status.Contains("Exited (0)", StringComparison.OrdinalIgnoreCase))
-            {
-                return HealthStatus.Healthy; // Successful completion
-            }
-            else
-            {
-                return HealthStatus.Unhealthy; // Failed with non-zero exit code
-            }
-        }
-
-        // Fall back to container state for regular services
+        // Fall back to container state
         return container.State.ToLowerInvariant() switch
         {
             "running" => HealthStatus.Healthy,
