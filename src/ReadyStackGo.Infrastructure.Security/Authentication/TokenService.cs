@@ -26,6 +26,27 @@ public static class RbacClaimTypes
     /// Note: Program.cs sets MapInboundClaims=false to prevent ASP.NET Core from transforming this claim.
     /// </summary>
     public const string RoleAssignments = "roles";
+
+    /// <summary>
+    /// Claim type for API key ID.
+    /// </summary>
+    public const string ApiKeyId = "apikey_id";
+
+    /// <summary>
+    /// Claim type for API key name.
+    /// </summary>
+    public const string ApiKeyName = "apikey_name";
+
+    /// <summary>
+    /// Claim type for direct API key permissions.
+    /// Multiple claims with this type can exist (one per permission).
+    /// </summary>
+    public const string ApiPermission = "api_permission";
+
+    /// <summary>
+    /// Claim type for environment ID scope.
+    /// </summary>
+    public const string EnvironmentId = "env_id";
 }
 
 public class TokenService : ITokenService
