@@ -6,17 +6,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * Global teardown for Playwright E2E tests
- * Cleans up Docker containers and volumes after all tests complete
+ * Global teardown for Playwright E2E tests.
+ * Stops and removes the Docker container and volumes.
  */
 async function globalTeardown() {
   const repoRoot = path.resolve(__dirname, '..', '..', '..');
-  const composeFile = path.join(repoRoot, 'docker-compose.e2e.yml');
 
   console.log('Tearing down E2E Docker environment...');
 
   try {
-    execSync(`docker compose -f "${composeFile}" down -v --remove-orphans`, {
+    execSync('docker compose down -v', {
       stdio: 'inherit',
       cwd: repoRoot
     });

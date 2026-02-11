@@ -7,25 +7,29 @@ Konkrete Beispiele für die Integration von ReadyStackGo in CI/CD Pipelines.
 ### Redeploy (frische Images)
 
 ```bash
-curl -X POST https://rsgo.example.com/api/hooks/redeploy \
+curl -sf -X POST https://rsgo.example.com/api/hooks/redeploy \
   -H "X-Api-Key: rsgo_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6" \
   -H "Content-Type: application/json" \
-  -d '{"stackName": "ams-project", "environmentId": "abc123-..."}'
+  -d '{"stackName": "ams-project"}'
 ```
 
-### Katalog synchronisieren + Upgrade
+### Katalog synchronisieren
 
 ```bash
-# 1. Katalog-Quellen synchronisieren
-curl -X POST https://rsgo.example.com/api/hooks/sync-sources \
+curl -sf -X POST https://rsgo.example.com/api/hooks/sync-sources \
   -H "X-Api-Key: rsgo_..."
+```
 
-# 2. Auf neue Version upgraden
-curl -X POST https://rsgo.example.com/api/hooks/upgrade \
+### Upgrade auf neue Version
+
+```bash
+curl -sf -X POST https://rsgo.example.com/api/hooks/upgrade \
   -H "X-Api-Key: rsgo_..." \
   -H "Content-Type: application/json" \
   -d '{"stackName": "ams-project", "targetVersion": "6.5.0"}'
 ```
+
+Das `-sf` Flag sorgt dafür, dass curl bei HTTP-Fehlern (401, 403, 500) mit einem Fehlercode abbricht – wichtig damit die Pipeline bei Fehlern stoppt.
 
 ## GitHub Actions
 
@@ -165,6 +169,63 @@ steps:
 **Pipeline-Variablen:**
 | Variable | Typ | Beschreibung |
 |----------|-----|-------------|
-| `RSGO_URL` | Secret | ReadyStackGo Server URL |
-| `RSGO_API_KEY` | Secret | API Key |
-| `STACK_NAME` | Normal | Name des Stacks |
+| `RSGO_URL` | Secret | ReadyStackGo Server URL (z.B. `https://rsgo.example.com`) |
+| `RSGO_API_KEY` | Secret | API Key mit den benötigten Permissions |
+| `STACK_NAME` | Normal | Name des zu deployenden Stacks |
+
+### YAML Templates (wiederverwendbar)
+
+Für häufig wiederkehrende Aufrufe können wiederverwendbare YAML Templates erstellt werden:
+
+**`templates/rsgo-redeploy.yml`:**
+```yaml
+parameters:
+  - name: stackName
+    type: string
+
+steps:
+  - script: |
+      curl -sf -X POST "$(RSGO_URL)/api/hooks/redeploy" \
+        -H "X-Api-Key: $(RSGO_API_KEY)" \
+        -H "Content-Type: application/json" \
+        -d '{"stackName": "${{ parameters.stackName }}"}'
+    displayName: Redeploy ${{ parameters.stackName }}
+```
+
+**`templates/rsgo-sync-upgrade.yml`:**
+```yaml
+parameters:
+  - name: stackName
+    type: string
+  - name: targetVersion
+    type: string
+
+steps:
+  - script: |
+      curl -sf -X POST "$(RSGO_URL)/api/hooks/sync-sources" \
+        -H "X-Api-Key: $(RSGO_API_KEY)"
+    displayName: Sync Catalog Sources
+
+  - script: |
+      curl -sf -X POST "$(RSGO_URL)/api/hooks/upgrade" \
+        -H "X-Api-Key: $(RSGO_API_KEY)" \
+        -H "Content-Type: application/json" \
+        -d '{"stackName": "${{ parameters.stackName }}", "targetVersion": "${{ parameters.targetVersion }}"}'
+    displayName: Upgrade ${{ parameters.stackName }} to ${{ parameters.targetVersion }}
+```
+
+**Verwendung in der Pipeline:**
+```yaml
+steps:
+  - template: templates/rsgo-redeploy.yml
+    parameters:
+      stackName: ams-project
+```
+
+```yaml
+steps:
+  - template: templates/rsgo-sync-upgrade.yml
+    parameters:
+      stackName: ams-project
+      targetVersion: '6.5.0'
+```

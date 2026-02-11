@@ -41,11 +41,18 @@ Alle Endpoints befinden sich unter `/api/hooks/` und erfordern API Key Authentif
 
 Triggert ein Redeployment eines laufenden Stacks. Stoppt die bestehenden Container, pullt frische Images und startet neu – mit denselben Variablen und Einstellungen.
 
+**Parameter:**
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|--------------|
+| `stackName` | string | Ja | Name des deployten Stacks (wie in der Deployments-Übersicht angezeigt) |
+| `environmentId` | string | Nein* | ID des Environments. *Entfällt bei environment-gebundenem API Key. |
+
 **Request:**
 ```json
 {
   "stackName": "ams-project",
-  "environmentId": "optional-wenn-key-environment-gebunden"
+  "environmentId": "abc123-def4-..."
 }
 ```
 
@@ -60,18 +67,36 @@ Triggert ein Redeployment eines laufenden Stacks. Stoppt die bestehenden Contain
 }
 ```
 
+**Fehler-Responses:**
+```json
+// 400 – Stack nicht gefunden
+{ "success": false, "message": "No deployment found for stack 'xyz' in environment '...'" }
+
+// 400 – Stack nicht im Status Running
+{ "success": false, "message": "Deployment is in status 'Failed', only running deployments can be redeployed." }
+```
+
 **Permission:** `Hooks.Redeploy`
 
 ### POST /api/hooks/upgrade
 
-Triggert ein Upgrade auf eine bestimmte Katalog-Version. Führt die Version-Validierung durch (kein Downgrade), merged Variablen und delegiert an den bestehenden Upgrade-Flow.
+Triggert ein Upgrade auf eine bestimmte Katalog-Version. Prüft die Version im Katalog, merged optionale neue Variablen und delegiert an den bestehenden Upgrade-Flow.
+
+**Parameter:**
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|--------------|
+| `stackName` | string | Ja | Name des deployten Stacks |
+| `targetVersion` | string | Ja | Zielversion aus dem Katalog (z.B. `"6.5.0"`) |
+| `environmentId` | string | Nein* | ID des Environments. *Entfällt bei environment-gebundenem API Key. |
+| `variables` | object | Nein | Zusätzliche oder geänderte Variablen als Key-Value-Paare |
 
 **Request:**
 ```json
 {
   "stackName": "ams-project",
   "targetVersion": "6.5.0",
-  "environmentId": "optional",
+  "environmentId": "abc123-def4-...",
   "variables": {
     "NEW_SETTING": "value"
   }
@@ -89,13 +114,22 @@ Triggert ein Upgrade auf eine bestimmte Katalog-Version. Führt die Version-Vali
 }
 ```
 
+**Fehler-Responses:**
+```json
+// 400 – Version nicht im Katalog
+{ "success": false, "message": "Version '9.9.9' not found in catalog. Available versions: 6.4.0, 6.5.0" }
+
+// 400 – Stack nicht im Status Running
+{ "success": false, "message": "Deployment is in status 'Failed', only running deployments can be upgraded." }
+```
+
 **Permission:** `Hooks.Upgrade`
 
 ### POST /api/hooks/sync-sources
 
 Synchronisiert alle Stack-Katalog-Quellen (lokale Verzeichnisse und Git Repositories). Nützlich nach einem Git Push mit aktualisierten Manifests.
 
-**Request:** Leerer Body oder `{}`
+**Parameter:** Kein Request Body erforderlich.
 
 **Response (200):**
 ```json
