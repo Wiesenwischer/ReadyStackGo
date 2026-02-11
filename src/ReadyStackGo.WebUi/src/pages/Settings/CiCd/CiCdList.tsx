@@ -7,6 +7,7 @@ import {
   type ApiKeyDto,
   type CreateApiKeyRequest,
 } from "../../../api/apiKeys";
+import { useEnvironment } from "../../../context/EnvironmentContext";
 
 const AVAILABLE_PERMISSIONS = [
   { value: "Hooks.Redeploy", label: "Redeploy", description: "Trigger redeployment of running stacks" },
@@ -29,6 +30,8 @@ export default function CiCdList() {
   const [newKeyName, setNewKeyName] = useState("");
   const [newKeyPermissions, setNewKeyPermissions] = useState<string[]>(["Hooks.Redeploy"]);
   const [newKeyExpiry, setNewKeyExpiry] = useState("");
+  const [newKeyEnvironmentId, setNewKeyEnvironmentId] = useState("");
+  const { environments } = useEnvironment();
 
   const loadApiKeys = async () => {
     try {
@@ -58,6 +61,9 @@ export default function CiCdList() {
         name: newKeyName.trim(),
         permissions: newKeyPermissions,
       };
+      if (newKeyEnvironmentId) {
+        request.environmentId = newKeyEnvironmentId;
+      }
       if (newKeyExpiry) {
         const date = new Date(newKeyExpiry + "T23:59:59");
         request.expiresAt = date.toISOString();
@@ -70,6 +76,7 @@ export default function CiCdList() {
         setNewKeyName("");
         setNewKeyPermissions(["Hooks.Redeploy"]);
         setNewKeyExpiry("");
+        setNewKeyEnvironmentId("");
         await loadApiKeys();
       } else {
         setError(response.message || "Failed to create API key");
@@ -281,6 +288,7 @@ export default function CiCdList() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Permissions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Environment</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Created</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Last Used</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Expires</th>
@@ -305,6 +313,11 @@ export default function CiCdList() {
                         </span>
                       ))}
                     </div>
+                  </td>
+                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                    {key.environmentId
+                      ? environments.find((e) => e.id === key.environmentId)?.name || key.environmentId
+                      : "All"}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                     {formatDate(key.createdAt)}
@@ -372,6 +385,24 @@ export default function CiCdList() {
                     </label>
                   ))}
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Environment (optional)
+                </label>
+                <select
+                  value={newKeyEnvironmentId}
+                  onChange={(e) => setNewKeyEnvironmentId(e.target.value)}
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="">All environments</option>
+                  {environments.map((env) => (
+                    <option key={env.id} value={env.id}>{env.name}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Scoped keys don't require environmentId in webhook requests.
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
