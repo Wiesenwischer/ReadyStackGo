@@ -157,10 +157,11 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Branch: `feature/cicd-sync-webhook`
   - Abhängig von: Feature 3
 
-- [ ] **Dokumentation & Website**
-  - `docs/CI-CD/Pipeline-Integration.md` aktualisieren: API Key Erstellung, Redeploy/Upgrade/Sync Workflows
+- [x] **Dokumentation & Website**
+  - `docs/CI-CD/Pipeline-Integration.md` aktualisiert: API Key Erstellung, Redeploy/Upgrade/Sync Workflows
   - `docs/CI-CD/Pipeline-Examples.md` neu: GitHub Actions + Azure DevOps + curl Beispiele
-  - Roadmap v0.19 als Released markieren
+  - Public Website Docs (DE/EN): `ci-cd-integration.md`
+  - Roadmap v0.19 als Released markiert
 
 - [ ] **Phase abschließen** – Alle Tests grün, PR gegen main
 
