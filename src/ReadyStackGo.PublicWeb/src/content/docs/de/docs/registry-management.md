@@ -9,6 +9,15 @@ Diese Anleitung zeigt Ihnen, wie Sie Docker Registries in ReadyStackGo verwalten
 
 ReadyStackGo unterstützt das Pullen von Docker Images aus beliebigen OCI-kompatiblen Registries. Über die Settings-Seite können Sie Registry-Credentials zentral verwalten und mit **Image Patterns** automatisch den richtigen Registries zuordnen.
 
+| Funktion | Beschreibung |
+|----------|--------------|
+| **Registry hinzufügen** | Docker Hub, GHCR, GitLab, Quay.io oder Custom Registry konfigurieren |
+| **Credentials verwalten** | Username/Password oder Token für private Registries hinterlegen |
+| **Image Patterns** | Automatische Zuordnung von Images zu Registries via Glob-Patterns |
+| **Default Registry** | Fallback-Registry für Images ohne Pattern-Match |
+| **Registry bearbeiten** | Name, URL, Credentials und Patterns nachträglich ändern |
+| **Registry löschen** | Registry-Konfiguration inkl. Credentials entfernen |
+
 ### Credential-Auflösung
 
 Beim Pullen eines Images sucht ReadyStackGo Credentials in folgender Reihenfolge:
@@ -21,21 +30,81 @@ Beim Pullen eines Images sucht ReadyStackGo Credentials in folgender Reihenfolge
 
 ---
 
-## Registry hinzufügen
+## Schritt für Schritt: Registry hinzufügen
 
-1. Navigieren Sie zu **Settings** in der Sidebar
-2. Klicken Sie auf **Add Registry**
-3. Füllen Sie die Felder aus:
+### Schritt 1: Navigieren Sie zu Settings
 
-| Feld | Beschreibung |
-|------|--------------|
-| **Name** | Anzeigename (z.B. "Docker Hub - Firma") |
-| **URL** | Registry-URL (z.B. `https://index.docker.io/v1/`) |
-| **Username** | Optional - für private Registries |
-| **Password** | Optional - für private Registries |
-| **Image Patterns** | Optional - Glob-Patterns für automatische Zuordnung |
+Öffnen Sie die **Settings**-Seite über die Sidebar-Navigation. Dort finden Sie die Kachel **Container Registries**.
 
-4. Klicken Sie auf **Save**
+![Settings-Seite mit Container Registries Kachel](/images/docs/registry-01-settings-nav.png)
+
+---
+
+### Schritt 2: Registries-Übersicht öffnen
+
+Klicken Sie auf die **Container Registries** Kachel. Beim ersten Öffnen wird der leere Zustand angezeigt – noch keine Registries konfiguriert.
+
+![Leerer Zustand ohne konfigurierte Registries](/images/docs/registry-02-empty-state.png)
+
+Klicken Sie auf **Add Your First Registry** oder den **Add Registry** Button oben rechts.
+
+---
+
+### Schritt 3: Registry konfigurieren
+
+Füllen Sie das Formular aus. ReadyStackGo bietet Vorlagen für bekannte Registries:
+
+| Registry | URL |
+|----------|-----|
+| Docker Hub | `https://index.docker.io/v1/` |
+| GitHub Container Registry | `https://ghcr.io` |
+| GitLab Container Registry | `https://registry.gitlab.com` |
+| Quay.io | `https://quay.io` |
+| Custom | Beliebige URL eingeben |
+
+Wählen Sie einen Registry-Typ aus dem Dropdown – Name und URL werden automatisch ausgefüllt. Optional können Sie **Credentials** (Username + Password/Token) und **Image Patterns** konfigurieren.
+
+![Registry-Formular mit Docker Hub und Credentials ausgefüllt](/images/docs/registry-03-add-form.png)
+
+:::tip[Image Patterns]
+Image Patterns bestimmen automatisch, welche Registry für welches Image verwendet wird. Ohne Patterns wird die Registry nur als Default oder manuell zugeordnet.
+:::
+
+---
+
+### Schritt 4: Registry in der Liste
+
+Nach dem Speichern erscheint die Registry in der Übersicht. Badges zeigen den Status:
+- **Authenticated** – Credentials sind hinterlegt
+- **Default** – Diese Registry wird als Fallback verwendet
+
+![Registry-Liste mit neu angelegter Docker Hub Registry](/images/docs/registry-04-list-with-registry.png)
+
+Von hier aus können Sie Registries **bearbeiten**, als **Default setzen** oder **löschen**.
+
+---
+
+## Registry bearbeiten
+
+Klicken Sie auf **Edit** bei einer Registry, um Name, URL, Credentials oder Image Patterns zu ändern.
+
+![Edit-Formular einer Registry mit geänderten Daten](/images/docs/registry-05-edit-form.png)
+
+:::note[Credentials aktualisieren]
+Bestehende Passwörter werden nicht angezeigt. Lassen Sie das Feld leer, um das aktuelle Passwort beizubehalten, oder aktivieren Sie **Clear existing credentials** um die Credentials komplett zu entfernen.
+:::
+
+---
+
+## Registry löschen
+
+Klicken Sie auf **Delete** bei einer Registry. Es erscheint eine Bestätigungsseite mit den Details der Registry.
+
+![Lösch-Bestätigung mit Registry-Details und Warnung](/images/docs/registry-06-delete-confirm.png)
+
+:::caution[Unwiderruflich]
+Das Löschen einer Registry entfernt alle gespeicherten Credentials und Konfigurationen. Diese Aktion kann nicht rückgängig gemacht werden.
+:::
 
 ---
 
@@ -72,11 +141,7 @@ Image Patterns bestimmen, welche Registry-Credentials für welche Images verwend
 
 ## Default Registry
 
-Sie können eine Registry als **Default** markieren. Diese wird für alle Images verwendet, die keinem Pattern entsprechen:
-
-1. Öffnen Sie die Registry in den Settings
-2. Aktivieren Sie **Set as Default**
-3. Speichern Sie
+Sie können eine Registry als **Default** markieren. Diese wird für alle Images verwendet, die keinem Pattern entsprechen. Klicken Sie dazu auf **Set Default** in der Registry-Liste.
 
 :::note[Nur eine Default Registry]
 Es kann nur eine Registry als Default markiert sein. Beim Setzen einer neuen Default wird die vorherige automatisch deaktiviert.
