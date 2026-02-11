@@ -136,14 +136,16 @@ Rough outlook on planned versions and features.
   - Real-time Init Container Log Streaming via SignalR
   - Init Containers Excluded from Health Monitoring
   - Automatic Init Container Cleanup After Successful Init Phase
-
-### v0.19 – CI/CD Integration
-- API Key Authentication for Pipeline Access
-- Deploy Webhook (`POST /api/hooks/deploy`) for Automated Deployments
-- Upgrade Webhook (`POST /api/hooks/upgrade`) for Automated Upgrades
-- Webhook Secret Token Validation (HMAC-SHA256)
-- API Key Management UI in Settings
-- Pipeline Examples (Azure DevOps, GitHub Actions)
+- **v0.19** – CI/CD Integration (2026-02-11)
+  - API Key Domain Model with SHA-256 Hashed Key Storage
+  - API Key Authentication Handler with Multi-Scheme Auth (PolicyScheme)
+  - API Key Management CRUD Endpoints and Settings UI
+  - Redeploy Webhook (`POST /api/hooks/redeploy`) for Fresh Image Deployments
+  - Upgrade Webhook (`POST /api/hooks/upgrade`) with Catalog Version Resolution
+  - Catalog Sync Webhook (`POST /api/hooks/sync-sources`)
+  - Fine-grained Permission System per API Key (Redeploy, Upgrade, SyncSources)
+  - Optional Environment-Scope for API Keys
+  - Pipeline Examples for curl, GitHub Actions, and Azure DevOps
 
 ### v0.20 – Docker Volumes Management
 - Docker Volumes View (List All Volumes per Environment)
