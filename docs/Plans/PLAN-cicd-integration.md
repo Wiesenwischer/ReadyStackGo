@@ -112,7 +112,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Branch: `feature/cicd-api-key-management`
   - Abhängig von: Feature 2
 
-- [ ] **Feature 4: Redeploy Webhook** (PR gegen integration)
+- [x] **Feature 4: Redeploy Webhook** (PR #83 gegen integration)
   - **Application Layer** (`src/ReadyStackGo.Application/UseCases/Hooks/RedeployStack/`):
     - Command: StackName, EnvironmentId?, ApiKeyId
     - Handler-Logik:
@@ -131,7 +131,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Branch: `feature/cicd-redeploy-webhook`
   - Abhängig von: Feature 3
 
-- [ ] **Feature 5: Upgrade Webhook** (PR gegen integration)
+- [x] **Feature 5: Upgrade Webhook** (PR #84 gegen integration)
   - **Application Layer** (`src/ReadyStackGo.Application/UseCases/Hooks/UpgradeViaHook/`):
     - Command: StackName, TargetVersion, EnvironmentId?, Variables?, ApiKeyId
     - Handler-Logik:
@@ -148,7 +148,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Branch: `feature/cicd-upgrade-webhook`
   - Abhängig von: Feature 3
 
-- [ ] **Feature 6: Catalog Sync Webhook** (PR gegen integration)
+- [x] **Feature 6: Catalog Sync Webhook** (PR #85 gegen integration)
   - **API Endpoint** (`src/ReadyStackGo.Api/Endpoints/Hooks/SyncSourcesEndpoint.cs`):
     - `POST /api/hooks/sync-sources` mit `[RequirePermission("Hooks", "SyncSources")]`
     - Nutzt bestehenden `SyncStackSourcesCommand` (kein neuer Application Layer Code)
