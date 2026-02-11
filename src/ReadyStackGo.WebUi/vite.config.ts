@@ -18,7 +18,7 @@ export default defineConfig({
     host: '127.0.0.1', // Explicitly bind to IPv4 for Playwright compatibility
     proxy: {
       '/api': {
-        target: 'http://localhost:5259',
+        target: 'http://localhost:8080',
         changeOrigin: true,
       },
     },

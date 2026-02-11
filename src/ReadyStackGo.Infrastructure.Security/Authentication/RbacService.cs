@@ -65,6 +65,15 @@ public class RbacService : IRbacService
             }
         }
 
+        // Check direct API key permissions (fallback for API key authenticated requests)
+        var apiPermissions = user.FindAll(RbacClaimTypes.ApiPermission);
+        foreach (var claim in apiPermissions)
+        {
+            var parsed = Permission.Parse(claim.Value);
+            if (parsed.Includes(permission))
+                return true;
+        }
+
         return false;
     }
 

@@ -58,12 +58,14 @@ Primärer Use Case: Nach einem erfolgreichen Build in der ams.project-Pipeline s
 | Webhook vs. REST | A) Bestehende Endpoints, B) Separate Hooks | B) Separate Hooks | Einfachere DTOs (stackName statt stackId), eigene Permissions (`Hooks.Redeploy`), kein SignalR nötig. Pipeline-freundlich. |
 | Redeploy-Implementierung | A) Neuer Deploy-Pfad, B) DeployStackCommand wiederverwenden | B) Wiederverwenden | Redeploy = gleiche Parameter an DeployStackCommand. Kein neuer Deploy-Pfad nötig. Engine stoppt alte Container, pullt frische Images, startet neu. |
 | Key-Format | A) UUID, B) Prefix + Random | B) `rsgo_` + 32 alphanumerisch | Erkennbar als RSGo-Key, einfach in Logs/Configs zu identifizieren. Prefix für Format-Validierung. |
+| DB-Migration | A) EF Migrations, B) Manual CREATE TABLE, C) EnsureCreated beibehalten | C) EnsureCreated | Pre-v1.0 akzeptabel. Bestehende User löschen DB bei Upgrade. Kein Migration-Overhead. |
+| API Key Scope | A) Alle Endpoints, B) Nur Hooks | B) Nur Hooks | Klarere Security-Grenze. `/api/hooks/*` nur per API Key, reguläre Endpoints nur per JWT. |
 
 ## Features / Schritte
 
 Reihenfolge basierend auf Abhängigkeiten:
 
-- [ ] **Feature 1: API Key Domain + Data Access** (PR gegen integration)
+- [x] **Feature 1: API Key Domain + Data Access** (PR #80 gegen integration)
   - `ApiKeyId` Value Object (Pattern wie `RegistryId`)
   - `ApiKey` Aggregate Root: Name, KeyHash (SHA-256), KeyPrefix (erste 12 Zeichen), OrganizationId, EnvironmentId? (Scope), Permissions (List\<string\>), CreatedAt, LastUsedAt?, ExpiresAt?, IsRevoked, RevokedAt?, RevokedReason?
   - Methoden: `Create(...)`, `Revoke(reason?)`, `RecordUsage()`, `IsExpired()`, `IsValid()`, `HasPermission(string)` mit Wildcard-Support (`*.*`, `Resource.*`)
@@ -79,7 +81,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Branch: `feature/cicd-api-key-domain`
   - Abhängig von: -
 
-- [ ] **Feature 2: API Key Authentication Middleware** (PR gegen integration)
+- [x] **Feature 2: API Key Authentication Middleware** (PR #81 gegen integration)
   - ASP.NET Core `AuthenticationHandler<ApiKeyAuthenticationSchemeOptions>` in `Infrastructure.Security`
   - Scheme: `"ApiKey"`, Header: `"X-Api-Key"`
   - Flow: Header lesen → Format prüfen (`rsgo_` Prefix) → SHA-256 Hash → DB-Lookup via `IApiKeyRepository.GetByKeyHash()` → Validierung (revoked/expired) → ClaimsPrincipal bauen
@@ -91,7 +93,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Branch: `feature/cicd-api-key-auth`
   - Abhängig von: Feature 1
 
-- [ ] **Feature 3: API Key Management (CRUD + UI)** (PR gegen integration)
+- [x] **Feature 3: API Key Management (CRUD + UI)** (PR #82 gegen integration)
   - **Application Layer** (`src/ReadyStackGo.Application/UseCases/ApiKeys/`):
     - `ApiKeyDtos.cs`: `ApiKeyDto` (id, name, keyPrefix, orgId, envId?, permissions, createdAt, lastUsedAt?, expiresAt?, isRevoked), `ApiKeyCreatedDto` (id, name, keyPrefix, **fullKey** – nur einmalig!)
     - `CreateApiKey/`: Command (Name, EnvironmentId?, Permissions[], ExpiresAt?) + Handler (Key generieren: `rsgo_` + 32 random alphanumerisch, SHA-256 hashen, Prefix extrahieren, ApiKey.Create(), speichern, fullKey einmalig zurückgeben)
@@ -110,7 +112,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Branch: `feature/cicd-api-key-management`
   - Abhängig von: Feature 2
 
-- [ ] **Feature 4: Redeploy Webhook** (PR gegen integration)
+- [x] **Feature 4: Redeploy Webhook** (PR #83 gegen integration)
   - **Application Layer** (`src/ReadyStackGo.Application/UseCases/Hooks/RedeployStack/`):
     - Command: StackName, EnvironmentId?, ApiKeyId
     - Handler-Logik:
@@ -129,7 +131,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Branch: `feature/cicd-redeploy-webhook`
   - Abhängig von: Feature 3
 
-- [ ] **Feature 5: Upgrade Webhook** (PR gegen integration)
+- [x] **Feature 5: Upgrade Webhook** (PR #84 gegen integration)
   - **Application Layer** (`src/ReadyStackGo.Application/UseCases/Hooks/UpgradeViaHook/`):
     - Command: StackName, TargetVersion, EnvironmentId?, Variables?, ApiKeyId
     - Handler-Logik:
@@ -146,7 +148,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Branch: `feature/cicd-upgrade-webhook`
   - Abhängig von: Feature 3
 
-- [ ] **Feature 6: Catalog Sync Webhook** (PR gegen integration)
+- [x] **Feature 6: Catalog Sync Webhook** (PR #85 gegen integration)
   - **API Endpoint** (`src/ReadyStackGo.Api/Endpoints/Hooks/SyncSourcesEndpoint.cs`):
     - `POST /api/hooks/sync-sources` mit `[RequirePermission("Hooks", "SyncSources")]`
     - Nutzt bestehenden `SyncStackSourcesCommand` (kein neuer Application Layer Code)
@@ -155,10 +157,11 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Branch: `feature/cicd-sync-webhook`
   - Abhängig von: Feature 3
 
-- [ ] **Dokumentation & Website**
-  - `docs/CI-CD/Pipeline-Integration.md` aktualisieren: API Key Erstellung, Redeploy/Upgrade/Sync Workflows
+- [x] **Dokumentation & Website**
+  - `docs/CI-CD/Pipeline-Integration.md` aktualisiert: API Key Erstellung, Redeploy/Upgrade/Sync Workflows
   - `docs/CI-CD/Pipeline-Examples.md` neu: GitHub Actions + Azure DevOps + curl Beispiele
-  - Roadmap v0.19 als Released markieren
+  - Public Website Docs (DE/EN): `ci-cd-integration.md`
+  - Roadmap v0.19 als Released markiert
 
 - [ ] **Phase abschließen** – Alle Tests grün, PR gegen main
 
@@ -183,9 +186,12 @@ Feature 4, 5, 6 können parallel nach Feature 3 implementiert werden.
 
 ## Offene Punkte
 
-- [ ] Verifizieren ob `DeploymentEngine` bei Redeploy frische Images pullt (oder gecachte nutzt)
-- [ ] Prüfen wie SQLite-Schema bei bestehenden Installationen erweitert wird (neue ApiKeys-Tabelle)
-- [ ] Klären ob API Keys auch für reguläre REST-Endpoints (nicht nur Hooks) nutzbar sein sollen
+- [x] Verifizieren ob `DeploymentEngine` bei Redeploy frische Images pullt (oder gecachte nutzt)
+  - **Ergebnis**: `PullImageAsync` nutzt Docker's `CreateImageAsync` (= `docker pull`), kontaktiert Registry und lädt neue Layer. Funktioniert korrekt für CI/CD Redeploys.
+- [x] Prüfen wie SQLite-Schema bei bestehenden Installationen erweitert wird (neue ApiKeys-Tabelle)
+  - **Entscheidung**: `EnsureCreated()` beibehalten. Für pre-v1.0 akzeptabel – bestehende User löschen DB bei Upgrade.
+- [x] Klären ob API Keys auch für reguläre REST-Endpoints (nicht nur Hooks) nutzbar sein sollen
+  - **Entscheidung**: Nur für `/api/hooks/*` Endpoints. Klarere Security-Grenze, reguläre Endpoints erfordern JWT.
 
 ## Typischer Pipeline-Flow
 
