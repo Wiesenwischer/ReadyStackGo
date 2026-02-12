@@ -48,8 +48,8 @@ RUN dotnet publish src/ReadyStackGo.Api/ReadyStackGo.Api.csproj \
 # Stage 3: Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 
-# Install curl for healthcheck
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+# Install curl for healthcheck and git for Git repository stack sources
+RUN apt-get update && apt-get install -y --no-install-recommends curl git && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

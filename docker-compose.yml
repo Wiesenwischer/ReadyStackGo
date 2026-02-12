@@ -13,6 +13,7 @@ services:
       - ~/.docker/config.json:/root/.docker/config.json:ro
       - rsgo-config:/app/config
       - rsgo-data:/app/data
+      - rsgo-git-cache:/root/.rsgo/git-cache
       - ./stacks:/app/stacks
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
@@ -68,6 +69,8 @@ volumes:
     name: rsgo-config
   rsgo-data:
     name: rsgo-data
+  rsgo-git-cache:
+    name: rsgo-git-cache
   rsgo-config-dev:
     name: rsgo-config-dev
 
