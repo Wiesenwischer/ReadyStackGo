@@ -38,7 +38,8 @@ public class CreateSourceEndpoint : Endpoint<CreateSourceApiRequest, CreateSourc
             GitUrl = req.GitUrl,
             Branch = req.Branch,
             GitUsername = req.GitUsername,
-            GitPassword = req.GitPassword
+            GitPassword = req.GitPassword,
+            SslVerify = req.SslVerify
         });
 
         var result = await _mediator.Send(command, ct);
@@ -76,6 +77,7 @@ public class CreateSourceApiRequest
     public string? Branch { get; set; }
     public string? GitUsername { get; set; }
     public string? GitPassword { get; set; }
+    public bool? SslVerify { get; set; }
 }
 
 public class CreateSourceResponse

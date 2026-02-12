@@ -16,5 +16,6 @@ public record GetStackSourceResult(
     string? GitUrl,
     string? GitBranch,
     string? GitUsername,
-    bool HasGitPassword
+    bool HasGitPassword,
+    bool GitSslVerify
 );

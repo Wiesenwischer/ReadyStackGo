@@ -28,6 +28,7 @@ export interface StackSourceDetailDto {
   gitBranch?: string;
   gitUsername?: string;
   hasGitPassword: boolean;
+  gitSslVerify?: boolean;
 }
 
 /**
@@ -45,6 +46,7 @@ export interface CreateStackSourceRequest {
   branch?: string;
   gitUsername?: string;
   gitPassword?: string;
+  sslVerify?: boolean;
 }
 
 /**

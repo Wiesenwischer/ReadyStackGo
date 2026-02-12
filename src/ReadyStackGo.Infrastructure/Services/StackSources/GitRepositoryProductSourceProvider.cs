@@ -96,25 +96,21 @@ public class GitRepositoryProductSourceProvider : IProductSourceProvider
         {
             Directory.CreateDirectory(cacheRoot);
 
-            // Build the Git URL with credentials if provided
-            var gitUrl = BuildAuthenticatedUrl(source);
-
             if (Directory.Exists(repoDir))
             {
                 // Repository exists - do a git pull
                 _logger.LogDebug("Updating existing repository at {Path}", repoDir);
-                await RunGitCommandAsync(repoDir, $"checkout {source.GitBranch}", cancellationToken);
-                // Set remote URL with credentials for pull
-                await RunGitCommandAsync(repoDir, $"remote set-url origin {gitUrl}", cancellationToken);
-                await RunGitCommandAsync(repoDir, "pull --ff-only", cancellationToken);
+                await RunGitCommandAsync(source, repoDir, ["checkout", source.GitBranch!], cancellationToken);
+                await RunGitCommandAsync(source, repoDir, ["pull", "--ff-only"], cancellationToken);
             }
             else
             {
                 // Clone the repository
                 _logger.LogInformation("Cloning repository {GitUrl} to {Path}", source.GitUrl, repoDir);
                 await RunGitCommandAsync(
+                    source,
                     cacheRoot,
-                    $"clone --branch {source.GitBranch} --single-branch --depth 1 {gitUrl} {source.Id.Value}",
+                    ["clone", "--branch", source.GitBranch!, "--single-branch", "--depth", "1", source.GitUrl!, source.Id.Value],
                     cancellationToken);
             }
 
@@ -136,57 +132,55 @@ public class GitRepositoryProductSourceProvider : IProductSourceProvider
     }
 
     /// <summary>
-    /// Builds a Git URL with embedded credentials for HTTPS URLs.
-    /// For git:// or ssh:// URLs, credentials are not embedded.
+    /// Builds git -c config arguments for authentication and SSL verification.
+    /// Uses http.extraHeader with Basic Auth instead of URL-embedded credentials,
+    /// which works universally including TFS/Azure DevOps Server.
     /// </summary>
-    private static string BuildAuthenticatedUrl(StackSource source)
+    private static List<string> BuildGitConfigArgs(StackSource source)
     {
-        if (string.IsNullOrEmpty(source.GitUsername) || string.IsNullOrEmpty(source.GitPassword))
+        var args = new List<string>();
+
+        if (!source.GitSslVerify)
         {
-            return source.GitUrl!;
+            args.Add("-c");
+            args.Add("http.sslVerify=false");
         }
 
-        if (!Uri.TryCreate(source.GitUrl, UriKind.Absolute, out var uri))
+        if (!string.IsNullOrEmpty(source.GitUsername) && !string.IsNullOrEmpty(source.GitPassword))
         {
-            return source.GitUrl!;
+            var credentials = $"{source.GitUsername}:{source.GitPassword}";
+            var base64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(credentials));
+            args.Add("-c");
+            args.Add($"http.extraHeader=Authorization: Basic {base64}");
         }
 
-        // Only embed credentials for HTTP/HTTPS URLs
-        if (uri.Scheme != "https" && uri.Scheme != "http")
-        {
-            return source.GitUrl!;
-        }
-
-        // Build URL with credentials: https://username:password@host/path
-        var encodedUsername = Uri.EscapeDataString(source.GitUsername);
-        var encodedPassword = Uri.EscapeDataString(source.GitPassword);
-
-        var builder = new UriBuilder(uri)
-        {
-            UserName = encodedUsername,
-            Password = encodedPassword
-        };
-
-        return builder.Uri.ToString();
+        return args;
     }
 
-    private async Task RunGitCommandAsync(string workingDirectory, string arguments, CancellationToken cancellationToken)
+    private async Task RunGitCommandAsync(StackSource source, string workingDirectory, string[] commandArgs, CancellationToken cancellationToken)
     {
-        using var process = new System.Diagnostics.Process
+        var configArgs = BuildGitConfigArgs(source);
+
+        var startInfo = new System.Diagnostics.ProcessStartInfo
         {
-            StartInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "git",
-                Arguments = arguments,
-                WorkingDirectory = workingDirectory,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
+            FileName = "git",
+            WorkingDirectory = workingDirectory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
         };
 
-        _logger.LogDebug("Running: git {Arguments} in {Directory}", arguments, workingDirectory);
+        // Use ArgumentList to avoid quoting issues (each arg is passed as-is)
+        foreach (var arg in configArgs)
+            startInfo.ArgumentList.Add(arg);
+        foreach (var arg in commandArgs)
+            startInfo.ArgumentList.Add(arg);
+
+        using var process = new System.Diagnostics.Process { StartInfo = startInfo };
+
+        // Log without credentials
+        _logger.LogDebug("Running: git {Arguments} in {Directory}", string.Join(" ", commandArgs), workingDirectory);
 
         process.Start();
 

@@ -49,7 +49,8 @@ public class GetSourceEndpoint : Endpoint<GetSourceRequest, StackSourceDetailDto
             GitUrl = result.GitUrl,
             GitBranch = result.GitBranch,
             GitUsername = result.GitUsername,
-            HasGitPassword = result.HasGitPassword
+            HasGitPassword = result.HasGitPassword,
+            GitSslVerify = result.GitSslVerify
         };
     }
 }
@@ -73,4 +74,5 @@ public class StackSourceDetailDto
     public string? GitBranch { get; init; }
     public string? GitUsername { get; init; }
     public bool HasGitPassword { get; init; }
+    public bool GitSslVerify { get; init; }
 }

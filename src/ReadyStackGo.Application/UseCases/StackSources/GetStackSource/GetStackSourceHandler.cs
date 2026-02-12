@@ -34,7 +34,8 @@ public class GetStackSourceHandler : IRequestHandler<GetStackSourceQuery, GetSta
             source.GitUrl,
             source.GitBranch,
             source.GitUsername,
-            !string.IsNullOrEmpty(source.GitPassword)
+            !string.IsNullOrEmpty(source.GitPassword),
+            source.GitSslVerify
         );
     }
 }
