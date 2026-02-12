@@ -4,6 +4,7 @@ ReadyStackGo lässt sich vollständig in automatisierte Build- und Release-Proze
 
 ## Use Cases
 
+- **Pipeline Deploy**: Idempotent deployen — Stack wird beim ersten Aufruf deployed, bei nachfolgenden Aufrufen automatisch redeployed
 - **Dev/Test**: Nach jedem erfolgreichen Build automatisch den Stack redeployen (frische Images)
 - **Formale Releases**: Katalog synchronisieren und auf eine neue Version upgraden
 - **Katalog-Sync**: Nach Änderungen am Manifest im Git-Repository den Katalog aktualisieren
@@ -23,6 +24,7 @@ Pipeline-Zugriff erfolgt über **API Keys** statt JWT Tokens:
 2. Klicke **Create API Key**
 3. Vergib einen beschreibenden Namen (z.B. "GitHub Actions Deploy")
 4. Wähle die benötigten Permissions:
+   - **Deploy** – Stack idempotent deployen (initial oder redeploy)
    - **Redeploy** – Stack mit frischen Images neu starten
    - **Upgrade** – Stack auf neue Katalog-Version upgraden
    - **Sync Sources** – Katalog-Quellen synchronisieren
@@ -36,6 +38,73 @@ Wird ein API Key mit einem Environment verknüpft, muss die `environmentId` nich
 ## Webhook-Endpoints
 
 Alle Endpoints befinden sich unter `/api/hooks/` und erfordern API Key Authentifizierung.
+
+### POST /api/hooks/deploy
+
+**Idempotenter Deploy-Endpoint** für CI/CD Pipelines. Dieser Endpoint kann bei jedem Build aufgerufen werden, ohne den aktuellen Zustand des Stacks zu kennen:
+
+- **Kein Deployment vorhanden** → Stack wird initial deployed
+- **Deployment läuft (Running)** → Stack wird automatisch redeployed (frische Images)
+- **Deployment in anderem Status** (Installing, Failed, Removed) → Fehler mit aktuellem Status
+
+Damit eignet sich dieser Endpoint ideal für Build-Pipelines, die deklarativ sagen: "Dieser Stack soll laufen."
+
+**Parameter:**
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|--------------|
+| `stackId` | string | Ja | Stack-ID aus dem Katalog (Format: `source:product:stack`) |
+| `stackName` | string | Ja | Name für das Deployment |
+| `environmentId` | string | Nein* | ID des Environments. *Entfällt bei environment-gebundenem API Key. |
+| `variables` | object | Nein | Variablen als Key-Value-Paare |
+
+**Request:**
+```json
+{
+  "stackId": "my-source:my-product:ams-project",
+  "stackName": "ams-project",
+  "environmentId": "abc123-def4-...",
+  "variables": {
+    "DB_HOST": "db.example.com",
+    "DB_PORT": "5432"
+  }
+}
+```
+
+**Response (200) – Initial Deploy:**
+```json
+{
+  "success": true,
+  "message": "Successfully deployed 'ams-project'.",
+  "deploymentId": "d4f8b2...",
+  "stackName": "ams-project",
+  "stackVersion": "6.4.0",
+  "action": "deployed"
+}
+```
+
+**Response (200) – Redeploy (Stack bereits vorhanden):**
+```json
+{
+  "success": true,
+  "message": "Successfully redeployed 'ams-project'.",
+  "deploymentId": "d4f8b2...",
+  "stackName": "ams-project",
+  "stackVersion": "6.4.0",
+  "action": "redeployed"
+}
+```
+
+**Fehler-Responses:**
+```json
+// 400 – Stack in ungültigem Status
+{ "success": false, "message": "Stack 'ams-project' exists but is not running (status: Failed). Only running deployments can be redeployed." }
+
+// 400 – Fehlende Pflichtfelder
+{ "success": false, "message": "StackId is required." }
+```
+
+**Permission:** `Hooks.Deploy`
 
 ### POST /api/hooks/redeploy
 
@@ -145,16 +214,18 @@ Synchronisiert alle Stack-Katalog-Quellen (lokale Verzeichnisse und Git Reposito
 
 ## Typische Pipeline-Flows
 
-### Dev/Test: Redeploy nach Build
+### Dev/Test: Idempotenter Deploy nach Build
 
 ```mermaid
 flowchart LR
     A[Code Push] --> B[CI Build]
     B --> C[Docker Image bauen]
     C --> D[Push to Registry]
-    D --> E["POST /api/hooks/redeploy"]
-    E --> F[ReadyStackGo pullt & startet neu]
+    D --> E["POST /api/hooks/deploy"]
+    E --> F[ReadyStackGo deployed oder redeployed]
 ```
+
+> **Empfohlen:** `/api/hooks/deploy` statt `/api/hooks/redeploy` verwenden. Der Deploy-Endpoint funktioniert sowohl beim ersten Deploy als auch bei allen folgenden.
 
 ### Formales Release: Sync + Upgrade
 

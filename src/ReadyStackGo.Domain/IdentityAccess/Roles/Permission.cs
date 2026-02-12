@@ -96,6 +96,7 @@ public sealed class Permission : ValueObject
 
     public static class Hooks
     {
+        public static Permission Deploy => new("Hooks", "Deploy");
         public static Permission Redeploy => new("Hooks", "Redeploy");
         public static Permission Upgrade => new("Hooks", "Upgrade");
         public static Permission SyncSources => new("Hooks", "SyncSources");
