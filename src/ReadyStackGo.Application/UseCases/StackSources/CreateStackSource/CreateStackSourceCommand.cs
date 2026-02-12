@@ -19,6 +19,7 @@ public record CreateStackSourceRequest
     public string? Branch { get; init; }
     public string? GitUsername { get; init; }
     public string? GitPassword { get; init; }
+    public bool? SslVerify { get; init; }
 }
 
 public record CreateStackSourceResult(

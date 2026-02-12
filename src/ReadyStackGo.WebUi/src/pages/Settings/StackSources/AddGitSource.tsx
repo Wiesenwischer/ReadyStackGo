@@ -15,6 +15,7 @@ export default function AddGitSource() {
     filePattern: "*.yml;*.yaml",
     gitUsername: "",
     gitPassword: "",
+    sslVerify: true,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,6 +35,7 @@ export default function AddGitSource() {
         filePattern: formData.filePattern || undefined,
         gitUsername: formData.gitUsername || undefined,
         gitPassword: formData.gitPassword || undefined,
+        sslVerify: formData.sslVerify,
       };
 
       const response = await createStackSource(request);
@@ -224,8 +226,29 @@ export default function AddGitSource() {
                 </div>
               </div>
               <p className="mt-3 text-xs text-gray-500">
-                For GitHub/GitLab, use a Personal Access Token instead of your password
+                For GitHub/GitLab, use a Personal Access Token instead of your password.
+                For TFS/Azure DevOps Server, use a Personal Access Token with &quot;pat&quot; as username.
               </p>
+
+              <div className="mt-4 flex items-center gap-3">
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.sslVerify}
+                    onChange={(e) => setFormData({ ...formData, sslVerify: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-brand-300 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-500 peer-checked:bg-brand-600"></div>
+                </label>
+                <div>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Verify SSL Certificate
+                  </span>
+                  <p className="text-xs text-gray-500">
+                    Disable for servers with self-signed or expired certificates
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 

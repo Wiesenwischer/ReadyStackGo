@@ -22,6 +22,7 @@ public class StackSource : AggregateRoot<StackSourceId>
     public string? GitBranch { get; private set; }
     public string? GitUsername { get; private set; }
     public string? GitPassword { get; private set; }  // Encrypted
+    public bool GitSslVerify { get; private set; } = true;
 
     // For EF Core
     protected StackSource() { }
@@ -73,7 +74,8 @@ public class StackSource : AggregateRoot<StackSourceId>
         string? path = null,
         string filePattern = "*.yml;*.yaml",
         string? username = null,
-        string? password = null)
+        string? password = null,
+        bool sslVerify = true)
     {
         if (string.IsNullOrWhiteSpace(gitUrl))
             throw new ArgumentException("Git URL is required for Git repository source.", nameof(gitUrl));
@@ -85,7 +87,8 @@ public class StackSource : AggregateRoot<StackSourceId>
             Path = path,
             FilePattern = filePattern,
             GitUsername = username,
-            GitPassword = password
+            GitPassword = password,
+            GitSslVerify = sslVerify
         };
 
         return source;
