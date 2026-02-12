@@ -147,22 +147,30 @@ Rough outlook on planned versions and features.
   - Optional Environment-Scope for API Keys
   - Pipeline Examples for curl, GitHub Actions, and Azure DevOps
 
-### v0.20 – Docker Volumes Management
+### v0.20 – WebUI Headless Refactoring
+- Extract Framework-Independent Core Layer (API, Services, Types)
+- SignalR Connection Management as Standalone Services
+- Store-Hooks for Settings Pages (Registry, Stack Sources, TLS, API Keys)
+- Store-Hooks for Deployment Pages (Deploy, Upgrade, Rollback, Remove)
+- Store-Hooks for Remaining Pages (Catalog, Environments, Health, Wizard)
+- Downstream Fork Documentation
+
+### v0.21 – Docker Volumes Management
 - Docker Volumes View (List All Volumes per Environment)
 - Volume Details (Size, Mount Points, Labels)
 - Create/Delete Volumes
 - Detect Orphaned Volumes
 
-### v0.21 – Metrics & Audit
+### v0.22 – Metrics & Audit
 - Metrics & Alerting
 - Audit Logs
 
-### v0.22 – Multi-User Support
+### v0.23 – Multi-User Support
 - User Management UI
 - Create/Edit Users
 - Password Reset Flow
 
-### v0.23 – Feature Flags
+### v0.24 – Feature Flags
 - Feature Flags UI in Admin
 - Feature Toggle at Organization Level
 - Environment Variables for Feature Flags
