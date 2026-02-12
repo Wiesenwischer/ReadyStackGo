@@ -10,6 +10,7 @@ import {
 import { useEnvironment } from "../../../context/EnvironmentContext";
 
 const AVAILABLE_PERMISSIONS = [
+  { value: "Hooks.Deploy", label: "Deploy", description: "Deploy or redeploy stacks (idempotent)" },
   { value: "Hooks.Redeploy", label: "Redeploy", description: "Trigger redeployment of running stacks" },
   { value: "Hooks.Upgrade", label: "Upgrade", description: "Upgrade stacks to a new version" },
   { value: "Hooks.SyncSources", label: "Sync Sources", description: "Synchronize stack catalog sources" },
