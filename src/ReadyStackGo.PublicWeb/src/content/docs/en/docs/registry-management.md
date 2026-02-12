@@ -9,6 +9,15 @@ This guide shows you how to manage Docker Registries in ReadyStackGo to pull ima
 
 ReadyStackGo supports pulling Docker images from any OCI-compliant registry. Through the Settings page, you can centrally manage registry credentials and automatically assign them to the correct registries using **Image Patterns**.
 
+| Feature | Description |
+|---------|-------------|
+| **Add Registry** | Configure Docker Hub, GHCR, GitLab, Quay.io or custom registries |
+| **Manage Credentials** | Store username/password or token for private registries |
+| **Image Patterns** | Automatic assignment of images to registries via glob patterns |
+| **Default Registry** | Fallback registry for images without a pattern match |
+| **Edit Registry** | Modify name, URL, credentials and patterns after creation |
+| **Delete Registry** | Remove registry configuration including credentials |
+
 ### Credential Resolution
 
 When pulling an image, ReadyStackGo searches for credentials in the following order:
@@ -21,21 +30,81 @@ When pulling an image, ReadyStackGo searches for credentials in the following or
 
 ---
 
-## Adding a Registry
+## Step by Step: Adding a Registry
 
-1. Navigate to **Settings** in the sidebar
-2. Click **Add Registry**
-3. Fill in the fields:
+### Step 1: Navigate to Settings
 
-| Field | Description |
-|-------|-------------|
-| **Name** | Display name (e.g., "Docker Hub - Company") |
-| **URL** | Registry URL (e.g., `https://index.docker.io/v1/`) |
-| **Username** | Optional - for private registries |
-| **Password** | Optional - for private registries |
-| **Image Patterns** | Optional - Glob patterns for automatic matching |
+Open the **Settings** page from the sidebar navigation. You will find the **Container Registries** card there.
 
-4. Click **Save**
+![Settings page with Container Registries card](/images/docs/registry-01-settings-nav.png)
+
+---
+
+### Step 2: Open Registry Overview
+
+Click on the **Container Registries** card. On first access, an empty state is shown – no registries configured yet.
+
+![Empty state with no configured registries](/images/docs/registry-02-empty-state.png)
+
+Click **Add Your First Registry** or the **Add Registry** button in the top right.
+
+---
+
+### Step 3: Configure the Registry
+
+Fill out the form. ReadyStackGo provides templates for well-known registries:
+
+| Registry | URL |
+|----------|-----|
+| Docker Hub | `https://index.docker.io/v1/` |
+| GitHub Container Registry | `https://ghcr.io` |
+| GitLab Container Registry | `https://registry.gitlab.com` |
+| Quay.io | `https://quay.io` |
+| Custom | Enter any URL |
+
+Select a registry type from the dropdown – name and URL are filled automatically. Optionally configure **Credentials** (Username + Password/Token) and **Image Patterns**.
+
+![Registry form with Docker Hub and credentials filled in](/images/docs/registry-03-add-form.png)
+
+:::tip[Image Patterns]
+Image Patterns automatically determine which registry is used for which image. Without patterns, the registry is only used as default or manually assigned.
+:::
+
+---
+
+### Step 4: Registry in the List
+
+After saving, the registry appears in the overview. Badges indicate the status:
+- **Authenticated** – Credentials are stored
+- **Default** – This registry is used as fallback
+
+![Registry list with newly created Docker Hub registry](/images/docs/registry-04-list-with-registry.png)
+
+From here you can **edit** registries, **set as default**, or **delete** them.
+
+---
+
+## Editing a Registry
+
+Click **Edit** on a registry to modify its name, URL, credentials, or image patterns.
+
+![Edit form of a registry with modified data](/images/docs/registry-05-edit-form.png)
+
+:::note[Updating Credentials]
+Existing passwords are not displayed. Leave the field empty to keep the current password, or enable **Clear existing credentials** to completely remove the credentials.
+:::
+
+---
+
+## Deleting a Registry
+
+Click **Delete** on a registry. A confirmation page appears showing the registry details.
+
+![Delete confirmation with registry details and warning](/images/docs/registry-06-delete-confirm.png)
+
+:::caution[Irreversible]
+Deleting a registry removes all stored credentials and configurations. This action cannot be undone.
+:::
 
 ---
 
@@ -72,11 +141,7 @@ Image Patterns determine which registry credentials are used for which images. T
 
 ## Default Registry
 
-You can mark a registry as **Default**. This registry is used for all images that don't match any pattern:
-
-1. Open the registry in Settings
-2. Enable **Set as Default**
-3. Save
+You can mark a registry as **Default**. This registry is used for all images that don't match any pattern. Click **Set Default** in the registry list.
 
 :::note[Only One Default Registry]
 Only one registry can be marked as default. When setting a new default, the previous one is automatically deactivated.
