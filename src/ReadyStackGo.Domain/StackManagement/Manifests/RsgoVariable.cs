@@ -27,8 +27,9 @@ public class RsgoVariable
 
     /// <summary>
     /// Whether the variable is required.
+    /// Null means "not explicitly set" — Variable constructor infers from default value.
     /// </summary>
-    public bool Required { get; set; } = false;
+    public bool? Required { get; set; }
 
     /// <summary>
     /// Regex pattern for validation (only for String type).
