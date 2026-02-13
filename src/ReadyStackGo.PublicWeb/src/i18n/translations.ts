@@ -61,6 +61,8 @@ export const translations = {
 		'features.maintenance.desc': 'Kontrollierte Wartungsfenster mit automatischem Container-Lifecycle-Management.',
 		'features.tls.title': 'TLS & Zertifikate',
 		'features.tls.desc': 'Flexibles HTTPS-Management mit eigenen Zertifikaten, Let\'s Encrypt und Reverse Proxy-Unterstützung.',
+		'features.selfupdate.title': 'Self-Update',
+		'features.selfupdate.desc': 'Per Knopfdruck aktualisieren — RSGO tauscht seinen eigenen Container automatisch aus.',
 
 		// Feature Pages
 		'featurepage.multistack.subtitle': 'Definiere komplexe Anwendungen mit mehreren Docker Stacks und gemeinsamen Variablen in einem einzigen Manifest.',
@@ -150,6 +152,8 @@ export const translations = {
 		'features.maintenance.desc': 'Controlled maintenance windows with automatic container lifecycle management.',
 		'features.tls.title': 'TLS & Certificates',
 		'features.tls.desc': 'Flexible HTTPS management with custom certificates, Let\'s Encrypt and reverse proxy support.',
+		'features.selfupdate.title': 'Self-Update',
+		'features.selfupdate.desc': 'Update with one click — RSGO automatically swaps its own container.',
 
 		// Feature Pages
 		'featurepage.multistack.subtitle': 'Define complex applications with multiple Docker Stacks and shared variables in a single manifest.',

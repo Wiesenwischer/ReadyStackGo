@@ -11,3 +11,4 @@ Here you'll find detailed guides for using ReadyStackGo.
 - [Stack Upgrade](/en/docs/stack-upgrade/) - Upgrade stacks to new versions
 - [Registry Management](/en/docs/registry-management/) - Manage Docker Registries and configure Image Patterns
 - [CI/CD Integration](/en/docs/ci-cd-integration/) - Automated deployments via API keys and webhooks
+- [Self-Update](/en/docs/self-update/) - Update ReadyStackGo with a single click
