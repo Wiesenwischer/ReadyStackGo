@@ -142,7 +142,7 @@ RSGO soll nicht mehr nur mit einem leeren lokalen Verzeichnis starten, sondern a
   **Import-Verhalten:**
   - Sources mit gleicher `gitUrl` werden übersprungen (kein Duplikat)
   - Lokale Sources werden importiert wenn Pfad existiert
-  - Credentials (gitPassword) werden NICHT exportiert (Sicherheit)
+  - Credentials werden weder exportiert noch importiert (Sicherheit, einfach halten)
   - Import-Preview zeigt was hinzugefügt wird
 
   **Betroffene Dateien:**
@@ -185,30 +185,29 @@ RSGO soll nicht mehr nur mit einem leeren lokalen Verzeichnis starten, sondern a
 ## Test-Strategie
 
 - **Unit Tests:**
-  - SourceRegistryService: Registry laden (embedded + remote), Fehlerhandling
-  - Import/Export: Serialisierung, Duplikaterkennung, Credential-Filterung
-  - AddFromRegistry: Validierung, Source-Erstellung
+  - SourceRegistryService: Embedded Registry laden, Einträge filtern, Fehlerhandling
+  - Import/Export: Serialisierung, Duplikaterkennung über gitUrl, Credentials nicht im Export
+  - AddFromRegistry: Validierung, Source-Erstellung aus Registry-Eintrag
 - **Integration Tests:**
-  - Registry-Endpoint: Korrekte Antwort, Filterung
+  - Registry-Endpoint: Korrekte Antwort, Category/Tag-Filterung
   - Import-Endpoint: Upload, Duplikat-Handling, Fehler bei ungültigem Format
-  - Export-Endpoint: Download, Credential-Filterung
+  - Export-Endpoint: Download, Credentials ausgeschlossen
 - **E2E Tests:**
   - Marketplace: Browse, Filter, Add Source, "Installed" Badge
   - Import/Export: Export → Download, Upload → Preview → Import
   - Quick-Add: Registry-Source mit One-Click hinzufügen
+  - Wizard: Neuer Step für Source-Auswahl
 
 ## Offene Punkte
 
-- [ ] Soll die Registry-Datei nur lokal (embedded) sein oder auch remote von GitHub geladen werden (wie Version-Check)?
-- [ ] Soll der Wizard einen neuen Step für Source-Auswahl bekommen oder wird das nur über die Settings/Marketplace gemacht?
-- [ ] Braucht es ein eigenes Community-Stacks-Repo auf GitHub (z.B. `Wiesenwischer/rsgo-community-stacks`) als erste kuratierte Quelle?
-- [ ] Soll die Import-Funktion auch Credentials unterstützen (verschlüsselt) oder bewusst ohne Credentials?
+Alle geklärt.
 
 ## Entscheidungen
 
 | Entscheidung | Optionen | Gewählt | Begründung |
 |---|---|---|---|
-| Registry-Quelle | A) Nur embedded JSON, B) Embedded + Remote-Update, C) Nur Remote | - | Noch offen |
-| Source-Duplikat-Erkennung | A) Über gitUrl, B) Über Name, C) Über beides | - | Noch offen |
-| Marketplace-Platzierung | A) Eigene Seite, B) Tab in Stack Sources, C) Integriert in Add-Source-Flow | - | Noch offen |
-| Import-Credentials | A) Ohne Credentials, B) Optional verschlüsselt | - | Noch offen |
+| Registry-Quelle | A) Nur embedded JSON, B) Embedded + Remote-Update, C) Nur Remote | A | Einfach, offline-fähig, Updates über neue RSGO-Versionen |
+| Wizard-Integration | A) Neuer Wizard-Step, B) Nur Settings | A | Bessere Onboarding-Experience, User sieht direkt verfügbare Quellen |
+| Community-Stacks-Repo | A) Eigenes Repo erstellen, B) Nur Third-Party-Repos, C) Platzhalter | A | Offizielle kuratierte Quelle als Referenz, zeigt Best Practices |
+| Credentials bei Registry | A) Keine Credentials, B) Optional | A | Registry nur für öffentliche Repos, Credentials-Support ggf. als späteres Extra-Feature |
+| Import/Export Credentials | A) Ohne Credentials, B) Optional, C) Verschlüsselt | A | Einfach halten, keine Sicherheitsrisiken durch Klartext-Credentials in Export-Dateien |
