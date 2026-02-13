@@ -25,6 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\ReadyStackGo.Api\ReadyStackGo.Api.csproj" />
     <ProjectReference Include="..\..\src\ReadyStackGo.Infrastructure\ReadyStackGo.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\ReadyStackGo.Infrastructure.Docker\ReadyStackGo.Infrastructure.Docker.csproj" />
   </ItemGroup>
 
 </Project>

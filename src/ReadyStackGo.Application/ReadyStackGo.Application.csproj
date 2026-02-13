@@ -17,4 +17,8 @@
     <ProjectReference Include="..\ReadyStackGo.Domain\ReadyStackGo.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="ReadyStackGo.UnitTests" />
+  </ItemGroup>
+
 </Project>
