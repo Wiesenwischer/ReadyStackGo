@@ -1,20 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import { systemApi, type VersionInfo } from "../api/system";
 
 const DISMISSED_KEY = "rsgo_update_dismissed";
-const POLL_INTERVAL_MS = 3000;
-const POLL_TIMEOUT_MS = 120000;
-
-type UpdateState = "idle" | "updating" | "success" | "error";
 
 export default function SidebarWidget() {
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
   const [isDismissed, setIsDismissed] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [updateState, setUpdateState] = useState<UpdateState>("idle");
-  const [updateError, setUpdateError] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadVersion = async () => {
@@ -36,70 +30,14 @@ export default function SidebarWidget() {
     loadVersion();
   }, []);
 
-  const stopPolling = useCallback(() => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => stopPolling();
-  }, [stopPolling]);
-
-  const startPolling = useCallback(
-    (targetVersion: string) => {
-      stopPolling();
-
-      pollRef.current = setInterval(async () => {
-        try {
-          const info = await systemApi.getVersion();
-          if (info.serverVersion === targetVersion) {
-            stopPolling();
-            setUpdateState("success");
-            localStorage.removeItem(DISMISSED_KEY);
-            setTimeout(() => window.location.reload(), 1000);
-          }
-        } catch {
-          // Server is restarting, ignore connection errors and keep polling
-        }
-      }, POLL_INTERVAL_MS);
-
-      timeoutRef.current = setTimeout(() => {
-        stopPolling();
-        setUpdateState("error");
-        setUpdateError(
-          "Update is taking longer than expected. The server may still be restarting."
-        );
-      }, POLL_TIMEOUT_MS);
-    },
-    [stopPolling]
-  );
-
-  const handleUpdate = async () => {
+  const handleUpdate = () => {
     if (!versionInfo?.latestVersion) return;
 
-    setUpdateState("updating");
-    setUpdateError(null);
-
-    try {
-      const result = await systemApi.triggerUpdate(versionInfo.latestVersion);
-      if (!result.success) {
-        setUpdateState("error");
-        setUpdateError(result.message);
-        return;
-      }
-      startPolling(versionInfo.latestVersion);
-    } catch (error) {
-      setUpdateState("error");
-      setUpdateError(
-        error instanceof Error ? error.message : "Failed to trigger update."
-      );
+    const params = new URLSearchParams({ version: versionInfo.latestVersion });
+    if (versionInfo.latestReleaseUrl) {
+      params.set("releaseUrl", versionInfo.latestReleaseUrl);
     }
+    navigate(`/update?${params.toString()}`);
   };
 
   const handleDismiss = () => {
@@ -109,68 +47,10 @@ export default function SidebarWidget() {
     }
   };
 
-  const showUpdateBanner =
-    versionInfo?.updateAvailable && !isDismissed && updateState === "idle";
-  const showUpdating = updateState === "updating" || updateState === "success";
-  const showError = updateState === "error";
+  const showUpdateBanner = versionInfo?.updateAvailable && !isDismissed;
 
   return (
     <div className="mx-auto mb-10 w-full max-w-60 space-y-4">
-      {/* Updating state */}
-      {showUpdating && versionInfo && (
-        <div className="rounded-2xl bg-brand-50 px-4 py-4 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800">
-          <div className="flex items-center justify-center gap-2">
-            <svg
-              className="h-5 w-5 animate-spin text-brand-600 dark:text-brand-400"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-              />
-            </svg>
-            <span className="text-sm font-medium text-brand-800 dark:text-brand-200">
-              {updateState === "success"
-                ? "Update complete!"
-                : `Updating to v${versionInfo.latestVersion}...`}
-            </span>
-          </div>
-          <p className="mt-2 text-center text-xs text-brand-700 dark:text-brand-300">
-            {updateState === "success"
-              ? "Reloading..."
-              : "RSGO will restart momentarily."}
-          </p>
-        </div>
-      )}
-
-      {/* Error state */}
-      {showError && (
-        <div className="rounded-2xl bg-red-50 px-4 py-4 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-          <p className="text-xs text-red-700 dark:text-red-300">
-            {updateError}
-          </p>
-          <button
-            onClick={() => {
-              setUpdateState("idle");
-              setUpdateError(null);
-            }}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-red-500 px-3 py-2 text-xs font-medium text-white hover:bg-red-600"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
       {/* Update notification banner */}
       {showUpdateBanner && versionInfo && (
         <div className="rounded-2xl bg-brand-50 px-4 py-4 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800">

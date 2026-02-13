@@ -3,17 +3,18 @@ title: Self-Update
 description: ReadyStackGo per Knopfdruck aktualisieren — direkt aus der Web-Oberfläche
 ---
 
-ReadyStackGo kann sich selbst aktualisieren, ohne dass manuell auf dem Server `docker compose pull` ausgeführt werden muss. Sobald eine neue Version verfügbar ist, erscheint ein **Update-Banner** in der Sidebar. Ein Klick auf **Update now** startet den gesamten Aktualisierungsprozess automatisch.
+ReadyStackGo kann sich selbst aktualisieren, ohne dass manuell auf dem Server `docker compose pull` ausgeführt werden muss. Sobald eine neue Version verfügbar ist, erscheint ein **Update-Banner** in der Sidebar. Ein Klick auf **Update now** öffnet eine dedizierte Update-Seite, die den gesamten Aktualisierungsprozess steuert und den Fortschritt anzeigt.
 
 ## Übersicht
 
 | Schritt | Was passiert |
 |---------|-------------|
 | **Erkennung** | RSGO prüft über die GitHub Releases API, ob eine neuere Version existiert |
+| **Update-Seite** | Ein Klick auf "Update now" öffnet eine eigene Seite mit Fortschrittsanzeige |
 | **Pull** | Das neue Docker Image wird automatisch heruntergeladen |
 | **Swap** | Ein Helper-Container übernimmt den Austausch des laufenden Containers |
-| **Update-Seite** | Während des Neustarts wird eine Wartungsseite auf Port 8080 angezeigt |
-| **Fertig** | Der Browser erkennt automatisch, wenn die neue Version läuft, und lädt die Seite neu |
+| **Wartungsseite** | Während des Neustarts wird eine Wartungsseite auf Port 8080 angezeigt |
+| **Fertig** | Die Update-Seite erkennt automatisch, wenn die neue Version läuft, und leitet zum Dashboard weiter |
 
 ---
 
@@ -23,7 +24,7 @@ ReadyStackGo kann sich selbst aktualisieren, ohne dass manuell auf dem Server `d
 
 Wenn eine neue Version verfügbar ist, erscheint automatisch ein Banner in der linken Sidebar unterhalb der Navigation. Das Banner zeigt die verfügbare Versionsnummer und zwei Aktionen:
 
-- **Update now** — Startet das Update sofort
+- **Update now** — Öffnet die Update-Seite und startet das Update
 - **See what's new** — Öffnet die Release Notes auf GitHub
 
 ![Sidebar mit Update-Banner](/images/docs/self-update-01-update-banner.png)
@@ -36,9 +37,7 @@ Sie können das Banner mit dem **X**-Button schließen. Es wird erst wieder ange
 
 ### Schritt 2: Update starten
 
-Klicken Sie auf **Update now**. Das Banner wechselt zum Aktualisierungsstatus mit einem Spinner und der Meldung:
-
-> *Updating to vX.Y.Z... RSGO will restart momentarily.*
+Klicken Sie auf **Update now**. Es öffnet sich eine dedizierte Update-Seite mit Fortschrittsanzeige. Die Seite zeigt die aktuelle und die Zielversion sowie einen Spinner:
 
 ![Update wird durchgeführt](/images/docs/self-update-02-updating.png)
 
@@ -56,17 +55,17 @@ Im Hintergrund passiert Folgendes:
 
 Während des Container-Austauschs ist RSGO kurzzeitig nicht erreichbar. In dieser Zeit:
 
-- Der **Helper-Container** zeigt eine Wartungsseite mit Auto-Refresh an
-- Die Web-Oberfläche **pollt automatisch** alle 3 Sekunden, ob der neue Server bereit ist
-- Sobald die neue Version antwortet, wird die Seite **automatisch neu geladen**
+- Der **Helper-Container** zeigt eine Wartungsseite im gleichen Design an
+- Die Update-Seite **pollt automatisch** alle 3 Sekunden, ob der neue Server bereit ist
+- Sobald die neue Version antwortet, wird automatisch zum **Dashboard** weitergeleitet
 
-Sie müssen nichts weiter tun — warten Sie einfach, bis die Seite sich aktualisiert.
+Sie müssen nichts weiter tun — warten Sie einfach, bis die Weiterleitung erfolgt.
 
 ---
 
 ## Fehlerbehandlung
 
-Falls das Update fehlschlägt (z.B. weil das Image nicht heruntergeladen werden kann), zeigt RSGO eine Fehlermeldung an:
+Falls das Update fehlschlägt (z.B. weil das Image nicht heruntergeladen werden kann), zeigt die Update-Seite eine Fehlermeldung mit der Möglichkeit zum erneuten Versuch:
 
 ![Fehler beim Update](/images/docs/self-update-03-error.png)
 
@@ -93,7 +92,7 @@ Das Update wird von einem separaten Helper-Container (`wiesenwischer/rsgo-update
 - Basiert auf `docker:cli` (Alpine mit Docker CLI)
 - Wird mit `--network=host` und `AutoRemove` gestartet
 - Stoppt den alten RSGO Container, benennt den neuen um und startet ihn
-- Zeigt während des Austauschs eine Wartungsseite an
+- Zeigt während des Austauschs eine Wartungsseite im RSGO-Design an
 - Räumt sich nach Abschluss automatisch auf
 
 ### Versionserkennung

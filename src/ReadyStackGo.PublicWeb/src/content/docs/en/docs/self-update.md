@@ -3,17 +3,18 @@ title: Self-Update
 description: Update ReadyStackGo with a single click — directly from the web interface
 ---
 
-ReadyStackGo can update itself without manually running `docker compose pull` on the server. When a new version is available, an **update banner** appears in the sidebar. Clicking **Update now** starts the entire update process automatically.
+ReadyStackGo can update itself without manually running `docker compose pull` on the server. When a new version is available, an **update banner** appears in the sidebar. Clicking **Update now** opens a dedicated update page that manages the entire update process and shows progress in real time.
 
 ## Overview
 
 | Step | What happens |
 |------|-------------|
 | **Detection** | RSGO checks the GitHub Releases API for newer versions |
+| **Update page** | Clicking "Update now" opens a dedicated page with progress display |
 | **Pull** | The new Docker image is downloaded automatically |
 | **Swap** | A helper container takes over the running container replacement |
-| **Update page** | A maintenance page is shown on port 8080 during the restart |
-| **Done** | The browser automatically detects when the new version is running and reloads |
+| **Maintenance page** | A maintenance page is shown on port 8080 during the restart |
+| **Done** | The update page automatically detects when the new version is running and redirects to the dashboard |
 
 ---
 
@@ -23,7 +24,7 @@ ReadyStackGo can update itself without manually running `docker compose pull` on
 
 When a new version is available, a banner automatically appears in the left sidebar below the navigation. The banner shows the available version number and two actions:
 
-- **Update now** — Starts the update immediately
+- **Update now** — Opens the update page and starts the update
 - **See what's new** — Opens the release notes on GitHub
 
 ![Sidebar with update banner](/images/docs/self-update-01-update-banner.png)
@@ -36,9 +37,7 @@ You can close the banner with the **X** button. It will only reappear when an ev
 
 ### Step 2: Start the Update
 
-Click **Update now**. The banner switches to the update status with a spinner and the message:
-
-> *Updating to vX.Y.Z... RSGO will restart momentarily.*
+Click **Update now**. A dedicated update page opens showing the progress. The page displays the current and target version along with a spinner:
 
 ![Update in progress](/images/docs/self-update-02-updating.png)
 
@@ -56,17 +55,17 @@ Behind the scenes, the following happens:
 
 During the container swap, RSGO is briefly unavailable. During this time:
 
-- The **helper container** serves a maintenance page with auto-refresh
-- The web UI **polls automatically** every 3 seconds to check if the new server is ready
-- Once the new version responds, the page **reloads automatically**
+- The **helper container** serves a maintenance page in the same design style
+- The update page **polls automatically** every 3 seconds to check if the new server is ready
+- Once the new version responds, it automatically **redirects to the dashboard**
 
-You don't need to do anything — just wait for the page to refresh.
+You don't need to do anything — just wait for the redirect to happen.
 
 ---
 
 ## Error Handling
 
-If the update fails (e.g., because the image cannot be downloaded), RSGO displays an error message:
+If the update fails (e.g., because the image cannot be downloaded), the update page displays an error message with the option to retry:
 
 ![Update error](/images/docs/self-update-03-error.png)
 
@@ -93,7 +92,7 @@ The update is performed by a separate helper container (`wiesenwischer/rsgo-upda
 - Is based on `docker:cli` (Alpine with Docker CLI)
 - Runs with `--network=host` and `AutoRemove`
 - Stops the old RSGO container, renames the new one, and starts it
-- Serves a maintenance page during the swap
+- Serves a maintenance page in the RSGO design style during the swap
 - Cleans itself up automatically when done
 
 ### Version Detection
