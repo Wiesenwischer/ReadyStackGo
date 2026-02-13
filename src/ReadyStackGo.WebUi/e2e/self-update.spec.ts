@@ -11,6 +11,11 @@ const SCREENSHOT_DIR = path.join(__dirname, '..', '..', 'ReadyStackGo.PublicWeb'
  * Uses API route mocking to simulate update availability and trigger responses,
  * since the actual Docker-based self-update cannot run in E2E test environments.
  *
+ * The update flow:
+ * 1. SidebarWidget shows update banner when a new version is available
+ * 2. Clicking "Update now" navigates to a dedicated /update page
+ * 3. The /update page triggers the API and shows progress/result
+ *
  * Note: Route mocking must be set up BEFORE login, because the SidebarWidget
  * fetches version info immediately on mount (which happens after login redirect).
  */
@@ -60,6 +65,12 @@ test.describe('Self-Update', () => {
     await expect(page.getByRole('button', { name: 'Update now' })).toBeVisible();
     await expect(page.getByRole('link', { name: "See what's new" })).toBeVisible();
 
+    // Scroll sidebar to ensure widget is visible, then take focused screenshot
+    const sidebar = page.locator('aside').first();
+    const widget = sidebar.locator('text=Update available').first();
+    await widget.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(300);
+
     // Screenshot: Sidebar with update banner
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'self-update-01-update-banner.png'),
@@ -67,7 +78,7 @@ test.describe('Self-Update', () => {
     });
   });
 
-  test('should show updating state after clicking Update now', async ({ page }) => {
+  test('should navigate to update page and show updating state', async ({ page }) => {
     // Mock update trigger API to return success
     await page.route('**/api/system/update', async (route) => {
       await route.fulfill({
@@ -82,21 +93,25 @@ test.describe('Self-Update', () => {
 
     await loginWithMockedVersion(page, MOCK_VERSION_UPDATE);
 
-    // Click the update button
+    // Click the update button — should navigate to /update page
     await page.getByRole('button', { name: 'Update now' }).click();
+    await page.waitForURL(/\/update\?/, { timeout: 5000 });
 
-    // Should show the updating spinner
-    await expect(page.getByText('Updating to v0.20.0...')).toBeVisible();
+    // Should show the dedicated update page with spinner
+    await expect(page.getByText('Updating to v0.20.0')).toBeVisible();
     await expect(page.getByText('RSGO will restart momentarily.')).toBeVisible();
 
-    // Screenshot: Updating state with spinner
+    // Version badge showing transition
+    await expect(page.getByText('v0.19.0')).toBeVisible();
+
+    // Screenshot: Dedicated update page with progress
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'self-update-02-updating.png'),
       fullPage: false,
     });
   });
 
-  test('should show error state when update fails', async ({ page }) => {
+  test('should show error state on update page when update fails', async ({ page }) => {
     // Mock update trigger API to return failure
     await page.route('**/api/system/update', async (route) => {
       await route.fulfill({
@@ -112,12 +127,15 @@ test.describe('Self-Update', () => {
     await loginWithMockedVersion(page, MOCK_VERSION_UPDATE);
 
     await page.getByRole('button', { name: 'Update now' }).click();
+    await page.waitForURL(/\/update\?/, { timeout: 5000 });
 
-    // Should show error state
+    // Should show error state on update page
+    await expect(page.getByText('Update failed')).toBeVisible();
     await expect(page.getByText('Docker error: unable to pull image')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Dismiss' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Retry update' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Back to Dashboard' })).toBeVisible();
 
-    // Screenshot: Error state
+    // Screenshot: Error state on update page
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'self-update-03-error.png'),
       fullPage: false,
@@ -142,33 +160,6 @@ test.describe('Self-Update', () => {
     await expect(page.getByText('Update available')).not.toBeVisible();
   });
 
-  test('should return to idle state after dismissing error', async ({ page }) => {
-    // Mock update trigger to fail
-    await page.route('**/api/system/update', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: false,
-          message: 'Docker error: connection refused',
-        }),
-      });
-    });
-
-    await loginWithMockedVersion(page, MOCK_VERSION_UPDATE);
-
-    // Trigger the error
-    await page.getByRole('button', { name: 'Update now' }).click();
-    await expect(page.getByText('Docker error: connection refused')).toBeVisible();
-
-    // Dismiss the error
-    await page.getByRole('button', { name: 'Dismiss' }).click();
-
-    // Should return to showing the update banner
-    await expect(page.getByText('Update available')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Update now' })).toBeVisible();
-  });
-
   test('should not show update banner when no update is available', async ({ page }) => {
     await loginWithMockedVersion(page, MOCK_VERSION_CURRENT);
 
@@ -177,5 +168,29 @@ test.describe('Self-Update', () => {
 
     // Version should still display in widget
     await expect(page.getByText('v0.20.0')).toBeVisible();
+  });
+
+  test('should pass release URL to update page', async ({ page }) => {
+    // Mock update trigger API
+    await page.route('**/api/system/update', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, message: 'Update initiated.' }),
+      });
+    });
+
+    await loginWithMockedVersion(page, MOCK_VERSION_UPDATE);
+
+    await page.getByRole('button', { name: 'Update now' }).click();
+    await page.waitForURL(/\/update\?/, { timeout: 5000 });
+
+    // The "See what's new" link should be visible on the update page
+    const releaseLink = page.getByRole('link', { name: "See what's new" });
+    await expect(releaseLink).toBeVisible();
+    await expect(releaseLink).toHaveAttribute(
+      'href',
+      'https://github.com/Wiesenwischer/ReadyStackGo/releases/tag/v0.20.0'
+    );
   });
 });

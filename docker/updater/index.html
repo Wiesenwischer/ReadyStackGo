@@ -5,44 +5,97 @@
   <title>Updating ReadyStackGo...</title>
   <meta http-equiv="refresh" content="3">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: 'Outfit', system-ui, -apple-system, sans-serif;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
-      background: #f8fafc;
-      color: #334155;
+      background: #fff;
+      color: #1f2937;
     }
-    .container { text-align: center; padding: 2rem; }
-    .logo { font-size: 1.5rem; font-weight: 700; color: #6366f1; margin-bottom: 1.5rem; }
+    .grid-bg {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+    .container {
+      position: relative;
+      text-align: center;
+      padding: 2rem;
+      max-width: 28rem;
+    }
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #1f2937;
+      margin-bottom: 2rem;
+    }
+    .card {
+      background: rgba(236, 243, 255, 0.5);
+      border: 1px solid #c2d6ff;
+      border-radius: 1rem;
+      padding: 2rem;
+    }
     .spinner {
-      width: 48px; height: 48px;
-      border: 4px solid #e2e8f0;
-      border-top-color: #6366f1;
+      width: 64px; height: 64px;
+      border: 3px solid rgba(70, 95, 255, 0.25);
+      border-top-color: #465fff;
       border-radius: 50%;
       animation: spin 1s linear infinite;
       margin: 0 auto 1.5rem;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     h2 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }
-    p { color: #64748b; font-size: 0.875rem; }
+    p { color: #6b7280; font-size: 0.875rem; line-height: 1.5; }
+    .footer {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.875rem;
+      color: #9ca3af;
+    }
+
     @media (prefers-color-scheme: dark) {
-      body { background: #0f172a; color: #e2e8f0; }
-      .spinner { border-color: #334155; border-top-color: #818cf8; }
-      p { color: #94a3b8; }
-      .logo { color: #818cf8; }
+      body { background: #111827; color: #f3f4f6; }
+      .grid-bg {
+        background-image:
+          linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      }
+      .logo { color: #f9fafb; }
+      .card {
+        background: rgba(70, 95, 255, 0.05);
+        border-color: rgba(70, 95, 255, 0.2);
+      }
+      .spinner {
+        border-color: rgba(117, 146, 255, 0.25);
+        border-top-color: #7592ff;
+      }
+      p { color: #9ca3af; }
+      .footer { color: #6b7280; }
     }
   </style>
 </head>
 <body>
+  <div class="grid-bg"></div>
   <div class="container">
     <div class="logo">ReadyStackGo</div>
-    <div class="spinner"></div>
-    <h2>Updating...</h2>
-    <p>This page will refresh automatically when the update is complete.</p>
+    <div class="card">
+      <div class="spinner"></div>
+      <h2>Updating...</h2>
+      <p>RSGO is restarting with the new version. This page will reload automatically.</p>
+    </div>
   </div>
+  <div class="footer">&copy; 2025 ReadyStackGo</div>
 </body>
 </html>

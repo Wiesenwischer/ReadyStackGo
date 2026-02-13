@@ -34,6 +34,7 @@ import SetupEnvironment from "./pages/Environments/SetupEnvironment";
 import Login from "./pages/Auth/Login";
 import Wizard from "./pages/Wizard";
 import NotFound from "./pages/NotFound";
+import UpdateStatus from "./pages/UpdateStatus";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { EnvironmentProvider } from "./context/EnvironmentContext";
@@ -51,6 +52,15 @@ export default function App() {
             <Routes>
               <Route path="/wizard" element={<Wizard />} />
               <Route path="/login" element={<Login />} />
+              {/* Update status page - standalone, no layout */}
+              <Route
+                path="/update"
+                element={
+                  <ProtectedRoute>
+                    <UpdateStatus />
+                  </ProtectedRoute>
+                }
+              />
               {/* Setup environment page - standalone, no layout */}
               <Route
                 path="/setup-environment"
