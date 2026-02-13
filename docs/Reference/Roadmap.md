@@ -167,7 +167,14 @@ Rough outlook on planned versions and features.
 
 ## Planned
 
-### v0.24 – WebUI Headless Refactoring
+### v0.24 – Preconfigured Stack Sources & Marketplace
+- Curated Source Registry (embedded JSON catalog of known Git repos)
+- Bundled Default Sources on First Start (official repos pre-configured)
+- Marketplace UI for browsing and one-click adding of curated sources
+- Import/Export of Stack Source configurations (JSON, for team sharing)
+- Quick-Add flow for registry sources (prefilled Git URL, branch, etc.)
+
+### v0.25 – WebUI Headless Refactoring
 - Extract Framework-Independent Core Layer (API, Services, Types)
 - SignalR Connection Management as Standalone Services
 - Store-Hooks for Settings Pages (Registry, Stack Sources, TLS, API Keys)
@@ -175,22 +182,22 @@ Rough outlook on planned versions and features.
 - Store-Hooks for Remaining Pages (Catalog, Environments, Health, Wizard)
 - Downstream Fork Documentation
 
-### v0.25 – Docker Volumes Management
+### v0.26 – Docker Volumes Management
 - Docker Volumes View (List All Volumes per Environment)
 - Volume Details (Size, Mount Points, Labels)
 - Create/Delete Volumes
 - Detect Orphaned Volumes
 
-### v0.26 – Metrics & Audit
+### v0.27 – Metrics & Audit
 - Metrics & Alerting
 - Audit Logs
 
-### v0.27 – Multi-User Support
+### v0.28 – Multi-User Support
 - User Management UI
 - Create/Edit Users
 - Password Reset Flow
 
-### v0.28 – Feature Flags
+### v0.29 – Feature Flags
 - Feature Flags UI in Admin
 - Feature Toggle at Organization Level
 - Environment Variables for Feature Flags
