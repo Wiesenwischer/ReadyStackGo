@@ -117,8 +117,15 @@ export interface ConfigureLetsEncryptResponse {
   awaitingManualDnsChallenge: boolean;
 }
 
+export interface TriggerUpdateResponse {
+  success: boolean;
+  message: string;
+}
+
 export const systemApi = {
   getVersion: () => apiGet<VersionInfo>('/api/system/version'),
+  triggerUpdate: (targetVersion: string) =>
+    apiPost<TriggerUpdateResponse>('/api/system/update', { targetVersion }),
   getTlsConfig: () => apiGet<TlsConfig>('/api/system/tls'),
   updateTlsConfig: (request: UpdateTlsConfigRequest) =>
     apiPut<UpdateTlsConfigResponse>('/api/system/tls', request),

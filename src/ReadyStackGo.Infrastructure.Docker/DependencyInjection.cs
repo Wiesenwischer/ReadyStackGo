@@ -13,6 +13,9 @@ public static class DependencyInjection
         // Docker Compose parsing
         services.AddSingleton<IDockerComposeParser, DockerComposeParser>();
 
+        // Self-update service (connects directly to local Docker socket)
+        services.AddSingleton<ISelfUpdateService, SelfUpdateService>();
+
         return services;
     }
 }

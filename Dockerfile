@@ -39,11 +39,17 @@ COPY src/ ./src/
 # Copy frontend build output to wwwroot
 COPY --from=frontend-build /app/ReadyStackGo.Api/wwwroot ./src/ReadyStackGo.Api/wwwroot
 
+# Build args for version baking (set by CI/CD, defaults for local builds)
+ARG GIT_SEMVER=0.0.0-dev
+ARG GIT_SHA=unknown
+
 # Build and publish
 RUN dotnet publish src/ReadyStackGo.Api/ReadyStackGo.Api.csproj \
     -c Release \
     -o /app/publish \
-    --no-restore
+    --no-restore \
+    -p:Version=$GIT_SEMVER \
+    -p:InformationalVersion=${GIT_SEMVER}+${GIT_SHA}
 
 # Stage 3: Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
