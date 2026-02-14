@@ -170,15 +170,16 @@ Rough outlook on planned versions and features.
   - Add From Catalog in Stack Source Settings (one-click add from registry)
   - Import/Export of Stack Source configurations (JSON, for team sharing)
   - Catalog Empty State with source links
+- **v0.25** – Registry Wizard UX (2026-02-14)
+  - Image Reference Extraction from Synced Stack Manifests (auto-detect host + namespace)
+  - Container Registry Detection Endpoint (grouped by host + pattern)
+  - Wizard Step for Container Registries (two-column verified/action-required layout)
+  - Credential Verification via Docker Registry v2 API Token Flow
+  - Bulk Registry Creation from Wizard Input
+  - Public Image Detection (library/* defaults to anonymous)
+  - Skip/Undo Flow for Individual Registries
 
 ## Planned
-
-### v0.25 – Registry Wizard UX
-- Image Reference Extraction from Synced Stack Manifests (auto-detect host + namespace)
-- Container Registry Detection Endpoint (grouped by host + pattern)
-- Wizard Step for Container Registries (inline auth cards, no modals)
-- Bulk Registry Creation from Wizard Input
-- Public Image Detection (library/* defaults to anonymous)
 
 ### v0.26 – WebUI Monorepo Refactoring (Distribution-Ready)
 - pnpm Workspaces Monorepo (packages/core, packages/ui-generic, apps/rsgo-generic)

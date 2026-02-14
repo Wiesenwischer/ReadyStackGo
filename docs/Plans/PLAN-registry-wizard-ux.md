@@ -70,10 +70,13 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Gesamt: 69 neue Unit Tests (40 + 13 + 16), alle 1685 Tests grün
   - Abhängig von: Feature 1-4
 
-- [ ] **Dokumentation & Website** – PublicWeb (DE/EN), Roadmap
+- [x] **Dokumentation & Website** – PublicWeb (DE/EN), Roadmap
+  - E2E Tests mit Screenshots (wizard-registries.spec.ts, 7 Tests)
+  - DE/EN Dokumentation auf PublicWeb (wizard-registries.md)
+  - Roadmap und Plan aktualisiert
   - Abhängig von: Feature 1-5
 
-- [ ] **Phase abschließen** – Alle Tests grün, PR gegen main
+- [x] **Phase abschließen** – Alle Tests grün, PR gegen main
   - Abhängig von: alle
 
 ## Detailplan pro Feature
