@@ -16,7 +16,8 @@ export default function WizardLayout({ currentStep, children, timeout, onTimeout
     { number: 2, name: 'Organization', description: 'Set organization' },
     { number: 3, name: 'Environment', description: 'Configure Docker' },
     { number: 4, name: 'Sources', description: 'Stack sources' },
-    { number: 5, name: 'Complete', description: 'Finish setup' },
+    { number: 5, name: 'Registries', description: 'Container auth' },
+    { number: 6, name: 'Complete', description: 'Finish setup' },
   ];
 
   return (
