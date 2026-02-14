@@ -40,7 +40,20 @@ public class SetEnvironmentResponse
     public string? EnvironmentId { get; set; }
 }
 
-// Step 4: Install Stack
+// Step 4: Stack Sources Setup (optional)
+public class SetSourcesRequest
+{
+    public List<string> RegistrySourceIds { get; set; } = new();
+}
+
+public class SetSourcesResponse
+{
+    public bool Success { get; set; }
+    public string? Message { get; set; }
+    public int SourcesCreated { get; set; }
+}
+
+// Step 5: Install Stack
 public class InstallStackRequest
 {
     public string? ManifestPath { get; set; } // Optional: if not provided, use latest

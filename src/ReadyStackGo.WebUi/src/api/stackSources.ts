@@ -77,7 +77,31 @@ export interface SyncResult {
   warnings: string[];
 }
 
+/**
+ * A curated stack source entry from the embedded registry.
+ */
+export interface RegistrySourceDto {
+  id: string;
+  name: string;
+  description: string;
+  gitUrl: string;
+  gitBranch: string;
+  category: string;
+  tags: string[];
+  featured: boolean;
+  stackCount: number;
+  alreadyAdded: boolean;
+}
+
 // Stack Sources API
+
+/**
+ * Get all entries from the curated source registry.
+ */
+export async function getRegistrySources(): Promise<RegistrySourceDto[]> {
+  return apiGet<RegistrySourceDto[]>('/api/stack-sources/registry');
+}
+
 
 /**
  * Get all stack sources.
