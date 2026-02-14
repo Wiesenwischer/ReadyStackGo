@@ -394,19 +394,112 @@ public class ImageReferenceExtractorTests
     }
 
     [Fact]
-    public void GroupByRegistryArea_DockerHubUser_NotLikelyPublic()
+    public void GroupByRegistryArea_DockerHubUser_IsLikelyPublic()
     {
         var result = _extractor.GroupByRegistryArea(["amssolution/ams-api:1.0"]);
 
-        result[0].IsLikelyPublic.Should().BeFalse();
+        result[0].IsLikelyPublic.Should().BeTrue("Docker Hub images are mostly public");
+    }
+
+    [Theory]
+    [InlineData("ghcr.io/myorg/app:v1", "GitHub Container Registry")]
+    [InlineData("quay.io/coreos/etcd:v3", "Quay.io")]
+    [InlineData("registry.gitlab.com/mygroup/myproject:latest", "GitLab Registry")]
+    public void GroupByRegistryArea_MostlyPublicRegistries_IsLikelyPublic(string image, string reason)
+    {
+        var result = _extractor.GroupByRegistryArea([image]);
+
+        result[0].IsLikelyPublic.Should().BeTrue($"{reason} is a mostly-public registry");
+    }
+
+    [Theory]
+    [InlineData("mcr.microsoft.com/dotnet/aspnet:9.0", "Microsoft Container Registry")]
+    [InlineData("registry.k8s.io/kube-apiserver:v1.30", "Kubernetes Registry")]
+    [InlineData("public.ecr.aws/lambda/python:3.12", "AWS Public ECR")]
+    [InlineData("lscr.io/linuxserver/nginx:latest", "LinuxServer.io")]
+    public void GroupByRegistryArea_AlwaysPublicRegistries_IsLikelyPublic(string image, string reason)
+    {
+        var result = _extractor.GroupByRegistryArea([image]);
+
+        result[0].IsLikelyPublic.Should().BeTrue($"{reason} is an always-public registry");
     }
 
     [Fact]
-    public void GroupByRegistryArea_CustomRegistry_NotLikelyPublic()
+    public void GroupByRegistryArea_UnknownPrivateRegistry_NotLikelyPublic()
     {
-        var result = _extractor.GroupByRegistryArea(["ghcr.io/myorg/app:v1"]);
+        var result = _extractor.GroupByRegistryArea(["registry.internal.corp:5000/myteam/app:v1"]);
 
-        result[0].IsLikelyPublic.Should().BeFalse();
+        result[0].IsLikelyPublic.Should().BeFalse("unknown registries default to private");
+    }
+
+    #endregion
+
+    #region GroupByRegistryArea - Variable filtering
+
+    [Fact]
+    public void GroupByRegistryArea_VariableInTag_FilteredOut()
+    {
+        var result = _extractor.GroupByRegistryArea(["wordpress:${WORDPRESS_VERSION}"]);
+
+        result.Should().BeEmpty("images with unresolved variables should be filtered out");
+    }
+
+    [Fact]
+    public void GroupByRegistryArea_VariableInHost_FilteredOut()
+    {
+        var result = _extractor.GroupByRegistryArea(["${REGISTRY}/myimage:latest"]);
+
+        result.Should().BeEmpty("images with unresolved variables should be filtered out");
+    }
+
+    [Fact]
+    public void GroupByRegistryArea_MalformedVariable_FilteredOut()
+    {
+        var result = _extractor.GroupByRegistryArea(["{$REGISTRY}/myimage:latest"]);
+
+        result.Should().BeEmpty("images with malformed variable syntax should be filtered out");
+    }
+
+    [Fact]
+    public void GroupByRegistryArea_VariableWithDefault_FilteredOut()
+    {
+        var result = _extractor.GroupByRegistryArea(["myapp:${VERSION:-latest}"]);
+
+        result.Should().BeEmpty("images with unresolved variable defaults should be filtered out");
+    }
+
+    [Fact]
+    public void GroupByRegistryArea_MixedResolvedAndUnresolved_OnlyResolvedKept()
+    {
+        var images = new[]
+        {
+            "nginx:latest",
+            "wordpress:${WORDPRESS_VERSION}",
+            "redis:7",
+            "${REGISTRY}/api:${VERSION}"
+        };
+
+        var result = _extractor.GroupByRegistryArea(images);
+
+        result.Should().HaveCount(1, "only the resolved images should remain");
+        result[0].Images.Should().HaveCount(2);
+        result[0].Images.Should().Contain("nginx:latest");
+        result[0].Images.Should().Contain("redis:7");
+    }
+
+    [Fact]
+    public void GroupByRegistryArea_AllVariables_ReturnsEmpty()
+    {
+        var images = new[]
+        {
+            "wordpress:${WORDPRESS_VERSION}",
+            "mysql:${MYSQL_VERSION}",
+            "${REGISTRY}/api:${VERSION}"
+        };
+
+        var result = _extractor.GroupByRegistryArea(images);
+
+        result.Should().BeEmpty("all images contain unresolved variables");
     }
 
     #endregion
@@ -447,11 +540,11 @@ public class ImageReferenceExtractorTests
 
         var dockerHubAms = result.First(a => a.Namespace == "amssolution");
         dockerHubAms.Images.Should().HaveCount(2);
-        dockerHubAms.IsLikelyPublic.Should().BeFalse();
+        dockerHubAms.IsLikelyPublic.Should().BeTrue();
 
         var ghcr = result.First(a => a.Host == "ghcr.io");
         ghcr.Images.Should().HaveCount(2);
-        ghcr.IsLikelyPublic.Should().BeFalse();
+        ghcr.IsLikelyPublic.Should().BeTrue();
     }
 
     [Fact]
