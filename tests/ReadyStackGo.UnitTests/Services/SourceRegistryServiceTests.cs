@@ -36,10 +36,18 @@ public class SourceRegistryServiceTests
             entry.Id.Should().NotBeNullOrWhiteSpace();
             entry.Name.Should().NotBeNullOrWhiteSpace();
             entry.Description.Should().NotBeNullOrWhiteSpace();
-            entry.GitUrl.Should().NotBeNullOrWhiteSpace();
-            entry.GitBranch.Should().NotBeNullOrWhiteSpace();
             entry.Category.Should().NotBeNullOrWhiteSpace();
             entry.Tags.Should().NotBeNull();
+
+            if (entry.Type == "git-repository")
+            {
+                entry.GitUrl.Should().NotBeNullOrWhiteSpace($"git-repository entry '{entry.Id}' must have a GitUrl");
+                entry.GitBranch.Should().NotBeNullOrWhiteSpace($"git-repository entry '{entry.Id}' must have a GitBranch");
+            }
+            else if (entry.Type == "local-directory")
+            {
+                entry.Path.Should().NotBeNullOrWhiteSpace($"local-directory entry '{entry.Id}' must have a Path");
+            }
         }
     }
 
@@ -84,7 +92,7 @@ public class SourceRegistryServiceTests
     {
         var service = CreateService();
 
-        var entries = service.GetAll();
+        var entries = service.GetAll().Where(e => e.Type == "git-repository");
 
         foreach (var entry in entries)
         {
