@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 
@@ -187,26 +188,23 @@ public class RegistryAccessChecker : IRegistryAccessChecker
         var content = await tokenResponse.Content.ReadAsStringAsync();
 
         // Token responses are JSON: {"token":"..."} or {"access_token":"..."}
-        // Simple extraction without JSON dependency
-        var token = ExtractJsonValue(content, "token")
-                    ?? ExtractJsonValue(content, "access_token");
+        try
+        {
+            using var doc = JsonDocument.Parse(content);
+            var root = doc.RootElement;
 
-        return token;
-    }
+            if (root.TryGetProperty("token", out var tokenProp) && tokenProp.ValueKind == JsonValueKind.String)
+                return tokenProp.GetString();
 
-    private static string? ExtractJsonValue(string json, string key)
-    {
-        var search = $"\"{key}\":\"";
-        var startIdx = json.IndexOf(search, StringComparison.Ordinal);
-        if (startIdx < 0)
+            if (root.TryGetProperty("access_token", out var accessProp) && accessProp.ValueKind == JsonValueKind.String)
+                return accessProp.GetString();
+
             return null;
-
-        startIdx += search.Length;
-        var endIdx = json.IndexOf('"', startIdx);
-        if (endIdx < 0)
+        }
+        catch (JsonException)
+        {
             return null;
-
-        return json[startIdx..endIdx];
+        }
     }
 
     private static string? ExtractParam(string headerValue, string paramName)

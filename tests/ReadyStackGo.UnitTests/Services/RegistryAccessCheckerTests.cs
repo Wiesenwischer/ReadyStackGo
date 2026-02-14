@@ -217,6 +217,22 @@ public class RegistryAccessCheckerTests
         result.Should().Be(RegistryAccessLevel.Unknown);
     }
 
+    [Fact]
+    public async Task CheckAccess_TokenResponseWithSpaces_ReturnsPublic()
+    {
+        // Some registries format JSON with spaces after colons
+        var handlerMock = CreateSequenceHandler(
+            (HttpStatusCode.Unauthorized, BearerChallenge(), null),
+            (HttpStatusCode.OK, null, "{ \"token\" : \"abc123\" }"),
+            (HttpStatusCode.OK, null, "{\"tags\":[\"latest\"]}"));
+
+        var checker = CreateChecker(handlerMock.Object);
+
+        var result = await checker.CheckAccessAsync("registry.example.io", "ns", "repo");
+
+        result.Should().Be(RegistryAccessLevel.Public);
+    }
+
     #endregion
 
     #region Docker Hub special handling
