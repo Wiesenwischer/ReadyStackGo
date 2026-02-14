@@ -146,8 +146,35 @@ Rough outlook on planned versions and features.
   - Fine-grained Permission System per API Key (Redeploy, Upgrade, SyncSources)
   - Optional Environment-Scope for API Keys
   - Pipeline Examples for curl, GitHub Actions, and Azure DevOps
+- **v0.20** – Deploy Hook Improvements & Bugfixes (2026-02-12)
+  - Idempotent Deploy Hook with Variable Default Value Fixes
+  - Deploy Permission Option in API Key Creation UI
+  - WebUI Headless Refactoring Specification
+- **v0.21** – UX Improvements (2026-02-12)
+  - Copy-to-Clipboard Stack ID Button on Catalog StackCard
+- **v0.22** – Self-Update (2026-02-13)
+  - UI-Triggered Self-Update via Helper Container Pattern
+  - Version Detection via GitHub Releases API
+  - Assembly Version Baking in Dockerfile (GIT_SEMVER Build Arg)
+  - Helper Container (`rsgo-updater`) for Zero-Downtime Container Swap
+  - Maintenance Page Served by Helper During Container Restart
+  - Self-Update Documentation (DE/EN) and Landing Page Highlight
+- **v0.23** – Self-Update UX (2026-02-13)
+  - Dedicated Full-Page Update Status Screen with Progress Display
+  - Version Transition Badge (Current → Target Version)
+  - Error State with Retry and Back-to-Dashboard Options
+  - Helper Container Maintenance Page Restyled with RSGO Branding
 
-### v0.20 – WebUI Headless Refactoring
+## Planned
+
+### v0.24 – Preconfigured Stack Sources & Marketplace
+- Curated Source Registry (embedded JSON catalog of known Git repos)
+- Bundled Default Sources on First Start (official repos pre-configured)
+- Marketplace UI for browsing and one-click adding of curated sources
+- Import/Export of Stack Source configurations (JSON, for team sharing)
+- Quick-Add flow for registry sources (prefilled Git URL, branch, etc.)
+
+### v0.25 – WebUI Headless Refactoring
 - Extract Framework-Independent Core Layer (API, Services, Types)
 - SignalR Connection Management as Standalone Services
 - Store-Hooks for Settings Pages (Registry, Stack Sources, TLS, API Keys)
@@ -155,22 +182,22 @@ Rough outlook on planned versions and features.
 - Store-Hooks for Remaining Pages (Catalog, Environments, Health, Wizard)
 - Downstream Fork Documentation
 
-### v0.21 – Docker Volumes Management
+### v0.26 – Docker Volumes Management
 - Docker Volumes View (List All Volumes per Environment)
 - Volume Details (Size, Mount Points, Labels)
 - Create/Delete Volumes
 - Detect Orphaned Volumes
 
-### v0.22 – Metrics & Audit
+### v0.27 – Metrics & Audit
 - Metrics & Alerting
 - Audit Logs
 
-### v0.23 – Multi-User Support
+### v0.28 – Multi-User Support
 - User Management UI
 - Create/Edit Users
 - Password Reset Flow
 
-### v0.24 – Feature Flags
+### v0.29 – Feature Flags
 - Feature Flags UI in Admin
 - Feature Toggle at Organization Level
 - Environment Variables for Feature Flags
