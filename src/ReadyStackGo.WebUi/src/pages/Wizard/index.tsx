@@ -5,8 +5,9 @@ import AdminStep from './AdminStep';
 import OrganizationStep from './OrganizationStep';
 import EnvironmentStep from './EnvironmentStep';
 import StackSourcesStep from './StackSourcesStep';
+import RegistriesStep from './RegistriesStep';
 import InstallStep from './InstallStep';
-import { createAdmin, setOrganization, setEnvironment, setSources, installStack, getWizardStatus, type WizardTimeoutInfo } from '../../api/wizard';
+import { createAdmin, setOrganization, setEnvironment, setSources, setRegistries, installStack, getWizardStatus, type WizardTimeoutInfo, type RegistryInputDto } from '../../api/wizard';
 
 export default function Wizard() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -104,8 +105,19 @@ export default function Wizard() {
         throw new Error(response.message || 'Failed to add sources');
       }
     }
-    // Move to install step (whether sources were added or skipped)
+    // Move to registries step (whether sources were added or skipped)
     setCurrentStep(5);
+  };
+
+  const handleRegistriesNext = async (registries: RegistryInputDto[]) => {
+    if (registries.length > 0) {
+      const response = await setRegistries({ registries });
+      if (!response.success) {
+        throw new Error('Failed to configure registries');
+      }
+    }
+    // Move to install step (whether registries were configured or skipped)
+    setCurrentStep(6);
   };
 
   const handleInstall = async () => {
@@ -182,7 +194,7 @@ export default function Wizard() {
   return (
     <WizardLayout
       currentStep={currentStep}
-      totalSteps={5}
+      totalSteps={6}
       timeout={timeout}
       onTimeout={handleTimeout}
     >
@@ -190,7 +202,8 @@ export default function Wizard() {
       {currentStep === 2 && <OrganizationStep onNext={handleOrganizationNext} />}
       {currentStep === 3 && <EnvironmentStep onNext={handleEnvironmentNext} />}
       {currentStep === 4 && <StackSourcesStep onNext={handleSourcesNext} />}
-      {currentStep === 5 && <InstallStep onInstall={handleInstall} />}
+      {currentStep === 5 && <RegistriesStep onNext={handleRegistriesNext} />}
+      {currentStep === 6 && <InstallStep onInstall={handleInstall} />}
     </WizardLayout>
   );
 }
