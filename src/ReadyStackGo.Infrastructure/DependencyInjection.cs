@@ -72,6 +72,18 @@ public static class DependencyInjection
         // Image Reference Extraction (v0.25)
         services.AddSingleton<IImageReferenceExtractor, ImageReferenceExtractor>();
 
+        // Registry Access Checker (v0.25) — checks anonymous pull via Docker v2 API
+        services.AddScoped<IRegistryAccessChecker, RegistryAccessChecker>();
+        services.AddHttpClient("RegistryCheck", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(5);
+            client.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-RegistryCheck");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        });
+
         // Health Monitoring (v0.11)
         services.AddScoped<IHealthMonitoringService, HealthMonitoringService>();
         services.AddScoped<IHealthCollectorService, HealthCollectorService>();
