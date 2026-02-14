@@ -213,15 +213,47 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
 
 ## Offene Punkte
 
-- [ ] Soll `core/` als eigenständiges npm-Package extrahiert werden (für Fork als Dependency), oder reicht die Ordner-Trennung?
-- [ ] Sollen die Store-Hooks in `ui/stores/` oder `ui/hooks/` leben?
-- [ ] Brauchen wir ein State-Management-Library (Zustand, Jotai) oder reichen React-Hooks?
+Alle offenen Punkte wurden durch die Distribution-Specs (`docs/specs/rsgo-distributions/`) beantwortet:
+
+- [x] Soll `core/` als eigenständiges npm-Package extrahiert werden? → **Ja, als `@rsgo/core` in pnpm Monorepo**
+- [x] Sollen die Store-Hooks in `ui/stores/` oder `ui/hooks/` leben? → **In `@rsgo/core/src/hooks/` als ViewModel-Hooks**
+- [x] Brauchen wir ein State-Management-Library? → **Nein, plain React Hooks (useState/useCallback)**
 
 ## Entscheidungen
 
 | Entscheidung | Optionen | Gewählt | Begründung |
 |---|---|---|---|
-| State-Management | A) Zustand, B) Jotai, C) React Hooks | - | Noch offen |
-| Core-Packaging | A) Ordner-Trennung, B) npm-Package | - | Noch offen |
-| Store-Location | A) `ui/stores/`, B) `ui/hooks/` | - | Noch offen |
-| SignalR-Abstraktion | A) Event-Emitter, B) Callback-basiert, C) Observable | - | Noch offen |
+| State-Management | A) Zustand, B) Jotai, C) React Hooks | **C) React Hooks** | Zustand/react-query in package.json aber ungenutzt. Distribution-Spec-Beispiele nutzen plain Hooks. |
+| Core-Packaging | A) Ordner-Trennung, B) npm-Package | **B) npm-Package (`@rsgo/core`)** | Distribution-Specs erfordern Package-Level-Trennung für Downstream-Consumption |
+| Store-Location | A) `ui/stores/`, B) `ui/hooks/` | **Weder — `@rsgo/core/src/hooks/`** | Spec: Core exportiert ViewModel-Hooks, Pages importieren sie |
+| SignalR-Abstraktion | A) Event-Emitter, B) Callback-basiert, C) Observable | **B) Callback-basiert** | Entspricht RSGO-FRONTEND-ARCH.md Abschnitt 3.2 |
+
+## Aktualisierte Architektur (Distribution-Ready)
+
+Die Ordner-basierte `core/` + `ui/` Trennung wird zu einem **pnpm Workspaces Monorepo** mit npm-Packages erweitert:
+
+```
+src/ReadyStackGo.WebUi/                      Monorepo-Root
+  pnpm-workspace.yaml
+  packages/
+    core/                                     @rsgo/core
+      src/
+        api/                                  ← verschoben aus src/api/
+        types/                                ← extrahiert aus api/ und pages/
+        hooks/                                ← ViewModel-Hooks (aus pages + contexts)
+        realtime/                             ← SignalR-Services (aus hooks/)
+        services/                             ← Auth/Environment-Logik (aus contexts)
+    ui-generic/                               @rsgo/ui-generic
+      src/
+        components/                           ← verschoben aus src/components/
+        context/                              ← dünne React Contexts
+        hooks/                                ← UI-only (useModal, useGoBack)
+        layouts/                              ← verschoben aus src/layout/
+        pages/                                ← verschoben aus src/pages/
+  apps/
+    rsgo-generic/                             App-Einstiegspunkt
+      src/main.tsx, App.tsx
+      vite.config.ts                          → Build nach Api/wwwroot
+```
+
+Siehe vollständigen Plan in `C:\Users\MAD\.claude\plans\deep-baking-brook.md` (v0.26 Abschnitt).
