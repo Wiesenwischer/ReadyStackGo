@@ -42,7 +42,7 @@ RSGO soll nicht mehr nur mit einem leeren lokalen Verzeichnis starten, sondern a
 
 ### Feature 1: Source Registry (Curated Catalog Backend)
 
-- [ ] **Feature 1: Source Registry Model & Data** – Kuratierter Katalog von bekannten Stack-Quellen
+- [x] **Feature 1: Source Registry Model & Data** – Kuratierter Katalog von bekannten Stack-Quellen
 
   **Konzept:** Eine JSON-Datei (`source-registry.json`) wird im Docker-Image eingebettet und enthält eine kuratierte Liste von Stack-Quellen (öffentliche Git-Repos) mit Metadaten. Kein Remote-Update — neue Einträge kommen über neue RSGO-Versionen.
 
@@ -77,7 +77,7 @@ RSGO soll nicht mehr nur mit einem leeren lokalen Verzeichnis starten, sondern a
 
 ### Feature 2: Wizard-Step für Source-Auswahl
 
-- [ ] **Feature 2: Wizard Source Selection Step** – Im Wizard aus dem Katalog Quellen auswählen
+- [x] **Feature 2: Wizard Source Selection Step** – Im Wizard aus dem Katalog Quellen auswählen
 
   **Konzept:** Neuer Wizard-Step nach Environment-Setup (wird Step 4, Install wird Step 5). Zeigt die Registry-Einträge als Karten mit Checkboxen. Lokale `stacks/` Source ist immer dabei und vorausgewählt. User wählt weitere aus. Beim Install-Step werden die gewählten Sources angelegt und ein erster Sync gestartet.
 
@@ -106,7 +106,7 @@ RSGO soll nicht mehr nur mit einem leeren lokalen Verzeichnis starten, sondern a
 
 ### Feature 3: Erweiterter Add-Source-Flow ("From Catalog")
 
-- [ ] **Feature 3: Add From Catalog** – Dritte Option im Add-Source-Flow
+- [x] **Feature 3: Add From Catalog** – Dritte Option im Add-Source-Flow
 
   **Konzept:** Der bestehende "Add Stack Source" Type-Selector bekommt eine dritte Option: "From Catalog". Diese zeigt die Registry-Einträge als Auswahlliste. Bei Auswahl wird die Git-Source mit vorausgefüllten Feldern angelegt — kein manuelles Tippen nötig.
 
@@ -139,7 +139,7 @@ RSGO soll nicht mehr nur mit einem leeren lokalen Verzeichnis starten, sondern a
 
 ### Feature 4: Empty State im Stack Catalog
 
-- [ ] **Feature 4: Catalog Empty State** – Hinweis bei leerem Catalog
+- [x] **Feature 4: Catalog Empty State** – Hinweis bei leerem Catalog
 
   **Konzept:** Wenn der Stack Catalog leer ist (keine Products geladen), wird ein Empty State angezeigt mit einem Hinweis und Link zum Hinzufügen von Sources.
 
@@ -167,7 +167,7 @@ RSGO soll nicht mehr nur mit einem leeren lokalen Verzeichnis starten, sondern a
 
 ### Feature 5: Import/Export
 
-- [ ] **Feature 5: Import/Export** – Source-Konfigurationen exportieren und importieren
+- [x] **Feature 5: Import/Export** – Source-Konfigurationen exportieren und importieren
 
   **Konzept:** Nutzer können ihre Stack-Source-Konfiguration als JSON exportieren (Download) und JSON-Dateien importieren (Upload → Sources werden angelegt). Nützlich für Team-Sharing und Backup. Credentials werden nicht exportiert/importiert.
 
@@ -206,11 +206,11 @@ RSGO soll nicht mehr nur mit einem leeren lokalen Verzeichnis starten, sondern a
 
 ---
 
-- [ ] **Dokumentation & Website** – Wiki, Public Website (DE/EN), Roadmap aktualisieren
+- [x] **Dokumentation & Website** – Wiki, Public Website (DE/EN), Roadmap aktualisieren
   - Docs: Preconfigured Sources Anleitung, Wizard-Dokumentation aktualisieren
   - Public Website: Feature Highlight
 
-- [ ] **Phase abschließen** – Alle Tests grün, PR gegen main
+- [x] **Phase abschließen** – Alle Tests grün, PR gegen main
 
 ## Test-Strategie
 

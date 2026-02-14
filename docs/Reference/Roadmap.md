@@ -164,15 +164,12 @@ Rough outlook on planned versions and features.
   - Version Transition Badge (Current → Target Version)
   - Error State with Retry and Back-to-Dashboard Options
   - Helper Container Maintenance Page Restyled with RSGO Branding
-
-## In Progress
-
-### v0.24 – Preconfigured Stack Sources
-- Curated Source Registry (embedded JSON catalog of known Git/local sources)
-- Wizard Stack Source Selection (opt-in instead of auto-creation)
-- Add From Catalog in Stack Source Settings (one-click add from registry)
-- Import/Export of Stack Source configurations (JSON, for team sharing)
-- Catalog Empty State with source links
+- **v0.24** – Preconfigured Stack Sources (2026-02-14)
+  - Curated Source Registry (embedded JSON catalog of known Git/local sources)
+  - Wizard Stack Source Selection (opt-in instead of auto-creation)
+  - Add From Catalog in Stack Source Settings (one-click add from registry)
+  - Import/Export of Stack Source configurations (JSON, for team sharing)
+  - Catalog Empty State with source links
 
 ## Planned
 
