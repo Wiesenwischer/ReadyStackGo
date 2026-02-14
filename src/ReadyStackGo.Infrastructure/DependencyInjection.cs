@@ -69,6 +69,9 @@ public static class DependencyInjection
         // Source Registry (v0.24)
         services.AddSingleton<ISourceRegistryService, SourceRegistryService>();
 
+        // Image Reference Extraction (v0.25)
+        services.AddSingleton<IImageReferenceExtractor, ImageReferenceExtractor>();
+
         // Health Monitoring (v0.11)
         services.AddScoped<IHealthMonitoringService, HealthMonitoringService>();
         services.AddScoped<IHealthCollectorService, HealthCollectorService>();
