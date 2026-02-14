@@ -35,4 +35,23 @@ public interface IRegistryAccessChecker
         string namespacePath,
         string repository,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Checks if the given registry allows access using the provided credentials.
+    /// Uses the v2 token auth flow with Basic auth on the token request.
+    /// </summary>
+    /// <param name="host">Registry host (e.g., "ghcr.io", "docker.io")</param>
+    /// <param name="namespacePath">Image namespace (e.g., "library", "wiesenwischer")</param>
+    /// <param name="repository">Image repository name (e.g., "nginx", "ams-api")</param>
+    /// <param name="username">Registry username</param>
+    /// <param name="password">Registry password or access token</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>Access level: Public (if anonymous works), AuthRequired (if credentials failed), or Unknown</returns>
+    Task<RegistryAccessLevel> CheckAccessAsync(
+        string host,
+        string namespacePath,
+        string repository,
+        string username,
+        string password,
+        CancellationToken ct = default);
 }

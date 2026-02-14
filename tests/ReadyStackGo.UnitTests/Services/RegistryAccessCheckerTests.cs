@@ -364,4 +364,135 @@ public class RegistryAccessCheckerTests
     }
 
     #endregion
+
+    #region Authenticated access (credentials provided)
+
+    /// <summary>
+    /// Creates a handler that captures all requests and returns responses in sequence.
+    /// Useful for verifying auth headers on specific requests.
+    /// </summary>
+    private static Mock<HttpMessageHandler> CreateCapturingHandler(
+        List<(HttpMethod Method, Uri? Uri, AuthenticationHeaderValue? Auth)> captured,
+        params (HttpStatusCode Status, AuthenticationHeaderValue? Auth, string? Content)[] responses)
+    {
+        var callIndex = 0;
+        var handlerMock = new Mock<HttpMessageHandler>();
+        handlerMock.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync((HttpRequestMessage req, CancellationToken _) =>
+            {
+                captured.Add((req.Method, req.RequestUri, req.Headers.Authorization));
+
+                var idx = callIndex++;
+                if (idx >= responses.Length)
+                    return new HttpResponseMessage(HttpStatusCode.InternalServerError);
+
+                var (status, auth, content) = responses[idx];
+                var resp = new HttpResponseMessage(status);
+                if (auth != null)
+                    resp.Headers.WwwAuthenticate.Add(auth);
+                if (content != null)
+                    resp.Content = new StringContent(content);
+                return resp;
+            });
+
+        return handlerMock;
+    }
+
+    [Fact]
+    public async Task CheckAccessWithCredentials_ValidCredentials_ReturnsPublic()
+    {
+        // v2 → 401, authenticated token → 200, tags → 200
+        var captured = new List<(HttpMethod, Uri?, AuthenticationHeaderValue?)>();
+        var handlerMock = CreateCapturingHandler(captured,
+            (HttpStatusCode.Unauthorized, BearerChallenge(), null),
+            (HttpStatusCode.OK, null, "{\"token\":\"authenticated_token\"}"),
+            (HttpStatusCode.OK, null, "{\"tags\":[\"latest\"]}"));
+
+        var checker = CreateChecker(handlerMock.Object);
+
+        var result = await checker.CheckAccessAsync("registry.example.io", "myorg", "myapp", "user", "pass");
+
+        result.Should().Be(RegistryAccessLevel.Public);
+
+        // Token request (second call) should have Basic auth
+        captured.Should().HaveCount(3);
+        captured[1].Item3.Should().NotBeNull();
+        captured[1].Item3!.Scheme.Should().Be("Basic");
+    }
+
+    [Fact]
+    public async Task CheckAccessWithCredentials_InvalidCredentials_ReturnsAuthRequired()
+    {
+        // v2 → 401, authenticated token request denied → auth required
+        var handlerMock = CreateSequenceHandler(
+            (HttpStatusCode.Unauthorized, BearerChallenge(), null),
+            (HttpStatusCode.Unauthorized, null, null));
+
+        var checker = CreateChecker(handlerMock.Object);
+
+        var result = await checker.CheckAccessAsync("registry.example.io", "private", "app", "baduser", "badpass");
+
+        result.Should().Be(RegistryAccessLevel.AuthRequired);
+    }
+
+    [Fact]
+    public async Task CheckAccessWithCredentials_TokenSucceedsButTagsDenied_ReturnsAuthRequired()
+    {
+        // Token obtained with credentials, but still insufficient scope
+        var handlerMock = CreateSequenceHandler(
+            (HttpStatusCode.Unauthorized, BearerChallenge(), null),
+            (HttpStatusCode.OK, null, "{\"token\":\"limited\"}"),
+            (HttpStatusCode.Forbidden, null, null));
+
+        var checker = CreateChecker(handlerMock.Object);
+
+        var result = await checker.CheckAccessAsync("registry.example.io", "private", "app", "user", "pass");
+
+        result.Should().Be(RegistryAccessLevel.AuthRequired);
+    }
+
+    [Fact]
+    public async Task CheckAccessWithCredentials_V2Returns200_ReturnsPublicWithoutUsingCredentials()
+    {
+        // Fully open registry — credentials not needed at all
+        var captured = new List<(HttpMethod, Uri?, AuthenticationHeaderValue?)>();
+        var handlerMock = CreateCapturingHandler(captured,
+            (HttpStatusCode.OK, null, null));
+
+        var checker = CreateChecker(handlerMock.Object);
+
+        var result = await checker.CheckAccessAsync("mcr.microsoft.com", "dotnet", "runtime", "user", "pass");
+
+        result.Should().Be(RegistryAccessLevel.Public);
+        captured.Should().HaveCount(1);
+        // v2 probe should NOT include credentials
+        captured[0].Item3.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CheckAccessWithCredentials_BasicAuthHeaderIsCorrectlyEncoded()
+    {
+        var captured = new List<(HttpMethod, Uri?, AuthenticationHeaderValue?)>();
+        var handlerMock = CreateCapturingHandler(captured,
+            (HttpStatusCode.Unauthorized, BearerChallenge(), null),
+            (HttpStatusCode.OK, null, "{\"token\":\"tok\"}"),
+            (HttpStatusCode.OK, null, "{\"tags\":[\"v1\"]}"));
+
+        var checker = CreateChecker(handlerMock.Object);
+
+        await checker.CheckAccessAsync("registry.example.io", "ns", "repo", "myuser", "myp@ss");
+
+        var tokenAuth = captured[1].Item3;
+        tokenAuth.Should().NotBeNull();
+        tokenAuth!.Scheme.Should().Be("Basic");
+        var decoded = System.Text.Encoding.UTF8.GetString(
+            Convert.FromBase64String(tokenAuth.Parameter!));
+        decoded.Should().Be("myuser:myp@ss");
+    }
+
+    #endregion
 }

@@ -139,6 +139,19 @@ export interface CheckRegistryAccessResponse {
   repository: string;
 }
 
+export interface VerifyRegistryAccessRequest {
+  image: string;
+  username?: string;
+  password?: string;
+}
+
+export interface VerifyRegistryAccessResponse {
+  accessLevel: 'Public' | 'AuthRequired' | 'Unknown';
+  host: string;
+  namespace: string;
+  repository: string;
+}
+
 export interface InstallStackRequest {
   manifestPath?: string;
 }
@@ -193,6 +206,10 @@ export async function setRegistries(request: SetRegistriesRequestDto): Promise<S
 
 export async function checkRegistryAccess(image: string): Promise<CheckRegistryAccessResponse> {
   return apiGet<CheckRegistryAccessResponse>(`/api/wizard/check-registry-access?image=${encodeURIComponent(image)}`);
+}
+
+export async function verifyRegistryAccess(request: VerifyRegistryAccessRequest): Promise<VerifyRegistryAccessResponse> {
+  return apiPost<VerifyRegistryAccessResponse>('/api/wizard/verify-registry-access', request);
 }
 
 export async function installStack(request: InstallStackRequest = {}): Promise<InstallStackResponse> {

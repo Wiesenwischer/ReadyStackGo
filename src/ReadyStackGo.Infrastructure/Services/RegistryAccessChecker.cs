@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
@@ -42,11 +43,33 @@ public class RegistryAccessChecker : IRegistryAccessChecker
         _logger = logger;
     }
 
-    public async Task<RegistryAccessLevel> CheckAccessAsync(
+    public Task<RegistryAccessLevel> CheckAccessAsync(
         string host,
         string namespacePath,
         string repository,
         CancellationToken ct = default)
+    {
+        return CheckAccessCoreAsync(host, namespacePath, repository, null, null, ct);
+    }
+
+    public Task<RegistryAccessLevel> CheckAccessAsync(
+        string host,
+        string namespacePath,
+        string repository,
+        string username,
+        string password,
+        CancellationToken ct = default)
+    {
+        return CheckAccessCoreAsync(host, namespacePath, repository, username, password, ct);
+    }
+
+    private async Task<RegistryAccessLevel> CheckAccessCoreAsync(
+        string host,
+        string namespacePath,
+        string repository,
+        string? username,
+        string? password,
+        CancellationToken ct)
     {
         try
         {
@@ -72,8 +95,8 @@ public class RegistryAccessChecker : IRegistryAccessChecker
                 return RegistryAccessLevel.Unknown;
             }
 
-            // 401 — try anonymous token flow
-            return await TryAnonymousTokenAsync(client, response, host, namespacePath, repository, ct);
+            // 401 — try token flow (anonymous or with credentials)
+            return await TryTokenFlowAsync(client, response, host, namespacePath, repository, username, password, ct);
         }
         catch (TaskCanceledException)
         {
@@ -92,12 +115,14 @@ public class RegistryAccessChecker : IRegistryAccessChecker
         }
     }
 
-    private async Task<RegistryAccessLevel> TryAnonymousTokenAsync(
+    private async Task<RegistryAccessLevel> TryTokenFlowAsync(
         HttpClient client,
         HttpResponseMessage v2Response,
         string host,
         string namespacePath,
         string repository,
+        string? username,
+        string? password,
         CancellationToken ct)
     {
         // Parse Www-Authenticate: Bearer realm="...",service="...",scope="..."
@@ -120,11 +145,19 @@ public class RegistryAccessChecker : IRegistryAccessChecker
         var scope = $"repository:{namespacePath}/{repository}:pull";
         var tokenUrl = $"{realm}?service={Uri.EscapeDataString(service ?? "")}&scope={Uri.EscapeDataString(scope)}";
 
-        _logger.LogDebug("Requesting anonymous token: {Url}", tokenUrl);
+        var hasCredentials = !string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password);
+        _logger.LogDebug("Requesting token: {Url} (authenticated: {HasCreds})", tokenUrl, hasCredentials);
 
         try
         {
-            var tokenResponse = await client.GetAsync(tokenUrl, ct);
+            var tokenRequest = new HttpRequestMessage(HttpMethod.Get, tokenUrl);
+            if (hasCredentials)
+            {
+                var basicAuth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{password}"));
+                tokenRequest.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
+            }
+
+            var tokenResponse = await client.SendAsync(tokenRequest, ct);
 
             if (!tokenResponse.IsSuccessStatusCode)
             {
