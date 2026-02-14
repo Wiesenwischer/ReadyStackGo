@@ -144,8 +144,13 @@ Reihenfolge basierend auf Abhängigkeiten:
 - [ ] **Tests** – Unit + E2E
   - Abhängig von: Feature 1-7
 
-- [ ] **Dokumentation & Website** – Aktualisierte Wizard-Docs, Onboarding-Docs
+- [ ] **Dokumentation: `/document-feature` für neue Flows** – E2E-Tests, Screenshots und Anleitungen
   - Abhängig von: Tests
+  - Details: Siehe Abschnitt "Dokumentationsplan" unten
+
+- [ ] **Dokumentation: Bestehende Docs aktualisieren** – Referenzen auf alten Wizard-Flow korrigieren
+  - Abhängig von: `/document-feature`
+  - Details: Siehe Abschnitt "Dokumentationsplan" unten
 
 - [ ] **Phase abschließen** – Alle Tests grün, PR gegen main
   - Abhängig von: alle
@@ -352,3 +357,141 @@ Diese Architektur ermöglicht direkt:
 | **Zentrales Portal** | "Authenticate with Portal" → Admin + Org wird vom Portal geliefert | Org-Item entfällt aus Checklist |
 | **Distribution (v0.27)** | `ISetupWizardDefinitionProvider` liefert Auth-Methode | `IOnboardingDefinitionProvider` liefert Checklist-Items |
 | **Multi-Tenant** | Portal-Auth → Org-Auswahl statt Org-Erstellung | Checklist pro Org |
+
+## Dokumentationsplan
+
+### Phase A: `/document-feature` — Neue Flows dokumentieren (E2E + Screenshots + Docs)
+
+Folgende Features erhalten eine vollständige Dokumentation via `/document-feature`:
+
+#### A1: Setup Wizard (Rewrite)
+
+Bisherige Docs (`initial-setup.md` DE/EN) beschreiben 4 Wizard-Steps. Komplett neu schreiben:
+
+- **E2E-Test**: `e2e/wizard-setup.spec.ts` (ersetzt bestehende Wizard-Tests falls vorhanden)
+  - Test: Wizard-Seite öffnen → Admin-Formular sichtbar
+  - Test: Admin erstellen → Auto-Login → Redirect zum Dashboard
+  - Test: Timeout-Verhalten (optional, schwer zu testen)
+- **Screenshots** (neu):
+  - `setup-01-welcome.png` — Wizard-Seite mit Admin-Formular
+  - `setup-02-admin-created.png` — Erfolg + Auto-Login-Redirect
+- **Screenshots** (zu ersetzen/entfernen):
+  - `initial-setup-01-admin.png` → ersetzt durch `setup-01-welcome.png`
+  - `initial-setup-02-organization.png` → entfällt (Org jetzt im Onboarding)
+  - `initial-setup-03-environment.png` → entfällt (Env jetzt in Settings)
+  - `initial-setup-04-complete.png` → entfällt
+- **Docs** (Rewrite):
+  - `en/getting-started/initial-setup.md` — komplett neu: "Create Admin → Auto-Login → Dashboard"
+  - `de/getting-started/initial-setup.md` — deutsche Version
+
+#### A2: Onboarding Checklist (Neu)
+
+Komplett neue Dokumentation für das Dashboard-Onboarding:
+
+- **E2E-Test**: `e2e/onboarding-checklist.spec.ts`
+  - Test: Checklist erscheint nach erstem Login
+  - Test: Organisation erstellen → Item wird grün
+  - Test: Environment einrichten → Item wird grün
+  - Test: "Einrichtung abschließen" → Banner verschwindet
+  - Test: "Dismiss" → Banner verschwindet, erscheint nicht mehr
+- **Screenshots** (neu):
+  - `onboarding-01-checklist.png` — Dashboard mit Onboarding-Banner (alle Items offen)
+  - `onboarding-02-org-setup.png` — Org-Erstellung (Modal oder Formular)
+  - `onboarding-03-partial.png` — Teilweise erledigte Items
+  - `onboarding-04-complete.png` — Alle Items erledigt
+- **Docs** (neu):
+  - `en/docs/onboarding.md` — Schritt-für-Schritt: Org → Env → Sources → Registries
+  - `de/docs/onboarding.md` — deutsche Version
+
+### Phase B: Bestehende Docs manuell aktualisieren
+
+Dateien die nicht via `/document-feature` abgedeckt werden, aber Wizard-Referenzen enthalten:
+
+#### B1: PublicWeb — Kritisch (Inhaltliche Änderungen)
+
+| Datei | Änderung |
+|-------|----------|
+| `en/introduction.mdx` | "Complete the Setup Wizard" → "Create your admin account" + "Complete the onboarding checklist" |
+| `de/introduction.mdx` | "Setup Wizard durchlaufen" → "Admin-Konto erstellen" + "Onboarding-Checklist abschließen" |
+| `en/index.mdx` | Link-Card "Initial Setup" Description anpassen |
+| `de/index.mdx` | Link-Card "Ersteinrichtung" Description anpassen |
+| `en/getting-started/quickstart.md` | "Initial Setup" Verweis aktualisieren |
+| `de/getting-started/quickstart.md` | "Ersteinrichtung" Verweis aktualisieren |
+| `en/getting-started/first-deployment.md` | Prerequisite "Setup wizard completed" → "Admin created and organization configured" |
+| `de/getting-started/first-deployment.md` | Prerequisite "Setup-Wizard abgeschlossen" → "Admin erstellt und Organisation eingerichtet" |
+| `en/getting-started/installation/index.mdx` | "Configure admin account and organization in the setup wizard" → neuer Text |
+| `de/getting-started/installation/index.mdx` | Analog aktualisieren |
+
+#### B2: PublicWeb — Mittel (Kontext-Anpassungen)
+
+| Datei | Änderung |
+|-------|----------|
+| `en/docs/wizard-registries.md` | "fifth step of the Setup Wizard" → Referenz auf Settings/Onboarding. Wizard-Navigation entfällt, nur noch Settings-Kontext |
+| `de/docs/wizard-registries.md` | Analog: "fünfter Schritt" → Settings-basierte Dokumentation |
+| `en/docs/stack-sources.md` | Wizard-Step-4-Abschnitt entfernen oder umschreiben auf Onboarding/Settings |
+| `de/docs/stack-sources.md` | Analog aktualisieren |
+| `en/docs/index.md` | Wizard-Referenz in Stack-Sources-Beschreibung entfernen |
+| `de/docs/index.md` | Analog aktualisieren |
+
+#### B3: Interne Docs (`docs/`)
+
+| Datei | Änderung |
+|-------|----------|
+| `docs/Setup-Wizard/Wizard-Flow.md` | State-Machine aktualisieren: 4 States → 2 States, Flow-Diagramm anpassen, Endpoints-Liste aktualisieren |
+| `docs/Security/Initial-Setup.md` | Security-Modell anpassen: Timeout nur für Admin-Erstellung, Onboarding ist authentifiziert |
+| `docs/Home.md` | "Setup Wizard" Feature-Beschreibung aktualisieren |
+| `docs/Getting-Started/Overview.md` | "guided setup wizard" → "admin creation + guided onboarding" |
+| `docs/Getting-Started/Installation.md` | Wizard-Flow-Beschreibung aktualisieren |
+| `docs/Getting-Started/Quick-Start.md` | Wizard-Referenzen anpassen |
+
+#### B4: Interne Docs — Niedrig (nur bei Bedarf)
+
+Diese Dateien enthalten historische oder kontextuelle Wizard-Referenzen. Nur aktualisieren wenn die Referenz irreführend wird:
+
+- `docs/Architecture/Overview.md` — Wizard als Komponente
+- `docs/Architecture/Container-Lifecycle.md` — Container-Init + Wizard
+- `docs/Configuration/Config-Files.md` — Wizard-State-Config
+- `docs/Reference/Technical-Specification.md` — Wizard-Details
+- `docs/Reference/Full-Specification.md` — Wizard-Spec
+- `docs/Reference/Multi-Environment.md` — Environment Setup im Wizard-Kontext
+- `docs/Security/Overview.md` — Initial-Setup-Flow
+- Versions-Referenzen (`v0.6-sqlite-multiuser.md`, `v0.14-stack-upgrade.md`, `v0.16-state-machine-refactoring.md`) — historisch, kein Update nötig
+
+### Phase C: Screenshots verwalten
+
+#### Zu erzeugende Screenshots (via E2E-Tests)
+
+| Screenshot | Quelle |
+|------------|--------|
+| `setup-01-welcome.png` | A1: Wizard-Setup E2E |
+| `setup-02-admin-created.png` | A1: Wizard-Setup E2E |
+| `onboarding-01-checklist.png` | A2: Onboarding E2E |
+| `onboarding-02-org-setup.png` | A2: Onboarding E2E |
+| `onboarding-03-partial.png` | A2: Onboarding E2E |
+| `onboarding-04-complete.png` | A2: Onboarding E2E |
+
+#### Zu entfernende/ersetzende Screenshots
+
+| Screenshot | Grund |
+|------------|-------|
+| `initial-setup-01-admin.png` | Ersetzt durch `setup-01-welcome.png` |
+| `initial-setup-02-organization.png` | Org-Erstellung jetzt im Onboarding |
+| `initial-setup-03-environment.png` | Environment jetzt in Settings |
+| `initial-setup-04-complete.png` | "Complete Setup" Step entfällt |
+
+#### Unverändert bleibende Screenshots
+
+Wizard-Registries-Screenshots (`wizard-reg-01` bis `wizard-reg-07`) bleiben erhalten, da die Registry-Konfiguration weiterhin über Settings zugänglich ist. Die Docs werden aber umformuliert (von "Wizard Step 5" zu "Settings-basiert / Onboarding-verlinkt").
+
+### Reihenfolge der Dokumentationsarbeit
+
+```
+1. Features 1-7 implementieren + Tests
+2. /document-feature A1 (Setup Wizard Rewrite)
+3. /document-feature A2 (Onboarding Checklist)
+4. Phase B1 (Kritische PublicWeb-Updates)
+5. Phase B2 (Kontext-Anpassungen PublicWeb)
+6. Phase B3 (Interne Docs)
+7. Phase C (Screenshot-Cleanup)
+8. PublicWeb Build prüfen (`npm run build`)
+```
