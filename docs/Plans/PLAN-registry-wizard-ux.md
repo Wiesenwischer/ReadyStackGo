@@ -32,44 +32,42 @@ Neuer Wizard-Schritt, der Container-Registries automatisch aus den gewählten St
 
 Reihenfolge basierend auf Abhängigkeiten:
 
-- [ ] **Feature 1: Image Reference Extraction Service** – Parst `ServiceTemplate.Image`-Strings, gruppiert nach Host+Namespace
+- [x] **Feature 1: Image Reference Extraction Service** – Parst `ServiceTemplate.Image`-Strings, gruppiert nach Host+Namespace (PR #99)
   - Neue Dateien:
     - `Application/Services/IImageReferenceExtractor.cs` (Interface + DTOs)
     - `Infrastructure/Services/ImageReferenceExtractor.cs` (Implementierung)
     - `Infrastructure/DependencyInjection.cs` (Registration)
-  - Tests:
-    - `UnitTests/Services/ImageReferenceExtractorTests.cs`
+  - Tests: 40 Unit Tests in `UnitTests/Services/ImageReferenceExtractorTests.cs`
   - Abhängig von: –
 
-- [ ] **Feature 2: Detect Registries Endpoint** – Synced Sources, extrahiert Images, gruppiert in Registry-Areas
+- [x] **Feature 2: Detect Registries Endpoint** – Lädt Stacks aus Cache, extrahiert Images, gruppiert in Registry-Areas (PR #100)
   - Neue Dateien:
     - `Application/UseCases/Wizard/DetectRegistries/DetectRegistriesQuery.cs`
     - `Application/UseCases/Wizard/DetectRegistries/DetectRegistriesHandler.cs`
     - `Api/Endpoints/Wizard/DetectRegistriesEndpoint.cs`
-  - Tests:
-    - `UnitTests/Application/Wizard/DetectRegistriesHandlerTests.cs`
+  - Tests: 13 Unit Tests in `UnitTests/Application/Wizard/DetectRegistriesHandlerTests.cs`
   - Abhängig von: Feature 1
 
-- [ ] **Feature 3: Bulk Create Registries Endpoint** – Erstellt Registry-Einträge aus Wizard-Input
+- [x] **Feature 3: Bulk Create Registries Endpoint** – Erstellt Registry-Einträge aus Wizard-Input (PR #101)
   - Neue Dateien:
     - `Application/UseCases/Wizard/SetRegistries/SetRegistriesCommand.cs`
     - `Application/UseCases/Wizard/SetRegistries/SetRegistriesHandler.cs`
     - `Api/Endpoints/Wizard/SetRegistriesEndpoint.cs`
-  - Tests:
-    - `UnitTests/Application/Wizard/SetRegistriesHandlerTests.cs`
+  - Tests: 16 Unit Tests in `UnitTests/Application/Wizard/SetRegistriesHandlerTests.cs`
+  - Entscheidung: Kein neuer WizardState – bestehende State Machine leitet Status aus DB ab, optional wie Step 3+4
   - Abhängig von: –
 
-- [ ] **Feature 4: Wizard Step UI** – Step 5 (Container Registries), Install wird Step 6
+- [x] **Feature 4: Wizard Step UI** – Step 5 (Container Registries), Install wird Step 6 (PR #102)
   - Geänderte Dateien:
     - `WebUi/src/pages/Wizard/index.tsx` (6 Steps statt 5)
     - `WebUi/src/pages/Wizard/WizardLayout.tsx` (6 Steps)
   - Neue Dateien:
     - `WebUi/src/pages/Wizard/RegistriesStep.tsx`
-    - `WebUi/src/api/wizard.ts` (neue API-Funktionen)
+    - `WebUi/src/api/wizard.ts` (neue API-Funktionen: detectRegistries, setRegistries)
   - Abhängig von: Feature 2, Feature 3
 
-- [ ] **Feature 5: Tests (Unit + Integration)** – Umfassende Tests für alle neuen Komponenten
-  - Tests laufen parallel zur Implementierung, werden hier als Phase zusammengefasst
+- [x] **Feature 5: Tests (Unit + Integration)** – Tests wurden parallel zur Implementierung geschrieben
+  - Gesamt: 69 neue Unit Tests (40 + 13 + 16), alle 1685 Tests grün
   - Abhängig von: Feature 1-4
 
 - [ ] **Dokumentation & Website** – PublicWeb (DE/EN), Roadmap
@@ -240,5 +238,5 @@ Alle geklärt ✓
 |---|---|---|---|
 | Image-Quelle | A) Sync triggern B) Nur Cache | **B) Nur Cache** | Sync passiert in Step 4. Doppelter Sync wäre langsam und überflüssig. |
 | Leere Sources | A) Hinweis B) Skip C) Default-Registries | **C) Default-Registries** | Auch ohne Stacks: typische Registries (Docker Hub, GHCR, GitLab) als Default-Set anbieten. |
-| Wizard State | A) Neuer State B) Optional wie Step 3+4 | **A) Neuer State `RegistriesConfigured`** | Explizites Tracking des Registry-Schritts in der State Machine. |
+| Wizard State | A) Neuer State B) Optional wie Step 3+4 | **B) Optional** | State Machine leitet Status aus DB ab. Kein neuer State nötig – konsistent mit Step 3+4. |
 | Init-Container | A) Separat B) Zusammen | **B) Zusammen** | Alle Images aus allen ServiceTemplates fließen in die Erkennung ein, unabhängig vom Lifecycle. |

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { detectRegistries, type DetectedRegistryArea, type RegistryInputDto } from '../../api/wizard';
+import { detectRegistries, checkRegistryAccess, type DetectedRegistryArea, type RegistryInputDto } from '../../api/wizard';
+
+type CheckStatus = 'pending' | 'checking' | 'done';
 
 interface RegistryCardState {
   area: DetectedRegistryArea;
@@ -8,6 +10,7 @@ interface RegistryCardState {
   password: string;
   name: string;
   pattern: string;
+  checkStatus: CheckStatus;
 }
 
 interface RegistriesStepProps {
@@ -23,8 +26,9 @@ export default function RegistriesStep({ onNext }: RegistriesStepProps) {
   const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    const fetchRegistries = async () => {
+    const fetchAndCheck = async () => {
       try {
+        // Phase 1: Load areas fast (no access check)
         const response = await detectRegistries();
         const cardStates: RegistryCardState[] = response.areas
           .filter(a => !a.isConfigured)
@@ -35,8 +39,11 @@ export default function RegistriesStep({ onNext }: RegistriesStepProps) {
             password: '',
             name: area.suggestedName,
             pattern: area.suggestedPattern,
+            checkStatus: area.images.length > 0 ? 'pending' as const : 'done' as const,
           }));
         setCards(cardStates);
+        setIsFetching(false);
+
         // Expand cards that need auth by default
         const authCards = new Set<number>();
         cardStates.forEach((card, index) => {
@@ -45,13 +52,50 @@ export default function RegistriesStep({ onNext }: RegistriesStepProps) {
           }
         });
         setExpandedCards(authCards);
+
+        // Phase 2: Check each area via backend (parallel, per-card updates)
+        const checksToRun = cardStates
+          .map((card, index) => ({ card, index }))
+          .filter(({ card }) => card.area.images.length > 0);
+
+        if (checksToRun.length === 0) return;
+
+        // Mark all as checking
+        setCards(prev => prev.map(c =>
+          c.checkStatus === 'pending' ? { ...c, checkStatus: 'checking' as const } : c
+        ));
+
+        // Fire all checks in parallel, update each card as result arrives
+        await Promise.all(checksToRun.map(async ({ card, index }) => {
+          try {
+            const result = await checkRegistryAccess(card.area.images[0]);
+            const isPublic = result.accessLevel === 'Public';
+            setCards(prev => prev.map((c, i) => i === index ? {
+              ...c,
+              checkStatus: 'done' as const,
+              requiresAuth: !isPublic,
+              area: { ...c.area, isLikelyPublic: isPublic },
+            } : c));
+            // Update expanded cards based on check result
+            if (!isPublic) {
+              setExpandedCards(prev => { const next = new Set(prev); next.add(index); return next; });
+            } else {
+              setExpandedCards(prev => { const next = new Set(prev); next.delete(index); return next; });
+            }
+          } catch {
+            // Check failed — keep static hint, mark as done
+            setCards(prev => prev.map((c, i) => i === index ? {
+              ...c,
+              checkStatus: 'done' as const,
+            } : c));
+          }
+        }));
       } catch {
         setError('Failed to detect container registries');
-      } finally {
         setIsFetching(false);
       }
     };
-    fetchRegistries();
+    fetchAndCheck();
   }, []);
 
   const updateCard = (index: number, updates: Partial<RegistryCardState>) => {
@@ -102,14 +146,16 @@ export default function RegistriesStep({ onNext }: RegistriesStepProps) {
   };
 
   const authRequiredCount = cards.filter(c => c.requiresAuth).length;
+  const checksRunning = cards.some(c => c.checkStatus === 'checking');
 
   if (isFetching) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex flex-col items-center justify-center py-12 gap-3">
         <svg className="animate-spin h-8 w-8 text-brand-600 dark:text-brand-400" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Detecting container registries...</p>
       </div>
     );
   }
@@ -122,7 +168,7 @@ export default function RegistriesStep({ onNext }: RegistriesStepProps) {
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           Configure authentication for private container registries used by your stacks.
-          Public registries like Docker Hub don't need credentials.
+          Public registries don't need credentials.
           You can change these later in Settings.
         </p>
       </div>
@@ -147,9 +193,11 @@ export default function RegistriesStep({ onNext }: RegistriesStepProps) {
             <div
               key={`${card.area.host}-${card.area.namespace}`}
               className={`rounded-lg border transition-colors ${
-                card.requiresAuth
-                  ? 'border-brand-300 dark:border-brand-700'
-                  : 'border-gray-200 dark:border-gray-700'
+                card.checkStatus === 'checking'
+                  ? 'border-gray-300 dark:border-gray-600'
+                  : card.requiresAuth
+                    ? 'border-brand-300 dark:border-brand-700'
+                    : 'border-gray-200 dark:border-gray-700'
               }`}
             >
               {/* Card Header */}
@@ -160,11 +208,18 @@ export default function RegistriesStep({ onNext }: RegistriesStepProps) {
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                    card.area.isLikelyPublic
-                      ? 'bg-green-100 dark:bg-green-900/30'
-                      : 'bg-amber-100 dark:bg-amber-900/30'
+                    card.checkStatus === 'checking'
+                      ? 'bg-blue-100 dark:bg-blue-900/30'
+                      : card.area.isLikelyPublic
+                        ? 'bg-green-100 dark:bg-green-900/30'
+                        : 'bg-amber-100 dark:bg-amber-900/30'
                   }`}>
-                    {card.area.isLikelyPublic ? (
+                    {card.checkStatus === 'checking' ? (
+                      <svg className="animate-spin w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : card.area.isLikelyPublic ? (
                       <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
@@ -186,11 +241,19 @@ export default function RegistriesStep({ onNext }: RegistriesStepProps) {
                       )}
                     </div>
                     <p className="text-xs text-gray-400 dark:text-gray-500">
-                      {card.area.images.length} image{card.area.images.length !== 1 ? 's' : ''}
-                      {card.area.isLikelyPublic && (
-                        <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                          Public
+                      {card.checkStatus === 'checking' ? (
+                        <span className="text-blue-500 dark:text-blue-400">
+                          Checking access...
                         </span>
+                      ) : (
+                        <>
+                          {card.area.images.length} image{card.area.images.length !== 1 ? 's' : ''}
+                          {card.area.isLikelyPublic && (
+                            <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                              Public
+                            </span>
+                          )}
+                        </>
                       )}
                     </p>
                   </div>
@@ -298,14 +361,16 @@ export default function RegistriesStep({ onNext }: RegistriesStepProps) {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isLoading || isSkipping}
+          disabled={isLoading || isSkipping || checksRunning}
           className="flex-1 py-3 text-sm font-medium text-white transition-colors rounded-lg bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading
             ? 'Configuring...'
-            : authRequiredCount > 0
-              ? `Configure ${authRequiredCount} registr${authRequiredCount !== 1 ? 'ies' : 'y'}`
-              : 'Continue'
+            : checksRunning
+              ? 'Checking registries...'
+              : authRequiredCount > 0
+                ? `Configure ${authRequiredCount} registr${authRequiredCount !== 1 ? 'ies' : 'y'}`
+                : 'Continue'
           }
         </button>
       </div>

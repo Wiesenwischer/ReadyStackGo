@@ -1,5 +1,4 @@
 using MediatR;
-using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.Deployment.Registries;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
@@ -12,26 +11,20 @@ public class DetectRegistriesHandler : IRequestHandler<DetectRegistriesQuery, De
     private readonly IImageReferenceExtractor _extractor;
     private readonly IRegistryRepository _registryRepository;
     private readonly IOrganizationRepository _organizationRepository;
-    private readonly IRegistryAccessChecker _accessChecker;
-    private readonly ILogger<DetectRegistriesHandler> _logger;
 
     public DetectRegistriesHandler(
         IProductCache productCache,
         IImageReferenceExtractor extractor,
         IRegistryRepository registryRepository,
-        IOrganizationRepository organizationRepository,
-        IRegistryAccessChecker accessChecker,
-        ILogger<DetectRegistriesHandler> logger)
+        IOrganizationRepository organizationRepository)
     {
         _productCache = productCache;
         _extractor = extractor;
         _registryRepository = registryRepository;
         _organizationRepository = organizationRepository;
-        _accessChecker = accessChecker;
-        _logger = logger;
     }
 
-    public async Task<DetectRegistriesResult> Handle(DetectRegistriesQuery request, CancellationToken cancellationToken)
+    public Task<DetectRegistriesResult> Handle(DetectRegistriesQuery request, CancellationToken cancellationToken)
     {
         // Collect all image references from cached stacks
         var imageReferences = _productCache.GetAllStacks()
@@ -60,49 +53,22 @@ public class DetectRegistriesHandler : IRequestHandler<DetectRegistriesQuery, De
                 Domain.Deployment.OrganizationId.FromIdentityAccess(organization.Id)).ToList()
             : [];
 
-        // Run runtime access checks in parallel for areas with images
-        var checkTasks = areas.Select(area => CheckAreaAccessAsync(area, cancellationToken)).ToList();
-        var accessResults = await Task.WhenAll(checkTasks);
-
-        var detectedAreas = areas.Select((area, index) =>
+        var detectedAreas = areas.Select(area =>
         {
             var isConfigured = existingRegistries.Any(r =>
                 area.Images.Any(img => r.MatchesImage(img)));
-
-            // Use runtime check result; fall back to static hint for Unknown
-            var isLikelyPublic = accessResults[index] switch
-            {
-                RegistryAccessLevel.Public => true,
-                RegistryAccessLevel.AuthRequired => false,
-                _ => area.IsLikelyPublic // Unknown — keep static hint as fallback
-            };
 
             return new DetectedRegistryArea(
                 Host: area.Host,
                 Namespace: area.Namespace,
                 SuggestedPattern: area.SuggestedPattern,
                 SuggestedName: area.SuggestedName,
-                IsLikelyPublic: isLikelyPublic,
+                IsLikelyPublic: area.IsLikelyPublic,
                 IsConfigured: isConfigured,
                 Images: area.Images);
         }).ToList();
 
-        return new DetectRegistriesResult(detectedAreas);
-    }
-
-    private async Task<RegistryAccessLevel> CheckAreaAccessAsync(RegistryArea area, CancellationToken ct)
-    {
-        if (area.Images.Count == 0)
-            return RegistryAccessLevel.Unknown;
-
-        // Pick a representative image to probe
-        var parsed = _extractor.Parse(area.Images[0]);
-
-        _logger.LogDebug("Checking registry access for {Host}/{Ns}/{Repo}",
-            parsed.Host, parsed.Namespace, parsed.Repository);
-
-        return await _accessChecker.CheckAccessAsync(
-            parsed.Host, parsed.Namespace, parsed.Repository, ct);
+        return Task.FromResult(new DetectRegistriesResult(detectedAreas));
     }
 
     private static IReadOnlyList<RegistryArea> GetDefaultRegistryAreas()

@@ -132,6 +132,13 @@ export interface SetRegistriesResponseDto {
   registriesSkipped: number;
 }
 
+export interface CheckRegistryAccessResponse {
+  accessLevel: 'Public' | 'AuthRequired' | 'Unknown';
+  host: string;
+  namespace: string;
+  repository: string;
+}
+
 export interface InstallStackRequest {
   manifestPath?: string;
 }
@@ -182,6 +189,10 @@ export async function detectRegistries(): Promise<DetectRegistriesResponse> {
 
 export async function setRegistries(request: SetRegistriesRequestDto): Promise<SetRegistriesResponseDto> {
   return apiPost<SetRegistriesResponseDto>('/api/wizard/registries', request);
+}
+
+export async function checkRegistryAccess(image: string): Promise<CheckRegistryAccessResponse> {
+  return apiGet<CheckRegistryAccessResponse>(`/api/wizard/check-registry-access?image=${encodeURIComponent(image)}`);
 }
 
 export async function installStack(request: InstallStackRequest = {}): Promise<InstallStackResponse> {
