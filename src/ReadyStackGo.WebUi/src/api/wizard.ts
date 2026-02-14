@@ -98,6 +98,40 @@ export interface WizardRegistrySource {
   stackCount: number;
 }
 
+// Registry detection and configuration (v0.25)
+export interface DetectedRegistryArea {
+  host: string;
+  namespace: string;
+  suggestedPattern: string;
+  suggestedName: string;
+  isLikelyPublic: boolean;
+  isConfigured: boolean;
+  images: string[];
+}
+
+export interface DetectRegistriesResponse {
+  areas: DetectedRegistryArea[];
+}
+
+export interface RegistryInputDto {
+  name: string;
+  host: string;
+  pattern: string;
+  requiresAuth: boolean;
+  username?: string;
+  password?: string;
+}
+
+export interface SetRegistriesRequestDto {
+  registries: RegistryInputDto[];
+}
+
+export interface SetRegistriesResponseDto {
+  success: boolean;
+  registriesCreated: number;
+  registriesSkipped: number;
+}
+
 export interface InstallStackRequest {
   manifestPath?: string;
 }
@@ -140,6 +174,14 @@ export async function getWizardRegistry(): Promise<WizardRegistrySource[]> {
 
 export async function setSources(request: SetSourcesRequest): Promise<SetSourcesResponse> {
   return apiPost<SetSourcesResponse>('/api/wizard/sources', request);
+}
+
+export async function detectRegistries(): Promise<DetectRegistriesResponse> {
+  return apiGet<DetectRegistriesResponse>('/api/wizard/detected-registries');
+}
+
+export async function setRegistries(request: SetRegistriesRequestDto): Promise<SetRegistriesResponseDto> {
+  return apiPost<SetRegistriesResponseDto>('/api/wizard/registries', request);
 }
 
 export async function installStack(request: InstallStackRequest = {}): Promise<InstallStackResponse> {
