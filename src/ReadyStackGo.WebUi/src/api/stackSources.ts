@@ -77,7 +77,41 @@ export interface SyncResult {
   warnings: string[];
 }
 
+/**
+ * A curated stack source entry from the embedded registry.
+ */
+export interface RegistrySourceDto {
+  id: string;
+  name: string;
+  description: string;
+  type: string;  // "git-repository" or "local-directory"
+  gitUrl: string;
+  gitBranch: string;
+  path?: string;
+  filePattern?: string;
+  category: string;
+  tags: string[];
+  featured: boolean;
+  stackCount: number;
+  alreadyAdded: boolean;
+}
+
 // Stack Sources API
+
+/**
+ * Get all entries from the curated source registry.
+ */
+export async function getRegistrySources(): Promise<RegistrySourceDto[]> {
+  return apiGet<RegistrySourceDto[]>('/api/stack-sources/registry');
+}
+
+
+/**
+ * Add a stack source from the curated registry.
+ */
+export async function addFromRegistry(registrySourceId: string): Promise<StackSourceResponse> {
+  return apiPost<StackSourceResponse>('/api/stack-sources/from-registry', { registrySourceId });
+}
 
 /**
  * Get all stack sources.
@@ -112,6 +146,49 @@ export async function updateStackSource(id: string, request: UpdateStackSourceRe
  */
 export async function deleteStackSource(id: string): Promise<StackSourceResponse> {
   return apiDelete<StackSourceResponse>(`/api/stack-sources/${encodeURIComponent(id)}`);
+}
+
+/**
+ * Export all stack source configurations as JSON.
+ */
+export async function exportSources(): Promise<ExportSourcesResponse> {
+  return apiGet<ExportSourcesResponse>('/api/stack-sources/export');
+}
+
+/**
+ * Import stack source configurations from JSON.
+ */
+export async function importSources(data: ImportSourcesRequest): Promise<ImportSourcesResponse> {
+  return apiPost<ImportSourcesResponse>('/api/stack-sources/import', data);
+}
+
+export interface ExportSourcesResponse {
+  version: string;
+  exportedAt: string;
+  sources: ExportedSourceDto[];
+}
+
+export interface ExportedSourceDto {
+  name: string;
+  type: string;
+  enabled: boolean;
+  path?: string;
+  filePattern?: string;
+  gitUrl?: string;
+  gitBranch?: string;
+  gitSslVerify?: boolean;
+}
+
+export interface ImportSourcesRequest {
+  version: string;
+  sources: ExportedSourceDto[];
+}
+
+export interface ImportSourcesResponse {
+  success: boolean;
+  message?: string;
+  sourcesCreated: number;
+  sourcesSkipped: number;
 }
 
 /**

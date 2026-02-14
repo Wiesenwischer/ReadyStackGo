@@ -84,17 +84,7 @@ public class ProductSourceService : IProductSourceService
     {
         var defaultConfig = new StackSourceConfig
         {
-            Sources = new List<StackSourceEntry>
-            {
-                new LocalDirectorySourceEntry
-                {
-                    Id = "stacks",
-                    Name = "Local",
-                    Path = "stacks",
-                    FilePattern = "*.yml;*.yaml",
-                    Enabled = true
-                }
-            }
+            Sources = new List<StackSourceEntry>()
         };
 
         var json = JsonSerializer.Serialize(defaultConfig, new JsonSerializerOptions
@@ -104,7 +94,7 @@ public class ProductSourceService : IProductSourceService
         });
 
         await File.WriteAllTextAsync(_configPath, json, cancellationToken);
-        _logger.LogInformation("Created default product source configuration");
+        _logger.LogInformation("Created empty product source configuration");
     }
 
     private async Task SaveConfigurationAsync(CancellationToken cancellationToken)

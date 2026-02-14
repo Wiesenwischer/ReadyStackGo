@@ -11,19 +11,19 @@ interface WizardLayoutProps {
 }
 
 export default function WizardLayout({ currentStep, children, timeout, onTimeout }: WizardLayoutProps) {
-  // v0.4: 4 steps (Admin, Organization, Environment, Complete)
   const steps = [
     { number: 1, name: 'Admin', description: 'Create admin user' },
     { number: 2, name: 'Organization', description: 'Set organization' },
     { number: 3, name: 'Environment', description: 'Configure Docker' },
-    { number: 4, name: 'Complete', description: 'Finish setup' },
+    { number: 4, name: 'Sources', description: 'Stack sources' },
+    { number: 5, name: 'Complete', description: 'Finish setup' },
   ];
 
   return (
     <div className="relative min-h-screen p-6 bg-white dark:bg-gray-900">
       <div className="flex flex-col items-center justify-center w-full min-h-screen">
         {/* Header */}
-        <div className="w-full max-w-4xl mb-8">
+        <div className="w-full max-w-5xl mb-8">
           <div className="text-center mb-8">
             <h1 className="mb-2 text-3xl font-bold text-gray-800 dark:text-white">
               ReadyStackGo Setup Wizard

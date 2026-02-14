@@ -39,14 +39,6 @@ public class DatabaseProductSourceService : IProductSourceService
         {
             if (_initialized) return;
 
-            // Check if database has any sources, create default if empty
-            var sources = await _repository.GetAllAsync(cancellationToken);
-            if (!sources.Any())
-            {
-                _logger.LogInformation("No stack sources found in database, creating default local source");
-                await CreateDefaultSourceAsync(cancellationToken);
-            }
-
             _initialized = true;
 
             // Auto-sync on first load
@@ -56,20 +48,6 @@ public class DatabaseProductSourceService : IProductSourceService
         {
             _initLock.Release();
         }
-    }
-
-    private async Task CreateDefaultSourceAsync(CancellationToken cancellationToken)
-    {
-        var defaultSource = StackSource.CreateLocalDirectory(
-            new StackSourceId("stacks"),
-            "Local Stacks",
-            "stacks",
-            "*.yml;*.yaml");
-
-        await _repository.AddAsync(defaultSource, cancellationToken);
-        await _repository.SaveChangesAsync(cancellationToken);
-
-        _logger.LogInformation("Created default local stack source");
     }
 
     public async Task<IEnumerable<StackSource>> GetSourcesAsync(CancellationToken cancellationToken = default)

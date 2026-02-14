@@ -164,40 +164,82 @@ Rough outlook on planned versions and features.
   - Version Transition Badge (Current → Target Version)
   - Error State with Retry and Back-to-Dashboard Options
   - Helper Container Maintenance Page Restyled with RSGO Branding
+- **v0.24** – Preconfigured Stack Sources (2026-02-14)
+  - Curated Source Registry (embedded JSON catalog of known Git/local sources)
+  - Wizard Stack Source Selection (opt-in instead of auto-creation)
+  - Add From Catalog in Stack Source Settings (one-click add from registry)
+  - Import/Export of Stack Source configurations (JSON, for team sharing)
+  - Catalog Empty State with source links
 
 ## Planned
 
-### v0.24 – Preconfigured Stack Sources & Marketplace
-- Curated Source Registry (embedded JSON catalog of known Git repos)
-- Bundled Default Sources on First Start (official repos pre-configured)
-- Marketplace UI for browsing and one-click adding of curated sources
-- Import/Export of Stack Source configurations (JSON, for team sharing)
-- Quick-Add flow for registry sources (prefilled Git URL, branch, etc.)
+### v0.25 – Registry Wizard UX
+- Image Reference Extraction from Synced Stack Manifests (auto-detect host + namespace)
+- Container Registry Detection Endpoint (grouped by host + pattern)
+- Wizard Step for Container Registries (inline auth cards, no modals)
+- Bulk Registry Creation from Wizard Input
+- Public Image Detection (library/* defaults to anonymous)
 
-### v0.25 – WebUI Headless Refactoring
-- Extract Framework-Independent Core Layer (API, Services, Types)
-- SignalR Connection Management as Standalone Services
-- Store-Hooks for Settings Pages (Registry, Stack Sources, TLS, API Keys)
-- Store-Hooks for Deployment Pages (Deploy, Upgrade, Rollback, Remove)
-- Store-Hooks for Remaining Pages (Catalog, Environments, Health, Wizard)
-- Downstream Fork Documentation
+### v0.26 – WebUI Monorepo Refactoring (Distribution-Ready)
+- pnpm Workspaces Monorepo (packages/core, packages/ui-generic, apps/rsgo-generic)
+- @rsgo/core Package (TypeScript types, API clients, ViewModel hooks, SignalR services)
+- @rsgo/ui-generic Package (React components, pages, layouts, thin contexts)
+- ViewModel Hooks for All Pages (Settings, Deployments, Catalog, Health, Wizard)
+- SignalR Service Classes with Thin React Hook Wrappers
+- Auth/Environment Services Extracted from React Contexts
+- Build Pipeline Adjustment (pnpm in Dockerfile)
 
-### v0.26 – Docker Volumes Management
+### v0.27 – Backend Distribution Extension Points
+- ISetupWizardDefinitionProvider (data-driven wizard steps)
+- IBootstrapper Pattern (distribution-specific initialization on first start)
+- GenericSetupWizardDefinitionProvider + GenericBootstrapper (default implementations)
+- NuGet Meta-Package ReadyStackGo.Core (Domain + Application + Infrastructure)
+- Multi-Assembly FastEndpoints Endpoint Discovery
+- Distribution Architecture Documentation
+
+### v0.28 – Docker Volumes Management
 - Docker Volumes View (List All Volumes per Environment)
 - Volume Details (Size, Mount Points, Labels)
 - Create/Delete Volumes
 - Detect Orphaned Volumes
 
-### v0.27 – Metrics & Audit
+### v0.29 – OCI Stack Bundles (Format + Source)
+- OCI Stack Bundle Format Specification (stack.yaml + lock.json + meta.json)
+- OciRegistry StackSourceType Extension with Factory Method
+- OCI Registry Client (list tags, read manifests, pull layers)
+- OciStackSourceProvider (sync tags → parse stackId + version → populate cache)
+- OCI Source UI in Add Stack Source Flow
+
+### v0.30 – OCI Stack Bundles (Import + CI/CD)
+- ImportStackSource for Local Stack Snapshots (from OCI, Git, Upload)
+- OCI Import Flow (pull bundle, extract, store via ImportStackSource)
+- Lock-file Based Deployment (prefer image@digest from lock.json)
+- CI/CD Tooling and Documentation (Dockerfile template, ORAS examples)
+
+### v0.31 – Stack Marketplace (Browse)
+- StackCatalogSource Domain Model (embedded, git-json, http-json sources)
+- StackCatalogEntry Domain Model (name, slug, description, category, tags, logo, registry hints)
+- Catalog Source Providers (embedded JSON, Git repo with stack-catalog.json)
+- Marketplace API Endpoints (list, detail, search, filter, sync)
+- Marketplace Browse UI (tile grid, search, category filter)
+- Marketplace Detail Page (markdown description, registry requirements check)
+
+### v0.32 – Marketplace Install Flow
+- StackInstallation Domain Model (org + environment scoped)
+- Install from Marketplace Endpoint (registry prerequisite validation)
+- Install Flow UI (org/env selection, registry check, variable resolution, deploy)
+- Installation Status in Marketplace Tiles and Detail Pages
+
+### v0.33 – Metrics & Audit
 - Metrics & Alerting
 - Audit Logs
 
-### v0.28 – Multi-User Support
+### v0.34 – Multi-User Support
 - User Management UI
 - Create/Edit Users
 - Password Reset Flow
 
-### v0.29 – Feature Flags
+### v0.35 – Feature Flags
 - Feature Flags UI in Admin
 - Feature Toggle at Organization Level
 - Environment Variables for Feature Flags

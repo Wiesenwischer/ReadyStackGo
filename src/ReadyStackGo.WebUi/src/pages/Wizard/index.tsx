@@ -4,8 +4,9 @@ import WizardLayout from './WizardLayout';
 import AdminStep from './AdminStep';
 import OrganizationStep from './OrganizationStep';
 import EnvironmentStep from './EnvironmentStep';
+import StackSourcesStep from './StackSourcesStep';
 import InstallStep from './InstallStep';
-import { createAdmin, setOrganization, setEnvironment, installStack, getWizardStatus, type WizardTimeoutInfo } from '../../api/wizard';
+import { createAdmin, setOrganization, setEnvironment, setSources, installStack, getWizardStatus, type WizardTimeoutInfo } from '../../api/wizard';
 
 export default function Wizard() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -92,8 +93,19 @@ export default function Wizard() {
         throw new Error(response.message || 'Failed to create environment');
       }
     }
-    // Move to install step (whether environment was created or skipped)
+    // Move to stack sources step (whether environment was created or skipped)
     setCurrentStep(4);
+  };
+
+  const handleSourcesNext = async (selectedIds: string[]) => {
+    if (selectedIds.length > 0) {
+      const response = await setSources({ registrySourceIds: selectedIds });
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to add sources');
+      }
+    }
+    // Move to install step (whether sources were added or skipped)
+    setCurrentStep(5);
   };
 
   const handleInstall = async () => {
@@ -170,14 +182,15 @@ export default function Wizard() {
   return (
     <WizardLayout
       currentStep={currentStep}
-      totalSteps={4}
+      totalSteps={5}
       timeout={timeout}
       onTimeout={handleTimeout}
     >
       {currentStep === 1 && <AdminStep onNext={handleAdminNext} />}
       {currentStep === 2 && <OrganizationStep onNext={handleOrganizationNext} />}
       {currentStep === 3 && <EnvironmentStep onNext={handleEnvironmentNext} />}
-      {currentStep === 4 && <InstallStep onInstall={handleInstall} />}
+      {currentStep === 4 && <StackSourcesStep onNext={handleSourcesNext} />}
+      {currentStep === 5 && <InstallStep onInstall={handleInstall} />}
     </WizardLayout>
   );
 }

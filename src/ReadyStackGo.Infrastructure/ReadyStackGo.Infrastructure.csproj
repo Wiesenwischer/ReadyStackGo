@@ -28,4 +28,8 @@
     <InternalsVisibleTo Include="ReadyStackGo.UnitTests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Services\StackSources\source-registry.json" />
+  </ItemGroup>
+
 </Project>

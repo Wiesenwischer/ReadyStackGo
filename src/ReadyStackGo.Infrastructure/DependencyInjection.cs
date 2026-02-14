@@ -66,6 +66,9 @@ public static class DependencyInjection
         services.AddSingleton<IProductSourceProvider, GitRepositoryProductSourceProvider>();
         services.AddScoped<IProductSourceService, DatabaseProductSourceService>();
 
+        // Source Registry (v0.24)
+        services.AddSingleton<ISourceRegistryService, SourceRegistryService>();
+
         // Health Monitoring (v0.11)
         services.AddScoped<IHealthMonitoringService, HealthMonitoringService>();
         services.AddScoped<IHealthCollectorService, HealthCollectorService>();

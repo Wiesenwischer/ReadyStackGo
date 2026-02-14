@@ -1,9 +1,15 @@
 import { test, expect, Page } from '@playwright/test';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const SCREENSHOT_DIR = path.join(__dirname, '..', '..', 'ReadyStackGo.PublicWeb', 'public', 'images', 'docs');
 
 /**
  * E2E Tests for Setup Wizard
- * These tests verify the complete 4-step wizard workflow (v0.4.1)
- * Steps: Admin -> Organization -> Environment -> Complete
+ * These tests verify the complete 5-step wizard workflow (v0.24)
+ * Steps: Admin -> Organization -> Environment -> Sources -> Complete
  */
 
 // Helper functions for wizard steps
@@ -23,26 +29,34 @@ async function completeStep2(page: Page, orgId?: string) {
   await page.fill('input[placeholder*="my-company"]', org);
   await page.fill('input[placeholder*="My Company"]', 'Test Organization');
   await page.getByRole('button', { name: /Continue/i }).click();
-  // v0.4.1: Now goes to Environment step instead of Complete
-  await expect(page.getByRole('heading', { name: /Configure Environment/i })).toBeVisible({ timeout: 5000 });
+  await expect(page.getByRole('heading', { name: /Environment Setup/i })).toBeVisible({ timeout: 5000 });
 }
 
 async function completeStep3Environment(page: Page, skip = false) {
   if (skip) {
     // Skip environment setup
-    await page.getByRole('button', { name: /Skip/i }).click();
+    await page.getByRole('button', { name: /Skip for now/i }).click();
   } else {
-    // Fill environment form
-    const envId = `env-${Date.now()}`;
-    await page.fill('input[placeholder*="local-docker"]', envId);
-    await page.fill('input[placeholder*="Local Docker"]', 'Test Environment');
-    await page.fill('input[placeholder*="/var/run/docker.sock"]', '/var/run/docker.sock');
-    await page.getByRole('button', { name: /Continue/i }).click();
+    // Environment form has name (default: "Local Docker") and socket path (auto-detected)
+    // Just click "Create Environment" to accept defaults
+    await page.getByRole('button', { name: /Create Environment/i }).click();
+  }
+  // v0.24: Now goes to Sources step instead of Complete
+  await expect(page.getByRole('heading', { name: /Stack Sources/i })).toBeVisible({ timeout: 5000 });
+}
+
+async function completeStep4Sources(page: Page, skip = true) {
+  if (skip) {
+    // Skip sources — click "Skip for now"
+    await page.getByRole('button', { name: /Skip for now/i }).click();
+  } else {
+    // Select featured sources and add them
+    await page.getByRole('button', { name: /Add \d+ source/i }).click();
   }
   await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
 }
 
-async function completeStep4(page: Page) {
+async function completeStep5(page: Page) {
   await page.getByRole('button', { name: /Complete Setup/i }).click();
 }
 
@@ -155,35 +169,30 @@ test.describe('Setup Wizard', () => {
     await page.getByRole('button', { name: /Continue/i }).click();
 
     // Should move to step 3 (Environment)
-    await expect(page.getByRole('heading', { name: /Configure Environment/i })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('heading', { name: /Environment Setup/i })).toBeVisible({ timeout: 5000 });
   });
 
-  test('should complete step 3 (Environment) and move to step 4 (Complete)', async ({ page }) => {
+  test('should complete step 3 (Environment) and move to step 4 (Sources)', async ({ page }) => {
     await completeStep1(page);
     await completeStep2(page);
 
-    // Fill environment form
-    const envId = `e2e-env-${Date.now()}`;
-    await page.fill('input[placeholder*="local-docker"]', envId);
-    await page.fill('input[placeholder*="Local Docker"]', 'E2E Test Environment');
-    await page.fill('input[placeholder*="/var/run/docker.sock"]', '/var/run/docker.sock');
+    // Environment form: name (default "Local Docker") + socket path (auto-detected)
+    // Just click Create Environment to accept defaults
+    await page.getByRole('button', { name: /Create Environment/i }).click();
 
-    // Submit
-    await page.getByRole('button', { name: /Continue/i }).click();
-
-    // Should move to step 4 (Complete)
-    await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
+    // Should move to step 4 (Sources)
+    await expect(page.getByRole('heading', { name: /Stack Sources/i })).toBeVisible({ timeout: 5000 });
   });
 
-  test('should allow skipping environment step', async ({ page }) => {
+  test('should allow skipping environment step and move to Sources', async ({ page }) => {
     await completeStep1(page);
     await completeStep2(page);
 
     // Skip environment setup
     await page.getByRole('button', { name: /Skip/i }).click();
 
-    // Should move to step 4 (Complete)
-    await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
+    // Should move to step 4 (Sources)
+    await expect(page.getByRole('heading', { name: /Stack Sources/i })).toBeVisible({ timeout: 5000 });
   });
 
   test('should allow going back from step 2', async ({ page }) => {
@@ -196,10 +205,41 @@ test.describe('Setup Wizard', () => {
     await expect(page.getByRole('heading', { name: /Create Admin Account/i })).toBeVisible();
   });
 
-  test('should show configuration summary on step 4', async ({ page }) => {
+  test('should show Sources step with skip and add buttons', async ({ page }) => {
     await completeStep1(page);
     await completeStep2(page);
     await completeStep3Environment(page);
+
+    // Sources step should show description
+    await expect(page.getByText(/Select curated stack sources/i)).toBeVisible();
+
+    // Skip and Add buttons should be visible
+    await expect(page.getByRole('button', { name: /Skip for now/i })).toBeVisible();
+
+    // Screenshot: Wizard sources step
+    await page.screenshot({
+      path: path.join(SCREENSHOT_DIR, 'sources-08-wizard-sources.png'),
+      fullPage: false,
+    });
+  });
+
+  test('should skip Sources step and move to Complete', async ({ page }) => {
+    await completeStep1(page);
+    await completeStep2(page);
+    await completeStep3Environment(page);
+
+    // Skip sources
+    await page.getByRole('button', { name: /Skip for now/i }).click();
+
+    // Should move to step 5 (Complete)
+    await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
+  });
+
+  test('should show configuration summary on step 5', async ({ page }) => {
+    await completeStep1(page);
+    await completeStep2(page);
+    await completeStep3Environment(page);
+    await completeStep4Sources(page);
 
     // Check summary items
     await expect(page.getByText(/Admin account configured/i)).toBeVisible();
@@ -209,19 +249,21 @@ test.describe('Setup Wizard', () => {
     await expect(page.getByRole('button', { name: /Complete Setup/i })).toBeVisible();
   });
 
-  test('should show progress indicator for all 4 steps', async ({ page }) => {
+  test('should show progress indicator for all 5 steps', async ({ page }) => {
     await page.goto('/wizard');
 
-    // Check all 4 step numbers are visible
+    // Check all 5 step numbers are visible
     await expect(page.locator('text=1').first()).toBeVisible();
     await expect(page.locator('text=2').first()).toBeVisible();
     await expect(page.locator('text=3').first()).toBeVisible();
     await expect(page.locator('text=4').first()).toBeVisible();
+    await expect(page.locator('text=5').first()).toBeVisible();
 
     // Check step names
     await expect(page.getByText('Admin')).toBeVisible();
     await expect(page.getByText('Organization')).toBeVisible();
     await expect(page.getByText('Environment')).toBeVisible();
+    await expect(page.getByText('Sources')).toBeVisible();
     await expect(page.getByText('Complete')).toBeVisible();
   });
 
@@ -339,7 +381,8 @@ test.describe('Complete Wizard Flow with Environment Step', () => {
     await completeStep1(page, `e2e_flow_${Date.now()}`);
     await completeStep2(page, `flow-org-${Date.now()}`);
     await completeStep3Environment(page);
-    await completeStep4(page);
+    await completeStep4Sources(page);
+    await completeStep5(page);
 
     // Should redirect to login page
     await page.waitForURL(/\/login/, { timeout: 10000 });
@@ -350,7 +393,8 @@ test.describe('Complete Wizard Flow with Environment Step', () => {
     await completeStep1(page, `e2e_skip_${Date.now()}`);
     await completeStep2(page, `skip-org-${Date.now()}`);
     await completeStep3Environment(page, true); // skip
-    await completeStep4(page);
+    await completeStep4Sources(page);
+    await completeStep5(page);
 
     // Should redirect to login page
     await page.waitForURL(/\/login/, { timeout: 10000 });
@@ -360,45 +404,41 @@ test.describe('Complete Wizard Flow with Environment Step', () => {
     await completeStep1(page, `e2e_form_${Date.now()}`);
     await completeStep2(page, `form-org-${Date.now()}`);
 
-    // Check environment form fields
-    await expect(page.locator('input[placeholder*="local-docker"]')).toBeVisible();
-    await expect(page.locator('input[placeholder*="Local Docker"]')).toBeVisible();
-    await expect(page.locator('input[placeholder*="/var/run/docker.sock"]')).toBeVisible();
+    // Check environment form fields (name + socket path)
+    await expect(page.locator('input[placeholder="Local Docker"]')).toBeVisible();
+    await expect(page.locator('input[placeholder*="docker.sock"]')).toBeVisible();
 
-    // Check skip button
-    await expect(page.getByRole('button', { name: /Skip/i })).toBeVisible();
+    // Check skip and create buttons
+    await expect(page.getByRole('button', { name: /Skip for now/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Create Environment/i })).toBeVisible();
   });
 
-  test('should show validation error for invalid environment ID in wizard', async ({ page }) => {
+  test('should show validation error for short environment name in wizard', async ({ page }) => {
     await completeStep1(page, `e2e_valid_${Date.now()}`);
     await completeStep2(page, `valid-org-${Date.now()}`);
 
-    // Fill with invalid ID (contains spaces)
-    await page.fill('input[placeholder*="local-docker"]', 'invalid id with spaces');
-    await page.fill('input[placeholder*="Local Docker"]', 'Test Environment');
-    await page.fill('input[placeholder*="/var/run/docker.sock"]', '/var/run/docker.sock');
+    // Fill with very short name (min 2 chars)
+    await page.fill('input[placeholder="Local Docker"]', 'a');
 
     // Try to submit
-    await page.getByRole('button', { name: /Continue/i }).click();
+    await page.getByRole('button', { name: /Create Environment/i }).click();
 
     // Should stay on environment step
-    await expect(page.getByRole('heading', { name: /Configure Environment/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Environment Setup/i })).toBeVisible();
   });
 
   test('should show validation error for empty socket path in wizard', async ({ page }) => {
     await completeStep1(page, `e2e_socket_${Date.now()}`);
     await completeStep2(page, `socket-org-${Date.now()}`);
 
-    // Fill form with empty socket path
-    await page.fill('input[placeholder*="local-docker"]', `env-${Date.now()}`);
-    await page.fill('input[placeholder*="Local Docker"]', 'Test Environment');
-    await page.fill('input[placeholder*="/var/run/docker.sock"]', '');
+    // Clear the auto-detected socket path
+    await page.fill('input[placeholder*="docker.sock"]', '');
 
     // Try to submit
-    await page.getByRole('button', { name: /Continue/i }).click();
+    await page.getByRole('button', { name: /Create Environment/i }).click();
 
     // Should stay on environment step due to required field
-    await expect(page.getByRole('heading', { name: /Configure Environment/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Environment Setup/i })).toBeVisible();
   });
 });
 
@@ -451,7 +491,8 @@ test.describe('Post-Wizard Navigation', () => {
     await completeStep1(page, username);
     await completeStep2(page, `nav-org-${Date.now()}`);
     await completeStep3Environment(page);
-    await completeStep4(page);
+    await completeStep4Sources(page);
+    await completeStep5(page);
 
     // Wait for login redirect
     await page.waitForURL(/\/login/, { timeout: 10000 });
@@ -476,13 +517,13 @@ test.describe('Post-Wizard Navigation', () => {
     await completeStep2(page, `sidebar-org-${Date.now()}`);
 
     // Create environment with specific name in step 3
-    await page.fill('input[placeholder*="local-docker"]', `sidebar-env-${Date.now()}`);
-    await page.fill('input[placeholder*="Local Docker"]', envName);
-    await page.fill('input[placeholder*="/var/run/docker.sock"]', '/var/run/docker.sock');
-    await page.getByRole('button', { name: /Continue/i }).click();
-    await expect(page.getByRole('heading', { name: /Complete Setup/i })).toBeVisible({ timeout: 5000 });
+    await page.fill('input[placeholder="Local Docker"]', envName);
+    await page.getByRole('button', { name: /Create Environment/i }).click();
+    // v0.24: Now goes to Sources step
+    await expect(page.getByRole('heading', { name: /Stack Sources/i })).toBeVisible({ timeout: 5000 });
 
-    await completeStep4(page);
+    await completeStep4Sources(page);
+    await completeStep5(page);
 
     // Wait for login redirect and login
     await page.waitForURL(/\/login/, { timeout: 10000 });

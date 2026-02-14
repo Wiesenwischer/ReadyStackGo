@@ -77,6 +77,27 @@ export interface SetConnectionsResponse {
   message?: string;
 }
 
+export interface SetSourcesRequest {
+  registrySourceIds: string[];
+}
+
+export interface SetSourcesResponse {
+  success: boolean;
+  message?: string;
+  sourcesCreated: number;
+}
+
+export interface WizardRegistrySource {
+  id: string;
+  name: string;
+  description: string;
+  type: string;  // "git-repository" or "local-directory"
+  category: string;
+  tags: string[];
+  featured: boolean;
+  stackCount: number;
+}
+
 export interface InstallStackRequest {
   manifestPath?: string;
 }
@@ -111,6 +132,14 @@ export async function setEnvironment(request: SetEnvironmentRequest): Promise<Se
  */
 export async function setConnections(request: SetConnectionsRequest): Promise<SetConnectionsResponse> {
   return apiPost<SetConnectionsResponse>('/api/wizard/connections', request);
+}
+
+export async function getWizardRegistry(): Promise<WizardRegistrySource[]> {
+  return apiGet<WizardRegistrySource[]>('/api/wizard/registry');
+}
+
+export async function setSources(request: SetSourcesRequest): Promise<SetSourcesResponse> {
+  return apiPost<SetSourcesResponse>('/api/wizard/sources', request);
 }
 
 export async function installStack(request: InstallStackRequest = {}): Promise<InstallStackResponse> {
