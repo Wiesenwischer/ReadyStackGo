@@ -64,6 +64,14 @@ function ShieldCheckIcon({ className }: { className?: string }) {
   );
 }
 
+function GlobeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className ?? 'w-4 h-4'} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
 export default function RegistriesStep({ onNext }: RegistriesStepProps) {
   const [cards, setCards] = useState<RegistryCardState[]>([]);
   const [error, setError] = useState('');
@@ -166,10 +174,11 @@ export default function RegistriesStep({ onNext }: RegistriesStepProps) {
       });
 
       if (result.accessLevel === 'Public') {
+        // If credentials were provided, the registry isn't truly public — mark as authenticated
         updateCard(index, {
           verifyStatus: 'success',
           status: 'verified',
-          accessLevel: 'Public',
+          accessLevel: (card.username && card.password) ? 'AuthRequired' : 'Public',
         });
       } else if (result.accessLevel === 'AuthRequired') {
         if (card.username && card.password) {
@@ -504,8 +513,15 @@ export default function RegistriesStep({ onNext }: RegistriesStepProps) {
               <div key={`${card.area.host}-${card.area.namespace}`}
                 className="rounded-lg border border-green-200 dark:border-green-800/40 bg-green-50/50 dark:bg-green-900/10 p-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                    <CheckIcon className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                  <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${
+                    card.accessLevel === 'Public'
+                      ? 'bg-green-100 dark:bg-green-900/30'
+                      : 'bg-blue-100 dark:bg-blue-900/30'
+                  }`}>
+                    {card.accessLevel === 'Public'
+                      ? <GlobeIcon className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                      : <LockIcon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    }
                   </div>
                   <div className="min-w-0 flex-1">
                     <span className="font-medium text-sm text-gray-800 dark:text-white truncate block">
@@ -514,18 +530,10 @@ export default function RegistriesStep({ onNext }: RegistriesStepProps) {
                         <span className="text-gray-500 dark:text-gray-400"> / {card.area.namespace}</span>
                       )}
                     </span>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                        card.accessLevel === 'Public'
-                          ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
-                          : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-                      }`}>
-                        {card.accessLevel === 'Public' ? 'Public' : 'Authenticated'}
-                      </span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">
-                        {card.area.images.length} image{card.area.images.length !== 1 ? 's' : ''}
-                      </span>
-                    </div>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                      {card.accessLevel === 'Public' ? 'Public' : 'Authenticated'}
+                      {' · '}{card.area.images.length} image{card.area.images.length !== 1 ? 's' : ''}
+                    </p>
                   </div>
                   <button
                     type="button"
