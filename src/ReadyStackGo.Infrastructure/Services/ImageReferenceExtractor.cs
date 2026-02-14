@@ -15,6 +15,32 @@ public class ImageReferenceExtractor : IImageReferenceExtractor
         "registry.hub.docker.com"
     };
 
+    /// <summary>
+    /// Registries where all images are public (no auth ever needed for pulls).
+    /// </summary>
+    private static readonly HashSet<string> AlwaysPublicHosts = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "mcr.microsoft.com",
+        "registry.k8s.io",
+        "k8s.gcr.io",
+        "public.ecr.aws",
+        "lscr.io",
+        "nvcr.io",
+    };
+
+    /// <summary>
+    /// Registries where most images are public (community stacks typically use public images).
+    /// Users can toggle to "requires auth" for private repos.
+    /// </summary>
+    private static readonly HashSet<string> MostlyPublicHosts = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "docker.io",
+        "ghcr.io",
+        "quay.io",
+        "gcr.io",
+        "registry.gitlab.com",
+    };
+
     public ParsedImageReference Parse(string imageReference)
     {
         if (string.IsNullOrWhiteSpace(imageReference))
@@ -82,6 +108,7 @@ public class ImageReferenceExtractor : IImageReferenceExtractor
     {
         var parsed = imageReferences
             .Where(r => !string.IsNullOrWhiteSpace(r))
+            .Where(r => !ContainsUnresolvedVariable(r))
             .Select(Parse)
             .Where(p => !string.IsNullOrEmpty(p.Repository))
             .ToList();
@@ -153,8 +180,25 @@ public class ImageReferenceExtractor : IImageReferenceExtractor
 
     private static bool IsLikelyPublic(string host, string ns)
     {
-        // Official Docker Hub images (library namespace) are almost always public
-        return IsDockerHub(host) && ns.Equals("library", StringComparison.OrdinalIgnoreCase);
+        // Always-public registries (every image is public, no auth ever needed)
+        if (AlwaysPublicHosts.Contains(host))
+            return true;
+
+        // Mostly-public registries (community stacks almost always use public images)
+        if (MostlyPublicHosts.Contains(host))
+            return true;
+
+        return false;
+    }
+
+    /// <summary>
+    /// Checks whether an image reference contains unresolved variable placeholders
+    /// like ${VERSION}, ${REGISTRY}, or malformed variants like {$VAR}.
+    /// These should be filtered out since they represent template values, not real images.
+    /// </summary>
+    private static bool ContainsUnresolvedVariable(string imageReference)
+    {
+        return imageReference.Contains("${") || imageReference.Contains("{$");
     }
 
     private static bool IsDockerHub(string host)
