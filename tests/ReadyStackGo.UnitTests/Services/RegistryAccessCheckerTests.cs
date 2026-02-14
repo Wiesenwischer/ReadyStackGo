@@ -69,6 +69,10 @@ public class RegistryAccessCheckerTests
         return handlerMock;
     }
 
+    private static AuthenticationHeaderValue BearerChallenge(string realm = "https://auth.example.io/token",
+        string service = "registry.example.io")
+        => new("Bearer", $"realm=\"{realm}\",service=\"{service}\"");
+
     #region Fully open registry (v2 returns 200)
 
     [Fact]
@@ -84,17 +88,16 @@ public class RegistryAccessCheckerTests
 
     #endregion
 
-    #region Bearer token flow
+    #region Bearer token flow — truly public (token + tags both succeed)
 
     [Fact]
-    public async Task CheckAccess_AnonymousTokenSucceeds_ReturnsPublic()
+    public async Task CheckAccess_TokenAndTagsSucceed_ReturnsPublic()
     {
-        var bearerAuth = new AuthenticationHeaderValue("Bearer",
-            "realm=\"https://auth.example.io/token\",service=\"registry.example.io\"");
-
+        // v2 → 401, token → 200 with token, tags/list → 200
         var handlerMock = CreateSequenceHandler(
-            (HttpStatusCode.Unauthorized, bearerAuth, null),
-            (HttpStatusCode.OK, null, "{\"token\":\"abc\"}"));
+            (HttpStatusCode.Unauthorized, BearerChallenge(), null),
+            (HttpStatusCode.OK, null, "{\"token\":\"abc123\"}"),
+            (HttpStatusCode.OK, null, "{\"name\":\"myorg/myapp\",\"tags\":[\"latest\"]}"));
 
         var checker = CreateChecker(handlerMock.Object);
 
@@ -104,13 +107,61 @@ public class RegistryAccessCheckerTests
     }
 
     [Fact]
+    public async Task CheckAccess_TokenWithAccessTokenField_ReturnsPublic()
+    {
+        // Some registries use "access_token" instead of "token"
+        var handlerMock = CreateSequenceHandler(
+            (HttpStatusCode.Unauthorized, BearerChallenge(), null),
+            (HttpStatusCode.OK, null, "{\"access_token\":\"xyz789\"}"),
+            (HttpStatusCode.OK, null, "{\"tags\":[\"v1\"]}"));
+
+        var checker = CreateChecker(handlerMock.Object);
+
+        var result = await checker.CheckAccessAsync("registry.example.io", "myorg", "myapp");
+
+        result.Should().Be(RegistryAccessLevel.Public);
+    }
+
+    #endregion
+
+    #region Bearer token flow — auth required
+
+    [Fact]
+    public async Task CheckAccess_TokenSucceedsButTagsDenied_ReturnsAuthRequired()
+    {
+        // Token is handed out but doesn't have pull access (e.g., private Docker Hub repo)
+        var handlerMock = CreateSequenceHandler(
+            (HttpStatusCode.Unauthorized, BearerChallenge(), null),
+            (HttpStatusCode.OK, null, "{\"token\":\"limited\"}"),
+            (HttpStatusCode.Unauthorized, null, null));
+
+        var checker = CreateChecker(handlerMock.Object);
+
+        var result = await checker.CheckAccessAsync("registry.example.io", "private", "app");
+
+        result.Should().Be(RegistryAccessLevel.AuthRequired);
+    }
+
+    [Fact]
+    public async Task CheckAccess_TokenSucceedsButTagsForbidden_ReturnsAuthRequired()
+    {
+        var handlerMock = CreateSequenceHandler(
+            (HttpStatusCode.Unauthorized, BearerChallenge(), null),
+            (HttpStatusCode.OK, null, "{\"token\":\"limited\"}"),
+            (HttpStatusCode.Forbidden, null, null));
+
+        var checker = CreateChecker(handlerMock.Object);
+
+        var result = await checker.CheckAccessAsync("registry.example.io", "private", "app");
+
+        result.Should().Be(RegistryAccessLevel.AuthRequired);
+    }
+
+    [Fact]
     public async Task CheckAccess_AnonymousTokenDenied_ReturnsAuthRequired()
     {
-        var bearerAuth = new AuthenticationHeaderValue("Bearer",
-            "realm=\"https://auth.example.io/token\",service=\"registry.example.io\"");
-
         var handlerMock = CreateSequenceHandler(
-            (HttpStatusCode.Unauthorized, bearerAuth, null),
+            (HttpStatusCode.Unauthorized, BearerChallenge(), null),
             (HttpStatusCode.Unauthorized, null, null));
 
         var checker = CreateChecker(handlerMock.Object);
@@ -123,11 +174,8 @@ public class RegistryAccessCheckerTests
     [Fact]
     public async Task CheckAccess_TokenDenied403_ReturnsAuthRequired()
     {
-        var bearerAuth = new AuthenticationHeaderValue("Bearer",
-            "realm=\"https://auth.example.io/token\",service=\"registry.example.io\"");
-
         var handlerMock = CreateSequenceHandler(
-            (HttpStatusCode.Unauthorized, bearerAuth, null),
+            (HttpStatusCode.Unauthorized, BearerChallenge(), null),
             (HttpStatusCode.Forbidden, null, null));
 
         var checker = CreateChecker(handlerMock.Object);
@@ -135,6 +183,38 @@ public class RegistryAccessCheckerTests
         var result = await checker.CheckAccessAsync("registry.example.io", "private", "app");
 
         result.Should().Be(RegistryAccessLevel.AuthRequired);
+    }
+
+    #endregion
+
+    #region Token parsing edge cases
+
+    [Fact]
+    public async Task CheckAccess_TokenResponseEmpty_ReturnsUnknown()
+    {
+        var handlerMock = CreateSequenceHandler(
+            (HttpStatusCode.Unauthorized, BearerChallenge(), null),
+            (HttpStatusCode.OK, null, "{}"));
+
+        var checker = CreateChecker(handlerMock.Object);
+
+        var result = await checker.CheckAccessAsync("registry.example.io", "ns", "repo");
+
+        result.Should().Be(RegistryAccessLevel.Unknown);
+    }
+
+    [Fact]
+    public async Task CheckAccess_TokenResponseMalformed_ReturnsUnknown()
+    {
+        var handlerMock = CreateSequenceHandler(
+            (HttpStatusCode.Unauthorized, BearerChallenge(), null),
+            (HttpStatusCode.OK, null, "not json at all"));
+
+        var checker = CreateChecker(handlerMock.Object);
+
+        var result = await checker.CheckAccessAsync("registry.example.io", "ns", "repo");
+
+        result.Should().Be(RegistryAccessLevel.Unknown);
     }
 
     #endregion
@@ -147,23 +227,36 @@ public class RegistryAccessCheckerTests
         var bearerAuth = new AuthenticationHeaderValue("Bearer",
             "realm=\"https://auth.docker.io/token\",service=\"registry.docker.io\"");
 
+        // v2 → 401, token → 200, tags → 200
         var handlerMock = CreateSequenceHandler(
             (HttpStatusCode.Unauthorized, bearerAuth, null),
-            (HttpStatusCode.OK, null, "{\"token\":\"abc\"}"));
-
-        handlerMock.Protected()
-            .Verify<Task<HttpResponseMessage>>(
-                "SendAsync",
-                Times.Never(),
-                ItExpr.Is<HttpRequestMessage>(r =>
-                    r.RequestUri != null && r.RequestUri.Host == "docker.io"),
-                ItExpr.IsAny<CancellationToken>());
+            (HttpStatusCode.OK, null, "{\"token\":\"abc\"}"),
+            (HttpStatusCode.OK, null, "{\"tags\":[\"latest\"]}"));
 
         var checker = CreateChecker(handlerMock.Object);
 
         var result = await checker.CheckAccessAsync("docker.io", "library", "nginx");
 
         result.Should().Be(RegistryAccessLevel.Public);
+    }
+
+    [Fact]
+    public async Task CheckAccess_DockerHubPrivateRepo_TokenSucceedsButTagsDenied()
+    {
+        var bearerAuth = new AuthenticationHeaderValue("Bearer",
+            "realm=\"https://auth.docker.io/token\",service=\"registry.docker.io\"");
+
+        // Docker Hub gives out tokens for private repos too — but tags will fail
+        var handlerMock = CreateSequenceHandler(
+            (HttpStatusCode.Unauthorized, bearerAuth, null),
+            (HttpStatusCode.OK, null, "{\"token\":\"limited_scope\"}"),
+            (HttpStatusCode.Unauthorized, null, null));
+
+        var checker = CreateChecker(handlerMock.Object);
+
+        var result = await checker.CheckAccessAsync("docker.io", "privateuser", "privateapp");
+
+        result.Should().Be(RegistryAccessLevel.AuthRequired);
     }
 
     #endregion

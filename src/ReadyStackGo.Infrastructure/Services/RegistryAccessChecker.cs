@@ -13,7 +13,9 @@ namespace ReadyStackGo.Infrastructure.Services;
 /// 1. GET https://{host}/v2/ — if 200, registry is fully open (e.g., mcr.microsoft.com)
 /// 2. If 401, parse Www-Authenticate header for Bearer realm + service
 /// 3. Request anonymous token: GET {realm}?service={service}&amp;scope=repository:{ns}/{repo}:pull
-/// 4. If token received → public, if 401/403 → auth required
+/// 4. If token denied → auth required
+/// 5. Verify token by listing tags: GET /v2/{ns}/{repo}/tags/list with Bearer token
+///    If 200 → truly public, if 401/403 → auth required (token was insufficient)
 /// </summary>
 public class RegistryAccessChecker : IRegistryAccessChecker
 {
@@ -114,7 +116,6 @@ public class RegistryAccessChecker : IRegistryAccessChecker
             return RegistryAccessLevel.Unknown;
         }
 
-        // For Docker Hub, namespace "library" maps to "library/{repo}"
         var scope = $"repository:{namespacePath}/{repository}:pull";
         var tokenUrl = $"{realm}?service={Uri.EscapeDataString(service ?? "")}&scope={Uri.EscapeDataString(scope)}";
 
@@ -124,22 +125,88 @@ public class RegistryAccessChecker : IRegistryAccessChecker
         {
             var tokenResponse = await client.GetAsync(tokenUrl, ct);
 
-            if (tokenResponse.IsSuccessStatusCode)
+            if (!tokenResponse.IsSuccessStatusCode)
             {
-                _logger.LogDebug("Anonymous token obtained for {Host}/{Ns}/{Repo} — image is public",
-                    host, namespacePath, repository);
-                return RegistryAccessLevel.Public;
+                _logger.LogDebug("Anonymous token denied ({Status}) for {Host}/{Ns}/{Repo} — auth required",
+                    tokenResponse.StatusCode, host, namespacePath, repository);
+                return RegistryAccessLevel.AuthRequired;
             }
 
-            _logger.LogDebug("Anonymous token denied ({Status}) for {Host}/{Ns}/{Repo} — auth required",
-                tokenResponse.StatusCode, host, namespacePath, repository);
-            return RegistryAccessLevel.AuthRequired;
+            // Token obtained — but some registries (notably Docker Hub) hand out tokens
+            // for ANY repo, even private ones. The token just won't have pull access.
+            // We must verify by actually using the token against the registry.
+            var token = await ExtractTokenAsync(tokenResponse);
+            if (string.IsNullOrEmpty(token))
+            {
+                _logger.LogDebug("Could not extract token from response for {Host}", host);
+                return RegistryAccessLevel.Unknown;
+            }
+
+            return await VerifyTokenAccessAsync(client, host, namespacePath, repository, token, ct);
         }
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Token request failed for {Host}", host);
             return RegistryAccessLevel.Unknown;
         }
+    }
+
+    private async Task<RegistryAccessLevel> VerifyTokenAccessAsync(
+        HttpClient client,
+        string host,
+        string namespacePath,
+        string repository,
+        string token,
+        CancellationToken ct)
+    {
+        // Use the anonymous token to list tags — if it works, the repo is truly public
+        var v2Host = IsDockerHub(host) ? "registry-1.docker.io" : host;
+        var tagsUrl = $"https://{v2Host}/v2/{namespacePath}/{repository}/tags/list?n=1";
+
+        var request = new HttpRequestMessage(HttpMethod.Get, tagsUrl);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        _logger.LogDebug("Verifying anonymous access: {Url}", tagsUrl);
+
+        var response = await client.SendAsync(request, ct);
+
+        if (response.IsSuccessStatusCode)
+        {
+            _logger.LogDebug("Anonymous pull verified for {Host}/{Ns}/{Repo} — truly public",
+                host, namespacePath, repository);
+            return RegistryAccessLevel.Public;
+        }
+
+        _logger.LogDebug("Anonymous token rejected ({Status}) for {Host}/{Ns}/{Repo} — auth required",
+            response.StatusCode, host, namespacePath, repository);
+        return RegistryAccessLevel.AuthRequired;
+    }
+
+    private static async Task<string?> ExtractTokenAsync(HttpResponseMessage tokenResponse)
+    {
+        var content = await tokenResponse.Content.ReadAsStringAsync();
+
+        // Token responses are JSON: {"token":"..."} or {"access_token":"..."}
+        // Simple extraction without JSON dependency
+        var token = ExtractJsonValue(content, "token")
+                    ?? ExtractJsonValue(content, "access_token");
+
+        return token;
+    }
+
+    private static string? ExtractJsonValue(string json, string key)
+    {
+        var search = $"\"{key}\":\"";
+        var startIdx = json.IndexOf(search, StringComparison.Ordinal);
+        if (startIdx < 0)
+            return null;
+
+        startIdx += search.Length;
+        var endIdx = json.IndexOf('"', startIdx);
+        if (endIdx < 0)
+            return null;
+
+        return json[startIdx..endIdx];
     }
 
     private static string? ExtractParam(string headerValue, string paramName)
