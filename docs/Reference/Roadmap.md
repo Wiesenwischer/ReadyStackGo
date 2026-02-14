@@ -183,7 +183,34 @@ Rough outlook on planned versions and features.
 - Bulk Registry Creation from Wizard Input
 - Public Image Detection (library/* defaults to anonymous)
 
-### v0.26 – Stack Marketplace (Browse)
+### v0.26 – WebUI Headless Refactoring
+- Extract Framework-Independent Core Layer (API, Services, Types)
+- SignalR Connection Management as Standalone Services
+- Store-Hooks for Settings Pages (Registry, Stack Sources, TLS, API Keys)
+- Store-Hooks for Deployment Pages (Deploy, Upgrade, Rollback, Remove)
+- Store-Hooks for Remaining Pages (Catalog, Environments, Health, Wizard)
+- Downstream Fork Documentation
+
+### v0.27 – Docker Volumes Management
+- Docker Volumes View (List All Volumes per Environment)
+- Volume Details (Size, Mount Points, Labels)
+- Create/Delete Volumes
+- Detect Orphaned Volumes
+
+### v0.28 – OCI Stack Bundles (Format + Source)
+- OCI Stack Bundle Format Specification (stack.yaml + lock.json + meta.json)
+- OciRegistry StackSourceType Extension with Factory Method
+- OCI Registry Client (list tags, read manifests, pull layers)
+- OciStackSourceProvider (sync tags → parse stackId + version → populate cache)
+- OCI Source UI in Add Stack Source Flow
+
+### v0.29 – OCI Stack Bundles (Import + CI/CD)
+- ImportStackSource for Local Stack Snapshots (from OCI, Git, Upload)
+- OCI Import Flow (pull bundle, extract, store via ImportStackSource)
+- Lock-file Based Deployment (prefer image@digest from lock.json)
+- CI/CD Tooling and Documentation (Dockerfile template, ORAS examples)
+
+### v0.30 – Stack Marketplace (Browse)
 - StackCatalogSource Domain Model (embedded, git-json, http-json sources)
 - StackCatalogEntry Domain Model (name, slug, description, category, tags, logo, registry hints)
 - Catalog Source Providers (embedded JSON, Git repo with stack-catalog.json)
@@ -191,38 +218,11 @@ Rough outlook on planned versions and features.
 - Marketplace Browse UI (tile grid, search, category filter)
 - Marketplace Detail Page (markdown description, registry requirements check)
 
-### v0.27 – Marketplace Install Flow
+### v0.31 – Marketplace Install Flow
 - StackInstallation Domain Model (org + environment scoped)
 - Install from Marketplace Endpoint (registry prerequisite validation)
 - Install Flow UI (org/env selection, registry check, variable resolution, deploy)
 - Installation Status in Marketplace Tiles and Detail Pages
-
-### v0.28 – WebUI Headless Refactoring
-- Extract Framework-Independent Core Layer (API, Services, Types)
-- SignalR Connection Management as Standalone Services
-- Store-Hooks for Settings Pages (Registry, Stack Sources, TLS, API Keys)
-- Store-Hooks for Deployment Pages (Deploy, Upgrade, Rollback, Remove)
-- Store-Hooks for Remaining Pages (Catalog, Environments, Health, Wizard, Marketplace)
-- Downstream Fork Documentation
-
-### v0.29 – Docker Volumes Management
-- Docker Volumes View (List All Volumes per Environment)
-- Volume Details (Size, Mount Points, Labels)
-- Create/Delete Volumes
-- Detect Orphaned Volumes
-
-### v0.30 – OCI Stack Bundles (Format + Source)
-- OCI Stack Bundle Format Specification (stack.yaml + lock.json + meta.json)
-- OciRegistry StackSourceType Extension with Factory Method
-- OCI Registry Client (list tags, read manifests, pull layers)
-- OciStackSourceProvider (sync tags → parse stackId + version → populate cache)
-- OCI Source UI in Add Stack Source Flow
-
-### v0.31 – OCI Stack Bundles (Import + CI/CD)
-- ImportStackSource for Local Stack Snapshots (from OCI, Git, Upload)
-- OCI Import Flow (pull bundle, extract, store via ImportStackSource)
-- Lock-file Based Deployment (prefer image@digest from lock.json)
-- CI/CD Tooling and Documentation (Dockerfile template, ORAS examples)
 
 ### v0.32 – Metrics & Audit
 - Metrics & Alerting
