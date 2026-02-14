@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { TypeSelector, type TypeOption } from "../../../components/ui/TypeSelector";
 
-type SourceType = "local" | "git";
+type SourceType = "local" | "git" | "catalog";
 
 const sourceTypeOptions: TypeOption<SourceType>[] = [
   {
@@ -23,6 +23,16 @@ const sourceTypeOptions: TypeOption<SourceType>[] = [
       <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 7.894l-5.5 5.5a.75.75 0 01-1.06 0l-2.5-2.5a.75.75 0 011.06-1.06l1.97 1.97 4.97-4.97a.75.75 0 011.06 1.06z"/>
         <path fillRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zM5.5 12a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0z" clipRule="evenodd"/>
+      </svg>
+    ),
+  },
+  {
+    id: "catalog",
+    label: "From Catalog",
+    description: "Add a curated source from the community catalog",
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
       </svg>
     ),
   },
@@ -68,7 +78,7 @@ export default function AddStackSourceSelect() {
             options={sourceTypeOptions}
             value={selectedType}
             onChange={setSelectedType}
-            columns={2}
+            columns={3}
           />
 
           <div className="mt-8 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-6">

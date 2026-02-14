@@ -104,6 +104,13 @@ export async function getRegistrySources(): Promise<RegistrySourceDto[]> {
 
 
 /**
+ * Add a stack source from the curated registry.
+ */
+export async function addFromRegistry(registrySourceId: string): Promise<StackSourceResponse> {
+  return apiPost<StackSourceResponse>('/api/stack-sources/from-registry', { registrySourceId });
+}
+
+/**
  * Get all stack sources.
  */
 export async function getStackSources(): Promise<StackSourceDto[]> {
