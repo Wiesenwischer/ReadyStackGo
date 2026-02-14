@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
   getStackSources,
@@ -6,6 +6,8 @@ import {
   deleteStackSource,
   syncSource,
   syncAllSources,
+  exportSources,
+  importSources,
   type StackSourceDto,
 } from "../../../api/stackSources";
 
@@ -14,6 +16,7 @@ export default function StackSourcesList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadStackSources = async () => {
     try {
@@ -100,6 +103,53 @@ export default function StackSourcesList() {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      setActionLoading("export");
+      const data = await exportSources();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `rsgo-sources-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to export sources");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setActionLoading("import");
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      if (!data.version || !Array.isArray(data.sources)) {
+        setError("Invalid import file format. Expected { version, sources[] }.");
+        return;
+      }
+
+      const result = await importSources(data);
+      if (result.success) {
+        await loadStackSources();
+        setError(null);
+      } else {
+        setError(result.message || "Failed to import sources");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to import sources");
+    } finally {
+      setActionLoading(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
       {/* Breadcrumb */}
@@ -131,6 +181,33 @@ export default function StackSourcesList() {
               </svg>
               Add Source
             </Link>
+            <button
+              onClick={handleExport}
+              disabled={actionLoading === "export"}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-gray-100 px-4 py-2 text-center font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              {actionLoading === "export" ? "Exporting..." : "Export"}
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={actionLoading === "import"}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-gray-100 px-4 py-2 text-center font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              {actionLoading === "import" ? "Importing..." : "Import"}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleImportFile}
+              className="hidden"
+            />
             <button
               onClick={handleSyncAllSources}
               disabled={actionLoading === "all"}

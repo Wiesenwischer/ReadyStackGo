@@ -146,6 +146,49 @@ export async function deleteStackSource(id: string): Promise<StackSourceResponse
 }
 
 /**
+ * Export all stack source configurations as JSON.
+ */
+export async function exportSources(): Promise<ExportSourcesResponse> {
+  return apiGet<ExportSourcesResponse>('/api/stack-sources/export');
+}
+
+/**
+ * Import stack source configurations from JSON.
+ */
+export async function importSources(data: ImportSourcesRequest): Promise<ImportSourcesResponse> {
+  return apiPost<ImportSourcesResponse>('/api/stack-sources/import', data);
+}
+
+export interface ExportSourcesResponse {
+  version: string;
+  exportedAt: string;
+  sources: ExportedSourceDto[];
+}
+
+export interface ExportedSourceDto {
+  name: string;
+  type: string;
+  enabled: boolean;
+  path?: string;
+  filePattern?: string;
+  gitUrl?: string;
+  gitBranch?: string;
+  gitSslVerify?: boolean;
+}
+
+export interface ImportSourcesRequest {
+  version: string;
+  sources: ExportedSourceDto[];
+}
+
+export interface ImportSourcesResponse {
+  success: boolean;
+  message?: string;
+  sourcesCreated: number;
+  sourcesSkipped: number;
+}
+
+/**
  * Sync all stack sources.
  */
 export async function syncAllSources(): Promise<SyncResult> {
