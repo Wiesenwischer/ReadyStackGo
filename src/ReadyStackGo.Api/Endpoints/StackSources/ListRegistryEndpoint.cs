@@ -34,8 +34,11 @@ public class ListRegistryEndpoint : Endpoint<EmptyRequest, IEnumerable<RegistryS
             Id = s.Id,
             Name = s.Name,
             Description = s.Description,
+            Type = s.Type,
             GitUrl = s.GitUrl,
             GitBranch = s.GitBranch,
+            Path = s.Path,
+            FilePattern = s.FilePattern,
             Category = s.Category,
             Tags = s.Tags,
             Featured = s.Featured,
@@ -50,8 +53,11 @@ public class RegistrySourceDto
     public required string Id { get; init; }
     public required string Name { get; init; }
     public required string Description { get; init; }
+    public string Type { get; init; } = "git-repository";
     public required string GitUrl { get; init; }
     public required string GitBranch { get; init; }
+    public string? Path { get; init; }
+    public string? FilePattern { get; init; }
     public required string Category { get; init; }
     public IReadOnlyList<string> Tags { get; init; } = [];
     public bool Featured { get; init; }

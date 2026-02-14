@@ -91,6 +91,7 @@ export interface WizardRegistrySource {
   id: string;
   name: string;
   description: string;
+  type: string;  // "git-repository" or "local-directory"
   category: string;
   tags: string[];
   featured: boolean;

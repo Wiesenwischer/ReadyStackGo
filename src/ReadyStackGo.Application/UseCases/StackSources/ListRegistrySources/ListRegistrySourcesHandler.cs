@@ -28,6 +28,11 @@ public class ListRegistrySourcesHandler : IRequestHandler<ListRegistrySourcesQue
             .Select(s => s.GitUrl!.TrimEnd('/'))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        var existingPaths = existingSources
+            .Where(s => !string.IsNullOrEmpty(s.Path))
+            .Select(s => s.Path!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         var items = registryEntries.Select(e => new RegistrySourceItem(
             Id: e.Id,
             Name: e.Name,
@@ -38,7 +43,12 @@ public class ListRegistrySourcesHandler : IRequestHandler<ListRegistrySourcesQue
             Tags: e.Tags,
             Featured: e.Featured,
             StackCount: e.StackCount,
-            AlreadyAdded: existingGitUrls.Contains(e.GitUrl.TrimEnd('/'))
+            AlreadyAdded: e.IsLocalDirectory
+                ? (!string.IsNullOrEmpty(e.Path) && existingPaths.Contains(e.Path))
+                : existingGitUrls.Contains(e.GitUrl.TrimEnd('/')),
+            Type: e.Type,
+            Path: e.Path,
+            FilePattern: e.FilePattern
         )).ToList();
 
         return new ListRegistrySourcesResult(items);

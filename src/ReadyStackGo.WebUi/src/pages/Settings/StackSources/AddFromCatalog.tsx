@@ -124,7 +124,9 @@ export default function AddFromCatalog() {
                       {source.description}
                     </p>
                     <p className="mt-1 text-xs text-gray-400 dark:text-gray-500 font-mono">
-                      {source.gitUrl} ({source.gitBranch})
+                      {source.type === 'local-directory'
+                        ? source.path || 'local directory'
+                        : `${source.gitUrl} (${source.gitBranch})`}
                     </p>
                   </div>
                   <div className="flex-shrink-0">

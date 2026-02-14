@@ -18,6 +18,7 @@ public interface ISourceRegistryService
 
 /// <summary>
 /// A curated stack source entry from the embedded registry.
+/// Supports both git-repository and local-directory types.
 /// </summary>
 public record SourceRegistryEntry(
     string Id,
@@ -28,4 +29,11 @@ public record SourceRegistryEntry(
     string Category,
     IReadOnlyList<string> Tags,
     bool Featured,
-    int StackCount);
+    int StackCount,
+    string Type = "git-repository",
+    string? Path = null,
+    string? FilePattern = null)
+{
+    public bool IsLocalDirectory => Type.Equals("local-directory", StringComparison.OrdinalIgnoreCase);
+    public bool IsGitRepository => !IsLocalDirectory;
+}

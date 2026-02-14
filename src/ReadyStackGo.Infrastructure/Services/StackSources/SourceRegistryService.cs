@@ -58,7 +58,10 @@ public class SourceRegistryService : ISourceRegistryService
                     Category: e.Category ?? "community",
                     Tags: (IReadOnlyList<string>)(e.Tags ?? []),
                     Featured: e.Featured,
-                    StackCount: e.StackCount))
+                    StackCount: e.StackCount,
+                    Type: e.Type ?? "git-repository",
+                    Path: e.Path,
+                    FilePattern: e.FilePattern))
                 .ToList()
                 .AsReadOnly();
 
@@ -100,5 +103,14 @@ public class SourceRegistryService : ISourceRegistryService
 
         [JsonPropertyName("stackCount")]
         public int StackCount { get; set; }
+
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
+
+        [JsonPropertyName("path")]
+        public string? Path { get; set; }
+
+        [JsonPropertyName("filePattern")]
+        public string? FilePattern { get; set; }
     }
 }

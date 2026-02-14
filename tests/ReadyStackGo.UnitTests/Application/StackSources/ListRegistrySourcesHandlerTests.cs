@@ -180,7 +180,7 @@ public class ListRegistrySourcesHandlerTests
     }
 
     [Fact]
-    public async Task Handle_LocalDirectorySourcesDoNotAffectMatching()
+    public async Task Handle_LocalDirectorySourcesDoNotAffectGitMatching()
     {
         SetupRegistry(CreateRegistryEntry(gitUrl: "https://github.com/test/repo.git"));
         var localSource = StackSource.CreateLocalDirectory(
@@ -194,4 +194,97 @@ public class ListRegistrySourcesHandlerTests
     }
 
     #endregion
+
+    #region Local Directory Registry Entries
+
+    [Fact]
+    public async Task Handle_LocalRegistryEntry_NotAdded_AlreadyAddedIsFalse()
+    {
+        SetupRegistry(CreateLocalRegistryEntry());
+        SetupExistingSources();
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(new ListRegistrySourcesQuery(), CancellationToken.None);
+
+        result.Sources.Single().AlreadyAdded.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Handle_LocalRegistryEntry_AlreadyAdded_AlreadyAddedIsTrue()
+    {
+        SetupRegistry(CreateLocalRegistryEntry(path: "stacks"));
+        var existing = StackSource.CreateLocalDirectory(
+            StackSourceId.NewId(), "Local", "stacks");
+        SetupExistingSources(existing);
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(new ListRegistrySourcesQuery(), CancellationToken.None);
+
+        result.Sources.Single().AlreadyAdded.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Handle_LocalRegistryEntryPathMatchingIsCaseInsensitive()
+    {
+        SetupRegistry(CreateLocalRegistryEntry(path: "Stacks"));
+        var existing = StackSource.CreateLocalDirectory(
+            StackSourceId.NewId(), "Local", "stacks");
+        SetupExistingSources(existing);
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(new ListRegistrySourcesQuery(), CancellationToken.None);
+
+        result.Sources.Single().AlreadyAdded.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Handle_MapsLocalRegistryEntryTypeCorrectly()
+    {
+        SetupRegistry(CreateLocalRegistryEntry());
+        SetupExistingSources();
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(new ListRegistrySourcesQuery(), CancellationToken.None);
+
+        var item = result.Sources.Single();
+        item.Type.Should().Be("local-directory");
+        item.Path.Should().Be("stacks");
+        item.FilePattern.Should().Be("*.yml;*.yaml");
+    }
+
+    [Fact]
+    public async Task Handle_GitSourceDoesNotAffectLocalMatching()
+    {
+        SetupRegistry(CreateLocalRegistryEntry(path: "stacks"));
+        var gitSource = StackSource.CreateGitRepository(
+            StackSourceId.NewId(), "Git", "https://github.com/test/repo.git");
+        SetupExistingSources(gitSource);
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(new ListRegistrySourcesQuery(), CancellationToken.None);
+
+        result.Sources.Single().AlreadyAdded.Should().BeFalse();
+    }
+
+    #endregion
+
+    private static SourceRegistryEntry CreateLocalRegistryEntry(
+        string id = "local-stacks",
+        string name = "Local Stacks",
+        string path = "stacks")
+    {
+        return new SourceRegistryEntry(
+            Id: id,
+            Name: name,
+            Description: "Built-in stacks",
+            GitUrl: "",
+            GitBranch: "",
+            Category: "built-in",
+            Tags: ["embedded"],
+            Featured: true,
+            StackCount: 3,
+            Type: "local-directory",
+            Path: path,
+            FilePattern: "*.yml;*.yaml");
+    }
 }

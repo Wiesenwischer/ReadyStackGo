@@ -32,6 +32,7 @@ public class ListRegistryForWizardEndpoint : EndpointWithoutRequest<IEnumerable<
             Id = e.Id,
             Name = e.Name,
             Description = e.Description,
+            Type = e.Type,
             Category = e.Category,
             Tags = e.Tags,
             Featured = e.Featured,
@@ -47,6 +48,7 @@ public class WizardRegistrySourceDto
     public required string Id { get; init; }
     public required string Name { get; init; }
     public required string Description { get; init; }
+    public string Type { get; init; } = "git-repository";
     public required string Category { get; init; }
     public IReadOnlyList<string> Tags { get; init; } = [];
     public bool Featured { get; init; }

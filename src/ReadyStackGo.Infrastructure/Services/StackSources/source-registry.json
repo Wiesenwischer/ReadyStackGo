@@ -1,8 +1,23 @@
 [
   {
+    "id": "rsgo-embedded-stacks",
+    "name": "RSGO Embedded Stacks",
+    "description": "Built-in example stacks bundled with the application",
+    "type": "local-directory",
+    "path": "stacks",
+    "filePattern": "*.yml;*.yaml",
+    "gitUrl": "",
+    "gitBranch": "",
+    "category": "built-in",
+    "tags": ["embedded", "examples", "built-in"],
+    "featured": true,
+    "stackCount": 3
+  },
+  {
     "id": "rsgo-community-stacks",
     "name": "RSGO Community Stacks",
     "description": "Official community-maintained stack collection with popular open-source applications",
+    "type": "git-repository",
     "gitUrl": "https://github.com/Wiesenwischer/rsgo-community-stacks.git",
     "gitBranch": "main",
     "category": "official",

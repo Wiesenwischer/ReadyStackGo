@@ -16,4 +16,7 @@ public record RegistrySourceItem(
     IReadOnlyList<string> Tags,
     bool Featured,
     int StackCount,
-    bool AlreadyAdded);
+    bool AlreadyAdded,
+    string Type = "git-repository",
+    string? Path = null,
+    string? FilePattern = null);

@@ -84,8 +84,11 @@ export interface RegistrySourceDto {
   id: string;
   name: string;
   description: string;
+  type: string;  // "git-repository" or "local-directory"
   gitUrl: string;
   gitBranch: string;
+  path?: string;
+  filePattern?: string;
   category: string;
   tags: string[];
   featured: boolean;

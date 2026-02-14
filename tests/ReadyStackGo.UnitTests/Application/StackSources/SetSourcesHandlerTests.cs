@@ -218,4 +218,113 @@ public class SetSourcesHandlerTests
     }
 
     #endregion
+
+    #region Local Directory Sources
+
+    [Fact]
+    public async Task Handle_LocalDirectoryEntry_CreatesLocalSource()
+    {
+        var entry = CreateLocalRegistryEntry();
+        SetupRegistry(entry);
+        SetupExistingSources();
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(
+            new SetSourcesCommand(["local-stacks"]),
+            CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        result.SourcesCreated.Should().Be(1);
+
+        _productSourceMock.Verify(
+            s => s.AddSourceAsync(
+                It.Is<StackSource>(src =>
+                    src.Name == "Local Stacks" &&
+                    src.Path == "stacks" &&
+                    src.FilePattern == "*.yml;*.yaml" &&
+                    src.Type == StackSourceType.LocalDirectory),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_LocalDirectoryAlreadyAdded_SkipsIt()
+    {
+        var entry = CreateLocalRegistryEntry();
+        SetupRegistry(entry);
+        var existing = StackSource.CreateLocalDirectory(
+            StackSourceId.NewId(), "Existing", "stacks");
+        SetupExistingSources(existing);
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(
+            new SetSourcesCommand(["local-stacks"]),
+            CancellationToken.None);
+
+        result.SourcesCreated.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Handle_LocalDirectoryWithNoPath_SkipsIt()
+    {
+        var entry = new SourceRegistryEntry(
+            Id: "no-path",
+            Name: "No Path",
+            Description: "Missing path",
+            GitUrl: "",
+            GitBranch: "",
+            Category: "test",
+            Tags: [],
+            Featured: false,
+            StackCount: 0,
+            Type: "local-directory",
+            Path: null);
+        SetupRegistry(entry);
+        SetupExistingSources();
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(
+            new SetSourcesCommand(["no-path"]),
+            CancellationToken.None);
+
+        result.SourcesCreated.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Handle_MixedGitAndLocalSources_CreatesAll()
+    {
+        var gitEntry = CreateRegistryEntry(id: "git-1", gitUrl: "https://github.com/test/repo.git");
+        var localEntry = CreateLocalRegistryEntry();
+        SetupRegistry(gitEntry, localEntry);
+        SetupExistingSources();
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(
+            new SetSourcesCommand(["git-1", "local-stacks"]),
+            CancellationToken.None);
+
+        result.SourcesCreated.Should().Be(2);
+    }
+
+    #endregion
+
+    private static SourceRegistryEntry CreateLocalRegistryEntry(
+        string id = "local-stacks",
+        string name = "Local Stacks",
+        string path = "stacks")
+    {
+        return new SourceRegistryEntry(
+            Id: id,
+            Name: name,
+            Description: "Built-in stacks",
+            GitUrl: "",
+            GitBranch: "",
+            Category: "built-in",
+            Tags: ["embedded"],
+            Featured: true,
+            StackCount: 3,
+            Type: "local-directory",
+            Path: path,
+            FilePattern: "*.yml;*.yaml");
+    }
 }

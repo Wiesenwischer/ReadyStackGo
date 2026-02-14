@@ -33,6 +33,10 @@ public class SetSourcesHandler : IRequestHandler<SetSourcesCommand, SetSourcesRe
             .Where(s => !string.IsNullOrEmpty(s.GitUrl))
             .Select(s => s.GitUrl!.TrimEnd('/'))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var existingPaths = existingSources
+            .Where(s => !string.IsNullOrEmpty(s.Path))
+            .Select(s => s.Path!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var created = 0;
 
@@ -45,24 +49,60 @@ public class SetSourcesHandler : IRequestHandler<SetSourcesCommand, SetSourcesRe
                 continue;
             }
 
-            if (existingGitUrls.Contains(entry.GitUrl.TrimEnd('/')))
+            if (entry.IsLocalDirectory)
             {
-                _logger.LogDebug("Skipping already added source: {GitUrl}", entry.GitUrl);
-                continue;
+                if (string.IsNullOrWhiteSpace(entry.Path))
+                {
+                    _logger.LogWarning("Skipping local registry entry with no path: {RegistryId}", registryId);
+                    continue;
+                }
+
+                if (existingPaths.Contains(entry.Path))
+                {
+                    _logger.LogDebug("Skipping already added local source: {Path}", entry.Path);
+                    continue;
+                }
+
+                var localSource = StackSource.CreateLocalDirectory(
+                    StackSourceId.NewId(),
+                    entry.Name,
+                    entry.Path,
+                    entry.FilePattern ?? "*.yml;*.yaml");
+
+                await _productSourceService.AddSourceAsync(localSource, cancellationToken);
+                existingPaths.Add(entry.Path);
+                created++;
+
+                _logger.LogInformation("Created local stack source from registry: {SourceName} ({Path})",
+                    entry.Name, entry.Path);
             }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(entry.GitUrl))
+                {
+                    _logger.LogWarning("Skipping git registry entry with no URL: {RegistryId}", registryId);
+                    continue;
+                }
 
-            var source = StackSource.CreateGitRepository(
-                StackSourceId.NewId(),
-                entry.Name,
-                entry.GitUrl,
-                entry.GitBranch);
+                if (existingGitUrls.Contains(entry.GitUrl.TrimEnd('/')))
+                {
+                    _logger.LogDebug("Skipping already added source: {GitUrl}", entry.GitUrl);
+                    continue;
+                }
 
-            await _productSourceService.AddSourceAsync(source, cancellationToken);
-            existingGitUrls.Add(entry.GitUrl.TrimEnd('/'));
-            created++;
+                var gitSource = StackSource.CreateGitRepository(
+                    StackSourceId.NewId(),
+                    entry.Name,
+                    entry.GitUrl,
+                    entry.GitBranch);
 
-            _logger.LogInformation("Created stack source from registry: {SourceName} ({GitUrl})",
-                entry.Name, entry.GitUrl);
+                await _productSourceService.AddSourceAsync(gitSource, cancellationToken);
+                existingGitUrls.Add(entry.GitUrl.TrimEnd('/'));
+                created++;
+
+                _logger.LogInformation("Created stack source from registry: {SourceName} ({GitUrl})",
+                    entry.Name, entry.GitUrl);
+            }
         }
 
         return new SetSourcesResult(true, $"{created} source(s) added", created);
