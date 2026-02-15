@@ -141,16 +141,17 @@ Reihenfolge basierend auf Abhängigkeiten:
     - Diese werden weiterhin funktionieren, sind aber nicht mehr Teil des UI-Wizard
   - Abhängig von: Feature 4
 
-- [ ] **Tests** – Unit + E2E
+- [x] **Tests** – Unit + E2E
   - Abhängig von: Feature 1-7
 
-- [ ] **Dokumentation: `/document-feature` für neue Flows** – E2E-Tests, Screenshots und Anleitungen
+- [x] **Dokumentation: `/document-feature` für neue Flows** – E2E-Tests, Screenshots und Anleitungen
   - Abhängig von: Tests
   - Details: Siehe Abschnitt "Dokumentationsplan" unten
+  - Ergebnis: wizard.spec.ts komplett neugeschrieben (8 Tests), 3 Screenshots generiert, initial-setup.md DE+EN neugeschrieben
 
-- [ ] **Dokumentation: Bestehende Docs aktualisieren** – Referenzen auf alten Wizard-Flow korrigieren
+- [x] **Dokumentation: Bestehende Docs aktualisieren** – Referenzen auf alten Wizard-Flow korrigieren
   - Abhängig von: `/document-feature`
-  - Details: Siehe Abschnitt "Dokumentationsplan" unten
+  - Ergebnis: quickstart.md, installation/index.mdx in DE+EN aktualisiert
 
 - [ ] **Phase abschließen** – Alle Tests grün, PR gegen main
   - Abhängig von: alle
