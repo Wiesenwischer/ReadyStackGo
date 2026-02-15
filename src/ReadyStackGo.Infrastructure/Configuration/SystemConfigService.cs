@@ -35,8 +35,6 @@ public class SystemConfigService : ISystemConfigService
         return state switch
         {
             InfraWizardState.NotStarted => AppWizardState.NotStarted,
-            InfraWizardState.AdminCreated => AppWizardState.AdminCreated,
-            InfraWizardState.OrganizationSet => AppWizardState.OrganizationSet,
             InfraWizardState.Installed => AppWizardState.Installed,
             _ => AppWizardState.NotStarted
         };
@@ -47,8 +45,6 @@ public class SystemConfigService : ISystemConfigService
         return state switch
         {
             AppWizardState.NotStarted => InfraWizardState.NotStarted,
-            AppWizardState.AdminCreated => InfraWizardState.AdminCreated,
-            AppWizardState.OrganizationSet => InfraWizardState.OrganizationSet,
             AppWizardState.Installed => InfraWizardState.Installed,
             _ => InfraWizardState.NotStarted
         };

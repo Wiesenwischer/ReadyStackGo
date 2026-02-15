@@ -24,13 +24,10 @@ public class InstallStackEndpoint : Endpoint<InstallStackRequest, InstallStackRe
     {
         Post("/api/wizard/install");
         AllowAnonymous();
-        PreProcessor<WizardTimeoutPreProcessor<InstallStackRequest>>();
     }
 
     public override async Task HandleAsync(InstallStackRequest req, CancellationToken ct)
     {
-        // Timeout check is handled by WizardTimeoutPreProcessor
-
         var result = await _mediator.Send(new CompleteWizardCommand(req.ManifestPath), ct);
 
         // Clear timeout tracking on successful completion

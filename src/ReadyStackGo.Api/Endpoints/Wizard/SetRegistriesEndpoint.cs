@@ -21,7 +21,6 @@ public class SetRegistriesEndpoint : Endpoint<SetRegistriesRequest, SetRegistrie
     {
         Post("/api/wizard/registries");
         AllowAnonymous();
-        PreProcessor<WizardTimeoutPreProcessor<SetRegistriesRequest>>();
     }
 
     public override async Task HandleAsync(SetRegistriesRequest req, CancellationToken ct)
