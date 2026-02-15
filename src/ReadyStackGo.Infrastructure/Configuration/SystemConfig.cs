@@ -52,4 +52,9 @@ public class SystemConfig
     /// Once locked, can only be reset by restarting the container (clears in-memory state).
     /// </summary>
     public bool IsWizardLocked { get; set; }
+
+    /// <summary>
+    /// Whether the user has dismissed the onboarding checklist on the dashboard.
+    /// </summary>
+    public bool OnboardingDismissed { get; set; }
 }

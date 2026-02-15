@@ -1,16 +1,21 @@
 namespace ReadyStackGo.Application.UseCases.Administration.RegisterSystemAdmin;
 
 using MediatR;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
+using ReadyStackGo.Application.Services;
+using ReadyStackGo.Domain.IdentityAccess.Roles;
 using ReadyStackGo.Domain.IdentityAccess.Users;
 
 public class RegisterSystemAdminHandler : IRequestHandler<RegisterSystemAdminCommand, RegisterSystemAdminResult>
 {
     private readonly SystemAdminRegistrationService _registrationService;
+    private readonly ITokenService _tokenService;
 
-    public RegisterSystemAdminHandler(SystemAdminRegistrationService registrationService)
+    public RegisterSystemAdminHandler(
+        SystemAdminRegistrationService registrationService,
+        ITokenService tokenService)
     {
         _registrationService = registrationService;
+        _tokenService = tokenService;
     }
 
     public Task<RegisterSystemAdminResult> Handle(RegisterSystemAdminCommand request, CancellationToken cancellationToken)
@@ -18,7 +23,11 @@ public class RegisterSystemAdminHandler : IRequestHandler<RegisterSystemAdminCom
         try
         {
             var user = _registrationService.RegisterSystemAdmin(request.Username, request.Password);
-            return Task.FromResult(new RegisterSystemAdminResult(true, user.Id.ToString()));
+            var token = _tokenService.GenerateToken(user);
+            var role = user.HasRole(RoleId.SystemAdmin) ? "admin" : "user";
+
+            return Task.FromResult(new RegisterSystemAdminResult(
+                true, user.Id.ToString(), Token: token, Username: user.Username, Role: role));
         }
         catch (InvalidOperationException ex)
         {

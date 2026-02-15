@@ -92,7 +92,7 @@ public class WizardTimeoutServiceTests
     {
         // Arrange
         var startedAt = DateTime.UtcNow.AddMinutes(-2); // Started 2 minutes ago
-        _systemConfig.WizardState = WizardState.AdminCreated;
+        _systemConfig.WizardState = WizardState.NotStarted;
         _systemConfig.WizardStartedAt = startedAt;
         var service = CreateService();
 
@@ -111,7 +111,7 @@ public class WizardTimeoutServiceTests
     {
         // Arrange
         var startedAt = DateTime.UtcNow.AddMinutes(-10); // Started 10 minutes ago
-        _systemConfig.WizardState = WizardState.AdminCreated;
+        _systemConfig.WizardState = WizardState.NotStarted;
         _systemConfig.WizardStartedAt = startedAt;
         var service = CreateService();
 
@@ -162,7 +162,7 @@ public class WizardTimeoutServiceTests
     public async Task IsTimedOutAsync_WhenExpired_ReturnsTrue()
     {
         // Arrange
-        _systemConfig.WizardState = WizardState.AdminCreated;
+        _systemConfig.WizardState = WizardState.NotStarted;
         _systemConfig.WizardStartedAt = DateTime.UtcNow.AddMinutes(-10);
         var service = CreateService();
 
@@ -205,7 +205,7 @@ public class WizardTimeoutServiceTests
     public async Task ResetTimeoutAsync_WhenLocked_DoesNotReset()
     {
         // Arrange
-        _systemConfig.WizardState = WizardState.AdminCreated;
+        _systemConfig.WizardState = WizardState.NotStarted;
         _systemConfig.IsWizardLocked = true;
         _systemConfig.WizardStartedAt = DateTime.UtcNow.AddMinutes(-10);
         var service = CreateService();
@@ -222,7 +222,7 @@ public class WizardTimeoutServiceTests
     public async Task ResetTimeoutAsync_WhenNotLocked_ResetsPartialState()
     {
         // Arrange
-        _systemConfig.WizardState = WizardState.AdminCreated;
+        _systemConfig.WizardState = WizardState.NotStarted;
         _systemConfig.IsWizardLocked = false;
         _systemConfig.WizardStartedAt = DateTime.UtcNow;
         var service = CreateService();

@@ -41,7 +41,10 @@ public class CreateAdminEndpoint : Endpoint<CreateAdminRequest, CreateAdminRespo
         Response = new CreateAdminResponse
         {
             Success = true,
-            Message = "Admin user created successfully"
+            Message = "Admin user created successfully",
+            Token = result.Token,
+            Username = result.Username,
+            Role = result.Role
         };
     }
 }

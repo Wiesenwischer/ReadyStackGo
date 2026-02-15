@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { dashboardApi, type DashboardStats } from '../api/dashboard';
 import { useEnvironment } from '../context/EnvironmentContext';
 import HealthWidget from '../components/dashboard/HealthWidget';
+import SetupHint from '../components/dashboard/SetupHint';
 
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -45,6 +46,8 @@ export default function Dashboard() {
           Dashboard
         </h1>
       </div>
+
+      <SetupHint />
 
       {error && (
         <div className="mb-4 rounded-sm border border-red-300 bg-red-50 px-7.5 py-4 text-red-800 dark:border-red-900 dark:bg-red-900/30 dark:text-red-300">

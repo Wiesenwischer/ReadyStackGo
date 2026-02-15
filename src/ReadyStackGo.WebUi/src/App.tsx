@@ -32,8 +32,10 @@ import {
   CiCdList,
 } from "./pages/Settings";
 import SetupEnvironment from "./pages/Environments/SetupEnvironment";
+import SetupOrganization from "./pages/Settings/Organization/SetupOrganization";
 import Login from "./pages/Auth/Login";
 import Wizard from "./pages/Wizard";
+import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 import UpdateStatus from "./pages/UpdateStatus";
 import { AuthProvider } from "./context/AuthContext";
@@ -41,6 +43,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { EnvironmentProvider } from "./context/EnvironmentContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import WizardGuard from "./components/wizard/WizardGuard";
+import OnboardingGuard from "./components/onboarding/OnboardingGuard";
 import EnvironmentGuard from "./components/environment/EnvironmentGuard";
 
 export default function App() {
@@ -73,16 +76,27 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
+              {/* Onboarding page - standalone, outside AppLayout */}
+              <Route
+                path="/onboarding"
+                element={
+                  <ProtectedRoute>
+                    <Onboarding />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 element={
                   <ProtectedRoute>
                     <EnvironmentProvider>
-                      <AppLayout />
+                      <OnboardingGuard>
+                        <AppLayout />
+                      </OnboardingGuard>
                     </EnvironmentProvider>
                   </ProtectedRoute>
                 }
               >
-                {/* Routes that require an active environment */}
+                {/* Dashboard with EnvironmentGuard — redirects to /environments when none exist */}
                 <Route
                   index
                   path="/"
@@ -92,6 +106,7 @@ export default function App() {
                     </EnvironmentGuard>
                   }
                 />
+                {/* Routes that require an active environment */}
                 <Route
                   path="/containers"
                   element={
@@ -176,6 +191,7 @@ export default function App() {
                 <Route path="/environments" element={<Environments />} />
                 {/* Settings pages - don't require active environment */}
                 <Route path="/settings" element={<SettingsIndex />} />
+                <Route path="/settings/organization" element={<SetupOrganization />} />
                 <Route path="/settings/stack-sources" element={<StackSourcesList />} />
                 <Route path="/settings/stack-sources/add" element={<AddStackSourceSelect />} />
                 <Route path="/settings/stack-sources/add/local" element={<AddLocalSource />} />

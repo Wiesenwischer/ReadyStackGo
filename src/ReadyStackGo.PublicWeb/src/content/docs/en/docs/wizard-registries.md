@@ -3,7 +3,11 @@ title: Wizard – Container Registries
 description: Container registry detection and verification in the Setup Wizard
 ---
 
-In the fifth step of the Setup Wizard, ReadyStackGo automatically detects which container registries your selected stacks require and verifies access to each registry.
+:::caution[Outdated Page]
+This documentation describes the container registry step from the **old multi-step Setup Wizard**. Since version 0.26, the setup wizard only handles admin account creation. Container registries are now managed via **Settings → Container Registries**. See [Registry Management](/en/docs/registry-management/).
+:::
+
+In the previous multi-step Setup Wizard, ReadyStackGo automatically detected which container registries your selected stacks required and verified access to each registry.
 
 ## Overview
 

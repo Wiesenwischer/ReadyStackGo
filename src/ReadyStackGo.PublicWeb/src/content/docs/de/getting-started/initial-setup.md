@@ -1,28 +1,31 @@
 ---
 title: Ersteinrichtung
-description: ReadyStackGo Setup-Wizard durchlaufen
+description: ReadyStackGo Setup-Wizard und Onboarding durchlaufen
 ---
 
-Nach der [Installation](/getting-started/installation/) führt dich der Setup-Wizard durch die initiale Konfiguration von ReadyStackGo. Der Wizard startet automatisch beim ersten Zugriff auf die Web-Oberfläche.
+Nach der [Installation](/getting-started/installation/) besteht die Ersteinrichtung aus zwei Phasen:
 
-## Übersicht
-
-Der Setup-Wizard besteht aus vier Schritten:
-
-1. **Admin-Account erstellen** – Lege den primären Administrator an
-2. **Organisation konfigurieren** – Definiere deine Organisationsdaten
-3. **Environment einrichten** – Verbinde ReadyStackGo mit Docker (optional)
-4. **Setup abschließen** – Finalisiere die Konfiguration
+1. **Setup-Wizard** — Admin-Account erstellen (unauthentifiziert, zeitbegrenzt)
+2. **Onboarding** — Organisation, Environment und Stack Sources konfigurieren (authentifiziert, geführt)
 
 ---
 
-## Schritt 1: Admin-Account erstellen
+## Phase 1: Setup-Wizard
 
-Im ersten Schritt erstellst du den Administrator-Account, mit dem du dich künftig bei ReadyStackGo anmeldest.
+Der Setup-Wizard startet automatisch beim ersten Zugriff auf die Web-Oberfläche. Er besteht aus einem einzigen Schritt: der Erstellung des Admin-Accounts.
 
-![Wizard Schritt 1: Admin-Account erstellen](/images/screenshots/wizard-admin.png)
+:::caution[Zeitlimit]
+Der Setup-Wizard hat ein **5-Minuten-Timeout** aus Sicherheitsgründen. Falls der Timer abläuft, starte den Container neu:
+```bash
+docker restart readystackgo
+```
+:::
 
-### Eingabefelder
+### Admin-Account erstellen
+
+Gib deine Administrator-Zugangsdaten ein:
+
+![Setup-Wizard: Admin-Account erstellen](/images/docs/wizard-01-admin-form.png)
 
 | Feld | Anforderung |
 |------|-------------|
@@ -30,111 +33,112 @@ Im ersten Schritt erstellst du den Administrator-Account, mit dem du dich künft
 | **Password** | Mindestens 8 Zeichen |
 | **Confirm Password** | Muss mit dem Passwort übereinstimmen |
 
-### Tipps
+Das Formular validiert deine Eingaben vor dem Absenden:
 
-- Wähle einen sicheren Benutzernamen (nicht nur `admin`)
-- Verwende ein starkes Passwort mit Buchstaben, Zahlen und Sonderzeichen
-- Notiere dir die Zugangsdaten – sie können später nicht wiederhergestellt werden
+![Setup-Wizard: Validierungsfehler](/images/docs/wizard-02-validation-error.png)
+
+### Was passiert nach dem Absenden?
+
+Wenn du auf **"Continue"** klickst:
+
+1. Der Admin-Account wird erstellt
+2. Du wirst **automatisch eingeloggt** (kein separater Login-Schritt)
+3. Der Wizard markiert sich als abgeschlossen
+4. Du wirst automatisch zum **Onboarding** weitergeleitet
 
 :::caution[Wichtig]
-Dieser Account ist der einzige Weg, auf ReadyStackGo zuzugreifen. Bewahre die Zugangsdaten sicher auf!
+Dieser Account ist der einzige Weg, auf ReadyStackGo zuzugreifen. Bewahre die Zugangsdaten sicher auf — sie können später nicht wiederhergestellt werden!
 :::
 
 ---
 
-## Schritt 2: Organisation konfigurieren
+## Phase 2: Onboarding
 
-Hier definierst du die Identität deiner ReadyStackGo-Instanz.
+Nach dem Wizard startet automatisch das **geführte Onboarding**. Es führt dich in drei Schritten durch die Grundkonfiguration deiner ReadyStackGo-Instanz.
 
-![Wizard Schritt 2: Organisation konfigurieren](/images/screenshots/wizard-org.png)
-
-### Eingabefelder
-
-| Feld | Beschreibung | Beispiel |
-|------|--------------|----------|
-| **Organization ID** | Technischer Bezeichner (nur Kleinbuchstaben, Zahlen, Bindestriche) | `my-company` |
-| **Organization Name** | Anzeigename für deine Organisation | `My Company Inc.` |
-
-### Verwendung
-
-- Die **Organization ID** wird intern für Dateistrukturen und API-Zugriffe verwendet
-- Der **Organization Name** wird in der Web-Oberfläche angezeigt
-
----
-
-## Schritt 3: Environment einrichten
-
-In diesem Schritt kannst du ein Docker-Environment konfigurieren. Ein Environment repräsentiert eine Docker-Installation, die ReadyStackGo verwalten soll.
-
-:::tip[Optional]
-Du kannst diesen Schritt überspringen und später Environments hinzufügen. Klicke dazu auf **"Skip for now"**.
+:::note[Pflicht]
+Das Onboarding ist **nicht überspringbar**. Erst wenn mindestens die Organisation konfiguriert ist, wirst du zur Anwendung weitergeleitet. Bei jedem Login prüft ReadyStackGo, ob das Onboarding abgeschlossen ist.
 :::
 
-### Eingabefelder
+### Schritt 1: Organisation erstellen
 
-| Feld | Beschreibung | Standard |
-|------|--------------|----------|
-| **Environment ID** | Technischer Bezeichner | `local` |
-| **Display Name** | Anzeigename für das Environment | `Local Docker` |
-| **Docker Socket Path** | Pfad zum Docker-Socket | `unix:///var/run/docker.sock` |
+Die Organisation ist die **Top-Level-Identität** deiner ReadyStackGo-Instanz. Alle Environments, Stacks und Einstellungen gehören zu ihr. Dieser Schritt ist **Pflicht** — es gibt keinen "Überspringen"-Button.
 
-### Docker Socket Path
+![Onboarding: Organisation erstellen](/images/docs/wizard-03-onboarding-start.png)
 
-Der Socket-Pfad wird automatisch für dein System erkannt:
+| Feld | Anforderung |
+|------|-------------|
+| **Organization Name** | Mindestens 2 Zeichen |
 
-| System | Socket Path |
-|--------|-------------|
-| Linux | `unix:///var/run/docker.sock` |
-| Windows | `npipe:////./pipe/docker_engine` |
-| macOS | `unix:///var/run/docker.sock` |
+Gib einen Namen ein und klicke auf **"Continue"**.
 
-### Wann überspringen?
-
-Du kannst diesen Schritt überspringen, wenn:
-
-- Du mehrere Docker-Hosts später hinzufügen möchtest
-- Du zuerst nur die Web-Oberfläche kennenlernen willst
-- Du ReadyStackGo in einer Entwicklungsumgebung testest
+:::tip[Tipp]
+Du kannst den Organisationsnamen später jederzeit in den Einstellungen ändern.
+:::
 
 ---
 
-## Schritt 4: Setup abschließen
+### Schritt 2: Docker Environment hinzufügen
 
-Im letzten Schritt siehst du eine Zusammenfassung deiner Konfiguration:
+In diesem Schritt verbindest du ReadyStackGo mit einem Docker-Daemon. Die Felder sind **vorausgefüllt** mit sinnvollen Standardwerten:
 
-- ✓ Admin account configured
-- ✓ Organization details set
-- ✓ Environment configured (falls nicht übersprungen)
+![Onboarding: Docker Environment](/images/docs/wizard-04-onboarding-env.png)
 
-### Was passiert beim Abschluss?
+| Feld | Standardwert | Beschreibung |
+|------|-------------|-------------|
+| **Environment Name** | `Local Docker` | Frei wählbarer Name für dieses Environment |
+| **Docker Socket Path** | `unix:///var/run/docker.sock` | Pfad zum Docker-Daemon-Socket auf dem Host |
 
-Wenn du auf **"Complete Setup"** klickst:
+Du hast zwei Möglichkeiten:
+- **"Continue"** — Erstellt das Environment mit den angegebenen Werten
+- **"Skip for now"** — Überspringt diesen Schritt (du kannst später Environments in den Einstellungen hinzufügen)
 
-1. Deine Konfiguration wird gespeichert
-2. Der Admin-Account wird aktiviert
-3. Du wirst zur Login-Seite weitergeleitet
+:::tip[Docker Socket]
+Wenn du ReadyStackGo als Docker-Container betreibst, muss der Docker-Socket des Hosts in den Container gemountet sein (standardmäßig konfiguriert in der `docker-compose.yml`).
+:::
+
+---
+
+### Schritt 3: Stack Sources auswählen
+
+Stack Sources sind Repositories mit vorkonfigurierten Stack-Definitionen, die du direkt deployen kannst. ReadyStackGo zeigt dir eine **kuratierte Liste** verfügbarer Quellen an:
+
+![Onboarding: Stack Sources](/images/docs/wizard-05-onboarding-sources.png)
+
+- Empfohlene Quellen (**Featured**) sind automatisch vorausgewählt
+- Du kannst Quellen an- und abwählen
+- Klicke auf **"Add sources"**, um die ausgewählten Quellen hinzuzufügen
+- Oder klicke auf **"Skip for now"**, um diesen Schritt zu überspringen
+
+:::tip[Stack Sources]
+Du kannst Stack Sources jederzeit unter *Settings → Stack Sources* hinzufügen, entfernen oder eigene Git-Repositories als Quelle konfigurieren.
+:::
+
+---
+
+### Schritt 4: Zusammenfassung
+
+Nach Abschluss der Schritte zeigt dir das Onboarding eine **Zusammenfassung** aller konfigurierten (und übersprungenen) Punkte:
+
+![Onboarding: Zusammenfassung](/images/docs/wizard-06-onboarding-complete.png)
+
+Klicke auf **"Go to Dashboard"**, um zum Dashboard zu gelangen.
 
 ---
 
 ## Nach dem Setup
 
-### Login
+Nach Abschluss des Onboardings wirst du auf das **Dashboard** weitergeleitet:
 
-Nach Abschluss des Wizards wirst du zur Login-Seite weitergeleitet. Melde dich mit dem erstellten Admin-Account an.
+![Dashboard nach dem Onboarding](/images/docs/wizard-07-dashboard.png)
 
-### Dashboard
-
-Nach dem Login siehst du das Dashboard mit:
-
-- **Übersicht** über verbundene Environments
-- **Status** der deployten Stacks
-- **Quick Actions** für häufige Aufgaben
+Falls du im Onboarding optionale Schritte übersprungen hast (Environment oder Stack Sources), zeigt das Dashboard einen **Hinweis** mit Empfehlungen zur weiteren Konfiguration. Dieser Hinweis verschwindet automatisch, sobald alle Punkte konfiguriert sind.
 
 ### Nächste Schritte
 
-1. **Environment hinzufügen** (falls übersprungen) – Gehe zu *Environments* und klicke auf *Add Environment*
-2. **Stack Sources konfigurieren** – Füge Git-Repositories oder lokale Pfade als Stack-Quellen hinzu
-3. **Ersten Stack deployen** – Siehe [Ersten Stack deployen](/getting-started/first-deployment/)
+1. **Environment hinzufügen** (falls übersprungen) — Gehe zu *Environments* und erstelle ein neues Environment
+2. **Stack Sources konfigurieren** (falls übersprungen) — Unter *Settings → Stack Sources*
+3. **Ersten Stack deployen** — Siehe [Ersten Stack deployen](/getting-started/first-deployment/)
 
 ---
 
@@ -157,16 +161,13 @@ docker restart readystackgo
 Falls du den Wizard erneut durchlaufen möchtest, musst du die Daten zurücksetzen:
 
 ```bash
-# Container stoppen
-docker stop readystackgo
-
-# Datenverzeichnis löschen
-sudo rm -rf /var/readystackgo/*
+# Container mit Volumes stoppen und löschen
+docker compose down -v
 
 # Container neu starten
-docker start readystackgo
+docker compose up -d
 ```
 
 :::danger[Warnung]
-Das Löschen des Datenverzeichnisses entfernt alle Konfigurationen und Deployment-Informationen!
+Das Löschen der Volumes entfernt alle Konfigurationen und Deployment-Informationen!
 :::

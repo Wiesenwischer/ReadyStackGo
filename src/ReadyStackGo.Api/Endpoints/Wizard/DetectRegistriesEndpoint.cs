@@ -22,7 +22,6 @@ public class DetectRegistriesEndpoint : EndpointWithoutRequest<DetectRegistriesR
     {
         Get("/api/wizard/detected-registries");
         AllowAnonymous();
-        PreProcessor<WizardTimeoutPreProcessor<EmptyRequest>>();
     }
 
     public override async Task HandleAsync(CancellationToken ct)

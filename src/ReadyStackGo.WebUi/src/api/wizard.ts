@@ -19,7 +19,7 @@ export interface WizardTimeoutInfo {
 }
 
 export interface WizardStatusResponse {
-  wizardState: 'NotStarted' | 'AdminCreated' | 'OrganizationSet' | 'Installed';
+  wizardState: 'NotStarted' | 'Installed';
   isCompleted: boolean;
   /** Default Docker socket path for the server's OS (e.g., "npipe://./pipe/docker_engine" for Windows) */
   defaultDockerSocketPath: string;
@@ -35,6 +35,9 @@ export interface CreateAdminRequest {
 export interface CreateAdminResponse {
   success: boolean;
   message?: string;
+  token?: string;
+  username?: string;
+  role?: string;
 }
 
 export interface SetOrganizationRequest {

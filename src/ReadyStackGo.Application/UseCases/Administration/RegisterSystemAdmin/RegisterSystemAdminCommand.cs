@@ -9,4 +9,7 @@ public record RegisterSystemAdminCommand(
 public record RegisterSystemAdminResult(
     bool Success,
     string? UserId = null,
+    string? Token = null,
+    string? Username = null,
+    string? Role = null,
     string? ErrorMessage = null);

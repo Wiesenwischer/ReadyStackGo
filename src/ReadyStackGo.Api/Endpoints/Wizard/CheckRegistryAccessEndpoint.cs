@@ -25,7 +25,6 @@ public class CheckRegistryAccessEndpoint : Endpoint<CheckRegistryAccessRequest, 
     {
         Get("/api/wizard/check-registry-access");
         AllowAnonymous();
-        PreProcessor<WizardTimeoutPreProcessor<CheckRegistryAccessRequest>>();
     }
 
     public override async Task HandleAsync(CheckRegistryAccessRequest req, CancellationToken ct)

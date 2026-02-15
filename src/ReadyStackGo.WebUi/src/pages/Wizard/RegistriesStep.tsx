@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { detectRegistries, checkRegistryAccess, verifyRegistryAccess, type DetectedRegistryArea, type RegistryInputDto } from '../../api/wizard';
 
 type CardStatus = 'action-required' | 'verified' | 'skipped';
@@ -20,6 +20,7 @@ interface RegistryCardState {
 
 interface RegistriesStepProps {
   onNext: (registries: RegistryInputDto[]) => Promise<void>;
+  onSkip?: () => void;
 }
 
 // Icons as reusable components
@@ -72,7 +73,7 @@ function GlobeIcon({ className }: { className?: string }) {
   );
 }
 
-export default function RegistriesStep({ onNext }: RegistriesStepProps) {
+export default function RegistriesStep({ onNext, onSkip }: RegistriesStepProps) {
   const [cards, setCards] = useState<RegistryCardState[]>([]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -254,7 +255,11 @@ export default function RegistriesStep({ onNext }: RegistriesStepProps) {
   const handleSkipAll = async () => {
     setIsSkipping(true);
     try {
-      await onNext([]);
+      if (onSkip) {
+        onSkip();
+      } else {
+        await onNext([]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to skip step');
     } finally {
@@ -266,6 +271,25 @@ export default function RegistriesStep({ onNext }: RegistriesStepProps) {
   const actionCards = cards.filter(c => c.status === 'action-required' && c.initialCheck === 'done');
   const skippedCards = cards.filter(c => c.status === 'skipped');
   const checksRunning = cards.some(c => c.initialCheck === 'checking');
+
+  // Enter key advances when not typing in a credential input
+  const stableHandleSubmit = useCallback(() => {
+    if (!isLoading && !isSkipping && !checksRunning && checksComplete) {
+      handleSubmit();
+    }
+  }, [isLoading, isSkipping, checksRunning, checksComplete]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter') return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      e.preventDefault();
+      stableHandleSubmit();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [stableHandleSubmit]);
 
   // Phase 0: initial detection
   if (isFetching) {

@@ -34,14 +34,10 @@ http://<your-server-ip>:8080
 
 ## Initial Setup
 
-On first access, the Setup Wizard will guide you through:
-
-1. **Create Admin Account** - Set up your administrator credentials
-2. **Configure Organization** - Define your organization details
-3. **Add Environment** - Connect to your Docker host
+On first access, the Setup Wizard will guide you through creating your admin account. After that, a guided onboarding walks you through configuring your organization, environment, and stack sources.
 
 ## Next Steps
 
 - [Detailed Installation Guide](/en/getting-started/installation/) - More installation options
-- [Initial Setup](/en/getting-started/initial-setup/) - Detailed setup wizard walkthrough
+- [Initial Setup](/en/getting-started/initial-setup/) - Setup wizard and guided onboarding walkthrough
 - [First Deployment](/en/getting-started/first-deployment/) - Deploy your first container stack

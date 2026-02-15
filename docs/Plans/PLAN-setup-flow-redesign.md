@@ -57,7 +57,7 @@ PHASE 2: /dashboard (authentifiziert, KEIN Timeout)
 
 Reihenfolge basierend auf Abhängigkeiten:
 
-- [ ] **Feature 1: Auto-Login nach Admin-Erstellung** – CreateAdminEndpoint gibt JWT zurück, Frontend loggt automatisch ein
+- [x] **Feature 1: Auto-Login nach Admin-Erstellung** – CreateAdminEndpoint gibt JWT zurück, Frontend loggt automatisch ein (PR #106)
   - Betroffene Dateien:
     - `Api/Endpoints/Wizard/CreateAdminEndpoint.cs` (Response erweitern)
     - `Application/UseCases/Wizard/CreateAdmin/CreateAdminHandler.cs` (Token generieren)
@@ -66,7 +66,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - `WebUi/src/context/AuthContext.tsx` (setAuthFromToken-Methode)
   - Abhängig von: –
 
-- [ ] **Feature 2: Wizard auf Phase 1 reduzieren** – Nur noch Admin-Erstellung, dann Redirect zum Dashboard
+- [x] **Feature 2: Wizard auf Phase 1 reduzieren** – Nur noch Admin-Erstellung, dann Redirect zum Dashboard (PR #108)
   - Betroffene Dateien:
     - `WebUi/src/pages/Wizard/index.tsx` (1 Step statt 6, Redirect nach Login)
     - `WebUi/src/pages/Wizard/WizardLayout.tsx` (vereinfachtes Layout, kein Stepper)
@@ -74,7 +74,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Entscheidung: Alte Steps (Org, Env, Sources, Registries) bleiben als Dateien erhalten, werden aber nicht mehr im Wizard verwendet — Settings-Seiten übernehmen
   - Abhängig von: Feature 1
 
-- [ ] **Feature 3: Onboarding-Status API** – Neuer Endpoint für den Einrichtungsstatus
+- [x] **Feature 3: Onboarding-Status API** – Neuer Endpoint für den Einrichtungsstatus (PR #109)
   - Neue Dateien:
     - `Application/UseCases/Onboarding/GetOnboardingStatus/GetOnboardingStatusQuery.cs`
     - `Application/UseCases/Onboarding/GetOnboardingStatus/GetOnboardingStatusHandler.cs`
@@ -95,7 +95,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Handler prüft: Org vorhanden? Environments vorhanden? Sources vorhanden? Registries vorhanden?
   - Abhängig von: –
 
-- [ ] **Feature 4: Onboarding-Checklist UI** – Dashboard-Komponente mit Setup-Fortschritt
+- [x] **Feature 4: Onboarding-Checklist UI** – Dashboard-Komponente mit Setup-Fortschritt (PR #110)
   - Neue Dateien:
     - `WebUi/src/components/onboarding/OnboardingChecklist.tsx`
     - `WebUi/src/api/onboarding.ts`
@@ -110,7 +110,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - "Später erledigen"-Button → dismisst die Checklist (localStorage + API)
   - Abhängig von: Feature 3
 
-- [ ] **Feature 5: Organization-Erstellung aus Dashboard** – Org-Setup als eigenständigen Flow
+- [x] **Feature 5: Organization-Erstellung aus Dashboard** – Org-Setup als eigenständigen Flow (PR #111)
   - Neue Dateien:
     - `WebUi/src/pages/Settings/Organization/SetupOrganization.tsx` (oder Modal)
     - `Api/Endpoints/Organization/CreateOrganizationEndpoint.cs` (authentifiziert)
@@ -120,7 +120,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Wichtig: Endpoint ist authentifiziert (JWT), nicht AllowAnonymous
   - Abhängig von: Feature 3
 
-- [ ] **Feature 6: Timeout-Scope einschränken** – Timeout gilt nur noch für Phase 1
+- [x] **Feature 6: Timeout-Scope einschränken** – Timeout gilt nur noch für Phase 1 (PR #112)
   - Betroffene Dateien:
     - `Api/Endpoints/Wizard/WizardTimeoutPreProcessor.cs` (nur noch für CreateAdmin)
     - `Infrastructure/Configuration/WizardTimeoutService.cs` (ggf. vereinfachen)
@@ -131,7 +131,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - ~~AdminCreated~~ und ~~OrganizationSet~~ entfallen (Onboarding übernimmt)
   - Abhängig von: Feature 2
 
-- [ ] **Feature 7: Dismiss-Endpoint + Cleanup** – Onboarding-Dismiss persistieren, alte Wizard-Steps bereinigen
+- [x] **Feature 7: Dismiss-Endpoint + Cleanup** – Onboarding-Dismiss persistieren, alte Wizard-Steps bereinigen (PR #113)
   - Neue Dateien:
     - `Api/Endpoints/Onboarding/DismissOnboardingEndpoint.cs`
   - Betroffene Dateien:
@@ -141,18 +141,19 @@ Reihenfolge basierend auf Abhängigkeiten:
     - Diese werden weiterhin funktionieren, sind aber nicht mehr Teil des UI-Wizard
   - Abhängig von: Feature 4
 
-- [ ] **Tests** – Unit + E2E
+- [x] **Tests** – Unit + E2E
   - Abhängig von: Feature 1-7
 
-- [ ] **Dokumentation: `/document-feature` für neue Flows** – E2E-Tests, Screenshots und Anleitungen
+- [x] **Dokumentation: `/document-feature` für neue Flows** – E2E-Tests, Screenshots und Anleitungen
   - Abhängig von: Tests
   - Details: Siehe Abschnitt "Dokumentationsplan" unten
+  - Ergebnis: wizard.spec.ts komplett neugeschrieben (8 Tests), 3 Screenshots generiert, initial-setup.md DE+EN neugeschrieben
 
-- [ ] **Dokumentation: Bestehende Docs aktualisieren** – Referenzen auf alten Wizard-Flow korrigieren
+- [x] **Dokumentation: Bestehende Docs aktualisieren** – Referenzen auf alten Wizard-Flow korrigieren
   - Abhängig von: `/document-feature`
-  - Details: Siehe Abschnitt "Dokumentationsplan" unten
+  - Ergebnis: quickstart.md, installation/index.mdx in DE+EN aktualisiert
 
-- [ ] **Phase abschließen** – Alle Tests grün, PR gegen main
+- [x] **Phase abschließen** – Alle Tests grün, PR gegen main
   - Abhängig von: alle
 
 ## Detailplan pro Feature
