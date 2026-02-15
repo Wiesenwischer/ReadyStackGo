@@ -118,6 +118,9 @@ public static class DependencyInjection
         services.AddSingleton<IVersionCheckService, VersionCheckService>();
         services.AddHttpClient("GitHub");
 
+        // Notification Service (in-memory, singleton)
+        services.AddSingleton<INotificationService, InMemoryNotificationService>();
+
         // Domain Services
         services.AddScoped<SystemAdminRegistrationService>();
         services.AddScoped<OrganizationProvisioningService>();
