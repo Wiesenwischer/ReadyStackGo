@@ -8,6 +8,7 @@ import StackSourcesStep from './StackSourcesStep';
 import RegistriesStep from './RegistriesStep';
 import InstallStep from './InstallStep';
 import { createAdmin, setOrganization, setEnvironment, setSources, setRegistries, installStack, getWizardStatus, type WizardTimeoutInfo, type RegistryInputDto } from '../../api/wizard';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Wizard() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -16,6 +17,7 @@ export default function Wizard() {
   const [isTimedOut, setIsTimedOut] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const navigate = useNavigate();
+  const { setAuthDirectly } = useAuth();
 
   // Handle wizard timeout - show timeout message
   const handleTimeout = useCallback(() => {
@@ -76,7 +78,10 @@ export default function Wizard() {
   }, [reloadWizardState]);
 
   const handleAdminNext = async (data: { username: string; password: string }) => {
-    await createAdmin(data);
+    const response = await createAdmin(data);
+    if (response.token && response.username && response.role) {
+      setAuthDirectly(response.token, response.username, response.role);
+    }
     setCurrentStep(2);
   };
 
