@@ -1,6 +1,8 @@
 # Roadmap
 
-Rough outlook on planned versions and features.
+Feature backlog and release history for ReadyStackGo.
+Planned items are organized as **Epics** (thematic feature groups) — ordered by priority (top = next).
+Release version numbers are assigned when an Epic ships, not during planning.
 
 ## Released
 
@@ -164,33 +166,16 @@ Rough outlook on planned versions and features.
   - Version Transition Badge (Current → Target Version)
   - Error State with Retry and Back-to-Dashboard Options
   - Helper Container Maintenance Page Restyled with RSGO Branding
-- **v0.24** – Preconfigured Stack Sources (2026-02-14)
-  - Curated Source Registry (embedded JSON catalog of known Git/local sources)
-  - Wizard Stack Source Selection (opt-in instead of auto-creation)
-  - Add From Catalog in Stack Source Settings (one-click add from registry)
-  - Import/Export of Stack Source configurations (JSON, for team sharing)
-  - Catalog Empty State with source links
-- **v0.25** – Registry Wizard UX (2026-02-14)
-  - Image Reference Extraction from Synced Stack Manifests (auto-detect host + namespace)
-  - Container Registry Detection Endpoint (grouped by host + pattern)
-  - Wizard Step for Container Registries (two-column verified/action-required layout)
-  - Credential Verification via Docker Registry v2 API Token Flow
-  - Bulk Registry Creation from Wizard Input
-  - Public Image Detection (library/* defaults to anonymous)
-  - Skip/Undo Flow for Individual Registries
-- **v0.26** – Setup Flow Redesign (2026-02-15)
-  - Two-Phase Setup: Secure Admin Creation (Phase 1) + Guided Onboarding (Phase 2)
-  - Auto-Login After Admin Creation (JWT in CreateAdmin Response)
-  - Wizard Simplified to Single Step (Admin Only, 5-Min Timeout)
-  - Dashboard Onboarding Checklist (Organization, Environment, Sources, Registries)
-  - Onboarding Status API (Authenticated, No Timeout)
-  - Organization Creation as Standalone Authenticated Endpoint
-  - Timeout Scope Restricted to Admin Creation Only
-  - Dismiss Onboarding Endpoint (Persistent)
+
+---
 
 ## Planned
 
-### v0.27 – Notifications & System Info (Phase 1)
+Epics are listed in priority order. Top = next.
+
+### Epic: Notifications & System Info
+
+**Phase 1** (next)
 - In-Memory Notification Store (max 50, transient, no DB)
 - Notification API Endpoints (list, unread-count, mark-read, dismiss)
 - NotificationDropdown with Real Data (Bell Icon, Badge, Polling 60s)
@@ -202,12 +187,14 @@ Rough outlook on planned versions and features.
 - Shared `useVersionInfo` Hook (SidebarWidget, UserDropdown, Settings)
 - `forceCheck` Query Parameter on Version Endpoint (bypass 24h cache)
 
-### v0.28 – Notifications Phase 2
-- Container Health Change Notification (unhealthy, stopped – with throttling)
+**Phase 2** (later)
+- Container Health Change Notification (unhealthy, stopped — with throttling)
 - API Key First-Use Notification
 - TLS Certificate Expiry Notification (30d, 14d, 7d, 3d, 1d staged warnings)
 
-### v0.29 – WebUI Monorepo Refactoring (Distribution-Ready)
+### Epic: Distribution Architecture
+
+**WebUI Monorepo Refactoring**
 - pnpm Workspaces Monorepo (packages/core, packages/ui-generic, apps/rsgo-generic)
 - @rsgo/core Package (TypeScript types, API clients, ViewModel hooks, SignalR services)
 - @rsgo/ui-generic Package (React components, pages, layouts, thin contexts)
@@ -216,7 +203,7 @@ Rough outlook on planned versions and features.
 - Auth/Environment Services Extracted from React Contexts
 - Build Pipeline Adjustment (pnpm in Dockerfile)
 
-### v0.30 – Backend Distribution Extension Points
+**Backend Extension Points**
 - ISetupWizardDefinitionProvider (data-driven wizard steps)
 - IBootstrapper Pattern (distribution-specific initialization on first start)
 - GenericSetupWizardDefinitionProvider + GenericBootstrapper (default implementations)
@@ -224,26 +211,30 @@ Rough outlook on planned versions and features.
 - Multi-Assembly FastEndpoints Endpoint Discovery
 - Distribution Architecture Documentation
 
-### v0.31 – Docker Volumes Management
+### Epic: Docker Volumes Management
 - Docker Volumes View (List All Volumes per Environment)
 - Volume Details (Size, Mount Points, Labels)
 - Create/Delete Volumes
 - Detect Orphaned Volumes
 
-### v0.32 – OCI Stack Bundles (Format + Source)
+### Epic: OCI Stack Bundles
+
+**Phase 1 — Format + Source**
 - OCI Stack Bundle Format Specification (stack.yaml + lock.json + meta.json)
 - OciRegistry StackSourceType Extension with Factory Method
 - OCI Registry Client (list tags, read manifests, pull layers)
 - OciStackSourceProvider (sync tags → parse stackId + version → populate cache)
 - OCI Source UI in Add Stack Source Flow
 
-### v0.33 – OCI Stack Bundles (Import + CI/CD)
+**Phase 2 — Import + CI/CD**
 - ImportStackSource for Local Stack Snapshots (from OCI, Git, Upload)
 - OCI Import Flow (pull bundle, extract, store via ImportStackSource)
 - Lock-file Based Deployment (prefer image@digest from lock.json)
 - CI/CD Tooling and Documentation (Dockerfile template, ORAS examples)
 
-### v0.34 – Stack Marketplace (Browse)
+### Epic: Stack Marketplace
+
+**Browse**
 - StackCatalogSource Domain Model (embedded, git-json, http-json sources)
 - StackCatalogEntry Domain Model (name, slug, description, category, tags, logo, registry hints)
 - Catalog Source Providers (embedded JSON, Git repo with stack-catalog.json)
@@ -251,22 +242,22 @@ Rough outlook on planned versions and features.
 - Marketplace Browse UI (tile grid, search, category filter)
 - Marketplace Detail Page (markdown description, registry requirements check)
 
-### v0.35 – Marketplace Install Flow
+**Install Flow**
 - StackInstallation Domain Model (org + environment scoped)
 - Install from Marketplace Endpoint (registry prerequisite validation)
 - Install Flow UI (org/env selection, registry check, variable resolution, deploy)
 - Installation Status in Marketplace Tiles and Detail Pages
 
-### v0.36 – Metrics & Audit
+### Epic: Metrics & Audit
 - Metrics & Alerting
 - Audit Logs
 
-### v0.37 – Multi-User Support
+### Epic: Multi-User Support
 - User Management UI
 - Create/Edit Users
 - Password Reset Flow
 
-### v0.38 – Feature Flags
+### Epic: Feature Flags
 - Feature Flags UI in Admin
 - Feature Toggle at Organization Level
 - Environment Variables for Feature Flags
@@ -276,9 +267,11 @@ Rough outlook on planned versions and features.
 - Code Cleanup and Refactoring
 - Performance Optimizations
 
+---
+
 ## Post v1.0
 
-### Future Features
+### Future Epics
 - Advanced Connection Mode (Per-Context Connections)
 - Plugin System
 - Multi-Node Support (Multiple Docker Hosts per Environment)
