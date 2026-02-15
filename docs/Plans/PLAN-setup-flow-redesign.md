@@ -57,7 +57,7 @@ PHASE 2: /dashboard (authentifiziert, KEIN Timeout)
 
 Reihenfolge basierend auf Abhängigkeiten:
 
-- [ ] **Feature 1: Auto-Login nach Admin-Erstellung** – CreateAdminEndpoint gibt JWT zurück, Frontend loggt automatisch ein
+- [x] **Feature 1: Auto-Login nach Admin-Erstellung** – CreateAdminEndpoint gibt JWT zurück, Frontend loggt automatisch ein (PR #106)
   - Betroffene Dateien:
     - `Api/Endpoints/Wizard/CreateAdminEndpoint.cs` (Response erweitern)
     - `Application/UseCases/Wizard/CreateAdmin/CreateAdminHandler.cs` (Token generieren)
@@ -66,7 +66,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - `WebUi/src/context/AuthContext.tsx` (setAuthFromToken-Methode)
   - Abhängig von: –
 
-- [ ] **Feature 2: Wizard auf Phase 1 reduzieren** – Nur noch Admin-Erstellung, dann Redirect zum Dashboard
+- [x] **Feature 2: Wizard auf Phase 1 reduzieren** – Nur noch Admin-Erstellung, dann Redirect zum Dashboard (PR #108)
   - Betroffene Dateien:
     - `WebUi/src/pages/Wizard/index.tsx` (1 Step statt 6, Redirect nach Login)
     - `WebUi/src/pages/Wizard/WizardLayout.tsx` (vereinfachtes Layout, kein Stepper)
@@ -74,7 +74,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Entscheidung: Alte Steps (Org, Env, Sources, Registries) bleiben als Dateien erhalten, werden aber nicht mehr im Wizard verwendet — Settings-Seiten übernehmen
   - Abhängig von: Feature 1
 
-- [ ] **Feature 3: Onboarding-Status API** – Neuer Endpoint für den Einrichtungsstatus
+- [x] **Feature 3: Onboarding-Status API** – Neuer Endpoint für den Einrichtungsstatus (PR #109)
   - Neue Dateien:
     - `Application/UseCases/Onboarding/GetOnboardingStatus/GetOnboardingStatusQuery.cs`
     - `Application/UseCases/Onboarding/GetOnboardingStatus/GetOnboardingStatusHandler.cs`
