@@ -10,6 +10,6 @@ Here you'll find detailed guides for using ReadyStackGo.
 - [Stack Deployment](/en/docs/stack-deployment/) - Step-by-step guide to deploying a stack
 - [Stack Upgrade](/en/docs/stack-upgrade/) - Upgrade stacks to new versions
 - [Registry Management](/en/docs/registry-management/) - Manage Docker Registries and configure Image Patterns
-- [Stack Sources](/en/docs/stack-sources/) - Manage stack sources – catalog, import/export, and setup wizard
+- [Stack Sources](/en/docs/stack-sources/) - Manage stack sources – catalog, import/export, and onboarding
 - [CI/CD Integration](/en/docs/ci-cd-integration/) - Automated deployments via API keys and webhooks
 - [Self-Update](/en/docs/self-update/) - Update ReadyStackGo with a single click

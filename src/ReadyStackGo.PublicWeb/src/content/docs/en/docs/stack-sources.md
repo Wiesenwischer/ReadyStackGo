@@ -1,9 +1,9 @@
 ---
 title: Stack Sources
-description: Manage stack sources – catalog, import/export, and setup wizard
+description: Manage stack sources – catalog, import/export, and onboarding
 ---
 
-ReadyStackGo discovers deployable stacks from configurable **Stack Sources**. Sources can be local directories, Git repositories, or curated entries from the **Source Catalog**. They can be imported, exported, and configured during initial setup via the **Wizard**.
+ReadyStackGo discovers deployable stacks from configurable **Stack Sources**. Sources can be local directories, Git repositories, or curated entries from the **Source Catalog**. They can be imported, exported, and configured during initial setup via the **Onboarding**.
 
 ## Overview
 
@@ -11,7 +11,7 @@ ReadyStackGo discovers deployable stacks from configurable **Stack Sources**. So
 |---------|-------------|
 | **Source Catalog** | Add curated, preconfigured Git sources with one click |
 | **Import / Export** | Back up source configurations as JSON and transfer them to other instances |
-| **Wizard Integration** | Select recommended sources during initial setup |
+| **Onboarding Integration** | Select recommended sources during initial setup |
 | **Manual Sources** | Add local directories or any Git repository |
 
 ---
@@ -107,19 +107,19 @@ The JSON file contains a version, timestamp, and an array of sources with name, 
 
 ---
 
-## Wizard Integration
+## Onboarding Integration
 
-During the initial setup of ReadyStackGo, the **Setup Wizard** (step 4 of 5) offers stack source configuration. The wizard displays the available catalog entries with checkboxes:
+During the initial setup of ReadyStackGo, the **Onboarding** (step 3) offers stack source configuration. The onboarding displays the available catalog entries with checkboxes:
 
 - **Featured** sources are pre-selected
 - You can select or deselect any number of sources
 - Click **Add N source(s)** to add the selected sources
 - Click **Skip for now** to skip this step
 
-![Wizard step 4 – Stack Sources selection](/images/docs/sources-08-wizard-sources.png)
+![Onboarding step 3 – Stack Sources selection](/images/docs/wizard-05-onboarding-sources.png)
 
 :::tip[Add Later]
-Sources can be added, modified, or removed at any time via **Settings → Stack Sources** – the wizard step is optional.
+Sources can be added, modified, or removed at any time via **Settings → Stack Sources** – the onboarding step is optional.
 :::
 
 ---

@@ -30,8 +30,9 @@ public class CreateOrganizationEndpoint : Endpoint<CreateOrganizationRequest, Cr
 
     public override async Task HandleAsync(CreateOrganizationRequest req, CancellationToken ct)
     {
+        var sourceId = string.IsNullOrWhiteSpace(req.Id) ? req.Name : req.Id;
         var result = await _mediator.Send(
-            new ProvisionOrganizationCommand(req.Name, req.Name),
+            new ProvisionOrganizationCommand(sourceId, req.Name),
             ct);
 
         if (!result.Success)
@@ -51,6 +52,7 @@ public class CreateOrganizationEndpoint : Endpoint<CreateOrganizationRequest, Cr
 
 public class CreateOrganizationRequest
 {
+    public string? Id { get; set; }
     public required string Name { get; set; }
 }
 
@@ -64,6 +66,12 @@ public class CreateOrganizationValidator : Validator<CreateOrganizationRequest>
 {
     public CreateOrganizationValidator()
     {
+        RuleFor(x => x.Id)
+            .Matches(@"^[a-zA-Z0-9_-]+$").WithMessage("Organization ID can only contain letters, numbers, underscores, and hyphens")
+            .MinimumLength(2).WithMessage("Organization ID must be at least 2 characters")
+            .MaximumLength(100).WithMessage("Organization ID must not exceed 100 characters")
+            .When(x => !string.IsNullOrWhiteSpace(x.Id));
+
         RuleFor(x => x.Name)
             .NotEmpty().WithMessage("Organization name is required")
             .MaximumLength(200).WithMessage("Organization name must not exceed 200 characters");

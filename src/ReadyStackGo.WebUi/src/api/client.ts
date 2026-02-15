@@ -20,6 +20,7 @@ function getAuthHeaders(includeContentType: boolean = true): HeadersInit {
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: getAuthHeaders(false),
+    cache: 'no-store',
   });
 
   if (!response.ok) {

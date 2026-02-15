@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from './client';
+import { apiGet } from './client';
 
 export interface OnboardingItemDto {
   done: boolean;
@@ -17,8 +17,4 @@ export interface OnboardingStatusResponse {
 
 export async function getOnboardingStatus(): Promise<OnboardingStatusResponse> {
   return apiGet<OnboardingStatusResponse>('/api/onboarding/status');
-}
-
-export async function dismissOnboarding(): Promise<void> {
-  return apiPost('/api/onboarding/dismiss');
 }

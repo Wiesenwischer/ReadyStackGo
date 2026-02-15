@@ -1,9 +1,9 @@
 ---
 title: Stack Sources
-description: Stack-Quellen verwalten – Katalog, Import/Export und Setup-Wizard
+description: Stack-Quellen verwalten – Katalog, Import/Export und Onboarding
 ---
 
-ReadyStackGo bezieht seine deploybare Stacks aus konfigurierbaren **Stack Sources** (Quellen). Quellen können lokale Verzeichnisse, Git Repositories oder kuratierte Einträge aus dem **Source Catalog** sein. Sie lassen sich importieren, exportieren und bereits beim Erstsetup im **Wizard** konfigurieren.
+ReadyStackGo bezieht seine deploybare Stacks aus konfigurierbaren **Stack Sources** (Quellen). Quellen können lokale Verzeichnisse, Git Repositories oder kuratierte Einträge aus dem **Source Catalog** sein. Sie lassen sich importieren, exportieren und bereits beim Erstsetup im **Onboarding** konfigurieren.
 
 ## Übersicht
 
@@ -11,7 +11,7 @@ ReadyStackGo bezieht seine deploybare Stacks aus konfigurierbaren **Stack Source
 |---------|--------------|
 | **Source Catalog** | Kuratierte, vorkonfigurierte Git-Quellen mit einem Klick hinzufügen |
 | **Import / Export** | Quell-Konfigurationen als JSON sichern und auf andere Instanzen übertragen |
-| **Wizard-Integration** | Beim Erstsetup empfohlene Quellen direkt auswählen |
+| **Onboarding-Integration** | Beim Erstsetup empfohlene Quellen direkt auswählen |
 | **Manuelle Quellen** | Lokale Verzeichnisse oder beliebige Git Repositories hinzufügen |
 
 ---
@@ -107,19 +107,19 @@ Die JSON-Datei enthält Version, Zeitstempel und ein Array von Quellen mit Name,
 
 ---
 
-## Wizard-Integration
+## Onboarding-Integration
 
-Beim Erstsetup von ReadyStackGo wird im **Setup-Wizard** (Schritt 4 von 5) die Konfiguration von Stack Sources angeboten. Der Wizard zeigt die verfügbaren Katalog-Einträge mit Checkboxen an:
+Beim Erstsetup von ReadyStackGo wird im **Onboarding** (Schritt 3) die Konfiguration von Stack Sources angeboten. Das Onboarding zeigt die verfügbaren Katalog-Einträge mit Checkboxen an:
 
 - **Featured** Quellen sind vorausgewählt
 - Sie können beliebig viele Quellen an- oder abwählen
 - Mit **Add N source(s)** werden die ausgewählten Quellen hinzugefügt
 - Mit **Skip for now** überspringen Sie den Schritt
 
-![Wizard Schritt 4 – Stack Sources Auswahl](/images/docs/sources-08-wizard-sources.png)
+![Onboarding Schritt 3 – Stack Sources Auswahl](/images/docs/wizard-05-onboarding-sources.png)
 
 :::tip[Nachträglich ergänzen]
-Quellen können jederzeit über **Settings → Stack Sources** hinzugefügt, geändert oder entfernt werden – der Wizard-Schritt ist optional.
+Quellen können jederzeit über **Settings → Stack Sources** hinzugefügt, geändert oder entfernt werden – der Onboarding-Schritt ist optional.
 :::
 
 ---

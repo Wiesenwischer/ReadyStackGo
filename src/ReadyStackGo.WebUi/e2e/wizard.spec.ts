@@ -7,10 +7,9 @@ const __dirname = path.dirname(__filename);
 const SCREENSHOT_DIR = path.join(__dirname, '..', '..', 'ReadyStackGo.PublicWeb', 'public', 'images', 'docs');
 
 /**
- * E2E Tests for Setup Wizard (v0.26)
- * The wizard is a single-step admin creation flow:
- *   Create Admin → auto-login → redirect to Dashboard (with OnboardingChecklist)
- * A 5-minute countdown timer is shown. After timeout/lock, the wizard is inaccessible.
+ * E2E Tests for Setup Wizard + Onboarding (v0.26)
+ *
+ * Flow: Create Admin (wizard) → mandatory onboarding (org → env → sources → done) → Dashboard
  *
  * IMPORTANT: Tests are ordered carefully. Pre-wizard tests (validation, UI checks)
  * must run BEFORE the complete flow test, because creating an admin permanently
@@ -136,50 +135,111 @@ test.describe('Setup Wizard - Pre-Setup Checks', () => {
   });
 });
 
-test.describe('Setup Wizard - Complete Flow', () => {
-  test('should create admin, auto-login, and show dashboard with onboarding checklist', async ({ page }) => {
+test.describe('Setup Wizard - Complete Flow with Onboarding', () => {
+  test('should complete wizard and onboarding: admin → org → env → skip sources → dashboard', async ({ page }) => {
+    // === WIZARD: Create Admin ===
     await page.goto('/wizard');
     await page.evaluate(() => { localStorage.clear(); });
     await page.waitForLoadState('networkidle');
 
-    // Fill admin form
     await page.getByPlaceholder('admin').fill('admin');
     await page.getByPlaceholder('Enter a strong password').fill('Admin1234');
     await page.getByPlaceholder('Re-enter your password').fill('Admin1234');
-
-    // Submit
     await page.getByRole('button', { name: /Continue/i }).click();
 
-    // Button should show loading state and be disabled
+    // Button should show loading state
     await expect(page.getByRole('button', { name: /Creating/i })).toBeVisible({ timeout: 2000 });
 
-    // Should auto-login and redirect to Dashboard (root /)
-    await page.waitForURL(url => new URL(url).pathname === '/', { timeout: 15000 });
+    // Should auto-login and redirect to /onboarding (OnboardingGuard intercepts /)
+    await page.waitForURL(url => new URL(url).pathname === '/onboarding', { timeout: 15000 });
     await page.waitForLoadState('networkidle');
 
-    // Verify Dashboard heading is visible
-    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({ timeout: 5000 });
-
-    // Verify OnboardingChecklist is visible with correct items
-    await expect(page.getByText('Complete Your Setup')).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('Admin account created')).toBeVisible();
-    await expect(page.getByText('Set up your organization', { exact: true })).toBeVisible();
-
-    // Organization "Configure" link should be visible (first required step)
-    await expect(page.getByRole('link', { name: /Configure/ }).or(page.getByText('Configure →'))).toBeVisible();
-
-    // Verify we're logged in (admin username visible in user menu)
-    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible({ timeout: 5000 });
-
-    // Screenshot: Dashboard with onboarding checklist after wizard completion
+    // Screenshot: Onboarding start
     await page.screenshot({
-      path: path.join(SCREENSHOT_DIR, 'wizard-03-after-wizard.png'),
+      path: path.join(SCREENSHOT_DIR, 'wizard-03-onboarding-start.png'),
       fullPage: false,
     });
 
-    // Try to access wizard again — should redirect back to Dashboard (not wizard)
+    // === ONBOARDING STEP 1: Organization (required, no skip) ===
+    await expect(page.getByRole('heading', { name: 'Set Up ReadyStackGo' })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Step 1 of 4')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Create Your Organization' })).toBeVisible();
+    await expect(page.getByPlaceholder('My Company')).toBeVisible();
+
+    // No "Skip for now" button on the org step
+    await expect(page.getByRole('button', { name: /Skip/i })).not.toBeVisible();
+
+    // Fill org name and submit
+    await page.getByPlaceholder('My Company').fill('E2E Test Org');
+    await page.getByRole('button', { name: /Continue/i }).click();
+
+    // === ONBOARDING STEP 2: Docker Environment (skippable) ===
+    await expect(page.getByText('Step 2 of 4')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('heading', { name: 'Add Docker Environment' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Skip for now/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Continue/i })).toBeVisible();
+
+    // Screenshot: Environment step
+    await page.screenshot({
+      path: path.join(SCREENSHOT_DIR, 'wizard-04-onboarding-env.png'),
+      fullPage: false,
+    });
+
+    // Fill environment form (don't skip — so we can reach Dashboard later)
+    // Name is pre-filled with "Local Docker", socket path auto-populated from backend
+    await expect(page.getByPlaceholder('Local Docker')).toHaveValue('Local Docker');
+    await page.getByRole('button', { name: /Continue/i }).click();
+
+    // === ONBOARDING STEP 3: Stack Sources (skippable) ===
+    await expect(page.getByText('Step 3 of 4')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('heading', { name: 'Stack Sources' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Skip for now/i })).toBeVisible();
+
+    // Screenshot: Sources step
+    await page.screenshot({
+      path: path.join(SCREENSHOT_DIR, 'wizard-05-onboarding-sources.png'),
+      fullPage: false,
+    });
+
+    // Skip sources
+    await page.getByRole('button', { name: /Skip for now/i }).click();
+
+    // === ONBOARDING STEP 4: Complete ===
+    await expect(page.getByText('Step 4 of 4')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('heading', { name: "You're All Set!" })).toBeVisible();
+
+    // Verify summary: org ✓, env ✓, sources skipped
+    await expect(page.getByText('Organization')).toBeVisible();
+    await expect(page.getByText('Docker Environment')).toBeVisible();
+    await expect(page.getByText('Stack Sources — skipped')).toBeVisible();
+
+    // Screenshot: Onboarding complete
+    await page.screenshot({
+      path: path.join(SCREENSHOT_DIR, 'wizard-06-onboarding-complete.png'),
+      fullPage: false,
+    });
+
+    // Click "Go to Dashboard"
+    await page.getByRole('button', { name: /Go to Dashboard/i }).click();
+
+    // Should reach the Dashboard (env was created, so EnvironmentGuard passes)
+    // Multiple guards (OnboardingGuard + EnvironmentGuard) need to complete API calls first
+    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({ timeout: 15000 });
+
+    // Screenshot: Dashboard after onboarding
+    await page.screenshot({
+      path: path.join(SCREENSHOT_DIR, 'wizard-07-dashboard.png'),
+      fullPage: false,
+    });
+
+    // === POST-ONBOARDING CHECKS ===
+
+    // Accessing /onboarding after completion should redirect to dashboard
+    await page.goto('/onboarding');
+    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({ timeout: 15000 });
+
+    // Accessing /wizard after completion should redirect away from wizard
     await page.goto('/wizard');
-    await page.waitForURL(url => new URL(url).pathname === '/', { timeout: 10000 });
-    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
+    await page.waitForURL(url => new URL(url).pathname !== '/wizard', { timeout: 10000 });
   });
 });

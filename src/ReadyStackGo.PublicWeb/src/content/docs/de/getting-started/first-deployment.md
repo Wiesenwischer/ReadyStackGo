@@ -9,12 +9,12 @@ Nach der [Ersteinrichtung](/getting-started/initial-setup/) bist du bereit, dein
 
 Bevor du einen Stack deployen kannst, stelle sicher, dass:
 
-- ✓ Du den Setup-Wizard abgeschlossen hast
+- ✓ Du den Setup-Wizard und das Onboarding abgeschlossen hast
 - ✓ Mindestens ein Environment konfiguriert ist
 - ✓ Du als Admin eingeloggt bist
 
 :::note[Kein Environment?]
-Falls du den Environment-Schritt im Wizard übersprungen hast, gehe zu **Environments** und füge ein Docker-Environment hinzu.
+Falls du den Environment-Schritt im Onboarding übersprungen hast, gehe zu **Environments** und füge ein Docker-Environment hinzu.
 :::
 
 ---

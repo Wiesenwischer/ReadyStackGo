@@ -8,7 +8,7 @@ After completing the [initial setup](/en/getting-started/initial-setup/), you ca
 ## Prerequisites
 
 - ReadyStackGo is installed and running
-- Setup wizard has been completed
+- Setup wizard and onboarding have been completed
 - At least one environment is configured
 
 ---

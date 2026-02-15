@@ -35,6 +35,7 @@ import SetupEnvironment from "./pages/Environments/SetupEnvironment";
 import SetupOrganization from "./pages/Settings/Organization/SetupOrganization";
 import Login from "./pages/Auth/Login";
 import Wizard from "./pages/Wizard";
+import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 import UpdateStatus from "./pages/UpdateStatus";
 import { AuthProvider } from "./context/AuthContext";
@@ -42,6 +43,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { EnvironmentProvider } from "./context/EnvironmentContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import WizardGuard from "./components/wizard/WizardGuard";
+import OnboardingGuard from "./components/onboarding/OnboardingGuard";
 import EnvironmentGuard from "./components/environment/EnvironmentGuard";
 
 export default function App() {
@@ -74,20 +76,35 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
+              {/* Onboarding page - standalone, outside AppLayout */}
+              <Route
+                path="/onboarding"
+                element={
+                  <ProtectedRoute>
+                    <Onboarding />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 element={
                   <ProtectedRoute>
                     <EnvironmentProvider>
-                      <AppLayout />
+                      <OnboardingGuard>
+                        <AppLayout />
+                      </OnboardingGuard>
                     </EnvironmentProvider>
                   </ProtectedRoute>
                 }
               >
-                {/* Dashboard: no EnvironmentGuard — OnboardingChecklist must be visible even without environments */}
+                {/* Dashboard with EnvironmentGuard — redirects to /environments when none exist */}
                 <Route
                   index
                   path="/"
-                  element={<Dashboard />}
+                  element={
+                    <EnvironmentGuard>
+                      <Dashboard />
+                    </EnvironmentGuard>
+                  }
                 />
                 {/* Routes that require an active environment */}
                 <Route

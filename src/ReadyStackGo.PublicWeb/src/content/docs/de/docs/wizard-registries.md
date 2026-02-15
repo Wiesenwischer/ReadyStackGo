@@ -3,7 +3,11 @@ title: Wizard – Container Registries
 description: Container Registry Erkennung und Verifizierung im Setup-Wizard
 ---
 
-Im fünften Schritt des Setup-Wizards erkennt ReadyStackGo automatisch, welche Container Registries Ihre gewählten Stacks benötigen, und prüft den Zugriff auf jede Registry.
+:::caution[Veraltete Seite]
+Diese Dokumentation beschreibt den Container-Registry-Schritt des **alten Multi-Step Setup-Wizards**. Seit Version 0.26 besteht der Setup-Wizard nur noch aus der Admin-Account-Erstellung. Container Registries werden jetzt über **Settings → Container Registries** verwaltet. Siehe [Registry Management](/de/docs/registry-management/).
+:::
+
+Im früheren Multi-Step Setup-Wizard erkannte ReadyStackGo automatisch, welche Container Registries die gewählten Stacks benötigen, und prüfte den Zugriff auf jede Registry.
 
 ## Übersicht
 

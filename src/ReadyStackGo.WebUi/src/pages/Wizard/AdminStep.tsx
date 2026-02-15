@@ -72,6 +72,7 @@ export default function AdminStep({ onNext }: AdminStepProps) {
               placeholder="admin"
               required
               minLength={3}
+              autoFocus
               className="w-full h-12.5 px-4 py-3 text-sm bg-transparent border border-gray-300 rounded-lg shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 dark:border-gray-700 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-600"
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">

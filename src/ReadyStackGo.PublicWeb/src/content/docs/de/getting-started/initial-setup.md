@@ -1,12 +1,12 @@
 ---
 title: Ersteinrichtung
-description: ReadyStackGo Setup-Wizard und Onboarding-Checkliste durchlaufen
+description: ReadyStackGo Setup-Wizard und Onboarding durchlaufen
 ---
 
 Nach der [Installation](/getting-started/installation/) besteht die Ersteinrichtung aus zwei Phasen:
 
 1. **Setup-Wizard** — Admin-Account erstellen (unauthentifiziert, zeitbegrenzt)
-2. **Onboarding-Checkliste** — Organisation, Environments und Stack Sources konfigurieren (authentifiziert, in eigenem Tempo)
+2. **Onboarding** — Organisation, Environment und Stack Sources konfigurieren (authentifiziert, geführt)
 
 ---
 
@@ -44,7 +44,7 @@ Wenn du auf **"Continue"** klickst:
 1. Der Admin-Account wird erstellt
 2. Du wirst **automatisch eingeloggt** (kein separater Login-Schritt)
 3. Der Wizard markiert sich als abgeschlossen
-4. Du wirst zur Anwendung weitergeleitet
+4. Du wirst automatisch zum **Onboarding** weitergeleitet
 
 :::caution[Wichtig]
 Dieser Account ist der einzige Weg, auf ReadyStackGo zuzugreifen. Bewahre die Zugangsdaten sicher auf — sie können später nicht wiederhergestellt werden!
@@ -52,49 +52,93 @@ Dieser Account ist der einzige Weg, auf ReadyStackGo zuzugreifen. Bewahre die Zu
 
 ---
 
-## Phase 2: Onboarding-Checkliste
+## Phase 2: Onboarding
 
-Nach Abschluss des Wizards erscheint eine **Onboarding-Checkliste** auf dem Dashboard, die dich durch die weitere Konfiguration führt. Im Gegensatz zum Wizard gibt es kein Zeitlimit — du kannst diese Schritte in eigenem Tempo abarbeiten.
+Nach dem Wizard startet automatisch das **geführte Onboarding**. Es führt dich in drei Schritten durch die Grundkonfiguration deiner ReadyStackGo-Instanz.
 
-Die Checkliste enthält folgende Punkte:
+:::note[Pflicht]
+Das Onboarding ist **nicht überspringbar**. Erst wenn mindestens die Organisation konfiguriert ist, wirst du zur Anwendung weitergeleitet. Bei jedem Login prüft ReadyStackGo, ob das Onboarding abgeschlossen ist.
+:::
 
-| Punkt | Pflicht | Beschreibung |
-|-------|---------|-------------|
-| **Admin-Account** | Ja | Immer abgehakt — wurde im Wizard erledigt |
-| **Organisation** | Ja | Organisationsidentität einrichten |
-| **Environment** | Nein | ReadyStackGo mit einem Docker-Daemon verbinden |
-| **Stack Sources** | Nein | Git-Repositories mit Stack-Definitionen hinzufügen |
-| **Container Registries** | Nein | Authentifizierung für private Container-Registries konfigurieren |
+### Schritt 1: Organisation erstellen
 
-### Organisation einrichten
+Die Organisation ist die **Top-Level-Identität** deiner ReadyStackGo-Instanz. Alle Environments, Stacks und Einstellungen gehören zu ihr. Dieser Schritt ist **Pflicht** — es gibt keinen "Überspringen"-Button.
 
-Die Organisation ist der **erste Pflichtschritt** nach dem Wizard. Bis eine Organisation konfiguriert ist, sind Environment, Stack Sources und Registry-Einträge deaktiviert.
+![Onboarding: Organisation erstellen](/images/docs/wizard-03-onboarding-start.png)
 
-Klicke auf **"Configure"** neben "Set up your organization", um zur Organisationseinstellungsseite zu navigieren.
+| Feld | Anforderung |
+|------|-------------|
+| **Organization Name** | Mindestens 2 Zeichen |
 
-### Weitere Schritte abschließen
+Gib einen Namen ein und klicke auf **"Continue"**.
 
-Jeder Checklisten-Punkt hat einen **"Configure"**-Link, der dich direkt zur entsprechenden Einstellungsseite führt. Die Punkte werden progressiv freigeschaltet — die Organisation muss zuerst konfiguriert werden.
+:::tip[Tipp]
+Du kannst den Organisationsnamen später jederzeit in den Einstellungen ändern.
+:::
 
-### Checkliste ausblenden
+---
 
-Wenn du die benötigten Schritte abgeschlossen hast (oder die Konfiguration später vornehmen möchtest), kannst du die Checkliste ausblenden:
+### Schritt 2: Docker Environment hinzufügen
 
-- Klicke auf das **✕** oben rechts, oder
-- Klicke auf **"Dismiss checklist"** unten
+In diesem Schritt verbindest du ReadyStackGo mit einem Docker-Daemon. Die Felder sind **vorausgefüllt** mit sinnvollen Standardwerten:
 
-Die Checkliste wird nach dem Ausblenden nicht mehr angezeigt.
+![Onboarding: Docker Environment](/images/docs/wizard-04-onboarding-env.png)
+
+| Feld | Standardwert | Beschreibung |
+|------|-------------|-------------|
+| **Environment Name** | `Local Docker` | Frei wählbarer Name für dieses Environment |
+| **Docker Socket Path** | `unix:///var/run/docker.sock` | Pfad zum Docker-Daemon-Socket auf dem Host |
+
+Du hast zwei Möglichkeiten:
+- **"Continue"** — Erstellt das Environment mit den angegebenen Werten
+- **"Skip for now"** — Überspringt diesen Schritt (du kannst später Environments in den Einstellungen hinzufügen)
+
+:::tip[Docker Socket]
+Wenn du ReadyStackGo als Docker-Container betreibst, muss der Docker-Socket des Hosts in den Container gemountet sein (standardmäßig konfiguriert in der `docker-compose.yml`).
+:::
+
+---
+
+### Schritt 3: Stack Sources auswählen
+
+Stack Sources sind Repositories mit vorkonfigurierten Stack-Definitionen, die du direkt deployen kannst. ReadyStackGo zeigt dir eine **kuratierte Liste** verfügbarer Quellen an:
+
+![Onboarding: Stack Sources](/images/docs/wizard-05-onboarding-sources.png)
+
+- Empfohlene Quellen (**Featured**) sind automatisch vorausgewählt
+- Du kannst Quellen an- und abwählen
+- Klicke auf **"Add sources"**, um die ausgewählten Quellen hinzuzufügen
+- Oder klicke auf **"Skip for now"**, um diesen Schritt zu überspringen
+
+:::tip[Stack Sources]
+Du kannst Stack Sources jederzeit unter *Settings → Stack Sources* hinzufügen, entfernen oder eigene Git-Repositories als Quelle konfigurieren.
+:::
+
+---
+
+### Schritt 4: Zusammenfassung
+
+Nach Abschluss der Schritte zeigt dir das Onboarding eine **Zusammenfassung** aller konfigurierten (und übersprungenen) Punkte:
+
+![Onboarding: Zusammenfassung](/images/docs/wizard-06-onboarding-complete.png)
+
+Klicke auf **"Go to Dashboard"**, um zum Dashboard zu gelangen.
 
 ---
 
 ## Nach dem Setup
 
+Nach Abschluss des Onboardings wirst du auf das **Dashboard** weitergeleitet:
+
+![Dashboard nach dem Onboarding](/images/docs/wizard-07-dashboard.png)
+
+Falls du im Onboarding optionale Schritte übersprungen hast (Environment oder Stack Sources), zeigt das Dashboard einen **Hinweis** mit Empfehlungen zur weiteren Konfiguration. Dieser Hinweis verschwindet automatisch, sobald alle Punkte konfiguriert sind.
+
 ### Nächste Schritte
 
-1. **Organisation konfigurieren** — Pflicht, um alle Features freizuschalten
-2. **Environment hinzufügen** — Gehe zu *Environments* und klicke auf *Add Environment*
-3. **Stack Sources konfigurieren** — Füge Git-Repositories als Stack-Quellen hinzu
-4. **Ersten Stack deployen** — Siehe [Ersten Stack deployen](/getting-started/first-deployment/)
+1. **Environment hinzufügen** (falls übersprungen) — Gehe zu *Environments* und erstelle ein neues Environment
+2. **Stack Sources konfigurieren** (falls übersprungen) — Unter *Settings → Stack Sources*
+3. **Ersten Stack deployen** — Siehe [Ersten Stack deployen](/getting-started/first-deployment/)
 
 ---
 

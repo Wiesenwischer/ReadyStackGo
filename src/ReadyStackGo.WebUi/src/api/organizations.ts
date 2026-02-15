@@ -1,6 +1,7 @@
 import { apiPost } from './client';
 
 export interface CreateOrganizationRequest {
+  id?: string;
   name: string;
 }
 

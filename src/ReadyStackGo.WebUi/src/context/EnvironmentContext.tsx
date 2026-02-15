@@ -21,7 +21,6 @@ export function EnvironmentProvider({ children }: { children: ReactNode }) {
   const refreshEnvironments = async () => {
     try {
       const response = await getEnvironments();
-      console.log('Environments API response:', response);
       if (response.success) {
         setEnvironments(response.environments);
 
