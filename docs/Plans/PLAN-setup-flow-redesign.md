@@ -153,7 +153,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Abhängig von: `/document-feature`
   - Ergebnis: quickstart.md, installation/index.mdx in DE+EN aktualisiert
 
-- [ ] **Phase abschließen** – Alle Tests grün, PR gegen main
+- [x] **Phase abschließen** – Alle Tests grün, PR gegen main
   - Abhängig von: alle
 
 ## Detailplan pro Feature

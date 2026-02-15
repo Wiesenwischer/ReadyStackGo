@@ -178,18 +178,17 @@ Rough outlook on planned versions and features.
   - Bulk Registry Creation from Wizard Input
   - Public Image Detection (library/* defaults to anonymous)
   - Skip/Undo Flow for Individual Registries
+- **v0.26** – Setup Flow Redesign (2026-02-15)
+  - Two-Phase Setup: Secure Admin Creation (Phase 1) + Guided Onboarding (Phase 2)
+  - Auto-Login After Admin Creation (JWT in CreateAdmin Response)
+  - Wizard Simplified to Single Step (Admin Only, 5-Min Timeout)
+  - Dashboard Onboarding Checklist (Organization, Environment, Sources, Registries)
+  - Onboarding Status API (Authenticated, No Timeout)
+  - Organization Creation as Standalone Authenticated Endpoint
+  - Timeout Scope Restricted to Admin Creation Only
+  - Dismiss Onboarding Endpoint (Persistent)
 
 ## Planned
-
-### v0.26 – Setup Flow Redesign
-- Two-Phase Setup: Secure Admin Creation (Phase 1) + Guided Onboarding (Phase 2)
-- Auto-Login After Admin Creation (JWT in CreateAdmin Response)
-- Wizard Simplified to Single Step (Admin Only, 5-Min Timeout)
-- Dashboard Onboarding Checklist (Organization, Environment, Sources, Registries)
-- Onboarding Status API (Authenticated, No Timeout)
-- Organization Creation as Standalone Authenticated Endpoint
-- Timeout Scope Restricted to Admin Creation Only
-- Future-Ready for OAuth/Portal Authentication in Phase 1
 
 ### v0.27 – WebUI Monorepo Refactoring (Distribution-Ready)
 - pnpm Workspaces Monorepo (packages/core, packages/ui-generic, apps/rsgo-generic)
