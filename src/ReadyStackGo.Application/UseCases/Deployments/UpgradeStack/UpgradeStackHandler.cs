@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using ReadyStackGo.Application.Notifications;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 using ReadyStackGo.Domain.Deployment.Deployments;
@@ -16,18 +17,21 @@ public class UpgradeStackHandler : IRequestHandler<UpgradeStackCommand, UpgradeS
     private readonly IDeploymentRepository _deploymentRepository;
     private readonly IProductSourceService _productSourceService;
     private readonly IMediator _mediator;
+    private readonly INotificationService? _notificationService;
     private readonly ILogger<UpgradeStackHandler> _logger;
 
     public UpgradeStackHandler(
         IDeploymentRepository deploymentRepository,
         IProductSourceService productSourceService,
         IMediator mediator,
-        ILogger<UpgradeStackHandler> logger)
+        ILogger<UpgradeStackHandler> logger,
+        INotificationService? notificationService = null)
     {
         _deploymentRepository = deploymentRepository;
         _productSourceService = productSourceService;
         _mediator = mediator;
         _logger = logger;
+        _notificationService = notificationService;
     }
 
     public async Task<UpgradeStackResponse> Handle(UpgradeStackCommand request, CancellationToken cancellationToken)
@@ -89,12 +93,14 @@ public class UpgradeStackHandler : IRequestHandler<UpgradeStackCommand, UpgradeS
 
         // 7. Execute deployment via DeployStack command
         // The existing deploy flow handles snapshot creation, container management, etc.
+        // SuppressNotification: true — we create our own upgrade-specific notification
         var deployResult = await _mediator.Send(new DeployStackCommand(
             request.EnvironmentId,
             request.NewStackId,
             deployment.StackName, // Keep same stack name
             mergedVariables,
-            request.SessionId), cancellationToken);
+            request.SessionId,
+            SuppressNotification: true), cancellationToken);
 
         if (!deployResult.Success)
         {
@@ -102,6 +108,9 @@ public class UpgradeStackHandler : IRequestHandler<UpgradeStackCommand, UpgradeS
             var updatedDeployment = _deploymentRepository.GetById(deployment.Id);
             var canRollback = updatedDeployment?.CanRollback() ?? false;
             var rollbackVersion = updatedDeployment?.GetRollbackTargetVersion();
+
+            await CreateUpgradeNotificationAsync(false, deployment.StackName,
+                previousVersion, newVersion, deployResult.DeploymentId, cancellationToken);
 
             return new UpgradeStackResponse
             {
@@ -123,6 +132,9 @@ public class UpgradeStackHandler : IRequestHandler<UpgradeStackCommand, UpgradeS
             "Successfully upgraded deployment {DeploymentId} from {PreviousVersion} to {NewVersion}",
             deployment.Id, previousVersion, newVersion);
 
+        await CreateUpgradeNotificationAsync(true, deployment.StackName,
+            previousVersion, newVersion, deployResult.DeploymentId, cancellationToken);
+
         return new UpgradeStackResponse
         {
             Success = true,
@@ -133,6 +145,29 @@ public class UpgradeStackHandler : IRequestHandler<UpgradeStackCommand, UpgradeS
             SnapshotId = null, // Snapshot was cleared after successful upgrade (Point of No Return)
             CanRollback = false // Successful upgrade = no rollback needed
         };
+    }
+
+    private async Task CreateUpgradeNotificationAsync(
+        bool success, string stackName, string? previousVersion, string? newVersion,
+        string? deploymentId, CancellationToken ct)
+    {
+        if (_notificationService == null) return;
+
+        try
+        {
+            var message = success
+                ? $"Stack '{stackName}' upgraded from {previousVersion} to {newVersion}."
+                : $"Failed to upgrade stack '{stackName}' from {previousVersion} to {newVersion}.";
+
+            var notification = NotificationFactory.CreateDeploymentResult(
+                success, "upgrade", stackName, message, deploymentId);
+
+            await _notificationService.AddAsync(notification, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to create upgrade notification for {StackName}", stackName);
+        }
     }
 
     /// <summary>

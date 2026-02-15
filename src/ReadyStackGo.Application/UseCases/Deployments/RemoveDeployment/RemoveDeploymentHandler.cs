@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using ReadyStackGo.Application.Notifications;
 using ReadyStackGo.Application.Services;
 
 namespace ReadyStackGo.Application.UseCases.Deployments.RemoveDeployment;
@@ -23,16 +24,19 @@ public class RemoveDeploymentByIdHandler : IRequestHandler<RemoveDeploymentByIdC
 {
     private readonly IDeploymentService _deploymentService;
     private readonly IDeploymentNotificationService _notificationService;
+    private readonly INotificationService? _inAppNotificationService;
     private readonly ILogger<RemoveDeploymentByIdHandler> _logger;
 
     public RemoveDeploymentByIdHandler(
         IDeploymentService deploymentService,
         IDeploymentNotificationService notificationService,
-        ILogger<RemoveDeploymentByIdHandler> logger)
+        ILogger<RemoveDeploymentByIdHandler> logger,
+        INotificationService? inAppNotificationService = null)
     {
         _deploymentService = deploymentService;
         _notificationService = notificationService;
         _logger = logger;
+        _inAppNotificationService = inAppNotificationService;
     }
 
     public async Task<DeployComposeResponse> Handle(RemoveDeploymentByIdCommand request, CancellationToken cancellationToken)
@@ -40,7 +44,9 @@ public class RemoveDeploymentByIdHandler : IRequestHandler<RemoveDeploymentByIdC
         // If no session ID, use the simple method without progress
         if (string.IsNullOrEmpty(request.SessionId))
         {
-            return await _deploymentService.RemoveDeploymentByIdAsync(request.EnvironmentId, request.DeploymentId);
+            var simpleResult = await _deploymentService.RemoveDeploymentByIdAsync(request.EnvironmentId, request.DeploymentId);
+            await CreateRemoveNotificationAsync(simpleResult, cancellationToken);
+            return simpleResult;
         }
 
         _logger.LogInformation("Removing deployment {DeploymentId} with session {SessionId}",
@@ -80,10 +86,31 @@ public class RemoveDeploymentByIdHandler : IRequestHandler<RemoveDeploymentByIdC
             }
         };
 
-        return await _deploymentService.RemoveDeploymentByIdAsync(
+        var result = await _deploymentService.RemoveDeploymentByIdAsync(
             request.EnvironmentId,
             request.DeploymentId,
             progressCallback,
             cancellationToken);
+
+        await CreateRemoveNotificationAsync(result, cancellationToken);
+        return result;
+    }
+
+    private async Task CreateRemoveNotificationAsync(DeployComposeResponse result, CancellationToken ct)
+    {
+        if (_inAppNotificationService == null || string.IsNullOrEmpty(result.StackName)) return;
+        var stackName = result.StackName;
+
+        try
+        {
+            var notification = NotificationFactory.CreateDeploymentResult(
+                result.Success, "remove", stackName, result.Message);
+
+            await _inAppNotificationService.AddAsync(notification, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to create remove notification for {StackName}", stackName);
+        }
     }
 }

@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using ReadyStackGo.Application.Notifications;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 using ReadyStackGo.Domain.Deployment.Deployments;
@@ -17,16 +18,19 @@ public class RollbackDeploymentHandler : IRequestHandler<RollbackDeploymentComma
 {
     private readonly IDeploymentRepository _deploymentRepository;
     private readonly IMediator _mediator;
+    private readonly INotificationService? _notificationService;
     private readonly ILogger<RollbackDeploymentHandler> _logger;
 
     public RollbackDeploymentHandler(
         IDeploymentRepository deploymentRepository,
         IMediator mediator,
-        ILogger<RollbackDeploymentHandler> logger)
+        ILogger<RollbackDeploymentHandler> logger,
+        INotificationService? notificationService = null)
     {
         _deploymentRepository = deploymentRepository;
         _mediator = mediator;
         _logger = logger;
+        _notificationService = notificationService;
     }
 
     public async Task<RollbackDeploymentResponse> Handle(RollbackDeploymentCommand request, CancellationToken cancellationToken)
@@ -96,17 +100,22 @@ public class RollbackDeploymentHandler : IRequestHandler<RollbackDeploymentComma
             var variablesDict = variables.ToDictionary(kv => kv.Key, kv => kv.Value);
 
             // Execute deployment via DeployStack command - this handles progress notifications
+            // SuppressNotification: true — we create our own rollback-specific notification
             var deployResult = await _mediator.Send(new DeployStackCommand(
                 request.EnvironmentId,
                 stackId,
                 deployment.StackName,
                 variablesDict,
-                request.SessionId), cancellationToken);
+                request.SessionId,
+                SuppressNotification: true), cancellationToken);
 
             if (!deployResult.Success)
             {
                 _logger.LogError("Rollback deployment failed for {DeploymentId}: {Message}",
                     request.DeploymentId, deployResult.Message);
+
+                await CreateRollbackNotificationAsync(false, deployment.StackName,
+                    targetVersion, deployResult.DeploymentId, cancellationToken);
 
                 return new RollbackDeploymentResponse
                 {
@@ -119,6 +128,9 @@ public class RollbackDeploymentHandler : IRequestHandler<RollbackDeploymentComma
 
             _logger.LogInformation("Rollback completed successfully for {DeploymentId} to version {Version}",
                 request.DeploymentId, targetVersion);
+
+            await CreateRollbackNotificationAsync(true, deployment.StackName,
+                targetVersion, deployResult.DeploymentId, cancellationToken);
 
             return new RollbackDeploymentResponse
             {
@@ -136,6 +148,29 @@ public class RollbackDeploymentHandler : IRequestHandler<RollbackDeploymentComma
                 Success = false,
                 Message = ex.Message
             };
+        }
+    }
+
+    private async Task CreateRollbackNotificationAsync(
+        bool success, string stackName, string? targetVersion,
+        string? deploymentId, CancellationToken ct)
+    {
+        if (_notificationService == null) return;
+
+        try
+        {
+            var message = success
+                ? $"Stack '{stackName}' rolled back to version {targetVersion}."
+                : $"Failed to roll back stack '{stackName}' to version {targetVersion}.";
+
+            var notification = NotificationFactory.CreateDeploymentResult(
+                success, "rollback", stackName, message, deploymentId);
+
+            await _notificationService.AddAsync(notification, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to create rollback notification for {StackName}", stackName);
         }
     }
 }
