@@ -2,16 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import WizardLayout from './WizardLayout';
 import AdminStep from './AdminStep';
-import OrganizationStep from './OrganizationStep';
-import EnvironmentStep from './EnvironmentStep';
-import StackSourcesStep from './StackSourcesStep';
-import RegistriesStep from './RegistriesStep';
-import InstallStep from './InstallStep';
-import { createAdmin, setOrganization, setEnvironment, setSources, setRegistries, installStack, getWizardStatus, type WizardTimeoutInfo, type RegistryInputDto } from '../../api/wizard';
+import { createAdmin, installStack, getWizardStatus, type WizardTimeoutInfo } from '../../api/wizard';
 import { useAuth } from '../../context/AuthContext';
 
 export default function Wizard() {
-  const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [timeout, setTimeout] = useState<WizardTimeoutInfo | null>(null);
   const [isTimedOut, setIsTimedOut] = useState(false);
@@ -44,29 +38,13 @@ export default function Wizard() {
         return;
       }
 
-      // Map backend wizard state to frontend step number
-      // v0.4.1: Added optional Environment step (4 steps total)
-      // Admin -> Organization -> Environment (optional) -> Install
-      switch (status.wizardState) {
-        case 'NotStarted':
-          setCurrentStep(1);
-          break;
-        case 'AdminCreated':
-          setCurrentStep(2);
-          break;
-        case 'OrganizationSet':
-          setCurrentStep(3);
-          break;
-        case 'Installed':
-          // Wizard completed, redirect to login
-          navigate('/login');
-          return;
-        default:
-          setCurrentStep(1);
+      if (status.isCompleted) {
+        // Admin already exists, redirect to dashboard
+        navigate('/', { replace: true });
+        return;
       }
     } catch (error) {
       console.error('Failed to load wizard state:', error);
-      setCurrentStep(1);
     } finally {
       setIsLoading(false);
     }
@@ -77,62 +55,17 @@ export default function Wizard() {
     reloadWizardState();
   }, [reloadWizardState]);
 
-  const handleAdminNext = async (data: { username: string; password: string }) => {
+  const handleAdminCreated = async (data: { username: string; password: string }) => {
     const response = await createAdmin(data);
     if (response.token && response.username && response.role) {
       setAuthDirectly(response.token, response.username, response.role);
     }
-    setCurrentStep(2);
-  };
 
-  const handleOrganizationNext = async (data: { id: string; name: string }) => {
-    await setOrganization(data);
-    setCurrentStep(3);
-  };
+    // Mark wizard as installed (completes the wizard state machine)
+    await installStack();
 
-  const handleEnvironmentNext = async (data: { name: string; socketPath: string } | null) => {
-    if (data) {
-      // User wants to create an environment - use wizard endpoint (no auth required)
-      // The backend automatically sets the first environment as default
-      const response = await setEnvironment({ name: data.name, socketPath: data.socketPath });
-      if (!response.success) {
-        throw new Error(response.message || 'Failed to create environment');
-      }
-    }
-    // Move to stack sources step (whether environment was created or skipped)
-    setCurrentStep(4);
-  };
-
-  const handleSourcesNext = async (selectedIds: string[]) => {
-    if (selectedIds.length > 0) {
-      const response = await setSources({ registrySourceIds: selectedIds });
-      if (!response.success) {
-        throw new Error(response.message || 'Failed to add sources');
-      }
-    }
-    // Move to registries step (whether sources were added or skipped)
-    setCurrentStep(5);
-  };
-
-  const handleRegistriesNext = async (registries: RegistryInputDto[]) => {
-    if (registries.length > 0) {
-      const response = await setRegistries({ registries });
-      if (!response.success) {
-        throw new Error('Failed to configure registries');
-      }
-    }
-    // Move to install step (whether registries were configured or skipped)
-    setCurrentStep(6);
-  };
-
-  const handleInstall = async () => {
-    const result = await installStack();
-    if (result.success) {
-      // Installation successful, redirect to login
-      navigate('/login');
-    } else {
-      throw new Error(result.errors.join(', ') || 'Installation failed');
-    }
+    // Redirect to dashboard where the onboarding checklist will guide further setup
+    navigate('/', { replace: true });
   };
 
   // Show loading state while checking wizard status
@@ -144,7 +77,7 @@ export default function Wizard() {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <p className="text-gray-600 dark:text-gray-400">Loading wizard...</p>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
         </div>
       </div>
     );
@@ -171,12 +104,11 @@ export default function Wizard() {
             {isLocked ? (
               <>
                 The 5-minute setup window has expired and the wizard is now locked.
-                Any partial configuration has been reset.
                 <br /><br />
                 <strong>To try again, restart the container.</strong>
               </>
             ) : (
-              'The 5-minute setup window has expired. Any partial configuration has been reset.'
+              'The 5-minute setup window has expired.'
             )}
           </p>
           {isLocked ? (
@@ -197,18 +129,8 @@ export default function Wizard() {
   }
 
   return (
-    <WizardLayout
-      currentStep={currentStep}
-      totalSteps={6}
-      timeout={timeout}
-      onTimeout={handleTimeout}
-    >
-      {currentStep === 1 && <AdminStep onNext={handleAdminNext} />}
-      {currentStep === 2 && <OrganizationStep onNext={handleOrganizationNext} />}
-      {currentStep === 3 && <EnvironmentStep onNext={handleEnvironmentNext} />}
-      {currentStep === 4 && <StackSourcesStep onNext={handleSourcesNext} />}
-      {currentStep === 5 && <RegistriesStep onNext={handleRegistriesNext} />}
-      {currentStep === 6 && <InstallStep onInstall={handleInstall} />}
+    <WizardLayout timeout={timeout} onTimeout={handleTimeout}>
+      <AdminStep onNext={handleAdminCreated} />
     </WizardLayout>
   );
 }
