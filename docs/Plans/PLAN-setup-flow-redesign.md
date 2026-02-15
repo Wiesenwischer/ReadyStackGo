@@ -131,7 +131,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - ~~AdminCreated~~ und ~~OrganizationSet~~ entfallen (Onboarding übernimmt)
   - Abhängig von: Feature 2
 
-- [ ] **Feature 7: Dismiss-Endpoint + Cleanup** – Onboarding-Dismiss persistieren, alte Wizard-Steps bereinigen
+- [x] **Feature 7: Dismiss-Endpoint + Cleanup** – Onboarding-Dismiss persistieren, alte Wizard-Steps bereinigen (PR #113)
   - Neue Dateien:
     - `Api/Endpoints/Onboarding/DismissOnboardingEndpoint.cs`
   - Betroffene Dateien:
