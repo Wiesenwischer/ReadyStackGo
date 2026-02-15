@@ -20,7 +20,6 @@ public class ListRegistryForWizardEndpoint : EndpointWithoutRequest<IEnumerable<
     {
         Get("/api/wizard/registry");
         AllowAnonymous();
-        PreProcessor<WizardTimeoutPreProcessor<EmptyRequest>>();
     }
 
     public override Task HandleAsync(CancellationToken ct)

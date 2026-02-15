@@ -3,27 +3,23 @@ namespace ReadyStackGo.Application.UseCases.Wizard.GetWizardStatus;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Roles;
 using ReadyStackGo.Domain.IdentityAccess.Users;
 
 public class GetWizardStatusHandler : IRequestHandler<GetWizardStatusQuery, WizardStatusResult>
 {
     private readonly IUserRepository _userRepository;
-    private readonly IOrganizationRepository _organizationRepository;
     private readonly ISystemConfigService _systemConfigService;
     private readonly IWizardTimeoutService _wizardTimeoutService;
     private readonly ILogger<GetWizardStatusHandler> _logger;
 
     public GetWizardStatusHandler(
         IUserRepository userRepository,
-        IOrganizationRepository organizationRepository,
         ISystemConfigService systemConfigService,
         IWizardTimeoutService wizardTimeoutService,
         ILogger<GetWizardStatusHandler> logger)
     {
         _userRepository = userRepository;
-        _organizationRepository = organizationRepository;
         _systemConfigService = systemConfigService;
         _wizardTimeoutService = wizardTimeoutService;
         _logger = logger;
@@ -56,31 +52,15 @@ public class GetWizardStatusHandler : IRequestHandler<GetWizardStatusQuery, Wiza
             return new WizardStatusResult("NotStarted", false, defaultDockerSocketPath, freshTimeoutInfo);
         }
 
-        // Derive state from database content
+        // Two states only: admin exists → Installed, else NotStarted
         var hasAdmin = _userRepository.GetAll()
             .Any(u => u.RoleAssignments.Any(r => r.RoleId == RoleId.SystemAdmin));
 
-        var hasOrganization = _organizationRepository.GetAll().Any();
-
-        string wizardStateString;
-        if (!hasAdmin)
-        {
-            wizardStateString = "NotStarted";
-        }
-        else if (!hasOrganization)
-        {
-            wizardStateString = "AdminCreated";
-        }
-        else
-        {
-            // Organization exists - show Environment step (optional)
-            // User must explicitly complete the wizard via /api/wizard/install
-            wizardStateString = "OrganizationSet";
-        }
+        var wizardStateString = hasAdmin ? "Installed" : "NotStarted";
 
         return new WizardStatusResult(
             wizardStateString,
-            false,
+            hasAdmin,
             defaultDockerSocketPath,
             timeoutInfo);
     }

@@ -2,27 +2,19 @@ namespace ReadyStackGo.Infrastructure.Configuration;
 
 /// <summary>
 /// Represents the state of the setup wizard.
-/// v0.4: Simplified from 4 steps to 3 steps (ConnectionsSet removed).
+/// v0.26: Simplified to 2 states only. Admin creation (Phase 1) transitions
+/// directly to Installed. Organization setup moved to post-login onboarding.
 /// </summary>
 public enum WizardState
 {
     /// <summary>
-    /// Initial state - no configuration exists
+    /// Initial state - no admin user exists yet (Phase 1: unauthenticated setup)
     /// </summary>
     NotStarted,
 
     /// <summary>
-    /// Admin user has been created (Step 1 complete)
-    /// </summary>
-    AdminCreated,
-
-    /// <summary>
-    /// Organization has been set (Step 2 complete)
-    /// </summary>
-    OrganizationSet,
-
-    /// <summary>
-    /// Wizard completed - system is ready to use (Step 3 complete)
+    /// Admin created, wizard complete. Organization and further setup
+    /// happen via the authenticated onboarding checklist (Phase 2).
     /// </summary>
     Installed
 }

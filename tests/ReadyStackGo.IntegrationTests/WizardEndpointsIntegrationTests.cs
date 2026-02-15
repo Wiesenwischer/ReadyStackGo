@@ -210,9 +210,9 @@ public class WizardEndpointsIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task POST_Install_WithoutOrganization_ReturnsError()
+    public async Task POST_Install_WithoutOrganization_SucceedsAfterAdminCreation()
     {
-        // Arrange - Only create admin, skip organization
+        // Arrange - Only create admin, skip organization (org setup moved to onboarding)
         await CreateAdminForTest();
 
         var request = new
@@ -223,11 +223,10 @@ public class WizardEndpointsIntegrationTests : IAsyncLifetime
         // Act
         var response = await _client.PostAsJsonAsync("/api/wizard/install", request);
 
-        // Assert
-        // Should fail because organization wasn't set
+        // Assert - Wizard only requires admin; org setup happens post-login via onboarding
         var result = await response.Content.ReadFromJsonAsync<InstallStackResponseSimple>();
         result.Should().NotBeNull();
-        result!.Success.Should().BeFalse();
+        result!.Success.Should().BeTrue();
     }
 
     [Fact]

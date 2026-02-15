@@ -21,7 +21,6 @@ public class SetSourcesEndpoint : Endpoint<SetSourcesRequest, SetSourcesResponse
     {
         Post("/api/wizard/sources");
         AllowAnonymous();
-        PreProcessor<WizardTimeoutPreProcessor<SetSourcesRequest>>();
     }
 
     public override async Task HandleAsync(SetSourcesRequest req, CancellationToken ct)

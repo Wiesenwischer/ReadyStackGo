@@ -21,13 +21,10 @@ public class SetEnvironmentEndpoint : Endpoint<SetEnvironmentRequest, SetEnviron
     {
         Post("/api/wizard/environment");
         AllowAnonymous();
-        PreProcessor<WizardTimeoutPreProcessor<SetEnvironmentRequest>>();
     }
 
     public override async Task HandleAsync(SetEnvironmentRequest req, CancellationToken ct)
     {
-        // Timeout check is handled by WizardTimeoutPreProcessor
-
         var result = await _mediator.Send(
             new CreateEnvironmentCommand(req.Name, req.SocketPath),
             ct);

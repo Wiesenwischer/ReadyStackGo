@@ -21,13 +21,10 @@ public class SetOrganizationEndpoint : Endpoint<SetOrganizationRequest, SetOrgan
     {
         Post("/api/wizard/organization");
         AllowAnonymous();
-        PreProcessor<WizardTimeoutPreProcessor<SetOrganizationRequest>>();
     }
 
     public override async Task HandleAsync(SetOrganizationRequest req, CancellationToken ct)
     {
-        // Timeout check is handled by WizardTimeoutPreProcessor
-
         var result = await _mediator.Send(
             new ProvisionOrganizationCommand(req.Name, req.Name),
             ct);

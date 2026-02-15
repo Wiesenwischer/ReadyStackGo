@@ -26,7 +26,6 @@ public class VerifyRegistryAccessEndpoint : Endpoint<VerifyRegistryAccessRequest
     {
         Post("/api/wizard/verify-registry-access");
         AllowAnonymous();
-        PreProcessor<WizardTimeoutPreProcessor<VerifyRegistryAccessRequest>>();
     }
 
     public override async Task HandleAsync(VerifyRegistryAccessRequest req, CancellationToken ct)

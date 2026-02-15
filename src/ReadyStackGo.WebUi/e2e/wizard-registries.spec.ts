@@ -46,7 +46,7 @@ async function setupWizardViaApi() {
 /** Navigate from wizard step 3 (env) through to the Registries step */
 async function navigateToRegistriesStep(page: Page) {
   await page.goto('/wizard');
-  // Backend state is OrganizationSet → frontend shows step 3 (Environment)
+  // Backend state is not yet Installed → frontend shows step 3 (Environment)
   // Environment was already created via API, but wizard doesn't track that
 
   // Step 3: Environment — wait for the heading, then skip
