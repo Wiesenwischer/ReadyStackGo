@@ -110,7 +110,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - "Später erledigen"-Button → dismisst die Checklist (localStorage + API)
   - Abhängig von: Feature 3
 
-- [ ] **Feature 5: Organization-Erstellung aus Dashboard** – Org-Setup als eigenständigen Flow
+- [x] **Feature 5: Organization-Erstellung aus Dashboard** – Org-Setup als eigenständigen Flow (PR #111)
   - Neue Dateien:
     - `WebUi/src/pages/Settings/Organization/SetupOrganization.tsx` (oder Modal)
     - `Api/Endpoints/Organization/CreateOrganizationEndpoint.cs` (authentifiziert)
