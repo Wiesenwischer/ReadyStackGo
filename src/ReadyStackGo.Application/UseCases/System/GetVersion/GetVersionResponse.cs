@@ -26,6 +26,12 @@ public record GetVersionResponse
     public string? LatestReleaseUrl { get; init; }
 
     /// <summary>
+    /// When the last GitHub version check was performed (UTC).
+    /// Null if no check has been performed yet.
+    /// </summary>
+    public DateTime? CheckedAt { get; init; }
+
+    /// <summary>
     /// Build information.
     /// </summary>
     public required BuildInfo Build { get; init; }

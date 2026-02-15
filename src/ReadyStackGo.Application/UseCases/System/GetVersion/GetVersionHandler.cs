@@ -23,7 +23,7 @@ public class GetVersionHandler : IRequestHandler<GetVersionQuery, GetVersionResp
     public async Task<GetVersionResponse> Handle(GetVersionQuery request, CancellationToken cancellationToken)
     {
         var currentVersion = _versionCheckService.GetCurrentVersion();
-        var latestInfo = await _versionCheckService.GetLatestVersionAsync(cancellationToken);
+        var latestInfo = await _versionCheckService.GetLatestVersionAsync(request.ForceCheck, cancellationToken);
 
         var updateAvailable = false;
         if (latestInfo != null)
@@ -37,6 +37,7 @@ public class GetVersionHandler : IRequestHandler<GetVersionQuery, GetVersionResp
             UpdateAvailable = updateAvailable,
             LatestVersion = latestInfo?.Version,
             LatestReleaseUrl = latestInfo?.ReleaseUrl,
+            CheckedAt = latestInfo?.CheckedAt,
             Build = new BuildInfo
             {
                 GitCommit = GetGitCommit(),

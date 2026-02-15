@@ -30,6 +30,7 @@ import {
   UploadCertificate,
   ResetToSelfSigned,
   CiCdList,
+  SystemInfo,
 } from "./pages/Settings";
 import SetupEnvironment from "./pages/Environments/SetupEnvironment";
 import SetupOrganization from "./pages/Settings/Organization/SetupOrganization";
@@ -207,6 +208,7 @@ export default function App() {
                 <Route path="/settings/tls/upload" element={<UploadCertificate />} />
                 <Route path="/settings/tls/selfsigned" element={<ResetToSelfSigned />} />
                 <Route path="/settings/cicd" element={<CiCdList />} />
+                <Route path="/settings/system" element={<SystemInfo />} />
               </Route>
               {/* 404 catch-all route */}
               <Route path="*" element={<NotFound />} />

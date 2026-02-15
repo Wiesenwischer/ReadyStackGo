@@ -11,6 +11,7 @@ export interface VersionInfo {
   updateAvailable: boolean;
   latestVersion?: string;
   latestReleaseUrl?: string;
+  checkedAt?: string;
   build: BuildInfo;
 }
 
@@ -122,8 +123,15 @@ export interface TriggerUpdateResponse {
   message: string;
 }
 
+export interface UpdateProgressInfo {
+  phase: string; // idle, pulling, creating, starting, handed_off, error
+  message?: string;
+  progressPercent?: number;
+}
+
 export const systemApi = {
-  getVersion: () => apiGet<VersionInfo>('/api/system/version'),
+  getVersion: (forceCheck?: boolean) =>
+    apiGet<VersionInfo>(`/api/system/version${forceCheck ? '?forceCheck=true' : ''}`),
   triggerUpdate: (targetVersion: string) =>
     apiPost<TriggerUpdateResponse>('/api/system/update', { targetVersion }),
   getTlsConfig: () => apiGet<TlsConfig>('/api/system/tls'),

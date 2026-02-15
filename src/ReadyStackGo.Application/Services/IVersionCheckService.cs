@@ -14,7 +14,8 @@ public interface IVersionCheckService
     /// Gets the latest available version from GitHub releases.
     /// Returns null if check fails or is disabled.
     /// </summary>
-    Task<LatestVersionInfo?> GetLatestVersionAsync(CancellationToken cancellationToken = default);
+    /// <param name="forceCheck">If true, bypasses the 24h cache and fetches fresh data from GitHub.</param>
+    Task<LatestVersionInfo?> GetLatestVersionAsync(bool forceCheck = false, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -23,4 +24,5 @@ public interface IVersionCheckService
 public record LatestVersionInfo(
     string Version,
     string ReleaseUrl,
-    DateTime? PublishedAt);
+    DateTime? PublishedAt,
+    DateTime CheckedAt);
