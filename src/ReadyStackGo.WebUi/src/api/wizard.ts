@@ -35,6 +35,9 @@ export interface CreateAdminRequest {
 export interface CreateAdminResponse {
   success: boolean;
   message?: string;
+  token?: string;
+  username?: string;
+  role?: string;
 }
 
 export interface SetOrganizationRequest {

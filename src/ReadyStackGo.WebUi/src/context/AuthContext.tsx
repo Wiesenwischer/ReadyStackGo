@@ -9,6 +9,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   login: (username: string, password: string) => Promise<void>;
+  setAuthDirectly: (token: string, username: string, role: string) => void;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -67,6 +68,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const setAuthDirectly = (token: string, username: string, role: string) => {
+    const userData = { username, role };
+    setToken(token);
+    setUser(userData);
+    localStorage.setItem('auth_token', token);
+    localStorage.setItem('auth_user', JSON.stringify(userData));
+  };
+
   const logout = () => {
     setToken(null);
     setUser(null);
@@ -87,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         token,
         login,
+        setAuthDirectly,
         logout,
         isAuthenticated: !!token,
         isLoading,
