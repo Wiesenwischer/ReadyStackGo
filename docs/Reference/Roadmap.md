@@ -166,6 +166,19 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Version Transition Badge (Current → Target Version)
   - Error State with Retry and Back-to-Dashboard Options
   - Helper Container Maintenance Page Restyled with RSGO Branding
+- **v0.24** – Preconfigured Sources, Registry Wizard & Setup Flow Redesign (2026-02-15)
+  - Curated Source Registry (Embedded JSON Catalog of Known Git/Local Sources)
+  - Wizard Stack Source Selection (Opt-in Instead of Auto-Creation)
+  - Add From Catalog in Stack Source Settings (One-Click Add from Registry)
+  - Image Reference Extraction from Synced Stack Manifests (Auto-Detect Host + Namespace)
+  - Container Registry Detection Endpoint (Grouped by Host + Pattern)
+  - Wizard Step for Container Registries (Two-Column Verified/Action-Required Layout)
+  - Credential Verification via Docker Registry v2 API Token Flow
+  - Two-Phase Setup: Secure Admin Creation (Phase 1) + Guided Onboarding (Phase 2)
+  - Auto-Login After Admin Creation (JWT in CreateAdmin Response)
+  - Wizard Simplified to Single Step (Admin Only, 5-Min Timeout)
+  - Mandatory Onboarding Flow: Organization → Environment → Sources → Registries
+  - Onboarding Status API (Authenticated, No Timeout Dependency)
 
 ---
 
