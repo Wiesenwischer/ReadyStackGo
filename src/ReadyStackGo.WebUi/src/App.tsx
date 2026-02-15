@@ -83,16 +83,13 @@ export default function App() {
                   </ProtectedRoute>
                 }
               >
-                {/* Routes that require an active environment */}
+                {/* Dashboard: no EnvironmentGuard — OnboardingChecklist must be visible even without environments */}
                 <Route
                   index
                   path="/"
-                  element={
-                    <EnvironmentGuard>
-                      <Dashboard />
-                    </EnvironmentGuard>
-                  }
+                  element={<Dashboard />}
                 />
+                {/* Routes that require an active environment */}
                 <Route
                   path="/containers"
                   element={

@@ -9,7 +9,7 @@ const SCREENSHOT_DIR = path.join(__dirname, '..', '..', 'ReadyStackGo.PublicWeb'
 /**
  * E2E Tests for Setup Wizard (v0.26)
  * The wizard is a single-step admin creation flow:
- *   Create Admin → auto-login → redirect to dashboard
+ *   Create Admin → auto-login → redirect to Dashboard (with OnboardingChecklist)
  * A 5-minute countdown timer is shown. After timeout/lock, the wizard is inaccessible.
  *
  * IMPORTANT: Tests are ordered carefully. Pre-wizard tests (validation, UI checks)
@@ -137,7 +137,7 @@ test.describe('Setup Wizard - Pre-Setup Checks', () => {
 });
 
 test.describe('Setup Wizard - Complete Flow', () => {
-  test('should create admin, auto-login, and redirect to app', async ({ page }) => {
+  test('should create admin, auto-login, and show dashboard with onboarding checklist', async ({ page }) => {
     await page.goto('/wizard');
     await page.evaluate(() => { localStorage.clear(); });
     await page.waitForLoadState('networkidle');
@@ -153,22 +153,33 @@ test.describe('Setup Wizard - Complete Flow', () => {
     // Button should show loading state and be disabled
     await expect(page.getByRole('button', { name: /Creating/i })).toBeVisible({ timeout: 2000 });
 
-    // Should auto-login and redirect to the app (not login page)
-    // EnvironmentGuard redirects to /environments when no environments exist
-    await page.waitForURL(/\/environments/, { timeout: 15000 });
+    // Should auto-login and redirect to Dashboard (root /)
+    await page.waitForURL(url => new URL(url).pathname === '/', { timeout: 15000 });
     await page.waitForLoadState('networkidle');
 
-    // Verify we're logged in (admin username visible in top-right user menu)
+    // Verify Dashboard heading is visible
+    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({ timeout: 5000 });
+
+    // Verify OnboardingChecklist is visible with correct items
+    await expect(page.getByText('Complete Your Setup')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Admin account created')).toBeVisible();
+    await expect(page.getByText('Set up your organization', { exact: true })).toBeVisible();
+
+    // Organization "Configure" link should be visible (first required step)
+    await expect(page.getByRole('link', { name: /Configure/ }).or(page.getByText('Configure →'))).toBeVisible();
+
+    // Verify we're logged in (admin username visible in user menu)
     await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible({ timeout: 5000 });
 
-    // Screenshot: App after wizard completion
+    // Screenshot: Dashboard with onboarding checklist after wizard completion
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'wizard-03-after-wizard.png'),
       fullPage: false,
     });
 
-    // Try to access wizard again — should redirect to app (not wizard)
+    // Try to access wizard again — should redirect back to Dashboard (not wizard)
     await page.goto('/wizard');
-    await page.waitForURL(/\/environments/, { timeout: 10000 });
+    await page.waitForURL(url => new URL(url).pathname === '/', { timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
   });
 });
