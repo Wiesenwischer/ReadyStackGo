@@ -1,24 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { systemApi, type VersionInfo } from "../api/system";
+import { useUpdateHub } from "../hooks/useUpdateHub";
 
-const POLL_INTERVAL_MS = 3000;
-const POLL_TIMEOUT_MS = 120000;
+const VERSION_POLL_INTERVAL_MS = 3000;
+const VERSION_POLL_TIMEOUT_MS = 120000;
 
-type Phase = "preparing" | "updating" | "success" | "error";
+type Phase = "connecting" | "triggering" | "pulling" | "creating" | "starting" | "restarting" | "success" | "error";
 
 export default function UpdateStatus() {
   const [searchParams] = useSearchParams();
   const targetVersion = searchParams.get("version") ?? "";
   const releaseUrl = searchParams.get("releaseUrl") ?? "";
 
-  const [phase, setPhase] = useState<Phase>("preparing");
+  const [phase, setPhase] = useState<Phase>("connecting");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentVersion, setCurrentVersion] = useState<string | null>(null);
+  const [pullPercent, setPullPercent] = useState(0);
+
+  const hasTriggered = useRef(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasTriggered = useRef(false);
 
+  const { connectionState, progress } = useUpdateHub();
+
+  // Stop version polling
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
       clearInterval(pollRef.current);
@@ -30,11 +36,10 @@ export default function UpdateStatus() {
     }
   }, []);
 
-  useEffect(() => {
-    return () => stopPolling();
-  }, [stopPolling]);
+  useEffect(() => () => stopPolling(), [stopPolling]);
 
-  const startPolling = useCallback(() => {
+  // Start polling version endpoint to detect restart completion
+  const startVersionPolling = useCallback(() => {
     stopPolling();
 
     pollRef.current = setInterval(async () => {
@@ -51,7 +56,7 @@ export default function UpdateStatus() {
       } catch {
         // Server is restarting, keep polling
       }
-    }, POLL_INTERVAL_MS);
+    }, VERSION_POLL_INTERVAL_MS);
 
     timeoutRef.current = setTimeout(() => {
       stopPolling();
@@ -59,31 +64,60 @@ export default function UpdateStatus() {
       setErrorMessage(
         "Update is taking longer than expected. The server may still be restarting — try refreshing this page in a moment."
       );
-    }, POLL_TIMEOUT_MS);
+    }, VERSION_POLL_TIMEOUT_MS);
   }, [stopPolling, targetVersion]);
 
+  // React to SignalR progress updates
   useEffect(() => {
-    if (!targetVersion || hasTriggered.current) return;
+    if (!progress) return;
+
+    switch (progress.phase) {
+      case "pulling":
+        setPhase("pulling");
+        setPullPercent(progress.progressPercent ?? 0);
+        break;
+      case "creating":
+        setPhase("creating");
+        break;
+      case "starting":
+        setPhase("starting");
+        break;
+      case "handed_off":
+        setPhase("restarting");
+        startVersionPolling();
+        break;
+      case "error":
+        setPhase("error");
+        setErrorMessage(progress.message ?? "Update failed.");
+        break;
+    }
+  }, [progress, startVersionPolling]);
+
+  // Trigger update once connected
+  useEffect(() => {
+    if (!targetVersion || hasTriggered.current || connectionState !== "connected") return;
+
+    // If progress shows update already in progress (e.g. page refresh), don't re-trigger
+    if (progress && progress.phase !== "idle" && progress.phase !== "error") return;
+
     hasTriggered.current = true;
+    setPhase("triggering");
 
     const triggerUpdate = async () => {
       try {
         const info = await systemApi.getVersion();
         setCurrentVersion(info.serverVersion);
       } catch {
-        // Ignore, we'll proceed without current version
+        // Ignore, proceed without current version
       }
-
-      setPhase("updating");
 
       try {
         const result = await systemApi.triggerUpdate(targetVersion);
         if (!result.success) {
           setPhase("error");
           setErrorMessage(result.message);
-          return;
         }
-        startPolling();
+        // Otherwise, progress will come via SignalR
       } catch (error) {
         setPhase("error");
         setErrorMessage(
@@ -93,62 +127,62 @@ export default function UpdateStatus() {
     };
 
     triggerUpdate();
-  }, [targetVersion, startPolling]);
+  }, [targetVersion, connectionState, progress, startVersionPolling]);
+
+  // If SignalR connection drops while in an active phase, assume server is restarting
+  useEffect(() => {
+    if (connectionState === "disconnected" && (phase === "pulling" || phase === "creating" || phase === "starting")) {
+      setPhase("restarting");
+      startVersionPolling();
+    }
+  }, [connectionState, phase, startVersionPolling]);
 
   const handleRetry = () => {
     hasTriggered.current = false;
-    setPhase("preparing");
+    setPhase("triggering");
     setErrorMessage(null);
-    // Re-trigger by resetting the ref and updating phase
-    setTimeout(() => {
-      hasTriggered.current = false;
-      // Force re-run of the effect by creating a micro-task
-      const trigger = async () => {
-        hasTriggered.current = true;
-        setPhase("updating");
-        try {
-          const result = await systemApi.triggerUpdate(targetVersion);
-          if (!result.success) {
-            setPhase("error");
-            setErrorMessage(result.message);
-            return;
-          }
-          startPolling();
-        } catch (error) {
+    setPullPercent(0);
+
+    const trigger = async () => {
+      hasTriggered.current = true;
+      try {
+        const result = await systemApi.triggerUpdate(targetVersion);
+        if (!result.success) {
           setPhase("error");
-          setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : "Failed to trigger update."
-          );
+          setErrorMessage(result.message);
         }
-      };
-      trigger();
-    }, 0);
+      } catch (error) {
+        setPhase("error");
+        setErrorMessage(
+          error instanceof Error ? error.message : "Failed to trigger update."
+        );
+      }
+    };
+    trigger();
   };
+
+  const phaseMessage = (): string => {
+    switch (phase) {
+      case "connecting": return "Connecting...";
+      case "triggering": return `Updating to v${targetVersion}`;
+      case "pulling": return `Downloading v${targetVersion}`;
+      case "creating": return "Preparing new container...";
+      case "starting": return "Starting update process...";
+      case "restarting": return "Restarting with new version...";
+      default: return "";
+    }
+  };
+
+  const isWorking = phase === "connecting" || phase === "triggering" || phase === "pulling" || phase === "creating" || phase === "starting" || phase === "restarting";
 
   return (
     <div className="relative min-h-screen bg-white dark:bg-gray-900">
       {/* Grid background */}
       <div className="absolute inset-0 overflow-hidden">
-        <svg
-          className="absolute inset-0 w-full h-full"
-          xmlns="http://www.w3.org/2000/svg"
-        >
+        <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <pattern
-              id="grid"
-              width="40"
-              height="40"
-              patternUnits="userSpaceOnUse"
-            >
-              <path
-                d="M 40 0 L 0 0 0 40"
-                fill="none"
-                stroke="currentColor"
-                className="text-gray-100 dark:text-white/[0.03]"
-                strokeWidth="1"
-              />
+            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" className="text-gray-100 dark:text-white/[0.03]" strokeWidth="1" />
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#grid)" />
@@ -162,61 +196,52 @@ export default function UpdateStatus() {
             ReadyStackGo
           </h1>
 
-          {/* Preparing / Updating state */}
-          {(phase === "preparing" || phase === "updating") && (
+          {/* Working states */}
+          {isWorking && (
             <div className="rounded-2xl border border-brand-200 bg-brand-50/50 p-8 dark:border-brand-800 dark:bg-brand-900/10">
               {/* Spinner */}
               <div className="mx-auto mb-6 h-16 w-16">
-                <svg
-                  className="h-16 w-16 animate-spin text-brand-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                  />
+                <svg className="h-16 w-16 animate-spin text-brand-500" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
               </div>
 
               <h2 className="mb-2 text-xl font-semibold text-gray-900 dark:text-white">
-                {phase === "preparing"
-                  ? "Preparing update..."
-                  : `Updating to v${targetVersion}`}
+                {phaseMessage()}
               </h2>
 
-              <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-                RSGO will restart momentarily. This page will reload
-                automatically once the new version is running.
-              </p>
+              {/* Progress bar during pull */}
+              {phase === "pulling" && (
+                <div className="mx-auto mt-4 mb-2 max-w-xs">
+                  <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+                    <div
+                      className="h-2 rounded-full bg-brand-500 transition-all duration-300"
+                      style={{ width: `${pullPercent}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-sm font-medium text-brand-600 dark:text-brand-400">
+                    {pullPercent}%
+                  </p>
+                </div>
+              )}
+
+              {phase !== "pulling" && (
+                <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+                  {phase === "restarting"
+                    ? "RSGO will restart momentarily. This page will reload automatically once the new version is running."
+                    : "This may take a moment..."}
+                </p>
+              )}
 
               {/* Version badge */}
               {currentVersion && (
-                <div className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm dark:bg-gray-800">
+                <div className="mt-4 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm dark:bg-gray-800">
                   <span className="text-gray-500 dark:text-gray-400">
                     v{currentVersion}
                   </span>
-                  <svg
-                    className="h-4 w-4 text-brand-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 7l5 5m0 0l-5 5m5-5H6"
-                    />
+                  <svg className="h-4 w-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
                   <span className="font-medium text-brand-600 dark:text-brand-400">
                     v{targetVersion}
@@ -230,18 +255,8 @@ export default function UpdateStatus() {
           {phase === "success" && (
             <div className="rounded-2xl border border-green-200 bg-green-50/50 p-8 dark:border-green-800 dark:bg-green-900/10">
               <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-                <svg
-                  className="h-8 w-8 text-green-600 dark:text-green-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
+                <svg className="h-8 w-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
 
@@ -254,18 +269,8 @@ export default function UpdateStatus() {
               </p>
 
               <div className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-green-700 dark:bg-gray-800 dark:text-green-400">
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
                 v{targetVersion}
               </div>
@@ -276,18 +281,8 @@ export default function UpdateStatus() {
           {phase === "error" && (
             <div className="rounded-2xl border border-red-200 bg-red-50/50 p-8 dark:border-red-800 dark:bg-red-900/10">
               <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-                <svg
-                  className="h-8 w-8 text-red-600 dark:text-red-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
-                  />
+                <svg className="h-8 w-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
                 </svg>
               </div>
 
@@ -325,18 +320,8 @@ export default function UpdateStatus() {
               className="mt-6 inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand-600 dark:text-gray-400 dark:hover:text-brand-400"
             >
               See what's new
-              <svg
-                className="h-3.5 w-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                />
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
             </a>
           )}

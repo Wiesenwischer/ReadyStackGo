@@ -91,6 +91,7 @@ public class Program
             });
         builder.Services.AddScoped<IHealthNotificationService, HealthNotificationService>();
         builder.Services.AddScoped<IDeploymentNotificationService, DeploymentNotificationService>();
+        builder.Services.AddSingleton<IUpdateNotificationService, UpdateNotificationService>();
 
         // Health Collector Background Service (v0.11)
         builder.Services.Configure<HealthCollectorOptions>(
@@ -182,6 +183,7 @@ public class Program
         // Map SignalR hubs
         app.MapHub<HealthHub>("/hubs/health");
         app.MapHub<DeploymentHub>("/hubs/deployment");
+        app.MapHub<UpdateHub>("/hubs/update");
 
         // SPA fallback: serve index.html for non-API, non-file routes
         // This must come after static files middleware so that actual files are served first

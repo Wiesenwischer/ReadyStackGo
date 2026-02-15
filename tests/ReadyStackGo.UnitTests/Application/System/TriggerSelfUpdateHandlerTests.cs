@@ -41,7 +41,7 @@ public class TriggerSelfUpdateHandlerTests
         result.Success.Should().BeFalse();
         result.Message.Should().Contain("Target version must be specified");
         _selfUpdateServiceMock.Verify(
-            s => s.TriggerUpdateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+            s => s.TriggerUpdate(It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public class TriggerSelfUpdateHandlerTests
         result.Success.Should().BeFalse();
         result.Message.Should().Contain("not newer");
         _selfUpdateServiceMock.Verify(
-            s => s.TriggerUpdateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+            s => s.TriggerUpdate(It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -96,8 +96,8 @@ public class TriggerSelfUpdateHandlerTests
         // Arrange
         _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("1.0.0");
         _selfUpdateServiceMock
-            .Setup(s => s.TriggerUpdateAsync("2.0.0", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new SelfUpdateResult(true, "Update initiated"));
+            .Setup(s => s.TriggerUpdate("2.0.0"))
+            .Returns(new SelfUpdateResult(true, "Update initiated"));
 
         var command = new TriggerSelfUpdateCommand("2.0.0");
 
@@ -108,7 +108,7 @@ public class TriggerSelfUpdateHandlerTests
         result.Success.Should().BeTrue();
         result.Message.Should().Contain("Update initiated");
         _selfUpdateServiceMock.Verify(
-            s => s.TriggerUpdateAsync("2.0.0", It.IsAny<CancellationToken>()), Times.Once);
+            s => s.TriggerUpdate("2.0.0"), Times.Once);
     }
 
     [Fact]
@@ -117,8 +117,8 @@ public class TriggerSelfUpdateHandlerTests
         // Arrange
         _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("1.0.0");
         _selfUpdateServiceMock
-            .Setup(s => s.TriggerUpdateAsync("2.0.0", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new SelfUpdateResult(false, "Docker error: connection refused"));
+            .Setup(s => s.TriggerUpdate("2.0.0"))
+            .Returns(new SelfUpdateResult(false, "Docker error: connection refused"));
 
         var command = new TriggerSelfUpdateCommand("2.0.0");
 
@@ -136,8 +136,8 @@ public class TriggerSelfUpdateHandlerTests
         // Arrange
         _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("1.0.0");
         _selfUpdateServiceMock
-            .Setup(s => s.TriggerUpdateAsync("1.0.1", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new SelfUpdateResult(true, "Update initiated"));
+            .Setup(s => s.TriggerUpdate("1.0.1"))
+            .Returns(new SelfUpdateResult(true, "Update initiated"));
 
         var command = new TriggerSelfUpdateCommand("1.0.1");
 
@@ -146,6 +146,25 @@ public class TriggerSelfUpdateHandlerTests
 
         // Assert
         result.Success.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Handle_UpdateAlreadyInProgress_ReturnsFailure()
+    {
+        // Arrange
+        _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("1.0.0");
+        _selfUpdateServiceMock
+            .Setup(s => s.TriggerUpdate("2.0.0"))
+            .Returns(new SelfUpdateResult(false, "An update is already in progress."));
+
+        var command = new TriggerSelfUpdateCommand("2.0.0");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("already in progress");
     }
 
     [Theory]

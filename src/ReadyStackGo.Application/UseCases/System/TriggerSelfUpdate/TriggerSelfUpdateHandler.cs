@@ -24,38 +24,39 @@ public class TriggerSelfUpdateHandler : IRequestHandler<TriggerSelfUpdateCommand
         _logger = logger;
     }
 
-    public async Task<TriggerSelfUpdateResponse> Handle(TriggerSelfUpdateCommand request, CancellationToken cancellationToken)
+    public Task<TriggerSelfUpdateResponse> Handle(TriggerSelfUpdateCommand request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.TargetVersion))
         {
-            return new TriggerSelfUpdateResponse
+            return Task.FromResult(new TriggerSelfUpdateResponse
             {
                 Success = false,
                 Message = "Target version must be specified."
-            };
+            });
         }
 
         // Validate that the target version is actually newer
         var currentVersion = _versionCheckService.GetCurrentVersion();
         if (!IsNewerVersion(currentVersion, request.TargetVersion))
         {
-            return new TriggerSelfUpdateResponse
+            return Task.FromResult(new TriggerSelfUpdateResponse
             {
                 Success = false,
                 Message = $"Version {request.TargetVersion} is not newer than the current version {currentVersion}."
-            };
+            });
         }
 
         _logger.LogInformation("Self-update requested: {Current} -> {Target}",
             currentVersion, request.TargetVersion);
 
-        var result = await _selfUpdateService.TriggerUpdateAsync(request.TargetVersion, cancellationToken);
+        // TriggerUpdate starts the update in background and returns immediately
+        var result = _selfUpdateService.TriggerUpdate(request.TargetVersion);
 
-        return new TriggerSelfUpdateResponse
+        return Task.FromResult(new TriggerSelfUpdateResponse
         {
             Success = result.Success,
             Message = result.Message
-        };
+        });
     }
 
     internal static bool IsNewerVersion(string currentVersion, string targetVersion)
