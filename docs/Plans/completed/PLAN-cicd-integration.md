@@ -163,7 +163,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Public Website Docs (DE/EN): `ci-cd-integration.md`
   - Roadmap v0.19 als Released markiert
 
-- [ ] **Phase abschließen** – Alle Tests grün, PR gegen main
+- [x] **Phase abschließen** – Alle Tests grün, PR #87 gegen main gemerged
 
 ## PR-Abhängigkeiten
 
