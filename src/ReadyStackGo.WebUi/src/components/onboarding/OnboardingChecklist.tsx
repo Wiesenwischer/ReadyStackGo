@@ -89,7 +89,7 @@ export default function OnboardingChecklist() {
             ? `Organization configured: ${status.organization.name}`
             : 'Set up your organization'}
           actionLabel={hasOrg ? undefined : 'Configure'}
-          onAction={() => navigate('/settings')}
+          onAction={() => navigate('/settings/organization')}
           required={!hasOrg}
         />
 

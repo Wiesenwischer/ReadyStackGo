@@ -32,6 +32,7 @@ import {
   CiCdList,
 } from "./pages/Settings";
 import SetupEnvironment from "./pages/Environments/SetupEnvironment";
+import SetupOrganization from "./pages/Settings/Organization/SetupOrganization";
 import Login from "./pages/Auth/Login";
 import Wizard from "./pages/Wizard";
 import NotFound from "./pages/NotFound";
@@ -176,6 +177,7 @@ export default function App() {
                 <Route path="/environments" element={<Environments />} />
                 {/* Settings pages - don't require active environment */}
                 <Route path="/settings" element={<SettingsIndex />} />
+                <Route path="/settings/organization" element={<SetupOrganization />} />
                 <Route path="/settings/stack-sources" element={<StackSourcesList />} />
                 <Route path="/settings/stack-sources/add" element={<AddStackSourceSelect />} />
                 <Route path="/settings/stack-sources/add/local" element={<AddLocalSource />} />
