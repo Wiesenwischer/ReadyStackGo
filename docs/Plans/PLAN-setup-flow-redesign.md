@@ -95,7 +95,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Handler prüft: Org vorhanden? Environments vorhanden? Sources vorhanden? Registries vorhanden?
   - Abhängig von: –
 
-- [ ] **Feature 4: Onboarding-Checklist UI** – Dashboard-Komponente mit Setup-Fortschritt
+- [x] **Feature 4: Onboarding-Checklist UI** – Dashboard-Komponente mit Setup-Fortschritt (PR #110)
   - Neue Dateien:
     - `WebUi/src/components/onboarding/OnboardingChecklist.tsx`
     - `WebUi/src/api/onboarding.ts`
