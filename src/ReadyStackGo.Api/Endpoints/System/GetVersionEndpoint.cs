@@ -9,7 +9,7 @@ namespace ReadyStackGo.Api.Endpoints.System;
 /// Get system version information and check for updates.
 /// Accessible by all authenticated users.
 /// </summary>
-public class GetVersionEndpoint : EndpointWithoutRequest<GetVersionResponse>
+public class GetVersionEndpoint : Endpoint<GetVersionEndpoint.GetVersionRequest, GetVersionResponse>
 {
     private readonly IMediator _mediator;
 
@@ -24,9 +24,15 @@ public class GetVersionEndpoint : EndpointWithoutRequest<GetVersionResponse>
         AllowAnonymous(); // Version info is public
     }
 
-    public override async Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(GetVersionRequest req, CancellationToken ct)
     {
-        var query = new GetVersionQuery();
+        var query = new GetVersionQuery(req.ForceCheck);
         Response = await _mediator.Send(query, ct);
+    }
+
+    public class GetVersionRequest
+    {
+        [QueryParam]
+        public bool ForceCheck { get; set; }
     }
 }

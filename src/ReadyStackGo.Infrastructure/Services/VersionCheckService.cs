@@ -60,8 +60,13 @@ public class VersionCheckService : IVersionCheckService
         return "0.0.0";
     }
 
-    public async Task<LatestVersionInfo?> GetLatestVersionAsync(CancellationToken cancellationToken = default)
+    public async Task<LatestVersionInfo?> GetLatestVersionAsync(bool forceCheck = false, CancellationToken cancellationToken = default)
     {
+        if (forceCheck)
+        {
+            _cache.Remove(CacheKey);
+        }
+
         // Check cache first
         if (_cache.TryGetValue(CacheKey, out LatestVersionInfo? cachedInfo))
         {
@@ -94,7 +99,8 @@ public class VersionCheckService : IVersionCheckService
             var info = new LatestVersionInfo(
                 Version: release.TagName.TrimStart('v', 'V'),
                 ReleaseUrl: release.HtmlUrl ?? $"https://github.com/Wiesenwischer/ReadyStackGo/releases/tag/{release.TagName}",
-                PublishedAt: release.PublishedAt);
+                PublishedAt: release.PublishedAt,
+                CheckedAt: DateTime.UtcNow);
 
             // Cache the result
             _cache.Set(CacheKey, info, CacheDuration);

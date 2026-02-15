@@ -1,34 +1,17 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
-import { systemApi, type VersionInfo } from "../api/system";
+import { useVersionInfo } from "../hooks/useVersionInfo";
 
 const DISMISSED_KEY = "rsgo_update_dismissed";
 
 export default function SidebarWidget() {
-  const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
+  const { versionInfo, isLoading } = useVersionInfo();
   const [isDismissed, setIsDismissed] = useState(false);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const loadVersion = async () => {
-      try {
-        const info = await systemApi.getVersion();
-        setVersionInfo(info);
-
-        const dismissed = localStorage.getItem(DISMISSED_KEY);
-        if (dismissed === info.latestVersion) {
-          setIsDismissed(true);
-        }
-      } catch (error) {
-        console.error("Failed to load version info:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadVersion();
-  }, []);
+  const dismissed =
+    versionInfo?.latestVersion &&
+    localStorage.getItem(DISMISSED_KEY) === versionInfo.latestVersion;
 
   const handleUpdate = () => {
     if (!versionInfo?.latestVersion) return;
@@ -47,7 +30,8 @@ export default function SidebarWidget() {
     }
   };
 
-  const showUpdateBanner = versionInfo?.updateAvailable && !isDismissed;
+  const showUpdateBanner =
+    versionInfo?.updateAvailable && !isDismissed && !dismissed;
 
   return (
     <div className="mx-auto mb-10 w-full max-w-60 space-y-4">
@@ -158,7 +142,7 @@ export default function SidebarWidget() {
           View on GitHub
         </a>
         {/* Version display */}
-        {!loading && versionInfo && (
+        {!isLoading && versionInfo && (
           <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
             v{versionInfo.serverVersion}
           </p>

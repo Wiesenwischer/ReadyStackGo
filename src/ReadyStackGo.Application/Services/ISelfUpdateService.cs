@@ -8,14 +8,29 @@ public interface ISelfUpdateService
 {
     /// <summary>
     /// Triggers a self-update to the specified version.
-    /// Pulls the new image, pre-creates the replacement container,
-    /// and starts a helper container that performs the swap asynchronously.
-    /// Returns once the helper is started — the actual restart happens after this method returns.
+    /// The update runs in the background — call <see cref="GetProgress"/> to monitor.
+    /// Returns immediately after basic validation.
     /// </summary>
-    Task<SelfUpdateResult> TriggerUpdateAsync(string targetVersion, CancellationToken cancellationToken = default);
+    SelfUpdateResult TriggerUpdate(string targetVersion);
+
+    /// <summary>
+    /// Gets the current progress of a running (or last completed) self-update.
+    /// </summary>
+    UpdateProgress GetProgress();
 }
 
 /// <summary>
 /// Result of a self-update trigger operation.
 /// </summary>
 public record SelfUpdateResult(bool Success, string Message);
+
+/// <summary>
+/// Progress of a self-update operation.
+/// </summary>
+/// <param name="Phase">idle, pulling, creating, starting, handed_off, error</param>
+/// <param name="Message">Human-readable status message</param>
+/// <param name="ProgressPercent">0-100 during pulling phase, null otherwise</param>
+public record UpdateProgress(string Phase, string? Message, int? ProgressPercent)
+{
+    public static UpdateProgress Idle => new("idle", null, null);
+}

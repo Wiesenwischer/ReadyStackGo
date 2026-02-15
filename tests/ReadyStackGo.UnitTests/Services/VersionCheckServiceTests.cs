@@ -66,7 +66,7 @@ public class VersionCheckServiceTests
     public async Task GetLatestVersionAsync_CacheHit_ReturnsCachedValue()
     {
         // Arrange
-        var cachedInfo = new LatestVersionInfo("1.2.3", "https://example.com", DateTime.UtcNow);
+        var cachedInfo = new LatestVersionInfo("1.2.3", "https://example.com", DateTime.UtcNow, DateTime.UtcNow);
         object? cacheEntry = cachedInfo;
 
         _memoryCacheMock

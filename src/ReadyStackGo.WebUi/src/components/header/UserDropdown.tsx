@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useVersionInfo } from "../../hooks/useVersionInfo";
 
 const UserDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { versionInfo } = useVersionInfo();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -129,6 +131,22 @@ const UserDropdown = () => {
                 />
               </svg>
               Settings
+            </button>
+            <hr className="my-1 border-gray-200 dark:border-gray-800" />
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                navigate("/settings/system");
+              }}
+              className="flex w-full items-center justify-between rounded-lg px-4 py-2 text-xs text-gray-400 hover:bg-gray-100 dark:text-gray-500 dark:hover:bg-gray-800"
+            >
+              <span>v{versionInfo?.serverVersion ?? "..."}</span>
+              {versionInfo?.updateAvailable && (
+                <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                  Update
+                </span>
+              )}
             </button>
             <hr className="my-1 border-gray-200 dark:border-gray-800" />
             <button

@@ -28,7 +28,7 @@ public class GetVersionHandlerTests
     {
         // Arrange
         _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("1.0.0");
-        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<CancellationToken>()))
+        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((LatestVersionInfo?)null);
 
         // Act
@@ -43,7 +43,7 @@ public class GetVersionHandlerTests
     {
         // Arrange
         _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("1.0.0");
-        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<CancellationToken>()))
+        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((LatestVersionInfo?)null);
 
         // Act
@@ -60,8 +60,8 @@ public class GetVersionHandlerTests
     {
         // Arrange
         _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("1.0.0");
-        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LatestVersionInfo("2.0.0", "https://github.com/release", DateTime.UtcNow));
+        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LatestVersionInfo("2.0.0", "https://github.com/release", DateTime.UtcNow, DateTime.UtcNow));
 
         // Act
         var result = await _handler.Handle(new GetVersionQuery(), CancellationToken.None);
@@ -77,8 +77,8 @@ public class GetVersionHandlerTests
     {
         // Arrange
         _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("2.0.0");
-        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LatestVersionInfo("1.0.0", "https://github.com/release", DateTime.UtcNow));
+        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LatestVersionInfo("1.0.0", "https://github.com/release", DateTime.UtcNow, DateTime.UtcNow));
 
         // Act
         var result = await _handler.Handle(new GetVersionQuery(), CancellationToken.None);
@@ -93,8 +93,8 @@ public class GetVersionHandlerTests
     {
         // Arrange
         _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("1.0.0");
-        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LatestVersionInfo("1.0.0", "https://github.com/release", DateTime.UtcNow));
+        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LatestVersionInfo("1.0.0", "https://github.com/release", DateTime.UtcNow, DateTime.UtcNow));
 
         // Act
         var result = await _handler.Handle(new GetVersionQuery(), CancellationToken.None);
@@ -114,8 +114,8 @@ public class GetVersionHandlerTests
     {
         // Arrange
         _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns(current);
-        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LatestVersionInfo(latest, "https://github.com/release", DateTime.UtcNow));
+        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LatestVersionInfo(latest, "https://github.com/release", DateTime.UtcNow, DateTime.UtcNow));
 
         // Act
         var result = await _handler.Handle(new GetVersionQuery(), CancellationToken.None);
@@ -130,8 +130,8 @@ public class GetVersionHandlerTests
     {
         // Arrange
         _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("v1.0.0");
-        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LatestVersionInfo("v2.0.0", "https://github.com/release", DateTime.UtcNow));
+        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LatestVersionInfo("v2.0.0", "https://github.com/release", DateTime.UtcNow, DateTime.UtcNow));
 
         // Act
         var result = await _handler.Handle(new GetVersionQuery(), CancellationToken.None);
@@ -145,7 +145,7 @@ public class GetVersionHandlerTests
     {
         // Arrange
         _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("1.0.0");
-        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<CancellationToken>()))
+        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((LatestVersionInfo?)null);
 
         // Act
@@ -154,5 +154,53 @@ public class GetVersionHandlerTests
         // Assert
         result.Build.Should().NotBeNull();
         result.Build.RuntimeVersion.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task Handle_ForceCheck_PassesParameterToService()
+    {
+        // Arrange
+        _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("1.0.0");
+        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LatestVersionInfo("2.0.0", "https://url", DateTime.UtcNow, DateTime.UtcNow));
+
+        // Act
+        await _handler.Handle(new GetVersionQuery(ForceCheck: true), CancellationToken.None);
+
+        // Assert
+        _versionCheckServiceMock.Verify(
+            s => s.GetLatestVersionAsync(true, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_IncludesCheckedAtFromLatestInfo()
+    {
+        // Arrange
+        var checkedAt = new DateTime(2026, 2, 15, 10, 0, 0, DateTimeKind.Utc);
+        _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("1.0.0");
+        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LatestVersionInfo("2.0.0", "https://url", DateTime.UtcNow, checkedAt));
+
+        // Act
+        var result = await _handler.Handle(new GetVersionQuery(), CancellationToken.None);
+
+        // Assert
+        result.CheckedAt.Should().Be(checkedAt);
+    }
+
+    [Fact]
+    public async Task Handle_NoLatestInfo_CheckedAtIsNull()
+    {
+        // Arrange
+        _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("1.0.0");
+        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LatestVersionInfo?)null);
+
+        // Act
+        var result = await _handler.Handle(new GetVersionQuery(), CancellationToken.None);
+
+        // Assert
+        result.CheckedAt.Should().BeNull();
     }
 }

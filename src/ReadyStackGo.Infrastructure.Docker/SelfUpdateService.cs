@@ -22,15 +22,21 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
 
     private readonly IConfiguration _configuration;
     private readonly ILogger<SelfUpdateService> _logger;
+    private readonly IUpdateNotificationService _notificationService;
     private readonly DockerClient _client;
     private bool _disposed;
 
+    private volatile UpdateProgress _progress = UpdateProgress.Idle;
+    private volatile bool _updateInProgress;
+
     public SelfUpdateService(
         IConfiguration configuration,
-        ILogger<SelfUpdateService> logger)
+        ILogger<SelfUpdateService> logger,
+        IUpdateNotificationService notificationService)
     {
         _configuration = configuration;
         _logger = logger;
+        _notificationService = notificationService;
 
         var socketUri = OperatingSystem.IsWindows()
             ? new Uri("npipe://./pipe/docker_engine")
@@ -39,7 +45,32 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
         _client = new DockerClientConfiguration(socketUri).CreateClient();
     }
 
-    public async Task<SelfUpdateResult> TriggerUpdateAsync(string targetVersion, CancellationToken cancellationToken = default)
+    public UpdateProgress GetProgress() => _progress;
+
+    public SelfUpdateResult TriggerUpdate(string targetVersion)
+    {
+        if (_updateInProgress)
+        {
+            return new SelfUpdateResult(false, "An update is already in progress.");
+        }
+
+        _updateInProgress = true;
+        SetProgress(new UpdateProgress("pulling", $"Downloading v{targetVersion}...", 0));
+
+        // Fire-and-forget — progress is pushed via SignalR
+        _ = Task.Run(() => ExecuteUpdateAsync(targetVersion));
+
+        return new SelfUpdateResult(true, $"Update to v{targetVersion} started.");
+    }
+
+    private void SetProgress(UpdateProgress progress)
+    {
+        _progress = progress;
+        // Fire-and-forget push to SignalR clients
+        _ = _notificationService.NotifyProgressAsync(progress);
+    }
+
+    private async Task ExecuteUpdateAsync(string targetVersion)
     {
         _logger.LogInformation("Self-update triggered to version {TargetVersion}", targetVersion);
 
@@ -47,15 +78,16 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
         {
             // 1. Identify own container
             var containerId = GetOwnContainerId();
-            var inspection = await _client.Containers.InspectContainerAsync(containerId, cancellationToken);
+            var inspection = await _client.Containers.InspectContainerAsync(containerId);
             var containerName = inspection.Name.TrimStart('/');
 
             _logger.LogInformation("Own container: {ContainerId} ({ContainerName})", containerId, containerName);
 
-            // 2. Pull the new image
+            // 2. Pull the new image (with progress tracking)
             var newImageTag = $"{DockerHubImage}:{targetVersion}";
             _logger.LogInformation("Pulling image {Image}", newImageTag);
 
+            var pullTracker = new PullProgressTracker();
             var authConfig = GetAuthConfig();
             await _client.Images.CreateImageAsync(
                 new ImagesCreateParameters
@@ -68,33 +100,40 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
                 {
                     if (!string.IsNullOrEmpty(msg.Status))
                         _logger.LogDebug("Pull progress: {Status}", msg.Status);
-                }),
-                cancellationToken);
+
+                    pullTracker.Update(msg);
+                    var percent = pullTracker.GetPercent();
+                    SetProgress(new UpdateProgress("pulling", $"Downloading v{targetVersion}...", percent));
+                }));
 
             _logger.LogInformation("Successfully pulled {Image}", newImageTag);
 
             // 3. Pre-create the replacement container (not started)
+            SetProgress(new UpdateProgress("creating", "Preparing new container...", null));
+
             var updateContainerName = containerName + UpdateContainerSuffix;
 
             // Clean up any leftover update container from a previous failed attempt
-            await RemoveContainerIfExistsAsync(updateContainerName, cancellationToken);
+            await RemoveContainerIfExistsAsync(updateContainerName);
 
             var createParams = BuildCreateParamsFromInspection(inspection, newImageTag, updateContainerName);
-            var createResponse = await _client.Containers.CreateContainerAsync(createParams, cancellationToken);
+            var createResponse = await _client.Containers.CreateContainerAsync(createParams);
 
             _logger.LogInformation("Pre-created update container {ContainerId} ({Name})",
                 createResponse.ID, updateContainerName);
 
             // Connect to additional networks (beyond the primary one set in NetworkMode)
-            await ConnectAdditionalNetworks(inspection, createResponse.ID, cancellationToken);
+            await ConnectAdditionalNetworks(inspection, createResponse.ID);
 
             // 4. Ensure helper image is available
-            await EnsureHelperImageAsync(cancellationToken);
+            await EnsureHelperImageAsync();
 
             // 5. Create and start the helper container
+            SetProgress(new UpdateProgress("starting", "Starting update process...", null));
+
             var helperContainerName = $"rsgo-updater-{DateTime.UtcNow:yyyyMMddHHmmss}";
 
-            await RemoveContainerIfExistsAsync(helperContainerName, cancellationToken);
+            await RemoveContainerIfExistsAsync(helperContainerName);
 
             var helperParams = new CreateContainerParameters
             {
@@ -113,23 +152,87 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
                 }
             };
 
-            var helperResponse = await _client.Containers.CreateContainerAsync(helperParams, cancellationToken);
-            await _client.Containers.StartContainerAsync(helperResponse.ID, new ContainerStartParameters(), cancellationToken);
+            var helperResponse = await _client.Containers.CreateContainerAsync(helperParams);
+            await _client.Containers.StartContainerAsync(helperResponse.ID, new ContainerStartParameters());
 
             _logger.LogInformation("Started helper container {ContainerId} ({Name}) — self-update will proceed asynchronously",
                 helperResponse.ID, helperContainerName);
 
-            return new SelfUpdateResult(true, $"Update to v{targetVersion} initiated. RSGO will restart momentarily.");
+            SetProgress(new UpdateProgress("handed_off", "Restarting with new version...", null));
+
+            // Monitor the helper container — if it exits with error, we're still alive
+            // and should reset state + notify the user
+            _ = Task.Run(() => MonitorHelperContainerAsync(helperResponse.ID, helperContainerName));
         }
         catch (DockerApiException ex)
         {
             _logger.LogError(ex, "Docker API error during self-update to {TargetVersion}", targetVersion);
-            return new SelfUpdateResult(false, $"Docker error: {ex.Message}");
+            SetProgress(new UpdateProgress("error", $"Docker error: {ex.Message}", null));
+            _updateInProgress = false;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error during self-update to {TargetVersion}", targetVersion);
-            return new SelfUpdateResult(false, $"Update failed: {ex.Message}");
+            SetProgress(new UpdateProgress("error", $"Update failed: {ex.Message}", null));
+            _updateInProgress = false;
+        }
+    }
+
+    /// <summary>
+    /// Monitors the helper container after handoff. If the helper exits with an error
+    /// and we're still alive (meaning the swap failed), reset state and notify the user.
+    /// </summary>
+    private async Task MonitorHelperContainerAsync(string helperId, string helperName)
+    {
+        try
+        {
+            // Wait for the helper container to finish (up to 120s)
+            var waitResponse = await _client.Containers.WaitContainerAsync(helperId);
+
+            // If we reach here, we're still alive — the helper failed to swap us out
+            if (waitResponse.StatusCode != 0)
+            {
+                _logger.LogError("Helper container {Name} exited with code {ExitCode}",
+                    helperName, waitResponse.StatusCode);
+                SetProgress(new UpdateProgress("error",
+                    $"Update helper failed (exit code {waitResponse.StatusCode}). The previous version is still running.",
+                    null));
+            }
+            else
+            {
+                // Helper exited 0 but we're still alive — unexpected
+                _logger.LogWarning("Helper container {Name} exited successfully but we're still running", helperName);
+                SetProgress(new UpdateProgress("error",
+                    "Update process completed but the server was not restarted. Please restart manually.",
+                    null));
+            }
+
+            _updateInProgress = false;
+        }
+        catch (DockerContainerNotFoundException)
+        {
+            // Container was already removed (AutoRemove) — check after a delay if we're still alive
+            await Task.Delay(TimeSpan.FromSeconds(10));
+
+            // If we're still here after 10s, the update likely failed
+            _logger.LogWarning("Helper container {Name} was removed (AutoRemove) but we're still running", helperName);
+            SetProgress(new UpdateProgress("error",
+                "Update process failed. The previous version is still running.",
+                null));
+            _updateInProgress = false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Error monitoring helper container {Name}", helperName);
+            // After a timeout, assume failure if we're still alive
+            await Task.Delay(TimeSpan.FromSeconds(30));
+            if (_updateInProgress)
+            {
+                SetProgress(new UpdateProgress("error",
+                    "Update process timed out. The previous version is still running.",
+                    null));
+                _updateInProgress = false;
+            }
         }
     }
 
@@ -193,7 +296,7 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
     /// Connects the new container to any additional networks beyond the primary one.
     /// </summary>
     private async Task ConnectAdditionalNetworks(
-        ContainerInspectResponse inspection, string newContainerId, CancellationToken cancellationToken)
+        ContainerInspectResponse inspection, string newContainerId)
     {
         if (inspection.NetworkSettings?.Networks == null)
             return;
@@ -214,7 +317,7 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
                     {
                         Aliases = endpoint.Aliases
                     }
-                }, cancellationToken);
+                });
 
                 _logger.LogDebug("Connected update container to network {Network}", networkName);
             }
@@ -225,13 +328,13 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
         }
     }
 
-    private async Task EnsureHelperImageAsync(CancellationToken cancellationToken)
+    private async Task EnsureHelperImageAsync()
     {
         var fullImage = $"{HelperImage}:{HelperImageTag}";
 
         try
         {
-            await _client.Images.InspectImageAsync(fullImage, cancellationToken);
+            await _client.Images.InspectImageAsync(fullImage);
             _logger.LogDebug("Helper image {Image} already available", fullImage);
         }
         catch (DockerImageNotFoundException)
@@ -250,12 +353,11 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
                 {
                     if (!string.IsNullOrEmpty(msg.Status))
                         _logger.LogDebug("Helper pull: {Status}", msg.Status);
-                }),
-                cancellationToken);
+                }));
         }
     }
 
-    private async Task RemoveContainerIfExistsAsync(string containerName, CancellationToken cancellationToken)
+    private async Task RemoveContainerIfExistsAsync(string containerName)
     {
         try
         {
@@ -267,8 +369,7 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
                     {
                         ["name"] = new Dictionary<string, bool> { [containerName] = true }
                     }
-                },
-                cancellationToken);
+                });
 
             var container = containers.FirstOrDefault(c =>
                 c.Names.Any(n => n.TrimStart('/') == containerName));
@@ -277,7 +378,7 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
             {
                 _logger.LogWarning("Removing leftover container {ContainerName} from previous attempt", containerName);
                 await _client.Containers.RemoveContainerAsync(container.ID,
-                    new ContainerRemoveParameters { Force = true }, cancellationToken);
+                    new ContainerRemoveParameters { Force = true });
             }
         }
         catch (Exception ex)
@@ -388,6 +489,51 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
         {
             _client.Dispose();
             _disposed = true;
+        }
+    }
+
+    /// <summary>
+    /// Tracks Docker image pull progress across multiple layers to produce an overall percentage.
+    /// </summary>
+    internal class PullProgressTracker
+    {
+        private readonly Dictionary<string, (long Current, long Total)> _layers = new();
+
+        public void Update(JSONMessage msg)
+        {
+            if (string.IsNullOrEmpty(msg.ID))
+                return;
+
+            if (msg.Progress is { Current: > 0, Total: > 0 })
+            {
+                _layers[msg.ID] = (msg.Progress.Current, msg.Progress.Total);
+            }
+            else if (msg.Status is "Pull complete" or "Already exists")
+            {
+                // Mark layer as done — use its known total or a default
+                if (_layers.TryGetValue(msg.ID, out var existing))
+                    _layers[msg.ID] = (existing.Total, existing.Total);
+            }
+        }
+
+        public int GetPercent()
+        {
+            if (_layers.Count == 0)
+                return 0;
+
+            long totalBytes = 0;
+            long downloadedBytes = 0;
+
+            foreach (var (current, total) in _layers.Values)
+            {
+                totalBytes += total;
+                downloadedBytes += current;
+            }
+
+            if (totalBytes == 0)
+                return 0;
+
+            return (int)Math.Min(100, downloadedBytes * 100 / totalBytes);
         }
     }
 }
