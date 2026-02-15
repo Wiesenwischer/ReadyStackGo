@@ -190,7 +190,24 @@ Rough outlook on planned versions and features.
 
 ## Planned
 
-### v0.27 – WebUI Monorepo Refactoring (Distribution-Ready)
+### v0.27 – Notifications & System Info (Phase 1)
+- In-Memory Notification Store (max 50, transient, no DB)
+- Notification API Endpoints (list, unread-count, mark-read, dismiss)
+- NotificationDropdown with Real Data (Bell Icon, Badge, Polling 60s)
+- Update Available Notification (deduplicated per version)
+- Source Sync Result Notification (success/warning/error)
+- Deployment Result Notification (deploy, upgrade, rollback, remove)
+- Settings > System Tab (version info, build info, "Check for updates" button)
+- User-Dropdown Version Badge (version display + update indicator)
+- Shared `useVersionInfo` Hook (SidebarWidget, UserDropdown, Settings)
+- `forceCheck` Query Parameter on Version Endpoint (bypass 24h cache)
+
+### v0.28 – Notifications Phase 2
+- Container Health Change Notification (unhealthy, stopped – with throttling)
+- API Key First-Use Notification
+- TLS Certificate Expiry Notification (30d, 14d, 7d, 3d, 1d staged warnings)
+
+### v0.29 – WebUI Monorepo Refactoring (Distribution-Ready)
 - pnpm Workspaces Monorepo (packages/core, packages/ui-generic, apps/rsgo-generic)
 - @rsgo/core Package (TypeScript types, API clients, ViewModel hooks, SignalR services)
 - @rsgo/ui-generic Package (React components, pages, layouts, thin contexts)
@@ -199,7 +216,7 @@ Rough outlook on planned versions and features.
 - Auth/Environment Services Extracted from React Contexts
 - Build Pipeline Adjustment (pnpm in Dockerfile)
 
-### v0.28 – Backend Distribution Extension Points
+### v0.30 – Backend Distribution Extension Points
 - ISetupWizardDefinitionProvider (data-driven wizard steps)
 - IBootstrapper Pattern (distribution-specific initialization on first start)
 - GenericSetupWizardDefinitionProvider + GenericBootstrapper (default implementations)
@@ -207,26 +224,26 @@ Rough outlook on planned versions and features.
 - Multi-Assembly FastEndpoints Endpoint Discovery
 - Distribution Architecture Documentation
 
-### v0.29 – Docker Volumes Management
+### v0.31 – Docker Volumes Management
 - Docker Volumes View (List All Volumes per Environment)
 - Volume Details (Size, Mount Points, Labels)
 - Create/Delete Volumes
 - Detect Orphaned Volumes
 
-### v0.30 – OCI Stack Bundles (Format + Source)
+### v0.32 – OCI Stack Bundles (Format + Source)
 - OCI Stack Bundle Format Specification (stack.yaml + lock.json + meta.json)
 - OciRegistry StackSourceType Extension with Factory Method
 - OCI Registry Client (list tags, read manifests, pull layers)
 - OciStackSourceProvider (sync tags → parse stackId + version → populate cache)
 - OCI Source UI in Add Stack Source Flow
 
-### v0.31 – OCI Stack Bundles (Import + CI/CD)
+### v0.33 – OCI Stack Bundles (Import + CI/CD)
 - ImportStackSource for Local Stack Snapshots (from OCI, Git, Upload)
 - OCI Import Flow (pull bundle, extract, store via ImportStackSource)
 - Lock-file Based Deployment (prefer image@digest from lock.json)
 - CI/CD Tooling and Documentation (Dockerfile template, ORAS examples)
 
-### v0.32 – Stack Marketplace (Browse)
+### v0.34 – Stack Marketplace (Browse)
 - StackCatalogSource Domain Model (embedded, git-json, http-json sources)
 - StackCatalogEntry Domain Model (name, slug, description, category, tags, logo, registry hints)
 - Catalog Source Providers (embedded JSON, Git repo with stack-catalog.json)
@@ -234,22 +251,22 @@ Rough outlook on planned versions and features.
 - Marketplace Browse UI (tile grid, search, category filter)
 - Marketplace Detail Page (markdown description, registry requirements check)
 
-### v0.33 – Marketplace Install Flow
+### v0.35 – Marketplace Install Flow
 - StackInstallation Domain Model (org + environment scoped)
 - Install from Marketplace Endpoint (registry prerequisite validation)
 - Install Flow UI (org/env selection, registry check, variable resolution, deploy)
 - Installation Status in Marketplace Tiles and Detail Pages
 
-### v0.34 – Metrics & Audit
+### v0.36 – Metrics & Audit
 - Metrics & Alerting
 - Audit Logs
 
-### v0.35 – Multi-User Support
+### v0.37 – Multi-User Support
 - User Management UI
 - Create/Edit Users
 - Password Reset Flow
 
-### v0.36 – Feature Flags
+### v0.38 – Feature Flags
 - Feature Flags UI in Admin
 - Feature Toggle at Organization Level
 - Environment Variables for Feature Flags
