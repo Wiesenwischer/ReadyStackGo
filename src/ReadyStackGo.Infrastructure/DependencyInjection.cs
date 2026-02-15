@@ -47,6 +47,7 @@ public static class DependencyInjection
         // Configuration services
         services.AddSingleton<IConfigStore, ConfigStore>();
         services.AddSingleton<ISystemConfigService, SystemConfigService>();
+        services.AddSingleton<IOnboardingStateService, OnboardingStateService>();
         services.AddSingleton<IWizardTimeoutService, WizardTimeoutService>();
 
         // RSGo Manifest services
