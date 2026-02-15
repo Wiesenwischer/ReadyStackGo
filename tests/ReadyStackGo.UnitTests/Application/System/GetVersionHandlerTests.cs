@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
+using ReadyStackGo.Application.Notifications;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.System.GetVersion;
 
@@ -202,5 +203,128 @@ public class GetVersionHandlerTests
 
         // Assert
         result.CheckedAt.Should().BeNull();
+    }
+
+    // --- Notification Tests ---
+
+    [Fact]
+    public async Task Handle_UpdateAvailable_CreatesNotification()
+    {
+        // Arrange
+        var notificationMock = new Mock<INotificationService>();
+        notificationMock.Setup(n => n.ExistsAsync(
+            NotificationType.UpdateAvailable, "latestVersion", "2.0.0", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var handler = new GetVersionHandler(
+            _versionCheckServiceMock.Object, _loggerMock.Object, notificationMock.Object);
+
+        _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("1.0.0");
+        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LatestVersionInfo("2.0.0", "https://github.com/release", DateTime.UtcNow, DateTime.UtcNow));
+
+        // Act
+        await handler.Handle(new GetVersionQuery(), CancellationToken.None);
+
+        // Assert
+        notificationMock.Verify(n => n.AddAsync(
+            It.Is<Notification>(notif =>
+                notif.Type == NotificationType.UpdateAvailable &&
+                notif.Severity == NotificationSeverity.Info &&
+                notif.Title == "Update Available" &&
+                notif.Message.Contains("2.0.0") &&
+                notif.ActionUrl == "/settings/system" &&
+                notif.Metadata["latestVersion"] == "2.0.0"),
+            It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_UpdateAvailable_DeduplicatesByVersion()
+    {
+        // Arrange
+        var notificationMock = new Mock<INotificationService>();
+        notificationMock.Setup(n => n.ExistsAsync(
+            NotificationType.UpdateAvailable, "latestVersion", "2.0.0", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true); // Already exists
+
+        var handler = new GetVersionHandler(
+            _versionCheckServiceMock.Object, _loggerMock.Object, notificationMock.Object);
+
+        _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("1.0.0");
+        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LatestVersionInfo("2.0.0", "https://github.com/release", DateTime.UtcNow, DateTime.UtcNow));
+
+        // Act
+        await handler.Handle(new GetVersionQuery(), CancellationToken.None);
+
+        // Assert
+        notificationMock.Verify(n => n.AddAsync(
+            It.IsAny<Notification>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_NoUpdate_DoesNotCreateNotification()
+    {
+        // Arrange
+        var notificationMock = new Mock<INotificationService>();
+        var handler = new GetVersionHandler(
+            _versionCheckServiceMock.Object, _loggerMock.Object, notificationMock.Object);
+
+        _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("2.0.0");
+        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LatestVersionInfo("1.0.0", "https://github.com/release", DateTime.UtcNow, DateTime.UtcNow));
+
+        // Act
+        await handler.Handle(new GetVersionQuery(), CancellationToken.None);
+
+        // Assert
+        notificationMock.Verify(n => n.AddAsync(
+            It.IsAny<Notification>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_NullNotificationService_DoesNotThrow()
+    {
+        // Arrange — handler without INotificationService (null)
+        _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("1.0.0");
+        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LatestVersionInfo("2.0.0", "https://github.com/release", DateTime.UtcNow, DateTime.UtcNow));
+
+        // Act — _handler was created without notification service
+        var act = () => _handler.Handle(new GetVersionQuery(), CancellationToken.None);
+
+        // Assert
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task Handle_UpdateAvailable_IncludesReleaseUrlInMetadata()
+    {
+        // Arrange
+        var notificationMock = new Mock<INotificationService>();
+        notificationMock.Setup(n => n.ExistsAsync(
+            It.IsAny<NotificationType>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var handler = new GetVersionHandler(
+            _versionCheckServiceMock.Object, _loggerMock.Object, notificationMock.Object);
+
+        _versionCheckServiceMock.Setup(s => s.GetCurrentVersion()).Returns("1.0.0");
+        _versionCheckServiceMock.Setup(s => s.GetLatestVersionAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LatestVersionInfo("2.0.0", "https://github.com/release/v2", DateTime.UtcNow, DateTime.UtcNow));
+
+        // Act
+        await handler.Handle(new GetVersionQuery(), CancellationToken.None);
+
+        // Assert
+        notificationMock.Verify(n => n.AddAsync(
+            It.Is<Notification>(notif =>
+                notif.Metadata.ContainsKey("releaseUrl") &&
+                notif.Metadata["releaseUrl"] == "https://github.com/release/v2"),
+            It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 }
