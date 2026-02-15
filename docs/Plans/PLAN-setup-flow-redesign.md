@@ -120,7 +120,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Wichtig: Endpoint ist authentifiziert (JWT), nicht AllowAnonymous
   - Abhängig von: Feature 3
 
-- [ ] **Feature 6: Timeout-Scope einschränken** – Timeout gilt nur noch für Phase 1
+- [x] **Feature 6: Timeout-Scope einschränken** – Timeout gilt nur noch für Phase 1 (PR #112)
   - Betroffene Dateien:
     - `Api/Endpoints/Wizard/WizardTimeoutPreProcessor.cs` (nur noch für CreateAdmin)
     - `Infrastructure/Configuration/WizardTimeoutService.cs` (ggf. vereinfachen)
