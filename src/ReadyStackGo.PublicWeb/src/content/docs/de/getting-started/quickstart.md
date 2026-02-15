@@ -74,6 +74,6 @@ Fertig! Öffne `http://<server-ip>:8081` im Browser.
 | Thema | Beschreibung |
 |-------|--------------|
 | [Installation](/getting-started/installation/) | Verschiedene Installationsmethoden |
-| [Ersteinrichtung](/getting-started/initial-setup/) | Setup-Wizard im Detail |
+| [Ersteinrichtung](/getting-started/initial-setup/) | Setup-Wizard und Onboarding-Checkliste |
 | [Erster Stack](/getting-started/first-deployment/) | Stack-Deployment erklärt |
 | [Dokumentation](/docs/) | Weitere Themen und Anleitungen |

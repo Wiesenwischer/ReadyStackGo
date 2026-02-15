@@ -1,26 +1,31 @@
 ---
 title: Initial Setup
-description: Complete the ReadyStackGo Setup Wizard
+description: Complete the ReadyStackGo Setup Wizard and Onboarding Checklist
 ---
 
-After [installation](/en/getting-started/installation/), the setup wizard guides you through the initial configuration of ReadyStackGo. The wizard starts automatically on first access to the web interface.
+After [installation](/en/getting-started/installation/), the setup process consists of two phases:
 
-## Overview
-
-The setup wizard consists of four steps:
-
-1. **Create Admin Account** - Set up the primary administrator
-2. **Configure Organization** - Define your organization details
-3. **Set Up Environment** - Connect ReadyStackGo to Docker (optional)
-4. **Complete Setup** - Finalize the configuration
+1. **Setup Wizard** — Create your admin account (unauthenticated, time-limited)
+2. **Onboarding Checklist** — Configure organization, environments, and stack sources (authenticated, at your own pace)
 
 ---
 
-## Step 1: Create Admin Account
+## Phase 1: Setup Wizard
 
-In the first step, you create the administrator account for logging into ReadyStackGo.
+The setup wizard starts automatically on first access to the web interface. It has a single step: creating the admin account.
 
-### Input Fields
+:::caution[Time Limit]
+The setup wizard has a **5-minute timeout** for security. If the timer expires, restart the container to try again:
+```bash
+docker restart readystackgo
+```
+:::
+
+### Create Admin Account
+
+Enter your administrator credentials:
+
+![Setup Wizard: Create Admin Account](/images/docs/wizard-01-admin-form.png)
 
 | Field | Requirement |
 |-------|-------------|
@@ -28,73 +33,65 @@ In the first step, you create the administrator account for logging into ReadySt
 | **Password** | Minimum 8 characters |
 | **Confirm Password** | Must match the password |
 
-### Tips
+The form validates your input before submission:
 
-- Choose a secure username (not just `admin`)
-- Use a strong password with letters, numbers, and special characters
-- Save these credentials - they cannot be recovered later
+![Setup Wizard: Validation Error](/images/docs/wizard-02-validation-error.png)
+
+### What Happens After Submission
+
+When you click **"Continue"**:
+
+1. The admin account is created
+2. You are **automatically logged in** (no separate login step)
+3. The wizard marks itself as complete
+4. You are redirected to the application
 
 :::caution[Important]
-This account is the only way to access ReadyStackGo. Keep your credentials safe!
+This account is the only way to access ReadyStackGo. Keep your credentials safe — they cannot be recovered later!
 :::
 
 ---
 
-## Step 2: Configure Organization
+## Phase 2: Onboarding Checklist
 
-Here you define the identity of your ReadyStackGo instance.
+After the wizard completes, an **onboarding checklist** appears on the dashboard to guide you through the remaining configuration. Unlike the wizard, there is no time limit — you can complete these steps at your own pace.
 
-### Input Fields
+The checklist tracks the following items:
 
-| Field | Description | Example |
-|-------|-------------|---------|
-| **Organization ID** | Technical identifier (lowercase letters, numbers, hyphens only) | `my-company` |
-| **Organization Name** | Display name for your organization | `My Company Inc.` |
+| Item | Required | Description |
+|------|----------|-------------|
+| **Admin account** | Yes | Always checked — you completed this in the wizard |
+| **Organization** | Yes | Set up your organization identity |
+| **Environment** | No | Connect ReadyStackGo to a Docker daemon |
+| **Stack Sources** | No | Add Git repositories with stack definitions |
+| **Container Registries** | No | Configure auth for private container registries |
 
----
+### Setting Up Your Organization
 
-## Step 3: Set Up Environment
+The organization is the **first required step** after the wizard. Until an organization is configured, environment, stack sources, and registry items are disabled.
 
-In this step, you can configure a Docker environment. An environment represents a Docker installation that ReadyStackGo should manage.
+Click **"Configure"** next to "Set up your organization" to navigate to the organization settings page.
 
-:::tip[Optional]
-You can skip this step and add environments later. Click **"Skip for now"** to proceed.
-:::
+### Completing the Remaining Steps
 
-### Input Fields
+Each checklist item has a **"Configure"** link that takes you directly to the relevant settings page. Items unlock progressively — the organization must be configured before the other items become available.
 
-| Field | Description | Default |
-|-------|-------------|---------|
-| **Environment ID** | Technical identifier | `local` |
-| **Display Name** | Display name for the environment | `Local Docker` |
-| **Docker Socket Path** | Path to the Docker socket | `unix:///var/run/docker.sock` |
+### Dismissing the Checklist
 
----
+Once you've completed the steps you need (or if you prefer to configure things later), you can dismiss the checklist:
 
-## Step 4: Complete Setup
+- Click the **✕** button in the top-right corner, or
+- Click **"Dismiss checklist"** at the bottom
 
-In the final step, you'll see a summary of your configuration:
-
-- ✓ Admin account configured
-- ✓ Organization details set
-- ✓ Environment configured (if not skipped)
-
-When you click **"Complete Setup"**:
-
-1. Your configuration is saved
-2. The admin account is activated
-3. You are redirected to the login page
+The checklist will not reappear after dismissal.
 
 ---
 
 ## After Setup
 
-### Login
-
-After completing the wizard, you'll be redirected to the login page. Log in with your admin account.
-
 ### Next Steps
 
-1. **Add Environment** (if skipped) - Go to *Environments* and click *Add Environment*
-2. **Configure Stack Sources** - Add Git repositories or local paths as stack sources
-3. **Deploy First Stack** - See [First Deployment](/en/getting-started/first-deployment/)
+1. **Configure Organization** — Required to unlock all features
+2. **Add Environment** — Go to *Environments* and click *Add Environment*
+3. **Configure Stack Sources** — Add Git repositories as stack sources
+4. **Deploy First Stack** — See [First Deployment](/en/getting-started/first-deployment/)
