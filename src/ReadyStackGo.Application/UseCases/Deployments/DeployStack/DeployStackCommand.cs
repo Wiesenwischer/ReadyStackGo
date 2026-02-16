@@ -11,5 +11,6 @@ public record DeployStackCommand(
     string StackId,
     string StackName,
     Dictionary<string, string> Variables,
-    string? SessionId = null
+    string? SessionId = null,
+    bool SuppressNotification = false
 ) : IRequest<DeployStackResponse>;

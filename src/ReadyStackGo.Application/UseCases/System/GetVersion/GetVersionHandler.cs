@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using ReadyStackGo.Application.Notifications;
 using ReadyStackGo.Application.Services;
 
 namespace ReadyStackGo.Application.UseCases.System.GetVersion;
@@ -10,14 +11,17 @@ namespace ReadyStackGo.Application.UseCases.System.GetVersion;
 public class GetVersionHandler : IRequestHandler<GetVersionQuery, GetVersionResponse>
 {
     private readonly IVersionCheckService _versionCheckService;
+    private readonly INotificationService? _notificationService;
     private readonly ILogger<GetVersionHandler> _logger;
 
     public GetVersionHandler(
         IVersionCheckService versionCheckService,
-        ILogger<GetVersionHandler> logger)
+        ILogger<GetVersionHandler> logger,
+        INotificationService? notificationService = null)
     {
         _versionCheckService = versionCheckService;
         _logger = logger;
+        _notificationService = notificationService;
     }
 
     public async Task<GetVersionResponse> Handle(GetVersionQuery request, CancellationToken cancellationToken)
@@ -29,6 +33,11 @@ public class GetVersionHandler : IRequestHandler<GetVersionQuery, GetVersionResp
         if (latestInfo != null)
         {
             updateAvailable = IsNewerVersion(currentVersion, latestInfo.Version);
+        }
+
+        if (updateAvailable && latestInfo != null)
+        {
+            await CreateUpdateNotificationAsync(latestInfo.Version, latestInfo.ReleaseUrl, cancellationToken);
         }
 
         return new GetVersionResponse
@@ -45,6 +54,41 @@ public class GetVersionHandler : IRequestHandler<GetVersionQuery, GetVersionResp
                 RuntimeVersion = global::System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription
             }
         };
+    }
+
+    private async Task CreateUpdateNotificationAsync(string latestVersion, string? releaseUrl, CancellationToken ct)
+    {
+        if (_notificationService == null) return;
+
+        try
+        {
+            var alreadyExists = await _notificationService.ExistsAsync(
+                NotificationType.UpdateAvailable, "latestVersion", latestVersion, ct);
+
+            if (alreadyExists) return;
+
+            var notification = new Notification
+            {
+                Type = NotificationType.UpdateAvailable,
+                Title = "Update Available",
+                Message = $"Version {latestVersion} is available. Go to Settings > System to update.",
+                Severity = NotificationSeverity.Info,
+                ActionUrl = "/settings/system",
+                ActionLabel = "View Update",
+                Metadata = new Dictionary<string, string> { ["latestVersion"] = latestVersion }
+            };
+
+            if (!string.IsNullOrEmpty(releaseUrl))
+            {
+                notification.Metadata["releaseUrl"] = releaseUrl;
+            }
+
+            await _notificationService.AddAsync(notification, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to create update notification for version {Version}", latestVersion);
+        }
     }
 
     private static bool IsNewerVersion(string currentVersion, string latestVersion)

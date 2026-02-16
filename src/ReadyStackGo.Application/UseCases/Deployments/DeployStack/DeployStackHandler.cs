@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using ReadyStackGo.Application.Notifications;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.Deployment.Observers;
 using ReadyStackGo.Domain.StackManagement.Manifests;
@@ -13,6 +14,7 @@ public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStac
     private readonly IProductSourceService _productSourceService;
     private readonly IDeploymentService _deploymentService;
     private readonly IDeploymentNotificationService? _notificationService;
+    private readonly INotificationService? _inAppNotificationService;
     private readonly ILogger<DeployStackHandler> _logger;
     private readonly TimeProvider _timeProvider;
 
@@ -21,13 +23,15 @@ public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStac
         IDeploymentService deploymentService,
         ILogger<DeployStackHandler> logger,
         IDeploymentNotificationService? notificationService = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        INotificationService? inAppNotificationService = null)
     {
         _productSourceService = productSourceService;
         _deploymentService = deploymentService;
         _logger = logger;
         _notificationService = notificationService;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _inAppNotificationService = inAppNotificationService;
     }
 
     public async Task<DeployStackResponse> Handle(DeployStackCommand request, CancellationToken cancellationToken)
@@ -140,9 +144,34 @@ public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStac
             }
         }
 
+        // Create in-app notification (unless suppressed by parent handler)
+        if (!request.SuppressNotification)
+        {
+            await CreateDeploymentNotificationAsync(result, request.StackName, cancellationToken);
+        }
+
         // Include session ID in response for client reference
         result.DeploymentSessionId = sessionId;
         return result;
+    }
+
+    private async Task CreateDeploymentNotificationAsync(
+        DeployStackResponse result, string stackName, CancellationToken ct)
+    {
+        if (_inAppNotificationService == null) return;
+
+        try
+        {
+            var notification = NotificationFactory.CreateDeploymentResult(
+                result.Success, "deploy", stackName,
+                result.Message, result.DeploymentId);
+
+            await _inAppNotificationService.AddAsync(notification, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to create deployment notification for {StackName}", stackName);
+        }
     }
 
     /// <summary>
