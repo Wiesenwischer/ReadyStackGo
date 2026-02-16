@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   getEnvironments,
-  deleteEnvironment,
   setDefaultEnvironment,
   type EnvironmentResponse,
 } from "../../api/environments";
@@ -14,7 +13,6 @@ export default function Environments() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const loadEnvironments = async () => {
     try {
@@ -33,11 +31,6 @@ export default function Environments() {
     }
   };
 
-  const refreshAll = async () => {
-    await loadEnvironments();
-    await refreshEnvContext();
-  };
-
   useEffect(() => {
     loadEnvironments();
   }, []);
@@ -47,29 +40,13 @@ export default function Environments() {
       setActionLoading(id);
       const response = await setDefaultEnvironment(id);
       if (response.success) {
-        await refreshAll();
+        await loadEnvironments();
+        await refreshEnvContext();
       } else {
         setError(response.message || "Failed to set default environment");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to set default environment");
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      setActionLoading(id);
-      setConfirmDelete(null);
-      const response = await deleteEnvironment(id);
-      if (response.success) {
-        await refreshAll();
-      } else {
-        setError(response.message || "Failed to delete environment");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete environment");
     } finally {
       setActionLoading(null);
     }
@@ -211,32 +188,12 @@ export default function Environments() {
                         {actionLoading === env.id ? "..." : "Set Default"}
                       </button>
                     )}
-                    {confirmDelete === env.id ? (
-                      <>
-                        <button
-                          onClick={() => handleDelete(env.id)}
-                          disabled={actionLoading === env.id}
-                          className="inline-flex items-center justify-center rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
-                        >
-                          {actionLoading === env.id ? "..." : "Confirm"}
-                        </button>
-                        <button
-                          onClick={() => setConfirmDelete(null)}
-                          className="inline-flex items-center justify-center rounded bg-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300"
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => setConfirmDelete(env.id)}
-                        disabled={actionLoading === env.id}
-                        className="inline-flex items-center justify-center rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Delete environment"
-                      >
-                        {actionLoading === env.id ? "..." : "Delete"}
-                      </button>
-                    )}
+                    <Link
+                      to={`/environments/${env.id}/delete`}
+                      className="inline-flex items-center justify-center rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+                    >
+                      Delete
+                    </Link>
                   </div>
                 </div>
               ))}

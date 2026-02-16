@@ -16,6 +16,7 @@ import ProductDetail from "./pages/Catalog/ProductDetail";
 import DeployStack from "./pages/Deployments/DeployStack";
 import Environments from "./pages/Environments/Environments";
 import AddEnvironment from "./pages/Environments/AddEnvironment";
+import DeleteEnvironment from "./pages/Environments/DeleteEnvironment";
 import {
   SettingsIndex,
   StackSourcesList,
@@ -214,6 +215,7 @@ export default function App() {
                 {/* Environments page - doesn't require active environment */}
                 <Route path="/environments" element={<Environments />} />
                 <Route path="/environments/add" element={<AddEnvironment />} />
+                <Route path="/environments/:id/delete" element={<DeleteEnvironment />} />
                 {/* Settings pages - don't require active environment */}
                 <Route path="/settings" element={<SettingsIndex />} />
                 <Route path="/settings/organization" element={<SetupOrganization />} />
