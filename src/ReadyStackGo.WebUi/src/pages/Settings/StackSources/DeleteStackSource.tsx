@@ -68,7 +68,7 @@ export default function DeleteStackSource() {
     }
   };
 
-  const Breadcrumb = () => (
+  const breadcrumb = (
     <div className="mb-6 flex items-center gap-2 text-sm">
       <Link to="/settings" className="text-gray-500 hover:text-brand-600 dark:text-gray-400">
         Settings
@@ -97,7 +97,7 @@ export default function DeleteStackSource() {
   if (state === "error" && !source) {
     return (
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
-        <Breadcrumb />
+        {breadcrumb}
         <div className="rounded-2xl border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="flex flex-col items-center justify-center py-8">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
@@ -123,7 +123,7 @@ export default function DeleteStackSource() {
   if (state === "success") {
     return (
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
-        <Breadcrumb />
+        {breadcrumb}
         <div className="rounded-2xl border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="flex flex-col items-center justify-center py-8">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
@@ -147,7 +147,7 @@ export default function DeleteStackSource() {
   // Confirm state
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
-      <Breadcrumb />
+      {breadcrumb}
 
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div className="px-6 py-6 border-b border-gray-200 dark:border-gray-700">
