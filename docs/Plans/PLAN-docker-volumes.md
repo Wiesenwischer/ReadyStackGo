@@ -38,27 +38,57 @@ Erkennung: `client.Containers.ListAllAsync()` → alle Container-Mounts sammeln 
 
 ### Betroffene Bounded Contexts
 
-- **Domain**: Keine neuen Entities nötig — Volumes sind Docker-Runtime-Objekte, kein persistenter Domain-State
-- **Application**: Neues `VolumeDto`, neue Query/Command-Handler (ListVolumes, CreateVolume, RemoveVolume)
-- **Infrastructure.Docker**: `IDockerService` erweitern, `DockerService` implementieren
+- **Domain**: `DockerVolume` Entity + `VolumeReference` Value Object im Deployment-Kontext. Orphaned-Detection als Domain-Logik.
+- **Application**: `VolumeDto` für API-Responses, Query/Command-Handler (ListVolumes, CreateVolume, RemoveVolume). Handler mappen Docker-API-Daten auf Domain-Entities und dann auf DTOs.
+- **Infrastructure.Docker**: `IDockerService` erweitern, `DockerService` implementieren (reine Docker-API-Aufrufe, keine Geschäftslogik)
 - **API**: Neue Endpoints unter `/api/volumes`
 - **WebUI**: Neue Seite `/volumes`, API-Client, Sidebar-Eintrag
+
+### Domain-Modell
+
+```
+Domain/Deployment/Volumes/
+├── DockerVolume.cs          // Entity (nicht persistiert, aber kapselt Domain-Logik)
+├── VolumeReference.cs       // Value Object (Container-Name → Volume-Mount-Zuordnung)
+```
+
+**DockerVolume**: Kein Aggregate Root (wird nicht in DB persistiert), aber ein Domain-Entity das:
+- Name, Driver, Labels, Mountpoint, Scope, CreatedAt kapselt
+- `IsOrphaned(IReadOnlyList<VolumeReference> references)` als Domain-Methode enthält
+- Factory-Methode `DockerVolume.FromDockerApi(...)` für Erzeugung aus Docker.DotNet-Daten
+
+**VolumeReference**: Value Object das eine Container→Volume-Zuordnung beschreibt:
+- ContainerName, VolumeName, MountPath
+
+Der Infrastructure-Layer (`DockerService`) liefert rohe Docker.DotNet-Daten. Der Application-Handler:
+1. Ruft `IDockerService.ListVolumesRawAsync()` und `ListContainersAsync()` auf
+2. Mappt auf `DockerVolume` Entities
+3. Berechnet Orphaned-Status via Domain-Logik
+4. Mappt auf `VolumeDto` für die API-Response
 
 ## Features / Schritte
 
 Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
 
+- [ ] **Feature 0: Domain-Modell** – DockerVolume Entity + VolumeReference Value Object
+  - Neue Dateien:
+    - `Domain/Deployment/Volumes/DockerVolume.cs` (Entity mit Factory-Methode + Orphaned-Logik)
+    - `Domain/Deployment/Volumes/VolumeReference.cs` (Value Object: Container→Volume-Zuordnung)
+  - Domain-Logik: `DockerVolume.IsOrphaned(references)`, Name-Validierung
+  - Abhängig von: –
+
 - [ ] **Feature 1: Volume List Backend** – IDockerService + Endpoints für Volume-Liste
   - Neue Dateien:
     - `Application/UseCases/Volumes/VolumeDto.cs`
-    - `Application/UseCases/Volumes/ListVolumesQuery.cs`
-    - `Application/UseCases/Volumes/ListVolumesHandler.cs`
+    - `Application/UseCases/Volumes/ListVolumes/ListVolumesQuery.cs`
+    - `Application/UseCases/Volumes/ListVolumes/ListVolumesHandler.cs`
     - `Api/Endpoints/Volumes/ListVolumesEndpoint.cs`
   - Geänderte Dateien:
-    - `Application/Services/IDockerService.cs` (neue Methoden: `ListVolumesAsync`)
-    - `Infrastructure.Docker/DockerService.cs` (Implementierung)
+    - `Application/Services/IDockerService.cs` (neue Methode: `ListVolumesRawAsync`)
+    - `Infrastructure.Docker/DockerService.cs` (Implementierung via Docker.DotNet)
+  - Handler: Docker-API → `DockerVolume` Entities → `VolumeDto` Mapping
   - Pattern-Vorlage: `ListContainersEndpoint` + `ListContainersQuery`
-  - Abhängig von: –
+  - Abhängig von: Feature 0
 
 - [ ] **Feature 2: Volume Details Backend** – Inspect-Endpoint für einzelnes Volume
   - Neue Dateien:
@@ -73,10 +103,9 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
 
 - [ ] **Feature 3: Orphaned Volume Detection** – Volumes ohne Container-Referenz markieren
   - Geänderte Dateien:
-    - `Infrastructure.Docker/DockerService.cs` (Container-Mounts mit Volume-Liste abgleichen)
-    - `Application/UseCases/Volumes/VolumeDto.cs` (`IsOrphaned` Flag, `ReferencedByContainers` Liste)
-  - Logik: Alle Container (inkl. gestoppte) inspizieren → Mounts sammeln → Volume-Liste annotieren
-  - Abhängig von: Feature 1
+    - `Application/UseCases/Volumes/ListVolumes/ListVolumesHandler.cs` (Container-Mounts abfragen und als VolumeReferences an Domain übergeben)
+  - Logik liegt im Domain-Layer: `DockerVolume.IsOrphaned(references)` — Handler sammelt nur die Daten
+  - Abhängig von: Feature 0, 1
 
 - [ ] **Feature 4: Create/Delete Volume Backend** – CRUD-Endpoints
   - Neue Dateien:
@@ -118,12 +147,13 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
 
 - [ ] **Tests** – Unit + Integration
   - Neue Dateien:
+    - `tests/ReadyStackGo.UnitTests/Domain/Deployment/DockerVolumeTests.cs` (Domain-Logik: Orphaned, Validierung)
     - `tests/ReadyStackGo.UnitTests/Application/Volumes/ListVolumesHandlerTests.cs`
     - `tests/ReadyStackGo.UnitTests/Application/Volumes/CreateVolumeHandlerTests.cs`
     - `tests/ReadyStackGo.UnitTests/Application/Volumes/RemoveVolumeHandlerTests.cs`
-  - Unit Tests: Handler-Logik, Orphaned-Detection, Delete-Schutz
+  - Unit Tests: Domain-Logik (Orphaned-Detection, Factory-Methode), Handler-Logik, Delete-Schutz
   - Edge Cases: Leere Volume-Liste, Volume mit laufendem Container (Delete verhindern), Docker-Verbindungsfehler
-  - Abhängig von: Feature 1-4
+  - Abhängig von: Feature 0-4
 
 - [ ] **Dokumentation & Website** – Wiki, Public Website (DE/EN), Roadmap
   - Abhängig von: Tests
@@ -133,7 +163,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
 
 ## Test-Strategie
 
-- **Unit Tests**: Handler-Logik (List, Create, Remove), Orphaned-Detection-Algorithmus, Validierung (leerer Name, ungültige Zeichen)
+- **Unit Tests**: Domain-Logik (DockerVolume.IsOrphaned, Factory-Methode, Validierung), Handler-Logik (List, Create, Remove)
 - **Integration Tests**: Endpoint-Tests mit gemocktem IDockerService (analog zu bestehenden Container-Endpoint-Tests)
 - **Edge Cases**: Volume löschen das noch von Container referenziert wird, Volume mit sehr langem Namen, Docker-Verbindung nicht erreichbar
 
@@ -147,7 +177,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
 
 | Entscheidung | Optionen | Gewählt | Begründung |
 |---|---|---|---|
-| Domain-Modell | A) Neues Volume Aggregate, B) Nur DTOs (Runtime-Daten) | **B) Nur DTOs** | Volumes sind Docker-Runtime-State, nicht persistiert in unserer DB. Kein DDD-Aggregate nötig. |
+| Domain-Modell | A) Aggregate Root, B) Nur DTOs, C) Entity + Value Objects | **C) Entity + VOs** | DockerVolume als Entity (nicht persistiert) mit Domain-Logik (Orphaned-Detection, Validierung). Konsistent mit DDD-Architektur. |
 | API-Route | A) `/api/volumes?environment=X`, B) `/api/environments/{id}/volumes` | – | Noch offen — bestehende Container-API nutzt Option A |
 | Orphaned-Detection | A) Clientseitig (Frontend), B) Serverseitig (Backend) | **B) Serverseitig** | Backend hat Zugriff auf alle Container-Mounts, effizientere Abfrage |
 | Sidebar-Position | A) Nach "Containers", B) Unter "Containers" als Sub-Item | – | Noch offen |
