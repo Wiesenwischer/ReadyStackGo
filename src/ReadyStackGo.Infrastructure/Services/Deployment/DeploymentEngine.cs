@@ -186,22 +186,22 @@ public class DeploymentEngine : IDeploymentEngine
             // Determine stack name first (needed for network naming)
             var stackName = plan.StackName ?? plan.StackVersion;
 
-            // Create all non-external networks defined in the plan
+            // Create all networks defined in the plan
+            // External networks are also ensured to exist — in multi-stack products,
+            // sub-stacks reference shared product-level networks as external, but they
+            // may not have been created yet by another sub-stack.
             await ReportProgress("Network", "Creating Docker networks...");
             foreach (var (networkName, networkDef) in plan.Networks)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (!networkDef.External)
+                if (networkDef.External)
                 {
-                    // Create the network with resolved name (already prefixed with stack name)
-                    await EnsureDockerNetworkAsync(environmentId, networkDef.ResolvedName);
-                }
-                else
-                {
-                    _logger.LogInformation("Network '{NetworkName}' is external, assuming it already exists",
+                    _logger.LogInformation("Ensuring external network '{NetworkName}' exists",
                         networkDef.ResolvedName);
                 }
+
+                await EnsureDockerNetworkAsync(environmentId, networkDef.ResolvedName);
             }
 
             // Fallback: if no networks defined, create a default stack network
