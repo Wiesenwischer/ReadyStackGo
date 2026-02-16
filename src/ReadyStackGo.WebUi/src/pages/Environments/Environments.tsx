@@ -16,6 +16,7 @@ export default function Environments() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const loadEnvironments = async () => {
@@ -62,12 +63,9 @@ export default function Environments() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this environment?")) {
-      return;
-    }
-
     try {
       setActionLoading(id);
+      setConfirmDelete(null);
       const response = await deleteEnvironment(id);
       if (response.success) {
         await refreshAll();
@@ -217,14 +215,32 @@ export default function Environments() {
                         {actionLoading === env.id ? "..." : "Set Default"}
                       </button>
                     )}
-                    <button
-                      onClick={() => handleDelete(env.id)}
-                      disabled={actionLoading === env.id}
-                      className="inline-flex items-center justify-center rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Delete environment"
-                    >
-                      {actionLoading === env.id ? "..." : "Delete"}
-                    </button>
+                    {confirmDelete === env.id ? (
+                      <>
+                        <button
+                          onClick={() => handleDelete(env.id)}
+                          disabled={actionLoading === env.id}
+                          className="inline-flex items-center justify-center rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                        >
+                          {actionLoading === env.id ? "..." : "Confirm"}
+                        </button>
+                        <button
+                          onClick={() => setConfirmDelete(null)}
+                          className="inline-flex items-center justify-center rounded bg-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDelete(env.id)}
+                        disabled={actionLoading === env.id}
+                        className="inline-flex items-center justify-center rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Delete environment"
+                      >
+                        {actionLoading === env.id ? "..." : "Delete"}
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

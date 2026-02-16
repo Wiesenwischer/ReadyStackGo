@@ -22,6 +22,7 @@ import {
   AddLocalSource,
   AddGitSource,
   AddFromCatalog,
+  DeleteStackSource,
   RegistriesList,
   AddRegistry,
   EditRegistry,
@@ -219,6 +220,7 @@ export default function App() {
                 <Route path="/settings/stack-sources/add/local" element={<AddLocalSource />} />
                 <Route path="/settings/stack-sources/add/git" element={<AddGitSource />} />
                 <Route path="/settings/stack-sources/add/catalog" element={<AddFromCatalog />} />
+                <Route path="/settings/stack-sources/:id/delete" element={<DeleteStackSource />} />
                 <Route path="/settings/registries" element={<RegistriesList />} />
                 <Route path="/settings/registries/add" element={<AddRegistry />} />
                 <Route path="/settings/registries/:id/edit" element={<EditRegistry />} />
