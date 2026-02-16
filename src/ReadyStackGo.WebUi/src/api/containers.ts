@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from './client';
+import { apiGet, apiPost, apiDelete } from './client';
 
 export interface Container {
   id: string;
@@ -19,9 +19,27 @@ export interface Port {
   type: string;
 }
 
+export interface StackContextInfo {
+  stackName: string;
+  deploymentExists: boolean;
+  deploymentId?: string;
+  productName?: string;
+  productDisplayName?: string;
+}
+
+export interface ContainerContextResult {
+  success: boolean;
+  stacks: Record<string, StackContextInfo>;
+  errorMessage?: string;
+}
+
 export const containerApi = {
   async list(environmentId: string): Promise<Container[]> {
     return apiGet<Container[]>(`/api/containers?environment=${encodeURIComponent(environmentId)}`);
+  },
+
+  async getContext(environmentId: string): Promise<ContainerContextResult> {
+    return apiGet<ContainerContextResult>(`/api/containers/context?environment=${encodeURIComponent(environmentId)}`);
   },
 
   async start(environmentId: string, id: string): Promise<void> {
@@ -30,5 +48,9 @@ export const containerApi = {
 
   async stop(environmentId: string, id: string): Promise<void> {
     return apiPost(`/api/containers/${id}/stop?environment=${encodeURIComponent(environmentId)}`);
+  },
+
+  async remove(environmentId: string, id: string, force: boolean = false): Promise<void> {
+    return apiDelete(`/api/containers/${id}?environment=${encodeURIComponent(environmentId)}&force=${force}`);
   },
 };
