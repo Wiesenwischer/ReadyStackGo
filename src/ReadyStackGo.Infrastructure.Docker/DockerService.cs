@@ -902,6 +902,108 @@ public class DockerService : IDockerService, IDisposable
         }
     }
 
+    // ── Volume operations ───────────────────────────────────────────────
+
+    public async Task<IEnumerable<DockerVolumeRaw>> ListVolumesRawAsync(
+        string environmentId, CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+        var response = await client.Volumes.ListAsync(cancellationToken);
+
+        return response.Volumes?.Select(MapToVolumeRaw) ?? [];
+    }
+
+    public async Task<DockerVolumeRaw> InspectVolumeAsync(
+        string environmentId, string volumeName, CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+        var response = await client.Volumes.InspectAsync(volumeName, cancellationToken);
+        return MapToVolumeRaw(response);
+    }
+
+    public async Task<DockerVolumeRaw> CreateVolumeAsync(
+        string environmentId,
+        string name,
+        string? driver = null,
+        IDictionary<string, string>? labels = null,
+        CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+        var response = await client.Volumes.CreateAsync(
+            new VolumesCreateParameters
+            {
+                Name = name,
+                Driver = driver ?? "local",
+                Labels = labels != null ? new Dictionary<string, string>(labels) : new Dictionary<string, string>()
+            },
+            cancellationToken);
+
+        return MapToVolumeRaw(response);
+    }
+
+    public async Task RemoveVolumeAsync(
+        string environmentId, string volumeName, bool force = false,
+        CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+        await client.Volumes.RemoveAsync(volumeName, force, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ContainerVolumeMount>> GetContainerVolumeMountsAsync(
+        string environmentId, CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+        var containers = await client.Containers.ListContainersAsync(
+            new ContainersListParameters { All = true },
+            cancellationToken);
+
+        var mounts = new List<ContainerVolumeMount>();
+
+        foreach (var container in containers)
+        {
+            var containerName = container.Names.FirstOrDefault()?.TrimStart('/') ?? container.ID[..12];
+
+            foreach (var mount in container.Mounts ?? [])
+            {
+                if (mount.Type != "volume" || string.IsNullOrEmpty(mount.Name))
+                    continue;
+
+                mounts.Add(new ContainerVolumeMount
+                {
+                    ContainerName = containerName,
+                    VolumeName = mount.Name,
+                    MountPath = mount.Destination
+                });
+            }
+        }
+
+        return mounts;
+    }
+
+    private static DockerVolumeRaw MapToVolumeRaw(VolumeResponse v)
+    {
+        DateTime? createdAt = null;
+        if (!string.IsNullOrEmpty(v.CreatedAt) &&
+            DateTime.TryParse(v.CreatedAt, out var parsed))
+        {
+            createdAt = parsed;
+        }
+
+        return new DockerVolumeRaw
+        {
+            Name = v.Name,
+            Driver = v.Driver,
+            Mountpoint = v.Mountpoint,
+            Scope = v.Scope,
+            CreatedAt = createdAt,
+            Labels = v.Labels ?? new Dictionary<string, string>(),
+            SizeBytes = v.UsageData?.Size,
+            RefCount = v.UsageData?.RefCount
+        };
+    }
+
+    // ── Private helpers ──────────────────────────────────────────────────
+
     private Task<DockerClient> GetDockerClientAsync(string environmentId)
     {
         // Check cache first
