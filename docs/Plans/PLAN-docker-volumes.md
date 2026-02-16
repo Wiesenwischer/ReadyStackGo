@@ -70,14 +70,14 @@ Der Infrastructure-Layer (`DockerService`) liefert rohe Docker.DotNet-Daten. Der
 
 Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
 
-- [ ] **Feature 0: Domain-Modell** – DockerVolume Entity + VolumeReference Value Object
+- [x] **Feature 0: Domain-Modell** – DockerVolume Entity + VolumeReference Value Object
   - Neue Dateien:
     - `Domain/Deployment/Volumes/DockerVolume.cs` (Entity mit Factory-Methode + Orphaned-Logik)
     - `Domain/Deployment/Volumes/VolumeReference.cs` (Value Object: Container→Volume-Zuordnung)
   - Domain-Logik: `DockerVolume.IsOrphaned(references)`, Name-Validierung
   - Abhängig von: –
 
-- [ ] **Feature 1: Volume List Backend** – IDockerService + Endpoints für Volume-Liste
+- [x] **Feature 1: Volume List Backend** – IDockerService + Endpoints für Volume-Liste
   - Neue Dateien:
     - `Application/UseCases/Volumes/VolumeDto.cs`
     - `Application/UseCases/Volumes/ListVolumes/ListVolumesQuery.cs`
@@ -90,7 +90,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Pattern-Vorlage: `ListContainersEndpoint` + `ListContainersQuery`
   - Abhängig von: Feature 0
 
-- [ ] **Feature 2: Volume Details Backend** – Inspect-Endpoint für einzelnes Volume
+- [x] **Feature 2: Volume Details Backend** – Inspect-Endpoint für einzelnes Volume
   - Neue Dateien:
     - `Application/UseCases/Volumes/GetVolumeQuery.cs`
     - `Application/UseCases/Volumes/GetVolumeHandler.cs`
@@ -101,13 +101,13 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - VolumeDto erweitern: Size, Mountpoint, Driver, DriverOpts, Labels, CreatedAt, UsageData
   - Abhängig von: Feature 1
 
-- [ ] **Feature 3: Orphaned Volume Detection** – Volumes ohne Container-Referenz markieren
+- [x] **Feature 3: Orphaned Volume Detection** – Volumes ohne Container-Referenz markieren
   - Geänderte Dateien:
     - `Application/UseCases/Volumes/ListVolumes/ListVolumesHandler.cs` (Container-Mounts abfragen und als VolumeReferences an Domain übergeben)
   - Logik liegt im Domain-Layer: `DockerVolume.IsOrphaned(references)` — Handler sammelt nur die Daten
   - Abhängig von: Feature 0, 1
 
-- [ ] **Feature 4: Create/Delete Volume Backend** – CRUD-Endpoints
+- [x] **Feature 4: Create/Delete Volume Backend** – CRUD-Endpoints
   - Neue Dateien:
     - `Application/UseCases/Volumes/CreateVolumeCommand.cs`
     - `Application/UseCases/Volumes/CreateVolumeHandler.cs`
@@ -121,7 +121,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Sicherheit: Delete nur für Volumes ohne Container-Referenz (oder mit `force` Flag)
   - Abhängig von: Feature 1
 
-- [ ] **Feature 5: Volumes UI – Liste** – Neue Seite mit Volume-Übersicht
+- [x] **Feature 5: Volumes UI – Liste** – Neue Seite mit Volume-Übersicht
   - Neue Dateien:
     - `WebUi/src/api/volumes.ts` (API-Client)
     - `WebUi/src/pages/Monitoring/Volumes.tsx` (Seite)
@@ -136,7 +136,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Pattern-Vorlage: `Containers.tsx`
   - Abhängig von: Feature 1, 3
 
-- [ ] **Feature 6: Volumes UI – Details & Actions** – Detail-Ansicht, Create/Delete Dialoge
+- [x] **Feature 6: Volumes UI – Details & Actions** – Detail-Ansicht, Create/Delete Dialoge
   - Geänderte Dateien:
     - `WebUi/src/pages/Monitoring/Volumes.tsx` (Detail-Panel oder Modal)
   - Detail-Ansicht: Mountpoint, Labels, Driver Options, referenzierende Container
@@ -145,7 +145,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Bulk-Delete: "Delete All Orphaned" Button mit Bestätigungsdialog (listet alle betroffenen Volumes)
   - Abhängig von: Feature 2, 4, 5
 
-- [ ] **Tests** – Unit + Integration
+- [x] **Tests** – Unit + Integration
   - Neue Dateien:
     - `tests/ReadyStackGo.UnitTests/Domain/Deployment/DockerVolumeTests.cs` (Domain-Logik: Orphaned, Validierung)
     - `tests/ReadyStackGo.UnitTests/Application/Volumes/ListVolumesHandlerTests.cs`
