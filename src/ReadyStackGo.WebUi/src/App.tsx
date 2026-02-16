@@ -3,6 +3,8 @@ import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Dashboard from "./pages/Dashboard";
 import Containers from "./pages/Monitoring/Containers";
+import Volumes from "./pages/Monitoring/Volumes";
+import VolumeDetail from "./pages/Monitoring/VolumeDetail";
 import Deployments from "./pages/Deployments/Deployments";
 import DeploymentDetail from "./pages/Deployments/DeploymentDetail";
 import UpgradeStack from "./pages/Deployments/UpgradeStack";
@@ -114,6 +116,22 @@ export default function App() {
                   element={
                     <EnvironmentGuard>
                       <Containers />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/volumes"
+                  element={
+                    <EnvironmentGuard>
+                      <Volumes />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/volumes/:name"
+                  element={
+                    <EnvironmentGuard>
+                      <VolumeDetail />
                     </EnvironmentGuard>
                   }
                 />

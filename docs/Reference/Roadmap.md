@@ -179,6 +179,11 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Wizard Simplified to Single Step (Admin Only, 5-Min Timeout)
   - Mandatory Onboarding Flow: Organization → Environment → Sources → Registries
   - Onboarding Status API (Authenticated, No Timeout Dependency)
+- **v0.25** – Docker Volumes Management (2026-02-16)
+  - Docker Volumes View (List All Volumes per Environment)
+  - Volume Details (Size, Mount Points, Labels, Container References)
+  - Create/Delete Volumes with Driver Selection
+  - Orphaned Volume Detection and Bulk Cleanup
 
 ---
 
@@ -223,12 +228,6 @@ Epics are listed in priority order. Top = next.
 - NuGet Meta-Package ReadyStackGo.Core (Domain + Application + Infrastructure)
 - Multi-Assembly FastEndpoints Endpoint Discovery
 - Distribution Architecture Documentation
-
-### Epic: Docker Volumes Management
-- Docker Volumes View (List All Volumes per Environment)
-- Volume Details (Size, Mount Points, Labels)
-- Create/Delete Volumes
-- Detect Orphaned Volumes
 
 ### Epic: OCI Stack Bundles
 
