@@ -74,6 +74,7 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
         var existing = _deploymentRepository.GetByStackName(environmentId, request.StackName);
         string action;
         string stackId;
+        Dictionary<string, string> variables;
 
         if (existing != null)
         {
@@ -85,19 +86,27 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
                     "Only running deployments can be redeployed.");
             }
 
-            var (existingStackId, _, _) = existing.GetRedeploymentData();
+            var (existingStackId, _, storedVariables) = existing.GetRedeploymentData();
             stackId = existingStackId;
             action = "redeployed";
 
+            // Merge variables: stored deployment values as base, webhook values as overrides
+            variables = new Dictionary<string, string>(storedVariables);
+            foreach (var kvp in request.Variables)
+            {
+                variables[kvp.Key] = kvp.Value;
+            }
+
             _logger.LogInformation(
-                "Stack '{StackName}' already running in environment {EnvironmentId}, triggering redeploy",
-                request.StackName, request.EnvironmentId);
+                "Stack '{StackName}' already running in environment {EnvironmentId}, triggering redeploy with {VarCount} variables ({OverrideCount} overrides from webhook)",
+                request.StackName, request.EnvironmentId, variables.Count, request.Variables.Count);
         }
         else
         {
-            // Fresh deploy
+            // Fresh deploy - use webhook variables directly
             stackId = request.StackId;
             action = "deployed";
+            variables = request.Variables;
 
             _logger.LogInformation(
                 "Deploying stack '{StackName}' ({StackId}) to environment {EnvironmentId}",
@@ -109,7 +118,7 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
             request.EnvironmentId,
             stackId,
             request.StackName,
-            request.Variables,
+            variables,
             null), cancellationToken);
 
         if (!deployResult.Success)

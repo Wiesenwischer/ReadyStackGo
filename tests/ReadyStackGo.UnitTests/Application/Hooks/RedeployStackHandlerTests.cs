@@ -318,6 +318,159 @@ public class RedeployStackHandlerTests
 
     #endregion
 
+    #region Variable Merging
+
+    [Fact]
+    public async Task Handle_NoWebhookVars_UsesAllStoredVars()
+    {
+        var storedVars = new Dictionary<string, string>
+        {
+            ["DB_HOST"] = "db.internal",
+            ["LOG_LEVEL"] = "info"
+        };
+        var deployment = CreateRunningDeployment(variables: storedVars);
+        SetupDeploymentLookup(deployment);
+        SetupSuccessfulDeploy();
+
+        await _handler.Handle(
+            new RedeployStackCommand(TestStackName, TestEnvironmentId),
+            CancellationToken.None);
+
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<DeployStackCommand>(cmd =>
+                cmd.Variables.Count == 2 &&
+                cmd.Variables["DB_HOST"] == "db.internal" &&
+                cmd.Variables["LOG_LEVEL"] == "info"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_NullWebhookVars_UsesAllStoredVars()
+    {
+        var storedVars = new Dictionary<string, string>
+        {
+            ["API_URL"] = "https://api.example.com"
+        };
+        var deployment = CreateRunningDeployment(variables: storedVars);
+        SetupDeploymentLookup(deployment);
+        SetupSuccessfulDeploy();
+
+        await _handler.Handle(
+            new RedeployStackCommand(TestStackName, TestEnvironmentId, null),
+            CancellationToken.None);
+
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<DeployStackCommand>(cmd =>
+                cmd.Variables.Count == 1 &&
+                cmd.Variables["API_URL"] == "https://api.example.com"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WebhookVarsOverrideStoredVars()
+    {
+        var storedVars = new Dictionary<string, string>
+        {
+            ["DB_HOST"] = "old-host",
+            ["DB_PORT"] = "5432",
+            ["LOG_LEVEL"] = "info"
+        };
+        var webhookVars = new Dictionary<string, string>
+        {
+            ["DB_HOST"] = "new-host",
+            ["LOG_LEVEL"] = "debug"
+        };
+        var deployment = CreateRunningDeployment(variables: storedVars);
+        SetupDeploymentLookup(deployment);
+        SetupSuccessfulDeploy();
+
+        await _handler.Handle(
+            new RedeployStackCommand(TestStackName, TestEnvironmentId, webhookVars),
+            CancellationToken.None);
+
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<DeployStackCommand>(cmd =>
+                cmd.Variables.Count == 3 &&
+                cmd.Variables["DB_HOST"] == "new-host" &&
+                cmd.Variables["DB_PORT"] == "5432" &&
+                cmd.Variables["LOG_LEVEL"] == "debug"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WebhookVarsAddNewVars()
+    {
+        var storedVars = new Dictionary<string, string>
+        {
+            ["DB_HOST"] = "localhost"
+        };
+        var webhookVars = new Dictionary<string, string>
+        {
+            ["FEATURE_FLAG"] = "enabled"
+        };
+        var deployment = CreateRunningDeployment(variables: storedVars);
+        SetupDeploymentLookup(deployment);
+        SetupSuccessfulDeploy();
+
+        await _handler.Handle(
+            new RedeployStackCommand(TestStackName, TestEnvironmentId, webhookVars),
+            CancellationToken.None);
+
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<DeployStackCommand>(cmd =>
+                cmd.Variables.Count == 2 &&
+                cmd.Variables["DB_HOST"] == "localhost" &&
+                cmd.Variables["FEATURE_FLAG"] == "enabled"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_EmptyWebhookVars_UsesAllStoredVars()
+    {
+        var storedVars = new Dictionary<string, string>
+        {
+            ["SECRET"] = "keep-me"
+        };
+        var webhookVars = new Dictionary<string, string>();
+        var deployment = CreateRunningDeployment(variables: storedVars);
+        SetupDeploymentLookup(deployment);
+        SetupSuccessfulDeploy();
+
+        await _handler.Handle(
+            new RedeployStackCommand(TestStackName, TestEnvironmentId, webhookVars),
+            CancellationToken.None);
+
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<DeployStackCommand>(cmd =>
+                cmd.Variables.Count == 1 &&
+                cmd.Variables["SECRET"] == "keep-me"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_NoStoredVars_UsesWebhookVarsOnly()
+    {
+        var webhookVars = new Dictionary<string, string>
+        {
+            ["NEW_VAR"] = "new-value"
+        };
+        var deployment = CreateRunningDeployment(); // no variables
+        SetupDeploymentLookup(deployment);
+        SetupSuccessfulDeploy();
+
+        await _handler.Handle(
+            new RedeployStackCommand(TestStackName, TestEnvironmentId, webhookVars),
+            CancellationToken.None);
+
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<DeployStackCommand>(cmd =>
+                cmd.Variables.Count == 1 &&
+                cmd.Variables["NEW_VAR"] == "new-value"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
     #region Helpers
 
     private void SetupDeploymentLookup(Deployment deployment)
