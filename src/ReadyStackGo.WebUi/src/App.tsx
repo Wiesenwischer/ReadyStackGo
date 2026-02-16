@@ -15,6 +15,8 @@ import StackCatalog from "./pages/Catalog/StackCatalog";
 import ProductDetail from "./pages/Catalog/ProductDetail";
 import DeployStack from "./pages/Deployments/DeployStack";
 import Environments from "./pages/Environments/Environments";
+import AddEnvironment from "./pages/Environments/AddEnvironment";
+import DeleteEnvironment from "./pages/Environments/DeleteEnvironment";
 import {
   SettingsIndex,
   StackSourcesList,
@@ -22,6 +24,7 @@ import {
   AddLocalSource,
   AddGitSource,
   AddFromCatalog,
+  DeleteStackSource,
   RegistriesList,
   AddRegistry,
   EditRegistry,
@@ -211,6 +214,8 @@ export default function App() {
                 <Route path="/profile" element={<Profile />} />
                 {/* Environments page - doesn't require active environment */}
                 <Route path="/environments" element={<Environments />} />
+                <Route path="/environments/add" element={<AddEnvironment />} />
+                <Route path="/environments/:id/delete" element={<DeleteEnvironment />} />
                 {/* Settings pages - don't require active environment */}
                 <Route path="/settings" element={<SettingsIndex />} />
                 <Route path="/settings/organization" element={<SetupOrganization />} />
@@ -219,6 +224,7 @@ export default function App() {
                 <Route path="/settings/stack-sources/add/local" element={<AddLocalSource />} />
                 <Route path="/settings/stack-sources/add/git" element={<AddGitSource />} />
                 <Route path="/settings/stack-sources/add/catalog" element={<AddFromCatalog />} />
+                <Route path="/settings/stack-sources/:id/delete" element={<DeleteStackSource />} />
                 <Route path="/settings/registries" element={<RegistriesList />} />
                 <Route path="/settings/registries/add" element={<AddRegistry />} />
                 <Route path="/settings/registries/:id/edit" element={<EditRegistry />} />

@@ -16,6 +16,7 @@ export default function TlsSettings() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   // Certificate upload state
   const [certFormat, setCertFormat] = useState<CertFormat>("pfx");
@@ -97,11 +98,8 @@ export default function TlsSettings() {
   };
 
   const handleResetToSelfSigned = async () => {
-    if (!confirm("Are you sure you want to reset to a self-signed certificate?")) {
-      return;
-    }
-
     try {
+      setConfirmReset(false);
       setActionLoading(true);
       setError(null);
       setSuccess(null);
@@ -788,14 +786,35 @@ export default function TlsSettings() {
             )}
 
             <div className="flex items-center justify-between pt-2">
-              <button
-                type="button"
-                onClick={handleResetToSelfSigned}
-                disabled={actionLoading || config?.mode === "SelfSigned"}
-                className="rounded-md px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Reset to Self-Signed
-              </button>
+              {confirmReset ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Reset to self-signed?</span>
+                  <button
+                    type="button"
+                    onClick={handleResetToSelfSigned}
+                    disabled={actionLoading}
+                    className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {actionLoading ? "..." : "Confirm"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmReset(false)}
+                    className="rounded bg-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmReset(true)}
+                  disabled={actionLoading || config?.mode === "SelfSigned"}
+                  className="rounded-md px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Reset to Self-Signed
+                </button>
+              )}
               <button
                 type="submit"
                 disabled={actionLoading}

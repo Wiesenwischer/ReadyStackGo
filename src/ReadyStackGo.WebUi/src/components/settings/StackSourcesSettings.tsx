@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   getStackSources,
   createStackSource,
   updateStackSource,
-  deleteStackSource,
   syncSource,
   syncAllSources,
   type StackSourceDto,
@@ -11,6 +11,7 @@ import {
 } from "../../api/stackSources";
 
 export default function StackSourcesSettings() {
+  const navigate = useNavigate();
   const [stackSources, setStackSources] = useState<StackSourceDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,26 +78,6 @@ export default function StackSourcesSettings() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to sync stack sources");
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleDeleteSource = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete the stack source "${name}"?`)) {
-      return;
-    }
-
-    try {
-      setActionLoading(id);
-      const response = await deleteStackSource(id);
-      if (response.success) {
-        await loadStackSources();
-      } else {
-        setError(response.message || "Failed to delete stack source");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete stack source");
     } finally {
       setActionLoading(null);
     }
@@ -248,11 +229,10 @@ export default function StackSourcesSettings() {
                       {actionLoading === source.id ? "..." : "Sync"}
                     </button>
                     <button
-                      onClick={() => handleDeleteSource(source.id, source.name)}
-                      disabled={actionLoading === source.id}
-                      className="inline-flex items-center justify-center rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => navigate(`/settings/stack-sources/${source.id}/delete`)}
+                      className="inline-flex items-center justify-center rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
                     >
-                      {actionLoading === source.id ? "..." : "Delete"}
+                      Delete
                     </button>
                   </div>
                 </div>

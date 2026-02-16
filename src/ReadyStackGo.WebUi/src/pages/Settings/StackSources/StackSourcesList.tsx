@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import {
   getStackSources,
   updateStackSource,
-  deleteStackSource,
   syncSource,
   syncAllSources,
   exportSources,
@@ -78,26 +77,6 @@ export default function StackSourcesList() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to sync stack sources");
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleDeleteSource = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete the stack source "${name}"?`)) {
-      return;
-    }
-
-    try {
-      setActionLoading(id);
-      const response = await deleteStackSource(id);
-      if (response.success) {
-        await loadStackSources();
-      } else {
-        setError(response.message || "Failed to delete stack source");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete stack source");
     } finally {
       setActionLoading(null);
     }
@@ -331,13 +310,12 @@ export default function StackSourcesList() {
                     >
                       {actionLoading === source.id ? "..." : "Sync"}
                     </button>
-                    <button
-                      onClick={() => handleDeleteSource(source.id, source.name)}
-                      disabled={actionLoading === source.id}
-                      className="inline-flex items-center justify-center rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    <Link
+                      to={`/settings/stack-sources/${source.id}/delete`}
+                      className="inline-flex items-center justify-center rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
                     >
-                      {actionLoading === source.id ? "..." : "Delete"}
-                    </button>
+                      Delete
+                    </Link>
                   </div>
                 </div>
               </div>
