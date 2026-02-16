@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useVersionInfo } from "../../hooks/useVersionInfo";
+import { SettingsIcon } from "../../icons";
 
 const UserDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -86,7 +87,13 @@ const UserDropdown = () => {
       {isOpen && (
         <div className="absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-900">
           <div className="p-1">
-            <button className="flex w-full items-center gap-3.5 rounded-lg px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                navigate("/profile");
+              }}
+              className="flex w-full items-center gap-3.5 rounded-lg px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
               <svg
                 width="18"
                 height="18"
@@ -109,27 +116,14 @@ const UserDropdown = () => {
               </svg>
               Profile
             </button>
-            <button className="flex w-full items-center gap-3.5 rounded-lg px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 18 18"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M10.5 2.25C8.42893 2.25 6.75 3.92893 6.75 6C6.75 6.41421 6.41421 6.75 6 6.75C5.58579 6.75 5.25 6.41421 5.25 6C5.25 3.10051 7.60051 0.75 10.5 0.75H12C12.4142 0.75 12.75 1.08579 12.75 1.5C12.75 1.91421 12.4142 2.25 12 2.25H10.5Z"
-                  fill="currentColor"
-                />
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M7.5 15.75C9.57107 15.75 11.25 14.0711 11.25 12C11.25 11.5858 11.5858 11.25 12 11.25C12.4142 11.25 12.75 11.5858 12.75 12C12.75 14.8995 10.3995 17.25 7.5 17.25H6C5.58579 17.25 5.25 16.9142 5.25 16.5C5.25 16.0858 5.58579 15.75 6 15.75H7.5Z"
-                  fill="currentColor"
-                />
-              </svg>
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                navigate("/settings");
+              }}
+              className="flex w-full items-center gap-3.5 rounded-lg px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              <SettingsIcon width={18} height={18} />
               Settings
             </button>
             <hr className="my-1 border-gray-200 dark:border-gray-800" />

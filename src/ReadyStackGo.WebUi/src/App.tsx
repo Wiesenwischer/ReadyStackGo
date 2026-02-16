@@ -37,6 +37,7 @@ import SetupOrganization from "./pages/Settings/Organization/SetupOrganization";
 import Login from "./pages/Auth/Login";
 import Wizard from "./pages/Wizard";
 import Onboarding from "./pages/Onboarding";
+import Profile from "./pages/Profile/Profile";
 import NotFound from "./pages/NotFound";
 import UpdateStatus from "./pages/UpdateStatus";
 import { AuthProvider } from "./context/AuthContext";
@@ -188,6 +189,8 @@ export default function App() {
                     </EnvironmentGuard>
                   }
                 />
+                {/* Profile page - doesn't require active environment */}
+                <Route path="/profile" element={<Profile />} />
                 {/* Environments page - doesn't require active environment */}
                 <Route path="/environments" element={<Environments />} />
                 {/* Settings pages - don't require active environment */}
