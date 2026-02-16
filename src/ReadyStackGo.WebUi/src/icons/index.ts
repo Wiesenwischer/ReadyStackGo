@@ -56,4 +56,5 @@ export { default as AlertHexaIcon } from "./alert-hexa.svg?react";
 export { default as ErrorHexaIcon } from "./info-hexa.svg?react";
 export { default as PulseIcon } from "./pulse.svg?react";
 export { default as SettingsIcon } from "./settings.svg?react";
+export { default as StorageIcon } from "./storage.svg?react";
 
