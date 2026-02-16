@@ -88,6 +88,32 @@ public class SourceRegistryServiceTests
     }
 
     [Fact]
+    public void GetAll_ContainsAmsProjectStacksEntry()
+    {
+        var service = CreateService();
+
+        var entries = service.GetAll();
+
+        entries.Should().Contain(e => e.Id == "rsgo-ams-project-stacks");
+    }
+
+    [Fact]
+    public void GetAll_AmsProjectStacksHasCorrectData()
+    {
+        var service = CreateService();
+
+        var entry = service.GetAll().First(e => e.Id == "rsgo-ams-project-stacks");
+
+        entry.Name.Should().Be("ams.project Stacks");
+        entry.GitUrl.Should().Contain("github.com/Wiesenwischer/rsgo-ams-project-stacks");
+        entry.GitBranch.Should().Be("main");
+        entry.Category.Should().Be("vendor");
+        entry.Featured.Should().BeFalse();
+        entry.Tags.Should().Contain("vendor");
+        entry.Tags.Should().Contain("ams");
+    }
+
+    [Fact]
     public void GetAll_AllGitUrlsAreValidUris()
     {
         var service = CreateService();

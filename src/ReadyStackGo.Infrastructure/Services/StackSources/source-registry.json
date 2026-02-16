@@ -24,5 +24,17 @@
     "tags": ["community", "official", "curated"],
     "featured": true,
     "stackCount": 1
+  },
+  {
+    "id": "rsgo-ams-project-stacks",
+    "name": "ams.project Stacks",
+    "description": "Enterprise project management stacks by ams.Solution AG (ams.project, ams.identityaccess)",
+    "type": "git-repository",
+    "gitUrl": "https://github.com/Wiesenwischer/rsgo-ams-project-stacks.git",
+    "gitBranch": "main",
+    "category": "vendor",
+    "tags": ["enterprise", "vendor", "ams"],
+    "featured": false,
+    "stackCount": 2
   }
 ]
