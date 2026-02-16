@@ -10,6 +10,7 @@ public record RedeployStackRequest
 {
     public required string StackName { get; init; }
     public string? EnvironmentId { get; init; }
+    public Dictionary<string, string>? Variables { get; init; }
 }
 
 public record RedeployStackResponse
@@ -26,7 +27,8 @@ public record RedeployStackResponse
 
 public record RedeployStackCommand(
     string StackName,
-    string EnvironmentId
+    string EnvironmentId,
+    Dictionary<string, string>? Variables = null
 ) : IRequest<RedeployStackResponse>;
 
 public class RedeployStackHandler : IRequestHandler<RedeployStackCommand, RedeployStackResponse>
@@ -71,18 +73,28 @@ public class RedeployStackHandler : IRequestHandler<RedeployStackCommand, Redepl
         }
 
         // 4. Extract redeployment data from existing deployment
-        var (stackId, stackVersion, variables) = deployment.GetRedeploymentData();
+        var (stackId, stackVersion, storedVariables) = deployment.GetRedeploymentData();
+
+        // 5. Merge variables: stored deployment values as base, webhook values as overrides
+        var variables = new Dictionary<string, string>(storedVariables);
+        if (request.Variables != null)
+        {
+            foreach (var kvp in request.Variables)
+            {
+                variables[kvp.Key] = kvp.Value;
+            }
+        }
 
         _logger.LogInformation(
-            "Starting redeploy of stack '{StackName}' (version {Version}) in environment {EnvironmentId}",
-            request.StackName, stackVersion, request.EnvironmentId);
+            "Starting redeploy of stack '{StackName}' (version {Version}) in environment {EnvironmentId} with {VarCount} variables ({OverrideCount} overrides from webhook)",
+            request.StackName, stackVersion, request.EnvironmentId, variables.Count, request.Variables?.Count ?? 0);
 
-        // 5. Delegate to DeployStackCommand (same parameters, no SessionId for webhook)
+        // 6. Delegate to DeployStackCommand (same parameters, no SessionId for webhook)
         var deployResult = await _mediator.Send(new DeployStackCommand(
             request.EnvironmentId,
             stackId,
             deployment.StackName,
-            new Dictionary<string, string>(variables),
+            variables,
             null), cancellationToken);
 
         if (!deployResult.Success)
