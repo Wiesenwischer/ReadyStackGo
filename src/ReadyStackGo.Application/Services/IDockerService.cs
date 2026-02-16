@@ -126,6 +126,48 @@ public interface IDockerService
         string environmentId,
         string containerId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists all volumes in the specified environment.
+    /// Returns raw volume data for domain mapping.
+    /// </summary>
+    Task<IEnumerable<DockerVolumeRaw>> ListVolumesRawAsync(
+        string environmentId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Inspects a single volume by name, including usage data (size).
+    /// </summary>
+    Task<DockerVolumeRaw> InspectVolumeAsync(
+        string environmentId,
+        string volumeName,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Creates a new volume in the specified environment.
+    /// </summary>
+    Task<DockerVolumeRaw> CreateVolumeAsync(
+        string environmentId,
+        string name,
+        string? driver = null,
+        IDictionary<string, string>? labels = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes a volume by name in the specified environment.
+    /// </summary>
+    Task RemoveVolumeAsync(
+        string environmentId,
+        string volumeName,
+        bool force = false,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns all volume mount references from all containers (including stopped ones).
+    /// </summary>
+    Task<IReadOnlyList<ContainerVolumeMount>> GetContainerVolumeMountsAsync(
+        string environmentId,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -183,4 +225,29 @@ public class CreateContainerRequest
     /// Restart policy (e.g., "no", "always", "unless-stopped", "on-failure").
     /// </summary>
     public string RestartPolicy { get; set; } = "unless-stopped";
+}
+
+/// <summary>
+/// Raw volume data from the Docker API (before domain mapping).
+/// </summary>
+public record DockerVolumeRaw
+{
+    public required string Name { get; init; }
+    public required string Driver { get; init; }
+    public string? Mountpoint { get; init; }
+    public string? Scope { get; init; }
+    public DateTime? CreatedAt { get; init; }
+    public IDictionary<string, string> Labels { get; init; } = new Dictionary<string, string>();
+    public long? SizeBytes { get; init; }
+    public long? RefCount { get; init; }
+}
+
+/// <summary>
+/// Describes a container's volume mount (from Docker API inspection).
+/// </summary>
+public record ContainerVolumeMount
+{
+    public required string ContainerName { get; init; }
+    public required string VolumeName { get; init; }
+    public required string MountPath { get; init; }
 }

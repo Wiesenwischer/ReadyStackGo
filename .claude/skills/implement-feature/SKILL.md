@@ -119,21 +119,27 @@ Bevor du mit der Implementierung beginnst:
 
 ## Schritt 4: Branches erstellen
 
-### Prüfe ob ein Integration Branch für die aktuelle Phase existiert:
+**WICHTIG: Jedes Epic/Phase bekommt IMMER einen eigenen Integration Branch!**
+- Ein Epic darf NIEMALS auf dem Integration Branch eines anderen Epics aufbauen
+- Auch wenn mehrere Epics in der gleichen Release-Version geplant sind, hat jedes seinen **eigenen** Integration Branch
+- Der Integration Branch wird IMMER von `main` abgeleitet
+
+### Prüfe ob ein Integration Branch für **dieses** Epic existiert:
 ```bash
 git checkout main && git pull
-git branch -a | grep integration/
+git branch -a | grep integration/<epic-name>
 ```
 
-### Falls kein Integration Branch existiert:
+### Falls kein Integration Branch für dieses Epic existiert:
 ```bash
-git checkout -b integration/<phase-name>
-git push -u origin integration/<phase-name>
+git checkout main
+git checkout -b integration/<epic-name>
+git push -u origin integration/<epic-name>
 ```
 
 ### Feature Branch vom Integration Branch ableiten:
 ```bash
-git checkout integration/<phase-name>
+git checkout integration/<epic-name>
 git checkout -b feature/<feature-name>
 ```
 

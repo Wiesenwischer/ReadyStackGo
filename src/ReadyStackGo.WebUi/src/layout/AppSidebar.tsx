@@ -11,6 +11,7 @@ import {
   BoxIcon,
   PulseIcon,
   SettingsIcon,
+  StorageIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { useEnvironment } from "../context/EnvironmentContext";
@@ -48,6 +49,12 @@ const operationalItems: NavItem[] = [
     icon: <BoxIcon />,
     name: "Containers",
     path: "/containers",
+    requiresEnvironment: true,
+  },
+  {
+    icon: <StorageIcon />,
+    name: "Volumes",
+    path: "/volumes",
     requiresEnvironment: true,
   },
   {
