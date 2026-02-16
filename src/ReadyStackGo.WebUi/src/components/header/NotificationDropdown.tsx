@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useNotifications } from "../../hooks/useNotifications";
 import { timeAgo } from "../../utils/timeAgo";
@@ -6,7 +6,7 @@ import type { NotificationSeverity } from "../../api/notifications";
 
 const severityConfig: Record<
   NotificationSeverity,
-  { icon: JSX.Element; color: string; bg: string }
+  { icon: ReactNode; color: string; bg: string }
 > = {
   Info: {
     icon: (
