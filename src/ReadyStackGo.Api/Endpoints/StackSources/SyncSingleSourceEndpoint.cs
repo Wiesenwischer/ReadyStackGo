@@ -1,7 +1,10 @@
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using ReadyStackGo.Api.Authorization;
+using ReadyStackGo.Application.Notifications;
 using ReadyStackGo.Application.Services;
+using ReadyStackGo.Domain.StackManagement.Stacks;
 
 namespace ReadyStackGo.API.Endpoints.StackSources;
 
@@ -13,10 +16,17 @@ namespace ReadyStackGo.API.Endpoints.StackSources;
 public class SyncSingleSourceEndpoint : Endpoint<EmptyRequest, SyncSourcesResponse>
 {
     private readonly IProductSourceService _productSourceService;
+    private readonly INotificationService? _notificationService;
+    private readonly ILogger<SyncSingleSourceEndpoint> _logger;
 
-    public SyncSingleSourceEndpoint(IProductSourceService productSourceService)
+    public SyncSingleSourceEndpoint(
+        IProductSourceService productSourceService,
+        ILogger<SyncSingleSourceEndpoint> logger,
+        INotificationService? notificationService = null)
     {
         _productSourceService = productSourceService;
+        _logger = logger;
+        _notificationService = notificationService;
     }
 
     public override void Configure()
@@ -42,6 +52,26 @@ public class SyncSingleSourceEndpoint : Endpoint<EmptyRequest, SyncSourcesRespon
         if (!result.Success && result.Errors.Any(e => e.Contains("not found")))
         {
             HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
+        }
+
+        await CreateSyncNotificationAsync(result, sourceId, ct);
+    }
+
+    private async Task CreateSyncNotificationAsync(SyncResult result, string sourceName, CancellationToken ct)
+    {
+        if (_notificationService == null) return;
+
+        try
+        {
+            var notification = NotificationFactory.CreateSyncResult(
+                result.Success, result.StacksLoaded, result.SourcesSynced,
+                result.Errors, result.Warnings, sourceName);
+
+            await _notificationService.AddAsync(notification, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to create sync notification for source {SourceId}", sourceName);
         }
     }
 }
