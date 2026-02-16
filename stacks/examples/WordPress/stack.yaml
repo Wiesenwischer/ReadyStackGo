@@ -4,7 +4,7 @@
 metadata:
   name: WordPress
   description: Production-ready WordPress stack with database backend
-  productVersion: "6.0.0"
+  productVersion: "6.9.1"
   category: CMS
   tags:
     - wordpress
@@ -17,7 +17,7 @@ variables:
     label: WordPress Version
     description: WordPress Docker image version
     type: String
-    default: latest
+    default: "6.9"
     group: Versions
     order: 1
 
@@ -67,7 +67,7 @@ variables:
     label: MySQL Version
     description: MySQL Docker image version
     type: String
-    default: "8.0"
+    default: "8.4"
     group: Versions
     order: 2
 

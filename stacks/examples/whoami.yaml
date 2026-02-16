@@ -5,7 +5,7 @@ metadata:
   name: Whoami
   productId: io.traefik.whoami
   description: Simple HTTP service that returns container info - useful for testing
-  productVersion: "2.0.0"
+  productVersion: "1.11.0"
   category: Testing
   tags:
     - whoami
@@ -39,7 +39,7 @@ variables:
 
 services:
   whoami:
-    image: traefik/whoami:latest
+    image: traefik/whoami:v1.11
     ports:
       - "${WHOAMI_PORT}:80"
     environment:
