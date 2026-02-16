@@ -84,9 +84,9 @@ export default function Environments() {
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-title-md2 font-semibold text-black dark:text-white">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
           Environments
-        </h1>
+        </h2>
         <div className="flex gap-3">
           <button
             onClick={() => setIsCreateModalOpen(true)}

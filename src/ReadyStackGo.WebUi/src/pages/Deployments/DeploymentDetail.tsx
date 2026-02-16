@@ -347,9 +347,9 @@ export default function DeploymentDetail() {
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-title-md2 font-semibold text-black dark:text-white">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
               {deployment.stackName}
-            </h1>
+            </h2>
             {/* Health Status Badge */}
             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${statusPresentation.bgColor} ${statusPresentation.textColor}`}>
               {health?.requiresAttention && (
