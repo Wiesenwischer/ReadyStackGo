@@ -11,7 +11,7 @@
     "category": "built-in",
     "tags": ["embedded", "examples", "built-in"],
     "featured": true,
-    "stackCount": 3
+    "stackCount": 1
   },
   {
     "id": "rsgo-community-stacks",
@@ -23,6 +23,6 @@
     "category": "official",
     "tags": ["community", "official", "curated"],
     "featured": true,
-    "stackCount": 0
+    "stackCount": 1
   }
 ]
