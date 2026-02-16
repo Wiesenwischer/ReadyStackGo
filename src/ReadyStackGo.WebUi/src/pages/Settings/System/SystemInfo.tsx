@@ -21,12 +21,16 @@ function formatRelativeTime(isoString?: string): string {
 export default function SystemInfo() {
   const { versionInfo, isLoading, error, refetch } = useVersionInfo();
   const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState<"up-to-date" | null>(null);
   const navigate = useNavigate();
 
   const handleCheckNow = async () => {
     setChecking(true);
+    setCheckResult(null);
     try {
       await refetch(true);
+      setCheckResult("up-to-date");
+      setTimeout(() => setCheckResult(null), 5000);
     } finally {
       setChecking(false);
     }
@@ -138,6 +142,20 @@ export default function SystemInfo() {
               </dl>
             </div>
           </div>
+
+          {/* Up to date confirmation */}
+          {checkResult === "up-to-date" && !versionInfo?.updateAvailable && (
+            <div className="rounded-2xl border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20">
+              <div className="flex items-center gap-2">
+                <svg className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+                <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                  You are running the latest version.
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Update Available banner */}
           {versionInfo?.updateAvailable && (

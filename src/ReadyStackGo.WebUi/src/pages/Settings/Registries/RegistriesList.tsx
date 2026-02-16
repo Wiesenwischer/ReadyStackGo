@@ -59,9 +59,9 @@ export default function RegistriesList() {
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div className="px-4 py-6 md:px-6 xl:px-7.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h4 className="text-xl font-semibold text-black dark:text-white">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
               Container Registries
-            </h4>
+            </h2>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Manage Docker registries for pulling container images during deployments
             </p>
