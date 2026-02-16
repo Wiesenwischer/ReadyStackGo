@@ -155,7 +155,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Edge Cases: Leere Volume-Liste, Volume mit laufendem Container (Delete verhindern), Docker-Verbindungsfehler
   - Abhängig von: Feature 0-4
 
-- [ ] **Dokumentation & Website** – Wiki, Public Website (DE/EN), Roadmap
+- [x] **Dokumentation & Website** – Wiki, Public Website (DE/EN), Roadmap
   - Abhängig von: Tests
 
 - [ ] **Phase abschließen** – Alle Tests grün, PR gegen main
