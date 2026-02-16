@@ -86,7 +86,13 @@ const UserDropdown = () => {
       {isOpen && (
         <div className="absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-900">
           <div className="p-1">
-            <button className="flex w-full items-center gap-3.5 rounded-lg px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                navigate("/profile");
+              }}
+              className="flex w-full items-center gap-3.5 rounded-lg px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
               <svg
                 width="18"
                 height="18"
@@ -109,7 +115,13 @@ const UserDropdown = () => {
               </svg>
               Profile
             </button>
-            <button className="flex w-full items-center gap-3.5 rounded-lg px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                navigate("/settings");
+              }}
+              className="flex w-full items-center gap-3.5 rounded-lg px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
               <svg
                 width="18"
                 height="18"
