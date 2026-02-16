@@ -15,6 +15,7 @@ import StackCatalog from "./pages/Catalog/StackCatalog";
 import ProductDetail from "./pages/Catalog/ProductDetail";
 import DeployStack from "./pages/Deployments/DeployStack";
 import Environments from "./pages/Environments/Environments";
+import AddEnvironment from "./pages/Environments/AddEnvironment";
 import {
   SettingsIndex,
   StackSourcesList,
@@ -212,6 +213,7 @@ export default function App() {
                 <Route path="/profile" element={<Profile />} />
                 {/* Environments page - doesn't require active environment */}
                 <Route path="/environments" element={<Environments />} />
+                <Route path="/environments/add" element={<AddEnvironment />} />
                 {/* Settings pages - don't require active environment */}
                 <Route path="/settings" element={<SettingsIndex />} />
                 <Route path="/settings/organization" element={<SetupOrganization />} />
