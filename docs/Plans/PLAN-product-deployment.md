@@ -443,7 +443,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Tests: Deployment-Matching, neue/fehlende Stacks, Variable-Merge-Priority
   - Abhängig von: Feature 1, 2
 
-- [ ] **Feature 6: UpgradeProduct UI** — Upgrade-Seite für ganzes Produkt
+- [x] **Feature 6: UpgradeProduct UI** — Upgrade-Seite für ganzes Produkt
   - Neue Seite `UpgradeProduct.tsx`:
     - Current Version → Target Version Anzeige
     - Pro Stack: Status, Version, "New Stack" / "Unchanged" Badge

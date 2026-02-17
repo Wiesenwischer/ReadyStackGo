@@ -423,3 +423,184 @@ export async function deployProduct(
     request
   );
 }
+
+// ============================================================================
+// Product Deployment Query API
+// ============================================================================
+
+/**
+ * DTO for a stack within a product deployment.
+ */
+export interface ProductStackDeploymentDto {
+  stackName: string;
+  stackDisplayName: string;
+  stackId: string;
+  deploymentId?: string;
+  deploymentStackName?: string;
+  status: string;
+  startedAt?: string;
+  completedAt?: string;
+  errorMessage?: string;
+  order: number;
+  serviceCount: number;
+  isNewInUpgrade: boolean;
+}
+
+/**
+ * Response from GET /api/environments/{envId}/product-deployments/{id}
+ */
+export interface GetProductDeploymentResponse {
+  productDeploymentId: string;
+  environmentId: string;
+  productGroupId: string;
+  productId: string;
+  productName: string;
+  productDisplayName: string;
+  productVersion: string;
+  status: string;
+  createdAt: string;
+  completedAt?: string;
+  errorMessage?: string;
+  continueOnError: boolean;
+  totalStacks: number;
+  completedStacks: number;
+  failedStacks: number;
+  previousVersion?: string;
+  upgradeCount: number;
+  canUpgrade: boolean;
+  canRemove: boolean;
+  durationSeconds?: number;
+  stacks: ProductStackDeploymentDto[];
+  sharedVariables: Record<string, string>;
+}
+
+/**
+ * Get a product deployment by ID.
+ */
+export async function getProductDeployment(
+  environmentId: string,
+  productDeploymentId: string
+): Promise<GetProductDeploymentResponse> {
+  return apiGet<GetProductDeploymentResponse>(
+    `/api/environments/${environmentId}/product-deployments/${productDeploymentId}`
+  );
+}
+
+/**
+ * Get the active product deployment for a product group.
+ */
+export async function getProductDeploymentByProduct(
+  environmentId: string,
+  groupId: string
+): Promise<GetProductDeploymentResponse> {
+  return apiGet<GetProductDeploymentResponse>(
+    `/api/environments/${environmentId}/product-deployments/by-product/${encodeURIComponent(groupId)}`
+  );
+}
+
+// ============================================================================
+// Product Upgrade API
+// ============================================================================
+
+/**
+ * Available version for product upgrade.
+ */
+export interface AvailableProductVersion {
+  version: string;
+  productId: string;
+  sourceId: string;
+  stackCount: number;
+}
+
+/**
+ * Response from GET /api/environments/{envId}/product-deployments/{id}/upgrade/check
+ */
+export interface CheckProductUpgradeResponse {
+  success: boolean;
+  message?: string;
+  upgradeAvailable: boolean;
+  currentVersion?: string;
+  latestVersion?: string;
+  latestProductId?: string;
+  availableVersions?: AvailableProductVersion[];
+  newStacks?: string[];
+  removedStacks?: string[];
+  canUpgrade: boolean;
+  cannotUpgradeReason?: string;
+}
+
+/**
+ * Check if an upgrade is available for a product deployment.
+ */
+export async function checkProductUpgrade(
+  environmentId: string,
+  productDeploymentId: string
+): Promise<CheckProductUpgradeResponse> {
+  return apiGet<CheckProductUpgradeResponse>(
+    `/api/environments/${environmentId}/product-deployments/${productDeploymentId}/upgrade/check`
+  );
+}
+
+/**
+ * Per-stack configuration for product upgrade.
+ */
+export interface UpgradeProductStackConfigRequest {
+  stackId: string;
+  deploymentStackName: string;
+  variables: Record<string, string>;
+}
+
+/**
+ * Request for upgrading an entire product deployment.
+ */
+export interface UpgradeProductRequest {
+  targetProductId: string;
+  stackConfigs: UpgradeProductStackConfigRequest[];
+  sharedVariables: Record<string, string>;
+  sessionId?: string;
+  continueOnError?: boolean;
+}
+
+/**
+ * Result of upgrading a single stack within a product upgrade.
+ */
+export interface UpgradeProductStackResult {
+  stackName: string;
+  stackDisplayName: string;
+  success: boolean;
+  deploymentId?: string;
+  deploymentStackName?: string;
+  errorMessage?: string;
+  serviceCount: number;
+  isNewInUpgrade: boolean;
+}
+
+/**
+ * Response from POST /api/environments/{envId}/product-deployments/{id}/upgrade
+ */
+export interface UpgradeProductResponse {
+  success: boolean;
+  message?: string;
+  productDeploymentId?: string;
+  productName?: string;
+  previousVersion?: string;
+  newVersion?: string;
+  status?: string;
+  sessionId?: string;
+  stackResults: UpgradeProductStackResult[];
+  warnings?: string[];
+}
+
+/**
+ * Upgrade an entire product deployment to a new version.
+ */
+export async function upgradeProduct(
+  environmentId: string,
+  productDeploymentId: string,
+  request: UpgradeProductRequest
+): Promise<UpgradeProductResponse> {
+  return apiPost<UpgradeProductResponse>(
+    `/api/environments/${environmentId}/product-deployments/${productDeploymentId}/upgrade`,
+    request
+  );
+}

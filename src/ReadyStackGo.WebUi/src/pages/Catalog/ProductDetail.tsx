@@ -1,6 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router";
 import { getProduct, type Product, type ProductStack } from "../../api/stacks";
+import {
+  getProductDeploymentByProduct,
+  checkProductUpgrade,
+  type GetProductDeploymentResponse,
+} from "../../api/deployments";
 import { useEnvironment } from "../../context/EnvironmentContext";
 
 export default function ProductDetail() {
@@ -11,6 +16,10 @@ export default function ProductDetail() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Product deployment status
+  const [productDeployment, setProductDeployment] = useState<GetProductDeploymentResponse | null>(null);
+  const [upgradeAvailable, setUpgradeAvailable] = useState(false);
 
   const loadProduct = useCallback(async () => {
     if (!productId) {
@@ -35,9 +44,53 @@ export default function ProductDetail() {
     loadProduct();
   }, [loadProduct]);
 
+  // Check for active product deployment and upgrade availability
+  useEffect(() => {
+    if (!product || !activeEnvironment) {
+      setProductDeployment(null);
+      setUpgradeAvailable(false);
+      return;
+    }
+
+    const checkDeploymentStatus = async () => {
+      try {
+        const deployment = await getProductDeploymentByProduct(
+          activeEnvironment.id,
+          product.groupId
+        );
+        setProductDeployment(deployment);
+
+        // Check if upgrade is available
+        if (deployment.canUpgrade) {
+          try {
+            const upgradeCheck = await checkProductUpgrade(
+              activeEnvironment.id,
+              deployment.productDeploymentId
+            );
+            setUpgradeAvailable(upgradeCheck.upgradeAvailable && upgradeCheck.canUpgrade);
+          } catch {
+            setUpgradeAvailable(false);
+          }
+        }
+      } catch {
+        // No active deployment for this product — that's fine
+        setProductDeployment(null);
+        setUpgradeAvailable(false);
+      }
+    };
+
+    checkDeploymentStatus();
+  }, [product, activeEnvironment]);
+
   const handleDeployAll = () => {
     if (product) {
       navigate(`/deploy-product/${encodeURIComponent(product.id)}`);
+    }
+  };
+
+  const handleUpgradeAll = () => {
+    if (productDeployment) {
+      navigate(`/upgrade-product/${productDeployment.productDeploymentId}`);
     }
   };
 
@@ -149,18 +202,53 @@ export default function ProductDetail() {
             )}
           </div>
 
-          {product.stacks.length > 1 && (
-            <button
-              onClick={handleDeployAll}
-              disabled={!activeEnvironment}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              Deploy All Stacks
-            </button>
-          )}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {/* Deployed status badge */}
+            {productDeployment && (
+              <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium whitespace-nowrap ${
+                productDeployment.status === 'Running'
+                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                  : productDeployment.status === 'PartiallyRunning'
+                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                    : productDeployment.status === 'Failed'
+                      ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                      : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+              }`}>
+                {productDeployment.status === 'Running' ? 'Deployed' :
+                 productDeployment.status === 'PartiallyRunning' ? 'Partially Running' :
+                 productDeployment.status}
+                {productDeployment.productVersion && ` v${productDeployment.productVersion}`}
+              </span>
+            )}
+
+            {/* Upgrade button (when deployed + upgrade available) */}
+            {upgradeAvailable && productDeployment && (
+              <button
+                onClick={handleUpgradeAll}
+                disabled={!activeEnvironment}
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-6 py-3 text-center font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                </svg>
+                Upgrade All Stacks
+              </button>
+            )}
+
+            {/* Deploy button (when not deployed or multi-stack) */}
+            {product.stacks.length > 1 && !productDeployment && (
+              <button
+                onClick={handleDeployAll}
+                disabled={!activeEnvironment}
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                Deploy All Stacks
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
