@@ -362,7 +362,7 @@ public interface IProductDeploymentRepository
 
 Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
 
-- [ ] **Feature 1: Domain-Modell** — ProductDeployment Aggregate + Child Entities + Events
+- [x] **Feature 1: Domain-Modell** — ProductDeployment Aggregate + Child Entities + Events (PR #138)
   - Neue Dateien:
     - `Domain/Deployment/ProductDeployments/ProductDeployment.cs`
     - `Domain/Deployment/ProductDeployments/ProductStackDeployment.cs`
@@ -376,7 +376,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Tests: Alle gültigen/ungültigen Transitions, Factory-Validierung, Domain Events, Computed Properties
   - Abhängig von: –
 
-- [ ] **Feature 2: Persistenz** — EF Core Configuration + Repository
+- [x] **Feature 2: Persistenz** — EF Core Configuration + Repository
   - Neue Dateien:
     - `Infrastructure.DataAccess/Configurations/ProductDeploymentConfiguration.cs`
     - `Infrastructure.DataAccess/Repositories/ProductDeploymentRepository.cs`
