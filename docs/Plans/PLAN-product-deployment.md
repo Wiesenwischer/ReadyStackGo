@@ -489,7 +489,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
     - `WebUi/src/App.tsx` (Route)
   - Abhängig von: Feature 7
 
-- [ ] **Feature 9: ProductDetail Status** — UI-Erweiterung
+- [x] **Feature 9: ProductDetail Status** — UI-Erweiterung (PR #146, no backend needed — reuses existing getProductDeploymentByProduct data)
   - `ProductDetail.tsx` erweitern:
     - Zeigt Deploy-Status pro Stack (deployed/not deployed/failed/partially running)
     - Versionsnummer des deployed Produkts

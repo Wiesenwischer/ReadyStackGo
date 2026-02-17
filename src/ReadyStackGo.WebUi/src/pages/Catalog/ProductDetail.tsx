@@ -5,6 +5,7 @@ import {
   getProductDeploymentByProduct,
   checkProductUpgrade,
   type GetProductDeploymentResponse,
+  type ProductStackDeploymentDto,
 } from "../../api/deployments";
 import { useEnvironment } from "../../context/EnvironmentContext";
 
@@ -255,8 +256,8 @@ export default function ProductDetail() {
               </button>
             )}
 
-            {/* Deploy button (when not deployed or multi-stack) */}
-            {product.stacks.length > 1 && !productDeployment && (
+            {/* Deploy button (when not deployed) */}
+            {!productDeployment && (
               <button
                 onClick={handleDeployAll}
                 disabled={!activeEnvironment}
@@ -295,13 +296,20 @@ export default function ProductDetail() {
 
         <div className="border-t border-gray-200 dark:border-gray-700 p-4">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {product.stacks.map((stack) => (
-              <StackCard
-                key={stack.id}
-                stack={stack}
-                disabled={!activeEnvironment}
-              />
-            ))}
+            {product.stacks.map((stack) => {
+              const stackDeployment = productDeployment?.stacks.find(
+                (s) => s.stackId === stack.id || s.stackName === stack.name.toLowerCase()
+              );
+              return (
+                <StackCard
+                  key={stack.id}
+                  stack={stack}
+                  disabled={!activeEnvironment}
+                  stackDeployment={stackDeployment}
+                  isProductDeployed={!!productDeployment}
+                />
+              );
+            })}
           </div>
         </div>
       </div>
@@ -313,9 +321,11 @@ export default function ProductDetail() {
 interface StackCardProps {
   stack: ProductStack;
   disabled: boolean;
+  stackDeployment?: ProductStackDeploymentDto;
+  isProductDeployed: boolean;
 }
 
-function StackCard({ stack, disabled }: StackCardProps) {
+function StackCard({ stack, disabled, stackDeployment, isProductDeployed }: StackCardProps) {
   const [showServices, setShowServices] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -357,24 +367,31 @@ function StackCard({ stack, disabled }: StackCardProps) {
             <h3 className="font-semibold text-gray-900 dark:text-white">
               {stack.name}
             </h3>
+            {stackDeployment?.deploymentStackName && (
+              <p className="text-xs font-mono text-gray-500 dark:text-gray-400">
+                {stackDeployment.deploymentStackName}
+              </p>
+            )}
             {stack.description && (
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
                 {stack.description}
               </p>
             )}
           </div>
-          {disabled ? (
+          {stackDeployment ? (
+            <StackStatusBadge status={stackDeployment.status} />
+          ) : disabled ? (
             <span className="ml-3 rounded bg-gray-300 px-4 py-2 text-sm font-medium text-gray-500 cursor-not-allowed">
               Deploy
             </span>
-          ) : (
+          ) : !isProductDeployed ? (
             <Link
               to={`/deploy/${encodeURIComponent(stack.id)}`}
               className="ml-3 rounded bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
             >
               Deploy
             </Link>
-          )}
+          ) : null}
         </div>
 
         {/* Stats */}
@@ -454,6 +471,49 @@ function StackCard({ stack, disabled }: StackCardProps) {
         </div>
       )}
     </div>
+  );
+}
+
+// Status badge for a deployed stack
+function StackStatusBadge({ status }: { status: string }) {
+  const config: Record<string, { bg: string; text: string; label: string }> = {
+    Running: {
+      bg: 'bg-green-100 dark:bg-green-900/30',
+      text: 'text-green-800 dark:text-green-300',
+      label: 'Running',
+    },
+    Failed: {
+      bg: 'bg-red-100 dark:bg-red-900/30',
+      text: 'text-red-800 dark:text-red-300',
+      label: 'Failed',
+    },
+    Deploying: {
+      bg: 'bg-blue-100 dark:bg-blue-900/30',
+      text: 'text-blue-800 dark:text-blue-300',
+      label: 'Deploying',
+    },
+    Pending: {
+      bg: 'bg-gray-100 dark:bg-gray-700',
+      text: 'text-gray-700 dark:text-gray-300',
+      label: 'Pending',
+    },
+    Removed: {
+      bg: 'bg-gray-100 dark:bg-gray-700',
+      text: 'text-gray-500 dark:text-gray-400',
+      label: 'Removed',
+    },
+  };
+
+  const { bg, text, label } = config[status] ?? {
+    bg: 'bg-gray-100 dark:bg-gray-700',
+    text: 'text-gray-700 dark:text-gray-300',
+    label: status,
+  };
+
+  return (
+    <span className={`ml-3 inline-flex items-center rounded px-3 py-1 text-xs font-medium ${bg} ${text}`}>
+      {label}
+    </span>
   );
 }
 
