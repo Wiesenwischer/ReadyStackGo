@@ -426,7 +426,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Pattern-Vorlage: `DeployStack.tsx`
   - Abhängig von: Feature 3
 
-- [ ] **Feature 5: UpgradeProduct Backend** — Command + Handler + Endpoint
+- [x] **Feature 5: UpgradeProduct Backend** — Command + Handler + Endpoint (PR #142)
   - `UpgradeProductCommand`: EnvironmentId, ProductDeploymentId, TargetProductId, StackOverrides[], SessionId
   - `UpgradeProductHandler`:
     1. Bestehendes ProductDeployment laden
