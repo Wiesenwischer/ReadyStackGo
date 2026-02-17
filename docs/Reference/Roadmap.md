@@ -200,6 +200,16 @@ Release version numbers are assigned when an Epic ships, not during planning.
 
 Epics are listed in priority order. Top = next.
 
+### Epic: Product Deployment
+
+**Deploy, Upgrade & Remove entire products (all stacks at once)**
+- Deploy Product Flow (Orchestrated N-Stack Deployment with Shared Variable Wizard)
+- Product Deployment Query (Find All Deployments by Product Group)
+- Upgrade Product Flow (Cross-Stack Version Upgrade with Variable Merging)
+- Remove Product Flow (Reverse-Order Multi-Stack Removal)
+- Product Deployment Status in Catalog (Per-Stack Deploy State on ProductDetail)
+- SignalR Multi-Stack Progress (Per-Stack + Overall Progress Events)
+
 ### Epic: Notifications & System Info
 
 **Phase 1** (next)
