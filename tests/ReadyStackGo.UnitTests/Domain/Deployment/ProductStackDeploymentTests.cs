@@ -200,13 +200,15 @@ public class ProductStackDeploymentTests
     }
 
     [Fact]
-    public void Fail_FromPending_ThrowsInvalidOperationException()
+    public void Fail_FromPending_SetsFailedStatus()
     {
         var stack = CreateStack();
 
-        var act = () => stack.Fail("Error");
+        stack.Fail("Pre-deployment error");
 
-        act.Should().Throw<InvalidOperationException>();
+        stack.Status.Should().Be(StackDeploymentStatus.Failed);
+        stack.ErrorMessage.Should().Be("Pre-deployment error");
+        stack.CompletedAt.Should().NotBeNull();
     }
 
     [Fact]

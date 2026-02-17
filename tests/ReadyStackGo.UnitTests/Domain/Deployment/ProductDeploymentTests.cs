@@ -441,13 +441,28 @@ public class ProductDeploymentTests
     }
 
     [Fact]
-    public void FailStack_WhenNotStarted_ThrowsInvalidOperationException()
+    public void FailStack_WhenNotStarted_FailsFromPendingStatus()
     {
         var pd = CreateTestDeployment(1);
 
-        var act = () => pd.FailStack("stack-0", "Error");
+        pd.FailStack("stack-0", "Pre-deployment failure");
 
-        act.Should().Throw<InvalidOperationException>();
+        pd.Stacks[0].Status.Should().Be(StackDeploymentStatus.Failed);
+        pd.Stacks[0].ErrorMessage.Should().Be("Pre-deployment failure");
+        pd.Stacks[0].CompletedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void FailStack_FromPending_RaisesEvent()
+    {
+        var pd = CreateTestDeployment(1);
+        pd.ClearDomainEvents();
+
+        pd.FailStack("stack-0", "Stack not found");
+
+        var evt = pd.DomainEvents.OfType<ProductStackDeploymentFailed>().Single();
+        evt.StackName.Should().Be("stack-0");
+        evt.ErrorMessage.Should().Be("Stack not found");
     }
 
     [Fact]
