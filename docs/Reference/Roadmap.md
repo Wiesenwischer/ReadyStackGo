@@ -202,23 +202,15 @@ Epics are listed in priority order. Top = next.
 
 ### Epic: Product Deployment
 
-**Deploy, Upgrade & Remove entire products (all stacks at once)**
+**Deploy, Upgrade & Remove entire products (all stacks at once) with dedicated ProductDeployment Aggregate**
+- ProductDeployment Aggregate Root with ProductStackDeployment Child Entities
+- Product-Level State Machine (Deploying → Running / PartiallyRunning / Failed → Removing → Removed)
 - Deploy Product Flow (Orchestrated N-Stack Deployment with Shared Variable Wizard)
-- Product Deployment Query (Find All Deployments by Product Group)
 - Upgrade Product Flow (Cross-Stack Version Upgrade with Variable Merging)
 - Remove Product Flow (Reverse-Order Multi-Stack Removal)
 - Product Deployment Status in Catalog (Per-Stack Deploy State on ProductDetail)
 - SignalR Multi-Stack Progress (Per-Stack + Overall Progress Events)
-
-### Epic: ProductDeployment Aggregate
-
-**Dedicated domain model for product-level deployment lifecycle**
-- ProductDeployment Aggregate Root with ProductStackDeployment Child Entities
-- Product-Level State Machine (Deploying → Running / PartiallyRunning / Failed → Removing → Removed)
-- Product-Level Domain Events (Initiated, Completed, PartiallyCompleted, Failed, Removed)
-- Retroactive Migration (Group Existing Deployments into ProductDeployments)
 - Health-Sync Service (Eventual Consistency Between Product and Stack Status)
-- Prerequisite: Epic "Product Deployment" must be completed first
 
 ### Epic: Notifications & System Info
 
