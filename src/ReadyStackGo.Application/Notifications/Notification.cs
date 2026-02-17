@@ -22,7 +22,8 @@ public enum NotificationType
 {
     UpdateAvailable,
     SourceSyncResult,
-    DeploymentResult
+    DeploymentResult,
+    ProductDeploymentResult
 }
 
 public enum NotificationSeverity

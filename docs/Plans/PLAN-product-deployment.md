@@ -386,7 +386,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Tests: CRUD, Owned Entities laden, JSON-Serialisierung, Concurrency Token
   - Abhängig von: Feature 1
 
-- [ ] **Feature 3: DeployProduct Backend** — Command + Handler + Endpoint
+- [x] **Feature 3: DeployProduct Backend** — Command + Handler + Endpoint (PR #140)
   - `DeployProductCommand`: EnvironmentId, ProductId, Stacks[] (StackId, StackName, Variables), SessionId
   - `DeployProductHandler`:
     1. ProductDeployment.InitiateDeployment() → Aggregate erzeugen + persistieren

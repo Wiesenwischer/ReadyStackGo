@@ -88,8 +88,8 @@ public class ProductStackDeployment
     {
         AssertionConcern.AssertArgumentNotEmpty(errorMessage, "Error message is required.");
         AssertionConcern.AssertStateTrue(
-            Status == StackDeploymentStatus.Deploying,
-            $"Cannot fail stack '{StackName}': current status is {Status}, expected Deploying.");
+            Status is StackDeploymentStatus.Deploying or StackDeploymentStatus.Pending,
+            $"Cannot fail stack '{StackName}': current status is {Status}, expected Pending or Deploying.");
 
         Status = StackDeploymentStatus.Failed;
         ErrorMessage = errorMessage;
