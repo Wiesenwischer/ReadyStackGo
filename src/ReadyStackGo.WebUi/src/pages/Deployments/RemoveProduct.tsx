@@ -29,8 +29,6 @@ export default function RemoveProduct() {
 
   // Per-stack progress tracking
   const [stackStatuses, setStackStatuses] = useState<Record<string, StackRemoveStatus>>({});
-  const [completedCount, setCompletedCount] = useState(0);
-
   // Progress state
   const removeSessionIdRef = useRef<string | null>(null);
   const [progressUpdate, setProgressUpdate] = useState<DeploymentProgressUpdate | null>(null);
@@ -65,7 +63,7 @@ export default function RemoveProduct() {
           ...prev,
           [stackName]: 'removed',
         }));
-        setCompletedCount(prev => prev + 1);
+
       }
 
       // Parse "Stack removal failed: stackName" messages
@@ -76,7 +74,7 @@ export default function RemoveProduct() {
           ...prev,
           [stackName]: 'failed',
         }));
-        setCompletedCount(prev => prev + 1);
+
       }
     }
 
@@ -147,8 +145,6 @@ export default function RemoveProduct() {
     setState('removing');
     setError('');
     setProgressUpdate(null);
-    setCompletedCount(0);
-
     // Subscribe to SignalR group BEFORE starting the API call
     if (connectionState === 'connected') {
       await subscribeToDeployment(sessionId);
