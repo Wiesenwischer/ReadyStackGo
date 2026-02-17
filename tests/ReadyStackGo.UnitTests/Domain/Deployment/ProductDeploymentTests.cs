@@ -1113,6 +1113,120 @@ public class ProductDeploymentTests
         pd.PhaseHistory.Count.Should().BeGreaterThan(initialPhaseCount);
     }
 
+    [Fact]
+    public void SyncStackHealth_WhenUpgrading_IgnoresSync()
+    {
+        var existing = CreateRunningDeployment(2);
+        var pd = ProductDeployment.InitiateUpgrade(
+            ProductDeploymentId.NewId(), existing.EnvironmentId,
+            existing.ProductGroupId, "pid:2.0.0",
+            existing.ProductName, existing.ProductDisplayName, "2.0.0",
+            UserId.NewId(), existing, CreateStackConfigs(2),
+            new Dictionary<string, string>());
+
+        pd.Status.Should().Be(ProductDeploymentStatus.Upgrading);
+
+        var changed = pd.SyncStackHealth("stack-0", StackDeploymentStatus.Failed);
+
+        changed.Should().BeFalse();
+    }
+
+    [Fact]
+    public void SyncStackHealth_WhenRemoving_IgnoresSync()
+    {
+        var pd = CreateRunningDeployment(2);
+        pd.StartRemoval();
+
+        pd.Status.Should().Be(ProductDeploymentStatus.Removing);
+
+        var changed = pd.SyncStackHealth("stack-0", StackDeploymentStatus.Failed);
+
+        changed.Should().BeFalse();
+    }
+
+    [Fact]
+    public void SyncStackHealth_WhenFailed_IgnoresSync()
+    {
+        var pd = CreateFailedDeployment();
+
+        pd.Status.Should().Be(ProductDeploymentStatus.Failed);
+
+        var changed = pd.SyncStackHealth("stack-0", StackDeploymentStatus.Running);
+
+        changed.Should().BeFalse();
+    }
+
+    [Fact]
+    public void SyncStackHealth_SetsErrorMessage_WhenTransitionToFailed()
+    {
+        var pd = CreateRunningDeployment(2);
+
+        pd.SyncStackHealth("stack-0", StackDeploymentStatus.Failed, "Container crashed");
+
+        pd.Stacks.First(s => s.StackName == "stack-0").ErrorMessage.Should().Be("Container crashed");
+    }
+
+    [Fact]
+    public void SyncStackHealth_ClearsErrorMessage_WhenTransitionToRunning()
+    {
+        var pd = CreatePartiallyRunningDeployment();
+
+        // stack-1 is Failed with error "Error" from the helper
+        pd.Stacks.First(s => s.StackName == "stack-1").ErrorMessage.Should().NotBeNull();
+
+        pd.SyncStackHealth("stack-1", StackDeploymentStatus.Running);
+
+        // SyncStatus sets ErrorMessage to the provided value (null for Running)
+        pd.Stacks.First(s => s.StackName == "stack-1").ErrorMessage.Should().BeNull();
+    }
+
+    [Fact]
+    public void RecalculateProductStatus_AllStacksFailed_DoesNotTransition()
+    {
+        // When health sync detects ALL stacks failed (from Running),
+        // RecalculateProductStatus does NOT transition because it requires
+        // anyFailed && anyRunning for PartiallyRunning. This is intentional:
+        // the background service only handles partial drift, not total failure.
+        var pd = CreateRunningDeployment(2);
+
+        pd.SyncStackHealth("stack-0", StackDeploymentStatus.Failed, "Crashed");
+        pd.SyncStackHealth("stack-1", StackDeploymentStatus.Failed, "Crashed");
+
+        var changed = pd.RecalculateProductStatus();
+
+        changed.Should().BeFalse();
+        pd.Status.Should().Be(ProductDeploymentStatus.Running); // No transition
+    }
+
+    [Fact]
+    public void RecalculateProductStatus_FromPartiallyRunning_AllNowRunning_TransitionsToRunning()
+    {
+        var pd = CreatePartiallyRunningDeployment(); // stack-0 Running, stack-1 Failed
+
+        // Fix the failed stack
+        pd.SyncStackHealth("stack-1", StackDeploymentStatus.Running);
+
+        var changed = pd.RecalculateProductStatus();
+
+        changed.Should().BeTrue();
+        pd.Status.Should().Be(ProductDeploymentStatus.Running);
+        pd.ErrorMessage.Should().BeNull();
+    }
+
+    [Fact]
+    public void RecalculateProductStatus_FromRunning_OneStackFailed_TransitionsToPartiallyRunning()
+    {
+        var pd = CreateRunningDeployment(3);
+
+        pd.SyncStackHealth("stack-1", StackDeploymentStatus.Failed, "OOM killed");
+
+        var changed = pd.RecalculateProductStatus();
+
+        changed.Should().BeTrue();
+        pd.Status.Should().Be(ProductDeploymentStatus.PartiallyRunning);
+        pd.ErrorMessage.Should().Contain("1 of 3");
+    }
+
     #endregion
 
     #region Helper Methods

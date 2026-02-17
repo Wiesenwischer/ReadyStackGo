@@ -460,6 +460,71 @@ public class DeployProductHandlerTests
         result.Status.Should().Be("Failed");
     }
 
+    [Fact]
+    public async Task Handle_AllStacksFail_ContinueOnError_AttemptsAllStacks()
+    {
+        var product = CreateTestProduct(3);
+        SetupProductFound(product);
+        SetupNoExistingDeployment();
+
+        var callCount = 0;
+        _mediatorMock
+            .Setup(m => m.Send(It.IsAny<DeployStackCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((DeployStackCommand cmd, CancellationToken _) =>
+            {
+                callCount++;
+                return new DeployStackResponse
+                {
+                    Success = false,
+                    DeploymentId = Guid.NewGuid().ToString(),
+                    StackName = cmd.StackName,
+                    Message = "Failed"
+                };
+            });
+
+        var result = await _handler.Handle(
+            CreateCommand(product, continueOnError: true), CancellationToken.None);
+
+        // All 3 stacks should have been attempted despite every one failing
+        callCount.Should().Be(3);
+        result.StackResults.Should().HaveCount(3);
+        result.StackResults.Should().AllSatisfy(sr => sr.Success.Should().BeFalse());
+        result.Status.Should().Be("Failed");
+    }
+
+    [Fact]
+    public async Task Handle_FirstAndLastFail_MiddleSucceeds_ContinueOnError_StatusPartiallyRunning()
+    {
+        var product = CreateTestProduct(3);
+        SetupProductFound(product);
+        SetupNoExistingDeployment();
+
+        var callIndex = 0;
+        _mediatorMock
+            .Setup(m => m.Send(It.IsAny<DeployStackCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((DeployStackCommand cmd, CancellationToken _) =>
+            {
+                var current = callIndex++;
+                var success = current == 1; // Only second stack (index 1) succeeds
+                return new DeployStackResponse
+                {
+                    Success = success,
+                    DeploymentId = Guid.NewGuid().ToString(),
+                    StackName = cmd.StackName,
+                    Message = success ? "OK" : "Failed"
+                };
+            });
+
+        var result = await _handler.Handle(
+            CreateCommand(product, continueOnError: true), CancellationToken.None);
+
+        result.StackResults.Should().HaveCount(3);
+        result.StackResults[0].Success.Should().BeFalse();
+        result.StackResults[1].Success.Should().BeTrue();
+        result.StackResults[2].Success.Should().BeFalse();
+        result.Status.Should().Be("PartiallyRunning");
+    }
+
     #endregion
 
     #region Abort on Failure (ContinueOnError: false)
@@ -495,6 +560,63 @@ public class DeployProductHandlerTests
         result.StackResults[0].Success.Should().BeTrue();
         result.StackResults[1].Success.Should().BeFalse();
         result.Status.Should().Be("PartiallyRunning");
+    }
+
+    [Fact]
+    public async Task Handle_FirstStackFails_AbortOnError_StatusFailed_NoSuccessfulStacks()
+    {
+        var product = CreateTestProduct(3);
+        SetupProductFound(product);
+        SetupNoExistingDeployment();
+        SetupStackFailsAtIndex(0);
+
+        var result = await _handler.Handle(
+            CreateCommand(product, continueOnError: false), CancellationToken.None);
+
+        // When the first stack fails and abort is set, no stacks succeeded
+        result.StackResults.Should().HaveCount(1);
+        result.Success.Should().BeFalse();
+        result.Status.Should().Be("Failed");
+    }
+
+    [Fact]
+    public async Task Handle_AbortOnError_RemainingStacksNotAttempted()
+    {
+        var product = CreateTestProduct(4);
+        SetupProductFound(product);
+        SetupNoExistingDeployment();
+        SetupStackFailsAtIndex(1); // Second stack fails
+
+        var callCount = 0;
+        _mediatorMock
+            .Setup(m => m.Send(It.IsAny<DeployStackCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((DeployStackCommand cmd, CancellationToken _) =>
+            {
+                callCount++;
+                if (callCount == 2) // Second call fails
+                {
+                    return new DeployStackResponse
+                    {
+                        Success = false,
+                        DeploymentId = Guid.NewGuid().ToString(),
+                        StackName = cmd.StackName,
+                        Message = "Failed"
+                    };
+                }
+                return new DeployStackResponse
+                {
+                    Success = true,
+                    DeploymentId = Guid.NewGuid().ToString(),
+                    StackName = cmd.StackName,
+                    Message = "OK"
+                };
+            });
+
+        await _handler.Handle(
+            CreateCommand(product, continueOnError: false), CancellationToken.None);
+
+        // Only 2 stacks attempted (first succeeds, second fails, third and fourth not attempted)
+        callCount.Should().Be(2);
     }
 
     #endregion

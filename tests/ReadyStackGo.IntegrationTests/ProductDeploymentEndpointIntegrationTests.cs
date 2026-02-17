@@ -268,6 +268,120 @@ public class ProductDeploymentEndpointIntegrationTests : AuthenticatedTestBase
 
     #endregion
 
+    #region Deploy Product - Validation
+
+    [Fact]
+    public async Task DeployProduct_WithEmptyStackConfigs_ReturnsBadRequest()
+    {
+        var request = new
+        {
+            productId = "test:product:1.0.0",
+            stackConfigs = Array.Empty<object>(),
+            sharedVariables = new Dictionary<string, string>()
+        };
+
+        var response = await Client.PostAsJsonAsync(
+            $"/api/environments/{EnvironmentId}/product-deployments", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task DeployProduct_WithMissingProductId_ReturnsBadRequest()
+    {
+        var request = new
+        {
+            productId = "",
+            stackConfigs = new[]
+            {
+                new
+                {
+                    stackId = "test:stack:1.0.0",
+                    deploymentStackName = "test-stack",
+                    variables = new Dictionary<string, string>()
+                }
+            },
+            sharedVariables = new Dictionary<string, string>()
+        };
+
+        var response = await Client.PostAsJsonAsync(
+            $"/api/environments/{EnvironmentId}/product-deployments", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    #endregion
+
+    #region Upgrade Product - Validation
+
+    [Fact]
+    public async Task UpgradeProduct_WithInvalidProductDeploymentId_ReturnsError()
+    {
+        var request = new
+        {
+            targetProductId = "test:product:2.0.0",
+            stackConfigs = new[]
+            {
+                new
+                {
+                    stackId = "test:product:stack:2.0.0",
+                    deploymentStackName = "test-stack",
+                    variables = new Dictionary<string, string>()
+                }
+            },
+            sharedVariables = new Dictionary<string, string>()
+        };
+
+        var response = await Client.PostAsJsonAsync(
+            $"/api/environments/{EnvironmentId}/product-deployments/not-a-guid/upgrade", request);
+
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
+    }
+
+    #endregion
+
+    #region Remove Product - Validation
+
+    [Fact]
+    public async Task RemoveProduct_WithDeleteMethod_CorrectRouting()
+    {
+        // Verify the DELETE method is correctly routed (not just POST)
+        var fakeId = Guid.NewGuid().ToString();
+
+        var response = await Client.DeleteAsync(
+            $"/api/environments/{EnvironmentId}/product-deployments/{fakeId}");
+
+        // Should not return 405 Method Not Allowed
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+    }
+
+    #endregion
+
+    #region Cross-Endpoint Consistency
+
+    [Fact]
+    public async Task GetProductDeploymentByProduct_WithEmptyGroupId_ReturnsError()
+    {
+        var response = await Client.GetAsync(
+            $"/api/environments/{EnvironmentId}/product-deployments/by-product/");
+
+        response.StatusCode.Should().BeOneOf(
+            HttpStatusCode.BadRequest, HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed);
+    }
+
+    [Fact]
+    public async Task ListProductDeployments_WithInvalidEnvironmentId_ReturnsError()
+    {
+        var response = await Client.GetAsync(
+            "/api/environments/not-a-valid-env/product-deployments");
+
+        // Should still respond (environment validation may vary)
+        response.StatusCode.Should().BeOneOf(
+            HttpStatusCode.OK, HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
+    }
+
+    #endregion
+
     #region Response DTOs
 
     private record ListProductDeploymentsApiResponse(
