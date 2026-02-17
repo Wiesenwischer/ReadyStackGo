@@ -1,7 +1,7 @@
 ---
 name: implement-feature
 description: Implement the next feature from the roadmap or a specific feature by name
-disable-model-invocation: true
+disable-model-invocation: false
 argument-hint: "[feature-name]"
 ---
 
