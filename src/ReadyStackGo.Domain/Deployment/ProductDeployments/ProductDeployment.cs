@@ -376,6 +376,57 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     }
 
     // ═══════════════════════════════════════════════════════════════════
+    // Health Sync (Eventual Consistency)
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Synchronizes a stack's status from its underlying Deployment aggregate.
+    /// Only effective when the product is in an operational state (Running/PartiallyRunning).
+    /// Returns true if any status was changed.
+    /// </summary>
+    public bool SyncStackHealth(string stackName, StackDeploymentStatus actualStatus, string? errorMessage = null)
+    {
+        if (!IsOperational) return false;
+
+        var stack = _stacks.FirstOrDefault(s =>
+            s.StackName.Equals(stackName, StringComparison.OrdinalIgnoreCase));
+        if (stack == null) return false;
+
+        return stack.SyncStatus(actualStatus, errorMessage);
+    }
+
+    /// <summary>
+    /// Recalculates the product-level status based on all stack statuses.
+    /// Called after syncing individual stacks. Returns true if status changed.
+    /// </summary>
+    public bool RecalculateProductStatus()
+    {
+        if (!IsOperational) return false;
+
+        var allRunning = _stacks.All(s => s.Status == StackDeploymentStatus.Running);
+        var anyFailed = _stacks.Any(s => s.Status == StackDeploymentStatus.Failed);
+        var anyRunning = _stacks.Any(s => s.Status == StackDeploymentStatus.Running);
+
+        if (allRunning && Status != ProductDeploymentStatus.Running)
+        {
+            Status = ProductDeploymentStatus.Running;
+            ErrorMessage = null;
+            RecordPhase("Health sync: all stacks running");
+            return true;
+        }
+
+        if (anyFailed && anyRunning && Status != ProductDeploymentStatus.PartiallyRunning)
+        {
+            Status = ProductDeploymentStatus.PartiallyRunning;
+            ErrorMessage = $"{FailedStacks} of {TotalStacks} stacks failed";
+            RecordPhase($"Health sync: partially running ({FailedStacks} failed)");
+            return true;
+        }
+
+        return false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
     // Query Methods
     // ═══════════════════════════════════════════════════════════════════
 

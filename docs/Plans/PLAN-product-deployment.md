@@ -504,7 +504,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
     - `WebUi/src/api/deployments.ts` (`getProductStatus()`)
   - Abhängig von: Feature 2
 
-- [ ] **Feature 10: Health-Sync Service** — Eventual Consistency
+- [x] **Feature 10: Health-Sync Service** — Eventual Consistency (PR #147)
   - Neuer Background-Service: `ProductDeploymentHealthSyncService`
   - Periodisch (60s): ProductStackDeployment.Status ↔ Deployment.Status abgleichen
   - Bei Inkonsistenz (z.B. Container crashed): ProductStackDeployment.Status aktualisieren
