@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
+using ReadyStackGo.Domain.Deployment.ProductDeployments;
 using ReadyStackGo.Domain.Deployment.Registries;
 using ReadyStackGo.Domain.IdentityAccess.ApiKeys;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
@@ -41,6 +42,7 @@ public static class DependencyInjection
         services.AddScoped<IRegistryRepository, RegistryRepository>();
         services.AddScoped<IStackSourceRepository, StackSourceRepository>();
         services.AddScoped<IApiKeyRepository, ApiKeyRepository>();
+        services.AddScoped<IProductDeploymentRepository, ProductDeploymentRepository>();
 
         return services;
     }
