@@ -63,6 +63,8 @@ export const translations = {
 		'features.tls.desc': 'Flexibles HTTPS-Management mit eigenen Zertifikaten, Let\'s Encrypt und Reverse Proxy-Unterstützung.',
 		'features.selfupdate.title': 'Self-Update',
 		'features.selfupdate.desc': 'Per Knopfdruck aktualisieren — RSGO tauscht seinen eigenen Container automatisch aus.',
+		'features.productdeploy.title': 'Product Deployment',
+		'features.productdeploy.desc': 'Deploye ganze Produkte mit allen Stacks in einem Vorgang — mit Shared Variables und koordiniertem Lifecycle.',
 
 		// Feature Pages
 		'featurepage.multistack.subtitle': 'Definiere komplexe Anwendungen mit mehreren Docker Stacks und gemeinsamen Variablen in einem einzigen Manifest.',
@@ -154,6 +156,8 @@ export const translations = {
 		'features.tls.desc': 'Flexible HTTPS management with custom certificates, Let\'s Encrypt and reverse proxy support.',
 		'features.selfupdate.title': 'Self-Update',
 		'features.selfupdate.desc': 'Update with one click — RSGO automatically swaps its own container.',
+		'features.productdeploy.title': 'Product Deployment',
+		'features.productdeploy.desc': 'Deploy entire products with all stacks in one operation — with shared variables and coordinated lifecycle.',
 
 		// Feature Pages
 		'featurepage.multistack.subtitle': 'Define complex applications with multiple Docker Stacks and shared variables in a single manifest.',
