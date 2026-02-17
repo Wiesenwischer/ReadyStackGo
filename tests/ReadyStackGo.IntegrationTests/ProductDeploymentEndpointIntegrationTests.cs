@@ -147,6 +147,91 @@ public class ProductDeploymentEndpointIntegrationTests : AuthenticatedTestBase
 
     #endregion
 
+    #region Upgrade Product
+
+    [Fact]
+    public async Task UpgradeProduct_WithoutAuth_ReturnsUnauthorized()
+    {
+        using var unauthClient = CreateUnauthenticatedClient();
+        var fakeId = Guid.NewGuid().ToString();
+
+        var request = new
+        {
+            targetProductId = "test:product:2.0.0",
+            stackConfigs = Array.Empty<object>(),
+            sharedVariables = new Dictionary<string, string>()
+        };
+
+        var response = await unauthClient.PostAsJsonAsync(
+            $"/api/environments/{EnvironmentId}/product-deployments/{fakeId}/upgrade", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpgradeProduct_WithNonExistentDeployment_ReturnsError()
+    {
+        var fakeId = Guid.NewGuid().ToString();
+
+        var request = new
+        {
+            targetProductId = "test:product:2.0.0",
+            stackConfigs = new[]
+            {
+                new
+                {
+                    stackId = "test:product:stack:2.0.0",
+                    deploymentStackName = "test-stack",
+                    variables = new Dictionary<string, string>()
+                }
+            },
+            sharedVariables = new Dictionary<string, string>()
+        };
+
+        var response = await Client.PostAsJsonAsync(
+            $"/api/environments/{EnvironmentId}/product-deployments/{fakeId}/upgrade", request);
+
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
+    }
+
+    #endregion
+
+    #region Check Product Upgrade
+
+    [Fact]
+    public async Task CheckProductUpgrade_WithoutAuth_ReturnsUnauthorized()
+    {
+        using var unauthClient = CreateUnauthenticatedClient();
+        var fakeId = Guid.NewGuid().ToString();
+
+        var response = await unauthClient.GetAsync(
+            $"/api/environments/{EnvironmentId}/product-deployments/{fakeId}/upgrade/check");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task CheckProductUpgrade_WithNonExistentDeployment_ReturnsError()
+    {
+        var fakeId = Guid.NewGuid().ToString();
+
+        var response = await Client.GetAsync(
+            $"/api/environments/{EnvironmentId}/product-deployments/{fakeId}/upgrade/check");
+
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task CheckProductUpgrade_WithInvalidId_ReturnsError()
+    {
+        var response = await Client.GetAsync(
+            $"/api/environments/{EnvironmentId}/product-deployments/not-a-guid/upgrade/check");
+
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
+    }
+
+    #endregion
+
     #region Response DTOs
 
     private record ListProductDeploymentsApiResponse(
