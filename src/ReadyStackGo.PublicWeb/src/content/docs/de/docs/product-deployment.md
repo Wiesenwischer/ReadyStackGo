@@ -283,6 +283,152 @@ Die Response hat das gleiche Format wie `GET .../{id}`.
 
 ---
 
+### POST /api/environments/{environmentId}/product-deployments/{id}/upgrade
+
+Aktualisiert ein laufendes Product Deployment auf eine neue Version. Alle Stacks werden sequenziell mit Variable-Merging aus dem bestehenden Deployment aktualisiert.
+
+**Permission:** `Deployments.Write`
+
+**Request:**
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|--------------|
+| `targetProductId` | string | Ja | Produkt-ID der Zielversion (z.B. `stacks:myproduct:2.0.0`) |
+| `stackConfigs` | array | Ja | Konfiguration für jeden Stack der Zielversion |
+| `stackConfigs[].stackId` | string | Ja | Stack-ID aus dem Zielprodukt |
+| `stackConfigs[].deploymentStackName` | string | Ja | Name für das Deployment |
+| `stackConfigs[].variables` | object | Nein | Stack-spezifische Variable-Overrides |
+| `sharedVariables` | object | Nein | Neue Shared Variables für das Upgrade |
+| `sessionId` | string | Nein | Client-generierte Session ID für SignalR Tracking |
+| `continueOnError` | boolean | Nein | Bei Fehler weitermachen (Standard: `true`) |
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "productDeploymentId": "new-id-...",
+  "productName": "ams.project",
+  "previousVersion": "3.1.0",
+  "newVersion": "4.0.0",
+  "status": "Running",
+  "sessionId": "product-upgrade-ams.project-20260217...",
+  "stackResults": [
+    {
+      "stackName": "infrastructure",
+      "stackDisplayName": "Infrastructure",
+      "success": true,
+      "deploymentId": "d1e2f3...",
+      "serviceCount": 3,
+      "isNewInUpgrade": false
+    }
+  ]
+}
+```
+
+:::note
+Beim Upgrade werden bestehende Variable-Werte aus dem aktuellen Deployment übernommen. Die Variable-Merge-Priorität ist: Stack Defaults → Bestehende Werte → Shared Variables → Per-Stack Overrides. Neue Stacks in der Zielversion werden mit `isNewInUpgrade: true` gekennzeichnet.
+:::
+
+---
+
+### GET /api/environments/{environmentId}/product-deployments/{id}/upgrade/check
+
+Prüft ob ein Upgrade für ein Product Deployment verfügbar ist, indem die deployed Version mit dem Katalog verglichen wird.
+
+**Permission:** `Deployments.Read`
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "upgradeAvailable": true,
+  "currentVersion": "3.1.0",
+  "latestVersion": "4.0.0",
+  "latestProductId": "stacks:ams.project:4.0.0",
+  "availableVersions": [
+    {
+      "version": "4.0.0",
+      "productId": "stacks:ams.project:4.0.0",
+      "sourceId": "stacks",
+      "stackCount": 4
+    },
+    {
+      "version": "3.2.0",
+      "productId": "stacks:ams.project:3.2.0",
+      "sourceId": "stacks",
+      "stackCount": 3
+    }
+  ],
+  "newStacks": ["monitoring"],
+  "removedStacks": [],
+  "canUpgrade": true
+}
+```
+
+---
+
+### DELETE /api/environments/{environmentId}/product-deployments/{id}
+
+Entfernt ein Product Deployment mit allen Stacks. Stacks werden in **umgekehrter** Manifest-Reihenfolge entfernt (Abhängigkeiten zuletzt).
+
+**Permission:** `Deployments.Delete`
+
+**Request (optionaler Body):**
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|--------------|
+| `sessionId` | string | Nein | Client-generierte Session ID für SignalR Tracking |
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "productDeploymentId": "a1b2c3d4-...",
+  "productName": "ams.project",
+  "status": "Removed",
+  "sessionId": "product-remove-ams.project-20260217...",
+  "stackResults": [
+    {
+      "stackName": "business",
+      "stackDisplayName": "Business",
+      "success": true,
+      "serviceCount": 4
+    },
+    {
+      "stackName": "identity",
+      "stackDisplayName": "Identity Access",
+      "success": true,
+      "serviceCount": 2
+    },
+    {
+      "stackName": "infrastructure",
+      "stackDisplayName": "Infrastructure",
+      "success": true,
+      "serviceCount": 3
+    }
+  ]
+}
+```
+
+:::caution
+Das Entfernen wird fortgesetzt, auch wenn einzelne Stack-Entfernungen fehlschlagen. Das Aggregate wechselt in jedem Fall zu `Removed` — fehlgeschlagene Docker-Entfernungen werden in `stackResults` gemeldet, verhindern aber nicht den Statuswechsel.
+:::
+
+---
+
+## Health Sync
+
+Ein Hintergrund-Service synchronisiert periodisch den `ProductDeployment`-Status mit den zugrunde liegenden `Deployment`-Aggregaten. Dies korrigiert Abweichungen, wenn Container außerhalb der ReadyStackGo-Orchestrierung abstürzen oder sich erholen (z.B. Docker startet einen Container neu).
+
+- **Sync-Intervall**: alle 60 Sekunden (nach 20 Sekunden Initialverzögerung)
+- **Scope**: nur `Running` und `PartiallyRunning` Deployments
+- **Transitions**: `Running` → `PartiallyRunning` (wenn ein Stack ausfällt) und `PartiallyRunning` → `Running` (wenn alle Stacks sich erholen)
+
+---
+
 ## Echtzeit-Fortschritt via SignalR
 
 Während des Deployments sendet ReadyStackGo Echtzeit-Updates über SignalR:

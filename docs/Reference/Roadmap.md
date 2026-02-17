@@ -193,24 +193,24 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Dedicated Delete Confirmation Pages (Stack Sources, Environments)
   - ams.project Stack Source in Curated Registry
   - External Network Auto-Creation for Multi-Stack Products
+- **v0.27** – Product Deployment (2026-02-17)
+  - ProductDeployment Aggregate Root with ProductStackDeployment Child Entities
+  - Product-Level State Machine (Deploying → Running / PartiallyRunning / Failed → Removing → Removed)
+  - Deploy Product Flow (Orchestrated N-Stack Deployment with Shared Variable Wizard)
+  - Upgrade Product Flow (Cross-Stack Version Upgrade with Variable Merging)
+  - Check Upgrade Availability (Catalog Version Comparison with New/Removed Stack Detection)
+  - Remove Product Flow (Reverse-Order Multi-Stack Removal)
+  - Product Deployment Status in Catalog (Per-Stack Deploy State on ProductDetail)
+  - SignalR Multi-Stack Progress (Per-Stack + Overall Progress Events)
+  - Health-Sync Background Service (Eventual Consistency Between Product and Stack Status)
+  - ContinueOnError Flag for Partial Failure Tolerance
+  - Three-Tier Variable System (Stack Defaults → Shared Variables → Per-Stack Overrides)
 
 ---
 
 ## Planned
 
 Epics are listed in priority order. Top = next.
-
-### Epic: Product Deployment
-
-**Deploy, Upgrade & Remove entire products (all stacks at once) with dedicated ProductDeployment Aggregate**
-- ProductDeployment Aggregate Root with ProductStackDeployment Child Entities
-- Product-Level State Machine (Deploying → Running / PartiallyRunning / Failed → Removing → Removed)
-- Deploy Product Flow (Orchestrated N-Stack Deployment with Shared Variable Wizard)
-- Upgrade Product Flow (Cross-Stack Version Upgrade with Variable Merging)
-- Remove Product Flow (Reverse-Order Multi-Stack Removal)
-- Product Deployment Status in Catalog (Per-Stack Deploy State on ProductDetail)
-- SignalR Multi-Stack Progress (Per-Stack + Overall Progress Events)
-- Health-Sync Service (Eventual Consistency Between Product and Stack Status)
 
 ### Epic: Notifications & System Info
 

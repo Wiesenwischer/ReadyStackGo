@@ -513,7 +513,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
     - `Application/Services/ProductDeploymentHealthSyncService.cs` (oder Infrastructure)
   - Abhängig von: Feature 2
 
-- [ ] **Feature 11: Tests** — Unit + Integration
+- [x] **Feature 11: Tests** — Unit + Integration (PR #148)
   - **Domain Unit Tests** (Hauptfokus):
     - State Machine: Alle gültigen Transitions, alle ungültigen Transitions
     - Factory Methods: Validierung, Default-Werte, Events
@@ -521,26 +521,30 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
     - FailStack → PartiallyRunning vs Failed
     - GetStacksInRemoveOrder: Umgekehrte Reihenfolge
     - CanUpgrade/CanRemove/CanRollback für jeden Status
+    - Health Sync: Upgrading/Removing/Failed ignore sync, error set/clear, all-failed no-transition
   - **Repository Integration Tests**:
     - CRUD mit Owned Entities
     - JSON-Serialisierung (SharedVariables, PhaseHistory, Variables)
     - Concurrency Token
     - Queries: ByEnvironment, ActiveByProductGroupId
   - **Handler Unit Tests**:
-    - Deploy: Orchestrierung, Partial Failure, Variable-Merging
+    - Deploy: Orchestrierung, Partial Failure, Variable-Merging, ContinueOnError edge cases
     - Upgrade: Deployment-Matching, neue Stacks, Variable-Merge-Priority
     - Remove: Umgekehrte Reihenfolge, Partial Failure
     - Status: Deployed/Not-Deployed/Mixed
-  - **Integration Tests**: Endpoint-Tests
+  - **Integration Tests**: Endpoint validation tests (auth, routing, error cases)
   - **Edge Cases**:
     - Product mit nur 1 Stack
     - Partial Failure: Stack 3/16 schlägt fehl
     - Upgrade mit neuen Stacks im Target
     - Remove eines teilweise deployed Produkts
-    - Concurrent Product-Deploy auf gleichem Environment
+    - All stacks fail with ContinueOnError=true (all attempted)
+    - Abort on error prevents remaining stack attempts
   - Abhängig von: Feature 1-10
 
-- [ ] **Dokumentation & Website** — Wiki, Public Website (DE/EN), Roadmap
+- [x] **Dokumentation & Website** — Wiki, Public Website (DE/EN), Roadmap
+  - Public Website: Upgrade, Remove, Check Upgrade API docs + Health Sync section (DE/EN)
+  - Roadmap: Product Deployment moved from Planned to Released as v0.27
   - Abhängig von: Feature 11
 
 - [ ] **Phase abschließen** — Alle Tests grün, PR gegen main
