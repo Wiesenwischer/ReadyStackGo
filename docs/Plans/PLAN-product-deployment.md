@@ -405,7 +405,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Tests: Orchestrierung, Partial Failure, Variable-Merging, Reihenfolge
   - Abhängig von: Feature 1, 2
 
-- [ ] **Feature 4: DeployProduct UI** — Wizard-Style Seite
+- [x] **Feature 4: DeployProduct UI** — Wizard-Style Seite (PR #141)
   - Neue Seite `DeployProduct.tsx` mit State-Machine:
     `loading` → `configure-shared` → `configure-stacks` → `deploying` → `success` / `error`
   - **configure-shared**: Shared Variables Form
