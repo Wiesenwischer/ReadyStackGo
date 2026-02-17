@@ -166,6 +166,7 @@ export interface ProductVersion {
 
 export interface Product {
   id: string;
+  groupId: string;
   sourceId: string;
   sourceName: string;
   name: string;

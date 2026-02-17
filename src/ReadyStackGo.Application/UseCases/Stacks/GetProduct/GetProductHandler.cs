@@ -46,6 +46,7 @@ public class GetProductHandler : IRequestHandler<GetProductQuery, GetProductResu
 
         var productDetails = new ProductDetails(
             Id: product.Id,
+            GroupId: product.GroupId,
             SourceId: product.SourceId,
             SourceName: sourceNames.GetValueOrDefault(product.SourceId, product.SourceId),
             Name: product.DisplayName,
