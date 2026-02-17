@@ -554,10 +554,10 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
 
 ## Offene Punkte
 
-- [ ] Partial Failure Handling: Default weitermachen, Option zum Abbrechen im UI?
-- [ ] Single-Stack-Products: Weiterhin direkt DeployStack, kein Product-Overhead?
+- [x] Partial Failure Handling → Konfigurierbar (continueOnError Flag, default: true)
+- [x] Single-Stack-Products → Immer ProductDeployment (einheitlicher Flow)
 - [ ] Hooks (CI/CD): `POST /api/hooks/deploy-product` Webhook in separater Phase?
-- [ ] Health-Sync Interval: Konfigurierbar oder feste 60s?
+- [x] Health-Sync Interval → Fest 60s
 
 ## Entscheidungen
 
@@ -571,3 +571,6 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
 | Stack-Name | A) Auto-generiert, B) User-Input | **A + optional B** | Auto-Name (`product-stack`), editierbar |
 | Consistency | A) Strict (transaktional), B) Eventual (Sync-Service) | **B** | Kein verteilter Transaktions-Overhead |
 | Aggregate Boundary | A) Wrapper um Deployment, B) Eigenständig mit FK | **B** | Klare Aggregate-Grenzen, referenziert Deployments nur via DeploymentId |
+| Partial Failure | A) Immer weitermachen, B) Abbrechen, C) Konfigurierbar | **C** | `continueOnError` Flag im Request (default: true). User kann bei Deploy wählen |
+| Single-Stack Products | A) Direkt DeployStack, B) Immer ProductDeployment | **B** | Einheitlicher Flow, kein Sonderfall. 1-Stack ProductDeployment ist minimal overhead |
+| Health-Sync Interval | A) Konfigurierbar, B) Fest 60s | **B** | Einfach, reicht für v1. Kann später konfigurierbar gemacht werden |
