@@ -14,6 +14,7 @@ import HealthDashboard from "./pages/Monitoring/HealthDashboard";
 import StackCatalog from "./pages/Catalog/StackCatalog";
 import ProductDetail from "./pages/Catalog/ProductDetail";
 import DeployStack from "./pages/Deployments/DeployStack";
+import DeployProduct from "./pages/Deployments/DeployProduct";
 import Environments from "./pages/Environments/Environments";
 import AddEnvironment from "./pages/Environments/AddEnvironment";
 import DeleteEnvironment from "./pages/Environments/DeleteEnvironment";
@@ -207,6 +208,14 @@ export default function App() {
                   element={
                     <EnvironmentGuard>
                       <DeployStack />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/deploy-product/:productId"
+                  element={
+                    <EnvironmentGuard>
+                      <DeployProduct />
                     </EnvironmentGuard>
                   }
                 />

@@ -357,3 +357,69 @@ export async function markDeploymentFailed(
     { reason }
   );
 }
+
+// ============================================================================
+// Product Deployment API
+// ============================================================================
+
+/**
+ * Per-stack configuration for product deployment.
+ */
+export interface DeployProductStackConfigRequest {
+  stackId: string;
+  deploymentStackName: string;
+  variables: Record<string, string>;
+}
+
+/**
+ * Request for deploying an entire product (all stacks).
+ */
+export interface DeployProductRequest {
+  productId: string;
+  stackConfigs: DeployProductStackConfigRequest[];
+  sharedVariables: Record<string, string>;
+  /** Client-generated session ID for real-time progress tracking via SignalR */
+  sessionId?: string;
+  /** Whether to continue deploying remaining stacks if one fails (default: true) */
+  continueOnError?: boolean;
+}
+
+/**
+ * Result of deploying a single stack within a product deployment.
+ */
+export interface DeployProductStackResult {
+  stackName: string;
+  stackDisplayName: string;
+  success: boolean;
+  deploymentId?: string;
+  deploymentStackName?: string;
+  errorMessage?: string;
+  serviceCount: number;
+}
+
+/**
+ * Response from deploying an entire product.
+ */
+export interface DeployProductResponse {
+  success: boolean;
+  message?: string;
+  productDeploymentId?: string;
+  productName?: string;
+  productVersion?: string;
+  status?: string;
+  sessionId?: string;
+  stackResults: DeployProductStackResult[];
+}
+
+/**
+ * Deploy an entire product (all stacks) as a single unit.
+ */
+export async function deployProduct(
+  environmentId: string,
+  request: DeployProductRequest
+): Promise<DeployProductResponse> {
+  return apiPost<DeployProductResponse>(
+    `/api/environments/${environmentId}/product-deployments`,
+    request
+  );
+}

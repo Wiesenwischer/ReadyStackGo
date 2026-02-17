@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, Link } from "react-router";
+import { useParams, Link, useNavigate } from "react-router";
 import { getProduct, type Product, type ProductStack } from "../../api/stacks";
 import { useEnvironment } from "../../context/EnvironmentContext";
 
@@ -7,6 +7,7 @@ export default function ProductDetail() {
   const { productId } = useParams<{ productId: string }>();
   const { activeEnvironment } = useEnvironment();
 
+  const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,8 +36,9 @@ export default function ProductDetail() {
   }, [loadProduct]);
 
   const handleDeployAll = () => {
-    // TODO: Implement deploy all stacks
-    alert('Deploy all stacks coming soon! For now, deploy each stack individually.');
+    if (product) {
+      navigate(`/deploy-product/${encodeURIComponent(product.id)}`);
+    }
   };
 
   if (loading) {
