@@ -158,7 +158,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
 - [x] **Dokumentation & Website** – Wiki, Public Website (DE/EN), Roadmap
   - Abhängig von: Tests
 
-- [ ] **Phase abschließen** – Alle Tests grün, PR gegen main
+- [x] **Phase abschließen** – Alle Tests grün, PR gegen main
   - Abhängig von: alle
 
 ## Test-Strategie
