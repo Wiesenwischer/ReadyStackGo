@@ -604,3 +604,52 @@ export async function upgradeProduct(
     request
   );
 }
+
+// ============================================================================
+// Product Remove API
+// ============================================================================
+
+/**
+ * Request for removing a product deployment.
+ */
+export interface RemoveProductRequest {
+  sessionId?: string;
+}
+
+/**
+ * Result of removing a single stack within a product removal.
+ */
+export interface RemoveProductStackResult {
+  stackName: string;
+  stackDisplayName: string;
+  success: boolean;
+  errorMessage?: string;
+  serviceCount: number;
+}
+
+/**
+ * Response from DELETE /api/environments/{envId}/product-deployments/{id}
+ */
+export interface RemoveProductResponse {
+  success: boolean;
+  message?: string;
+  productDeploymentId?: string;
+  productName?: string;
+  status?: string;
+  sessionId?: string;
+  stackResults: RemoveProductStackResult[];
+}
+
+/**
+ * Remove an entire product deployment (all stacks).
+ */
+export async function removeProductDeployment(
+  environmentId: string,
+  productDeploymentId: string,
+  request?: RemoveProductRequest
+): Promise<RemoveProductResponse> {
+  return apiDelete<RemoveProductResponse>(
+    `/api/environments/${environmentId}/product-deployments/${productDeploymentId}`,
+    request
+  );
+}
