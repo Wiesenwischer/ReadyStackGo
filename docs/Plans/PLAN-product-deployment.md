@@ -458,7 +458,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
     - `WebUi/src/App.tsx` (Route)
   - Abhängig von: Feature 5
 
-- [ ] **Feature 7: RemoveProduct Backend** — Command + Handler + Endpoint
+- [x] **Feature 7: RemoveProduct Backend** — Command + Handler + Endpoint
   - `RemoveProductCommand`: EnvironmentId, ProductDeploymentId, SessionId
   - `RemoveProductHandler`:
     1. ProductDeployment laden
