@@ -184,6 +184,15 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Volume Details (Size, Mount Points, Labels, Container References)
   - Create/Delete Volumes with Driver Selection
   - Orphaned Volume Detection and Bulk Cleanup
+- **v0.26** – Container Management Improvements (2026-02-17)
+  - Container Remove Action with Force Flag and Safety Checks
+  - Container Context Endpoint (Stack/Product/Deployment Resolution)
+  - Three Container Views (List, Stack-Grouped, Product-Grouped)
+  - Orphaned Container Detection (RSGO-Labeled Without Active Deployment)
+  - Unmanaged Container Group (External Containers Without RSGO Labels)
+  - Dedicated Delete Confirmation Pages (Stack Sources, Environments)
+  - ams.project Stack Source in Curated Registry
+  - External Network Auto-Creation for Multi-Stack Products
 
 ---
 

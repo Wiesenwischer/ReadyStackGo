@@ -64,7 +64,7 @@ Container **ohne** `rsgo.stack` Label sind **nicht orphaned** — sie sind "unma
 
 ## Features / Schritte
 
-- [ ] **Feature 1: RemoveContainer Backend** — Use Case + Endpoint
+- [x] **Feature 1: RemoveContainer Backend** — Use Case + Endpoint
   - Neue Dateien:
     - `Application/UseCases/Containers/RemoveContainer/RemoveContainerCommand.cs`
     - `Application/UseCases/Containers/RemoveContainer/RemoveContainerHandler.cs`
@@ -74,7 +74,7 @@ Container **ohne** `rsgo.stack` Label sind **nicht orphaned** — sie sind "unma
   - Endpoint: `DELETE /api/containers/{id}`, Permission `Deployments.Delete`
   - Abhängig von: –
 
-- [ ] **Feature 2: GetContainerContext Backend** — Use Case + Endpoint
+- [x] **Feature 2: GetContainerContext Backend** — Use Case + Endpoint
   - Neue Dateien:
     - `Application/UseCases/Containers/GetContainerContext/GetContainerContextQuery.cs`
     - `Application/UseCases/Containers/GetContainerContext/GetContainerContextHandler.cs`
@@ -89,7 +89,7 @@ Container **ohne** `rsgo.stack` Label sind **nicht orphaned** — sie sind "unma
   - Dependencies: `IDockerService`, `IDeploymentRepository`, `IProductCache`
   - Abhängig von: –
 
-- [ ] **Feature 3: Backend-Tests**
+- [x] **Feature 3: Backend-Tests**
   - `RemoveContainerHandlerTests` (5 Tests):
     - `StoppedContainer_ReturnsSuccess`
     - `RunningContainer_WithoutForce_ReturnsError`
@@ -105,7 +105,7 @@ Container **ohne** `rsgo.stack` Label sind **nicht orphaned** — sie sind "unma
     - `DockerServiceThrows_ReturnsError`
   - Abhängig von: Feature 1, Feature 2
 
-- [ ] **Feature 4: Frontend — API-Client + Containers.tsx**
+- [x] **Feature 4: Frontend — API-Client + Containers.tsx**
   - `api/containers.ts` erweitern:
     - `remove(environmentId, id, force)` via `apiDelete`
     - `getContext(environmentId)` → `ContainerContextResult`
@@ -119,7 +119,7 @@ Container **ohne** `rsgo.stack` Label sind **nicht orphaned** — sie sind "unma
     - **Product View**: Gruppierung nach Product, Stacks darunter, Unmanaged am Ende
   - Abhängig von: Feature 1, Feature 2
 
-- [ ] **Phase abschließen** — Build, Tests, PR
+- [x] **Phase abschließen** — Build, Tests, PR
 
 ## View-Konzept
 
