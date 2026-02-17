@@ -232,6 +232,42 @@ public class ProductDeploymentEndpointIntegrationTests : AuthenticatedTestBase
 
     #endregion
 
+    #region Remove Product
+
+    [Fact]
+    public async Task RemoveProduct_WithoutAuth_ReturnsUnauthorized()
+    {
+        using var unauthClient = CreateUnauthenticatedClient();
+        var fakeId = Guid.NewGuid().ToString();
+
+        var response = await unauthClient.DeleteAsync(
+            $"/api/environments/{EnvironmentId}/product-deployments/{fakeId}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task RemoveProduct_WithNonExistentDeployment_ReturnsError()
+    {
+        var fakeId = Guid.NewGuid().ToString();
+
+        var response = await Client.DeleteAsync(
+            $"/api/environments/{EnvironmentId}/product-deployments/{fakeId}");
+
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task RemoveProduct_WithInvalidId_ReturnsError()
+    {
+        var response = await Client.DeleteAsync(
+            $"/api/environments/{EnvironmentId}/product-deployments/not-a-guid");
+
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
+    }
+
+    #endregion
+
     #region Response DTOs
 
     private record ListProductDeploymentsApiResponse(
