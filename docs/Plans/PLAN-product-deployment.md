@@ -474,7 +474,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
     - `Api/Endpoints/Deployments/RemoveProductEndpoint.cs`
   - Abhängig von: Feature 1, 2
 
-- [ ] **Feature 8: RemoveProduct UI** — Bestätigungsseite mit Fortschritt
+- [x] **Feature 8: RemoveProduct UI** — Bestätigungsseite mit Fortschritt (PR #145)
   - Neue Seite `RemoveProduct.tsx`:
     - Listet alle Stacks/Deployments die entfernt werden
     - Service-Count, Container-Count pro Stack
