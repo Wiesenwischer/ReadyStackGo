@@ -94,6 +94,12 @@ export default function ProductDetail() {
     }
   };
 
+  const handleRemoveAll = () => {
+    if (productDeployment) {
+      navigate(`/remove-product/${productDeployment.productDeploymentId}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
@@ -232,6 +238,20 @@ export default function ProductDetail() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                 </svg>
                 Upgrade All Stacks
+              </button>
+            )}
+
+            {/* Remove button (when deployed + can remove) */}
+            {productDeployment?.canRemove && (
+              <button
+                onClick={handleRemoveAll}
+                disabled={!activeEnvironment}
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-red-600 px-6 py-3 text-center font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Remove All Stacks
               </button>
             )}
 
