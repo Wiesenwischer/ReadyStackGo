@@ -110,6 +110,20 @@ public class ProductStackDeployment
         ErrorMessage = null;
     }
 
+    /// <summary>
+    /// Synchronizes the stack status from the underlying Deployment aggregate.
+    /// Used by the health-sync background service for eventual consistency.
+    /// No transition guards — this corrects drift between aggregates.
+    /// </summary>
+    internal bool SyncStatus(StackDeploymentStatus actualStatus, string? errorMessage = null)
+    {
+        if (Status == actualStatus) return false;
+
+        Status = actualStatus;
+        ErrorMessage = errorMessage;
+        return true;
+    }
+
     public TimeSpan? GetDuration()
     {
         if (StartedAt == null) return null;

@@ -988,6 +988,133 @@ public class ProductDeploymentTests
 
     #endregion
 
+    #region Health Sync
+
+    [Fact]
+    public void SyncStackHealth_WhenRunning_UpdatesStackToFailed()
+    {
+        var pd = CreateRunningDeployment(2);
+        pd.Status.Should().Be(ProductDeploymentStatus.Running);
+
+        var changed = pd.SyncStackHealth("stack-0", StackDeploymentStatus.Failed, "Container crashed");
+
+        changed.Should().BeTrue();
+        pd.Stacks.First(s => s.StackName == "stack-0").Status.Should().Be(StackDeploymentStatus.Failed);
+    }
+
+    [Fact]
+    public void SyncStackHealth_WhenPartiallyRunning_UpdatesStackToRunning()
+    {
+        var pd = CreatePartiallyRunningDeployment();
+        pd.Status.Should().Be(ProductDeploymentStatus.PartiallyRunning);
+
+        var changed = pd.SyncStackHealth("stack-1", StackDeploymentStatus.Running);
+
+        changed.Should().BeTrue();
+        pd.Stacks.First(s => s.StackName == "stack-1").Status.Should().Be(StackDeploymentStatus.Running);
+    }
+
+    [Fact]
+    public void SyncStackHealth_SameStatus_ReturnsFalse()
+    {
+        var pd = CreateRunningDeployment(2);
+
+        var changed = pd.SyncStackHealth("stack-0", StackDeploymentStatus.Running);
+
+        changed.Should().BeFalse();
+    }
+
+    [Fact]
+    public void SyncStackHealth_WhenDeploying_IgnoresSync()
+    {
+        var pd = CreateTestDeployment(2);
+        pd.Status.Should().Be(ProductDeploymentStatus.Deploying);
+
+        var changed = pd.SyncStackHealth("stack-0", StackDeploymentStatus.Running);
+
+        changed.Should().BeFalse();
+    }
+
+    [Fact]
+    public void SyncStackHealth_UnknownStack_ReturnsFalse()
+    {
+        var pd = CreateRunningDeployment(2);
+
+        var changed = pd.SyncStackHealth("nonexistent", StackDeploymentStatus.Failed);
+
+        changed.Should().BeFalse();
+    }
+
+    [Fact]
+    public void SyncStackHealth_CaseInsensitive()
+    {
+        var pd = CreateRunningDeployment(2);
+
+        var changed = pd.SyncStackHealth("STACK-0", StackDeploymentStatus.Failed, "Crashed");
+
+        changed.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RecalculateProductStatus_AllRunning_TransitionsToRunning()
+    {
+        var pd = CreatePartiallyRunningDeployment();
+        pd.Status.Should().Be(ProductDeploymentStatus.PartiallyRunning);
+
+        pd.SyncStackHealth("stack-1", StackDeploymentStatus.Running);
+        var changed = pd.RecalculateProductStatus();
+
+        changed.Should().BeTrue();
+        pd.Status.Should().Be(ProductDeploymentStatus.Running);
+        pd.ErrorMessage.Should().BeNull();
+    }
+
+    [Fact]
+    public void RecalculateProductStatus_MixedStatus_TransitionsToPartiallyRunning()
+    {
+        var pd = CreateRunningDeployment(2);
+
+        pd.SyncStackHealth("stack-0", StackDeploymentStatus.Failed, "Crashed");
+        var changed = pd.RecalculateProductStatus();
+
+        changed.Should().BeTrue();
+        pd.Status.Should().Be(ProductDeploymentStatus.PartiallyRunning);
+    }
+
+    [Fact]
+    public void RecalculateProductStatus_NoChange_ReturnsFalse()
+    {
+        var pd = CreateRunningDeployment(2);
+
+        var changed = pd.RecalculateProductStatus();
+
+        changed.Should().BeFalse();
+    }
+
+    [Fact]
+    public void RecalculateProductStatus_WhenNotOperational_ReturnsFalse()
+    {
+        var pd = CreateTestDeployment(2);
+
+        var changed = pd.RecalculateProductStatus();
+
+        changed.Should().BeFalse();
+    }
+
+    [Fact]
+    public void RecalculateProductStatus_RecordsPhaseHistory()
+    {
+        var pd = CreateRunningDeployment(2);
+        var initialPhaseCount = pd.PhaseHistory.Count;
+
+        pd.SyncStackHealth("stack-0", StackDeploymentStatus.Failed, "Crashed");
+        pd.RecalculateProductStatus();
+
+        pd.PhaseHistory.Count.Should().BeGreaterThan(initialPhaseCount);
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static List<StackDeploymentConfig> CreateStackConfigs(int count)
