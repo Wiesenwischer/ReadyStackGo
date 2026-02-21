@@ -110,6 +110,9 @@ public class Program
         // Deployment Recovery Service - handles stuck deployments on startup (v0.15)
         builder.Services.AddHostedService<DeploymentRecoveryService>();
 
+        // Product Deployment Health Sync Service - eventual consistency between aggregates
+        builder.Services.AddHostedService<ProductDeploymentHealthSyncService>();
+
         // Certificate Renewal Background Service (v0.16)
         builder.Services.Configure<CertificateRenewalOptions>(
             builder.Configuration.GetSection(CertificateRenewalOptions.SectionName));

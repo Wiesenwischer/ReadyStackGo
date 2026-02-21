@@ -1,0 +1,553 @@
+---
+title: Product Deployment
+description: Deploy entire products with all stacks in a single operation
+---
+
+With multi-stack products like microservices architectures with 10+ stacks, each stack previously had to be deployed individually. **Product Deployment** rolls out the entire product in one operation — with shared variables, progress tracking, and coordinated lifecycle management.
+
+## Overview
+
+| Aspect | Single Stack Deployment | Product Deployment |
+|--------|------------------------|-------------------|
+| **Deploy** | One stack per operation | All stacks of a product at once |
+| **Variables** | Configure per stack individually | Shared Variables once, then per stack |
+| **Progress** | One stack with its own session | One SessionId, N stacks with overall progress |
+| **Status** | No aggregated status | `ProductDeploymentStatus` with state machine |
+| **Error Handling** | Stack-individual | `ContinueOnError` — continue on partial failures |
+
+---
+
+## Step by Step: Deploy a Product
+
+This guide walks you through the complete workflow for deploying a multi-stack product via the web interface.
+
+### Step 1: Find the Product in the Catalog
+
+Navigate to the **Stack Catalog**. Multi-stack products are displayed with a badge showing the number of included stacks (e.g., "2 stacks").
+
+![Multi-stack product in catalog with stack badge](/images/docs/product-deploy-01-catalog.png)
+
+---
+
+### Step 2: View Product Details
+
+Click **View Details** to open the product detail page. Here you can see all included stacks with their descriptions and the **Deploy All** button.
+
+![Product detail page with stack overview and Deploy All button](/images/docs/product-deploy-02-detail.png)
+
+:::tip[Per-Stack Deployment Status]
+If a product is already deployed, the detail page shows the status of each individual stack — including health indicators and version information.
+:::
+
+---
+
+### Step 3: Configure the Deployment
+
+After clicking **Deploy All**, you reach the configuration page. Here you configure:
+
+- **Shared Variables** — Values passed to all stacks (e.g., log level, database host)
+- **Stack Configuration** — Per-stack variables can be customized individually (accordion view)
+- **Continue on Error** — Determines whether remaining stacks are deployed even if one fails
+
+![Deployment configuration page with shared variables and stack configuration](/images/docs/product-deploy-03-configure.png)
+
+The sidebar shows a summary with **Product Info** and the **Deploy All Stacks** button.
+
+---
+
+### Step 4: Track Deployment Progress (Split-View)
+
+After clicking **Deploy All Stacks**, the view switches to **split-view mode**:
+
+- **Left**: Compact stack list with real-time status indicators (Pending, Deploying, Running, Failed)
+- **Right**: Detailed progress panel for the selected stack — progress bar, service counters, init container logs
+
+![Split-view deployment progress with stack list and detail panel](/images/docs/product-deploy-04-deploying.png)
+
+Stacks are deployed **sequentially**. The currently running stack is selected automatically. You can click on any stack at any time to inspect its progress or result.
+
+:::note[Real-Time Updates]
+The progress display is updated in real-time via SignalR. The connection status is shown by a colored dot: green = connected, yellow = connecting/reconnecting, red = unavailable.
+:::
+
+---
+
+### Step 5: Review the Result
+
+After deployment completes, the result is displayed — either **Product Deployed Successfully** or **Deployment Failed** with per-stack details.
+
+![Deployment result with per-stack outcomes](/images/docs/product-deploy-05-result.png)
+
+From here you can navigate directly to the **Deployments** page.
+
+---
+
+### Step 6: Manage Deployments
+
+On the **Deployments** page, the individual stack deployments of the product appear. Each stack can be managed separately (logs, redeploy, etc.).
+
+![Deployments page showing deployed product stacks](/images/docs/product-deploy-06-deployments.png)
+
+---
+
+### Step 7: Status on the Product Detail Page
+
+When you return to the catalog and open the product detail page again, you'll see the **Deployment Status** for each individual stack — including health checks.
+
+![Product detail page with per-stack deployment status](/images/docs/product-deploy-07-status.png)
+
+---
+
+## Concept: Two-Level Architecture
+
+Product Deployment operates on two levels:
+
+1. **ProductDeployment** (Aggregate Root) — coordinates all stacks, tracks overall status
+2. **Deployment** (per stack) — existing stack deployment logic with container operations
+
+```
+┌─────────────────────────────────────────────┐
+│ ProductDeployment                            │
+│ Status: Running │ Version: 3.1.0             │
+│                                              │
+│ ┌─ Stack: infrastructure (Order: 0) ───┐     │
+│ │ Status: Running                      │──→  Deployment (infra-stack)
+│ └──────────────────────────────────────┘     │
+│                                              │
+│ ┌─ Stack: identity-access (Order: 1) ──┐     │
+│ │ Status: Running                      │──→  Deployment (identity-stack)
+│ └──────────────────────────────────────┘     │
+│                                              │
+│ ┌─ Stack: business (Order: 2) ─────────┐     │
+│ │ Status: Running                      │──→  Deployment (business-stack)
+│ └──────────────────────────────────────┘     │
+└─────────────────────────────────────────────┘
+```
+
+Stacks are deployed **sequentially** in manifest order — this respects dependencies between stacks (e.g., database before application server).
+
+---
+
+## Status Lifecycle
+
+Product Deployments transition through these statuses:
+
+```
+Deploying ──→ Running              (all stacks successful)
+          ──→ PartiallyRunning     (some stacks failed)
+          ──→ Failed               (all stacks failed)
+
+Running ──→ Upgrading ──→ Running / PartiallyRunning / Failed
+        ──→ Removing  ──→ Removed (terminal)
+
+Failed ──→ Upgrading (retry with new version)
+       ──→ Removing  (cleanup)
+```
+
+| Status | Meaning |
+|--------|---------|
+| `Deploying` | Deployment in progress, stacks being rolled out sequentially |
+| `Running` | All stacks successfully deployed and active |
+| `PartiallyRunning` | Some stacks running, others failed |
+| `Failed` | Deployment completely failed |
+| `Upgrading` | Upgrade to a new version in progress |
+| `Removing` | All stacks being removed |
+| `Removed` | All stacks removed (terminal state) |
+
+---
+
+## Variable Configuration
+
+Product Deployment supports a three-tier variable system:
+
+1. **Stack Defaults** — default values defined in the stack definition
+2. **Shared Variables** — product-wide variables (e.g., database host)
+3. **Per-Stack Overrides** — stack-specific overrides
+
+Priority (ascending): Stack Defaults → Shared Variables → Per-Stack Overrides.
+
+:::tip[Shared Variables]
+Set commonly used values like database connections or API URLs as Shared Variables. These are automatically passed to all stacks and can be overridden per stack when needed.
+:::
+
+---
+
+## API Endpoints
+
+### POST /api/environments/{environmentId}/product-deployments
+
+Starts a new Product Deployment. All stacks of the product are deployed sequentially.
+
+**Permission:** `Deployments.Create`
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `productId` | string | Yes | Product ID from the catalog (e.g., `stacks:myproduct:1.0.0`) |
+| `stackConfigs` | array | Yes | Configuration for each stack |
+| `stackConfigs[].stackId` | string | Yes | Stack ID from the catalog |
+| `stackConfigs[].deploymentStackName` | string | Yes | Name for the deployment |
+| `stackConfigs[].variables` | object | No | Stack-specific variables |
+| `sharedVariables` | object | No | Product-wide shared variables |
+| `sessionId` | string | No | Client-generated session ID for SignalR tracking |
+| `continueOnError` | boolean | No | Continue on error (default: `true`) |
+
+```json
+{
+  "productId": "stacks:ams.project:3.1.0",
+  "stackConfigs": [
+    {
+      "stackId": "stacks:ams.project:infrastructure:3.1.0",
+      "deploymentStackName": "ams-infra",
+      "variables": {
+        "DB_PASSWORD": "secret123"
+      }
+    },
+    {
+      "stackId": "stacks:ams.project:identity:3.1.0",
+      "deploymentStackName": "ams-identity",
+      "variables": {}
+    },
+    {
+      "stackId": "stacks:ams.project:business:3.1.0",
+      "deploymentStackName": "ams-business",
+      "variables": {}
+    }
+  ],
+  "sharedVariables": {
+    "DB_HOST": "postgres.local",
+    "REDIS_URL": "redis://cache:6379"
+  },
+  "continueOnError": true
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "productDeploymentId": "a1b2c3d4-...",
+  "productName": "ams.project",
+  "productVersion": "3.1.0",
+  "status": "Running",
+  "sessionId": "product-ams.project-20260217120000000",
+  "stackResults": [
+    {
+      "stackName": "infrastructure",
+      "stackDisplayName": "Infrastructure",
+      "success": true,
+      "deploymentId": "d1e2f3...",
+      "deploymentStackName": "ams-infra",
+      "serviceCount": 3
+    },
+    {
+      "stackName": "identity",
+      "stackDisplayName": "Identity Access",
+      "success": true,
+      "deploymentId": "g4h5i6...",
+      "deploymentStackName": "ams-identity",
+      "serviceCount": 2
+    }
+  ]
+}
+```
+
+**Error Response (400) — Product not found:**
+
+```json
+{
+  "success": false,
+  "message": "Product 'nonexistent:product:1.0.0' not found in catalog."
+}
+```
+
+---
+
+### GET /api/environments/{environmentId}/product-deployments
+
+Lists all Product Deployments in an environment (excluding `Removed`).
+
+**Permission:** `Deployments.Read`
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "productDeployments": [
+    {
+      "productDeploymentId": "a1b2c3d4-...",
+      "productGroupId": "stacks:ams.project",
+      "productName": "ams.project",
+      "productDisplayName": "AMS Project",
+      "productVersion": "3.1.0",
+      "status": "Running",
+      "createdAt": "2026-02-17T12:00:00Z",
+      "completedAt": "2026-02-17T12:05:30Z",
+      "totalStacks": 3,
+      "completedStacks": 3,
+      "failedStacks": 0,
+      "canUpgrade": true,
+      "canRemove": true
+    }
+  ]
+}
+```
+
+---
+
+### GET /api/environments/{environmentId}/product-deployments/{id}
+
+Returns a specific Product Deployment with full stack details.
+
+**Permission:** `Deployments.Read`
+
+**Response (200):**
+
+```json
+{
+  "productDeploymentId": "a1b2c3d4-...",
+  "environmentId": "env-123",
+  "productGroupId": "stacks:ams.project",
+  "productId": "stacks:ams.project:3.1.0",
+  "productName": "ams.project",
+  "productDisplayName": "AMS Project",
+  "productVersion": "3.1.0",
+  "status": "Running",
+  "createdAt": "2026-02-17T12:00:00Z",
+  "completedAt": "2026-02-17T12:05:30Z",
+  "continueOnError": true,
+  "totalStacks": 3,
+  "completedStacks": 3,
+  "failedStacks": 0,
+  "upgradeCount": 0,
+  "canUpgrade": true,
+  "canRemove": true,
+  "durationSeconds": 330.5,
+  "stacks": [
+    {
+      "stackName": "infrastructure",
+      "stackDisplayName": "Infrastructure",
+      "stackId": "stacks:ams.project:infrastructure:3.1.0",
+      "deploymentId": "d1e2f3...",
+      "deploymentStackName": "ams-infra",
+      "status": "Running",
+      "startedAt": "2026-02-17T12:00:01Z",
+      "completedAt": "2026-02-17T12:02:15Z",
+      "order": 0,
+      "serviceCount": 3,
+      "isNewInUpgrade": false
+    }
+  ],
+  "sharedVariables": {
+    "DB_HOST": "postgres.local",
+    "REDIS_URL": "redis://cache:6379"
+  }
+}
+```
+
+---
+
+### GET /api/environments/{environmentId}/product-deployments/by-product/{groupId}
+
+Returns the active Product Deployment for a specific Product Group.
+
+**Permission:** `Deployments.Read`
+
+The response has the same format as `GET .../{id}`.
+
+:::note
+`groupId` is the logical product identifier without version, e.g., `stacks:ams.project`. The most recent non-removed deployment is always returned.
+:::
+
+---
+
+### POST /api/environments/{environmentId}/product-deployments/{id}/upgrade
+
+Upgrades a running Product Deployment to a new version. All stacks are upgraded sequentially with variable merging from the existing deployment.
+
+**Permission:** `Deployments.Write`
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `targetProductId` | string | Yes | Product ID of the target version (e.g., `stacks:myproduct:2.0.0`) |
+| `stackConfigs` | array | Yes | Configuration for each stack in the target version |
+| `stackConfigs[].stackId` | string | Yes | Stack ID from the target product |
+| `stackConfigs[].deploymentStackName` | string | Yes | Name for the deployment |
+| `stackConfigs[].variables` | object | No | Stack-specific variable overrides |
+| `sharedVariables` | object | No | New shared variables for the upgrade |
+| `sessionId` | string | No | Client-generated session ID for SignalR tracking |
+| `continueOnError` | boolean | No | Continue on error (default: `true`) |
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "productDeploymentId": "new-id-...",
+  "productName": "ams.project",
+  "previousVersion": "3.1.0",
+  "newVersion": "4.0.0",
+  "status": "Running",
+  "sessionId": "product-upgrade-ams.project-20260217...",
+  "stackResults": [
+    {
+      "stackName": "infrastructure",
+      "stackDisplayName": "Infrastructure",
+      "success": true,
+      "deploymentId": "d1e2f3...",
+      "serviceCount": 3,
+      "isNewInUpgrade": false
+    }
+  ]
+}
+```
+
+:::note
+During upgrades, existing variable values from the current deployment are preserved. The variable merge priority is: Stack Defaults → Existing Values → Shared Variables → Per-Stack Overrides. New stacks added in the target version are marked with `isNewInUpgrade: true`.
+:::
+
+---
+
+### GET /api/environments/{environmentId}/product-deployments/{id}/upgrade/check
+
+Checks whether an upgrade is available for a Product Deployment by comparing the deployed version against the catalog.
+
+**Permission:** `Deployments.Read`
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "upgradeAvailable": true,
+  "currentVersion": "3.1.0",
+  "latestVersion": "4.0.0",
+  "latestProductId": "stacks:ams.project:4.0.0",
+  "availableVersions": [
+    {
+      "version": "4.0.0",
+      "productId": "stacks:ams.project:4.0.0",
+      "sourceId": "stacks",
+      "stackCount": 4
+    },
+    {
+      "version": "3.2.0",
+      "productId": "stacks:ams.project:3.2.0",
+      "sourceId": "stacks",
+      "stackCount": 3
+    }
+  ],
+  "newStacks": ["monitoring"],
+  "removedStacks": [],
+  "canUpgrade": true
+}
+```
+
+---
+
+### DELETE /api/environments/{environmentId}/product-deployments/{id}
+
+Removes a Product Deployment and all its stacks. Stacks are removed in **reverse** manifest order (dependencies last).
+
+**Permission:** `Deployments.Delete`
+
+**Request (optional body):**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `sessionId` | string | No | Client-generated session ID for SignalR tracking |
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "productDeploymentId": "a1b2c3d4-...",
+  "productName": "ams.project",
+  "status": "Removed",
+  "sessionId": "product-remove-ams.project-20260217...",
+  "stackResults": [
+    {
+      "stackName": "business",
+      "stackDisplayName": "Business",
+      "success": true,
+      "serviceCount": 4
+    },
+    {
+      "stackName": "identity",
+      "stackDisplayName": "Identity Access",
+      "success": true,
+      "serviceCount": 2
+    },
+    {
+      "stackName": "infrastructure",
+      "stackDisplayName": "Infrastructure",
+      "success": true,
+      "serviceCount": 3
+    }
+  ]
+}
+```
+
+:::caution
+Removal always continues even if individual stack removals fail. The aggregate transitions to `Removed` regardless — failed Docker removals are reported in `stackResults` but do not prevent the state transition.
+:::
+
+---
+
+## Health Sync
+
+A background service periodically synchronizes the `ProductDeployment` status with the underlying `Deployment` aggregates. This corrects drift when containers crash or recover outside of ReadyStackGo's orchestration (e.g., Docker restarts a container).
+
+- **Sync interval**: every 60 seconds (after a 20-second initial delay)
+- **Scope**: only `Running` and `PartiallyRunning` deployments
+- **Transitions**: `Running` → `PartiallyRunning` (if a stack fails) and `PartiallyRunning` → `Running` (if all stacks recover)
+
+---
+
+## Real-Time Progress via SignalR
+
+During deployment, ReadyStackGo sends real-time updates via SignalR:
+
+1. **Before each stack**: Progress message with stack index and total count
+2. **During each stack**: Service-level progress (from existing Stack Deployment)
+3. **On completion**: Overall result with status message
+
+Connect via the `DeploymentHub` and subscribe to the session ID:
+
+```javascript
+const connection = new signalR.HubConnectionBuilder()
+  .withUrl("/deploymentHub")
+  .build();
+
+connection.on("DeploymentProgress", (data) => {
+  console.log(`${data.phase}: ${data.message} (${data.percentComplete}%)`);
+});
+
+await connection.start();
+await connection.invoke("SubscribeToDeployment", sessionId);
+```
+
+---
+
+## Error Handling
+
+| HTTP Status | Meaning |
+|-------------|---------|
+| 200 | Success |
+| 400 | Invalid request (product not found, active deployment exists, empty stack configuration) |
+| 401 | Not authenticated |
+| 403 | Not authorized (missing permission) |
+| 404 | Product Deployment not found (for GET requests) |
+
+### ContinueOnError Behavior
+
+| `continueOnError` | On Stack Failure |
+|-------------------|-----------------|
+| `true` (default) | Next stack is deployed anyway. Final status: `PartiallyRunning` |
+| `false` | Deployment is aborted. Remaining stacks stay on `Pending`. Final status: `Failed` |

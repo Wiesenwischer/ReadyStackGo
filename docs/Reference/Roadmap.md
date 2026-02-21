@@ -184,6 +184,31 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Volume Details (Size, Mount Points, Labels, Container References)
   - Create/Delete Volumes with Driver Selection
   - Orphaned Volume Detection and Bulk Cleanup
+- **v0.26** – Container Management Improvements (2026-02-17)
+  - Container Remove Action with Force Flag and Safety Checks
+  - Container Context Endpoint (Stack/Product/Deployment Resolution)
+  - Three Container Views (List, Stack-Grouped, Product-Grouped)
+  - Orphaned Container Detection (RSGO-Labeled Without Active Deployment)
+  - Unmanaged Container Group (External Containers Without RSGO Labels)
+  - Dedicated Delete Confirmation Pages (Stack Sources, Environments)
+  - ams.project Stack Source in Curated Registry
+  - External Network Auto-Creation for Multi-Stack Products
+- **v0.27** – Product Deployment (2026-02-21)
+  - ProductDeployment Aggregate Root with ProductStackDeployment Child Entities
+  - Product-Level State Machine (Deploying → Running / PartiallyRunning / Failed → Removing → Removed)
+  - Deploy Product Flow (Orchestrated N-Stack Deployment with Shared Variable Wizard)
+  - Upgrade Product Flow (Cross-Stack Version Upgrade with Variable Merging)
+  - Check Upgrade Availability (Catalog Version Comparison with New/Removed Stack Detection)
+  - Remove Product Flow (Reverse-Order Multi-Stack Removal)
+  - Product Deployment Status in Catalog (Per-Stack Deploy State on ProductDetail)
+  - SignalR Multi-Stack Progress (Per-Stack + Overall Progress Events)
+  - Health-Sync Background Service (Eventual Consistency Between Product and Stack Status)
+  - ContinueOnError Flag for Partial Failure Tolerance
+  - Three-Tier Variable System (Stack Defaults → Shared Variables → Per-Stack Overrides)
+  - Split-View Deployment Progress (Per-Stack Progress Bar, Service Counters, Init Container Logs)
+  - Shared DeploymentProgressPanel Component (Extracted from Single-Stack Deployment)
+  - Product Deployment E2E Tests with Multi-Stack Test Product
+  - Step-by-Step Documentation with Screenshots (DE/EN)
 
 ---
 

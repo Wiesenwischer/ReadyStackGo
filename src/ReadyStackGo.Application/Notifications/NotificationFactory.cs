@@ -63,6 +63,53 @@ public static class NotificationFactory
         };
     }
 
+    public static Notification CreateProductDeploymentResult(
+        bool success, string operation, string productName, string productVersion,
+        int totalStacks, int completedStacks, int failedStacks,
+        string? message = null, string? productDeploymentId = null)
+    {
+        var severity = success
+            ? NotificationSeverity.Success
+            : failedStacks > 0 && completedStacks > 0
+                ? NotificationSeverity.Warning
+                : NotificationSeverity.Error;
+
+        var op = char.ToUpper(operation[0]) + operation[1..];
+        var title = success ? $"Product {op} Successful" : $"Product {op} Failed";
+
+        var body = message ?? (success
+            ? $"Product '{productName}' v{productVersion} was successfully {GetPastTense(operation)} ({totalStacks} stacks)."
+            : $"Failed to {operation} product '{productName}' v{productVersion}. {completedStacks}/{totalStacks} stacks succeeded, {failedStacks} failed.");
+
+        var metadata = new Dictionary<string, string>
+        {
+            ["operation"] = operation,
+            ["productName"] = productName,
+            ["productVersion"] = productVersion,
+            ["totalStacks"] = totalStacks.ToString(),
+            ["completedStacks"] = completedStacks.ToString(),
+            ["failedStacks"] = failedStacks.ToString()
+        };
+
+        string? actionUrl = null;
+        if (!string.IsNullOrEmpty(productDeploymentId))
+        {
+            metadata["productDeploymentId"] = productDeploymentId;
+            actionUrl = $"/product-deployments/{productDeploymentId}";
+        }
+
+        return new Notification
+        {
+            Type = NotificationType.ProductDeploymentResult,
+            Title = title,
+            Message = body,
+            Severity = severity,
+            ActionUrl = actionUrl,
+            ActionLabel = actionUrl != null ? "View Product Deployment" : null,
+            Metadata = metadata
+        };
+    }
+
     private static (NotificationSeverity Severity, string Title, string Message) ResolveSyncSeverity(
         bool success, int stacksLoaded, int sourcesSynced,
         IReadOnlyList<string> errors, IReadOnlyList<string> warnings,

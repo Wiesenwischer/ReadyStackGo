@@ -1,15 +1,26 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, Link } from "react-router";
+import { useParams, Link, useNavigate } from "react-router";
 import { getProduct, type Product, type ProductStack } from "../../api/stacks";
+import {
+  getProductDeploymentByProduct,
+  checkProductUpgrade,
+  type GetProductDeploymentResponse,
+  type ProductStackDeploymentDto,
+} from "../../api/deployments";
 import { useEnvironment } from "../../context/EnvironmentContext";
 
 export default function ProductDetail() {
   const { productId } = useParams<{ productId: string }>();
   const { activeEnvironment } = useEnvironment();
 
+  const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Product deployment status
+  const [productDeployment, setProductDeployment] = useState<GetProductDeploymentResponse | null>(null);
+  const [upgradeAvailable, setUpgradeAvailable] = useState(false);
 
   const loadProduct = useCallback(async () => {
     if (!productId) {
@@ -34,9 +45,60 @@ export default function ProductDetail() {
     loadProduct();
   }, [loadProduct]);
 
+  // Check for active product deployment and upgrade availability
+  useEffect(() => {
+    if (!product || !activeEnvironment) {
+      setProductDeployment(null);
+      setUpgradeAvailable(false);
+      return;
+    }
+
+    const checkDeploymentStatus = async () => {
+      try {
+        const deployment = await getProductDeploymentByProduct(
+          activeEnvironment.id,
+          product.groupId
+        );
+        setProductDeployment(deployment);
+
+        // Check if upgrade is available
+        if (deployment.canUpgrade) {
+          try {
+            const upgradeCheck = await checkProductUpgrade(
+              activeEnvironment.id,
+              deployment.productDeploymentId
+            );
+            setUpgradeAvailable(upgradeCheck.upgradeAvailable && upgradeCheck.canUpgrade);
+          } catch {
+            setUpgradeAvailable(false);
+          }
+        }
+      } catch {
+        // No active deployment for this product — that's fine
+        setProductDeployment(null);
+        setUpgradeAvailable(false);
+      }
+    };
+
+    checkDeploymentStatus();
+  }, [product, activeEnvironment]);
+
   const handleDeployAll = () => {
-    // TODO: Implement deploy all stacks
-    alert('Deploy all stacks coming soon! For now, deploy each stack individually.');
+    if (product) {
+      navigate(`/deploy-product/${encodeURIComponent(product.id)}`);
+    }
+  };
+
+  const handleUpgradeAll = () => {
+    if (productDeployment) {
+      navigate(`/upgrade-product/${productDeployment.productDeploymentId}`);
+    }
+  };
+
+  const handleRemoveAll = () => {
+    if (productDeployment) {
+      navigate(`/remove-product/${productDeployment.productDeploymentId}`);
+    }
   };
 
   if (loading) {
@@ -147,18 +209,67 @@ export default function ProductDetail() {
             )}
           </div>
 
-          {product.stacks.length > 1 && (
-            <button
-              onClick={handleDeployAll}
-              disabled={!activeEnvironment}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              Deploy All Stacks
-            </button>
-          )}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {/* Deployed status badge */}
+            {productDeployment && (
+              <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium whitespace-nowrap ${
+                productDeployment.status === 'Running'
+                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                  : productDeployment.status === 'PartiallyRunning'
+                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                    : productDeployment.status === 'Failed'
+                      ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                      : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+              }`}>
+                {productDeployment.status === 'Running' ? 'Deployed' :
+                 productDeployment.status === 'PartiallyRunning' ? 'Partially Running' :
+                 productDeployment.status}
+                {productDeployment.productVersion && ` v${productDeployment.productVersion}`}
+              </span>
+            )}
+
+            {/* Upgrade button (when deployed + upgrade available) */}
+            {upgradeAvailable && productDeployment && (
+              <button
+                onClick={handleUpgradeAll}
+                disabled={!activeEnvironment}
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-6 py-3 text-center font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                </svg>
+                Upgrade All Stacks
+              </button>
+            )}
+
+            {/* Remove button (when deployed + can remove) */}
+            {productDeployment?.canRemove && (
+              <button
+                onClick={handleRemoveAll}
+                disabled={!activeEnvironment}
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-red-600 px-6 py-3 text-center font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Remove All Stacks
+              </button>
+            )}
+
+            {/* Deploy button (when not deployed) */}
+            {!productDeployment && (
+              <button
+                onClick={handleDeployAll}
+                disabled={!activeEnvironment}
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                Deploy All Stacks
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -185,13 +296,20 @@ export default function ProductDetail() {
 
         <div className="border-t border-gray-200 dark:border-gray-700 p-4">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {product.stacks.map((stack) => (
-              <StackCard
-                key={stack.id}
-                stack={stack}
-                disabled={!activeEnvironment}
-              />
-            ))}
+            {product.stacks.map((stack) => {
+              const stackDeployment = productDeployment?.stacks.find(
+                (s) => s.stackId === stack.id || s.stackName === stack.name.toLowerCase()
+              );
+              return (
+                <StackCard
+                  key={stack.id}
+                  stack={stack}
+                  disabled={!activeEnvironment}
+                  stackDeployment={stackDeployment}
+                  isProductDeployed={!!productDeployment}
+                />
+              );
+            })}
           </div>
         </div>
       </div>
@@ -203,9 +321,11 @@ export default function ProductDetail() {
 interface StackCardProps {
   stack: ProductStack;
   disabled: boolean;
+  stackDeployment?: ProductStackDeploymentDto;
+  isProductDeployed: boolean;
 }
 
-function StackCard({ stack, disabled }: StackCardProps) {
+function StackCard({ stack, disabled, stackDeployment, isProductDeployed }: StackCardProps) {
   const [showServices, setShowServices] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -247,24 +367,31 @@ function StackCard({ stack, disabled }: StackCardProps) {
             <h3 className="font-semibold text-gray-900 dark:text-white">
               {stack.name}
             </h3>
+            {stackDeployment?.deploymentStackName && (
+              <p className="text-xs font-mono text-gray-500 dark:text-gray-400">
+                {stackDeployment.deploymentStackName}
+              </p>
+            )}
             {stack.description && (
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
                 {stack.description}
               </p>
             )}
           </div>
-          {disabled ? (
+          {stackDeployment ? (
+            <StackStatusBadge status={stackDeployment.status} />
+          ) : disabled ? (
             <span className="ml-3 rounded bg-gray-300 px-4 py-2 text-sm font-medium text-gray-500 cursor-not-allowed">
               Deploy
             </span>
-          ) : (
+          ) : !isProductDeployed ? (
             <Link
               to={`/deploy/${encodeURIComponent(stack.id)}`}
               className="ml-3 rounded bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
             >
               Deploy
             </Link>
-          )}
+          ) : null}
         </div>
 
         {/* Stats */}
@@ -344,6 +471,49 @@ function StackCard({ stack, disabled }: StackCardProps) {
         </div>
       )}
     </div>
+  );
+}
+
+// Status badge for a deployed stack
+function StackStatusBadge({ status }: { status: string }) {
+  const config: Record<string, { bg: string; text: string; label: string }> = {
+    Running: {
+      bg: 'bg-green-100 dark:bg-green-900/30',
+      text: 'text-green-800 dark:text-green-300',
+      label: 'Running',
+    },
+    Failed: {
+      bg: 'bg-red-100 dark:bg-red-900/30',
+      text: 'text-red-800 dark:text-red-300',
+      label: 'Failed',
+    },
+    Deploying: {
+      bg: 'bg-blue-100 dark:bg-blue-900/30',
+      text: 'text-blue-800 dark:text-blue-300',
+      label: 'Deploying',
+    },
+    Pending: {
+      bg: 'bg-gray-100 dark:bg-gray-700',
+      text: 'text-gray-700 dark:text-gray-300',
+      label: 'Pending',
+    },
+    Removed: {
+      bg: 'bg-gray-100 dark:bg-gray-700',
+      text: 'text-gray-500 dark:text-gray-400',
+      label: 'Removed',
+    },
+  };
+
+  const { bg, text, label } = config[status] ?? {
+    bg: 'bg-gray-100 dark:bg-gray-700',
+    text: 'text-gray-700 dark:text-gray-300',
+    label: status,
+  };
+
+  return (
+    <span className={`ml-3 inline-flex items-center rounded px-3 py-1 text-xs font-medium ${bg} ${text}`}>
+      {label}
+    </span>
   );
 }
 

@@ -121,32 +121,32 @@ public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStac
             logCallback,
             cancellationToken);
 
-        // Send final notification
-        if (_notificationService != null)
-        {
-            if (result.Success)
-            {
-                await _notificationService.NotifyCompletedAsync(
-                    sessionId,
-                    result.Message ?? "Deployment completed",
-                    result.Services?.Count ?? 0,
-                    cancellationToken);
-            }
-            else
-            {
-                await _notificationService.NotifyErrorAsync(
-                    sessionId,
-                    result.Message ?? "Deployment failed",
-                    null,
-                    result.Services?.Count ?? 0,
-                    0,
-                    cancellationToken);
-            }
-        }
-
-        // Create in-app notification (unless suppressed by parent handler)
+        // Send final SignalR + in-app notifications (unless suppressed by parent handler,
+        // e.g. during product deployment where the product handler sends its own final event)
         if (!request.SuppressNotification)
         {
+            if (_notificationService != null)
+            {
+                if (result.Success)
+                {
+                    await _notificationService.NotifyCompletedAsync(
+                        sessionId,
+                        result.Message ?? "Deployment completed",
+                        result.Services?.Count ?? 0,
+                        cancellationToken);
+                }
+                else
+                {
+                    await _notificationService.NotifyErrorAsync(
+                        sessionId,
+                        result.Message ?? "Deployment failed",
+                        null,
+                        result.Services?.Count ?? 0,
+                        0,
+                        cancellationToken);
+                }
+            }
+
             await CreateDeploymentNotificationAsync(result, request.StackName, cancellationToken);
         }
 

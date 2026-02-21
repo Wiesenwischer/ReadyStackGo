@@ -22,6 +22,12 @@ public record ProductDetails(
     string Id,
 
     /// <summary>
+    /// Group identifier for version grouping (e.g., "stacks:ams.project").
+    /// Used to look up active product deployments across versions.
+    /// </summary>
+    string GroupId,
+
+    /// <summary>
     /// Source ID where the product comes from
     /// </summary>
     string SourceId,

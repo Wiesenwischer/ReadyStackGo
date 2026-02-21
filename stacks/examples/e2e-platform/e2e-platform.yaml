@@ -1,0 +1,36 @@
+# E2E Test Platform - Multi-Stack Product
+# Two lightweight whoami stacks for end-to-end testing of product deployment
+
+version: "1.0"
+
+metadata:
+  name: E2E Platform
+  productId: e2e.test.platform
+  productVersion: "1.0.0"
+  description: Multi-stack test product for E2E testing
+  category: Testing
+  tags:
+    - e2e
+    - testing
+    - multi-stack
+
+sharedVariables:
+  LOG_LEVEL:
+    label: Log Level
+    description: Shared log level for all services
+    type: Select
+    options:
+      - value: "info"
+        label: Info
+      - value: "debug"
+        label: Debug
+    default: "info"
+    group: General
+    order: 1
+
+stacks:
+  frontend:
+    include: frontend.yaml
+
+  backend:
+    include: backend.yaml

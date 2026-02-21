@@ -8,6 +8,7 @@ using ReadyStackGo.Domain.IdentityAccess.Users;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
+using ReadyStackGo.Domain.Deployment.ProductDeployments;
 using ReadyStackGo.Domain.Deployment.Registries;
 using ReadyStackGo.Domain.StackManagement.Sources;
 using RuntimeConfig = ReadyStackGo.Domain.Deployment.RuntimeConfig;
@@ -31,6 +32,7 @@ public class ReadyStackGoDbContext : DbContext
     public DbSet<Registry> Registries => Set<Registry>();
     public DbSet<StackSource> StackSources => Set<StackSource>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+    public DbSet<ProductDeployment> ProductDeployments => Set<ProductDeployment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -40,5 +42,8 @@ public class ReadyStackGoDbContext : DbContext
 
         // Ignore ServiceHealthCheckConfig - it's stored as JSON, not as a separate entity
         modelBuilder.Ignore<RuntimeConfig.ServiceHealthCheckConfig>();
+
+        // Ignore ProductDeploymentPhaseRecord - it's stored as JSON, not as a separate entity
+        modelBuilder.Ignore<ProductDeploymentPhaseRecord>();
     }
 }
