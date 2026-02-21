@@ -193,7 +193,7 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Dedicated Delete Confirmation Pages (Stack Sources, Environments)
   - ams.project Stack Source in Curated Registry
   - External Network Auto-Creation for Multi-Stack Products
-- **v0.27** – Product Deployment (2026-02-17)
+- **v0.27** – Product Deployment (2026-02-21)
   - ProductDeployment Aggregate Root with ProductStackDeployment Child Entities
   - Product-Level State Machine (Deploying → Running / PartiallyRunning / Failed → Removing → Removed)
   - Deploy Product Flow (Orchestrated N-Stack Deployment with Shared Variable Wizard)
@@ -205,6 +205,10 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Health-Sync Background Service (Eventual Consistency Between Product and Stack Status)
   - ContinueOnError Flag for Partial Failure Tolerance
   - Three-Tier Variable System (Stack Defaults → Shared Variables → Per-Stack Overrides)
+  - Split-View Deployment Progress (Per-Stack Progress Bar, Service Counters, Init Container Logs)
+  - Shared DeploymentProgressPanel Component (Extracted from Single-Stack Deployment)
+  - Product Deployment E2E Tests with Multi-Stack Test Product
+  - Step-by-Step Documentation with Screenshots (DE/EN)
 
 ---
 
