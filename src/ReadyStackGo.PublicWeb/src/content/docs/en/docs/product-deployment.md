@@ -17,6 +17,87 @@ With multi-stack products like microservices architectures with 10+ stacks, each
 
 ---
 
+## Step by Step: Deploy a Product
+
+This guide walks you through the complete workflow for deploying a multi-stack product via the web interface.
+
+### Step 1: Find the Product in the Catalog
+
+Navigate to the **Stack Catalog**. Multi-stack products are displayed with a badge showing the number of included stacks (e.g., "2 stacks").
+
+![Multi-stack product in catalog with stack badge](/images/docs/product-deploy-01-catalog.png)
+
+---
+
+### Step 2: View Product Details
+
+Click **View Details** to open the product detail page. Here you can see all included stacks with their descriptions and the **Deploy All** button.
+
+![Product detail page with stack overview and Deploy All button](/images/docs/product-deploy-02-detail.png)
+
+:::tip[Per-Stack Deployment Status]
+If a product is already deployed, the detail page shows the status of each individual stack — including health indicators and version information.
+:::
+
+---
+
+### Step 3: Configure the Deployment
+
+After clicking **Deploy All**, you reach the configuration page. Here you configure:
+
+- **Shared Variables** — Values passed to all stacks (e.g., log level, database host)
+- **Stack Configuration** — Per-stack variables can be customized individually (accordion view)
+- **Continue on Error** — Determines whether remaining stacks are deployed even if one fails
+
+![Deployment configuration page with shared variables and stack configuration](/images/docs/product-deploy-03-configure.png)
+
+The sidebar shows a summary with **Product Info** and the **Deploy All Stacks** button.
+
+---
+
+### Step 4: Track Deployment Progress (Split-View)
+
+After clicking **Deploy All Stacks**, the view switches to **split-view mode**:
+
+- **Left**: Compact stack list with real-time status indicators (Pending, Deploying, Running, Failed)
+- **Right**: Detailed progress panel for the selected stack — progress bar, service counters, init container logs
+
+![Split-view deployment progress with stack list and detail panel](/images/docs/product-deploy-04-deploying.png)
+
+Stacks are deployed **sequentially**. The currently running stack is selected automatically. You can click on any stack at any time to inspect its progress or result.
+
+:::note[Real-Time Updates]
+The progress display is updated in real-time via SignalR. The connection status is shown by a colored dot: green = connected, yellow = connecting/reconnecting, red = unavailable.
+:::
+
+---
+
+### Step 5: Review the Result
+
+After deployment completes, the result is displayed — either **Product Deployed Successfully** or **Deployment Failed** with per-stack details.
+
+![Deployment result with per-stack outcomes](/images/docs/product-deploy-05-result.png)
+
+From here you can navigate directly to the **Deployments** page.
+
+---
+
+### Step 6: Manage Deployments
+
+On the **Deployments** page, the individual stack deployments of the product appear. Each stack can be managed separately (logs, redeploy, etc.).
+
+![Deployments page showing deployed product stacks](/images/docs/product-deploy-06-deployments.png)
+
+---
+
+### Step 7: Status on the Product Detail Page
+
+When you return to the catalog and open the product detail page again, you'll see the **Deployment Status** for each individual stack — including health checks.
+
+![Product detail page with per-stack deployment status](/images/docs/product-deploy-07-status.png)
+
+---
+
 ## Concept: Two-Level Architecture
 
 Product Deployment operates on two levels:
