@@ -6,13 +6,7 @@ import { type StackDetail, getStack, getProduct, type Product, type ProductVersi
 import VariableInput, { groupVariables } from '../../components/variables/VariableInput';
 import { useDeploymentHub, type DeploymentProgressUpdate, type InitContainerLogEntry } from '../../hooks/useDeploymentHub';
 import { getEnvironmentVariables, saveEnvironmentVariables } from '../../api/environments';
-
-// Format phase names for display (PullingImages -> Pulling Images)
-const formatPhase = (phase: string | undefined): string => {
-  if (!phase) return '';
-  // Insert space before each capital letter (except the first one)
-  return phase.replace(/([A-Z])/g, ' $1').trim();
-};
+import { DeploymentProgressPanel } from '../../components/deployments/DeploymentProgressPanel';
 
 // Parse .env file content and return key-value pairs
 const parseEnvContent = (content: string): Record<string, string> => {
@@ -64,7 +58,6 @@ export default function DeployStack() {
   const deploymentSessionIdRef = useRef<string | null>(null);
   const [progressUpdate, setProgressUpdate] = useState<DeploymentProgressUpdate | null>(null);
   const [initContainerLogs, setInitContainerLogs] = useState<Record<string, string[]>>({});
-  const logEndRef = useRef<HTMLDivElement>(null);
 
   // SignalR hub for real-time deployment progress
   // Use ref to avoid stale closure - the callback may fire before state is updated
@@ -100,11 +93,6 @@ export default function DeployStack() {
     onDeploymentProgress: handleDeploymentProgress,
     onInitContainerLog: handleInitContainerLog,
   });
-
-  // Auto-scroll init container logs to bottom
-  useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [initContainerLogs]);
 
   // Load stack details (only if not custom)
   useEffect(() => {
@@ -444,82 +432,12 @@ export default function DeployStack() {
 
             {/* Progress Section */}
             <div className="w-full max-w-md">
-              {/* Progress Bar */}
-              <div className="mb-4">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600 dark:text-gray-400">
-                    {formatPhase(progressUpdate?.phase) || 'Initializing'}
-                  </span>
-                  <span className="text-gray-600 dark:text-gray-400">
-                    {progressUpdate?.percentComplete ?? 0}%
-                  </span>
-                </div>
-                <div className="h-3 bg-gray-200 rounded-full dark:bg-gray-700 overflow-hidden">
-                  <div
-                    className="h-full bg-brand-600 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${progressUpdate?.percentComplete ?? 0}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Status Message */}
-              <div className="text-center">
-                <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                  {progressUpdate?.message || 'Starting deployment...'}
-                </p>
-
-                {/* Service Progress */}
-                {progressUpdate && (progressUpdate.totalServices > 0 || progressUpdate.totalInitContainers > 0) && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    {progressUpdate.phase === 'PullingImages'
-                      ? `Images: ${progressUpdate.completedServices} / ${progressUpdate.totalServices}`
-                      : progressUpdate.phase === 'InitializingContainers'
-                        ? `Init Containers: ${progressUpdate.completedInitContainers} / ${progressUpdate.totalInitContainers}`
-                        : `Services: ${progressUpdate.completedServices} / ${progressUpdate.totalServices}`
-                    }
-                    {progressUpdate.currentService && (
-                      <span className="ml-2">
-                        (current: <span className="font-mono">{progressUpdate.currentService}</span>)
-                      </span>
-                    )}
-                  </p>
-                )}
-              </div>
-
-              {/* Connection Status */}
-              <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                <span className={`w-2 h-2 rounded-full ${
-                  connectionState === 'connected' ? 'bg-green-500' :
-                  connectionState === 'connecting' ? 'bg-yellow-500' :
-                  connectionState === 'reconnecting' ? 'bg-yellow-500' :
-                  'bg-red-500'
-                }`} />
-                {connectionState === 'connected' ? 'Live updates' :
-                 connectionState === 'connecting' ? 'Connecting...' :
-                 connectionState === 'reconnecting' ? 'Reconnecting...' :
-                 'Updates unavailable'}
-              </div>
+              <DeploymentProgressPanel
+                progressUpdate={progressUpdate}
+                initContainerLogs={initContainerLogs}
+                connectionState={connectionState}
+              />
             </div>
-
-            {/* Init Container Logs - full width */}
-            {Object.keys(initContainerLogs).length > 0 && (
-              <div className="mt-6 w-full">
-                <div className="px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-t-lg">
-                  Init Container Logs
-                </div>
-                <div className="bg-gray-900 rounded-b-lg p-3 max-h-80 overflow-y-auto">
-                  {Object.entries(initContainerLogs).map(([name, lines]) => (
-                    <div key={name} className="mb-2 last:mb-0">
-                      <div className="text-xs font-bold text-blue-400 mb-1">{name}</div>
-                      {lines.map((line, i) => (
-                        <div key={i} className="font-mono text-xs text-green-400 whitespace-pre-wrap break-all leading-relaxed">{line}</div>
-                      ))}
-                    </div>
-                  ))}
-                  <div ref={logEndRef} />
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>

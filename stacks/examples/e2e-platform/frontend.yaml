@@ -1,0 +1,30 @@
+# E2E Platform - Frontend Stack
+
+metadata:
+  name: Frontend
+
+variables:
+  FRONTEND_PORT:
+    label: Frontend Port
+    description: Port for the frontend service
+    type: Port
+    default: "8091"
+    group: Network
+    order: 1
+
+  FRONTEND_NAME:
+    label: Frontend Name
+    description: Name displayed by the frontend service
+    type: String
+    default: e2e-frontend
+    group: General
+    order: 2
+
+services:
+  frontend:
+    image: traefik/whoami:v1.11
+    ports:
+      - "${FRONTEND_PORT}:80"
+    environment:
+      WHOAMI_NAME: ${FRONTEND_NAME}
+      LOG_LEVEL: ${LOG_LEVEL}
