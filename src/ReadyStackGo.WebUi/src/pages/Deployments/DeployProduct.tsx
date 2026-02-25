@@ -915,26 +915,11 @@ export default function DeployProduct() {
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 Used as a prefix for all stack deployments. Stack names are derived automatically.
               </p>
-              {/* Preview of derived stack names */}
+              {/* Derived stack names hint */}
               {product && deploymentName.trim() && (
-                <div className="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                    Derived Stack Names
-                  </p>
-                  <div className="space-y-1">
-                    {product.stacks.map((stack) => (
-                      <div key={stack.id} className="flex items-center gap-2 text-xs">
-                        <span className="text-gray-400 dark:text-gray-500">{stack.name}</span>
-                        <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                        </svg>
-                        <code className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-mono">
-                          {toKebabCase(`${deploymentName}-${stack.name}`)}
-                        </code>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+                  Stacks: {product.stacks.map((stack) => toKebabCase(`${deploymentName}-${stack.name}`)).join(', ')}
+                </p>
               )}
             </div>
 
