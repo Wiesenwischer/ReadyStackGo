@@ -547,7 +547,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Roadmap: Product Deployment moved from Planned to Released as v0.27
   - Abhängig von: Feature 11
 
-- [ ] **Phase abschließen** — Alle Tests grün, PR gegen main
+- [x] **Phase abschließen** — Alle Tests grün, PR gegen main (PR #149 merged)
   - Abhängig von: alle
 
 ## Test-Strategie
