@@ -90,7 +90,7 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
             var mergedVariables = MergeVariables(stackDef, request.SharedVariables, reqStack.Variables);
 
             stackConfigs.Add(new StackDeploymentConfig(
-                reqStack.DeploymentStackName,
+                stackDef.Name,
                 stackDef.Name,
                 reqStack.StackId,
                 stackDef.Services.Count,
@@ -112,6 +112,7 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
             product.DisplayName,
             product.ProductVersion ?? "unknown",
             deployedBy,
+            request.DeploymentName,
             stackConfigs,
             request.SharedVariables,
             request.ContinueOnError);
@@ -151,10 +152,10 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
                 i + 1, stacks.Count, stack.StackDisplayName, product.Name);
 
             // Dispatch DeployStackCommand
-            var mergedVariables = MergeVariables(
-                product.Stacks.First(s => s.Id.Value.Equals(stack.StackId, StringComparison.OrdinalIgnoreCase)),
-                request.SharedVariables,
-                reqStack.Variables);
+            var stackDef2 = product.Stacks.First(s => s.Id.Value.Equals(stack.StackId, StringComparison.OrdinalIgnoreCase));
+            var mergedVariables = MergeVariables(stackDef2, request.SharedVariables, reqStack.Variables);
+            var stackDeploymentName = ProductDeployment.DeriveStackDeploymentName(
+                request.DeploymentName, stackDef2.Name);
 
             DeployStackResponse deployResult;
             try
@@ -162,7 +163,7 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
                 deployResult = await _mediator.Send(new DeployStackCommand(
                     request.EnvironmentId,
                     stack.StackId,
-                    reqStack.DeploymentStackName,
+                    stackDeploymentName,
                     new Dictionary<string, string>(mergedVariables),
                     sessionId,
                     SuppressNotification: true), cancellationToken);
@@ -186,12 +187,12 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
             if (deployResult.Success && !string.IsNullOrEmpty(deployResult.DeploymentId))
             {
                 var deploymentId = new DeploymentId(Guid.Parse(deployResult.DeploymentId));
-                productDeployment.StartStack(stack.StackName, deploymentId, reqStack.DeploymentStackName);
+                productDeployment.StartStack(stack.StackName, deploymentId);
                 productDeployment.CompleteStack(stack.StackName);
 
                 stackResult.Success = true;
                 stackResult.DeploymentId = deployResult.DeploymentId;
-                stackResult.DeploymentStackName = reqStack.DeploymentStackName;
+                stackResult.DeploymentStackName = stackDeploymentName;
 
                 _logger.LogInformation("Stack {StackName} deployed successfully", stack.StackDisplayName);
             }
@@ -203,10 +204,10 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
                 {
                     // Deployment was created but failed
                     var deploymentId = new DeploymentId(Guid.Parse(deployResult.DeploymentId));
-                    productDeployment.StartStack(stack.StackName, deploymentId, reqStack.DeploymentStackName);
+                    productDeployment.StartStack(stack.StackName, deploymentId);
                     productDeployment.FailStack(stack.StackName, error);
                     stackResult.DeploymentId = deployResult.DeploymentId;
-                    stackResult.DeploymentStackName = reqStack.DeploymentStackName;
+                    stackResult.DeploymentStackName = stackDeploymentName;
                 }
                 else
                 {

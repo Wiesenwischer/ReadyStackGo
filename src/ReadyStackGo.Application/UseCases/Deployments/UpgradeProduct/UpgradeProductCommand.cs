@@ -22,5 +22,4 @@ public record UpgradeProductCommand(
 /// </summary>
 public record UpgradeProductStackConfig(
     string StackId,
-    string DeploymentStackName,
     Dictionary<string, string> Variables);

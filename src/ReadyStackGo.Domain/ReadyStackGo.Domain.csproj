@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="ReadyStackGo.Application" />
     <InternalsVisibleTo Include="ReadyStackGo.UnitTests" />
   </ItemGroup>
 

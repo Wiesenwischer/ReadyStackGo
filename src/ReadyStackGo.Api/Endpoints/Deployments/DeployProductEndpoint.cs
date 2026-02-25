@@ -15,6 +15,7 @@ public class DeployProductApiRequest
     public string EnvironmentId { get; set; } = string.Empty;
 
     public required string ProductId { get; set; }
+    public required string DeploymentName { get; set; }
     public List<DeployProductStackConfigDto> StackConfigs { get; set; } = new();
     public Dictionary<string, string> SharedVariables { get; set; } = new();
     public string? SessionId { get; set; }
@@ -24,7 +25,6 @@ public class DeployProductApiRequest
 public class DeployProductStackConfigDto
 {
     public required string StackId { get; set; }
-    public required string DeploymentStackName { get; set; }
     public Dictionary<string, string> Variables { get; set; } = new();
 }
 
@@ -56,9 +56,9 @@ public class DeployProductEndpoint : Endpoint<DeployProductApiRequest, DeployPro
         var command = new DeployProductCommand(
             environmentId,
             req.ProductId,
+            req.DeploymentName,
             req.StackConfigs.Select(s => new DeployProductStackConfig(
                 s.StackId,
-                s.DeploymentStackName,
                 s.Variables)).ToList(),
             req.SharedVariables,
             req.SessionId,

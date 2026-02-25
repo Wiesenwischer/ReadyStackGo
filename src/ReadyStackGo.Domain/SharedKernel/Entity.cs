@@ -4,7 +4,7 @@ namespace ReadyStackGo.Domain.SharedKernel;
 /// Base class for entities with a typed identity.
 /// Based on Vaughn Vernon's IDDD implementation.
 /// </summary>
-public abstract class Entity<TId> : AssertionConcern
+public abstract class Entity<TId> : AssertionConcern, IHasDomainEvents
     where TId : notnull
 {
     private readonly List<IDomainEvent> _domainEvents = new();

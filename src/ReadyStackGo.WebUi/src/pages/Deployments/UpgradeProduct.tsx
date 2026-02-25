@@ -430,17 +430,11 @@ export default function UpgradeProduct() {
     }
 
     try {
-      // Build stack configs: for existing stacks use current deployment name, for new stacks generate name
-      const stackConfigs = targetProduct.stacks.map(stack => {
-        const existingStack = productDeployment.stacks.find(
-          s => s.stackName.toLowerCase() === stack.name.toLowerCase()
-        );
-        return {
-          stackId: stack.id,
-          deploymentStackName: existingStack?.deploymentStackName || `${productDeployment.productName}-${stack.name}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
-          variables: perStackVariableValues[stack.id] || {},
-        };
-      });
+      // Build stack configs
+      const stackConfigs = targetProduct.stacks.map(stack => ({
+        stackId: stack.id,
+        variables: perStackVariableValues[stack.id] || {},
+      }));
 
       const response = await upgradeProduct(activeEnvironment.id, productDeploymentId!, {
         targetProductId,
@@ -1039,9 +1033,6 @@ export default function UpgradeProduct() {
                 const isExpanded = expandedStacks.has(stack.id);
                 const stackSpecific = getStackSpecificVariables(stack, sharedVarNames);
                 const isNew = isNewStack(stack.name);
-                const existingStack = productDeployment?.stacks.find(
-                  s => s.stackName.toLowerCase() === stack.name.toLowerCase()
-                );
                 const hasRequiredMissing = stackSpecific.some(v =>
                   v.isRequired && !perStackVariableValues[stack.id]?.[v.name]
                 );
@@ -1100,22 +1091,6 @@ export default function UpgradeProduct() {
                     {/* Accordion Content */}
                     {isExpanded && (
                       <div className="border-t border-gray-200 dark:border-gray-700 p-4 space-y-4">
-                        {/* Deployment Stack Name */}
-                        <div>
-                          <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Deployment Name
-                          </label>
-                          <input
-                            type="text"
-                            value={existingStack?.deploymentStackName || `${productDeployment?.productName}-${stack.name}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}
-                            readOnly
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg dark:border-gray-600 dark:bg-gray-700 dark:text-white bg-gray-50 dark:bg-gray-800 cursor-not-allowed"
-                          />
-                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            {isNew ? 'Auto-generated name for the new stack' : 'Name preserved from existing deployment'}
-                          </p>
-                        </div>
-
                         {/* Stack-Specific Variables */}
                         {stackSpecific.length > 0 && (
                           <div>
@@ -1237,6 +1212,12 @@ export default function UpgradeProduct() {
             </h2>
 
             <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500 dark:text-gray-400">Deployment Name</span>
+                <span className="font-medium text-gray-900 dark:text-white font-mono text-xs">
+                  {productDeployment?.deploymentName || '-'}
+                </span>
+              </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500 dark:text-gray-400">Current Version</span>
                 <span className="font-medium text-gray-900 dark:text-white">

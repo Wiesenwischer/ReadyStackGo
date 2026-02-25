@@ -41,6 +41,7 @@ public class ListProductDeploymentsHandler
                 ProductName = pd.ProductName,
                 ProductDisplayName = pd.ProductDisplayName,
                 ProductVersion = pd.ProductVersion,
+                DeploymentName = pd.DeploymentName,
                 Status = pd.Status.ToString(),
                 CreatedAt = pd.CreatedAt,
                 CompletedAt = pd.CompletedAt,

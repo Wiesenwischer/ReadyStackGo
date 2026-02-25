@@ -92,12 +92,12 @@ public class DeployProductHandlerTests
     {
         var stackConfigs = product.Stacks.Select(s => new DeployProductStackConfig(
             s.Id.Value,
-            $"{product.Name}-{s.Name}",
             new Dictionary<string, string>())).ToList();
 
         return new DeployProductCommand(
             TestEnvironmentId,
             product.Id,
+            "test-deployment",
             stackConfigs,
             sharedVariables ?? new Dictionary<string, string>(),
             sessionId,
@@ -298,6 +298,7 @@ public class DeployProductHandlerTests
 
         var command = new DeployProductCommand(
             TestEnvironmentId, "nonexistent:product:1.0.0",
+            "test-deployment",
             new List<DeployProductStackConfig>(),
             new Dictionary<string, string>(),
             UserId: TestUserId);
@@ -319,6 +320,7 @@ public class DeployProductHandlerTests
             new EnvironmentId(Guid.Parse(TestEnvironmentId)),
             product.GroupId, product.Id, product.Name, product.DisplayName,
             "1.0.0", global::ReadyStackGo.Domain.Deployment.UserId.Create(),
+            "test-deployment",
             new[] { new StackDeploymentConfig("s", "S", "sid", 1, new Dictionary<string, string>()) },
             new Dictionary<string, string>());
 
@@ -344,10 +346,11 @@ public class DeployProductHandlerTests
             new EnvironmentId(Guid.Parse(TestEnvironmentId)),
             product.GroupId, product.Id, product.Name, product.DisplayName,
             "1.0.0", global::ReadyStackGo.Domain.Deployment.UserId.Create(),
+            "test-deployment",
             new[] { new StackDeploymentConfig("s", "S", "sid", 1, new Dictionary<string, string>()) },
             new Dictionary<string, string>());
         var deploymentId = global::ReadyStackGo.Domain.Deployment.Deployments.DeploymentId.NewId();
-        existingDeployment.StartStack("s", deploymentId, "test-s");
+        existingDeployment.StartStack("s", deploymentId);
         existingDeployment.CompleteStack("s");
 
         _repositoryMock
@@ -369,6 +372,7 @@ public class DeployProductHandlerTests
 
         var command = new DeployProductCommand(
             TestEnvironmentId, product.Id,
+            "test-deployment",
             new List<DeployProductStackConfig>(),
             new Dictionary<string, string>(),
             UserId: TestUserId);
@@ -388,9 +392,10 @@ public class DeployProductHandlerTests
 
         var command = new DeployProductCommand(
             TestEnvironmentId, product.Id,
+            "test-deployment",
             new List<DeployProductStackConfig>
             {
-                new("nonexistent:stack:id", "test-stack", new Dictionary<string, string>())
+                new("nonexistent:stack:id", new Dictionary<string, string>())
             },
             new Dictionary<string, string>(),
             UserId: TestUserId);
@@ -710,12 +715,12 @@ public class DeployProductHandlerTests
         var sharedVars = new Dictionary<string, string> { ["SHARED_VAR"] = "shared-value" };
         var stackConfigs = new List<DeployProductStackConfig>
         {
-            new(product.Stacks[0].Id.Value, "test-stack-0",
+            new(product.Stacks[0].Id.Value,
                 new Dictionary<string, string> { ["SHARED_VAR"] = "per-stack-value" })
         };
 
         var command = new DeployProductCommand(
-            TestEnvironmentId, product.Id, stackConfigs, sharedVars, UserId: TestUserId);
+            TestEnvironmentId, product.Id, "test-deployment", stackConfigs, sharedVars, UserId: TestUserId);
 
         await _handler.Handle(command, CancellationToken.None);
 
