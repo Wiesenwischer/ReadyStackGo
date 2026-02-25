@@ -69,12 +69,13 @@ public class CheckProductUpgradeHandlerTests
             product.GroupId, product.Id, product.Name, product.DisplayName,
             product.ProductVersion ?? "1.0.0",
             UserId.Create(),
+            "test-deployment",
             stackConfigs,
             new Dictionary<string, string>());
 
         foreach (var stack in deployment.GetStacksInDeployOrder())
         {
-            deployment.StartStack(stack.StackName, DeploymentId.NewId(), $"test-{stack.StackName}");
+            deployment.StartStack(stack.StackName, DeploymentId.NewId());
             deployment.CompleteStack(stack.StackName);
         }
 
@@ -253,6 +254,7 @@ public class CheckProductUpgradeHandlerTests
             new EnvironmentId(Guid.Parse(TestEnvironmentId)),
             product.GroupId, product.Id, product.Name, product.DisplayName,
             "1.0.0", UserId.Create(),
+            "test-deployment",
             new[] { new StackDeploymentConfig("s", "S", "sid", 1, new Dictionary<string, string>()) },
             new Dictionary<string, string>());
 

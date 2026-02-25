@@ -12,6 +12,7 @@ public class GetProductDeploymentResponse
     public required string ProductName { get; set; }
     public required string ProductDisplayName { get; set; }
     public required string ProductVersion { get; set; }
+    public required string DeploymentName { get; set; }
     public required string Status { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? CompletedAt { get; set; }

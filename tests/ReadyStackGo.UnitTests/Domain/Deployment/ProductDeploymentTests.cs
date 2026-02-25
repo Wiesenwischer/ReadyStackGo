@@ -29,7 +29,7 @@ public class ProductDeploymentTests
         var pd = ProductDeployment.InitiateDeployment(
             id, envId, "stacks:myproduct", "stacks:myproduct:1.0.0",
             "myproduct", "My Product", "1.0.0",
-            userId, configs, sharedVars);
+            userId, "test-deployment", configs, sharedVars);
 
         // Assert
         pd.Id.Should().Be(id);
@@ -98,7 +98,7 @@ public class ProductDeploymentTests
         var pd = ProductDeployment.InitiateDeployment(
             ProductDeploymentId.NewId(), EnvironmentId.NewId(),
             "gid", "pid", "name", "display", "1.0.0",
-            UserId.NewId(), CreateStackConfigs(1),
+            UserId.NewId(), "test-deployment", CreateStackConfigs(1),
             new Dictionary<string, string>(), continueOnError: false);
 
         pd.ContinueOnError.Should().BeFalse();
@@ -110,7 +110,7 @@ public class ProductDeploymentTests
         var act = () => ProductDeployment.InitiateDeployment(
             ProductDeploymentId.NewId(), EnvironmentId.NewId(),
             "gid", "pid", "name", "display", "1.0.0",
-            UserId.NewId(), Array.Empty<StackDeploymentConfig>(),
+            UserId.NewId(), "test-deployment", Array.Empty<StackDeploymentConfig>(),
             new Dictionary<string, string>());
 
         act.Should().Throw<ArgumentException>();
@@ -122,7 +122,7 @@ public class ProductDeploymentTests
         var act = () => ProductDeployment.InitiateDeployment(
             ProductDeploymentId.NewId(), EnvironmentId.NewId(),
             "gid", "pid", null!, "display", "1.0.0",
-            UserId.NewId(), CreateStackConfigs(1),
+            UserId.NewId(), "test-deployment", CreateStackConfigs(1),
             new Dictionary<string, string>());
 
         act.Should().Throw<ArgumentException>();
@@ -134,7 +134,7 @@ public class ProductDeploymentTests
         var act = () => ProductDeployment.InitiateDeployment(
             ProductDeploymentId.NewId(), EnvironmentId.NewId(),
             "gid", "pid", "name", "display", "",
-            UserId.NewId(), CreateStackConfigs(1),
+            UserId.NewId(), "test-deployment", CreateStackConfigs(1),
             new Dictionary<string, string>());
 
         act.Should().Throw<ArgumentException>();
@@ -146,7 +146,7 @@ public class ProductDeploymentTests
         var act = () => ProductDeployment.InitiateDeployment(
             ProductDeploymentId.NewId(), EnvironmentId.NewId(),
             "gid", "pid", "name", "display", "1.0.0",
-            UserId.NewId(), CreateStackConfigs(1), null!);
+            UserId.NewId(), "test-deployment", CreateStackConfigs(1), null!);
 
         act.Should().NotThrow();
     }
@@ -175,7 +175,7 @@ public class ProductDeploymentTests
             upgradeId, existing.EnvironmentId,
             existing.ProductGroupId, "stacks:testproduct:2.0.0",
             existing.ProductName, existing.ProductDisplayName, "2.0.0",
-            UserId.NewId(), existing, targetConfigs,
+            UserId.NewId(), "test-deployment", existing, targetConfigs,
             new Dictionary<string, string>());
 
         pd.Id.Should().Be(upgradeId);
@@ -197,7 +197,7 @@ public class ProductDeploymentTests
             ProductDeploymentId.NewId(), existing.EnvironmentId,
             existing.ProductGroupId, "pid:2.0.0",
             existing.ProductName, existing.ProductDisplayName, "2.0.0",
-            UserId.NewId(), existing, targetConfigs,
+            UserId.NewId(), "test-deployment", existing, targetConfigs,
             new Dictionary<string, string>());
 
         var evt = pd.DomainEvents.OfType<ProductUpgradeInitiated>().Single();
@@ -221,7 +221,7 @@ public class ProductDeploymentTests
             ProductDeploymentId.NewId(), existing.EnvironmentId,
             existing.ProductGroupId, "pid:2.0.0",
             existing.ProductName, existing.ProductDisplayName, "2.0.0",
-            UserId.NewId(), existing, targetConfigs,
+            UserId.NewId(), "test-deployment", existing, targetConfigs,
             new Dictionary<string, string>());
 
         pd.Stacks.Should().HaveCount(3);
@@ -239,7 +239,7 @@ public class ProductDeploymentTests
             ProductDeploymentId.NewId(), existing.EnvironmentId,
             existing.ProductGroupId, "pid:2.0.0",
             existing.ProductName, existing.ProductDisplayName, "2.0.0",
-            UserId.NewId(), existing, CreateStackConfigs(2),
+            UserId.NewId(), "test-deployment", existing, CreateStackConfigs(2),
             new Dictionary<string, string>());
 
         act.Should().Throw<ArgumentException>();
@@ -254,11 +254,11 @@ public class ProductDeploymentTests
             ProductDeploymentId.NewId(), existing1.EnvironmentId,
             existing1.ProductGroupId, "pid:2.0.0",
             existing1.ProductName, existing1.ProductDisplayName, "2.0.0",
-            UserId.NewId(), existing1, CreateStackConfigs(1),
+            UserId.NewId(), "test-deployment", existing1, CreateStackConfigs(1),
             new Dictionary<string, string>());
 
         // Complete the first upgrade to make it operational
-        upgrade1.StartStack("stack-0", DeploymentId.NewId(), "test-stack-0");
+        upgrade1.StartStack("stack-0", DeploymentId.NewId());
         upgrade1.CompleteStack("stack-0");
 
         // Second upgrade
@@ -266,7 +266,7 @@ public class ProductDeploymentTests
             ProductDeploymentId.NewId(), upgrade1.EnvironmentId,
             upgrade1.ProductGroupId, "pid:3.0.0",
             upgrade1.ProductName, upgrade1.ProductDisplayName, "3.0.0",
-            UserId.NewId(), upgrade1, CreateStackConfigs(1),
+            UserId.NewId(), "test-deployment", upgrade1, CreateStackConfigs(1),
             new Dictionary<string, string>());
 
         upgrade2.UpgradeCount.Should().Be(2);
@@ -282,12 +282,12 @@ public class ProductDeploymentTests
         var pd = CreateTestDeployment(2);
         var deploymentId = DeploymentId.NewId();
 
-        pd.StartStack("stack-0", deploymentId, "myproduct-stack-0");
+        pd.StartStack("stack-0", deploymentId);
 
         var stack = pd.Stacks.Single(s => s.StackName == "stack-0");
         stack.Status.Should().Be(StackDeploymentStatus.Deploying);
         stack.DeploymentId.Should().Be(deploymentId);
-        stack.DeploymentStackName.Should().Be("myproduct-stack-0");
+        stack.DeploymentStackName.Should().Be("test-deployment-stack-0");
         stack.StartedAt.Should().NotBeNull();
     }
 
@@ -297,7 +297,7 @@ public class ProductDeploymentTests
         var pd = CreateTestDeployment(2);
         pd.ClearDomainEvents();
 
-        pd.StartStack("stack-0", DeploymentId.NewId(), "myproduct-stack-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
 
         var evt = pd.DomainEvents.OfType<ProductStackDeploymentStarted>().Single();
         evt.ProductDeploymentId.Should().Be(pd.Id);
@@ -311,7 +311,7 @@ public class ProductDeploymentTests
     {
         var pd = CreateTestDeployment(1);
 
-        var act = () => pd.StartStack("nonexistent", DeploymentId.NewId(), "test");
+        var act = () => pd.StartStack("nonexistent", DeploymentId.NewId());
 
         act.Should().Throw<InvalidOperationException>();
     }
@@ -321,7 +321,7 @@ public class ProductDeploymentTests
     {
         var pd = CreateRunningDeployment(1);
 
-        var act = () => pd.StartStack("stack-0", DeploymentId.NewId(), "test");
+        var act = () => pd.StartStack("stack-0", DeploymentId.NewId());
 
         act.Should().Throw<InvalidOperationException>();
     }
@@ -330,9 +330,9 @@ public class ProductDeploymentTests
     public void StartStack_AlreadyStarted_ThrowsInvalidOperationException()
     {
         var pd = CreateTestDeployment(1);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "test-stack-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
 
-        var act = () => pd.StartStack("stack-0", DeploymentId.NewId(), "test-stack-0-again");
+        var act = () => pd.StartStack("stack-0", DeploymentId.NewId());
 
         act.Should().Throw<InvalidOperationException>();
     }
@@ -345,7 +345,7 @@ public class ProductDeploymentTests
     public void CompleteStack_MarksStackAsRunning()
     {
         var pd = CreateTestDeployment(2);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "test-stack-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
 
         pd.CompleteStack("stack-0");
 
@@ -358,7 +358,7 @@ public class ProductDeploymentTests
     public void CompleteStack_RaisesProductStackDeploymentCompletedEvent()
     {
         var pd = CreateTestDeployment(2);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "test-stack-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.ClearDomainEvents();
 
         pd.CompleteStack("stack-0");
@@ -375,9 +375,9 @@ public class ProductDeploymentTests
         var pd = CreateTestDeployment(2);
 
         // Complete all stacks
-        pd.StartStack("stack-0", DeploymentId.NewId(), "test-stack-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.CompleteStack("stack-0");
-        pd.StartStack("stack-1", DeploymentId.NewId(), "test-stack-1");
+        pd.StartStack("stack-1", DeploymentId.NewId());
         pd.CompleteStack("stack-1");
 
         pd.Status.Should().Be(ProductDeploymentStatus.Running);
@@ -391,7 +391,7 @@ public class ProductDeploymentTests
     public void CompleteStack_WhenNotAllComplete_DoesNotCompleteDeployment()
     {
         var pd = CreateTestDeployment(3);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "test-stack-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.CompleteStack("stack-0");
 
         pd.Status.Should().Be(ProductDeploymentStatus.Deploying);
@@ -416,7 +416,7 @@ public class ProductDeploymentTests
     public void FailStack_MarksStackAsFailed()
     {
         var pd = CreateTestDeployment(2);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "test-stack-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
 
         pd.FailStack("stack-0", "Connection refused");
 
@@ -430,7 +430,7 @@ public class ProductDeploymentTests
     public void FailStack_RaisesProductStackDeploymentFailedEvent()
     {
         var pd = CreateTestDeployment(2);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "test-stack-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.ClearDomainEvents();
 
         pd.FailStack("stack-0", "Error");
@@ -469,7 +469,7 @@ public class ProductDeploymentTests
     public void FailStack_WithEmptyErrorMessage_ThrowsArgumentException()
     {
         var pd = CreateTestDeployment(1);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "test-stack-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
 
         var act = () => pd.FailStack("stack-0", "");
 
@@ -484,9 +484,9 @@ public class ProductDeploymentTests
     public void MarkAsPartiallyRunning_WithSomeSucceededAndSomeFailed_Succeeds()
     {
         var pd = CreateTestDeployment(3);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "t-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.CompleteStack("stack-0");
-        pd.StartStack("stack-1", DeploymentId.NewId(), "t-1");
+        pd.StartStack("stack-1", DeploymentId.NewId());
         pd.FailStack("stack-1", "Error");
 
         pd.MarkAsPartiallyRunning("Stack stack-1 failed");
@@ -501,9 +501,9 @@ public class ProductDeploymentTests
     public void MarkAsPartiallyRunning_RaisesEvent()
     {
         var pd = CreateTestDeployment(2);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "t-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.CompleteStack("stack-0");
-        pd.StartStack("stack-1", DeploymentId.NewId(), "t-1");
+        pd.StartStack("stack-1", DeploymentId.NewId());
         pd.FailStack("stack-1", "Error");
         pd.ClearDomainEvents();
 
@@ -518,7 +518,7 @@ public class ProductDeploymentTests
     public void MarkAsPartiallyRunning_WithNoCompletedStacks_ThrowsInvalidOperationException()
     {
         var pd = CreateTestDeployment(2);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "t-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.FailStack("stack-0", "Error");
 
         var act = () => pd.MarkAsPartiallyRunning("All failed");
@@ -540,9 +540,9 @@ public class ProductDeploymentTests
     public void MarkAsPartiallyRunning_WithEmptyReason_ThrowsArgumentException()
     {
         var pd = CreateTestDeployment(2);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "t-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.CompleteStack("stack-0");
-        pd.StartStack("stack-1", DeploymentId.NewId(), "t-1");
+        pd.StartStack("stack-1", DeploymentId.NewId());
         pd.FailStack("stack-1", "Error");
 
         var act = () => pd.MarkAsPartiallyRunning("");
@@ -558,7 +558,7 @@ public class ProductDeploymentTests
     public void MarkAsFailed_FromDeploying_SetsFailed()
     {
         var pd = CreateTestDeployment(2);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "t-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.FailStack("stack-0", "Error");
 
         pd.MarkAsFailed("Critical error");
@@ -572,7 +572,7 @@ public class ProductDeploymentTests
     public void MarkAsFailed_RaisesProductDeploymentFailedEvent()
     {
         var pd = CreateTestDeployment(1);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "t-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.FailStack("stack-0", "Error");
         pd.ClearDomainEvents();
 
@@ -624,9 +624,9 @@ public class ProductDeploymentTests
     public void StartRemoval_FromPartiallyRunning_TransitionsToRemoving()
     {
         var pd = CreateTestDeployment(2);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "t-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.CompleteStack("stack-0");
-        pd.StartStack("stack-1", DeploymentId.NewId(), "t-1");
+        pd.StartStack("stack-1", DeploymentId.NewId());
         pd.FailStack("stack-1", "Error");
         pd.MarkAsPartiallyRunning("Partial");
 
@@ -639,7 +639,7 @@ public class ProductDeploymentTests
     public void StartRemoval_FromFailed_TransitionsToRemoving()
     {
         var pd = CreateTestDeployment(1);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "t-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.FailStack("stack-0", "Error");
         pd.MarkAsFailed("All failed");
 
@@ -797,7 +797,7 @@ public class ProductDeploymentTests
     public void CanRemove_WhenFailed_ReturnsTrue()
     {
         var pd = CreateTestDeployment(1);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "t-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.FailStack("stack-0", "Error");
         pd.MarkAsFailed("All failed");
 
@@ -819,10 +819,10 @@ public class ProductDeploymentTests
             ProductDeploymentId.NewId(), existing.EnvironmentId,
             existing.ProductGroupId, "pid:2.0.0",
             existing.ProductName, existing.ProductDisplayName, "2.0.0",
-            UserId.NewId(), existing, CreateStackConfigs(1),
+            UserId.NewId(), "test-deployment", existing, CreateStackConfigs(1),
             new Dictionary<string, string>());
 
-        upgrade.StartStack("stack-0", DeploymentId.NewId(), "t-0");
+        upgrade.StartStack("stack-0", DeploymentId.NewId());
         upgrade.FailStack("stack-0", "Error");
         upgrade.MarkAsFailed("All failed");
 
@@ -834,7 +834,7 @@ public class ProductDeploymentTests
     public void CanRollback_WhenFailedWithNoPreviousVersion_ReturnsFalse()
     {
         var pd = CreateTestDeployment(1);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "t-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.FailStack("stack-0", "Error");
         pd.MarkAsFailed("All failed");
 
@@ -901,7 +901,7 @@ public class ProductDeploymentTests
     {
         var pd = CreateTestDeployment(1);
 
-        pd.StartStack("stack-0", DeploymentId.NewId(), "prod-stack-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.CompleteStack("stack-0");
 
         pd.Status.Should().Be(ProductDeploymentStatus.Running);
@@ -913,7 +913,7 @@ public class ProductDeploymentTests
     public void SingleStackProduct_DeployAndFail_CanTransitionToFailed()
     {
         var pd = CreateTestDeployment(1);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "prod-stack-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.FailStack("stack-0", "Error");
 
         pd.MarkAsFailed("All stacks failed");
@@ -931,7 +931,7 @@ public class ProductDeploymentTests
         var pd = CreateTestDeployment(1);
 
         // stack-0 was created with lowercase, try uppercase
-        pd.StartStack("STACK-0", DeploymentId.NewId(), "prod-stack-0");
+        pd.StartStack("STACK-0", DeploymentId.NewId());
 
         pd.Stacks.First().Status.Should().Be(StackDeploymentStatus.Deploying);
     }
@@ -948,10 +948,10 @@ public class ProductDeploymentTests
             ProductDeploymentId.NewId(), existing.EnvironmentId,
             existing.ProductGroupId, "pid:2.0.0",
             existing.ProductName, existing.ProductDisplayName, "2.0.0",
-            UserId.NewId(), existing, CreateStackConfigs(1),
+            UserId.NewId(), "test-deployment", existing, CreateStackConfigs(1),
             new Dictionary<string, string>());
 
-        upgrade.StartStack("stack-0", DeploymentId.NewId(), "t-0");
+        upgrade.StartStack("stack-0", DeploymentId.NewId());
         upgrade.CompleteStack("stack-0");
 
         upgrade.Status.Should().Be(ProductDeploymentStatus.Running);
@@ -962,7 +962,7 @@ public class ProductDeploymentTests
     public void CompleteAllStacks_DuringDeploy_DoesNotSetLastUpgradedAt()
     {
         var pd = CreateTestDeployment(1);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "t-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.CompleteStack("stack-0");
 
         pd.Status.Should().Be(ProductDeploymentStatus.Running);
@@ -977,9 +977,9 @@ public class ProductDeploymentTests
     public void PhaseHistory_RecordsAllPhases()
     {
         var pd = CreateTestDeployment(2);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "t-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.CompleteStack("stack-0");
-        pd.StartStack("stack-1", DeploymentId.NewId(), "t-1");
+        pd.StartStack("stack-1", DeploymentId.NewId());
         pd.CompleteStack("stack-1");
 
         // Initiated + start-0 + complete-0 + start-1 + complete-1 + deployment-completed
@@ -1121,7 +1121,7 @@ public class ProductDeploymentTests
             ProductDeploymentId.NewId(), existing.EnvironmentId,
             existing.ProductGroupId, "pid:2.0.0",
             existing.ProductName, existing.ProductDisplayName, "2.0.0",
-            UserId.NewId(), existing, CreateStackConfigs(2),
+            UserId.NewId(), "test-deployment", existing, CreateStackConfigs(2),
             new Dictionary<string, string>());
 
         pd.Status.Should().Be(ProductDeploymentStatus.Upgrading);
@@ -1229,6 +1229,76 @@ public class ProductDeploymentTests
 
     #endregion
 
+    #region DeploymentName
+
+    [Fact]
+    public void InitiateDeployment_SetsDeploymentName()
+    {
+        var pd = ProductDeployment.InitiateDeployment(
+            ProductDeploymentId.NewId(), EnvironmentId.NewId(),
+            "gid", "pid", "name", "display", "1.0.0",
+            UserId.NewId(), "my-app",
+            CreateStackConfigs(1), new Dictionary<string, string>());
+
+        pd.DeploymentName.Should().Be("my-app");
+    }
+
+    [Fact]
+    public void InitiateDeployment_EmptyDeploymentName_Throws()
+    {
+        var act = () => ProductDeployment.InitiateDeployment(
+            ProductDeploymentId.NewId(), EnvironmentId.NewId(),
+            "gid", "pid", "name", "display", "1.0.0",
+            UserId.NewId(), "",
+            CreateStackConfigs(1), new Dictionary<string, string>());
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void StartStack_DerivesDeploymentStackNameFromDeploymentNameAndStackName()
+    {
+        var pd = ProductDeployment.InitiateDeployment(
+            ProductDeploymentId.NewId(), EnvironmentId.NewId(),
+            "gid", "pid", "name", "display", "1.0.0",
+            UserId.NewId(), "myapp",
+            CreateStackConfigs(2), new Dictionary<string, string>());
+
+        pd.StartStack("stack-0", DeploymentId.NewId());
+
+        var stack = pd.Stacks.Single(s => s.StackName == "stack-0");
+        stack.DeploymentStackName.Should().Be("myapp-stack-0");
+    }
+
+    [Theory]
+    [InlineData("myapp", "db", "myapp-db")]
+    [InlineData("My App", "API Server", "my-app-api-server")]
+    [InlineData("myapp", "stack-0", "myapp-stack-0")]
+    [InlineData("  spaces  ", "  tabs  ", "spaces-tabs")]
+    public void DeriveStackDeploymentName_VariousInputs_ReturnsKebabCase(
+        string deploymentName, string stackName, string expected)
+    {
+        var result = ProductDeployment.DeriveStackDeploymentName(deploymentName, stackName);
+        result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void InitiateUpgrade_PreservesDeploymentName()
+    {
+        var existing = CreateRunningDeployment(1);
+
+        var pd = ProductDeployment.InitiateUpgrade(
+            ProductDeploymentId.NewId(), existing.EnvironmentId,
+            existing.ProductGroupId, "pid:2.0.0",
+            existing.ProductName, existing.ProductDisplayName, "2.0.0",
+            UserId.NewId(), "upgraded-app",
+            existing, CreateStackConfigs(1), new Dictionary<string, string>());
+
+        pd.DeploymentName.Should().Be("upgraded-app");
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static List<StackDeploymentConfig> CreateStackConfigs(int count)
@@ -1257,6 +1327,7 @@ public class ProductDeploymentTests
             "Test Product",
             "1.0.0",
             UserId.NewId(),
+            "test-deployment",
             CreateStackConfigs(stackCount),
             new Dictionary<string, string> { { "SHARED", "value" } });
     }
@@ -1266,7 +1337,7 @@ public class ProductDeploymentTests
         var pd = CreateTestDeployment(stackCount);
         for (var i = 0; i < stackCount; i++)
         {
-            pd.StartStack($"stack-{i}", DeploymentId.NewId(), $"test-stack-{i}");
+            pd.StartStack($"stack-{i}", DeploymentId.NewId());
             pd.CompleteStack($"stack-{i}");
         }
         return pd;
@@ -1275,9 +1346,9 @@ public class ProductDeploymentTests
     private static ProductDeployment CreatePartiallyRunningDeployment()
     {
         var pd = CreateTestDeployment(2);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "t-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.CompleteStack("stack-0");
-        pd.StartStack("stack-1", DeploymentId.NewId(), "t-1");
+        pd.StartStack("stack-1", DeploymentId.NewId());
         pd.FailStack("stack-1", "Error");
         pd.MarkAsPartiallyRunning("Partial failure");
         return pd;
@@ -1305,14 +1376,14 @@ public class ProductDeploymentTests
             ProductDeploymentId.NewId(), existing.EnvironmentId,
             existing.ProductGroupId, "pid:2.0.0",
             existing.ProductName, existing.ProductDisplayName, "2.0.0",
-            UserId.NewId(), existing, CreateStackConfigs(2),
+            UserId.NewId(), "test-deployment", existing, CreateStackConfigs(2),
             new Dictionary<string, string>());
     }
 
     private static ProductDeployment CreateFailedDeployment()
     {
         var pd = CreateTestDeployment(1);
-        pd.StartStack("stack-0", DeploymentId.NewId(), "t-0");
+        pd.StartStack("stack-0", DeploymentId.NewId());
         pd.FailStack("stack-0", "Error");
         pd.MarkAsFailed("All failed");
         return pd;

@@ -51,6 +51,10 @@ public class ProductDeploymentConfiguration : IEntityTypeConfiguration<ProductDe
             .HasMaxLength(50)
             .IsRequired();
 
+        builder.Property(d => d.DeploymentName)
+            .HasMaxLength(100)
+            .IsRequired();
+
         builder.Property(d => d.DeployedBy)
             .HasConversion(
                 id => id.Value,

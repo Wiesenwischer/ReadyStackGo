@@ -62,13 +62,14 @@ public class RemoveProductHandlerTests
             $"stacks:{name}", $"stacks:{name}:{version}",
             name, $"Test Product {name}", version,
             UserId.Create(),
+            "test-deployment",
             stackConfigs,
             new Dictionary<string, string> { ["SHARED"] = "shared-value" });
 
         foreach (var stack in deployment.GetStacksInDeployOrder())
         {
             var depId = DeploymentId.NewId();
-            deployment.StartStack(stack.StackName, depId, $"{name}-{stack.StackName}");
+            deployment.StartStack(stack.StackName, depId);
             deployment.CompleteStack(stack.StackName);
         }
 
@@ -89,17 +90,18 @@ public class RemoveProductHandlerTests
             "stacks:test-product", "stacks:test-product:1.0.0",
             "test-product", "Test Product", "1.0.0",
             UserId.Create(),
+            "test-deployment",
             stackConfigs,
             new Dictionary<string, string>());
 
         var stacks = deployment.GetStacksInDeployOrder();
 
         // Complete first stack
-        deployment.StartStack(stacks[0].StackName, DeploymentId.NewId(), "test-stack-0");
+        deployment.StartStack(stacks[0].StackName, DeploymentId.NewId());
         deployment.CompleteStack(stacks[0].StackName);
 
         // Fail second stack
-        deployment.StartStack(stacks[1].StackName, DeploymentId.NewId(), "test-stack-1");
+        deployment.StartStack(stacks[1].StackName, DeploymentId.NewId());
         deployment.FailStack(stacks[1].StackName, "Test failure");
 
         // Mark as partially running
@@ -122,10 +124,11 @@ public class RemoveProductHandlerTests
             "stacks:test-product", "stacks:test-product:1.0.0",
             "test-product", "Test Product", "1.0.0",
             UserId.Create(),
+            "test-deployment",
             stackConfigs,
             new Dictionary<string, string>());
 
-        deployment.StartStack("stack-0", DeploymentId.NewId(), "test-stack-0");
+        deployment.StartStack("stack-0", DeploymentId.NewId());
         deployment.FailStack("stack-0", "Critical failure");
         deployment.MarkAsFailed("All stacks failed");
 
@@ -320,7 +323,7 @@ public class RemoveProductHandlerTests
             ProductDeploymentId.NewId(),
             new EnvironmentId(Guid.Parse(TestEnvironmentId)),
             "gid", "pid", "test", "Test", "1.0.0",
-            UserId.Create(), stackConfigs, new Dictionary<string, string>());
+            UserId.Create(), "test-deployment", stackConfigs, new Dictionary<string, string>());
 
         SetupDeploymentFound(deployment);
 
@@ -364,12 +367,12 @@ public class RemoveProductHandlerTests
             ProductDeploymentId.NewId(),
             new EnvironmentId(Guid.Parse(TestEnvironmentId)),
             "gid", "pid", "test-product", "Test Product", "1.0.0",
-            UserId.Create(), stackConfigs, new Dictionary<string, string>());
+            UserId.Create(), "test-deployment", stackConfigs, new Dictionary<string, string>());
 
         // Only start and complete the first stack (stack-1 remains Pending, no DeploymentId)
-        deployment.StartStack("stack-0", DeploymentId.NewId(), "test-stack-0");
+        deployment.StartStack("stack-0", DeploymentId.NewId());
         deployment.CompleteStack("stack-0");
-        deployment.StartStack("stack-1", DeploymentId.NewId(), "test-stack-1");
+        deployment.StartStack("stack-1", DeploymentId.NewId());
         deployment.FailStack("stack-1", "Failed");
         deployment.MarkAsPartiallyRunning("One stack failed");
 
@@ -402,14 +405,14 @@ public class RemoveProductHandlerTests
             ProductDeploymentId.NewId(),
             new EnvironmentId(Guid.Parse(TestEnvironmentId)),
             "gid", "pid", "test-product", "Test Product", "1.0.0",
-            UserId.Create(), stackConfigs, new Dictionary<string, string>());
+            UserId.Create(), "test-deployment", stackConfigs, new Dictionary<string, string>());
 
         // Only complete first stack, fail second without starting
-        deployment.StartStack("stack-0", DeploymentId.NewId(), "test-stack-0");
+        deployment.StartStack("stack-0", DeploymentId.NewId());
         deployment.CompleteStack("stack-0");
         // stack-1 was never started; FailStack requires starting it first in domain model
         // So fail it after start
-        deployment.StartStack("stack-1", DeploymentId.NewId(), "test-stack-1");
+        deployment.StartStack("stack-1", DeploymentId.NewId());
         deployment.FailStack("stack-1", "Failed");
         deployment.MarkAsPartiallyRunning("Partial");
 

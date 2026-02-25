@@ -74,7 +74,7 @@ export default function DeployProduct() {
   // Variable state: shared + per-stack
   const [sharedVariableValues, setSharedVariableValues] = useState<Record<string, string>>({});
   const [perStackVariableValues, setPerStackVariableValues] = useState<Record<string, Record<string, string>>>({});
-  const [stackNames, setStackNames] = useState<Record<string, string>>({});
+  const [deploymentName, setDeploymentName] = useState('');
 
   // Accordion: which stacks are expanded
   const [expandedStacks, setExpandedStacks] = useState<Set<string>>(new Set());
@@ -202,9 +202,8 @@ export default function DeployProduct() {
           sharedInit[v.name] = v.defaultValue || '';
         }
 
-        // Initialize per-stack variable values and stack names
+        // Initialize per-stack variable values and deployment name
         const perStackInit: Record<string, Record<string, string>> = {};
-        const namesInit: Record<string, string> = {};
         const expandInit = new Set<string>();
 
         for (const stack of productData.stacks) {
@@ -216,7 +215,6 @@ export default function DeployProduct() {
             if (v.isRequired && !v.defaultValue) hasRequired = true;
           }
           perStackInit[stack.id] = varValues;
-          namesInit[stack.id] = toKebabCase(`${productData.name}-${stack.name}`);
 
           // Expand stacks with required variables by default
           if (hasRequired || stackVars.length > 0) {
@@ -249,7 +247,7 @@ export default function DeployProduct() {
 
         setSharedVariableValues(sharedInit);
         setPerStackVariableValues(perStackInit);
-        setStackNames(namesInit);
+        setDeploymentName(toKebabCase(productData.name));
         setExpandedStacks(expandInit);
 
         setState('configure');
@@ -345,13 +343,10 @@ export default function DeployProduct() {
       return;
     }
 
-    // Validate stack names
-    for (const stack of product.stacks) {
-      const name = stackNames[stack.id];
-      if (!name?.trim()) {
-        setError(`Please provide a stack name for "${stack.name}"`);
-        return;
-      }
+    // Validate deployment name
+    if (!deploymentName.trim()) {
+      setError('Please provide a deployment name');
+      return;
     }
 
     // Check required shared variables
@@ -404,9 +399,9 @@ export default function DeployProduct() {
     try {
       const response = await deployProduct(activeEnvironment.id, {
         productId: product.id,
+        deploymentName,
         stackConfigs: product.stacks.map(stack => ({
           stackId: stack.id,
-          deploymentStackName: stackNames[stack.id],
           variables: perStackVariableValues[stack.id] || {},
         })),
         sharedVariables: sharedVariableValues,
@@ -905,6 +900,44 @@ export default function DeployProduct() {
               Product Configuration
             </h2>
 
+            {/* Deployment Name */}
+            <div className="mb-6">
+              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Deployment Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={deploymentName}
+                onChange={(e) => setDeploymentName(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-brand-500"
+                placeholder={product ? toKebabCase(product.name) : 'deployment-name'}
+              />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Used as a prefix for all stack deployments. Stack names are derived automatically.
+              </p>
+              {/* Preview of derived stack names */}
+              {product && deploymentName.trim() && (
+                <div className="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                    Derived Stack Names
+                  </p>
+                  <div className="space-y-1">
+                    {product.stacks.map((stack) => (
+                      <div key={stack.id} className="flex items-center gap-2 text-xs">
+                        <span className="text-gray-400 dark:text-gray-500">{stack.name}</span>
+                        <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                        <code className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-mono">
+                          {toKebabCase(`${deploymentName}-${stack.name}`)}
+                        </code>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Continue on Error */}
             <div className="flex items-center gap-3">
               <input
@@ -963,7 +996,7 @@ export default function DeployProduct() {
               Stack Configuration
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-              Configure the deployment name and stack-specific variables for each stack.
+              Configure stack-specific variables for each stack.
             </p>
 
             <div className="space-y-3">
@@ -1015,25 +1048,6 @@ export default function DeployProduct() {
                     {/* Accordion Content */}
                     {isExpanded && (
                       <div className="border-t border-gray-200 dark:border-gray-700 p-4 space-y-4">
-                        {/* Stack Name */}
-                        <div>
-                          <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Deployment Name <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={stackNames[stack.id] || ''}
-                            onChange={(e) =>
-                              setStackNames(prev => ({ ...prev, [stack.id]: e.target.value }))
-                            }
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-brand-500"
-                            placeholder={`${product?.name}-${stack.name}`}
-                          />
-                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            Used to identify this stack deployment
-                          </p>
-                        </div>
-
                         {/* Stack-Specific Variables */}
                         {stackSpecific.length > 0 && (
                           <div>

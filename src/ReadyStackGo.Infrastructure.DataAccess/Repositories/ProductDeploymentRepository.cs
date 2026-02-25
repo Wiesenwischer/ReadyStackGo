@@ -1,6 +1,7 @@
 namespace ReadyStackGo.Infrastructure.DataAccess.Repositories;
 
 using Microsoft.EntityFrameworkCore;
+using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.ProductDeployments;
 
@@ -45,6 +46,14 @@ public class ProductDeploymentRepository : IProductDeploymentRepository
             .Where(d => d.Status != ProductDeploymentStatus.Removed)
             .OrderByDescending(d => d.CreatedAt)
             .FirstOrDefault();
+    }
+
+    public ProductDeployment? GetByStackDeploymentId(DeploymentId deploymentId)
+    {
+        return _context.ProductDeployments
+            .Where(d => d.Status != ProductDeploymentStatus.Removed)
+            .AsEnumerable()
+            .FirstOrDefault(d => d.Stacks.Any(s => s.DeploymentId == deploymentId));
     }
 
     public IEnumerable<ProductDeployment> GetByEnvironment(EnvironmentId environmentId)

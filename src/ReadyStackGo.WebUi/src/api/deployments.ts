@@ -367,7 +367,6 @@ export async function markDeploymentFailed(
  */
 export interface DeployProductStackConfigRequest {
   stackId: string;
-  deploymentStackName: string;
   variables: Record<string, string>;
 }
 
@@ -376,6 +375,7 @@ export interface DeployProductStackConfigRequest {
  */
 export interface DeployProductRequest {
   productId: string;
+  deploymentName: string;
   stackConfigs: DeployProductStackConfigRequest[];
   sharedVariables: Record<string, string>;
   /** Client-generated session ID for real-time progress tracking via SignalR */
@@ -457,6 +457,7 @@ export interface GetProductDeploymentResponse {
   productName: string;
   productDisplayName: string;
   productVersion: string;
+  deploymentName: string;
   status: string;
   createdAt: string;
   completedAt?: string;
@@ -546,7 +547,6 @@ export async function checkProductUpgrade(
  */
 export interface UpgradeProductStackConfigRequest {
   stackId: string;
-  deploymentStackName: string;
   variables: Record<string, string>;
 }
 

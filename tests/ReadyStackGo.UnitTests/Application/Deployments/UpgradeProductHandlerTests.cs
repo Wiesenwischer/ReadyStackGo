@@ -91,10 +91,10 @@ public class UpgradeProductHandlerTests
         ProductDefinition product,
         ProductDeploymentStatus targetStatus = ProductDeploymentStatus.Running)
     {
-        // Use deployment-style names as StackName (matching production behavior),
-        // and logical names as StackDisplayName
+        // StackName = logical name from stack definition (e.g., "stack-0")
+        // StackDisplayName = same logical name
         var stackConfigs = product.Stacks.Select((s, i) => new StackDeploymentConfig(
-            $"test-{s.Name}", s.Name, s.Id.Value, s.Services.Count,
+            s.Name, s.Name, s.Id.Value, s.Services.Count,
             new Dictionary<string, string>
             {
                 ["SHARED_VAR"] = "existing-shared",
@@ -107,6 +107,7 @@ public class UpgradeProductHandlerTests
             product.GroupId, product.Id, product.Name, product.DisplayName,
             product.ProductVersion ?? "1.0.0",
             UserId.Create(),
+            "test-deployment",
             stackConfigs,
             new Dictionary<string, string> { ["SHARED_VAR"] = "existing-shared" });
 
@@ -114,7 +115,7 @@ public class UpgradeProductHandlerTests
         foreach (var stack in deployment.GetStacksInDeployOrder())
         {
             var depId = DeploymentId.NewId();
-            deployment.StartStack(stack.StackName, depId, stack.StackName);
+            deployment.StartStack(stack.StackName, depId);
             deployment.CompleteStack(stack.StackName);
         }
 
@@ -135,17 +136,9 @@ public class UpgradeProductHandlerTests
         string? sessionId = null)
     {
         var stackConfigs = targetProduct.Stacks.Select(s =>
-        {
-            // Match by StackDisplayName (logical name from manifest), reuse StackName (deployment name) if exists
-            var existingStack = existing.Stacks.FirstOrDefault(es =>
-                es.StackDisplayName.Equals(s.Name, StringComparison.OrdinalIgnoreCase));
-            var deploymentStackName = existingStack?.StackName ?? $"{targetProduct.Name}-{s.Name}";
-
-            return new UpgradeProductStackConfig(
+            new UpgradeProductStackConfig(
                 s.Id.Value,
-                deploymentStackName,
-                new Dictionary<string, string>());
-        }).ToList();
+                new Dictionary<string, string>())).ToList();
 
         return new UpgradeProductCommand(
             TestEnvironmentId,
@@ -404,6 +397,7 @@ public class UpgradeProductHandlerTests
             new EnvironmentId(Guid.Parse(TestEnvironmentId)),
             product.GroupId, product.Id, product.Name, product.DisplayName,
             "1.0.0", UserId.Create(),
+            "test-deployment",
             new[] { new StackDeploymentConfig("s", "S", "sid", 1, new Dictionary<string, string>()) },
             new Dictionary<string, string>());
 
@@ -435,7 +429,7 @@ public class UpgradeProductHandlerTests
             TestEnvironmentId, existing.Id.Value.ToString(), "nonexistent:product",
             new List<UpgradeProductStackConfig>
             {
-                new("sid", "name", new Dictionary<string, string>())
+                new("sid", new Dictionary<string, string>())
             },
             new Dictionary<string, string>(), UserId: TestUserId);
 
@@ -514,7 +508,7 @@ public class UpgradeProductHandlerTests
             TestEnvironmentId, existing.Id.Value.ToString(), targetProduct.Id,
             new List<UpgradeProductStackConfig>
             {
-                new("nonexistent:stack:id", "test-stack", new Dictionary<string, string>())
+                new("nonexistent:stack:id", new Dictionary<string, string>())
             },
             new Dictionary<string, string>(), UserId: TestUserId);
 
@@ -772,7 +766,7 @@ public class UpgradeProductHandlerTests
         var sharedVars = new Dictionary<string, string> { ["SHARED_VAR"] = "shared-value" };
         var stackConfigs = new List<UpgradeProductStackConfig>
         {
-            new(targetProduct.Stacks[0].Id.Value, "test-stack-0",
+            new(targetProduct.Stacks[0].Id.Value,
                 new Dictionary<string, string> { ["SHARED_VAR"] = "per-stack-value" })
         };
 

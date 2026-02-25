@@ -27,7 +27,6 @@ public class UpgradeProductApiRequest
 public class UpgradeProductStackConfigDto
 {
     public required string StackId { get; set; }
-    public required string DeploymentStackName { get; set; }
     public Dictionary<string, string> Variables { get; set; } = new();
 }
 
@@ -63,7 +62,6 @@ public class UpgradeProductEndpoint : Endpoint<UpgradeProductApiRequest, Upgrade
             req.TargetProductId,
             req.StackConfigs.Select(s => new UpgradeProductStackConfig(
                 s.StackId,
-                s.DeploymentStackName,
                 s.Variables)).ToList(),
             req.SharedVariables,
             req.SessionId,

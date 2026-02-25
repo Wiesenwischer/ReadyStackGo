@@ -96,9 +96,9 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
         }
 
         // 6. Build StackDeploymentConfig array, matching to existing stacks
-        // Use StackDisplayName (logical stack name from manifest) for matching, not StackName (deployment container name)
+        var deploymentName = existing.DeploymentName;
         var existingStackLookup = existing.Stacks
-            .ToDictionary(s => s.StackDisplayName, s => s, StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(s => s.StackName, s => s, StringComparer.OrdinalIgnoreCase);
 
         var stackConfigs = new List<StackDeploymentConfig>();
         var warnings = new List<string>();
@@ -122,7 +122,7 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
             var mergedVariables = MergeVariables(stackDef, existingVariables, request.SharedVariables, reqStack.Variables);
 
             stackConfigs.Add(new StackDeploymentConfig(
-                reqStack.DeploymentStackName,
+                stackDef.Name,
                 stackDef.Name,
                 reqStack.StackId,
                 stackDef.Services.Count,
@@ -130,13 +130,13 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
         }
 
         // Check for stacks in existing deployment that are not in the target
-        var targetStackDisplayNames = stackConfigs.Select(s => s.StackDisplayName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var targetStackNames = stackConfigs.Select(s => s.StackName).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var existingStack in existing.Stacks)
         {
-            if (!targetStackDisplayNames.Contains(existingStack.StackDisplayName))
+            if (!targetStackNames.Contains(existingStack.StackName))
             {
                 warnings.Add(
-                    $"Stack '{existingStack.StackDisplayName}' exists in current deployment but not in target version. It will not be automatically removed.");
+                    $"Stack '{existingStack.StackName}' exists in current deployment but not in target version. It will not be automatically removed.");
             }
         }
 
@@ -157,6 +157,7 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
             targetProduct.DisplayName,
             targetVersion,
             deployedBy,
+            deploymentName,
             existing,
             stackConfigs,
             request.SharedVariables,
@@ -205,6 +206,8 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
                 : null;
 
             var mergedVariables = MergeVariables(stackDef, existingVariables, request.SharedVariables, reqStack.Variables);
+            var stackDeploymentName = ProductDeployment.DeriveStackDeploymentName(
+                deploymentName, stackDef.Name);
 
             // Dispatch DeployStackCommand (handles both fresh deploy and upgrade)
             DeployStackResponse deployResult;
@@ -213,7 +216,7 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
                 deployResult = await _mediator.Send(new DeployStackCommand(
                     request.EnvironmentId,
                     stack.StackId,
-                    reqStack.DeploymentStackName,
+                    stackDeploymentName,
                     new Dictionary<string, string>(mergedVariables),
                     sessionId,
                     SuppressNotification: true), cancellationToken);
@@ -238,12 +241,12 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
             if (deployResult.Success && !string.IsNullOrEmpty(deployResult.DeploymentId))
             {
                 var deploymentId = new DeploymentId(Guid.Parse(deployResult.DeploymentId));
-                productDeployment.StartStack(stack.StackName, deploymentId, reqStack.DeploymentStackName);
+                productDeployment.StartStack(stack.StackName, deploymentId);
                 productDeployment.CompleteStack(stack.StackName);
 
                 stackResult.Success = true;
                 stackResult.DeploymentId = deployResult.DeploymentId;
-                stackResult.DeploymentStackName = reqStack.DeploymentStackName;
+                stackResult.DeploymentStackName = stackDeploymentName;
 
                 _logger.LogInformation("Stack {StackName} upgraded successfully", stack.StackDisplayName);
             }
@@ -254,10 +257,10 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
                 if (!string.IsNullOrEmpty(deployResult.DeploymentId))
                 {
                     var deploymentId = new DeploymentId(Guid.Parse(deployResult.DeploymentId));
-                    productDeployment.StartStack(stack.StackName, deploymentId, reqStack.DeploymentStackName);
+                    productDeployment.StartStack(stack.StackName, deploymentId);
                     productDeployment.FailStack(stack.StackName, error);
                     stackResult.DeploymentId = deployResult.DeploymentId;
-                    stackResult.DeploymentStackName = reqStack.DeploymentStackName;
+                    stackResult.DeploymentStackName = stackDeploymentName;
                 }
                 else
                 {

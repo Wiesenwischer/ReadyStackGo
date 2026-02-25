@@ -70,6 +70,7 @@ public class ProductDeploymentRepositoryIntegrationTests : IDisposable
             "Test Product",
             productVersion,
             new UserId(Guid.NewGuid()),
+            "test-deployment",
             stackConfigs ?? CreateStackConfigs(),
             sharedVars ?? new Dictionary<string, string> { { "SHARED_KEY", "shared_value" } });
     }
@@ -91,6 +92,7 @@ public class ProductDeploymentRepositoryIntegrationTests : IDisposable
             "source:ams-project", "source:ams-project:3.1.0",
             "ams-project", "ams.project Enterprise", "3.1.0",
             userId,
+            "test-deployment",
             CreateStackConfigs(2),
             new Dictionary<string, string>());
 
@@ -206,7 +208,7 @@ public class ProductDeploymentRepositoryIntegrationTests : IDisposable
         _fixture.Context.SaveChanges();
 
         var deploymentId = DeploymentId.Create();
-        pd.StartStack("stack-0", deploymentId, "test-product-stack-0");
+        pd.StartStack("stack-0", deploymentId);
         pd.CompleteStack("stack-0");
 
         // Act
@@ -379,7 +381,7 @@ public class ProductDeploymentRepositoryIntegrationTests : IDisposable
         // Complete all stacks so we can start removal
         foreach (var stack in pd.Stacks)
         {
-            pd.StartStack(stack.StackName, DeploymentId.Create(), $"test-{stack.StackName}");
+            pd.StartStack(stack.StackName, DeploymentId.Create());
             pd.CompleteStack(stack.StackName);
         }
         // Now remove
@@ -551,7 +553,7 @@ public class ProductDeploymentRepositoryIntegrationTests : IDisposable
         var removedPd = CreateTestDeployment(envId, productGroupId: "source:removed");
         foreach (var stack in removedPd.Stacks)
         {
-            removedPd.StartStack(stack.StackName, DeploymentId.Create(), $"test-{stack.StackName}");
+            removedPd.StartStack(stack.StackName, DeploymentId.Create());
             removedPd.CompleteStack(stack.StackName);
         }
         removedPd.StartRemoval();
@@ -580,16 +582,16 @@ public class ProductDeploymentRepositoryIntegrationTests : IDisposable
         var runningPd = CreateTestDeployment(envId, productGroupId: "source:running");
         foreach (var stack in runningPd.Stacks)
         {
-            runningPd.StartStack(stack.StackName, DeploymentId.Create(), $"test-{stack.StackName}");
+            runningPd.StartStack(stack.StackName, DeploymentId.Create());
             runningPd.CompleteStack(stack.StackName);
         }
         _repository.Add(runningPd);
 
         // PartiallyRunning deployment
         var partialPd = CreateTestDeployment(envId, productGroupId: "source:partial");
-        partialPd.StartStack("stack-0", DeploymentId.Create(), "test-stack-0");
+        partialPd.StartStack("stack-0", DeploymentId.Create());
         partialPd.CompleteStack("stack-0");
-        partialPd.StartStack("stack-1", DeploymentId.Create(), "test-stack-1");
+        partialPd.StartStack("stack-1", DeploymentId.Create());
         partialPd.FailStack("stack-1", "Connection timeout");
         partialPd.MarkAsPartiallyRunning("1 of 3 stacks failed");
         _repository.Add(partialPd);
@@ -622,7 +624,7 @@ public class ProductDeploymentRepositoryIntegrationTests : IDisposable
 
         // Start and complete first stack
         var deploymentId = DeploymentId.Create();
-        pd.StartStack("stack-0", deploymentId, "test-product-stack-0");
+        pd.StartStack("stack-0", deploymentId);
         pd.CompleteStack("stack-0");
         _repository.Update(pd);
         _fixture.Context.SaveChanges();
@@ -635,7 +637,7 @@ public class ProductDeploymentRepositoryIntegrationTests : IDisposable
         var stack0 = persisted!.Stacks.First(s => s.StackName == "stack-0");
         stack0.Status.Should().Be(StackDeploymentStatus.Running);
         stack0.DeploymentId.Should().Be(deploymentId);
-        stack0.DeploymentStackName.Should().Be("test-product-stack-0");
+        stack0.DeploymentStackName.Should().Be("test-deployment-stack-0");
         stack0.StartedAt.Should().NotBeNull();
         stack0.CompletedAt.Should().NotBeNull();
     }
@@ -649,7 +651,7 @@ public class ProductDeploymentRepositoryIntegrationTests : IDisposable
         _repository.Add(pd);
         _fixture.Context.SaveChanges();
 
-        pd.StartStack("stack-0", DeploymentId.Create(), "test-stack-0");
+        pd.StartStack("stack-0", DeploymentId.Create());
         pd.FailStack("stack-0", "Image pull failed: registry unreachable");
         _repository.Update(pd);
         _fixture.Context.SaveChanges();
@@ -696,7 +698,7 @@ public class ProductDeploymentRepositoryIntegrationTests : IDisposable
         // Complete all stacks so it's Running
         foreach (var stack in existing.Stacks)
         {
-            existing.StartStack(stack.StackName, DeploymentId.Create(), $"test-{stack.StackName}");
+            existing.StartStack(stack.StackName, DeploymentId.Create());
             existing.CompleteStack(stack.StackName);
         }
         _repository.Add(existing);
@@ -707,6 +709,7 @@ public class ProductDeploymentRepositoryIntegrationTests : IDisposable
             "source:test-product", "source:test-product:2.0.0",
             "test-product", "Test Product", "2.0.0",
             new UserId(Guid.NewGuid()),
+            "test-deployment",
             existing,
             CreateStackConfigs(3),
             new Dictionary<string, string> { { "UPGRADED", "true" } });
@@ -742,7 +745,7 @@ public class ProductDeploymentRepositoryIntegrationTests : IDisposable
         var existing = CreateTestDeployment(envId, productVersion: "1.0.0", stackConfigs: existingConfigs);
         foreach (var stack in existing.Stacks)
         {
-            existing.StartStack(stack.StackName, DeploymentId.Create(), $"test-{stack.StackName}");
+            existing.StartStack(stack.StackName, DeploymentId.Create());
             existing.CompleteStack(stack.StackName);
         }
         _repository.Add(existing);
@@ -758,6 +761,7 @@ public class ProductDeploymentRepositoryIntegrationTests : IDisposable
             "source:test-product", "source:test-product:2.0.0",
             "test-product", "Test Product", "2.0.0",
             new UserId(Guid.NewGuid()),
+            "test-deployment",
             existing,
             targetConfigs,
             new Dictionary<string, string>());

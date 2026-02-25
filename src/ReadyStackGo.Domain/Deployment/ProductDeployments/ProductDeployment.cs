@@ -1,5 +1,6 @@
 namespace ReadyStackGo.Domain.Deployment.ProductDeployments;
 
+using System.Text.RegularExpressions;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.SharedKernel;
@@ -25,6 +26,7 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     public string ProductName { get; private set; } = null!;
     public string ProductDisplayName { get; private set; } = null!;
     public string ProductVersion { get; private set; } = null!;
+    public string DeploymentName { get; private set; } = null!;
     public UserId DeployedBy { get; private set; } = null!;
 
     // ── Status & Lifecycle ───────────────────────────────────────────
@@ -94,6 +96,7 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
         string productDisplayName,
         string productVersion,
         UserId deployedBy,
+        string deploymentName,
         IReadOnlyList<StackDeploymentConfig> stackConfigs,
         IReadOnlyDictionary<string, string> sharedVariables,
         bool continueOnError = true)
@@ -106,6 +109,7 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
         AssertArgumentNotEmpty(productDisplayName, "Product display name is required.");
         AssertArgumentNotEmpty(productVersion, "Product version is required.");
         AssertArgumentNotNull(deployedBy, "DeployedBy is required.");
+        AssertArgumentNotEmpty(deploymentName, "Deployment name is required.");
         AssertArgumentNotNull(stackConfigs, "Stack configs are required.");
         AssertArgumentTrue(stackConfigs.Count > 0, "At least one stack config is required.");
 
@@ -118,6 +122,7 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
             ProductName = productName,
             ProductDisplayName = productDisplayName,
             ProductVersion = productVersion,
+            DeploymentName = deploymentName,
             DeployedBy = deployedBy,
             Status = ProductDeploymentStatus.Deploying,
             CreatedAt = SystemClock.UtcNow,
@@ -162,6 +167,7 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
         string productDisplayName,
         string targetVersion,
         UserId deployedBy,
+        string deploymentName,
         ProductDeployment existingDeployment,
         IReadOnlyList<StackDeploymentConfig> targetStackConfigs,
         IReadOnlyDictionary<string, string> sharedVariables,
@@ -175,6 +181,7 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
         AssertArgumentNotEmpty(productDisplayName, "Product display name is required.");
         AssertArgumentNotEmpty(targetVersion, "Target version is required.");
         AssertArgumentNotNull(deployedBy, "DeployedBy is required.");
+        AssertArgumentNotEmpty(deploymentName, "Deployment name is required.");
         AssertArgumentNotNull(existingDeployment, "Existing deployment is required.");
         AssertArgumentTrue(existingDeployment.CanUpgrade, "Existing deployment cannot be upgraded.");
         AssertArgumentNotNull(targetStackConfigs, "Target stack configs are required.");
@@ -189,6 +196,7 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
             ProductName = productName,
             ProductDisplayName = productDisplayName,
             ProductVersion = targetVersion,
+            DeploymentName = deploymentName,
             DeployedBy = deployedBy,
             Status = ProductDeploymentStatus.Upgrading,
             CreatedAt = SystemClock.UtcNow,
@@ -228,6 +236,69 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
         return deployment;
     }
 
+    /// <summary>
+    /// Creates a ProductDeployment for a stack that was deployed externally (e.g. via CI/CD hook).
+    /// The deployment is created directly in Running status with a single stack already completed.
+    /// </summary>
+    public static ProductDeployment CreateFromExternalDeployment(
+        ProductDeploymentId id,
+        EnvironmentId environmentId,
+        string productGroupId,
+        string catalogProductId,
+        string productName,
+        string? productDisplayName,
+        string productVersion,
+        UserId deployedBy,
+        string deploymentName,
+        string stackName,
+        string stackDisplayName,
+        string stackId,
+        DeploymentId deploymentId,
+        string deploymentStackName,
+        int serviceCount)
+    {
+        AssertArgumentNotNull(id, "ProductDeploymentId is required.");
+        AssertArgumentNotNull(environmentId, "EnvironmentId is required.");
+        AssertArgumentNotEmpty(productGroupId, "Product group ID is required.");
+        AssertArgumentNotEmpty(catalogProductId, "Catalog product ID is required.");
+        AssertArgumentNotEmpty(productName, "Product name is required.");
+        AssertArgumentNotEmpty(productVersion, "Product version is required.");
+        AssertArgumentNotNull(deployedBy, "DeployedBy is required.");
+        AssertArgumentNotEmpty(deploymentName, "Deployment name is required.");
+        AssertArgumentNotEmpty(stackName, "Stack name is required.");
+        AssertArgumentNotEmpty(stackId, "Stack ID is required.");
+        AssertArgumentNotNull(deploymentId, "DeploymentId is required.");
+        AssertArgumentNotEmpty(deploymentStackName, "Deployment stack name is required.");
+
+        var deployment = new ProductDeployment
+        {
+            Id = id,
+            EnvironmentId = environmentId,
+            ProductGroupId = productGroupId,
+            ProductId = catalogProductId,
+            ProductName = productName,
+            ProductDisplayName = productDisplayName ?? productName,
+            ProductVersion = productVersion,
+            DeploymentName = deploymentName,
+            DeployedBy = deployedBy,
+            Status = ProductDeploymentStatus.Running,
+            CreatedAt = SystemClock.UtcNow,
+            CompletedAt = SystemClock.UtcNow,
+            ContinueOnError = true
+        };
+
+        var stack = new ProductStackDeployment(
+            stackName, stackDisplayName, stackId, 0, serviceCount,
+            new Dictionary<string, string>());
+        stack.Start(deploymentId, deploymentStackName);
+        stack.Complete();
+        deployment._stacks.Add(stack);
+
+        deployment.RecordPhase($"Created from external deployment of stack '{stackName}'");
+
+        return deployment;
+    }
+
     // ═══════════════════════════════════════════════════════════════════
     // Stack Lifecycle (called by orchestrator)
     // ═══════════════════════════════════════════════════════════════════
@@ -235,14 +306,15 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     /// <summary>
     /// Marks a stack as started with its Deployment reference.
     /// </summary>
-    public void StartStack(string stackName, DeploymentId deploymentId, string deploymentStackName)
+    public void StartStack(string stackName, DeploymentId deploymentId)
     {
         SelfAssertStateTrue(
             Status is ProductDeploymentStatus.Deploying or ProductDeploymentStatus.Upgrading,
             $"Cannot start stack when product status is {Status}.");
 
         var stack = FindStack(stackName);
-        stack.Start(deploymentId, deploymentStackName);
+        var derivedName = DeriveStackDeploymentName(DeploymentName, stackName);
+        stack.Start(deploymentId, derivedName);
 
         RecordPhase($"Stack '{stackName}' started");
         AddDomainEvent(new ProductStackDeploymentStarted(
@@ -373,6 +445,40 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
             RecordPhase("All stacks removed");
             AddDomainEvent(new ProductDeploymentRemoved(Id, ProductName));
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // External Stack Registration
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Registers a stack that was deployed externally (e.g. via CI/CD hook) and
+    /// is not yet tracked in this product deployment. Only allowed when operational.
+    /// </summary>
+    public void RegisterExternalStack(
+        string stackName,
+        string stackDisplayName,
+        string stackId,
+        DeploymentId deploymentId,
+        string deploymentStackName,
+        int serviceCount)
+    {
+        SelfAssertStateTrue(IsOperational,
+            $"Cannot register external stack when product status is {Status}.");
+        SelfAssertStateTrue(
+            !_stacks.Any(s => s.StackName.Equals(stackName, StringComparison.OrdinalIgnoreCase)),
+            $"Stack '{stackName}' is already registered in this product deployment.");
+
+        var order = _stacks.Count > 0 ? _stacks.Max(s => s.Order) + 1 : 0;
+
+        var stack = new ProductStackDeployment(
+            stackName, stackDisplayName, stackId, order, serviceCount,
+            new Dictionary<string, string>());
+        stack.Start(deploymentId, deploymentStackName);
+        stack.Complete();
+        _stacks.Add(stack);
+
+        RecordPhase($"External stack '{stackName}' registered");
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -511,6 +617,16 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     private void RecordPhase(string message)
     {
         _phaseHistory.Add(new ProductDeploymentPhaseRecord(message, SystemClock.UtcNow));
+    }
+
+    /// <summary>
+    /// Derives the Docker project name for a stack from the product-level deployment name.
+    /// Example: ("myapp", "db") → "myapp-db"
+    /// </summary>
+    internal static string DeriveStackDeploymentName(string deploymentName, string stackName)
+    {
+        var raw = $"{deploymentName}-{stackName}";
+        return Regex.Replace(raw.ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');
     }
 
     public override string ToString() =>
