@@ -145,6 +145,26 @@ public class Program
         var reverseProxyConfig = await ConfigureReverseProxyAsync(app);
 
         // Configure the HTTP request pipeline
+
+        // SPA fallback middleware: catches 404s for non-API routes that contain dots
+        // (e.g. /catalog/source:product:1.0.0). MapFallback uses {*path:nonfile} which
+        // skips these paths, so this middleware serves index.html as a last resort.
+        var webRootPath = app.Environment.WebRootPath;
+        app.Use(async (context, next) =>
+        {
+            await next();
+            if (context.Response.StatusCode == 404 &&
+                !context.Response.HasStarted &&
+                !context.Request.Path.StartsWithSegments("/api") &&
+                !context.Request.Path.StartsWithSegments("/hubs"))
+            {
+                context.Response.StatusCode = 200;
+                context.Response.ContentType = "text/html";
+                await context.Response.SendFileAsync(
+                    Path.Combine(webRootPath, "index.html"));
+            }
+        });
+
         if (app.Environment.IsDevelopment())
         {
             app.UseCors("DevCorsPolicy");
@@ -189,11 +209,13 @@ public class Program
         app.MapHub<UpdateHub>("/hubs/update");
 
         // SPA fallback: serve index.html for non-API, non-file routes
-        // This must come after static files middleware so that actual files are served first
+        // MapFallback uses {*path:nonfile} which skips paths with dots (e.g. version
+        // numbers in product IDs like "source:product:1.0.0"). The additional middleware
+        // below catches those dotted paths that MapFallback misses.
         app.MapFallback(async context =>
         {
-            // Only serve SPA for non-API routes
-            if (!context.Request.Path.StartsWithSegments("/api"))
+            if (!context.Request.Path.StartsWithSegments("/api") &&
+                !context.Request.Path.StartsWithSegments("/hubs"))
             {
                 context.Response.ContentType = "text/html";
                 await context.Response.SendFileAsync(
