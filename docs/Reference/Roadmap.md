@@ -222,6 +222,12 @@ Release version numbers are assigned when an Epic ships, not during planning.
 
 Epics are listed in priority order. Top = next.
 
+### Epic: Orphaned Container Recovery
+
+- Repair Orphaned Stacks (Reconcile running containers with fresh database)
+- Bulk Remove Orphaned Stacks (Delete all containers of an orphaned stack group)
+- UI Actions in Container Views (Repair/Remove buttons on orphaned badges)
+
 ### Epic: Notifications & System Info
 
 **Phase 1** (next)
