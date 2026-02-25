@@ -18,9 +18,8 @@ Die Deployments-Übersicht zeigt aktuell nur einzelne Stack-Deployments. Product
 - `Deployments.tsx` zeigt nur Stack-Deployments via `listDeployments()`
 - Keine Product-Deployment-Integration in der Overview
 
-**Bereits implementiert (in dieser Session):**
+**Bereits implementiert (PR #151):**
 - Product-Level `DeploymentName` Refactoring — Single DeploymentName statt per-Stack Names
-- Backend, Frontend, Tests sind bereits fertig — noch nicht committed
 
 ### Betroffene Bounded Contexts
 - **Domain**: Keine Änderungen
@@ -33,34 +32,28 @@ Die Deployments-Übersicht zeigt aktuell nur einzelne Stack-Deployments. Product
 
 Reihenfolge basierend auf Abhängigkeiten:
 
-- [ ] **Feature 1: Product-Level DeploymentName** – Bereits implementiert in dieser Session
-  - Betroffene Dateien: Domain, Application, API, EF Core, Frontend, Tests (alle bereits geändert)
+- [x] **Feature 1: Product-Level DeploymentName** – Implemented in PR #151
+  - Betroffene Dateien: Domain, Application, API, EF Core, Frontend, Tests
   - Abhängig von: -
 
-- [ ] **Feature 2: Frontend API Funktion `listProductDeployments()`** – Neue Funktion + TypeScript Interface
+- [x] **Feature 2: Frontend API Funktion `listProductDeployments()`** – Neue Funktion + TypeScript Interface
   - Betroffene Dateien:
     - `src/ReadyStackGo.WebUi/src/api/deployments.ts` — `listProductDeployments()` Funktion + `ListProductDeploymentsResponse`, `ProductDeploymentSummaryDto` Interfaces
-  - Pattern-Vorlage: `listDeployments()` in gleicher Datei (Zeile 134-136)
   - Abhängig von: -
 
-- [ ] **Feature 3: Product Deployments Sektion in Deployments.tsx** – Neue Sektion oberhalb der Stack-Liste
+- [x] **Feature 3: Product Deployments Sektion in Deployments.tsx** – Neue Sektion oberhalb der Stack-Liste
   - Betroffene Dateien:
     - `src/ReadyStackGo.WebUi/src/pages/Deployments/Deployments.tsx` — Product Deployment Cards rendern
-  - Layout:
-    - "Product Deployments" Überschrift (analog zu "Deployed Stacks")
-    - Product Cards mit: ProductDisplayName, Version-Badge, Status-Badge, DeploymentName (mono), Stack-Fortschritt (3/5 stacks), Aktionen
-    - Status-Farben: Running=Grün, Deploying/Upgrading=Brand, Failed=Rot, PartiallyRunning=Gelb
-    - Aktionen: "Details" → `/catalog/{productId}`, "Upgrade" (wenn `canUpgrade`), "Remove" (wenn `canRemove`)
-    - Empty State: "No product deployments" mit Link zum Catalog
-  - Pattern-Vorlage: `DeploymentRow` Komponente in gleicher Datei
+  - Layout: ProductDisplayName, Version-Badge, Status-Badge, DeploymentName (mono), Stack-Fortschritt, Aktionen
+  - Status-Farben: Running=Grün, Deploying/Upgrading=Brand, Failed=Rot, PartiallyRunning=Gelb
+  - Aktionen: "Details" → `/catalog/{groupId}`, "Upgrade" (canUpgrade), "Remove" (canRemove)
+  - Sektion nur sichtbar wenn mindestens 1 Product Deployment existiert
   - Abhängig von: Feature 2
 
-- [ ] **Feature 4: Seitenüberschrift anpassen** – Text von "deployed stacks" auf "deployments" generalisieren
-  - Betroffene Dateien:
-    - `src/ReadyStackGo.WebUi/src/pages/Deployments/Deployments.tsx` — Subtitle-Text anpassen
+- [x] **Feature 4: Seitenüberschrift anpassen** – Subtitle von "deployed stacks" auf "deployments" generalisiert
   - Abhängig von: Feature 3
 
-- [ ] **Phase abschließen** – Build, Tests, Commit, PR gegen main
+- [x] **Phase abschließen** – Build, Tests, Commit, PR gegen main
 
 ## Test-Strategie
 - **Unit Tests**: Keine neuen Backend-Tests nötig (API existiert bereits)
