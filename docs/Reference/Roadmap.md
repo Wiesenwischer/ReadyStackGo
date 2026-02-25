@@ -210,7 +210,7 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Product Deployment E2E Tests with Multi-Stack Test Product
   - Step-by-Step Documentation with Screenshots (DE/EN)
 
-- **v0.28** – Deployments Overview with Product Info
+- **v0.28** – Deployments Overview with Product Info (2026-02-25)
   - Product Deployments Section in Deployments Overview (Above Stack Deployments)
   - Product Deployment Cards (Name, Version, Status, Stack Progress, Actions)
   - Frontend `listProductDeployments()` API Function (Missing in v0.27)

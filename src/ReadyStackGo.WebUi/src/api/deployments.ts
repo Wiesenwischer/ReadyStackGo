@@ -135,6 +135,37 @@ export async function listDeployments(environmentId: string): Promise<ListDeploy
   return apiGet<ListDeploymentsResponse>(`/api/environments/${environmentId}/deployments`);
 }
 
+// ============================================================================
+// List Product Deployments API
+// ============================================================================
+
+export interface ProductDeploymentSummaryDto {
+  productDeploymentId: string;
+  productGroupId: string;
+  productName: string;
+  productDisplayName: string;
+  productVersion: string;
+  deploymentName: string;
+  status: string;
+  createdAt: string;
+  completedAt?: string;
+  errorMessage?: string;
+  totalStacks: number;
+  completedStacks: number;
+  failedStacks: number;
+  canUpgrade: boolean;
+  canRemove: boolean;
+}
+
+export interface ListProductDeploymentsResponse {
+  success: boolean;
+  productDeployments: ProductDeploymentSummaryDto[];
+}
+
+export async function listProductDeployments(environmentId: string): Promise<ListProductDeploymentsResponse> {
+  return apiGet<ListProductDeploymentsResponse>(`/api/environments/${environmentId}/product-deployments`);
+}
+
 export async function getDeployment(environmentId: string, deploymentId: string): Promise<GetDeploymentResponse> {
   return apiGet<GetDeploymentResponse>(`/api/environments/${environmentId}/deployments/${deploymentId}`);
 }
