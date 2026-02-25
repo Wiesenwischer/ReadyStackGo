@@ -15,6 +15,14 @@ export default function Containers() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [removeConfirm, setRemoveConfirm] = useState<string | null>(null);
+  const [orphanConfirm, setOrphanConfirm] = useState<{
+    stackName: string;
+    action: "repair" | "remove";
+  } | null>(null);
+  const [repairAllConfirm, setRepairAllConfirm] = useState(false);
+  const [orphanActionLoading, setOrphanActionLoading] = useState<string | null>(
+    null
+  );
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const { activeEnvironment } = useEnvironment();
 
@@ -91,6 +99,56 @@ export default function Containers() {
       );
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleRepairOrphan = async (stackName: string) => {
+    if (!activeEnvironment) return;
+    try {
+      setOrphanActionLoading(`repair:${stackName}`);
+      setOrphanConfirm(null);
+      await containerApi.repairOrphanedStack(activeEnvironment.id, stackName);
+      await loadContainers();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to repair orphaned stack"
+      );
+    } finally {
+      setOrphanActionLoading(null);
+    }
+  };
+
+  const handleRemoveOrphan = async (stackName: string) => {
+    if (!activeEnvironment) return;
+    try {
+      setOrphanActionLoading(`remove:${stackName}`);
+      setOrphanConfirm(null);
+      await containerApi.removeOrphanedStack(activeEnvironment.id, stackName);
+      await loadContainers();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to remove orphaned stack"
+      );
+    } finally {
+      setOrphanActionLoading(null);
+    }
+  };
+
+  const handleRepairAllOrphaned = async () => {
+    if (!activeEnvironment) return;
+    try {
+      setOrphanActionLoading("repair-all");
+      setRepairAllConfirm(false);
+      await containerApi.repairAllOrphanedStacks(activeEnvironment.id);
+      await loadContainers();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to repair all orphaned stacks"
+      );
+    } finally {
+      setOrphanActionLoading(null);
     }
   };
 
@@ -179,6 +237,12 @@ export default function Containers() {
     }
     return { products, unknownProduct, unmanaged };
   }, [containers, getContextInfo]);
+
+  const hasOrphanedStacks = useMemo(() => {
+    return Object.values(groupedByStack.managed).some(
+      (g) => g.context && !g.context.deploymentExists
+    );
+  }, [groupedByStack]);
 
   // --- Reusable sub-components ---
 
@@ -564,17 +628,25 @@ export default function Containers() {
     containers: groupContainers,
     ctx,
     isUnmanaged,
+    onRepair,
+    onRemove,
   }: {
     title: string;
     containers: Container[];
     ctx?: StackContextInfo;
     isUnmanaged?: boolean;
+    onRepair?: () => void;
+    onRemove?: () => void;
   }) => {
     const runningCount = groupContainers.filter(
       (c) => c.state.toLowerCase() === "running"
     ).length;
     const total = groupContainers.length;
     const isOrphaned = ctx && !ctx.deploymentExists;
+    const isConfirming = orphanConfirm?.stackName === title;
+    const isLoading =
+      orphanActionLoading === `repair:${title}` ||
+      orphanActionLoading === `remove:${title}`;
 
     return (
       <div className="flex items-center justify-between px-4 py-3 md:px-6 bg-gray-50 dark:bg-gray-800/50">
@@ -584,11 +656,122 @@ export default function Containers() {
           </h3>
           {isOrphaned && <OrphanedBadge />}
         </div>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
-          {runningCount === total
-            ? `${total} running`
-            : `${runningCount}/${total} running`}
-        </span>
+        <div className="flex items-center gap-2">
+          {isOrphaned && isConfirming ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {orphanConfirm?.action === "repair"
+                  ? "Repair stack?"
+                  : "Remove all containers?"}
+              </span>
+              <button
+                onClick={
+                  orphanConfirm?.action === "repair" ? onRepair : onRemove
+                }
+                disabled={isLoading}
+                className="p-1 rounded text-green-600 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-900 disabled:opacity-50"
+                title="Confirm"
+              >
+                {isLoading ? (
+                  <Spinner />
+                ) : (
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                )}
+              </button>
+              <button
+                onClick={() => setOrphanConfirm(null)}
+                className="p-1 rounded text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900"
+                title="Cancel"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          ) : isOrphaned && onRepair && onRemove ? (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() =>
+                  setOrphanConfirm({ stackName: title, action: "repair" })
+                }
+                disabled={!!orphanActionLoading}
+                className="p-1.5 rounded text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-400 dark:hover:text-blue-400 dark:hover:bg-blue-900/30 disabled:opacity-50"
+                title="Repair — create deployment record"
+              >
+                {orphanActionLoading === `repair:${title}` ? (
+                  <Spinner />
+                ) : (
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"
+                    />
+                  </svg>
+                )}
+              </button>
+              <button
+                onClick={() =>
+                  setOrphanConfirm({ stackName: title, action: "remove" })
+                }
+                disabled={!!orphanActionLoading}
+                className="p-1.5 rounded text-gray-500 hover:text-red-600 hover:bg-red-50 dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-red-900/30 disabled:opacity-50"
+                title="Remove all containers"
+              >
+                {orphanActionLoading === `remove:${title}` ? (
+                  <Spinner />
+                ) : (
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                )}
+              </button>
+            </div>
+          ) : null}
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            {runningCount === total
+              ? `${total} running`
+              : `${runningCount}/${total} running`}
+          </span>
+        </div>
       </div>
     );
   };
@@ -710,6 +893,8 @@ export default function Containers() {
                   title={name}
                   containers={managed[name].containers}
                   ctx={managed[name].context}
+                  onRepair={() => handleRepairOrphan(name)}
+                  onRemove={() => handleRemoveOrphan(name)}
                 />
                 <CompactHeader />
                 {managed[name].containers.map((c) => (
@@ -774,6 +959,8 @@ export default function Containers() {
                           title={stackName}
                           containers={stack.containers}
                           ctx={stack.context}
+                          onRepair={() => handleRepairOrphan(stackName)}
+                          onRemove={() => handleRemoveOrphan(stackName)}
                         />
                         <CompactHeader />
                         {stack.containers.map((c) => (
@@ -800,6 +987,8 @@ export default function Containers() {
                         title={stackName}
                         containers={stack.containers}
                         ctx={stack.context}
+                        onRepair={() => handleRepairOrphan(stackName)}
+                        onRemove={() => handleRemoveOrphan(stackName)}
                       />
                       <CompactHeader />
                       {stack.containers.map((c) => (
@@ -837,6 +1026,80 @@ export default function Containers() {
         </h2>
         <div className="flex items-center gap-3">
           <ViewToggle />
+          {hasOrphanedStacks && !loading && (
+            repairAllConfirm ? (
+              <div className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 dark:border-amber-700 dark:bg-amber-900/30">
+                <span className="text-sm text-amber-800 dark:text-amber-200">
+                  Repair all orphaned stacks?
+                </span>
+                <button
+                  onClick={handleRepairAllOrphaned}
+                  disabled={orphanActionLoading === "repair-all"}
+                  className="p-1 rounded text-green-600 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-900 disabled:opacity-50"
+                  title="Confirm"
+                >
+                  {orphanActionLoading === "repair-all" ? (
+                    <Spinner />
+                  ) : (
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  )}
+                </button>
+                <button
+                  onClick={() => setRepairAllConfirm(false)}
+                  className="p-1 rounded text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900"
+                  title="Cancel"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setRepairAllConfirm(true)}
+                disabled={!!orphanActionLoading}
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-amber-100 px-4 py-3 text-center font-medium text-amber-800 hover:bg-amber-200 dark:bg-amber-900/50 dark:text-amber-200 dark:hover:bg-amber-900 disabled:opacity-50"
+                title="Create deployment records for all orphaned stacks"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"
+                  />
+                </svg>
+                Repair All
+              </button>
+            )
+          )}
           <button
             onClick={loadContainers}
             className="inline-flex items-center justify-center gap-2 rounded-md bg-gray-100 px-6 py-3 text-center font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"

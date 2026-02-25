@@ -108,9 +108,9 @@ Reihenfolge basierend auf Abhängigkeiten:
 
 ## Offene Punkte
 
-- [ ] Soll Repair auch ohne Catalog-Match funktionieren? (Vorschlag: Ja, dann wird nur ein `Deployment` ohne `ProductDeployment` erstellt — der Stack ist dann im Deployment-View verwaltbar aber nicht als Product erkannt)
-- [ ] Soll es eine "Repair All" Bulk-Aktion geben oder nur pro Stack? (Vorschlag: Erstmal nur pro Stack, Bulk kann später ergänzt werden)
-- [ ] Braucht es eine Confirmation für Repair oder nur für Remove? (Vorschlag: Remove = Confirmation, Repair = direkt ausführen)
+- [x] Soll Repair auch ohne Catalog-Match funktionieren? → **Ja**, Deployment-only Fallback
+- [x] Soll es eine "Repair All" Bulk-Aktion geben oder nur pro Stack? → **Beides**: Per-Stack + "Repair All"
+- [x] Braucht es eine Confirmation für Repair oder nur für Remove? → **Beides** braucht Confirmation
 
 ## Entscheidungen
 

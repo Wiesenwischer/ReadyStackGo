@@ -33,6 +33,26 @@ export interface ContainerContextResult {
   errorMessage?: string;
 }
 
+export interface RemoveOrphanedStackResult {
+  success: boolean;
+  removedCount: number;
+  errorMessage?: string;
+}
+
+export interface RepairOrphanedStackResult {
+  success: boolean;
+  deploymentId?: string;
+  catalogMatched: boolean;
+  errorMessage?: string;
+}
+
+export interface RepairAllOrphanedStacksResult {
+  success: boolean;
+  repairedCount: number;
+  failedCount: number;
+  errorMessage?: string;
+}
+
 export const containerApi = {
   async list(environmentId: string): Promise<Container[]> {
     return apiGet<Container[]>(`/api/containers?environment=${encodeURIComponent(environmentId)}`);
@@ -52,5 +72,23 @@ export const containerApi = {
 
   async remove(environmentId: string, id: string, force: boolean = false): Promise<void> {
     return apiDelete(`/api/containers/${id}?environment=${encodeURIComponent(environmentId)}&force=${force}`);
+  },
+
+  async removeOrphanedStack(environmentId: string, stackName: string): Promise<RemoveOrphanedStackResult> {
+    return apiDelete<RemoveOrphanedStackResult>(
+      `/api/containers/orphaned-stacks/${encodeURIComponent(stackName)}?environment=${encodeURIComponent(environmentId)}`
+    );
+  },
+
+  async repairOrphanedStack(environmentId: string, stackName: string): Promise<RepairOrphanedStackResult> {
+    return apiPost<RepairOrphanedStackResult>(
+      `/api/containers/orphaned-stacks/${encodeURIComponent(stackName)}/repair?environment=${encodeURIComponent(environmentId)}`
+    );
+  },
+
+  async repairAllOrphanedStacks(environmentId: string): Promise<RepairAllOrphanedStacksResult> {
+    return apiPost<RepairAllOrphanedStacksResult>(
+      `/api/containers/repair-all-orphaned?environment=${encodeURIComponent(environmentId)}`
+    );
   },
 };
