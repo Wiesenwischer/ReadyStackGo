@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.ProductDeployments;
+using ReadyStackGo.Domain.StackManagement.Stacks;
 
 /// <summary>
 /// Handles DeploymentCompleted events to synchronize the ProductDeployment aggregate.
@@ -52,8 +53,15 @@ public class DeploymentCompletedHandler
             return;
         }
 
+        // Resolve product to get the canonical GroupId for consistent lookup.
+        // GetProductIdFromStackId returns sourceId:productName from the stackId, but
+        // product.GroupId may differ (e.g., explicit productId without source prefix).
+        // Using product.GroupId ensures the lookup matches how ProductDeployments are stored.
+        var product = await _productSourceService.GetProductAsync(productId, cancellationToken);
+        var groupId = product?.GroupId ?? productId;
+
         var productDeployment = _productDeploymentRepository
-            .GetActiveByProductGroupId(deployment.EnvironmentId, productId);
+            .GetActiveByProductGroupId(deployment.EnvironmentId, groupId);
 
         if (productDeployment is not null)
         {
@@ -61,7 +69,7 @@ public class DeploymentCompletedHandler
         }
         else
         {
-            await CreateProductDeploymentAsync(deployment, productId, evt, cancellationToken);
+            CreateProductDeployment(deployment, product, evt);
         }
     }
 
@@ -118,11 +126,10 @@ public class DeploymentCompletedHandler
         _productDeploymentRepository.SaveChanges();
     }
 
-    private async Task CreateProductDeploymentAsync(
+    private void CreateProductDeployment(
         Deployment deployment,
-        string productId,
-        DeploymentCompleted evt,
-        CancellationToken cancellationToken)
+        ProductDefinition? product,
+        DeploymentCompleted evt)
     {
         if (evt.Status != DeploymentStatus.Running)
         {
@@ -131,12 +138,11 @@ public class DeploymentCompletedHandler
             return;
         }
 
-        var product = await _productSourceService.GetProductAsync(productId, cancellationToken);
         if (product is null)
         {
             _logger.LogWarning(
-                "DeploymentCompleted: Product {ProductId} not found in catalog, cannot auto-create",
-                productId);
+                "DeploymentCompleted: Product not found in catalog for StackId {StackId}, cannot auto-create",
+                deployment.StackId);
             return;
         }
 
