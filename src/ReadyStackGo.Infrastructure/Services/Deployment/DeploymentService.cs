@@ -1003,6 +1003,8 @@ public class DeploymentService : IDeploymentService
         {
             StackVersion = request.StackVersion ?? "unspecified",
             StackName = request.StackName,
+            ProductGroupId = request.ProductGroupId,
+            StackDefinitionName = request.StackDefinitionName,
             GlobalEnvVars = variables
         };
 

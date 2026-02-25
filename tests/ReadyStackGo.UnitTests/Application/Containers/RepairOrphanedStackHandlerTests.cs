@@ -43,11 +43,14 @@ public class RepairOrphanedStackHandlerTests
 
     private static ContainerDto MakeServiceContainer(
         string id, string name, string stackLabel,
-        string state = "running", string? context = null, string? lifecycle = null)
+        string state = "running", string? context = null, string? lifecycle = null,
+        string? productGroupId = null, string? stackDefinitionName = null)
     {
         var labels = new Dictionary<string, string> { ["rsgo.stack"] = stackLabel };
         if (context != null) labels["rsgo.context"] = context;
         if (lifecycle != null) labels["rsgo.lifecycle"] = lifecycle;
+        if (productGroupId != null) labels["rsgo.product"] = productGroupId;
+        if (stackDefinitionName != null) labels["rsgo.stack.name"] = stackDefinitionName;
         return new()
         {
             Id = id,
@@ -347,6 +350,141 @@ public class RepairOrphanedStackHandlerTests
 
         result.Success.Should().BeTrue();
         result.DeploymentId.Should().NotBeNullOrEmpty();
+    }
+
+    #endregion
+
+    #region Label-Based Catalog Resolution
+
+    [Fact]
+    public async Task Handle_WithStructuredLabels_UsesDirectCatalogLookup()
+    {
+        _deploymentRepoMock
+            .Setup(r => r.GetByStackName(It.IsAny<EnvironmentId>(), "myapp-webapp"))
+            .Returns((Deployment?)null);
+
+        // Container has rsgo.product and rsgo.stack.name labels
+        _dockerServiceMock
+            .Setup(s => s.ListContainersAsync(EnvId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[]
+            {
+                MakeServiceContainer("c1", "frontend", "myapp-webapp",
+                    context: "frontend",
+                    productGroupId: "myproduct",
+                    stackDefinitionName: "webapp"),
+            });
+
+        // Product cache lookup by GroupId
+        var stackDef = new StackDefinition("source1", "webapp", ProductId.FromName("myproduct"));
+        var product = new ProductDefinition("source1", "myproduct", "My Product",
+            new List<StackDefinition> { stackDef });
+        _productCacheMock
+            .Setup(c => c.GetProduct("myproduct"))
+            .Returns(product);
+
+        var result = await _handler.Handle(
+            new RepairOrphanedStackCommand(EnvId, "myapp-webapp", UserId), CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        result.CatalogMatched.Should().BeTrue();
+
+        // Should have used GetProduct (label path), not GetAllStacks (suffix path)
+        _productCacheMock.Verify(c => c.GetProduct("myproduct"), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WithStructuredLabels_ProductNotInCache_FallsBackToSuffixMatch()
+    {
+        _deploymentRepoMock
+            .Setup(r => r.GetByStackName(It.IsAny<EnvironmentId>(), "myapp-webapp"))
+            .Returns((Deployment?)null);
+
+        _dockerServiceMock
+            .Setup(s => s.ListContainersAsync(EnvId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[]
+            {
+                MakeServiceContainer("c1", "frontend", "myapp-webapp",
+                    context: "frontend",
+                    productGroupId: "deleted-product",
+                    stackDefinitionName: "webapp"),
+            });
+
+        // Label-path returns null (product was removed from sources)
+        _productCacheMock
+            .Setup(c => c.GetProduct("deleted-product"))
+            .Returns((ProductDefinition?)null);
+
+        // Suffix-match fallback
+        var stackDef = new StackDefinition("source1", "webapp", ProductId.FromName("other"));
+        _productCacheMock
+            .Setup(c => c.GetAllStacks())
+            .Returns(new[] { stackDef });
+
+        var result = await _handler.Handle(
+            new RepairOrphanedStackCommand(EnvId, "myapp-webapp", UserId), CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        result.CatalogMatched.Should().BeTrue(); // fell back to suffix match
+    }
+
+    [Fact]
+    public async Task Handle_WithoutStructuredLabels_FallsBackToSuffixMatch()
+    {
+        // Containers WITHOUT rsgo.product / rsgo.stack.name labels (legacy)
+        _deploymentRepoMock
+            .Setup(r => r.GetByStackName(It.IsAny<EnvironmentId>(), "myapp-webapp"))
+            .Returns((Deployment?)null);
+
+        _dockerServiceMock
+            .Setup(s => s.ListContainersAsync(EnvId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[]
+            {
+                MakeServiceContainer("c1", "frontend", "myapp-webapp", context: "frontend"),
+            });
+
+        var stackDef = new StackDefinition("source1", "webapp", ProductId.FromName("myproduct"));
+        _productCacheMock
+            .Setup(c => c.GetAllStacks())
+            .Returns(new[] { stackDef });
+
+        var result = await _handler.Handle(
+            new RepairOrphanedStackCommand(EnvId, "myapp-webapp", UserId), CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        result.CatalogMatched.Should().BeTrue();
+
+        // Should NOT have called GetProduct (no labels available)
+        _productCacheMock.Verify(c => c.GetProduct(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WithEmptyProductLabel_FallsBackToSuffixMatch()
+    {
+        _deploymentRepoMock
+            .Setup(r => r.GetByStackName(It.IsAny<EnvironmentId>(), "myapp-webapp"))
+            .Returns((Deployment?)null);
+
+        // Container has empty rsgo.product label (e.g., YAML-based deploy)
+        _dockerServiceMock
+            .Setup(s => s.ListContainersAsync(EnvId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[]
+            {
+                MakeServiceContainer("c1", "frontend", "myapp-webapp",
+                    context: "frontend",
+                    productGroupId: "",
+                    stackDefinitionName: "myapp-webapp"),
+            });
+
+        var stackDef = new StackDefinition("source1", "webapp", ProductId.FromName("myproduct"));
+        _productCacheMock
+            .Setup(c => c.GetAllStacks())
+            .Returns(new[] { stackDef });
+
+        var result = await _handler.Handle(
+            new RepairOrphanedStackCommand(EnvId, "myapp-webapp", UserId), CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        result.CatalogMatched.Should().BeTrue();
     }
 
     #endregion

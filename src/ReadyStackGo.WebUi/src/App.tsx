@@ -17,6 +17,7 @@ import DeployStack from "./pages/Deployments/DeployStack";
 import DeployProduct from "./pages/Deployments/DeployProduct";
 import UpgradeProduct from "./pages/Deployments/UpgradeProduct";
 import RemoveProduct from "./pages/Deployments/RemoveProduct";
+import ProductDeploymentDetail from "./pages/Deployments/ProductDeploymentDetail";
 import Environments from "./pages/Environments/Environments";
 import AddEnvironment from "./pages/Environments/AddEnvironment";
 import DeleteEnvironment from "./pages/Environments/DeleteEnvironment";
@@ -234,6 +235,14 @@ export default function App() {
                   element={
                     <EnvironmentGuard>
                       <RemoveProduct />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/product-deployments/:productDeploymentId"
+                  element={
+                    <EnvironmentGuard>
+                      <ProductDeploymentDetail />
                     </EnvironmentGuard>
                   }
                 />

@@ -25,6 +25,7 @@ export interface StackContextInfo {
   deploymentId?: string;
   productName?: string;
   productDisplayName?: string;
+  stackDefinitionName?: string;
 }
 
 export interface ContainerContextResult {

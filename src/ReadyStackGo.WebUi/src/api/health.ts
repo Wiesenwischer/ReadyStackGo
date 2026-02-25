@@ -98,6 +98,8 @@ export interface StackHealthSummaryDto {
   statusMessage: string;
   requiresAttention: boolean;
   capturedAtUtc: string;
+  productDeploymentId?: string;
+  productDisplayName?: string;
 }
 
 // API Response wrapper types
@@ -187,6 +189,14 @@ export function getHealthStatusPresentation(status: string): StatusPresentation 
         textColor: 'text-red-800',
         icon: 'x-circle',
         label: 'Unhealthy'
+      };
+    case 'notfound':
+      return {
+        color: 'orange',
+        bgColor: 'bg-orange-100',
+        textColor: 'text-orange-800',
+        icon: 'alert-triangle',
+        label: 'Not Found'
       };
     default:
       return {

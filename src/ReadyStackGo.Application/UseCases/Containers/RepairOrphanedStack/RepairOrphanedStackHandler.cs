@@ -61,8 +61,11 @@ public class RepairOrphanedStackHandler
                 return new RepairOrphanedStackResult(false,
                     ErrorMessage: "No service containers found for this stack.");
 
-            // Try to find a matching stack in the catalog
-            var (stackId, catalogMatched) = ResolveStackId(request.StackName);
+            // Try to find a matching stack in the catalog using structured labels first
+            var firstLabels = serviceContainers.First().Labels;
+            firstLabels.TryGetValue("rsgo.product", out var productLabel);
+            firstLabels.TryGetValue("rsgo.stack.name", out var stackNameLabel);
+            var (stackId, catalogMatched) = ResolveStackId(request.StackName, productLabel, stackNameLabel);
 
             // Create a Deployment in Installing state, then immediately mark as Running
             var deploymentId = _deploymentRepository.NextIdentity();
@@ -103,25 +106,35 @@ public class RepairOrphanedStackHandler
         }
     }
 
-    private (string stackId, bool catalogMatched) ResolveStackId(string stackName)
+    private (string stackId, bool catalogMatched) ResolveStackId(
+        string stackName, string? productGroupId, string? stackDefinitionName)
     {
-        // Try to find a catalog stack that produced containers with this rsgo.stack label.
-        // The label value is the Deployment's StackName/ProjectName, which for product
-        // deployments follows the pattern: {deploymentName}-{stackDefName}
-        var allStacks = _productCache.GetAllStacks().ToList();
+        // Primary path: use structured labels for direct resolution
+        if (!string.IsNullOrEmpty(productGroupId) && !string.IsNullOrEmpty(stackDefinitionName))
+        {
+            var product = _productCache.GetProduct(productGroupId);
+            if (product != null)
+            {
+                var stackDef = product.Stacks.FirstOrDefault(s =>
+                    s.Name.Equals(stackDefinitionName, StringComparison.OrdinalIgnoreCase));
+                if (stackDef != null)
+                {
+                    _logger.LogDebug(
+                        "Matched orphaned stack '{StackName}' to catalog stack '{StackId}' via structured labels",
+                        stackName, stackDef.Id.Value);
+                    return (stackDef.Id.Value, true);
+                }
+            }
+        }
 
-        // Exact match: stack definition whose Id ends with the stack name
+        // Fallback: suffix matching for legacy containers without structured labels
+        var allStacks = _productCache.GetAllStacks().ToList();
         foreach (var stackDef in allStacks)
         {
-            // The rsgo.stack label value during deployment is set to the "projectName"
-            // which equals the Deployment.StackName. For product deployments this is
-            // derived via DeriveStackDeploymentName(deploymentName, stackDef.Name).
-            // We can't reverse-engineer the deploymentName, but we can check if the
-            // stack name ends with the stack definition's name.
             if (stackName.EndsWith($"-{stackDef.Name}", StringComparison.OrdinalIgnoreCase)
                 || stackName.Equals(stackDef.Name, StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogDebug("Matched orphaned stack '{StackName}' to catalog stack '{StackId}'",
+                _logger.LogDebug("Matched orphaned stack '{StackName}' to catalog stack '{StackId}' via suffix matching",
                     stackName, stackDef.Id.Value);
                 return (stackDef.Id.Value, true);
             }

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
+using ReadyStackGo.Domain.Deployment.ProductDeployments;
 
 namespace ReadyStackGo.Application.UseCases.Health.GetEnvironmentHealthSummary;
 
@@ -16,17 +17,20 @@ public class GetEnvironmentHealthSummaryHandler
     private readonly IHealthSnapshotRepository _healthSnapshotRepository;
     private readonly IEnvironmentRepository _environmentRepository;
     private readonly IDeploymentRepository _deploymentRepository;
+    private readonly IProductDeploymentRepository _productDeploymentRepository;
     private readonly ILogger<GetEnvironmentHealthSummaryHandler> _logger;
 
     public GetEnvironmentHealthSummaryHandler(
         IHealthSnapshotRepository healthSnapshotRepository,
         IEnvironmentRepository environmentRepository,
         IDeploymentRepository deploymentRepository,
+        IProductDeploymentRepository productDeploymentRepository,
         ILogger<GetEnvironmentHealthSummaryHandler> logger)
     {
         _healthSnapshotRepository = healthSnapshotRepository;
         _environmentRepository = environmentRepository;
         _deploymentRepository = deploymentRepository;
+        _productDeploymentRepository = productDeploymentRepository;
         _logger = logger;
     }
 
@@ -69,13 +73,27 @@ public class GetEnvironmentHealthSummaryHandler
         // Use domain value object for aggregation
         var summary = EnvironmentHealthSummary.FromSnapshots(environment, activeSnapshots);
 
-        // Map domain object to DTO
-        var dto = MapToDto(summary);
+        // Build product deployment lookup: DeploymentId → (ProductDeploymentId, ProductDisplayName)
+        var productDeployments = _productDeploymentRepository.GetByEnvironment(environmentId);
+        var deploymentToProduct = new Dictionary<string, (string ProductDeploymentId, string ProductDisplayName)>();
+        foreach (var pd in productDeployments.Where(p => !p.IsTerminal))
+        {
+            foreach (var stack in pd.Stacks.Where(s => s.DeploymentId != null))
+            {
+                deploymentToProduct[stack.DeploymentId!.Value.ToString()] =
+                    (pd.Id.Value.ToString(), pd.ProductDisplayName);
+            }
+        }
+
+        // Map domain object to DTO and enrich with product info
+        var dto = MapToDto(summary, deploymentToProduct);
 
         return Task.FromResult(GetEnvironmentHealthSummaryResponse.Ok(dto));
     }
 
-    private static EnvironmentHealthSummaryDto MapToDto(EnvironmentHealthSummary summary)
+    private static EnvironmentHealthSummaryDto MapToDto(
+        EnvironmentHealthSummary summary,
+        Dictionary<string, (string ProductDeploymentId, string ProductDisplayName)> deploymentToProduct)
     {
         return new EnvironmentHealthSummaryDto
         {
@@ -85,15 +103,22 @@ public class GetEnvironmentHealthSummaryHandler
             HealthyCount = summary.HealthyCount,
             DegradedCount = summary.DegradedCount,
             UnhealthyCount = summary.UnhealthyCount,
-            Stacks = summary.Stacks.Select(MapStackSummaryToDto).ToList()
+            Stacks = summary.Stacks
+                .Select(s => MapStackSummaryToDto(s, deploymentToProduct))
+                .ToList()
         };
     }
 
-    private static StackHealthSummaryDto MapStackSummaryToDto(StackHealthSummary stack)
+    private static StackHealthSummaryDto MapStackSummaryToDto(
+        StackHealthSummary stack,
+        Dictionary<string, (string ProductDeploymentId, string ProductDisplayName)> deploymentToProduct)
     {
+        var deploymentIdStr = stack.DeploymentId.Value.ToString();
+        deploymentToProduct.TryGetValue(deploymentIdStr, out var productInfo);
+
         return new StackHealthSummaryDto
         {
-            DeploymentId = stack.DeploymentId.Value.ToString(),
+            DeploymentId = deploymentIdStr,
             StackName = stack.StackName,
             CurrentVersion = stack.CurrentVersion,
 
@@ -110,7 +135,11 @@ public class GetEnvironmentHealthSummaryHandler
             // Status - using domain behavior
             StatusMessage = stack.StatusMessage,
             RequiresAttention = stack.RequiresAttention,
-            CapturedAtUtc = stack.CapturedAtUtc
+            CapturedAtUtc = stack.CapturedAtUtc,
+
+            // Product grouping
+            ProductDeploymentId = productInfo.ProductDeploymentId,
+            ProductDisplayName = productInfo.ProductDisplayName
         };
     }
 }

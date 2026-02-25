@@ -7,6 +7,7 @@ using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
+using ReadyStackGo.Domain.Deployment.ProductDeployments;
 
 namespace ReadyStackGo.UnitTests.Application.Health;
 
@@ -21,6 +22,7 @@ public class GetEnvironmentHealthSummaryHandlerTests
     private readonly Mock<IHealthSnapshotRepository> _healthSnapshotRepoMock;
     private readonly Mock<IEnvironmentRepository> _environmentRepoMock;
     private readonly Mock<IDeploymentRepository> _deploymentRepoMock;
+    private readonly Mock<IProductDeploymentRepository> _productDeploymentRepoMock;
     private readonly Mock<ILogger<GetEnvironmentHealthSummaryHandler>> _loggerMock;
     private readonly GetEnvironmentHealthSummaryHandler _handler;
 
@@ -32,6 +34,7 @@ public class GetEnvironmentHealthSummaryHandlerTests
         _healthSnapshotRepoMock = new Mock<IHealthSnapshotRepository>();
         _environmentRepoMock = new Mock<IEnvironmentRepository>();
         _deploymentRepoMock = new Mock<IDeploymentRepository>();
+        _productDeploymentRepoMock = new Mock<IProductDeploymentRepository>();
         _loggerMock = new Mock<ILogger<GetEnvironmentHealthSummaryHandler>>();
 
         // Default: return empty list of deployments
@@ -39,10 +42,16 @@ public class GetEnvironmentHealthSummaryHandlerTests
             .Setup(r => r.GetByEnvironment(It.IsAny<EnvironmentId>()))
             .Returns(Enumerable.Empty<Deployment>());
 
+        // Default: return empty list of product deployments
+        _productDeploymentRepoMock
+            .Setup(r => r.GetByEnvironment(It.IsAny<EnvironmentId>()))
+            .Returns(Enumerable.Empty<ProductDeployment>());
+
         _handler = new GetEnvironmentHealthSummaryHandler(
             _healthSnapshotRepoMock.Object,
             _environmentRepoMock.Object,
             _deploymentRepoMock.Object,
+            _productDeploymentRepoMock.Object,
             _loggerMock.Object);
     }
 

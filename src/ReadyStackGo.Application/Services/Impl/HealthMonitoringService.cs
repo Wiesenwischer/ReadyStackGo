@@ -57,6 +57,28 @@ public class HealthMonitoringService : IHealthMonitoringService
             serviceHealthConfigs,
             cancellationToken);
 
+        // Detect missing services: compare expected (deployment.Services) vs found containers
+        if (deployment?.Services.Count > 0)
+        {
+            var foundServiceNames = selfHealth.Services
+                .Select(s => s.Name)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var missingServices = deployment.Services
+                .Where(s => !foundServiceNames.Contains(s.ServiceName))
+                .Select(s => ServiceHealth.NotFound(s.ServiceName))
+                .ToList();
+
+            if (missingServices.Count > 0)
+            {
+                _logger.LogWarning(
+                    "Missing containers for stack {StackName}: {MissingServices}",
+                    stackName, string.Join(", ", missingServices.Select(s => s.Name)));
+
+                selfHealth = SelfHealth.Create(selfHealth.Services.Concat(missingServices));
+            }
+        }
+
         // Create and persist the snapshot
         var snapshot = HealthSnapshot.Capture(
             organizationId,

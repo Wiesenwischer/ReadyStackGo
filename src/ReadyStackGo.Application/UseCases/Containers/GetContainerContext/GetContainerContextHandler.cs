@@ -45,11 +45,26 @@ public class GetContainerContextHandler : IRequestHandler<GetContainerContextQue
             {
                 var deployment = _deploymentRepository.GetByStackName(environmentId, stackName);
 
+                // Read structured labels from first container in the stack group
+                var sampleContainer = containers.First(c =>
+                    c.Labels.TryGetValue("rsgo.stack", out var s) &&
+                    s.Equals(stackName, StringComparison.OrdinalIgnoreCase));
+                sampleContainer.Labels.TryGetValue("rsgo.product", out var productGroupId);
+                sampleContainer.Labels.TryGetValue("rsgo.stack.name", out var stackDefName);
+
                 string? productName = null;
                 string? productDisplayName = null;
 
-                if (deployment != null && StackId.TryParse(deployment.StackId, out var parsedStackId))
+                if (!string.IsNullOrEmpty(productGroupId))
                 {
+                    // Direct lookup via product GroupId (structured label path)
+                    var product = _productCache.GetProduct(productGroupId);
+                    productName = product?.Name;
+                    productDisplayName = product?.DisplayName;
+                }
+                else if (deployment != null && StackId.TryParse(deployment.StackId, out var parsedStackId))
+                {
+                    // Fallback: legacy containers without rsgo.product label
                     var stackDef = _productCache.GetStack(parsedStackId!.Value);
                     productName = stackDef?.ProductName;
                     productDisplayName = stackDef?.ProductDisplayName;
@@ -60,7 +75,8 @@ public class GetContainerContextHandler : IRequestHandler<GetContainerContextQue
                     deployment != null,
                     deployment?.Id.ToString(),
                     productName,
-                    productDisplayName);
+                    productDisplayName,
+                    stackDefName);
             }
 
             return new GetContainerContextResult(true, stacks);

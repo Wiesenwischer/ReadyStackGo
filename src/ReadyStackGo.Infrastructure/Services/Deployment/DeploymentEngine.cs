@@ -360,7 +360,9 @@ public class DeploymentEngine : IDeploymentEngine
                             defaultNetwork,
                             stackName,
                             wrappedLogCallback,
-                            cancellationToken);
+                            cancellationToken,
+                            plan.StackDefinitionName,
+                            plan.ProductGroupId);
 
                         // Add any pull warnings for this step
                         if (pullWarnings.TryGetValue(initStep.ContextName, out var warning))
@@ -444,7 +446,8 @@ public class DeploymentEngine : IDeploymentEngine
                     var beforeStartPercent = regularSteps.Count > 0 ? (completedRegularServices * 100 / regularSteps.Count) : 0;
                     await ReportProgress("StartingServices", $"Starting {step.ContextName}...", beforeStartPercent, step.ContextName);
 
-                    var containerInfo = await StartContainerAsync(environmentId, step, defaultNetwork, stackName);
+                    var containerInfo = await StartContainerAsync(environmentId, step, defaultNetwork, stackName,
+                        plan.StackDefinitionName, plan.ProductGroupId);
 
                     // Add any pull warnings for this step
                     if (pullWarnings.TryGetValue(step.ContextName, out var warning))
@@ -805,7 +808,9 @@ public class DeploymentEngine : IDeploymentEngine
         string environmentId,
         DeploymentStep step,
         string defaultNetwork,
-        string stackName)
+        string stackName,
+        string? stackDefinitionName = null,
+        string? productGroupId = null)
     {
         _logger.LogInformation("Starting container for {Context} (order: {Order}) in environment {EnvironmentId}",
             step.ContextName, step.Order, environmentId);
@@ -838,8 +843,9 @@ public class DeploymentEngine : IDeploymentEngine
             {
                 ["rsgo.stack"] = stackName,
                 ["rsgo.context"] = step.ContextName,
-                ["rsgo.environment"] = environmentId,
-                ["rsgo.lifecycle"] = step.Lifecycle.ToString().ToLowerInvariant()
+                ["rsgo.lifecycle"] = step.Lifecycle.ToString().ToLowerInvariant(),
+                ["rsgo.stack.name"] = stackDefinitionName ?? stackName,
+                ["rsgo.product"] = productGroupId ?? ""
             },
             RestartPolicy = restartPolicy
         };
@@ -875,12 +881,15 @@ public class DeploymentEngine : IDeploymentEngine
         string defaultNetwork,
         string stackName,
         InitContainerLogCallback? logCallback,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? stackDefinitionName = null,
+        string? productGroupId = null)
     {
         _logger.LogInformation("Starting init container {ContextName}...", step.ContextName);
 
         // Start the init container (uses restart: on-failure)
-        var containerInfo = await StartContainerAsync(environmentId, step, defaultNetwork, stackName);
+        var containerInfo = await StartContainerAsync(environmentId, step, defaultNetwork, stackName,
+            stackDefinitionName, productGroupId);
 
         // Start background log streaming if a callback is provided
         using var logCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

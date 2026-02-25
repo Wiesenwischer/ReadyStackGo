@@ -307,7 +307,7 @@ function ProductDeploymentRow({ deployment, formatDate }: ProductDeploymentRowPr
         {/* Actions */}
         <div className="flex items-center gap-2">
           <Link
-            to={`/catalog/${encodeURIComponent(deployment.productGroupId)}`}
+            to={`/product-deployments/${encodeURIComponent(deployment.productDeploymentId)}`}
             className="inline-flex items-center justify-center rounded bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
           >
             Details
@@ -379,8 +379,12 @@ function DeploymentRow({ deployment, health, formatDate }: DeploymentRowProps) {
             )}
           </div>
           <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-            <span>v{deployment.stackVersion || '-'}</span>
-            <span>•</span>
+            {deployment.stackVersion && (
+              <>
+                <span>v{deployment.stackVersion}</span>
+                <span>•</span>
+              </>
+            )}
             <span>
               {health
                 ? `${health.healthyServices}/${health.totalServices} services healthy`

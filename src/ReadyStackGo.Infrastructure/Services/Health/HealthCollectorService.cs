@@ -3,6 +3,7 @@ using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Health;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.ProductDeployments;
 using DomainDeployment = ReadyStackGo.Domain.Deployment.Deployments.Deployment;
 using DomainHealthCheckConfig = ReadyStackGo.Domain.Deployment.RuntimeConfig.ServiceHealthCheckConfig;
 using AppHealthCheckConfig = ReadyStackGo.Application.Services.ServiceHealthCheckConfig;
@@ -19,6 +20,7 @@ public class HealthCollectorService : IHealthCollectorService
     private readonly IHealthNotificationService _healthNotificationService;
     private readonly IDeploymentRepository _deploymentRepository;
     private readonly IEnvironmentRepository _environmentRepository;
+    private readonly IProductDeploymentRepository _productDeploymentRepository;
     private readonly ILogger<HealthCollectorService> _logger;
 
     public HealthCollectorService(
@@ -26,12 +28,14 @@ public class HealthCollectorService : IHealthCollectorService
         IHealthNotificationService healthNotificationService,
         IDeploymentRepository deploymentRepository,
         IEnvironmentRepository environmentRepository,
+        IProductDeploymentRepository productDeploymentRepository,
         ILogger<HealthCollectorService> logger)
     {
         _healthMonitoringService = healthMonitoringService;
         _healthNotificationService = healthNotificationService;
         _deploymentRepository = deploymentRepository;
         _environmentRepository = environmentRepository;
+        _productDeploymentRepository = productDeploymentRepository;
         _logger = logger;
     }
 
@@ -80,6 +84,7 @@ public class HealthCollectorService : IHealthCollectorService
                     cancellationToken);
 
                 var summaryDto = HealthSnapshotMapper.MapToStackHealthSummary(snapshot);
+                EnrichWithProductInfo(summaryDto, deployment.Id);
                 stackSummaries.Add(summaryDto);
 
                 // Notify about individual deployment health change (summary for environment list)
@@ -170,6 +175,7 @@ public class HealthCollectorService : IHealthCollectorService
                 cancellationToken);
 
             var summaryDto = HealthSnapshotMapper.MapToStackHealthSummary(snapshot);
+            EnrichWithProductInfo(summaryDto, deploymentId);
 
             // Notify about deployment health change (summary)
             await _healthNotificationService.NotifyDeploymentHealthChangedAsync(
@@ -264,5 +270,15 @@ public class HealthCollectorService : IHealthCollectorService
         }
 
         return result.Count > 0 ? result : null;
+    }
+
+    private void EnrichWithProductInfo(StackHealthSummaryDto dto, DeploymentId deploymentId)
+    {
+        var productDeployment = _productDeploymentRepository.GetByStackDeploymentId(deploymentId);
+        if (productDeployment != null && !productDeployment.IsTerminal)
+        {
+            dto.ProductDeploymentId = productDeployment.Id.Value.ToString();
+            dto.ProductDisplayName = productDeployment.ProductDisplayName;
+        }
     }
 }

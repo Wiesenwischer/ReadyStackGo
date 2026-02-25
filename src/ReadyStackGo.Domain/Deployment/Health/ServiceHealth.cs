@@ -82,6 +82,11 @@ public sealed class ServiceHealth : ValueObject
         return new ServiceHealth(name, HealthStatus.Unknown, null, null, "No data available", restartCount: null);
     }
 
+    public static ServiceHealth NotFound(string name)
+    {
+        return new ServiceHealth(name, HealthStatus.NotFound, null, null, "Container not found", restartCount: null);
+    }
+
     protected override IEnumerable<object?> GetEqualityComponents()
     {
         yield return Name;

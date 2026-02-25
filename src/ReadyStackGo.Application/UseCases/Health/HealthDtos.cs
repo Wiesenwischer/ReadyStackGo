@@ -165,6 +165,10 @@ public class StackHealthSummaryDto
     public required string StatusMessage { get; init; }
     public required bool RequiresAttention { get; init; }
     public required DateTime CapturedAtUtc { get; init; }
+
+    // Product grouping (null for standalone stacks)
+    public string? ProductDeploymentId { get; set; }
+    public string? ProductDisplayName { get; set; }
 }
 
 /// <summary>

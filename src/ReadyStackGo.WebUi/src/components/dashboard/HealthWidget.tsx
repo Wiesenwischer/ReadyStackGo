@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router';
 import { useEnvironment } from '../../context/EnvironmentContext';
 import { useHealthHub } from '../../hooks/useHealthHub';
@@ -11,6 +11,23 @@ import {
 
 interface HealthWidgetProps {
   className?: string;
+}
+
+interface ProductHealthGroup {
+  productDeploymentId: string;
+  productDisplayName: string;
+  stacks: StackHealthSummaryDto[];
+  healthyStacks: number;
+  totalStacks: number;
+  overallStatus: string;
+}
+
+function aggregateProductStatus(stacks: StackHealthSummaryDto[]): string {
+  const statuses = stacks.map(s => s.overallStatus.toLowerCase());
+  if (statuses.some(s => s === 'unhealthy')) return 'Unhealthy';
+  if (statuses.some(s => s === 'degraded')) return 'Degraded';
+  if (statuses.every(s => s === 'healthy')) return 'Healthy';
+  return 'Unknown';
 }
 
 export default function HealthWidget({ className = '' }: HealthWidgetProps) {
@@ -89,6 +106,48 @@ export default function HealthWidget({ className = '' }: HealthWidgetProps) {
     }
   }, [connectionState, activeEnvironment, subscribeToEnvironment, unsubscribeFromEnvironment]);
 
+  // Group stacks by product, filter out stacks with no services (e.g. containers deleted outside RSGO)
+  const { productGroups, standaloneStacks } = useMemo(() => {
+    if (!healthSummary) return { productGroups: [], standaloneStacks: [] };
+
+    const groups = new Map<string, ProductHealthGroup>();
+    const standalone: StackHealthSummaryDto[] = [];
+
+    for (const stack of healthSummary.stacks) {
+      // Skip stacks with no services (e.g. containers deleted outside RSGO)
+      if (stack.totalServices === 0) continue;
+
+      if (stack.productDeploymentId && stack.productDisplayName) {
+        const existing = groups.get(stack.productDeploymentId);
+        const isHealthy = stack.overallStatus.toLowerCase() === 'healthy';
+        if (existing) {
+          existing.stacks.push(stack);
+          existing.totalStacks += 1;
+          if (isHealthy) existing.healthyStacks += 1;
+        } else {
+          groups.set(stack.productDeploymentId, {
+            productDeploymentId: stack.productDeploymentId,
+            productDisplayName: stack.productDisplayName,
+            stacks: [stack],
+            healthyStacks: isHealthy ? 1 : 0,
+            totalStacks: 1,
+            overallStatus: 'Healthy', // recalculated below
+          });
+        }
+      } else {
+        standalone.push(stack);
+      }
+    }
+
+    // Recalculate aggregated status for each product group
+    const productGroupList = Array.from(groups.values()).map(g => ({
+      ...g,
+      overallStatus: aggregateProductStatus(g.stacks),
+    }));
+
+    return { productGroups: productGroupList, standaloneStacks: standalone };
+  }, [healthSummary]);
+
   const getConnectionIndicator = () => {
     switch (connectionState) {
       case 'connected':
@@ -125,23 +184,32 @@ export default function HealthWidget({ className = '' }: HealthWidgetProps) {
     );
   };
 
-  const StackHealthRow = ({ stack }: { stack: StackHealthSummaryDto }) => {
-    const presentation = getHealthStatusPresentation(stack.overallStatus);
+  const HealthRow = ({ name, healthyCount, totalCount, overallStatus, linkTo }: {
+    name: string;
+    healthyCount: number;
+    totalCount: number;
+    overallStatus: string;
+    linkTo: string;
+  }) => {
+    const presentation = getHealthStatusPresentation(overallStatus);
     return (
-      <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
-        <div className="flex items-center gap-2">
-          <span className={`h-2 w-2 rounded-full ${presentation.bgColor.replace('bg-', 'bg-').replace('-100', '-500')}`} />
-          <span className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[140px]">
-            {stack.stackName}
+      <Link
+        to={linkTo}
+        className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50 -mx-2 px-2 rounded transition-colors"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`h-2 w-2 rounded-full flex-shrink-0 ${presentation.bgColor.replace('-100', '-500').replace('dark:bg-', '')}`} />
+          <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+            {name}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
           <span className="text-xs text-gray-500 dark:text-gray-400">
-            {stack.healthyServices}/{stack.totalServices}
+            {healthyCount}/{totalCount}
           </span>
-          <HealthStatusBadge status={stack.overallStatus} />
+          <HealthStatusBadge status={overallStatus} />
         </div>
-      </div>
+      </Link>
     );
   };
 
@@ -224,10 +292,27 @@ export default function HealthWidget({ className = '' }: HealthWidgetProps) {
         </div>
       </div>
 
-      {/* Stack List */}
-      <div className="max-h-[200px] overflow-y-auto">
-        {healthSummary.stacks.map((stack) => (
-          <StackHealthRow key={stack.deploymentId} stack={stack} />
+      {/* Health List — grouped by product */}
+      <div>
+        {productGroups.map((group) => (
+          <HealthRow
+            key={group.productDeploymentId}
+            name={group.productDisplayName}
+            healthyCount={group.healthyStacks}
+            totalCount={group.totalStacks}
+            overallStatus={group.overallStatus}
+            linkTo={`/product-deployments/${encodeURIComponent(group.productDeploymentId)}`}
+          />
+        ))}
+        {standaloneStacks.map((stack) => (
+          <HealthRow
+            key={stack.deploymentId}
+            name={stack.stackName}
+            healthyCount={stack.healthyServices}
+            totalCount={stack.totalServices}
+            overallStatus={stack.overallStatus}
+            linkTo={`/deployments/${encodeURIComponent(stack.stackName)}`}
+          />
         ))}
       </div>
 

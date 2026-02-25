@@ -304,7 +304,7 @@ export default function Containers() {
     </span>
   );
 
-  const ActionButtons = ({ c }: { c: Container }) => {
+  const ActionButtons = ({ c, isManaged }: { c: Container; isManaged?: boolean }) => {
     const isRunning = c.state.toLowerCase() === "running";
     const isLoading = actionLoading === c.id;
     const isConfirming = removeConfirm === c.id;
@@ -401,9 +401,9 @@ export default function Containers() {
         )}
         <button
           onClick={() => setRemoveConfirm(c.id)}
-          disabled={isLoading}
-          className="p-1.5 rounded text-gray-500 hover:text-red-600 hover:bg-red-50 dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-red-900/30 disabled:opacity-50"
-          title="Remove"
+          disabled={isLoading || isManaged}
+          className="p-1.5 rounded text-gray-500 hover:text-red-600 hover:bg-red-50 dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-red-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          title={isManaged ? "Managed by a deployment — remove via Deployments page" : "Remove"}
         >
           <svg
             className="w-4 h-4"
@@ -526,6 +526,7 @@ export default function Containers() {
     const stackName = getStackName(c);
     const ctx = getContextInfo(stackName);
     const isOrphaned = stackName && ctx && !ctx.deploymentExists;
+    const isManaged = !!stackName && !!ctx?.deploymentExists;
 
     return (
       <div className="grid grid-cols-6 border-t border-gray-200 dark:border-gray-700 px-4 py-3 sm:grid-cols-12 md:px-6 items-center">
@@ -563,7 +564,7 @@ export default function Containers() {
           <PortDisplay c={c} />
         </div>
         <div className="col-span-2 flex items-center justify-end">
-          <ActionButtons c={c} />
+          <ActionButtons c={c} isManaged={isManaged} />
         </div>
       </div>
     );
@@ -625,6 +626,7 @@ export default function Containers() {
   // --- Stack Group Header ---
   const StackGroupHeader = ({
     title,
+    stackKey,
     containers: groupContainers,
     ctx,
     isUnmanaged,
@@ -632,21 +634,23 @@ export default function Containers() {
     onRemove,
   }: {
     title: string;
+    stackKey?: string;
     containers: Container[];
     ctx?: StackContextInfo;
     isUnmanaged?: boolean;
     onRepair?: () => void;
     onRemove?: () => void;
   }) => {
+    const key = stackKey ?? title;
     const runningCount = groupContainers.filter(
       (c) => c.state.toLowerCase() === "running"
     ).length;
     const total = groupContainers.length;
     const isOrphaned = ctx && !ctx.deploymentExists;
-    const isConfirming = orphanConfirm?.stackName === title;
+    const isConfirming = orphanConfirm?.stackName === key;
     const isLoading =
-      orphanActionLoading === `repair:${title}` ||
-      orphanActionLoading === `remove:${title}`;
+      orphanActionLoading === `repair:${key}` ||
+      orphanActionLoading === `remove:${key}`;
 
     return (
       <div className="flex items-center justify-between px-4 py-3 md:px-6 bg-gray-50 dark:bg-gray-800/50">
@@ -714,13 +718,13 @@ export default function Containers() {
             <div className="flex items-center gap-1">
               <button
                 onClick={() =>
-                  setOrphanConfirm({ stackName: title, action: "repair" })
+                  setOrphanConfirm({ stackName: key, action: "repair" })
                 }
                 disabled={!!orphanActionLoading}
                 className="p-1.5 rounded text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-400 dark:hover:text-blue-400 dark:hover:bg-blue-900/30 disabled:opacity-50"
                 title="Repair — create deployment record"
               >
-                {orphanActionLoading === `repair:${title}` ? (
+                {orphanActionLoading === `repair:${key}` ? (
                   <Spinner />
                 ) : (
                   <svg
@@ -740,13 +744,13 @@ export default function Containers() {
               </button>
               <button
                 onClick={() =>
-                  setOrphanConfirm({ stackName: title, action: "remove" })
+                  setOrphanConfirm({ stackName: key, action: "remove" })
                 }
                 disabled={!!orphanActionLoading}
                 className="p-1.5 rounded text-gray-500 hover:text-red-600 hover:bg-red-50 dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-red-900/30 disabled:opacity-50"
                 title="Remove all containers"
               >
-                {orphanActionLoading === `remove:${title}` ? (
+                {orphanActionLoading === `remove:${key}` ? (
                   <Spinner />
                 ) : (
                   <svg
@@ -809,7 +813,7 @@ export default function Containers() {
   );
 
   // --- Compact Container Row (no stack/product columns) ---
-  const CompactContainerRow = ({ c }: { c: Container }) => (
+  const CompactContainerRow = ({ c, isManaged }: { c: Container; isManaged?: boolean }) => (
     <div className="grid grid-cols-6 border-t border-gray-100 dark:border-gray-800 px-4 py-2.5 sm:grid-cols-12 md:px-6 items-center">
       <div className="col-span-3 flex items-center min-w-0">
         <p className="text-sm text-gray-900 dark:text-white truncate">
@@ -829,7 +833,7 @@ export default function Containers() {
       </div>
       <div className="col-span-2 hidden sm:flex" />
       <div className="col-span-2 flex items-center justify-end">
-        <ActionButtons c={c} />
+        <ActionButtons c={c} isManaged={isManaged} />
       </div>
     </div>
   );
@@ -898,7 +902,7 @@ export default function Containers() {
                 />
                 <CompactHeader />
                 {managed[name].containers.map((c) => (
-                  <CompactContainerRow key={c.id} c={c} />
+                  <CompactContainerRow key={c.id} c={c} isManaged={!!managed[name].context?.deploymentExists} />
                 ))}
               </div>
             ))}
@@ -956,7 +960,8 @@ export default function Containers() {
                     return (
                       <div key={stackName}>
                         <StackGroupHeader
-                          title={stackName}
+                          title={stack.context?.stackDefinitionName || stackName}
+                          stackKey={stackName}
                           containers={stack.containers}
                           ctx={stack.context}
                           onRepair={() => handleRepairOrphan(stackName)}
@@ -964,7 +969,7 @@ export default function Containers() {
                         />
                         <CompactHeader />
                         {stack.containers.map((c) => (
-                          <CompactContainerRow key={c.id} c={c} />
+                          <CompactContainerRow key={c.id} c={c} isManaged={!!stack.context?.deploymentExists} />
                         ))}
                       </div>
                     );
@@ -992,7 +997,7 @@ export default function Containers() {
                       />
                       <CompactHeader />
                       {stack.containers.map((c) => (
-                        <CompactContainerRow key={c.id} c={c} />
+                        <CompactContainerRow key={c.id} c={c} isManaged={!!stack.context?.deploymentExists} />
                       ))}
                     </div>
                   );
