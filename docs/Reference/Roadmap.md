@@ -222,6 +222,15 @@ Release version numbers are assigned when an Epic ships, not during planning.
 
 Epics are listed in priority order. Top = next.
 
+### Epic: Health Check Details
+
+- Full ASP.NET Core HealthReport Parsing (entries with status, description, duration, data, tags, exception)
+- Health Check Entry Domain Model (`HealthCheckEntry` Value Object)
+- Data Pipeline: HttpChecker → Domain → DTO → SignalR/API
+- Inline Health Check Detail in Dashboard (expandable service rows)
+- Dedicated Service Health Detail Page (`/health/:deploymentId/:serviceName`)
+- Service response time tracking
+
 ### Epic: Orphaned Container Recovery
 
 - Repair Orphaned Stacks (Reconcile running containers with fresh database)

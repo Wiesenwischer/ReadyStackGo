@@ -53,7 +53,7 @@ public sealed class SelfHealth : ValueObject
         if (_services.All(s => s.Status == HealthStatus.Healthy))
             return HealthStatus.Healthy;
 
-        if (_services.Any(s => s.Status == HealthStatus.Unhealthy))
+        if (_services.Any(s => s.Status == HealthStatus.Unhealthy || s.Status == HealthStatus.NotFound))
             return HealthStatus.Unhealthy;
 
         if (_services.Any(s => s.Status == HealthStatus.Degraded))

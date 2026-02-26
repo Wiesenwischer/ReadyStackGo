@@ -12,13 +12,15 @@ public sealed class HealthStatus : ValueObject
     public static readonly HealthStatus Degraded = new(1, "Degraded", "Component is operational but with issues", Severity.Warning);
     public static readonly HealthStatus Unhealthy = new(2, "Unhealthy", "Component is not operational", Severity.Critical);
     public static readonly HealthStatus Unknown = new(3, "Unknown", "Health status could not be determined", Severity.Info);
+    public static readonly HealthStatus NotFound = new(4, "NotFound", "No containers found for the service", Severity.Critical);
 
     private static readonly Dictionary<int, HealthStatus> _byValue = new()
     {
         { Healthy.Value, Healthy },
         { Degraded.Value, Degraded },
         { Unhealthy.Value, Unhealthy },
-        { Unknown.Value, Unknown }
+        { Unknown.Value, Unknown },
+        { NotFound.Value, NotFound }
     };
 
     private static readonly Dictionary<string, HealthStatus> _byName = new(StringComparer.OrdinalIgnoreCase)
@@ -26,7 +28,8 @@ public sealed class HealthStatus : ValueObject
         { Healthy.Name, Healthy },
         { Degraded.Name, Degraded },
         { Unhealthy.Name, Unhealthy },
-        { Unknown.Name, Unknown }
+        { Unknown.Name, Unknown },
+        { NotFound.Name, NotFound }
     };
 
     /// <summary>
@@ -68,12 +71,12 @@ public sealed class HealthStatus : ValueObject
     /// <summary>
     /// Indicates if the status requires attention.
     /// </summary>
-    public bool RequiresAttention => this == Degraded || this == Unhealthy;
+    public bool RequiresAttention => this == Degraded || this == Unhealthy || this == NotFound;
 
     /// <summary>
     /// Indicates if the status is critical.
     /// </summary>
-    public bool IsCritical => this == Unhealthy;
+    public bool IsCritical => this == Unhealthy || this == NotFound;
 
     /// <summary>
     /// Indicates if actions (like start/stop) are allowed in this state.
@@ -129,6 +132,7 @@ public sealed class HealthStatus : ValueObject
         yield return Degraded;
         yield return Unhealthy;
         yield return Unknown;
+        yield return NotFound;
     }
 
     protected override IEnumerable<object?> GetEqualityComponents()

@@ -3,6 +3,7 @@ using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Health;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.ProductDeployments;
 using DomainDeployment = ReadyStackGo.Domain.Deployment.Deployments.Deployment;
 using DomainHealthCheckConfig = ReadyStackGo.Domain.Deployment.RuntimeConfig.ServiceHealthCheckConfig;
 using AppHealthCheckConfig = ReadyStackGo.Application.Services.ServiceHealthCheckConfig;
@@ -19,6 +20,7 @@ public class HealthCollectorService : IHealthCollectorService
     private readonly IHealthNotificationService _healthNotificationService;
     private readonly IDeploymentRepository _deploymentRepository;
     private readonly IEnvironmentRepository _environmentRepository;
+    private readonly IProductDeploymentRepository _productDeploymentRepository;
     private readonly ILogger<HealthCollectorService> _logger;
 
     public HealthCollectorService(
@@ -26,12 +28,14 @@ public class HealthCollectorService : IHealthCollectorService
         IHealthNotificationService healthNotificationService,
         IDeploymentRepository deploymentRepository,
         IEnvironmentRepository environmentRepository,
+        IProductDeploymentRepository productDeploymentRepository,
         ILogger<HealthCollectorService> logger)
     {
         _healthMonitoringService = healthMonitoringService;
         _healthNotificationService = healthNotificationService;
         _deploymentRepository = deploymentRepository;
         _environmentRepository = environmentRepository;
+        _productDeploymentRepository = productDeploymentRepository;
         _logger = logger;
     }
 
@@ -58,7 +62,7 @@ public class HealthCollectorService : IHealthCollectorService
             return;
         }
 
-        var stackSummaries = new List<StackHealthSummaryDto>();
+        var stackHealthDtos = new List<StackHealthDto>();
 
         foreach (var deployment in deployments)
         {
@@ -79,20 +83,14 @@ public class HealthCollectorService : IHealthCollectorService
                     serviceHealthConfigs,
                     cancellationToken);
 
-                var summaryDto = HealthSnapshotMapper.MapToStackHealthSummary(snapshot);
-                stackSummaries.Add(summaryDto);
+                var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, environmentId);
+                EnrichWithProductInfo(dto, deployment.Id);
+                stackHealthDtos.Add(dto);
 
-                // Notify about individual deployment health change (summary for environment list)
+                // Notify about individual deployment health change
                 await _healthNotificationService.NotifyDeploymentHealthChangedAsync(
                     deployment.Id,
-                    summaryDto,
-                    cancellationToken);
-
-                // Notify detailed health for deployment detail view subscribers
-                var detailedDto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, environmentId);
-                await _healthNotificationService.NotifyDeploymentDetailedHealthChangedAsync(
-                    deployment.Id,
-                    detailedDto,
+                    dto,
                     cancellationToken);
             }
             catch (Exception ex)
@@ -102,17 +100,17 @@ public class HealthCollectorService : IHealthCollectorService
         }
 
         // Notify about environment-wide health update
-        if (stackSummaries.Any())
+        if (stackHealthDtos.Count > 0)
         {
             var environmentSummary = new EnvironmentHealthSummaryDto
             {
                 EnvironmentId = environmentId.Value.ToString(),
                 EnvironmentName = environment.Name,
-                TotalStacks = stackSummaries.Count,
-                HealthyCount = stackSummaries.Count(s => s.OverallStatus.Equals("Healthy", StringComparison.OrdinalIgnoreCase)),
-                DegradedCount = stackSummaries.Count(s => s.OverallStatus.Equals("Degraded", StringComparison.OrdinalIgnoreCase)),
-                UnhealthyCount = stackSummaries.Count(s => s.OverallStatus.Equals("Unhealthy", StringComparison.OrdinalIgnoreCase)),
-                Stacks = stackSummaries
+                TotalStacks = stackHealthDtos.Count,
+                HealthyCount = stackHealthDtos.Count(s => s.OverallStatus.Equals("Healthy", StringComparison.OrdinalIgnoreCase)),
+                DegradedCount = stackHealthDtos.Count(s => s.OverallStatus.Equals("Degraded", StringComparison.OrdinalIgnoreCase)),
+                UnhealthyCount = stackHealthDtos.Count(s => s.OverallStatus.Equals("Unhealthy", StringComparison.OrdinalIgnoreCase)),
+                Stacks = stackHealthDtos
             };
 
             await _healthNotificationService.NotifyEnvironmentHealthChangedAsync(
@@ -123,7 +121,7 @@ public class HealthCollectorService : IHealthCollectorService
 
         _logger.LogInformation(
             "Collected health for {Count} deployments in environment {EnvironmentName}",
-            stackSummaries.Count, environment.Name);
+            stackHealthDtos.Count, environment.Name);
     }
 
     public async Task CollectDeploymentHealthAsync(
@@ -169,19 +167,13 @@ public class HealthCollectorService : IHealthCollectorService
                 serviceHealthConfigs,
                 cancellationToken);
 
-            var summaryDto = HealthSnapshotMapper.MapToStackHealthSummary(snapshot);
+            var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, deployment.EnvironmentId);
+            EnrichWithProductInfo(dto, deploymentId);
 
-            // Notify about deployment health change (summary)
+            // Notify about deployment health change
             await _healthNotificationService.NotifyDeploymentHealthChangedAsync(
                 deploymentId,
-                summaryDto,
-                cancellationToken);
-
-            // Notify detailed health for deployment detail view subscribers
-            var detailedDto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, deployment.EnvironmentId);
-            await _healthNotificationService.NotifyDeploymentDetailedHealthChangedAsync(
-                deploymentId,
-                detailedDto,
+                dto,
                 cancellationToken);
 
             _logger.LogInformation(
@@ -264,5 +256,15 @@ public class HealthCollectorService : IHealthCollectorService
         }
 
         return result.Count > 0 ? result : null;
+    }
+
+    private void EnrichWithProductInfo(StackHealthDto dto, DeploymentId deploymentId)
+    {
+        var productDeployment = _productDeploymentRepository.GetByStackDeploymentId(deploymentId);
+        if (productDeployment != null && !productDeployment.IsTerminal)
+        {
+            dto.ProductDeploymentId = productDeployment.Id.Value.ToString();
+            dto.ProductDisplayName = productDeployment.ProductDisplayName;
+        }
     }
 }

@@ -1,22 +1,40 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { Link } from 'react-router';
 import { useEnvironment } from '../../context/EnvironmentContext';
 import { useHealthHub } from '../../hooks/useHealthHub';
 import {
   getEnvironmentHealthSummary,
-  getStackHealth,
+  getHealthStatusPresentation,
   type EnvironmentHealthSummaryDto,
   type StackHealthDto,
 } from '../../api/health';
-import HealthSummaryCards from '../../components/health/HealthSummaryCards';
 import HealthStackCard from '../../components/health/HealthStackCard';
 
 type StatusFilter = 'all' | 'healthy' | 'degraded' | 'unhealthy';
 
+interface ProductGroup {
+  productDeploymentId: string;
+  productDisplayName: string;
+  stacks: StackHealthDto[];
+  healthyStacks: number;
+  totalStacks: number;
+  healthyServices: number;
+  totalServices: number;
+  overallStatus: string;
+}
+
+function aggregateProductStatus(stacks: StackHealthDto[]): string {
+  const statuses = stacks.map(s => s.overallStatus.toLowerCase());
+  if (statuses.some(s => s === 'unhealthy')) return 'Unhealthy';
+  if (statuses.some(s => s === 'degraded')) return 'Degraded';
+  if (statuses.every(s => s === 'healthy')) return 'Healthy';
+  return 'Unknown';
+}
+
 export default function HealthDashboard() {
   const { activeEnvironment } = useEnvironment();
   const [healthSummary, setHealthSummary] = useState<EnvironmentHealthSummaryDto | null>(null);
-  const [detailedHealthMap, setDetailedHealthMap] = useState<Record<string, StackHealthDto>>({});
-  const [loadingDetails, setLoadingDetails] = useState<Record<string, boolean>>({});
+  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,34 +52,17 @@ export default function HealthDashboard() {
     onDeploymentHealthChanged: (health) => {
       setHealthSummary((prev) => {
         if (!prev) return prev;
+        const updatedStacks = prev.stacks.map((s) =>
+          s.deploymentId === health.deploymentId ? health : s
+        );
         return {
           ...prev,
-          stacks: prev.stacks.map((s) =>
-            s.deploymentId === health.deploymentId ? health : s
-          ),
-          healthyCount: prev.stacks.filter((s) =>
-            s.deploymentId === health.deploymentId
-              ? health.overallStatus.toLowerCase() === 'healthy'
-              : s.overallStatus.toLowerCase() === 'healthy'
-          ).length,
-          degradedCount: prev.stacks.filter((s) =>
-            s.deploymentId === health.deploymentId
-              ? health.overallStatus.toLowerCase() === 'degraded'
-              : s.overallStatus.toLowerCase() === 'degraded'
-          ).length,
-          unhealthyCount: prev.stacks.filter((s) =>
-            s.deploymentId === health.deploymentId
-              ? health.overallStatus.toLowerCase() === 'unhealthy'
-              : s.overallStatus.toLowerCase() === 'unhealthy'
-          ).length,
+          stacks: updatedStacks,
+          healthyCount: updatedStacks.filter(s => s.overallStatus.toLowerCase() === 'healthy').length,
+          degradedCount: updatedStacks.filter(s => s.overallStatus.toLowerCase() === 'degraded').length,
+          unhealthyCount: updatedStacks.filter(s => s.overallStatus.toLowerCase() === 'unhealthy').length,
         };
       });
-    },
-    onDeploymentDetailedHealthChanged: (healthData) => {
-      setDetailedHealthMap((prev) => ({
-        ...prev,
-        [healthData.deploymentId]: healthData,
-      }));
     },
   });
 
@@ -99,47 +100,82 @@ export default function HealthDashboard() {
     }
   }, [connectionState, activeEnvironment, subscribeToEnvironment, unsubscribeFromEnvironment]);
 
-  // Load detailed health when a card is expanded
-  const handleExpandStack = useCallback(
-    async (deploymentId: string) => {
-      if (!activeEnvironment || detailedHealthMap[deploymentId]) return;
-
-      setLoadingDetails((prev) => ({ ...prev, [deploymentId]: true }));
-      try {
-        const healthData = await getStackHealth(activeEnvironment.id, deploymentId, true);
-        setDetailedHealthMap((prev) => ({
-          ...prev,
-          [deploymentId]: healthData,
-        }));
-      } catch (err) {
-        console.error('Failed to load detailed health:', err);
-      } finally {
-        setLoadingDetails((prev) => ({ ...prev, [deploymentId]: false }));
+  // Filter stacks — also match product display name in search
+  const filteredStacks = useMemo(() => {
+    return healthSummary?.stacks.filter((stack) => {
+      if (statusFilter !== 'all') {
+        if (stack.overallStatus.toLowerCase() !== statusFilter) {
+          return false;
+        }
       }
-    },
-    [activeEnvironment, detailedHealthMap]
-  );
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return (
+          stack.stackName.toLowerCase().includes(query) ||
+          stack.currentVersion?.toLowerCase().includes(query) ||
+          stack.productDisplayName?.toLowerCase().includes(query)
+        );
+      }
+      return true;
+    }) ?? [];
+  }, [healthSummary, statusFilter, searchQuery]);
 
-  // Filter stacks
-  const filteredStacks = healthSummary?.stacks.filter((stack) => {
-    // Status filter
-    if (statusFilter !== 'all') {
-      if (stack.overallStatus.toLowerCase() !== statusFilter) {
-        return false;
+  // Group filtered stacks by product
+  const { productGroups, standaloneStacks, productCount, standaloneCount } = useMemo(() => {
+    const groups = new Map<string, ProductGroup>();
+    const standalone: StackHealthDto[] = [];
+
+    for (const stack of filteredStacks) {
+      if (stack.productDeploymentId && stack.productDisplayName) {
+        const existing = groups.get(stack.productDeploymentId);
+        const isHealthy = stack.overallStatus.toLowerCase() === 'healthy';
+        if (existing) {
+          existing.stacks.push(stack);
+          existing.totalStacks += 1;
+          existing.healthyServices += stack.healthyServices;
+          existing.totalServices += stack.totalServices;
+          if (isHealthy) existing.healthyStacks += 1;
+        } else {
+          groups.set(stack.productDeploymentId, {
+            productDeploymentId: stack.productDeploymentId,
+            productDisplayName: stack.productDisplayName,
+            stacks: [stack],
+            healthyStacks: isHealthy ? 1 : 0,
+            totalStacks: 1,
+            healthyServices: stack.healthyServices,
+            totalServices: stack.totalServices,
+            overallStatus: 'Healthy',
+          });
+        }
+      } else {
+        standalone.push(stack);
       }
     }
 
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      return (
-        stack.stackName.toLowerCase().includes(query) ||
-        stack.currentVersion?.toLowerCase().includes(query)
-      );
-    }
+    const productGroupList = Array.from(groups.values()).map(g => ({
+      ...g,
+      overallStatus: aggregateProductStatus(g.stacks),
+    }));
 
-    return true;
-  }) ?? [];
+    return {
+      productGroups: productGroupList,
+      standaloneStacks: standalone,
+      productCount: productGroupList.length,
+      standaloneCount: standalone.length,
+    };
+  }, [filteredStacks]);
+
+  const toggleProductExpanded = (productId: string) => {
+    setExpandedProducts(prev => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  };
 
   // Connection indicator
   const getConnectionIndicator = () => {
@@ -217,6 +253,8 @@ export default function HealthDashboard() {
     );
   }
 
+  const hasAnyResults = productGroups.length > 0 || standaloneStacks.length > 0;
+
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
       {/* Header */}
@@ -243,15 +281,49 @@ export default function HealthDashboard() {
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary Cards — product-aware */}
       {healthSummary && (
         <div className="mb-6">
-          <HealthSummaryCards
-            healthyCount={healthSummary.healthyCount}
-            degradedCount={healthSummary.degradedCount}
-            unhealthyCount={healthSummary.unhealthyCount}
-            totalCount={healthSummary.totalStacks}
-          />
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <SummaryCard
+              label="Healthy"
+              count={healthSummary.healthyCount}
+              bgColor="bg-green-50 dark:bg-green-900/20"
+              textColor="text-green-600 dark:text-green-400"
+              labelColor="text-green-700 dark:text-green-300"
+              dotColor="bg-green-500"
+            />
+            <SummaryCard
+              label="Degraded"
+              count={healthSummary.degradedCount}
+              bgColor="bg-yellow-50 dark:bg-yellow-900/20"
+              textColor="text-yellow-600 dark:text-yellow-400"
+              labelColor="text-yellow-700 dark:text-yellow-300"
+              dotColor="bg-yellow-500"
+            />
+            <SummaryCard
+              label="Unhealthy"
+              count={healthSummary.unhealthyCount}
+              bgColor="bg-red-50 dark:bg-red-900/20"
+              textColor="text-red-600 dark:text-red-400"
+              labelColor="text-red-700 dark:text-red-300"
+              dotColor="bg-red-500"
+            />
+            <div className="rounded-xl p-4 bg-gray-50 dark:bg-gray-800/50 transition-all hover:scale-[1.02]">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-gray-500" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total</span>
+              </div>
+              <div className="text-3xl font-bold text-gray-600 dark:text-gray-400">
+                {healthSummary.totalStacks}
+              </div>
+              {productCount > 0 && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {productCount} {productCount === 1 ? 'product' : 'products'}, {standaloneCount} standalone
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -288,7 +360,7 @@ export default function HealthDashboard() {
         <div className="relative">
           <input
             type="text"
-            placeholder="Search stacks..."
+            placeholder="Search stacks or products..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full sm:w-64 rounded-lg border border-gray-300 bg-white px-4 py-2 pl-10 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
@@ -309,8 +381,8 @@ export default function HealthDashboard() {
         </div>
       </div>
 
-      {/* Stack List */}
-      {filteredStacks.length === 0 ? (
+      {/* Stack List — grouped by product */}
+      {!hasAnyResults ? (
         <div className="rounded-xl border border-gray-200 bg-white p-8 text-center dark:border-gray-800 dark:bg-white/[0.03]">
           <svg
             className="mx-auto h-12 w-12 text-gray-400"
@@ -338,15 +410,127 @@ export default function HealthDashboard() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredStacks.map((stack) => (
+          {/* Product groups */}
+          {productGroups.map((group) => (
+            <ProductGroupCard
+              key={group.productDeploymentId}
+              group={group}
+              isExpanded={expandedProducts.has(group.productDeploymentId)}
+              onToggle={() => toggleProductExpanded(group.productDeploymentId)}
+            />
+          ))}
+
+          {/* Standalone stacks section */}
+          {standaloneStacks.length > 0 && productGroups.length > 0 && (
+            <div className="pt-2">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">
+                Standalone Stacks
+              </h3>
+            </div>
+          )}
+          {standaloneStacks.map((stack) => (
             <HealthStackCard
               key={stack.deploymentId}
               stack={stack}
-              detailedHealth={detailedHealthMap[stack.deploymentId]}
-              onExpand={handleExpandStack}
-              isLoading={loadingDetails[stack.deploymentId]}
             />
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Sub-components ---
+
+function SummaryCard({ label, count, bgColor, textColor, labelColor, dotColor }: {
+  label: string;
+  count: number;
+  bgColor: string;
+  textColor: string;
+  labelColor: string;
+  dotColor: string;
+}) {
+  return (
+    <div className={`rounded-xl p-4 ${bgColor} transition-all hover:scale-[1.02]`}>
+      <div className="flex items-center gap-2 mb-2">
+        <span className={`h-2.5 w-2.5 rounded-full ${dotColor}`} />
+        <span className={`text-sm font-medium ${labelColor}`}>{label}</span>
+      </div>
+      <div className={`text-3xl font-bold ${textColor}`}>{count}</div>
+    </div>
+  );
+}
+
+function ProductGroupCard({ group, isExpanded, onToggle }: {
+  group: ProductGroup;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const statusPresentation = getHealthStatusPresentation(group.overallStatus);
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] overflow-hidden">
+      {/* Product group header */}
+      <button
+        onClick={onToggle}
+        className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer"
+      >
+        <div className="flex items-center gap-3">
+          {/* Product icon */}
+          <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${statusPresentation.bgColor}`}>
+            <svg className={`w-4 h-4 ${statusPresentation.textColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+          </div>
+          <div className="text-left">
+            <span className="font-semibold text-gray-900 dark:text-white">
+              {group.productDisplayName}
+            </span>
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              {group.totalStacks} {group.totalStacks === 1 ? 'stack' : 'stacks'} &middot; {group.healthyServices}/{group.totalServices} services
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            {group.healthyStacks}/{group.totalStacks} healthy
+          </span>
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${statusPresentation.bgColor} ${statusPresentation.textColor}`}
+          >
+            {statusPresentation.label}
+          </span>
+          <svg
+            className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+
+      {/* Expanded: show individual stacks */}
+      {isExpanded && (
+        <div className="border-t border-gray-200 dark:border-gray-800">
+          <div className="pl-4 space-y-0">
+            {group.stacks.map((stack) => (
+              <HealthStackCard
+                key={stack.deploymentId}
+                stack={stack}
+              />
+            ))}
+          </div>
+          <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800/30 flex justify-end">
+            <Link
+              to={`/product-deployments/${encodeURIComponent(group.productDeploymentId)}`}
+              className="text-sm font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400"
+            >
+              View Product Details
+            </Link>
+          </div>
         </div>
       )}
     </div>

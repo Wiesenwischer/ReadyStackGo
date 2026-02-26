@@ -1,7 +1,8 @@
 namespace ReadyStackGo.Application.UseCases.Health;
 
 /// <summary>
-/// DTO for detailed health information of a stack.
+/// DTO for health information of a stack, including service-level detail.
+/// Used both for list views and detail views — single DTO for the entire health use case.
 /// </summary>
 public class StackHealthDto
 {
@@ -17,6 +18,10 @@ public class StackHealthDto
     // Operation mode
     public required string OperationMode { get; init; }
 
+    // Summary counts (convenience — also available via Self.HealthyCount/TotalCount)
+    public required int HealthyServices { get; init; }
+    public required int TotalServices { get; init; }
+
     // Summary
     public required string StatusMessage { get; init; }
     public required bool RequiresAttention { get; init; }
@@ -30,6 +35,10 @@ public class StackHealthDto
 
     // Optional: Infra health
     public InfraHealthDto? Infra { get; init; }
+
+    // Product grouping (null for standalone stacks)
+    public string? ProductDeploymentId { get; set; }
+    public string? ProductDisplayName { get; set; }
 }
 
 /// <summary>
@@ -129,7 +138,8 @@ public class ExternalServiceHealthDto
 }
 
 /// <summary>
-/// DTO for environment health summary (list view).
+/// DTO for environment health summary.
+/// Contains full stack detail (including services) so the client has all data in one response.
 /// </summary>
 public class EnvironmentHealthSummaryDto
 {
@@ -139,7 +149,7 @@ public class EnvironmentHealthSummaryDto
     public required int HealthyCount { get; init; }
     public required int DegradedCount { get; init; }
     public required int UnhealthyCount { get; init; }
-    public required List<StackHealthSummaryDto> Stacks { get; init; }
+    public required List<StackHealthDto> Stacks { get; init; }
 }
 
 /// <summary>
@@ -165,6 +175,10 @@ public class StackHealthSummaryDto
     public required string StatusMessage { get; init; }
     public required bool RequiresAttention { get; init; }
     public required DateTime CapturedAtUtc { get; init; }
+
+    // Product grouping (null for standalone stacks)
+    public string? ProductDeploymentId { get; set; }
+    public string? ProductDisplayName { get; set; }
 }
 
 /// <summary>

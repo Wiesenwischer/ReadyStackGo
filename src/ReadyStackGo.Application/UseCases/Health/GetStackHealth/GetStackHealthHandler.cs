@@ -4,6 +4,9 @@ using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
+using ReadyStackGo.Domain.Deployment.ProductDeployments;
+using DomainHealthCheckConfig = ReadyStackGo.Domain.Deployment.RuntimeConfig.ServiceHealthCheckConfig;
+using AppHealthCheckConfig = ReadyStackGo.Application.Services.ServiceHealthCheckConfig;
 
 namespace ReadyStackGo.Application.UseCases.Health.GetStackHealth;
 
@@ -16,6 +19,7 @@ public class GetStackHealthHandler : IRequestHandler<GetStackHealthQuery, GetSta
     private readonly IHealthMonitoringService _healthMonitoringService;
     private readonly IDeploymentRepository _deploymentRepository;
     private readonly IEnvironmentRepository _environmentRepository;
+    private readonly IProductDeploymentRepository _productDeploymentRepository;
     private readonly ILogger<GetStackHealthHandler> _logger;
 
     // Cache threshold - if snapshot is older than this, consider it stale
@@ -25,11 +29,13 @@ public class GetStackHealthHandler : IRequestHandler<GetStackHealthQuery, GetSta
         IHealthMonitoringService healthMonitoringService,
         IDeploymentRepository deploymentRepository,
         IEnvironmentRepository environmentRepository,
+        IProductDeploymentRepository productDeploymentRepository,
         ILogger<GetStackHealthHandler> logger)
     {
         _healthMonitoringService = healthMonitoringService;
         _deploymentRepository = deploymentRepository;
         _environmentRepository = environmentRepository;
+        _productDeploymentRepository = productDeploymentRepository;
         _logger = logger;
     }
 
@@ -82,23 +88,64 @@ public class GetStackHealthHandler : IRequestHandler<GetStackHealthQuery, GetSta
         {
             _logger.LogDebug("Capturing fresh health snapshot for deployment {DeploymentId}", deploymentId);
 
+            var serviceHealthConfigs = MapHealthCheckConfigs(deployment.HealthCheckConfigs);
+
             snapshot = await _healthMonitoringService.CaptureHealthSnapshotAsync(
                 environment.OrganizationId,
                 environmentId,
                 deploymentId,
                 deployment.StackName,
                 deployment.StackVersion,
-                serviceHealthConfigs: null, // TODO: Load from stack definition
+                serviceHealthConfigs,
                 cancellationToken);
         }
 
         // Map to DTO - snapshot is guaranteed to be non-null after CaptureHealthSnapshotAsync
         var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot!, environmentId);
+
+        // Enrich with product info
+        var productDeployment = _productDeploymentRepository.GetByStackDeploymentId(deploymentId);
+        if (productDeployment != null && !productDeployment.IsTerminal)
+        {
+            dto.ProductDeploymentId = productDeployment.Id.Value.ToString();
+            dto.ProductDisplayName = productDeployment.ProductDisplayName;
+        }
+
         return GetStackHealthResponse.Ok(dto);
     }
 
-    private bool IsSnapshotStale(HealthSnapshot snapshot)
+    private static bool IsSnapshotStale(HealthSnapshot snapshot)
     {
         return DateTime.UtcNow - snapshot.CapturedAtUtc > StaleThreshold;
+    }
+
+    private static IReadOnlyDictionary<string, AppHealthCheckConfig>? MapHealthCheckConfigs(
+        IReadOnlyCollection<DomainHealthCheckConfig>? domainConfigs)
+    {
+        if (domainConfigs == null || domainConfigs.Count == 0)
+            return null;
+
+        var result = new Dictionary<string, AppHealthCheckConfig>();
+
+        foreach (var config in domainConfigs)
+        {
+            var timeoutSeconds = 5;
+            if (!string.IsNullOrEmpty(config.Timeout) && TimeSpan.TryParse(config.Timeout, out var timeout))
+            {
+                timeoutSeconds = (int)timeout.TotalSeconds;
+            }
+
+            result[config.ServiceName] = new AppHealthCheckConfig
+            {
+                Type = config.Type,
+                Path = config.Path ?? "/hc",
+                Port = config.Port,
+                TimeoutSeconds = timeoutSeconds,
+                UseHttps = config.Https,
+                ExpectedStatusCodes = config.ExpectedStatusCodes ?? new[] { 200 }
+            };
+        }
+
+        return result.Count > 0 ? result : null;
     }
 }

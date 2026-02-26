@@ -122,6 +122,11 @@ public class RemoveProductHandler : IRequestHandler<RemoveProductCommand, Remove
                 {
                     stackResult.Success = true;
                     _logger.LogInformation("Stack {StackName} removed successfully", stack.StackDisplayName);
+
+                    // Notify per-stack completion so the UI can update in real-time
+                    await NotifyStackCompletedAsync(
+                        sessionId, stack.StackDisplayName, i, stacks.Count,
+                        productDeployment.RemovedStacks + 1, cancellationToken);
                 }
                 else
                 {
@@ -130,6 +135,11 @@ public class RemoveProductHandler : IRequestHandler<RemoveProductCommand, Remove
                     hasErrors = true;
                     _logger.LogWarning("Stack {StackName} removal failed: {Error}",
                         stack.StackDisplayName, removeResult.Message);
+
+                    // Notify per-stack failure so the UI can update in real-time
+                    await NotifyStackFailedAsync(
+                        sessionId, stack.StackDisplayName, i, stacks.Count,
+                        productDeployment.RemovedStacks, cancellationToken);
                 }
             }
             else
@@ -138,6 +148,10 @@ public class RemoveProductHandler : IRequestHandler<RemoveProductCommand, Remove
                 stackResult.Success = true;
                 _logger.LogInformation("Stack {StackName} has no deployment to remove, marking as removed",
                     stack.StackDisplayName);
+
+                await NotifyStackCompletedAsync(
+                    sessionId, stack.StackDisplayName, i, stacks.Count,
+                    productDeployment.RemovedStacks + 1, cancellationToken);
             }
 
             // Mark stack as removed in the product deployment regardless of Docker result.
@@ -206,6 +220,56 @@ public class RemoveProductHandler : IRequestHandler<RemoveProductCommand, Remove
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Failed to send product removal progress notification");
+        }
+    }
+
+    private async Task NotifyStackCompletedAsync(
+        string sessionId, string stackDisplayName, int stackIndex, int totalStacks,
+        int removedStacks, CancellationToken ct)
+    {
+        if (_notificationService == null) return;
+
+        try
+        {
+            var percentComplete = totalStacks > 0 ? (int)(removedStacks * 100.0 / totalStacks) : 0;
+            await _notificationService.NotifyProgressAsync(
+                sessionId,
+                "ProductRemoval",
+                $"Stack removed: {stackDisplayName}",
+                percentComplete,
+                stackDisplayName,
+                totalStacks,
+                removedStacks,
+                0, 0, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to send stack removed notification");
+        }
+    }
+
+    private async Task NotifyStackFailedAsync(
+        string sessionId, string stackDisplayName, int stackIndex, int totalStacks,
+        int removedStacks, CancellationToken ct)
+    {
+        if (_notificationService == null) return;
+
+        try
+        {
+            var percentComplete = totalStacks > 0 ? (int)(removedStacks * 100.0 / totalStacks) : 0;
+            await _notificationService.NotifyProgressAsync(
+                sessionId,
+                "ProductRemoval",
+                $"Stack removal failed: {stackDisplayName}",
+                percentComplete,
+                stackDisplayName,
+                totalStacks,
+                removedStacks,
+                0, 0, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to send stack failed notification");
         }
     }
 

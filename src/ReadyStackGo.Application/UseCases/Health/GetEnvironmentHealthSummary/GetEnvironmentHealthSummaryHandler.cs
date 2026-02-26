@@ -3,12 +3,13 @@ using Microsoft.Extensions.Logging;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
+using ReadyStackGo.Domain.Deployment.ProductDeployments;
 
 namespace ReadyStackGo.Application.UseCases.Health.GetEnvironmentHealthSummary;
 
 /// <summary>
 /// Handler for GetEnvironmentHealthSummaryQuery.
-/// Uses domain value objects for aggregation logic.
+/// Returns full stack health (including services) for all deployments in the environment.
 /// </summary>
 public class GetEnvironmentHealthSummaryHandler
     : IRequestHandler<GetEnvironmentHealthSummaryQuery, GetEnvironmentHealthSummaryResponse>
@@ -16,17 +17,20 @@ public class GetEnvironmentHealthSummaryHandler
     private readonly IHealthSnapshotRepository _healthSnapshotRepository;
     private readonly IEnvironmentRepository _environmentRepository;
     private readonly IDeploymentRepository _deploymentRepository;
+    private readonly IProductDeploymentRepository _productDeploymentRepository;
     private readonly ILogger<GetEnvironmentHealthSummaryHandler> _logger;
 
     public GetEnvironmentHealthSummaryHandler(
         IHealthSnapshotRepository healthSnapshotRepository,
         IEnvironmentRepository environmentRepository,
         IDeploymentRepository deploymentRepository,
+        IProductDeploymentRepository productDeploymentRepository,
         ILogger<GetEnvironmentHealthSummaryHandler> logger)
     {
         _healthSnapshotRepository = healthSnapshotRepository;
         _environmentRepository = environmentRepository;
         _deploymentRepository = deploymentRepository;
+        _productDeploymentRepository = productDeploymentRepository;
         _logger = logger;
     }
 
@@ -64,53 +68,47 @@ public class GetEnvironmentHealthSummaryHandler
             .ToHashSet();
 
         // Filter snapshots to only include active deployments
-        var activeSnapshots = snapshots.Where(s => activeDeploymentIds.Contains(s.DeploymentId));
+        var activeSnapshots = snapshots.Where(s => activeDeploymentIds.Contains(s.DeploymentId)).ToList();
 
-        // Use domain value object for aggregation
+        // Use domain value object for aggregate counts
         var summary = EnvironmentHealthSummary.FromSnapshots(environment, activeSnapshots);
 
-        // Map domain object to DTO
-        var dto = MapToDto(summary);
-
-        return Task.FromResult(GetEnvironmentHealthSummaryResponse.Ok(dto));
-    }
-
-    private static EnvironmentHealthSummaryDto MapToDto(EnvironmentHealthSummary summary)
-    {
-        return new EnvironmentHealthSummaryDto
+        // Build product deployment lookup: DeploymentId → (ProductDeploymentId, ProductDisplayName)
+        var productDeployments = _productDeploymentRepository.GetByEnvironment(environmentId);
+        var deploymentToProduct = new Dictionary<string, (string ProductDeploymentId, string ProductDisplayName)>();
+        foreach (var pd in productDeployments.Where(p => !p.IsTerminal))
         {
-            EnvironmentId = summary.EnvironmentId.Value.ToString(),
-            EnvironmentName = summary.EnvironmentName,
+            foreach (var stack in pd.Stacks.Where(s => s.DeploymentId != null))
+            {
+                deploymentToProduct[stack.DeploymentId!.Value.ToString()] =
+                    (pd.Id.Value.ToString(), pd.ProductDisplayName);
+            }
+        }
+
+        // Map snapshots directly to StackHealthDto (full detail including services)
+        var stackDtos = activeSnapshots.Select(snapshot =>
+        {
+            var stackDto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, environmentId);
+            var deploymentIdStr = snapshot.DeploymentId.Value.ToString();
+            if (deploymentToProduct.TryGetValue(deploymentIdStr, out var productInfo))
+            {
+                stackDto.ProductDeploymentId = productInfo.ProductDeploymentId;
+                stackDto.ProductDisplayName = productInfo.ProductDisplayName;
+            }
+            return stackDto;
+        }).ToList();
+
+        var result = new EnvironmentHealthSummaryDto
+        {
+            EnvironmentId = environmentId.Value.ToString(),
+            EnvironmentName = environment.Name,
             TotalStacks = summary.TotalStacks,
             HealthyCount = summary.HealthyCount,
             DegradedCount = summary.DegradedCount,
             UnhealthyCount = summary.UnhealthyCount,
-            Stacks = summary.Stacks.Select(MapStackSummaryToDto).ToList()
+            Stacks = stackDtos
         };
-    }
 
-    private static StackHealthSummaryDto MapStackSummaryToDto(StackHealthSummary stack)
-    {
-        return new StackHealthSummaryDto
-        {
-            DeploymentId = stack.DeploymentId.Value.ToString(),
-            StackName = stack.StackName,
-            CurrentVersion = stack.CurrentVersion,
-
-            // Overall status (UI presentation handled in frontend)
-            OverallStatus = stack.OverallStatus.Name,
-
-            // Operation mode
-            OperationMode = stack.OperationMode.Name,
-
-            // Services summary
-            HealthyServices = stack.HealthyServices,
-            TotalServices = stack.TotalServices,
-
-            // Status - using domain behavior
-            StatusMessage = stack.StatusMessage,
-            RequiresAttention = stack.RequiresAttention,
-            CapturedAtUtc = stack.CapturedAtUtc
-        };
+        return Task.FromResult(GetEnvironmentHealthSummaryResponse.Ok(result));
     }
 }

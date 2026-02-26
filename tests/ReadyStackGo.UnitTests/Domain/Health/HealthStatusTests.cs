@@ -12,15 +12,16 @@ public class HealthStatusTests
     #region Static Instances
 
     [Fact]
-    public void HealthStatus_HasFourDefinedStatuses()
+    public void HealthStatus_HasFiveDefinedStatuses()
     {
         var allStatuses = HealthStatus.GetAll().ToList();
 
-        allStatuses.Should().HaveCount(4);
+        allStatuses.Should().HaveCount(5);
         allStatuses.Should().Contain(HealthStatus.Healthy);
         allStatuses.Should().Contain(HealthStatus.Degraded);
         allStatuses.Should().Contain(HealthStatus.Unhealthy);
         allStatuses.Should().Contain(HealthStatus.Unknown);
+        allStatuses.Should().Contain(HealthStatus.NotFound);
     }
 
     [Fact]
@@ -57,6 +58,7 @@ public class HealthStatusTests
     [InlineData("Degraded", true)]
     [InlineData("Unhealthy", true)]
     [InlineData("Unknown", false)]
+    [InlineData("NotFound", true)]
     public void RequiresAttention_ReturnsCorrectValue(string statusName, bool expectedAttention)
     {
         var status = HealthStatus.FromName(statusName);
@@ -73,6 +75,7 @@ public class HealthStatusTests
     [InlineData("Degraded", false)]
     [InlineData("Unhealthy", true)]
     [InlineData("Unknown", false)]
+    [InlineData("NotFound", true)]
     public void IsCritical_ReturnsCorrectValue(string statusName, bool expectedCritical)
     {
         var status = HealthStatus.FromName(statusName);
@@ -89,6 +92,7 @@ public class HealthStatusTests
     [InlineData("Degraded", true)]
     [InlineData("Unhealthy", true)]
     [InlineData("Unknown", false)]
+    [InlineData("NotFound", true)]
     public void AllowsActions_ReturnsCorrectValue(string statusName, bool expectedAllows)
     {
         var status = HealthStatus.FromName(statusName);

@@ -64,4 +64,16 @@ public class DeployStackRequest
     /// Extracted from service healthCheck definitions in the stack manifest.
     /// </summary>
     public IReadOnlyList<RuntimeConfig.ServiceHealthCheckConfig>? HealthCheckConfigs { get; set; }
+
+    /// <summary>
+    /// Product GroupId for structured Docker labels (e.g., "ams.project" or "stacks:myproduct").
+    /// Enables direct catalog lookup without reverse-engineering from StackId.
+    /// </summary>
+    public string? ProductGroupId { get; set; }
+
+    /// <summary>
+    /// Clean stack definition name from the catalog (e.g., "analytics").
+    /// Used for display in Container Management instead of the composite project name.
+    /// </summary>
+    public string? StackDefinitionName { get; set; }
 }

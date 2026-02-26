@@ -25,6 +25,10 @@ public static class HealthSnapshotMapper
             // Operation mode
             OperationMode = snapshot.OperationMode.Name,
 
+            // Service counts
+            HealthyServices = snapshot.Self.HealthyCount,
+            TotalServices = snapshot.Self.TotalCount,
+
             // Summary
             StatusMessage = GenerateStatusMessage(snapshot),
             RequiresAttention = snapshot.RequiresAttention,
@@ -38,23 +42,6 @@ public static class HealthSnapshotMapper
 
             // Optional: Infra health
             Infra = snapshot.Infra != null ? MapInfraHealth(snapshot.Infra) : null
-        };
-    }
-
-    public static StackHealthSummaryDto MapToStackHealthSummary(HealthSnapshot snapshot)
-    {
-        return new StackHealthSummaryDto
-        {
-            DeploymentId = snapshot.DeploymentId.Value.ToString(),
-            StackName = snapshot.StackName,
-            CurrentVersion = snapshot.CurrentVersion,
-            OverallStatus = snapshot.Overall.Name,
-            OperationMode = snapshot.OperationMode.Name,
-            HealthyServices = snapshot.Self.HealthyCount,
-            TotalServices = snapshot.Self.TotalCount,
-            StatusMessage = snapshot.GetStatusMessage(),
-            RequiresAttention = snapshot.RequiresAttention,
-            CapturedAtUtc = snapshot.CapturedAtUtc
         };
     }
 
@@ -152,7 +139,8 @@ public static class HealthSnapshotMapper
 
         if (snapshot.Overall == HealthStatus.Unhealthy)
         {
-            var unhealthyCount = self.Services.Count(s => s.Status == HealthStatus.Unhealthy);
+            // Count all non-healthy services (Unhealthy, NotFound, Unknown)
+            var unhealthyCount = self.TotalCount - self.HealthyCount;
             return $"{unhealthyCount} of {self.TotalCount} services unhealthy";
         }
 

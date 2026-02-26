@@ -2,36 +2,21 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import {
   type StackHealthDto,
-  type StackHealthSummaryDto,
   getHealthStatusPresentation,
   getOperationModePresentation,
 } from '../../api/health';
 import HealthServiceRow from './HealthServiceRow';
 
 interface HealthStackCardProps {
-  stack: StackHealthSummaryDto;
-  detailedHealth?: StackHealthDto | null;
-  onExpand?: (deploymentId: string) => void;
-  isLoading?: boolean;
+  stack: StackHealthDto;
 }
 
 export default function HealthStackCard({
   stack,
-  detailedHealth,
-  onExpand,
-  isLoading,
 }: HealthStackCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const statusPresentation = getHealthStatusPresentation(stack.overallStatus);
   const modePresentation = getOperationModePresentation(stack.operationMode);
-
-  const handleToggleExpand = () => {
-    const newExpanded = !isExpanded;
-    setIsExpanded(newExpanded);
-    if (newExpanded && onExpand) {
-      onExpand(stack.deploymentId);
-    }
-  };
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -51,7 +36,7 @@ export default function HealthStackCard({
     <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] overflow-hidden transition-all">
       {/* Header - clickable to expand */}
       <button
-        onClick={handleToggleExpand}
+        onClick={() => setIsExpanded(!isExpanded)}
         className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-3">
@@ -139,44 +124,27 @@ export default function HealthStackCard({
         </div>
       </button>
 
-      {/* Expanded content */}
+      {/* Expanded content — services from stack.self */}
       {isExpanded && (
         <div className="border-t border-gray-200 dark:border-gray-800">
-          {isLoading ? (
-            <div className="p-4">
-              <div className="animate-pulse space-y-2">
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3" />
-              </div>
-            </div>
-          ) : detailedHealth ? (
-            <div>
-              {/* Services list */}
-              <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                {detailedHealth.self.services.map((service) => (
-                  <HealthServiceRow key={service.name} service={service} />
-                ))}
-              </div>
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            {stack.self.services.map((service) => (
+              <HealthServiceRow key={service.name} service={service} />
+            ))}
+          </div>
 
-              {/* Footer with link to detail page */}
-              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800/30 flex justify-between items-center">
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {stack.statusMessage}
-                </span>
-                <Link
-                  to={`/deployments/${encodeURIComponent(stack.stackName)}`}
-                  className="text-sm font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400"
-                >
-                  View Details
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <div className="p-4 text-sm text-gray-500 dark:text-gray-400">
-              No detailed health data available
-            </div>
-          )}
+          {/* Footer with link to detail page */}
+          <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800/30 flex justify-between items-center">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {stack.statusMessage}
+            </span>
+            <Link
+              to={`/deployments/${encodeURIComponent(stack.stackName)}`}
+              className="text-sm font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400"
+            >
+              View Details
+            </Link>
+          </div>
         </div>
       )}
     </div>

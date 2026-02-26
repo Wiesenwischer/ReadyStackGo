@@ -191,10 +191,14 @@ public class DeploymentService : IDeploymentService
 
             if (!result.Success)
             {
+                var errorDetail = result.Errors.Count > 0
+                    ? string.Join("; ", result.Errors)
+                    : "Unknown error";
+
                 return new DeployComposeResponse
                 {
                     Success = false,
-                    Message = "Deployment failed",
+                    Message = $"Deployment failed: {errorDetail}",
                     Errors = result.Errors
                 };
             }
@@ -819,10 +823,14 @@ public class DeploymentService : IDeploymentService
 
                     _logger.LogWarning("Upgrade failed for {StackName}. Deployment can be retried or rolled back.", request.StackName);
                 }
+                var upgradeErrorDetail = result.Errors.Count > 0
+                    ? string.Join("; ", result.Errors)
+                    : "Unknown error";
+
                 return new DeployStackResponse
                 {
                     Success = false,
-                    Message = "Deployment failed",
+                    Message = $"Deployment failed: {upgradeErrorDetail}",
                     Errors = result.Errors
                 };
             }
@@ -1003,6 +1011,8 @@ public class DeploymentService : IDeploymentService
         {
             StackVersion = request.StackVersion ?? "unspecified",
             StackName = request.StackName,
+            ProductGroupId = request.ProductGroupId,
+            StackDefinitionName = request.StackDefinitionName,
             GlobalEnvVars = variables
         };
 

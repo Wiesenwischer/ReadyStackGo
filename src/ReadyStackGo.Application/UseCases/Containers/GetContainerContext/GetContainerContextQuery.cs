@@ -9,7 +9,8 @@ public record StackContextInfo(
     bool DeploymentExists,
     string? DeploymentId = null,
     string? ProductName = null,
-    string? ProductDisplayName = null);
+    string? ProductDisplayName = null,
+    string? StackDefinitionName = null);
 
 public record GetContainerContextResult(
     bool Success,

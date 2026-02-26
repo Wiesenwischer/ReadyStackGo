@@ -294,6 +294,101 @@ public class DeploymentCompletedHandlerTests
 
     #endregion
 
+    #region GroupId Resolution
+
+    [Fact]
+    public async Task Handle_ExplicitProductId_UsesGroupIdForLookup()
+    {
+        // Product has an explicit productId that differs from sourceId:productName
+        var deploymentId = DeploymentId.NewId();
+        var deployment = CreateTestDeployment(deploymentId, "src:io.company.myproduct:web");
+        deployment.MarkAsRunning();
+
+        var product = CreateTestProductDefinition("myproduct", "src", explicitProductId: "io.company.myproduct");
+
+        // The existing ProductDeployment was created with product.GroupId = "io.company.myproduct"
+        var existingPd = ProductDeployment.CreateFromExternalDeployment(
+            ProductDeploymentId.NewId(), TestEnvId,
+            "io.company.myproduct", "src:io.company.myproduct:1.0.0",
+            "myproduct", "myproduct", "1.0.0", UserId.NewId(),
+            "test-deployment",
+            "api", "api", "src:io.company.myproduct:api",
+            DeploymentId.NewId(), "product-api", 2);
+
+        SetupDeployment(deployment);
+        _productSourceMock
+            .Setup(s => s.GetProductAsync("src:io.company.myproduct", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+
+        // The lookup must use product.GroupId ("io.company.myproduct"), NOT "src:io.company.myproduct"
+        _productDeploymentRepoMock
+            .Setup(r => r.GetActiveByProductGroupId(It.IsAny<EnvironmentId>(), "io.company.myproduct"))
+            .Returns(existingPd);
+
+        var evt = new DeploymentCompleted(deploymentId, DeploymentStatus.Running);
+        await HandleEvent(evt);
+
+        // Should register as external stack on the existing PD, not create a new one
+        existingPd.TotalStacks.Should().Be(2);
+        existingPd.Stacks.Should().Contain(s => s.StackName == "web");
+        _productDeploymentRepoMock.Verify(r => r.Update(existingPd), Times.Once);
+        _productDeploymentRepoMock.Verify(r => r.Add(It.IsAny<ProductDeployment>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_ExplicitProductId_AutoCreateUsesGroupId()
+    {
+        var deploymentId = DeploymentId.NewId();
+        var deployment = CreateTestDeployment(deploymentId, "src:io.company.myproduct:web");
+        deployment.MarkAsRunning();
+
+        var product = CreateTestProductDefinition("myproduct", "src", explicitProductId: "io.company.myproduct");
+
+        SetupDeployment(deployment);
+        _productSourceMock
+            .Setup(s => s.GetProductAsync("src:io.company.myproduct", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+        _productDeploymentRepoMock
+            .Setup(r => r.GetActiveByProductGroupId(It.IsAny<EnvironmentId>(), "io.company.myproduct"))
+            .Returns((ProductDeployment?)null);
+
+        var evt = new DeploymentCompleted(deploymentId, DeploymentStatus.Running);
+        await HandleEvent(evt);
+
+        // Auto-created PD should use product.GroupId
+        _productDeploymentRepoMock.Verify(
+            r => r.Add(It.Is<ProductDeployment>(pd =>
+                pd.ProductGroupId == "io.company.myproduct")),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ProductNotInCatalog_FallsBackToStackIdDerivedProductId()
+    {
+        var deploymentId = DeploymentId.NewId();
+        var deployment = CreateTestDeployment(deploymentId, "src:myproduct:web");
+        deployment.MarkAsRunning();
+
+        SetupDeployment(deployment);
+        // Product not in catalog
+        _productSourceMock
+            .Setup(s => s.GetProductAsync("src:myproduct", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProductDefinition?)null);
+
+        // Falls back to stackId-derived "src:myproduct"
+        _productDeploymentRepoMock
+            .Setup(r => r.GetActiveByProductGroupId(It.IsAny<EnvironmentId>(), "src:myproduct"))
+            .Returns((ProductDeployment?)null);
+
+        var evt = new DeploymentCompleted(deploymentId, DeploymentStatus.Running);
+        await HandleEvent(evt);
+
+        // No product → no auto-create
+        _productDeploymentRepoMock.Verify(r => r.Add(It.IsAny<ProductDeployment>()), Times.Never);
+    }
+
+    #endregion
+
     #region Helpers
 
     private Task HandleEvent(DeploymentCompleted evt)
@@ -356,9 +451,9 @@ public class DeploymentCompletedHandlerTests
     }
 
     private static ProductDefinition CreateTestProductDefinition(
-        string name = "myproduct", string sourceId = "src")
+        string name = "myproduct", string sourceId = "src", string? explicitProductId = null)
     {
-        var productId = ProductId.FromName(name);
+        var productId = ProductId.FromName(explicitProductId ?? name);
         var stack = new StackDefinition(
             sourceId, "web", productId,
             productName: name, productVersion: "1.0.0");
@@ -366,7 +461,8 @@ public class DeploymentCompletedHandlerTests
         return new ProductDefinition(
             sourceId, name, name,
             new List<StackDefinition> { stack },
-            productVersion: "1.0.0");
+            productVersion: "1.0.0",
+            productId: explicitProductId);
     }
 
     #endregion

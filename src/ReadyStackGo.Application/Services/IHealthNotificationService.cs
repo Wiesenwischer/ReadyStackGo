@@ -11,21 +11,12 @@ namespace ReadyStackGo.Application.Services;
 public interface IHealthNotificationService
 {
     /// <summary>
-    /// Notify clients subscribed to a specific deployment about a health update (summary only).
-    /// Used for environment-level broadcasts.
+    /// Notify clients subscribed to a specific deployment about a health update.
+    /// Includes full detail (services, bus, infra) — single DTO for all health display needs.
     /// </summary>
     Task NotifyDeploymentHealthChangedAsync(
         DeploymentId deploymentId,
-        StackHealthSummaryDto healthSummary,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Notify clients subscribed to a specific deployment about detailed health including services.
-    /// Sent to deploy:{deploymentId} group for detail views.
-    /// </summary>
-    Task NotifyDeploymentDetailedHealthChangedAsync(
-        DeploymentId deploymentId,
-        StackHealthDto detailedHealth,
+        StackHealthDto health,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -40,7 +31,7 @@ public interface IHealthNotificationService
     /// Notify all clients subscribed to global health updates.
     /// </summary>
     Task NotifyGlobalHealthChangedAsync(
-        StackHealthSummaryDto healthSummary,
+        StackHealthDto health,
         CancellationToken cancellationToken = default);
 
     /// <summary>

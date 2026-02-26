@@ -256,29 +256,10 @@ public class HealthSnapshotMapperTests
 
     #endregion
 
-    #region MapToStackHealthSummary
+    #region Service Count Fields
 
     [Fact]
-    public void MapToStackHealthSummary_MapsBasicProperties()
-    {
-        var selfHealth = CreateSelfHealth(("api", HealthStatus.Healthy), ("db", HealthStatus.Healthy));
-        var snapshot = HealthSnapshot.Capture(
-            _orgId, _envId, _deploymentId, "my-stack",
-            OperationMode.Normal,
-            currentVersion: "1.0.0",
-            self: selfHealth);
-
-        var dto = HealthSnapshotMapper.MapToStackHealthSummary(snapshot);
-
-        dto.DeploymentId.Should().Be(_deploymentId.Value.ToString());
-        dto.StackName.Should().Be("my-stack");
-        dto.CurrentVersion.Should().Be("1.0.0");
-        dto.OperationMode.Should().Be("Normal");
-        dto.OverallStatus.Should().Be("Healthy");
-    }
-
-    [Fact]
-    public void MapToStackHealthSummary_MapsServiceCounts()
+    public void MapToStackHealthDto_MapsTopLevelServiceCounts()
     {
         var selfHealth = CreateSelfHealth(
             ("api", HealthStatus.Healthy),
@@ -289,61 +270,17 @@ public class HealthSnapshotMapperTests
             OperationMode.Normal,
             self: selfHealth);
 
-        var dto = HealthSnapshotMapper.MapToStackHealthSummary(snapshot);
+        var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, _envId);
 
         dto.HealthyServices.Should().Be(2);
         dto.TotalServices.Should().Be(3);
+        // Top-level counts should match Self counts
+        dto.HealthyServices.Should().Be(dto.Self.HealthyCount);
+        dto.TotalServices.Should().Be(dto.Self.TotalCount);
     }
 
     [Fact]
-    public void MapToStackHealthSummary_DoesNotContainServiceDetails()
-    {
-        // Summary DTO intentionally does not include service list
-        var selfHealth = CreateSelfHealth(
-            ("api", HealthStatus.Healthy),
-            ("db", HealthStatus.Degraded));
-        var snapshot = HealthSnapshot.Capture(
-            _orgId, _envId, _deploymentId, "my-stack",
-            OperationMode.Normal,
-            self: selfHealth);
-
-        var dto = HealthSnapshotMapper.MapToStackHealthSummary(snapshot);
-
-        // StackHealthSummaryDto does not have Services property - verify counts only
-        dto.HealthyServices.Should().Be(1);
-        dto.TotalServices.Should().Be(2);
-    }
-
-    [Fact]
-    public void MapToStackHealthSummary_MapsRequiresAttention()
-    {
-        var selfHealth = CreateSelfHealth(("api", HealthStatus.Degraded));
-        var snapshot = HealthSnapshot.Capture(
-            _orgId, _envId, _deploymentId, "my-stack",
-            OperationMode.Normal,
-            self: selfHealth);
-
-        var dto = HealthSnapshotMapper.MapToStackHealthSummary(snapshot);
-
-        dto.RequiresAttention.Should().BeTrue();
-    }
-
-    [Fact]
-    public void MapToStackHealthSummary_MapsStatusMessage()
-    {
-        var selfHealth = CreateSelfHealth(("api", HealthStatus.Healthy));
-        var snapshot = HealthSnapshot.Capture(
-            _orgId, _envId, _deploymentId, "my-stack",
-            OperationMode.Maintenance,
-            self: selfHealth);
-
-        var dto = HealthSnapshotMapper.MapToStackHealthSummary(snapshot);
-
-        dto.StatusMessage.Should().Contain("Maintenance");
-    }
-
-    [Fact]
-    public void MapToStackHealthSummary_MapsCapturedAtUtc()
+    public void MapToStackHealthDto_ProductFieldsDefaultToNull()
     {
         var selfHealth = CreateSelfHealth(("api", HealthStatus.Healthy));
         var snapshot = HealthSnapshot.Capture(
@@ -351,52 +288,27 @@ public class HealthSnapshotMapperTests
             OperationMode.Normal,
             self: selfHealth);
 
-        var dto = HealthSnapshotMapper.MapToStackHealthSummary(snapshot);
+        var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, _envId);
 
-        dto.CapturedAtUtc.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
+        dto.ProductDeploymentId.Should().BeNull();
+        dto.ProductDisplayName.Should().BeNull();
     }
 
-    #endregion
-
-    #region Consistency between StackHealthDto and StackHealthSummaryDto
-
     [Fact]
-    public void BothMappings_ShouldHaveConsistentOverallStatus()
+    public void MapToStackHealthDto_ProductFieldsCanBeSet()
     {
-        var selfHealth = CreateSelfHealth(
-            ("api", HealthStatus.Healthy),
-            ("db", HealthStatus.Degraded));
+        var selfHealth = CreateSelfHealth(("api", HealthStatus.Healthy));
         var snapshot = HealthSnapshot.Capture(
             _orgId, _envId, _deploymentId, "my-stack",
             OperationMode.Normal,
             self: selfHealth);
 
-        var detailedDto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, _envId);
-        var summaryDto = HealthSnapshotMapper.MapToStackHealthSummary(snapshot);
+        var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, _envId);
+        dto.ProductDeploymentId = "pd-123";
+        dto.ProductDisplayName = "My Product";
 
-        detailedDto.OverallStatus.Should().Be(summaryDto.OverallStatus);
-        detailedDto.OperationMode.Should().Be(summaryDto.OperationMode);
-        detailedDto.StackName.Should().Be(summaryDto.StackName);
-        detailedDto.CurrentVersion.Should().Be(summaryDto.CurrentVersion);
-    }
-
-    [Fact]
-    public void BothMappings_ShouldHaveConsistentServiceCounts()
-    {
-        var selfHealth = CreateSelfHealth(
-            ("api", HealthStatus.Healthy),
-            ("db", HealthStatus.Healthy),
-            ("cache", HealthStatus.Unhealthy));
-        var snapshot = HealthSnapshot.Capture(
-            _orgId, _envId, _deploymentId, "my-stack",
-            OperationMode.Normal,
-            self: selfHealth);
-
-        var detailedDto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, _envId);
-        var summaryDto = HealthSnapshotMapper.MapToStackHealthSummary(snapshot);
-
-        detailedDto.Self.HealthyCount.Should().Be(summaryDto.HealthyServices);
-        detailedDto.Self.TotalCount.Should().Be(summaryDto.TotalServices);
+        dto.ProductDeploymentId.Should().Be("pd-123");
+        dto.ProductDisplayName.Should().Be("My Product");
     }
 
     #endregion

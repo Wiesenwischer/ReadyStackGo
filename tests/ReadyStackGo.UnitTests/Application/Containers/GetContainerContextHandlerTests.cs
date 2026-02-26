@@ -248,4 +248,124 @@ public class GetContainerContextHandlerTests
         result.Success.Should().BeTrue();
         result.Stacks.Should().BeEmpty();
     }
+
+    #region Structured Label Tests
+
+    [Fact]
+    public async Task Handle_WithProductLabel_ResolvesProductDirectly()
+    {
+        var containers = new[]
+        {
+            MakeContainer("c1", "app", new()
+            {
+                ["rsgo.stack"] = "myapp-webapp",
+                ["rsgo.product"] = "myproduct",
+                ["rsgo.stack.name"] = "webapp"
+            }),
+        };
+        _dockerServiceMock
+            .Setup(s => s.ListContainersAsync(EnvId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(containers);
+
+        _deploymentRepositoryMock
+            .Setup(r => r.GetByStackName(EnvironmentId, "myapp-webapp"))
+            .Returns(MakeDeployment("myapp-webapp", "source1:myproduct:webapp"));
+
+        var product = new ProductDefinition("source1", "myproduct", "My Product",
+            new List<StackDefinition>
+            {
+                new("source1", "webapp", ProductId.FromName("myproduct"),
+                    productName: "myproduct", productDisplayName: "My Product")
+            });
+        _productCacheMock.Setup(c => c.GetProduct("myproduct")).Returns(product);
+
+        var result = await _handler.Handle(new GetContainerContextQuery(EnvId), CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        result.Stacks["myapp-webapp"].ProductName.Should().Be("myproduct");
+        result.Stacks["myapp-webapp"].ProductDisplayName.Should().Be("My Product");
+        result.Stacks["myapp-webapp"].StackDefinitionName.Should().Be("webapp");
+        // Should have used GetProduct, not GetStack
+        _productCacheMock.Verify(c => c.GetProduct("myproduct"), Times.Once);
+        _productCacheMock.Verify(c => c.GetStack(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WithEmptyProductLabel_FallsBackToStackIdParsing()
+    {
+        var containers = new[]
+        {
+            MakeContainer("c1", "app", new()
+            {
+                ["rsgo.stack"] = "mystack",
+                ["rsgo.product"] = "",
+                ["rsgo.stack.name"] = "mystack"
+            }),
+        };
+        _dockerServiceMock
+            .Setup(s => s.ListContainersAsync(EnvId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(containers);
+
+        var deployment = MakeDeployment("mystack", "local:myproduct:mystack");
+        _deploymentRepositoryMock
+            .Setup(r => r.GetByStackName(EnvironmentId, "mystack")).Returns(deployment);
+
+        var stackDef = new StackDefinition("local", "mystack", ProductId.FromName("myproduct"),
+            productName: "MyProduct", productDisplayName: "My Product Display");
+        _productCacheMock.Setup(c => c.GetStack("local:myproduct:mystack")).Returns(stackDef);
+
+        var result = await _handler.Handle(new GetContainerContextQuery(EnvId), CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        result.Stacks["mystack"].ProductName.Should().Be("MyProduct");
+        result.Stacks["mystack"].ProductDisplayName.Should().Be("My Product Display");
+    }
+
+    [Fact]
+    public async Task Handle_StackDefinitionNameLabel_PopulatedInResult()
+    {
+        var containers = new[]
+        {
+            MakeContainer("c1", "app", new()
+            {
+                ["rsgo.stack"] = "myapp-analytics",
+                ["rsgo.stack.name"] = "analytics"
+            }),
+        };
+        _dockerServiceMock
+            .Setup(s => s.ListContainersAsync(EnvId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(containers);
+
+        _deploymentRepositoryMock
+            .Setup(r => r.GetByStackName(EnvironmentId, "myapp-analytics"))
+            .Returns((Deployment?)null);
+
+        var result = await _handler.Handle(new GetContainerContextQuery(EnvId), CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        result.Stacks["myapp-analytics"].StackDefinitionName.Should().Be("analytics");
+    }
+
+    [Fact]
+    public async Task Handle_WithoutStackNameLabel_StackDefinitionNameIsNull()
+    {
+        var containers = new[]
+        {
+            MakeContainer("c1", "app", new() { ["rsgo.stack"] = "legacy-stack" }),
+        };
+        _dockerServiceMock
+            .Setup(s => s.ListContainersAsync(EnvId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(containers);
+
+        _deploymentRepositoryMock
+            .Setup(r => r.GetByStackName(EnvironmentId, "legacy-stack"))
+            .Returns((Deployment?)null);
+
+        var result = await _handler.Handle(new GetContainerContextQuery(EnvId), CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        result.Stacks["legacy-stack"].StackDefinitionName.Should().BeNull();
+    }
+
+    #endregion
 }

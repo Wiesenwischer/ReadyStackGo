@@ -25,6 +25,18 @@ public class DeploymentPlan
     public string? StackName { get; set; }
 
     /// <summary>
+    /// Product GroupId for structured Docker labels.
+    /// Enables direct catalog lookup without reverse-engineering from StackId.
+    /// </summary>
+    public string? ProductGroupId { get; set; }
+
+    /// <summary>
+    /// Clean stack definition name from the catalog (e.g., "analytics").
+    /// Used for display in Container Management instead of the composite project name.
+    /// </summary>
+    public string? StackDefinitionName { get; set; }
+
+    /// <summary>
     /// Network definitions from the compose file.
     /// Key is the network name as defined in compose, value indicates if it's external.
     /// Non-external networks will be prefixed with stack name for isolation.

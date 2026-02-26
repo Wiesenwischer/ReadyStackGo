@@ -71,7 +71,9 @@ public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStac
             EnvironmentId = request.EnvironmentId,
             CatalogStackId = request.StackId,
             MaintenanceObserver = observerConfig,
-            HealthCheckConfigs = healthCheckConfigs
+            HealthCheckConfigs = healthCheckConfigs,
+            ProductGroupId = product?.GroupId,
+            StackDefinitionName = stackDefinition.Name
         };
 
         // Use client-provided session ID if available, otherwise generate one

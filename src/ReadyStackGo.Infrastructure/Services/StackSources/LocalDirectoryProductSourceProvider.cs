@@ -261,6 +261,12 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
             foreach (var (stackKey, stackEntry) in manifest.Stacks)
             {
                 var stack = CreateStackFromEntry(stackKey, stackEntry, manifest, sourceId, filePath, relativePath, productVersion, version);
+                if (stack.Services.Count == 0)
+                {
+                    _logger.LogWarning("Skipping sub-stack '{StackKey}' in product '{ProductName}': no services defined",
+                        stackKey, productName);
+                    continue;
+                }
                 stacks.Add(stack);
                 _logger.LogDebug("Created sub-stack '{StackKey}' ({StackName}) with {VarCount} variables, {SvcCount} services",
                     stackKey, stack.Name, stack.Variables.Count, stack.Services.Count);
@@ -311,15 +317,31 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
         var volumes = ExtractVolumeDefinitionsFromStackEntry(stackEntry);
         var networks = ExtractNetworkDefinitionsFromStackEntry(stackEntry);
 
-        // Include shared networks from manifest (similar to sharedVariables)
+        // Include product-level networks from manifest.
+        // Only add networks that are actually referenced by services in this stack.
+        // Product-level networks are always treated as external for individual stacks
+        // (the product owns them, not the stack) to avoid prefixed duplicates.
         if (manifest.Networks != null)
         {
+            var referencedNetworks = services
+                .SelectMany(s => s.Networks)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
             foreach (var (networkName, networkDef) in manifest.Networks)
             {
-                // Only add if not already defined in stack (stack-specific takes precedence)
-                if (!networks.Any(n => n.Name == networkName))
+                if (networks.Any(n => n.Name == networkName))
                 {
-                    networks.Add(ConvertToNetworkDefinition(networkName, networkDef));
+                    // Fragment already defines this network — keep fragment's definition.
+                    // Fragments correctly mark product-level networks as external: true.
+                    continue;
+                }
+
+                if (referencedNetworks.Contains(networkName))
+                {
+                    // Product-level network referenced by services but not in fragment.
+                    // Mark as external since it belongs to the product, not this stack.
+                    var productNetwork = ConvertToNetworkDefinition(networkName, networkDef);
+                    networks.Add(productNetwork with { External = true });
                 }
             }
         }
