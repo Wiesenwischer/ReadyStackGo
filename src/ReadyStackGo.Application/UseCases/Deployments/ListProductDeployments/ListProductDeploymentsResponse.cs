@@ -27,6 +27,7 @@ public class ProductDeploymentSummaryDto
     public int TotalStacks { get; set; }
     public int CompletedStacks { get; set; }
     public int FailedStacks { get; set; }
+    public bool CanRetry { get; set; }
     public bool CanUpgrade { get; set; }
     public bool CanRemove { get; set; }
 }

@@ -12,9 +12,9 @@ using ReadyStackGo.Domain.SharedKernel;
 /// State machine:
 ///   Deploying        → Running | PartiallyRunning | Failed
 ///   Running          → Upgrading | Removing
-///   PartiallyRunning → Upgrading | Removing
+///   PartiallyRunning → Deploying (retry) | Upgrading | Removing
 ///   Upgrading        → Running | PartiallyRunning | Failed
-///   Failed           → Upgrading | Removing
+///   Failed           → Deploying (retry) | Upgrading | Removing
 ///   Removing         → Removed (terminal)
 /// </summary>
 public class ProductDeployment : AggregateRoot<ProductDeploymentId>
@@ -70,9 +70,9 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     {
         { ProductDeploymentStatus.Deploying, new[] { ProductDeploymentStatus.Running, ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Failed } },
         { ProductDeploymentStatus.Running, new[] { ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing } },
-        { ProductDeploymentStatus.PartiallyRunning, new[] { ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing } },
+        { ProductDeploymentStatus.PartiallyRunning, new[] { ProductDeploymentStatus.Deploying, ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing } },
         { ProductDeploymentStatus.Upgrading, new[] { ProductDeploymentStatus.Running, ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Failed } },
-        { ProductDeploymentStatus.Failed, new[] { ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing } },
+        { ProductDeploymentStatus.Failed, new[] { ProductDeploymentStatus.Deploying, ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing } },
         { ProductDeploymentStatus.Removing, new[] { ProductDeploymentStatus.Removed } },
         { ProductDeploymentStatus.Removed, Array.Empty<ProductDeploymentStatus>() }
     };
@@ -424,6 +424,32 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     }
 
     /// <summary>
+    /// Starts a retry of failed/pending stacks. Transitions from PartiallyRunning/Failed to Deploying.
+    /// Resets stacks in Failed status to Pending; leaves Running stacks untouched.
+    /// </summary>
+    public void StartRetry()
+    {
+        SelfAssertStateTrue(CanRetry,
+            $"Cannot retry when product status is {Status}.");
+        EnsureValidTransition(ProductDeploymentStatus.Deploying);
+
+        Status = ProductDeploymentStatus.Deploying;
+        CompletedAt = null;
+        ErrorMessage = null;
+
+        foreach (var stack in _stacks)
+        {
+            if (stack.Status == StackDeploymentStatus.Failed)
+            {
+                stack.ResetToPending();
+            }
+        }
+
+        RecordPhase("Retry initiated");
+        AddDomainEvent(new ProductRetryInitiated(Id, ProductName, TotalStacks));
+    }
+
+    /// <summary>
     /// Marks a stack as removed during the removal process.
     /// If all stacks are removed, the product deployment transitions to Removed.
     /// </summary>
@@ -536,6 +562,7 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     // Query Methods
     // ═══════════════════════════════════════════════════════════════════
 
+    public bool CanRetry => Status is ProductDeploymentStatus.PartiallyRunning or ProductDeploymentStatus.Failed;
     public bool CanUpgrade => IsOperational;
     public bool CanRemove => IsOperational || Status == ProductDeploymentStatus.Failed;
     public bool CanRollback => Status == ProductDeploymentStatus.Failed && PreviousVersion is not null;

@@ -83,7 +83,7 @@ public class RemoveProductHandler : IRequestHandler<RemoveProductCommand, Remove
 
             // Send product-level progress
             await NotifyProductProgressAsync(
-                sessionId, stack.StackDisplayName, i, stacks.Count,
+                sessionId, stack.StackName, stack.StackDisplayName, i, stacks.Count,
                 productDeployment.RemovedStacks, cancellationToken);
 
             _logger.LogInformation(
@@ -106,7 +106,8 @@ public class RemoveProductHandler : IRequestHandler<RemoveProductCommand, Remove
                     removeResult = await _mediator.Send(new RemoveDeploymentByIdCommand(
                         request.EnvironmentId,
                         stack.DeploymentId.Value.ToString(),
-                        sessionId), cancellationToken);
+                        sessionId,
+                        SuppressNotification: true), cancellationToken);
                 }
                 catch (Exception ex)
                 {
@@ -125,7 +126,7 @@ public class RemoveProductHandler : IRequestHandler<RemoveProductCommand, Remove
 
                     // Notify per-stack completion so the UI can update in real-time
                     await NotifyStackCompletedAsync(
-                        sessionId, stack.StackDisplayName, i, stacks.Count,
+                        sessionId, stack.StackName, stack.StackDisplayName, i, stacks.Count,
                         productDeployment.RemovedStacks + 1, cancellationToken);
                 }
                 else
@@ -138,7 +139,7 @@ public class RemoveProductHandler : IRequestHandler<RemoveProductCommand, Remove
 
                     // Notify per-stack failure so the UI can update in real-time
                     await NotifyStackFailedAsync(
-                        sessionId, stack.StackDisplayName, i, stacks.Count,
+                        sessionId, stack.StackName, stack.StackDisplayName, i, stacks.Count,
                         productDeployment.RemovedStacks, cancellationToken);
                 }
             }
@@ -150,7 +151,7 @@ public class RemoveProductHandler : IRequestHandler<RemoveProductCommand, Remove
                     stack.StackDisplayName);
 
                 await NotifyStackCompletedAsync(
-                    sessionId, stack.StackDisplayName, i, stacks.Count,
+                    sessionId, stack.StackName, stack.StackDisplayName, i, stacks.Count,
                     productDeployment.RemovedStacks + 1, cancellationToken);
             }
 
@@ -199,7 +200,7 @@ public class RemoveProductHandler : IRequestHandler<RemoveProductCommand, Remove
     }
 
     private async Task NotifyProductProgressAsync(
-        string sessionId, string stackDisplayName, int stackIndex, int totalStacks,
+        string sessionId, string stackName, string stackDisplayName, int stackIndex, int totalStacks,
         int removedStacks, CancellationToken ct)
     {
         if (_notificationService == null) return;
@@ -212,7 +213,7 @@ public class RemoveProductHandler : IRequestHandler<RemoveProductCommand, Remove
                 "ProductRemoval",
                 $"Removing stack {stackIndex + 1}/{totalStacks}: {stackDisplayName}",
                 percentComplete,
-                stackDisplayName,
+                stackName,
                 totalStacks,
                 removedStacks,
                 0, 0, ct);
@@ -224,7 +225,7 @@ public class RemoveProductHandler : IRequestHandler<RemoveProductCommand, Remove
     }
 
     private async Task NotifyStackCompletedAsync(
-        string sessionId, string stackDisplayName, int stackIndex, int totalStacks,
+        string sessionId, string stackName, string stackDisplayName, int stackIndex, int totalStacks,
         int removedStacks, CancellationToken ct)
     {
         if (_notificationService == null) return;
@@ -237,7 +238,7 @@ public class RemoveProductHandler : IRequestHandler<RemoveProductCommand, Remove
                 "ProductRemoval",
                 $"Stack removed: {stackDisplayName}",
                 percentComplete,
-                stackDisplayName,
+                stackName,
                 totalStacks,
                 removedStacks,
                 0, 0, ct);
@@ -249,7 +250,7 @@ public class RemoveProductHandler : IRequestHandler<RemoveProductCommand, Remove
     }
 
     private async Task NotifyStackFailedAsync(
-        string sessionId, string stackDisplayName, int stackIndex, int totalStacks,
+        string sessionId, string stackName, string stackDisplayName, int stackIndex, int totalStacks,
         int removedStacks, CancellationToken ct)
     {
         if (_notificationService == null) return;
@@ -262,7 +263,7 @@ public class RemoveProductHandler : IRequestHandler<RemoveProductCommand, Remove
                 "ProductRemoval",
                 $"Stack removal failed: {stackDisplayName}",
                 percentComplete,
-                stackDisplayName,
+                stackName,
                 totalStacks,
                 removedStacks,
                 0, 0, ct);

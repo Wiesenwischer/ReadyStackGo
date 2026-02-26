@@ -35,6 +35,18 @@ export interface ServiceHealthDto {
   containerName: string | null;
   reason: string | null;
   restartCount: number;
+  healthCheckEntries?: HealthCheckEntryDto[];
+  responseTimeMs?: number;
+}
+
+export interface HealthCheckEntryDto {
+  name: string;
+  status: string;
+  description?: string;
+  durationMs?: number;
+  data?: Record<string, string>;
+  tags?: string[];
+  exception?: string;
 }
 
 export interface BusHealthDto {
@@ -142,6 +154,38 @@ export async function getEnvironmentHealthSummary(
     throw new Error(response.message || 'Failed to get environment health summary');
   }
   return response.data;
+}
+
+interface ServiceHealthResponse {
+  success: boolean;
+  message?: string;
+  data?: ServiceHealthDto;
+  stackName?: string;
+  capturedAtUtc?: string;
+}
+
+export interface ServiceHealthDetailResult {
+  service: ServiceHealthDto;
+  stackName: string;
+  capturedAtUtc: string;
+}
+
+export async function getServiceHealth(
+  environmentId: string,
+  deploymentId: string,
+  serviceName: string,
+  forceRefresh: boolean = false
+): Promise<ServiceHealthDetailResult> {
+  const url = `/api/health/${environmentId}/deployments/${deploymentId}/services/${encodeURIComponent(serviceName)}${forceRefresh ? '?forceRefresh=true' : ''}`;
+  const response = await apiGet<ServiceHealthResponse>(url);
+  if (!response.success || !response.data) {
+    throw new Error(response.message || 'Failed to get service health');
+  }
+  return {
+    service: response.data,
+    stackName: response.stackName || '',
+    capturedAtUtc: response.capturedAtUtc || new Date().toISOString(),
+  };
 }
 
 export async function getHealthHistory(

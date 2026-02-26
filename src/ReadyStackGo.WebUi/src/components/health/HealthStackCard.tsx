@@ -129,7 +129,7 @@ export default function HealthStackCard({
         <div className="border-t border-gray-200 dark:border-gray-800">
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
             {stack.self.services.map((service) => (
-              <HealthServiceRow key={service.name} service={service} />
+              <HealthServiceRow key={service.name} service={service} deploymentId={stack.deploymentId} />
             ))}
           </div>
 

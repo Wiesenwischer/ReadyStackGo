@@ -67,6 +67,31 @@ public class ServiceHealthDto
     /// Number of container restarts. Null means not loaded (healthy containers).
     /// </summary>
     public int? RestartCount { get; init; }
+
+    /// <summary>
+    /// Parsed health check entries from the HTTP health endpoint response.
+    /// Only populated when the service exposes an ASP.NET Core HealthReport.
+    /// </summary>
+    public List<HealthCheckEntryDto>? HealthCheckEntries { get; init; }
+
+    /// <summary>
+    /// Response time of the HTTP health check in milliseconds.
+    /// </summary>
+    public int? ResponseTimeMs { get; init; }
+}
+
+/// <summary>
+/// DTO for a single health check entry from an ASP.NET Core HealthReport.
+/// </summary>
+public class HealthCheckEntryDto
+{
+    public required string Name { get; init; }
+    public required string Status { get; init; }
+    public string? Description { get; init; }
+    public double? DurationMs { get; init; }
+    public Dictionary<string, string>? Data { get; init; }
+    public List<string>? Tags { get; init; }
+    public string? Exception { get; init; }
 }
 
 /// <summary>

@@ -56,6 +56,13 @@ public static class HealthSnapshotMapper
         };
     }
 
+    /// <summary>
+    /// Maps a single ServiceHealth domain object to a ServiceHealthDto.
+    /// Used by GetServiceHealthHandler for service-level detail queries.
+    /// </summary>
+    public static ServiceHealthDto MapServiceToDto(ServiceHealth service) =>
+        MapServiceHealth(service);
+
     private static ServiceHealthDto MapServiceHealth(ServiceHealth service)
     {
         return new ServiceHealthDto
@@ -65,7 +72,23 @@ public static class HealthSnapshotMapper
             ContainerId = service.ContainerId,
             ContainerName = service.ContainerName,
             Reason = service.Reason,
-            RestartCount = service.RestartCount
+            RestartCount = service.RestartCount,
+            HealthCheckEntries = service.HealthCheckEntries?.Select(MapHealthCheckEntry).ToList(),
+            ResponseTimeMs = service.ResponseTimeMs
+        };
+    }
+
+    private static HealthCheckEntryDto MapHealthCheckEntry(HealthCheckEntry entry)
+    {
+        return new HealthCheckEntryDto
+        {
+            Name = entry.Name,
+            Status = entry.Status.Name,
+            Description = entry.Description,
+            DurationMs = entry.DurationMs,
+            Data = entry.Data?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
+            Tags = entry.Tags?.ToList(),
+            Exception = entry.Exception
         };
     }
 

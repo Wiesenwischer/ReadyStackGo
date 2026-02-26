@@ -11,12 +11,14 @@ import UpgradeStack from "./pages/Deployments/UpgradeStack";
 import RollbackStack from "./pages/Deployments/RollbackStack";
 import RemoveStack from "./pages/Deployments/RemoveStack";
 import HealthDashboard from "./pages/Monitoring/HealthDashboard";
+import ServiceHealthDetail from "./pages/Monitoring/ServiceHealthDetail";
 import StackCatalog from "./pages/Catalog/StackCatalog";
 import ProductDetail from "./pages/Catalog/ProductDetail";
 import DeployStack from "./pages/Deployments/DeployStack";
 import DeployProduct from "./pages/Deployments/DeployProduct";
 import UpgradeProduct from "./pages/Deployments/UpgradeProduct";
 import RemoveProduct from "./pages/Deployments/RemoveProduct";
+import RetryProduct from "./pages/Deployments/RetryProduct";
 import ProductDeploymentDetail from "./pages/Deployments/ProductDeploymentDetail";
 import Environments from "./pages/Environments/Environments";
 import AddEnvironment from "./pages/Environments/AddEnvironment";
@@ -191,6 +193,14 @@ export default function App() {
                   }
                 />
                 <Route
+                  path="/health/:deploymentId/:serviceName"
+                  element={
+                    <EnvironmentGuard>
+                      <ServiceHealthDetail />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
                   path="/catalog"
                   element={
                     <EnvironmentGuard>
@@ -235,6 +245,14 @@ export default function App() {
                   element={
                     <EnvironmentGuard>
                       <RemoveProduct />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/retry-product/:productDeploymentId"
+                  element={
+                    <EnvironmentGuard>
+                      <RetryProduct />
                     </EnvironmentGuard>
                   }
                 />

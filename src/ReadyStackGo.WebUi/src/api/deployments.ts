@@ -153,6 +153,7 @@ export interface ProductDeploymentSummaryDto {
   totalStacks: number;
   completedStacks: number;
   failedStacks: number;
+  canRetry: boolean;
   canUpgrade: boolean;
   canRemove: boolean;
 }
@@ -499,6 +500,7 @@ export interface GetProductDeploymentResponse {
   failedStacks: number;
   previousVersion?: string;
   upgradeCount: number;
+  canRetry: boolean;
   canUpgrade: boolean;
   canRemove: boolean;
   durationSeconds?: number;
@@ -674,6 +676,38 @@ export interface RemoveProductResponse {
 /**
  * Remove an entire product deployment (all stacks).
  */
+// ============================================================================
+// Product Retry API
+// ============================================================================
+
+/**
+ * Request for retrying failed stacks of a product deployment.
+ */
+export interface RetryProductRequest {
+  sessionId?: string;
+  continueOnError?: boolean;
+}
+
+/**
+ * Retry failed stacks of a product deployment.
+ * Only available when product deployment is PartiallyRunning or Failed.
+ * Reuses DeployProductResponse since the operation is similar.
+ */
+export async function retryProduct(
+  environmentId: string,
+  productDeploymentId: string,
+  request?: RetryProductRequest
+): Promise<DeployProductResponse> {
+  return apiPost<DeployProductResponse>(
+    `/api/environments/${environmentId}/product-deployments/${productDeploymentId}/retry`,
+    request ?? {}
+  );
+}
+
+// ============================================================================
+// Product Remove API
+// ============================================================================
+
 export async function removeProductDeployment(
   environmentId: string,
   productDeploymentId: string,

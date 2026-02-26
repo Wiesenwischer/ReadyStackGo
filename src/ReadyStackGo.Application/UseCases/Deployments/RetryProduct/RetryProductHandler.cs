@@ -2,37 +2,34 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Notifications;
 using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.UseCases.Deployments.DeployProduct;
 using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 using ReadyStackGo.Domain.Deployment.Deployments;
-using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.ProductDeployments;
 
-namespace ReadyStackGo.Application.UseCases.Deployments.DeployProduct;
+namespace ReadyStackGo.Application.UseCases.Deployments.RetryProduct;
 
 /// <summary>
-/// Orchestrates deploying all stacks of a product as a single unit.
-/// Deploys stacks sequentially in manifest order, with configurable error handling.
+/// Orchestrates retrying failed stacks of a product deployment.
+/// Skips stacks that are already Running; only deploys Pending stacks (including those reset from Failed).
 /// </summary>
-public class DeployProductHandler : IRequestHandler<DeployProductCommand, DeployProductResponse>
+public class RetryProductHandler : IRequestHandler<RetryProductCommand, DeployProductResponse>
 {
-    private readonly IProductSourceService _productSourceService;
     private readonly IProductDeploymentRepository _repository;
     private readonly IMediator _mediator;
     private readonly IDeploymentNotificationService? _notificationService;
     private readonly INotificationService? _inAppNotificationService;
-    private readonly ILogger<DeployProductHandler> _logger;
+    private readonly ILogger<RetryProductHandler> _logger;
     private readonly TimeProvider _timeProvider;
 
-    public DeployProductHandler(
-        IProductSourceService productSourceService,
+    public RetryProductHandler(
         IProductDeploymentRepository repository,
         IMediator mediator,
-        ILogger<DeployProductHandler> logger,
+        ILogger<RetryProductHandler> logger,
         IDeploymentNotificationService? notificationService = null,
         INotificationService? inAppNotificationService = null,
         TimeProvider? timeProvider = null)
     {
-        _productSourceService = productSourceService;
         _repository = repository;
         _mediator = mediator;
         _logger = logger;
@@ -41,95 +38,43 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
-    public async Task<DeployProductResponse> Handle(DeployProductCommand request, CancellationToken cancellationToken)
+    public async Task<DeployProductResponse> Handle(RetryProductCommand request, CancellationToken cancellationToken)
     {
-        // 1. Load product from catalog
-        var product = await _productSourceService.GetProductAsync(request.ProductId, cancellationToken);
-        if (product == null)
+        // 1. Load existing product deployment
+        if (!Guid.TryParse(request.ProductDeploymentId, out var pdGuid))
         {
-            return DeployProductResponse.Failed($"Product '{request.ProductId}' not found in catalog.");
+            return DeployProductResponse.Failed("Invalid product deployment ID format.");
         }
 
-        // 2. Check for existing active deployment
-        var environmentId = new EnvironmentId(Guid.Parse(request.EnvironmentId));
-        var existing = _repository.GetActiveByProductGroupId(environmentId, product.GroupId);
-        if (existing != null)
+        var productDeployment = _repository.Get(ProductDeploymentId.FromGuid(pdGuid));
+        if (productDeployment == null)
         {
-            if (existing.IsInProgress)
-            {
-                return DeployProductResponse.Failed(
-                    $"A deployment is already in progress for product '{product.Name}'.");
-            }
-
-            if (existing.IsOperational)
-            {
-                return DeployProductResponse.Failed(
-                    $"Product '{product.Name}' is already deployed (status: {existing.Status}). Use upgrade instead.");
-            }
+            return DeployProductResponse.Failed("Product deployment not found.");
         }
 
-        // 3. Validate stack configs
-        if (request.StackConfigs.Count == 0)
+        // 2. Validate can retry
+        if (!productDeployment.CanRetry)
         {
-            return DeployProductResponse.Failed("At least one stack configuration is required.");
+            return DeployProductResponse.Failed(
+                $"Product deployment cannot be retried. Current status: {productDeployment.Status}");
         }
 
-        // 4. Build StackDeploymentConfig array from request + catalog data
-        var stackConfigs = new List<StackDeploymentConfig>();
-        foreach (var reqStack in request.StackConfigs)
-        {
-            var stackDef = product.Stacks.FirstOrDefault(s =>
-                s.Id.Value.Equals(reqStack.StackId, StringComparison.OrdinalIgnoreCase));
-
-            if (stackDef == null)
-            {
-                return DeployProductResponse.Failed(
-                    $"Stack '{reqStack.StackId}' not found in product '{product.Name}'.");
-            }
-
-            var mergedVariables = MergeVariables(stackDef, request.SharedVariables, reqStack.Variables);
-
-            stackConfigs.Add(new StackDeploymentConfig(
-                stackDef.Name,
-                stackDef.Name,
-                reqStack.StackId,
-                stackDef.Services.Count,
-                mergedVariables));
-        }
-
-        // 5. Create ProductDeployment aggregate
-        var deployedBy = !string.IsNullOrEmpty(request.UserId) && Guid.TryParse(request.UserId, out var userGuid)
-            ? Domain.Deployment.UserId.FromGuid(userGuid)
-            : Domain.Deployment.UserId.Create();
-
-        var productDeploymentId = _repository.NextIdentity();
-        var productDeployment = ProductDeployment.InitiateDeployment(
-            productDeploymentId,
-            environmentId,
-            product.GroupId,
-            product.Id,
-            product.Name,
-            product.DisplayName,
-            product.ProductVersion ?? "unknown",
-            deployedBy,
-            request.DeploymentName,
-            stackConfigs,
-            request.SharedVariables,
-            request.ContinueOnError);
-
-        _repository.Add(productDeployment);
+        // 3. Start retry → transitions to Deploying, resets Failed stacks to Pending
+        productDeployment.StartRetry();
+        _repository.Update(productDeployment);
         _repository.SaveChanges();
 
         _logger.LogInformation(
-            "Product deployment {ProductDeploymentId} initiated for {ProductName} v{ProductVersion} with {StackCount} stacks",
-            productDeploymentId, product.Name, product.ProductVersion, stackConfigs.Count);
+            "Product retry {ProductDeploymentId} initiated for {ProductName} v{Version} with {FailedStacks} stacks to retry",
+            productDeployment.Id, productDeployment.ProductName, productDeployment.ProductVersion,
+            productDeployment.Stacks.Count(s => s.Status == StackDeploymentStatus.Pending));
 
-        // 6. Generate session ID
+        // 4. Generate session ID
         var sessionId = !string.IsNullOrEmpty(request.SessionId)
             ? request.SessionId
-            : $"product-{product.Name}-{_timeProvider.GetUtcNow():yyyyMMddHHmmssfff}";
+            : $"product-retry-{productDeployment.ProductName}-{_timeProvider.GetUtcNow():yyyyMMddHHmmssfff}";
 
-        // 7. Deploy each stack sequentially
+        // 5. Deploy each pending stack sequentially (skip Running stacks)
         var stackResults = new List<DeployProductStackResult>();
         var stacks = productDeployment.GetStacksInDeployOrder();
         var aborted = false;
@@ -139,8 +84,21 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
             if (aborted) break;
 
             var stack = stacks[i];
-            var reqStack = request.StackConfigs.First(s =>
-                s.StackId.Equals(stack.StackId, StringComparison.OrdinalIgnoreCase));
+
+            // Skip stacks that are already Running
+            if (stack.Status == StackDeploymentStatus.Running)
+            {
+                stackResults.Add(new DeployProductStackResult
+                {
+                    StackName = stack.StackName,
+                    StackDisplayName = stack.StackDisplayName,
+                    Success = true,
+                    DeploymentId = stack.DeploymentId?.Value.ToString(),
+                    DeploymentStackName = stack.DeploymentStackName,
+                    ServiceCount = stack.ServiceCount
+                });
+                continue;
+            }
 
             // Send product-level progress
             await NotifyProductProgressAsync(
@@ -148,14 +106,13 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
                 productDeployment.CompletedStacks, cancellationToken);
 
             _logger.LogInformation(
-                "Deploying stack {StackIndex}/{TotalStacks}: {StackName} for product {ProductName}",
-                i + 1, stacks.Count, stack.StackDisplayName, product.Name);
+                "Retrying stack {StackIndex}/{TotalStacks}: {StackName} for product {ProductName}",
+                i + 1, stacks.Count, stack.StackDisplayName, productDeployment.ProductName);
 
-            // Dispatch DeployStackCommand
-            var stackDef2 = product.Stacks.First(s => s.Id.Value.Equals(stack.StackId, StringComparison.OrdinalIgnoreCase));
-            var mergedVariables = MergeVariables(stackDef2, request.SharedVariables, reqStack.Variables);
+            // Build variables from stored stack config
+            var mergedVariables = new Dictionary<string, string>(stack.Variables);
             var stackDeploymentName = ProductDeployment.DeriveStackDeploymentName(
-                request.DeploymentName, stackDef2.Name);
+                productDeployment.DeploymentName, stack.StackName);
 
             DeployStackResponse deployResult;
             try
@@ -164,13 +121,13 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
                     request.EnvironmentId,
                     stack.StackId,
                     stackDeploymentName,
-                    new Dictionary<string, string>(mergedVariables),
+                    mergedVariables,
                     sessionId,
                     SuppressNotification: true), cancellationToken);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Exception deploying stack {StackName}", stack.StackDisplayName);
+                _logger.LogError(ex, "Exception retrying stack {StackName}", stack.StackDisplayName);
                 deployResult = DeployStackResponse.Failed(
                     $"Exception deploying stack '{stack.StackDisplayName}': {ex.Message}",
                     ex.Message);
@@ -194,7 +151,7 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
                 stackResult.DeploymentId = deployResult.DeploymentId;
                 stackResult.DeploymentStackName = stackDeploymentName;
 
-                _logger.LogInformation("Stack {StackName} deployed successfully", stack.StackDisplayName);
+                _logger.LogInformation("Stack {StackName} retried successfully", stack.StackDisplayName);
             }
             else
             {
@@ -202,7 +159,6 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
 
                 if (!string.IsNullOrEmpty(deployResult.DeploymentId))
                 {
-                    // Deployment was created but failed
                     var deploymentId = new DeploymentId(Guid.Parse(deployResult.DeploymentId));
                     productDeployment.StartStack(stack.StackName, deploymentId);
                     productDeployment.FailStack(stack.StackName, error);
@@ -211,14 +167,13 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
                 }
                 else
                 {
-                    // Pre-deployment failure (no Deployment entity created)
                     productDeployment.FailStack(stack.StackName, error);
                 }
 
                 stackResult.Success = false;
                 stackResult.ErrorMessage = error;
 
-                _logger.LogWarning("Stack {StackName} failed: {Error}", stack.StackDisplayName, error);
+                _logger.LogWarning("Stack {StackName} retry failed: {Error}", stack.StackDisplayName, error);
 
                 if (!request.ContinueOnError)
                 {
@@ -233,70 +188,36 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
             _repository.SaveChanges();
         }
 
-        // 8. Finalize product status
+        // 6. Finalize product status
         FinalizeProductStatus(productDeployment);
         _repository.Update(productDeployment);
         _repository.SaveChanges();
 
-        // 9. Send final notifications
+        // 7. Send final notifications
         var overallSuccess = productDeployment.Status == ProductDeploymentStatus.Running;
-        var isPartial = productDeployment.Status == ProductDeploymentStatus.PartiallyRunning;
-
         await NotifyFinalResultAsync(sessionId, productDeployment, stacks.Count, cancellationToken);
         await CreateInAppNotificationAsync(productDeployment, cancellationToken);
 
         _logger.LogInformation(
-            "Product deployment {ProductDeploymentId} completed with status {Status}. {Completed}/{Total} stacks succeeded",
-            productDeploymentId, productDeployment.Status, productDeployment.CompletedStacks, stacks.Count);
+            "Product retry {ProductDeploymentId} completed with status {Status}. {Completed}/{Total} stacks succeeded",
+            productDeployment.Id, productDeployment.Status, productDeployment.CompletedStacks, stacks.Count);
 
-        // 10. Return response
+        // 8. Return response
         return new DeployProductResponse
         {
-            Success = overallSuccess || isPartial,
+            Success = overallSuccess || productDeployment.Status == ProductDeploymentStatus.PartiallyRunning,
             Message = FormatResultMessage(productDeployment),
-            ProductDeploymentId = productDeploymentId.Value.ToString(),
-            ProductName = product.Name,
-            ProductVersion = product.ProductVersion,
+            ProductDeploymentId = productDeployment.Id.Value.ToString(),
+            ProductName = productDeployment.ProductName,
+            ProductVersion = productDeployment.ProductVersion,
             Status = productDeployment.Status.ToString(),
             SessionId = sessionId,
             StackResults = stackResults
         };
     }
 
-    private static Dictionary<string, string> MergeVariables(
-        Domain.StackManagement.Stacks.StackDefinition stackDef,
-        Dictionary<string, string> sharedVariables,
-        Dictionary<string, string> perStackVariables)
-    {
-        var merged = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        // 1. Stack definition defaults
-        foreach (var variable in stackDef.Variables)
-        {
-            if (!string.IsNullOrEmpty(variable.DefaultValue))
-            {
-                merged[variable.Name] = variable.DefaultValue;
-            }
-        }
-
-        // 2. Shared variables (product-level)
-        foreach (var kvp in sharedVariables)
-        {
-            merged[kvp.Key] = kvp.Value;
-        }
-
-        // 3. Per-stack overrides
-        foreach (var kvp in perStackVariables)
-        {
-            merged[kvp.Key] = kvp.Value;
-        }
-
-        return merged;
-    }
-
     private static void FinalizeProductStatus(ProductDeployment productDeployment)
     {
-        // If all stacks completed, status is already Running (set by CompleteStack)
         if (productDeployment.Status is ProductDeploymentStatus.Running
             or ProductDeploymentStatus.PartiallyRunning
             or ProductDeploymentStatus.Failed)
@@ -304,7 +225,6 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
             return;
         }
 
-        // Still in Deploying status — determine final state
         if (productDeployment.CompletedStacks > 0 && productDeployment.FailedStacks > 0)
         {
             productDeployment.MarkAsPartiallyRunning(
@@ -316,11 +236,10 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
                 $"All {productDeployment.FailedStacks} stacks failed.");
         }
         else if (productDeployment.CompletedStacks > 0 &&
-                 productDeployment.Stacks.Any(s => s.Status == Domain.Deployment.ProductDeployments.StackDeploymentStatus.Pending))
+                 productDeployment.Stacks.Any(s => s.Status == StackDeploymentStatus.Pending))
         {
-            // Some succeeded, some still pending (aborted due to ContinueOnError=false)
             productDeployment.MarkAsPartiallyRunning(
-                $"Deployment aborted after failure. {productDeployment.CompletedStacks} of {productDeployment.TotalStacks} stacks running.");
+                $"Retry aborted after failure. {productDeployment.CompletedStacks} of {productDeployment.TotalStacks} stacks running.");
         }
     }
 
@@ -329,12 +248,12 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
         return pd.Status switch
         {
             ProductDeploymentStatus.Running =>
-                $"Product '{pd.ProductName}' v{pd.ProductVersion} deployed successfully ({pd.TotalStacks} stacks).",
+                $"Product '{pd.ProductName}' v{pd.ProductVersion} retry succeeded ({pd.TotalStacks} stacks).",
             ProductDeploymentStatus.PartiallyRunning =>
-                $"Product '{pd.ProductName}' partially deployed. {pd.CompletedStacks}/{pd.TotalStacks} stacks running, {pd.FailedStacks} failed.",
+                $"Product '{pd.ProductName}' partially running after retry. {pd.CompletedStacks}/{pd.TotalStacks} stacks running, {pd.FailedStacks} failed.",
             ProductDeploymentStatus.Failed =>
-                $"Failed to deploy product '{pd.ProductName}'. {pd.FailedStacks}/{pd.TotalStacks} stacks failed.",
-            _ => $"Product '{pd.ProductName}' deployment completed with status {pd.Status}."
+                $"Retry failed for product '{pd.ProductName}'. {pd.FailedStacks}/{pd.TotalStacks} stacks failed.",
+            _ => $"Product '{pd.ProductName}' retry completed with status {pd.Status}."
         };
     }
 
@@ -350,7 +269,7 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
             await _notificationService.NotifyProgressAsync(
                 sessionId,
                 "ProductDeploy",
-                $"Deploying stack {stackIndex + 1}/{totalStacks}: {stackDisplayName}",
+                $"Retrying stack {stackIndex + 1}/{totalStacks}: {stackDisplayName}",
                 percentComplete,
                 stackName,
                 totalStacks,
@@ -359,7 +278,7 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Failed to send product progress notification");
+            _logger.LogDebug(ex, "Failed to send product retry progress notification");
         }
     }
 
@@ -374,7 +293,7 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
             {
                 await _notificationService.NotifyCompletedAsync(
                     sessionId,
-                    $"Product '{pd.ProductName}' deployed successfully ({totalStacks} stacks).",
+                    $"Product '{pd.ProductName}' retry succeeded ({totalStacks} stacks).",
                     totalStacks, ct);
             }
             else
@@ -387,7 +306,7 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Failed to send final product notification");
+            _logger.LogDebug(ex, "Failed to send final product retry notification");
         }
     }
 
@@ -399,7 +318,7 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
         {
             var success = pd.Status == ProductDeploymentStatus.Running;
             var notification = NotificationFactory.CreateProductDeploymentResult(
-                success, "deploy", pd.ProductName, pd.ProductVersion,
+                success, "retry", pd.ProductName, pd.ProductVersion,
                 pd.TotalStacks, pd.CompletedStacks, pd.FailedStacks,
                 productDeploymentId: pd.Id.Value.ToString());
 
@@ -407,7 +326,7 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Failed to create in-app notification for product deployment");
+            _logger.LogDebug(ex, "Failed to create in-app notification for product retry");
         }
     }
 }

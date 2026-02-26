@@ -52,24 +52,32 @@ public class RemoveDeploymentByIdHandler : IRequestHandler<RemoveDeploymentByIdC
         _logger.LogInformation("Removing deployment {DeploymentId} with session {SessionId}",
             request.DeploymentId, request.SessionId);
 
-        // Create progress callback that sends SignalR notifications
+        // Create progress callback that sends SignalR notifications.
+        // When SuppressNotification is true (e.g. called from product removal),
+        // skip final Complete/Error events so the parent handler controls completion.
         DeploymentServiceProgressCallback progressCallback = async (phase, message, percent, currentService, totalServices, completedServices, totalInitContainers, completedInitContainers) =>
         {
             if (phase == "Complete")
             {
-                await _notificationService.NotifyCompletedAsync(
-                    request.SessionId,
-                    message,
-                    totalServices);
+                if (!request.SuppressNotification)
+                {
+                    await _notificationService.NotifyCompletedAsync(
+                        request.SessionId,
+                        message,
+                        totalServices);
+                }
             }
             else if (phase == "Error")
             {
-                await _notificationService.NotifyErrorAsync(
-                    request.SessionId,
-                    message,
-                    currentService,
-                    totalServices,
-                    completedServices);
+                if (!request.SuppressNotification)
+                {
+                    await _notificationService.NotifyErrorAsync(
+                        request.SessionId,
+                        message,
+                        currentService,
+                        totalServices,
+                        completedServices);
+                }
             }
             else
             {

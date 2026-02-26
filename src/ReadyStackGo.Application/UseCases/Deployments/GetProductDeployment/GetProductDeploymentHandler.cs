@@ -54,6 +54,7 @@ public class GetProductDeploymentHandler : IRequestHandler<GetProductDeploymentQ
             FailedStacks = pd.FailedStacks,
             PreviousVersion = pd.PreviousVersion,
             UpgradeCount = pd.UpgradeCount,
+            CanRetry = pd.CanRetry,
             CanUpgrade = pd.CanUpgrade,
             CanRemove = pd.CanRemove,
             DurationSeconds = pd.GetDuration()?.TotalSeconds,

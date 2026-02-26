@@ -392,6 +392,22 @@ public class RemoveProductHandlerTests
     }
 
     [Fact]
+    public async Task Handle_SuppressesPerStackNotifications()
+    {
+        var deployment = CreateRunningDeployment(stackCount: 3);
+        SetupDeploymentFound(deployment);
+        SetupAllRemovalsSucceed();
+
+        await _handler.Handle(CreateCommand(deployment), CancellationToken.None);
+
+        // Per-stack removal commands must suppress their own final SignalR events
+        // so only the product-level handler controls completion notifications
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<RemoveDeploymentByIdCommand>(c => c.SuppressNotification == true),
+            It.IsAny<CancellationToken>()), Times.Exactly(3));
+    }
+
+    [Fact]
     public async Task Handle_StackNeverStarted_SkipsMediatorDispatch()
     {
         // Create a deployment where stack-1 was never started (DeploymentId is null)

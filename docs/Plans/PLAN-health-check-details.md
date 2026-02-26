@@ -90,7 +90,7 @@ Nicht alle Services liefern alle Felder — der Parser muss tolerant sein.
 
 Reihenfolge basierend auf Abhängigkeiten:
 
-- [ ] **Feature 1: Full HealthReport Parsing** — `HttpHealthChecker` vollständig parsen
+- [x] **Feature 1: Full HealthReport Parsing** — `HttpHealthChecker` vollständig parsen
   - Betroffene Dateien:
     - `Infrastructure/Services/Health/HttpHealthChecker.cs` — `ParseHealthResponse()` erweitern
     - `Application/Services/IHttpHealthChecker.cs` — `HttpHealthCheckResult` erweitern, neues `HealthCheckEntryResult` Record
@@ -103,7 +103,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - Tolerant parsen — fehlende Felder sind OK (nullable)
     - Auch `totalDuration` auf Top-Level parsen
 
-- [ ] **Feature 2: Domain Model erweitern** — `HealthCheckEntry` Value Object + `ServiceHealth` erweitern
+- [x] **Feature 2: Domain Model erweitern** — `HealthCheckEntry` Value Object + `ServiceHealth` erweitern
   - Betroffene Dateien:
     - `Domain/Deployment/Health/HealthCheckEntry.cs` — Neues Value Object
     - `Domain/Deployment/Health/ServiceHealth.cs` — `HealthCheckEntries` Property + `ResponseTimeMs` hinzufügen
@@ -114,7 +114,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - `ServiceHealth` erweitern: `HealthCheckEntries: IReadOnlyList<HealthCheckEntry>?`, `ResponseTimeMs: int?`
     - Factory Methods anpassen: `Create()` mit optionalem `entries` Parameter
 
-- [ ] **Feature 3: Health Data Pipeline durchgängig machen** — Von HttpChecker → Domain → DTO
+- [x] **Feature 3: Health Data Pipeline durchgängig machen** — Von HttpChecker → Domain → DTO
   - Betroffene Dateien:
     - `Application/Services/Impl/HealthMonitoringService.cs` — `PerformHttpHealthCheckAsync()` + `CollectServiceHealthAsync()` erweitern
     - `Application/UseCases/Health/HealthDtos.cs` — `HealthCheckEntryDto`, `ServiceHealthDto` erweitern
@@ -128,7 +128,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - `ServiceHealthDto` erweitern: `HealthCheckEntries: List<HealthCheckEntryDto>?`, `ResponseTimeMs: int?`
     - `HealthSnapshotMapper`: Domain entries → DTO entries mappen
 
-- [ ] **Feature 4: Inline Health Check Detail im Dashboard** — Service-Zeile expandierbar
+- [x] **Feature 4: Inline Health Check Detail im Dashboard** — Service-Zeile expandierbar
   - Betroffene Dateien:
     - `WebUi/src/api/health.ts` — TypeScript Interfaces erweitern
     - `WebUi/src/components/health/HealthServiceRow.tsx` — Expandierbare Detail-Ansicht
@@ -143,7 +143,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - Data-Dictionary als collapsible Key-Value-Liste
     - Tags als kleine Badges
 
-- [ ] **Feature 5: Persistenz der Health Check Entries** — EF Core Mapping für Entries
+- [x] **Feature 5: Persistenz der Health Check Entries** — EF Core Mapping für Entries
   - Betroffene Dateien:
     - `Infrastructure.DataAccess/Configurations/HealthSnapshotConfiguration.cs` — EF Core Mapping erweitern
     - `Infrastructure.DataAccess/ReadyStackGoDbContext.cs` — ggf. DbSet erweitern
@@ -155,7 +155,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - Tags als JSON-Array
     - Migration: `EnsureCreated()` wird Schema automatisch erweitern (pre-v1.0)
 
-- [ ] **Feature 6: Eigener API-Endpoint für Service Health Detail** — Dedizierter Endpoint
+- [x] **Feature 6: Eigener API-Endpoint für Service Health Detail** — Dedizierter Endpoint
   - Betroffene Dateien:
     - `Application/UseCases/Health/GetServiceHealth/GetServiceHealthQuery.cs` — Neues Query
     - `Application/UseCases/Health/GetServiceHealth/GetServiceHealthHandler.cs` — Neuer Handler
@@ -167,7 +167,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - Gibt `ServiceHealthDto` mit vollständigen `HealthCheckEntries` zurück
     - Optional `forceRefresh=true` Parameter für on-demand HTTP Health Check
 
-- [ ] **Feature 7: Dedizierte Service Health Detail Page** — Vollständige Analyse-Ansicht
+- [x] **Feature 7: Dedizierte Service Health Detail Page** — Vollständige Analyse-Ansicht
   - Betroffene Dateien:
     - `WebUi/src/pages/Monitoring/ServiceHealthDetail.tsx` — Neue Page
     - `WebUi/src/api/health.ts` — Neuer API-Call `getServiceHealth()`
@@ -188,7 +188,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - Live-Update via SignalR (bestehender `useHealthHub`)
     - Link "View in Health Dashboard" zurück
 
-- [ ] **Feature 8: Tests** — Unit Tests für Parser, Domain, Mapping
+- [x] **Feature 8: Tests** — Unit Tests für Parser, Domain, Mapping
   - Betroffene Dateien:
     - `tests/UnitTests/Infrastructure/Health/HttpHealthCheckerTests.cs` — Parser-Tests
     - `tests/UnitTests/Domain/Health/HealthCheckEntryTests.cs` — Neues Value Object
@@ -199,7 +199,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - Domain: Value Object Equality, Factory Methods, null-Handling
     - Mapping: Domain → DTO mit und ohne Entries, mit und ohne Data/Tags
 
-- [ ] **Dokumentation & Website** — Wiki, Public Website (DE/EN), Roadmap
+- [x] **Dokumentation & Website** — Wiki, Public Website (DE/EN), Roadmap
 - [ ] **Phase abschließen** — Alle Tests grün, PR gegen main
 
 ## Test-Strategie

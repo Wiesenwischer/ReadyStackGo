@@ -38,13 +38,27 @@ public sealed class ServiceHealth : ValueObject
     /// </summary>
     public int? RestartCount { get; }
 
+    /// <summary>
+    /// Parsed health check entries from the HTTP health endpoint response.
+    /// Only populated when the service exposes an ASP.NET Core HealthReport.
+    /// </summary>
+    public IReadOnlyList<HealthCheckEntry>? HealthCheckEntries { get; }
+
+    /// <summary>
+    /// Response time of the HTTP health check in milliseconds.
+    /// Only populated when the service was checked via HTTP health endpoint.
+    /// </summary>
+    public int? ResponseTimeMs { get; }
+
     private ServiceHealth(
         string name,
         HealthStatus status,
         string? containerId,
         string? containerName,
         string? reason,
-        int? restartCount)
+        int? restartCount,
+        IReadOnlyList<HealthCheckEntry>? healthCheckEntries = null,
+        int? responseTimeMs = null)
     {
         SelfAssertArgumentNotEmpty(name, "Service name cannot be empty.");
 
@@ -54,6 +68,8 @@ public sealed class ServiceHealth : ValueObject
         ContainerName = containerName;
         Reason = reason;
         RestartCount = restartCount;
+        HealthCheckEntries = healthCheckEntries;
+        ResponseTimeMs = responseTimeMs;
     }
 
     public static ServiceHealth Create(
@@ -62,9 +78,11 @@ public sealed class ServiceHealth : ValueObject
         string? containerId = null,
         string? containerName = null,
         string? reason = null,
-        int? restartCount = null)
+        int? restartCount = null,
+        IReadOnlyList<HealthCheckEntry>? healthCheckEntries = null,
+        int? responseTimeMs = null)
     {
-        return new ServiceHealth(name, status, containerId, containerName, reason, restartCount);
+        return new ServiceHealth(name, status, containerId, containerName, reason, restartCount, healthCheckEntries, responseTimeMs);
     }
 
     public static ServiceHealth Healthy(string name, string? containerId = null, string? containerName = null)
@@ -95,5 +113,6 @@ public sealed class ServiceHealth : ValueObject
         yield return ContainerName;
         yield return Reason;
         yield return RestartCount;
+        yield return ResponseTimeMs;
     }
 }

@@ -139,6 +139,26 @@ public sealed class ProductUpgradeInitiated : DomainEvent
 }
 
 /// <summary>
+/// Raised when a product deployment retry is initiated.
+/// </summary>
+public sealed class ProductRetryInitiated : DomainEvent
+{
+    public ProductDeploymentId ProductDeploymentId { get; }
+    public string ProductName { get; }
+    public int TotalStacks { get; }
+
+    public ProductRetryInitiated(
+        ProductDeploymentId productDeploymentId,
+        string productName,
+        int totalStacks)
+    {
+        ProductDeploymentId = productDeploymentId;
+        ProductName = productName;
+        TotalStacks = totalStacks;
+    }
+}
+
+/// <summary>
 /// Raised when product removal is initiated.
 /// </summary>
 public sealed class ProductRemovalInitiated : DomainEvent
