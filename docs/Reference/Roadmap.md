@@ -224,6 +224,15 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Dedicated Service Health Detail API Endpoint
   - Service Response Time Tracking
   - EF Core Persistence for Health Check Entries (JSON serialization)
+- **v0.30** – Container Logs, Retry & Hook Improvements (2026-02-26)
+  - Container Log Viewer with Live Streaming via SignalR
+  - REST Endpoint for Historical Logs (`GET /api/containers/{id}/logs`)
+  - SignalR `ContainerHub` for Real-Time Log Tailing (`/hubs/container`)
+  - Terminal-Style Fullscreen Log Page with Auto-Scroll and Tail Selector
+  - Retry Failed Product Deployment (Resume From Last Failed Stack)
+  - Deploy Hook Resolution by ProductId (Stable CI/CD Without Instance-Specific SourceId)
+  - Optional `productId`, `version`, `stackDefinitionName` Fields on `/api/hooks/deploy`
+  - Backward-Compatible: Existing `stackId`-Based Requests Still Supported
 
 ---
 
