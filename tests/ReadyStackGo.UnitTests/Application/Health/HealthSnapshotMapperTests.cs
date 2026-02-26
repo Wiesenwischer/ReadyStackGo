@@ -344,4 +344,156 @@ public class HealthSnapshotMapperTests
     }
 
     #endregion
+
+    #region Health Check Entries Mapping
+
+    [Fact]
+    public void MapToStackHealthDto_MapsHealthCheckEntries()
+    {
+        var entries = new List<HealthCheckEntry>
+        {
+            HealthCheckEntry.Create("database", HealthStatus.Healthy, "SQL OK", 12.3,
+                new Dictionary<string, string> { { "server", "sql01" } },
+                new List<string> { "db" }),
+            HealthCheckEntry.Create("redis", HealthStatus.Unhealthy, "Connection refused", 5001.2,
+                exception: "SocketException")
+        };
+
+        var service = ServiceHealth.Create("api", HealthStatus.Degraded,
+            "c123", "api-container", "Some checks failing", null, entries, 150);
+        var selfHealth = SelfHealth.Create(new[] { service });
+        var snapshot = HealthSnapshot.Capture(
+            _orgId, _envId, _deploymentId, "my-stack",
+            OperationMode.Normal,
+            self: selfHealth);
+
+        var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, _envId);
+        var serviceDto = dto.Self.Services.Single();
+
+        serviceDto.HealthCheckEntries.Should().NotBeNull();
+        serviceDto.HealthCheckEntries.Should().HaveCount(2);
+        serviceDto.ResponseTimeMs.Should().Be(150);
+
+        var dbEntry = serviceDto.HealthCheckEntries!.Single(e => e.Name == "database");
+        dbEntry.Status.Should().Be("Healthy");
+        dbEntry.Description.Should().Be("SQL OK");
+        dbEntry.DurationMs.Should().Be(12.3);
+        dbEntry.Data.Should().ContainKey("server");
+        dbEntry.Tags.Should().ContainSingle("db");
+        dbEntry.Exception.Should().BeNull();
+
+        var redisEntry = serviceDto.HealthCheckEntries!.Single(e => e.Name == "redis");
+        redisEntry.Status.Should().Be("Unhealthy");
+        redisEntry.Exception.Should().Be("SocketException");
+    }
+
+    [Fact]
+    public void MapToStackHealthDto_NullEntries_MapsToNull()
+    {
+        var service = ServiceHealth.Create("api", HealthStatus.Healthy, "c123", "api-container");
+        var selfHealth = SelfHealth.Create(new[] { service });
+        var snapshot = HealthSnapshot.Capture(
+            _orgId, _envId, _deploymentId, "my-stack",
+            OperationMode.Normal,
+            self: selfHealth);
+
+        var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, _envId);
+        var serviceDto = dto.Self.Services.Single();
+
+        serviceDto.HealthCheckEntries.Should().BeNull();
+        serviceDto.ResponseTimeMs.Should().BeNull();
+    }
+
+    [Fact]
+    public void MapToStackHealthDto_EmptyEntries_MapsToEmptyList()
+    {
+        var entries = new List<HealthCheckEntry>();
+        var service = ServiceHealth.Create("api", HealthStatus.Healthy,
+            "c123", "api-container", null, null, entries, 50);
+        var selfHealth = SelfHealth.Create(new[] { service });
+        var snapshot = HealthSnapshot.Capture(
+            _orgId, _envId, _deploymentId, "my-stack",
+            OperationMode.Normal,
+            self: selfHealth);
+
+        var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, _envId);
+        var serviceDto = dto.Self.Services.Single();
+
+        serviceDto.HealthCheckEntries.Should().NotBeNull();
+        serviceDto.HealthCheckEntries.Should().BeEmpty();
+        serviceDto.ResponseTimeMs.Should().Be(50);
+    }
+
+    [Fact]
+    public void MapServiceToDto_MapsEntriesCorrectly()
+    {
+        var entries = new List<HealthCheckEntry>
+        {
+            HealthCheckEntry.Create("check1", HealthStatus.Healthy, "OK"),
+        };
+        var service = ServiceHealth.Create("api", HealthStatus.Healthy,
+            "c123", "api-container", null, null, entries, 25);
+
+        var dto = HealthSnapshotMapper.MapServiceToDto(service);
+
+        dto.Name.Should().Be("api");
+        dto.HealthCheckEntries.Should().HaveCount(1);
+        dto.HealthCheckEntries![0].Name.Should().Be("check1");
+        dto.ResponseTimeMs.Should().Be(25);
+    }
+
+    [Fact]
+    public void MapToStackHealthDto_EntryDataDictionary_MappedCorrectly()
+    {
+        var data = new Dictionary<string, string>
+        {
+            { "key1", "value1" },
+            { "key2", "value2" }
+        };
+        var entries = new List<HealthCheckEntry>
+        {
+            HealthCheckEntry.Create("check", HealthStatus.Healthy, data: data)
+        };
+        var service = ServiceHealth.Create("api", HealthStatus.Healthy,
+            healthCheckEntries: entries);
+        var selfHealth = SelfHealth.Create(new[] { service });
+        var snapshot = HealthSnapshot.Capture(
+            _orgId, _envId, _deploymentId, "my-stack",
+            OperationMode.Normal,
+            self: selfHealth);
+
+        var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, _envId);
+        var entryDto = dto.Self.Services.Single().HealthCheckEntries!.Single();
+
+        entryDto.Data.Should().HaveCount(2);
+        entryDto.Data!["key1"].Should().Be("value1");
+        entryDto.Data!["key2"].Should().Be("value2");
+    }
+
+    [Fact]
+    public void MapToStackHealthDto_EntryTags_MappedCorrectly()
+    {
+        var tags = new List<string> { "critical", "db", "infrastructure" };
+        var entries = new List<HealthCheckEntry>
+        {
+            HealthCheckEntry.Create("check", HealthStatus.Healthy, tags: tags)
+        };
+        var service = ServiceHealth.Create("api", HealthStatus.Healthy,
+            healthCheckEntries: entries);
+        var selfHealth = SelfHealth.Create(new[] { service });
+        var snapshot = HealthSnapshot.Capture(
+            _orgId, _envId, _deploymentId, "my-stack",
+            OperationMode.Normal,
+            self: selfHealth);
+
+        var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, _envId);
+        var entryDto = dto.Self.Services.Single().HealthCheckEntries!.Single();
+
+        entryDto.Tags.Should().HaveCount(3);
+        entryDto.Tags.Should().Contain("critical");
+        entryDto.Tags.Should().Contain("db");
+        entryDto.Tags.Should().Contain("infrastructure");
+    }
+
+    #endregion
 }
