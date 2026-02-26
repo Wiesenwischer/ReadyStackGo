@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router';
-import { useEnvironment } from '../../contexts/EnvironmentContext';
+import { useEnvironment } from '../../context/EnvironmentContext';
 import {
   type ServiceHealthDetailResult,
   type HealthCheckEntryDto,
