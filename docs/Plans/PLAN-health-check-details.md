@@ -143,14 +143,39 @@ Reihenfolge basierend auf Abhängigkeiten:
     - Data-Dictionary als collapsible Key-Value-Liste
     - Tags als kleine Badges
 
-- [ ] **Feature 5: Dedizierte Service Health Detail Page** — Vollständige Analyse-Ansicht
+- [ ] **Feature 5: Persistenz der Health Check Entries** — EF Core Mapping für Entries
+  - Betroffene Dateien:
+    - `Infrastructure.DataAccess/Configurations/HealthSnapshotConfiguration.cs` — EF Core Mapping erweitern
+    - `Infrastructure.DataAccess/ReadyStackGoDbContext.cs` — ggf. DbSet erweitern
+  - Pattern-Vorlage: Bestehende `HealthSnapshot` Persistenz, JSON-Columns für komplexe Daten
+  - Abhängig von: Feature 2
+  - Details:
+    - `HealthCheckEntry` als Owned Entity oder JSON-Column auf `ServiceHealth` speichern
+    - JSON-Serialisierung für `Data` Dictionary (kein relationales Mapping nötig)
+    - Tags als JSON-Array
+    - Migration: `EnsureCreated()` wird Schema automatisch erweitern (pre-v1.0)
+
+- [ ] **Feature 6: Eigener API-Endpoint für Service Health Detail** — Dedizierter Endpoint
+  - Betroffene Dateien:
+    - `Application/UseCases/Health/GetServiceHealth/GetServiceHealthQuery.cs` — Neues Query
+    - `Application/UseCases/Health/GetServiceHealth/GetServiceHealthHandler.cs` — Neuer Handler
+    - `Api/Endpoints/Health/GetServiceHealthEndpoint.cs` — Neuer FastEndpoint
+  - Pattern-Vorlage: `GetStackHealth` Query/Handler/Endpoint
+  - Abhängig von: Feature 3, Feature 5
+  - Details:
+    - `GET /api/health/{environmentId}/deployments/{deploymentId}/services/{serviceName}`
+    - Gibt `ServiceHealthDto` mit vollständigen `HealthCheckEntries` zurück
+    - Optional `forceRefresh=true` Parameter für on-demand HTTP Health Check
+
+- [ ] **Feature 7: Dedizierte Service Health Detail Page** — Vollständige Analyse-Ansicht
   - Betroffene Dateien:
     - `WebUi/src/pages/Monitoring/ServiceHealthDetail.tsx` — Neue Page
+    - `WebUi/src/api/health.ts` — Neuer API-Call `getServiceHealth()`
     - `WebUi/src/App.tsx` oder Router — Route registrieren
     - `WebUi/src/components/health/HealthServiceRow.tsx` — Link zur Detail-Page
     - `WebUi/src/pages/Deployments/DeploymentDetail.tsx` — Link zur Detail-Page
   - Pattern-Vorlage: `DeploymentDetail.tsx` als Layout-Vorlage
-  - Abhängig von: Feature 4
+  - Abhängig von: Feature 4, Feature 6
   - Details:
     - Route: `/health/:deploymentId/:serviceName`
     - Header: Service Name, Status Badge, Container Info, Response Time
@@ -163,7 +188,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - Live-Update via SignalR (bestehender `useHealthHub`)
     - Link "View in Health Dashboard" zurück
 
-- [ ] **Feature 6: Tests** — Unit Tests für Parser, Domain, Mapping
+- [ ] **Feature 8: Tests** — Unit Tests für Parser, Domain, Mapping
   - Betroffene Dateien:
     - `tests/UnitTests/Infrastructure/Health/HttpHealthCheckerTests.cs` — Parser-Tests
     - `tests/UnitTests/Domain/Health/HealthCheckEntryTests.cs` — Neues Value Object
@@ -196,9 +221,7 @@ Reihenfolge basierend auf Abhängigkeiten:
 
 ## Offene Punkte
 
-- [ ] Sollen Health Check Entries in der DB persistiert werden (History-fähig) oder nur In-Memory (aktueller Snapshot)?
-- [ ] Soll `totalDuration` auf Stack-Level angezeigt werden?
-- [ ] Braucht die Detail-Page einen eigenen API-Endpoint oder reicht der bestehende GetStackHealth?
+(alle geklärt — siehe Entscheidungen)
 
 ## Entscheidungen
 
@@ -206,5 +229,7 @@ Reihenfolge basierend auf Abhängigkeiten:
 |---|---|---|---|
 | Entry-Detailgrad | Status-only, +Description/Error, Full (Data/Tags) | Full | User-Wunsch: volle Transparenz wie ASP.NET Health UI |
 | UI-Layout | Inline-only, Detail-Page-only, Beides | Beides | Inline für Quick-View, Detail-Page für Analyse |
-| Persistence | In-Memory only, DB-Persist | - | Noch offen — DB-Persist ermöglicht History, vergrößert aber Schema |
+| Persistence | In-Memory only, DB-Persist | DB-Persist | Ermöglicht History-Ansicht der Check-Entries über Zeit |
+| totalDuration | Anzeigen, Nicht anzeigen | Nicht anzeigen | Kein Mehrwert auf Stack-Level, parsen aber nicht in UI anzeigen |
+| Detail-Page Endpoint | Bestehender GetStackHealth, Eigener Endpoint | Eigener Endpoint | Dedizierter Endpoint für Service-Level Health mit Entries — vermeidet Überladung des Stack-Endpoints |
 | `HttpHealthCheckResult.Details` Breaking Change | Neues Feld, Details umbenennen | Neues Feld `Entries` | `Details` als deprecated markieren, neues `Entries: List<HealthCheckEntryResult>?` |
