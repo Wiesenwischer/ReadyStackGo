@@ -1,16 +1,21 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.StackManagement.Stacks;
 
 namespace ReadyStackGo.Application.UseCases.Hooks.DeployStack;
 
 public record DeployViaHookRequest
 {
-    public required string StackId { get; init; }
+    public string? StackId { get; init; }
     public required string StackName { get; init; }
     public string? EnvironmentId { get; init; }
+    public string? ProductId { get; init; }
+    public string? Version { get; init; }
+    public string? StackDefinitionName { get; init; }
     public Dictionary<string, string> Variables { get; init; } = new();
 }
 
@@ -28,24 +33,30 @@ public record DeployViaHookResponse
 }
 
 public record DeployViaHookCommand(
-    string StackId,
+    string? StackId,
     string StackName,
     string EnvironmentId,
-    Dictionary<string, string> Variables
+    Dictionary<string, string> Variables,
+    string? ProductId = null,
+    string? Version = null,
+    string? StackDefinitionName = null
 ) : IRequest<DeployViaHookResponse>;
 
 public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, DeployViaHookResponse>
 {
     private readonly IDeploymentRepository _deploymentRepository;
+    private readonly IProductSourceService _productSourceService;
     private readonly IMediator _mediator;
     private readonly ILogger<DeployViaHookHandler> _logger;
 
     public DeployViaHookHandler(
         IDeploymentRepository deploymentRepository,
+        IProductSourceService productSourceService,
         IMediator mediator,
         ILogger<DeployViaHookHandler> logger)
     {
         _deploymentRepository = deploymentRepository;
+        _productSourceService = productSourceService;
         _mediator = mediator;
         _logger = logger;
     }
@@ -53,9 +64,9 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
     public async Task<DeployViaHookResponse> Handle(DeployViaHookCommand request, CancellationToken cancellationToken)
     {
         // 1. Validate inputs
-        if (string.IsNullOrWhiteSpace(request.StackId))
+        if (string.IsNullOrWhiteSpace(request.StackId) && string.IsNullOrWhiteSpace(request.ProductId))
         {
-            return DeployViaHookResponse.Failed("StackId is required.");
+            return DeployViaHookResponse.Failed("Either StackId or ProductId is required.");
         }
 
         if (string.IsNullOrWhiteSpace(request.StackName))
@@ -66,6 +77,23 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
         if (!Guid.TryParse(request.EnvironmentId, out var envGuid))
         {
             return DeployViaHookResponse.Failed("Invalid environment ID format.");
+        }
+
+        // 1b. Resolve StackId from ProductId if not directly provided
+        string resolvedStackId;
+        if (!string.IsNullOrWhiteSpace(request.StackId))
+        {
+            resolvedStackId = request.StackId;
+        }
+        else
+        {
+            var resolveResult = await ResolveStackIdFromProduct(
+                request.ProductId!, request.Version, request.StackDefinitionName, cancellationToken);
+            if (!resolveResult.Success)
+            {
+                return DeployViaHookResponse.Failed(resolveResult.Error!);
+            }
+            resolvedStackId = resolveResult.StackId!;
         }
 
         var environmentId = new EnvironmentId(envGuid);
@@ -103,14 +131,14 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
         }
         else
         {
-            // Fresh deploy - use webhook variables directly
-            stackId = request.StackId;
+            // Fresh deploy - use resolved stack ID
+            stackId = resolvedStackId;
             action = "deployed";
             variables = request.Variables;
 
             _logger.LogInformation(
                 "Deploying stack '{StackName}' ({StackId}) to environment {EnvironmentId}",
-                request.StackName, request.StackId, request.EnvironmentId);
+                request.StackName, resolvedStackId, request.EnvironmentId);
         }
 
         // 3. Delegate to DeployStackCommand
@@ -143,5 +171,69 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
             StackVersion = deployResult.StackVersion,
             Action = action
         };
+    }
+
+    private record StackIdResolutionResult(bool Success, string? StackId, string? Error);
+
+    private async Task<StackIdResolutionResult> ResolveStackIdFromProduct(
+        string productId, string? version, string? stackDefinitionName, CancellationToken ct)
+    {
+        // 1. Find product by GroupId (metadata.productId)
+        var product = await _productSourceService.GetProductAsync(productId, ct);
+        if (product == null)
+        {
+            return new(false, null, $"Product '{productId}' not found in catalog.");
+        }
+
+        // 2. If specific version requested, find that version
+        if (!string.IsNullOrWhiteSpace(version))
+        {
+            var versions = (await _productSourceService.GetProductVersionsAsync(product.GroupId, ct)).ToList();
+            var versionMatch = versions.FirstOrDefault(v =>
+                string.Equals(v.ProductVersion, version, StringComparison.OrdinalIgnoreCase));
+
+            if (versionMatch == null)
+            {
+                var available = string.Join(", ", versions
+                    .Where(v => v.ProductVersion != null)
+                    .Select(v => v.ProductVersion));
+                return new(false, null,
+                    $"Version '{version}' not found for product '{productId}'. Available versions: {available}");
+            }
+
+            product = versionMatch;
+        }
+
+        // 3. Resolve stack within the product
+        StackDefinition stack;
+        if (!string.IsNullOrWhiteSpace(stackDefinitionName))
+        {
+            var found = product.GetStack(stackDefinitionName);
+            if (found == null)
+            {
+                var availableStacks = string.Join(", ", product.Stacks.Select(s => s.Name));
+                return new(false, null,
+                    $"Stack '{stackDefinitionName}' not found in product '{productId}'. " +
+                    $"Available stacks: {availableStacks}");
+            }
+            stack = found;
+        }
+        else
+        {
+            if (product.IsMultiStack)
+            {
+                var availableStacks = string.Join(", ", product.Stacks.Select(s => s.Name));
+                return new(false, null,
+                    $"Product '{productId}' contains multiple stacks. " +
+                    $"Specify 'stackDefinitionName' to select one. Available stacks: {availableStacks}");
+            }
+            stack = product.DefaultStack;
+        }
+
+        _logger.LogInformation(
+            "Resolved ProductId '{ProductId}' to StackId '{StackId}'",
+            productId, stack.Id.Value);
+
+        return new(true, stack.Id.Value, null);
     }
 }

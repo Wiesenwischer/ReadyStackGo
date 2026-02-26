@@ -2,17 +2,20 @@ using FluentAssertions;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Moq;
+using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 using ReadyStackGo.Application.UseCases.Hooks.DeployStack;
 using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.StackManagement.Stacks;
 
 namespace ReadyStackGo.UnitTests.Application.Hooks;
 
 public class DeployViaHookHandlerTests
 {
     private readonly Mock<IDeploymentRepository> _deploymentRepoMock;
+    private readonly Mock<IProductSourceService> _productSourceMock;
     private readonly Mock<IMediator> _mediatorMock;
     private readonly Mock<ILogger<DeployViaHookHandler>> _loggerMock;
     private readonly DeployViaHookHandler _handler;
@@ -24,10 +27,12 @@ public class DeployViaHookHandlerTests
     public DeployViaHookHandlerTests()
     {
         _deploymentRepoMock = new Mock<IDeploymentRepository>();
+        _productSourceMock = new Mock<IProductSourceService>();
         _mediatorMock = new Mock<IMediator>();
         _loggerMock = new Mock<ILogger<DeployViaHookHandler>>();
         _handler = new DeployViaHookHandler(
             _deploymentRepoMock.Object,
+            _productSourceMock.Object,
             _mediatorMock.Object,
             _loggerMock.Object);
     }
@@ -54,6 +59,41 @@ public class DeployViaHookHandlerTests
 
         deployment.MarkAsRunning();
         return deployment;
+    }
+
+    private static ProductDefinition CreateSingleStackProduct(
+        string productId = "com.test.product",
+        string? version = null,
+        string sourceId = "source1",
+        string stackName = "default-stack")
+    {
+        var stack = new StackDefinition(
+            sourceId, stackName, new ProductId(productId),
+            productVersion: version);
+
+        return new ProductDefinition(
+            sourceId, productId, "Test Product",
+            stacks: new List<StackDefinition> { stack },
+            productVersion: version,
+            productId: productId);
+    }
+
+    private static ProductDefinition CreateMultiStackProduct(
+        string productId = "com.test.multistack",
+        string? version = null,
+        string sourceId = "source1",
+        params string[] stackNames)
+    {
+        var stacks = stackNames.Select(name =>
+            new StackDefinition(
+                sourceId, name, new ProductId(productId),
+                productVersion: version)).ToList();
+
+        return new ProductDefinition(
+            sourceId, productId, "Multi-Stack Product",
+            stacks: stacks,
+            productVersion: version,
+            productId: productId);
     }
 
     #region Fresh Deploy (No Existing Deployment)
@@ -398,25 +438,36 @@ public class DeployViaHookHandlerTests
     }
 
     [Fact]
-    public async Task Handle_EmptyStackId_ReturnsError()
+    public async Task Handle_NeitherStackIdNorProductId_ReturnsError()
+    {
+        var result = await _handler.Handle(
+            new DeployViaHookCommand(null, TestStackName, TestEnvironmentId, new()),
+            CancellationToken.None);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("Either StackId or ProductId is required");
+    }
+
+    [Fact]
+    public async Task Handle_EmptyStackIdAndNoProductId_ReturnsError()
     {
         var result = await _handler.Handle(
             new DeployViaHookCommand("", TestStackName, TestEnvironmentId, new()),
             CancellationToken.None);
 
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("StackId is required");
+        result.Message.Should().Contain("Either StackId or ProductId is required");
     }
 
     [Fact]
-    public async Task Handle_WhitespaceStackId_ReturnsError()
+    public async Task Handle_WhitespaceStackIdAndNoProductId_ReturnsError()
     {
         var result = await _handler.Handle(
             new DeployViaHookCommand("   ", TestStackName, TestEnvironmentId, new()),
             CancellationToken.None);
 
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("StackId is required");
+        result.Message.Should().Contain("Either StackId or ProductId is required");
     }
 
     [Fact]
@@ -498,6 +549,201 @@ public class DeployViaHookHandlerTests
 
     #endregion
 
+    #region ProductId Resolution — Happy Path
+
+    [Fact]
+    public async Task Handle_ProductIdOnly_ResolvesLatestVersionAndDeploys()
+    {
+        var product = CreateSingleStackProduct("com.test.product", version: "2.0.0");
+        SetupProductLookup("com.test.product", product);
+        SetupNoExistingDeployment();
+        SetupSuccessfulDeploy();
+
+        var result = await _handler.Handle(
+            new DeployViaHookCommand(null, TestStackName, TestEnvironmentId, new(),
+                ProductId: "com.test.product"),
+            CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        result.Action.Should().Be("deployed");
+
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<DeployStackCommand>(cmd => cmd.StackId == product.DefaultStack.Id.Value),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ProductIdWithVersion_ResolvesSpecificVersion()
+    {
+        var productV1 = CreateSingleStackProduct("com.test.product", version: "1.0.0");
+        var productV2 = CreateSingleStackProduct("com.test.product", version: "2.0.0");
+        SetupProductLookup("com.test.product", productV2);
+        SetupProductVersions("com.test.product", new[] { productV2, productV1 });
+        SetupNoExistingDeployment();
+        SetupSuccessfulDeploy();
+
+        var result = await _handler.Handle(
+            new DeployViaHookCommand(null, TestStackName, TestEnvironmentId, new(),
+                ProductId: "com.test.product", Version: "1.0.0"),
+            CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<DeployStackCommand>(cmd => cmd.StackId == productV1.DefaultStack.Id.Value),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ProductIdWithStackDefinitionName_ResolvesCorrectStack()
+    {
+        var product = CreateMultiStackProduct("com.test.multi", version: "1.0.0",
+            sourceId: "source1", stackNames: new[] { "web", "api", "worker" });
+        SetupProductLookup("com.test.multi", product);
+        SetupNoExistingDeployment();
+        SetupSuccessfulDeploy();
+
+        var result = await _handler.Handle(
+            new DeployViaHookCommand(null, TestStackName, TestEnvironmentId, new(),
+                ProductId: "com.test.multi", StackDefinitionName: "api"),
+            CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+
+        var expectedStackId = product.GetStack("api")!.Id.Value;
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<DeployStackCommand>(cmd => cmd.StackId == expectedStackId),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_BothStackIdAndProductId_UsesStackId()
+    {
+        SetupNoExistingDeployment();
+        SetupSuccessfulDeploy();
+
+        await _handler.Handle(
+            new DeployViaHookCommand(TestStackId, TestStackName, TestEnvironmentId, new(),
+                ProductId: "com.test.product"),
+            CancellationToken.None);
+
+        // StackId takes precedence — ProductId resolution should NOT be called
+        _productSourceMock.Verify(
+            s => s.GetProductAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<DeployStackCommand>(cmd => cmd.StackId == TestStackId),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ProductIdWithExistingDeployment_UsesExistingStackId()
+    {
+        var existingStackId = "existing-source:existing-product:1.0.0:my-stack";
+        var deployment = CreateRunningDeployment(stackId: existingStackId);
+        SetupDeploymentLookup(deployment);
+        SetupSuccessfulDeploy();
+
+        var product = CreateSingleStackProduct("com.test.product", version: "2.0.0");
+        SetupProductLookup("com.test.product", product);
+
+        var result = await _handler.Handle(
+            new DeployViaHookCommand(null, TestStackName, TestEnvironmentId, new(),
+                ProductId: "com.test.product"),
+            CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        result.Action.Should().Be("redeployed");
+
+        // Existing deployment's StackId should be used, not the resolved one
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<DeployStackCommand>(cmd => cmd.StackId == existingStackId),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
+    #region ProductId Resolution — Error Cases
+
+    [Fact]
+    public async Task Handle_ProductIdNotFound_ReturnsError()
+    {
+        _productSourceMock
+            .Setup(s => s.GetProductAsync("com.nonexistent", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProductDefinition?)null);
+
+        var result = await _handler.Handle(
+            new DeployViaHookCommand(null, TestStackName, TestEnvironmentId, new(),
+                ProductId: "com.nonexistent"),
+            CancellationToken.None);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("com.nonexistent");
+        result.Message.Should().Contain("not found in catalog");
+    }
+
+    [Fact]
+    public async Task Handle_VersionNotFound_ReturnsErrorWithAvailableVersions()
+    {
+        var productV1 = CreateSingleStackProduct("com.test.product", version: "1.0.0");
+        var productV2 = CreateSingleStackProduct("com.test.product", version: "2.0.0");
+        SetupProductLookup("com.test.product", productV2);
+        SetupProductVersions("com.test.product", new[] { productV2, productV1 });
+
+        var result = await _handler.Handle(
+            new DeployViaHookCommand(null, TestStackName, TestEnvironmentId, new(),
+                ProductId: "com.test.product", Version: "9.9.9"),
+            CancellationToken.None);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("9.9.9");
+        result.Message.Should().Contain("not found");
+        result.Message.Should().Contain("2.0.0");
+        result.Message.Should().Contain("1.0.0");
+    }
+
+    [Fact]
+    public async Task Handle_MultiStackWithoutStackDefinitionName_ReturnsErrorWithAvailableStacks()
+    {
+        var product = CreateMultiStackProduct("com.test.multi", version: "1.0.0",
+            sourceId: "source1", stackNames: new[] { "web", "api", "worker" });
+        SetupProductLookup("com.test.multi", product);
+
+        var result = await _handler.Handle(
+            new DeployViaHookCommand(null, TestStackName, TestEnvironmentId, new(),
+                ProductId: "com.test.multi"),
+            CancellationToken.None);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("multiple stacks");
+        result.Message.Should().Contain("stackDefinitionName");
+        result.Message.Should().Contain("web");
+        result.Message.Should().Contain("api");
+        result.Message.Should().Contain("worker");
+    }
+
+    [Fact]
+    public async Task Handle_StackDefinitionNameNotFound_ReturnsErrorWithAvailableStacks()
+    {
+        var product = CreateMultiStackProduct("com.test.multi", version: "1.0.0",
+            sourceId: "source1", stackNames: new[] { "web", "api" });
+        SetupProductLookup("com.test.multi", product);
+
+        var result = await _handler.Handle(
+            new DeployViaHookCommand(null, TestStackName, TestEnvironmentId, new(),
+                ProductId: "com.test.multi", StackDefinitionName: "nonexistent"),
+            CancellationToken.None);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("nonexistent");
+        result.Message.Should().Contain("not found");
+        result.Message.Should().Contain("web");
+        result.Message.Should().Contain("api");
+    }
+
+    #endregion
+
     #region Helpers
 
     private void SetupNoExistingDeployment()
@@ -525,6 +771,23 @@ public class DeployViaHookHandlerTests
                 Success = true,
                 DeploymentId = Guid.NewGuid().ToString()
             });
+    }
+
+    private void SetupProductLookup(string productId, ProductDefinition product)
+    {
+        _productSourceMock
+            .Setup(s => s.GetProductAsync(productId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+    }
+
+    private void SetupProductVersions(string productId, IEnumerable<ProductDefinition> versions)
+    {
+        var versionList = versions.ToList();
+        // GroupId is the productId since we set explicit productId in CreateSingleStackProduct
+        var groupId = versionList.First().GroupId;
+        _productSourceMock
+            .Setup(s => s.GetProductVersionsAsync(groupId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(versionList);
     }
 
     private static Deployment CreateFailedDeployment()
