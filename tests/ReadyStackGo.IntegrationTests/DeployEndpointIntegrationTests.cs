@@ -81,7 +81,7 @@ public class DeployEndpointIntegrationTests : AuthenticatedTestBase
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var body = await response.Content.ReadAsStringAsync();
-        body.Should().Contain("StackId is required");
+        body.Should().Contain("Either StackId or ProductId is required");
     }
 
     [Fact]

@@ -38,7 +38,8 @@ public class DeployEndpoint : Endpoint<DeployViaHookRequest, DeployViaHookRespon
         }
 
         var response = await _mediator.Send(
-            new DeployViaHookCommand(req.StackId, req.StackName, environmentId!, req.Variables), ct);
+            new DeployViaHookCommand(req.StackId, req.StackName, environmentId!, req.Variables,
+                req.ProductId, req.Version, req.StackDefinitionName), ct);
 
         if (!response.Success)
         {
