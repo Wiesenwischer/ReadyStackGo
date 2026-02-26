@@ -25,14 +25,18 @@ export default function RemoveStack() {
   const removeSessionIdRef = useRef<string | null>(null);
   const [progressUpdate, setProgressUpdate] = useState<DeploymentProgressUpdate | null>(null);
 
+  // Prevent race condition: first completion (SignalR or API) wins
+  const completedRef = useRef(false);
+
   // SignalR hub for real-time progress
   const handleRemoveProgress = useCallback((update: DeploymentProgressUpdate) => {
     const currentSessionId = removeSessionIdRef.current;
     if (currentSessionId && update.sessionId === currentSessionId) {
       setProgressUpdate(update);
 
-      // Check if removal completed (success or error)
-      if (update.isComplete) {
+      // Check if removal completed (success or error) — first completion wins
+      if (update.isComplete && !completedRef.current) {
+        completedRef.current = true;
         if (update.isError) {
           setError(update.errorMessage || 'Removal failed');
           setState('error');
@@ -86,6 +90,7 @@ export default function RemoveStack() {
     // Generate session ID BEFORE the API call
     const sessionId = `remove-${deployment.stackName}-${Date.now()}`;
     removeSessionIdRef.current = sessionId;
+    completedRef.current = false;
 
     setState('removing');
     setError('');
@@ -96,26 +101,28 @@ export default function RemoveStack() {
       await subscribeToDeployment(sessionId);
     }
 
-    try {
-      const response = await removeDeployment(activeEnvironment.id, deployment.deploymentId, {
-        sessionId,
+    // Fire-and-forget: Don't block on API response.
+    // SignalR delivers live progress; API response serves as fallback.
+    removeDeployment(activeEnvironment.id, deployment.deploymentId, { sessionId })
+      .then(response => {
+        // Only drive state if SignalR hasn't already completed
+        if (!completedRef.current) {
+          completedRef.current = true;
+          if (!response.success) {
+            setError(response.errors?.join('\n') || response.message || 'Removal failed');
+            setState('error');
+          } else {
+            setState('success');
+          }
+        }
+      })
+      .catch(err => {
+        if (!completedRef.current) {
+          completedRef.current = true;
+          setError(err instanceof Error ? err.message : 'Removal failed');
+          setState('error');
+        }
       });
-
-      if (!response.success) {
-        setError(response.errors?.join('\n') || response.message || 'Removal failed');
-        setState('error');
-        return;
-      }
-
-      // State will be set to 'success' by SignalR callback when removal completes
-      // But if no SignalR connection, set it immediately
-      if (connectionState !== 'connected') {
-        setState('success');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Removal failed');
-      setState('error');
-    }
   };
 
   const handleCancel = () => {

@@ -172,15 +172,13 @@ public class DatabaseProductSourceService : IProductSourceService
             return SyncResult.Failed($"No provider found for source type: {source.Type}");
         }
 
-        // Clear existing products from this source
-        _cache.RemoveBySource(source.Id.Value);
-
-        // Load products from source
+        // Load products first, then atomically replace in cache.
+        // This prevents a race condition where concurrent scopes clear the singleton
+        // cache via RemoveBySource while another scope is mid-deployment.
         var products = await provider.LoadProductsAsync(source, cancellationToken);
         var productList = products.ToList();
 
-        // Add products to cache
-        _cache.SetMany(productList);
+        _cache.ReplaceBySource(source.Id.Value, productList);
 
         // Update source sync time
         source.MarkSynced();

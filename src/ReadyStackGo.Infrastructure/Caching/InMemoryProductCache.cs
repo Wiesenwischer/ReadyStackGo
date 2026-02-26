@@ -284,6 +284,57 @@ public class InMemoryProductCache : IProductCache
     }
 
     /// <summary>
+    /// Atomically replace all products from a specific source.
+    /// Adds new products first, then removes stale entries, so the cache is never empty.
+    /// </summary>
+    public void ReplaceBySource(string sourceId, IEnumerable<ProductDefinition> newProducts)
+    {
+        var productList = newProducts.ToList();
+
+        // 1. Add/update all new products first (cache has both old + new during this step)
+        SetMany(productList);
+
+        // 2. Build a set of (groupId, versionKey) that the new products occupy
+        var newKeys = new HashSet<(string groupId, string versionKey)>();
+        foreach (var product in productList)
+        {
+            newKeys.Add((product.GroupId, product.ProductVersion ?? "latest"));
+        }
+
+        // 3. Remove old entries from this source that are NOT in the new set
+        var staleEntries = new List<(string groupId, string versionKey)>();
+        var emptyGroups = new List<string>();
+
+        foreach (var (groupId, versions) in _productGroups)
+        {
+            foreach (var (versionKey, product) in versions)
+            {
+                if (product.SourceId == sourceId && !newKeys.Contains((groupId, versionKey)))
+                {
+                    staleEntries.Add((groupId, versionKey));
+                }
+            }
+        }
+
+        foreach (var (groupId, versionKey) in staleEntries)
+        {
+            if (_productGroups.TryGetValue(groupId, out var versions))
+            {
+                versions.TryRemove(versionKey, out _);
+                if (versions.IsEmpty)
+                {
+                    emptyGroups.Add(groupId);
+                }
+            }
+        }
+
+        foreach (var groupId in emptyGroups)
+        {
+            _productGroups.TryRemove(groupId, out _);
+        }
+    }
+
+    /// <summary>
     /// Clear all cached products
     /// </summary>
     public void Clear()

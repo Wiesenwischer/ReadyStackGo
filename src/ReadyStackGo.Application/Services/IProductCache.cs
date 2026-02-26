@@ -83,6 +83,12 @@ public interface IProductCache
     void RemoveBySource(string sourceId);
 
     /// <summary>
+    /// Atomically replace all products from a specific source.
+    /// Removes old products and adds new ones without a window where the cache is empty.
+    /// </summary>
+    void ReplaceBySource(string sourceId, IEnumerable<ProductDefinition> newProducts);
+
+    /// <summary>
     /// Clear all cached products
     /// </summary>
     void Clear();

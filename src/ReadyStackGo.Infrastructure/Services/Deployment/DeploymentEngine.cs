@@ -21,6 +21,12 @@ namespace ReadyStackGo.Infrastructure.Services.Deployment;
 /// </summary>
 public class DeploymentEngine : IDeploymentEngine
 {
+    /// <summary>
+    /// Network shared between RSGO and all deployed containers.
+    /// Enables Docker DNS resolution for HTTP health checks across networks.
+    /// </summary>
+    private const string ManagementNetwork = "rsgo-net";
+
     private readonly IConfigStore _configStore;
     private readonly IDockerService _dockerService;
     private readonly IOrganizationRepository _organizationRepository;
@@ -203,6 +209,9 @@ public class DeploymentEngine : IDeploymentEngine
 
                 await EnsureDockerNetworkAsync(environmentId, networkDef.ResolvedName);
             }
+
+            // Ensure management network exists (used for health check DNS resolution)
+            await EnsureDockerNetworkAsync(environmentId, ManagementNetwork);
 
             // Fallback: if no networks defined, create a default stack network
             var defaultNetwork = CreateNetworkName(stackName, "default");
@@ -786,18 +795,10 @@ public class DeploymentEngine : IDeploymentEngine
 
     private async Task EnsureDockerNetworkAsync(string environmentId, string networkName)
     {
-        try
-        {
-            _logger.LogInformation("Ensuring Docker network {Network} exists in environment {EnvironmentId}",
-                networkName, environmentId);
+        _logger.LogInformation("Ensuring Docker network {Network} exists in environment {EnvironmentId}",
+            networkName, environmentId);
 
-            await _dockerService.EnsureNetworkAsync(environmentId, networkName);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to ensure Docker network {Network} in environment {EnvironmentId}",
-                networkName, environmentId);
-        }
+        await _dockerService.EnsureNetworkAsync(environmentId, networkName);
     }
 
     /// <summary>
@@ -821,7 +822,16 @@ public class DeploymentEngine : IDeploymentEngine
         var (imageName, imageTag) = ParseImageReference(step.Image, step.Version);
 
         // Determine networks for this container
-        var networks = step.Networks.Count > 0 ? step.Networks : new List<string> { defaultNetwork };
+        var networks = step.Networks.Count > 0
+            ? new List<string>(step.Networks)
+            : new List<string> { defaultNetwork };
+
+        // Add management network so RSGO can reach containers for health checks.
+        // RSGO runs on this network; Docker DNS only resolves within the same network.
+        if (!networks.Contains(ManagementNetwork, StringComparer.OrdinalIgnoreCase))
+        {
+            networks.Add(ManagementNetwork);
+        }
 
         _logger.LogDebug("Container {Container} will be connected to networks: {Networks}",
             step.ContainerName, string.Join(", ", networks));
