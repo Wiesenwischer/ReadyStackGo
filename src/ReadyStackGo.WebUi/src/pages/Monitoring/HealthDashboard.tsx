@@ -1,13 +1,11 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router';
 import { useEnvironment } from '../../context/EnvironmentContext';
 import { useHealthHub } from '../../hooks/useHealthHub';
 import {
   getEnvironmentHealthSummary,
-  getStackHealth,
   getHealthStatusPresentation,
   type EnvironmentHealthSummaryDto,
-  type StackHealthSummaryDto,
   type StackHealthDto,
 } from '../../api/health';
 import HealthStackCard from '../../components/health/HealthStackCard';
@@ -17,7 +15,7 @@ type StatusFilter = 'all' | 'healthy' | 'degraded' | 'unhealthy';
 interface ProductGroup {
   productDeploymentId: string;
   productDisplayName: string;
-  stacks: StackHealthSummaryDto[];
+  stacks: StackHealthDto[];
   healthyStacks: number;
   totalStacks: number;
   healthyServices: number;
@@ -25,7 +23,7 @@ interface ProductGroup {
   overallStatus: string;
 }
 
-function aggregateProductStatus(stacks: StackHealthSummaryDto[]): string {
+function aggregateProductStatus(stacks: StackHealthDto[]): string {
   const statuses = stacks.map(s => s.overallStatus.toLowerCase());
   if (statuses.some(s => s === 'unhealthy')) return 'Unhealthy';
   if (statuses.some(s => s === 'degraded')) return 'Degraded';
@@ -36,8 +34,6 @@ function aggregateProductStatus(stacks: StackHealthSummaryDto[]): string {
 export default function HealthDashboard() {
   const { activeEnvironment } = useEnvironment();
   const [healthSummary, setHealthSummary] = useState<EnvironmentHealthSummaryDto | null>(null);
-  const [detailedHealthMap, setDetailedHealthMap] = useState<Record<string, StackHealthDto>>({});
-  const [loadingDetails, setLoadingDetails] = useState<Record<string, boolean>>({});
   const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,34 +52,17 @@ export default function HealthDashboard() {
     onDeploymentHealthChanged: (health) => {
       setHealthSummary((prev) => {
         if (!prev) return prev;
+        const updatedStacks = prev.stacks.map((s) =>
+          s.deploymentId === health.deploymentId ? health : s
+        );
         return {
           ...prev,
-          stacks: prev.stacks.map((s) =>
-            s.deploymentId === health.deploymentId ? health : s
-          ),
-          healthyCount: prev.stacks.filter((s) =>
-            s.deploymentId === health.deploymentId
-              ? health.overallStatus.toLowerCase() === 'healthy'
-              : s.overallStatus.toLowerCase() === 'healthy'
-          ).length,
-          degradedCount: prev.stacks.filter((s) =>
-            s.deploymentId === health.deploymentId
-              ? health.overallStatus.toLowerCase() === 'degraded'
-              : s.overallStatus.toLowerCase() === 'degraded'
-          ).length,
-          unhealthyCount: prev.stacks.filter((s) =>
-            s.deploymentId === health.deploymentId
-              ? health.overallStatus.toLowerCase() === 'unhealthy'
-              : s.overallStatus.toLowerCase() === 'unhealthy'
-          ).length,
+          stacks: updatedStacks,
+          healthyCount: updatedStacks.filter(s => s.overallStatus.toLowerCase() === 'healthy').length,
+          degradedCount: updatedStacks.filter(s => s.overallStatus.toLowerCase() === 'degraded').length,
+          unhealthyCount: updatedStacks.filter(s => s.overallStatus.toLowerCase() === 'unhealthy').length,
         };
       });
-    },
-    onDeploymentDetailedHealthChanged: (healthData) => {
-      setDetailedHealthMap((prev) => ({
-        ...prev,
-        [healthData.deploymentId]: healthData,
-      }));
     },
   });
 
@@ -121,27 +100,6 @@ export default function HealthDashboard() {
     }
   }, [connectionState, activeEnvironment, subscribeToEnvironment, unsubscribeFromEnvironment]);
 
-  // Load detailed health when a card is expanded
-  const handleExpandStack = useCallback(
-    async (deploymentId: string) => {
-      if (!activeEnvironment || detailedHealthMap[deploymentId]) return;
-
-      setLoadingDetails((prev) => ({ ...prev, [deploymentId]: true }));
-      try {
-        const healthData = await getStackHealth(activeEnvironment.id, deploymentId, true);
-        setDetailedHealthMap((prev) => ({
-          ...prev,
-          [deploymentId]: healthData,
-        }));
-      } catch (err) {
-        console.error('Failed to load detailed health:', err);
-      } finally {
-        setLoadingDetails((prev) => ({ ...prev, [deploymentId]: false }));
-      }
-    },
-    [activeEnvironment, detailedHealthMap]
-  );
-
   // Filter stacks — also match product display name in search
   const filteredStacks = useMemo(() => {
     return healthSummary?.stacks.filter((stack) => {
@@ -165,7 +123,7 @@ export default function HealthDashboard() {
   // Group filtered stacks by product
   const { productGroups, standaloneStacks, productCount, standaloneCount } = useMemo(() => {
     const groups = new Map<string, ProductGroup>();
-    const standalone: StackHealthSummaryDto[] = [];
+    const standalone: StackHealthDto[] = [];
 
     for (const stack of filteredStacks) {
       if (stack.productDeploymentId && stack.productDisplayName) {
@@ -459,9 +417,6 @@ export default function HealthDashboard() {
               group={group}
               isExpanded={expandedProducts.has(group.productDeploymentId)}
               onToggle={() => toggleProductExpanded(group.productDeploymentId)}
-              detailedHealthMap={detailedHealthMap}
-              loadingDetails={loadingDetails}
-              onExpandStack={handleExpandStack}
             />
           ))}
 
@@ -477,9 +432,6 @@ export default function HealthDashboard() {
             <HealthStackCard
               key={stack.deploymentId}
               stack={stack}
-              detailedHealth={detailedHealthMap[stack.deploymentId]}
-              onExpand={handleExpandStack}
-              isLoading={loadingDetails[stack.deploymentId]}
             />
           ))}
         </div>
@@ -509,13 +461,10 @@ function SummaryCard({ label, count, bgColor, textColor, labelColor, dotColor }:
   );
 }
 
-function ProductGroupCard({ group, isExpanded, onToggle, detailedHealthMap, loadingDetails, onExpandStack }: {
+function ProductGroupCard({ group, isExpanded, onToggle }: {
   group: ProductGroup;
   isExpanded: boolean;
   onToggle: () => void;
-  detailedHealthMap: Record<string, StackHealthDto>;
-  loadingDetails: Record<string, boolean>;
-  onExpandStack: (deploymentId: string) => void;
 }) {
   const statusPresentation = getHealthStatusPresentation(group.overallStatus);
 
@@ -571,9 +520,6 @@ function ProductGroupCard({ group, isExpanded, onToggle, detailedHealthMap, load
               <HealthStackCard
                 key={stack.deploymentId}
                 stack={stack}
-                detailedHealth={detailedHealthMap[stack.deploymentId]}
-                onExpand={onExpandStack}
-                isLoading={loadingDetails[stack.deploymentId]}
               />
             ))}
           </div>

@@ -19,7 +19,6 @@ import {
   getStackHealth,
   enterMaintenanceMode,
   exitMaintenanceMode,
-  type StackHealthSummaryDto,
   type StackHealthDto,
   type ServiceHealthDto
 } from "../../api/health";
@@ -29,8 +28,7 @@ export default function DeploymentDetail() {
   const { stackName } = useParams<{ stackName: string }>();
   const { activeEnvironment } = useEnvironment();
   const [deployment, setDeployment] = useState<GetDeploymentResponse | null>(null);
-  const [health, setHealth] = useState<StackHealthSummaryDto | null>(null);
-  const [detailedHealth, setDetailedHealth] = useState<StackHealthDto | null>(null);
+  const [health, setHealth] = useState<StackHealthDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modeActionLoading, setModeActionLoading] = useState(false);
@@ -46,25 +44,11 @@ export default function DeploymentDetail() {
   const [markFailedLoading, setMarkFailedLoading] = useState(false);
   const [markFailedError, setMarkFailedError] = useState<string | null>(null);
 
-  // SignalR Health Hub connection - subscribe to deployment for detailed health updates
+  // SignalR Health Hub connection
   const { connectionState, subscribeToDeployment, unsubscribeFromDeployment } = useHealthHub({
-    onDeploymentDetailedHealthChanged: (healthData) => {
-      // Update detailed health if it matches our deployment
+    onDeploymentHealthChanged: (healthData) => {
       if (deployment?.deploymentId && healthData.deploymentId === deployment.deploymentId) {
-        setDetailedHealth(healthData);
-        // Also update summary from detailed data
-        setHealth({
-          deploymentId: healthData.deploymentId,
-          stackName: healthData.stackName,
-          currentVersion: healthData.currentVersion,
-          overallStatus: healthData.overallStatus,
-          operationMode: healthData.operationMode,
-          healthyServices: healthData.self.healthyCount,
-          totalServices: healthData.self.totalCount,
-          statusMessage: healthData.statusMessage,
-          requiresAttention: healthData.requiresAttention,
-          capturedAtUtc: healthData.capturedAtUtc
-        });
+        setHealth(healthData);
       }
     }
   });
@@ -94,24 +78,11 @@ export default function DeploymentDetail() {
         if (response.success) {
           setDeployment(response);
 
-          // Load detailed health data with service info (force refresh for immediate data)
+          // Load health data (force refresh for immediate data)
           if (response.deploymentId) {
             try {
               const healthData = await getStackHealth(activeEnvironment.id, response.deploymentId, true);
-              setDetailedHealth(healthData);
-              // Also set the health summary from detailed data
-              setHealth({
-                deploymentId: healthData.deploymentId,
-                stackName: healthData.stackName,
-                currentVersion: healthData.currentVersion,
-                overallStatus: healthData.overallStatus,
-                operationMode: healthData.operationMode,
-                healthyServices: healthData.self.healthyCount,
-                totalServices: healthData.self.totalCount,
-                statusMessage: healthData.statusMessage,
-                requiresAttention: healthData.requiresAttention,
-                capturedAtUtc: healthData.capturedAtUtc
-              });
+              setHealth(healthData);
             } catch (healthErr) {
               console.warn("Could not load health data:", healthErr);
             }
@@ -176,28 +147,15 @@ export default function DeploymentDetail() {
       if (!response.success) {
         setModeActionError(response.message || 'Failed to enter maintenance mode');
       } else {
-        // Optimistically update local state
-        if (health) {
-          setHealth({ ...health, operationMode: 'Maintenance' });
-        }
-        // Also refresh health data from server to get full updated state
+        // Refresh health data from server
         try {
           const healthData = await getStackHealth(activeEnvironment.id, deployment.deploymentId, true);
-          setDetailedHealth(healthData);
-          setHealth({
-            deploymentId: healthData.deploymentId,
-            stackName: healthData.stackName,
-            currentVersion: healthData.currentVersion,
-            overallStatus: healthData.overallStatus,
-            operationMode: healthData.operationMode,
-            healthyServices: healthData.self.healthyCount,
-            totalServices: healthData.self.totalCount,
-            statusMessage: healthData.statusMessage,
-            requiresAttention: healthData.requiresAttention,
-            capturedAtUtc: healthData.capturedAtUtc
-          });
+          setHealth(healthData);
         } catch {
-          // Ignore refresh errors, optimistic update is enough
+          // Optimistic fallback
+          if (health) {
+            setHealth({ ...health, operationMode: 'Maintenance' });
+          }
         }
       }
     } catch (err) {
@@ -216,28 +174,15 @@ export default function DeploymentDetail() {
       if (!response.success) {
         setModeActionError(response.message || 'Failed to exit maintenance mode');
       } else {
-        // Optimistically update local state
-        if (health) {
-          setHealth({ ...health, operationMode: 'Normal' });
-        }
-        // Also refresh health data from server to get full updated state
+        // Refresh health data from server
         try {
           const healthData = await getStackHealth(activeEnvironment.id, deployment.deploymentId, true);
-          setDetailedHealth(healthData);
-          setHealth({
-            deploymentId: healthData.deploymentId,
-            stackName: healthData.stackName,
-            currentVersion: healthData.currentVersion,
-            overallStatus: healthData.overallStatus,
-            operationMode: healthData.operationMode,
-            healthyServices: healthData.self.healthyCount,
-            totalServices: healthData.self.totalCount,
-            statusMessage: healthData.statusMessage,
-            requiresAttention: healthData.requiresAttention,
-            capturedAtUtc: healthData.capturedAtUtc
-          });
+          setHealth(healthData);
         } catch {
-          // Ignore refresh errors, optimistic update is enough
+          // Optimistic fallback
+          if (health) {
+            setHealth({ ...health, operationMode: 'Normal' });
+          }
         }
       }
     } catch (err) {
@@ -620,18 +565,18 @@ export default function DeploymentDetail() {
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div className="px-4 py-6 md:px-6 xl:px-7.5">
           <h4 className="text-xl font-semibold text-black dark:text-white">
-            Services ({detailedHealth?.self.services.length ?? deployment.services.length})
+            Services ({health?.self.services.length ?? deployment.services.length})
           </h4>
         </div>
 
         <div className="border-t border-stroke dark:border-strokedark">
-          {(detailedHealth?.self.services.length ?? deployment.services.length) === 0 ? (
+          {(health?.self.services.length ?? deployment.services.length) === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-gray-600 dark:text-gray-400">
               No services found
             </div>
-          ) : detailedHealth ? (
+          ) : health ? (
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {detailedHealth.self.services.map((service) => (
+              {health.self.services.map((service) => (
                 <ServiceHealthRow key={service.name} service={service} />
               ))}
             </div>

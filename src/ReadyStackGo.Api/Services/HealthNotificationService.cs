@@ -25,34 +25,18 @@ public class HealthNotificationService : IHealthNotificationService
 
     public async Task NotifyDeploymentHealthChangedAsync(
         DeploymentId deploymentId,
-        StackHealthSummaryDto healthSummary,
+        StackHealthDto health,
         CancellationToken cancellationToken = default)
     {
         var groupName = $"deploy:{deploymentId.Value}";
 
         _logger.LogDebug(
-            "Sending health summary for deployment {DeploymentId} to group {Group}",
-            deploymentId, groupName);
+            "Sending health for deployment {DeploymentId} to group {Group} with {ServiceCount} services",
+            deploymentId, groupName, health.Self.Services.Count);
 
         await _hubContext.Clients
             .Group(groupName)
-            .SendAsync("DeploymentHealthChanged", healthSummary, cancellationToken);
-    }
-
-    public async Task NotifyDeploymentDetailedHealthChangedAsync(
-        DeploymentId deploymentId,
-        StackHealthDto detailedHealth,
-        CancellationToken cancellationToken = default)
-    {
-        var groupName = $"deploy:{deploymentId.Value}";
-
-        _logger.LogDebug(
-            "Sending detailed health for deployment {DeploymentId} to group {Group} with {ServiceCount} services",
-            deploymentId, groupName, detailedHealth.Self.Services.Count);
-
-        await _hubContext.Clients
-            .Group(groupName)
-            .SendAsync("DeploymentDetailedHealthChanged", detailedHealth, cancellationToken);
+            .SendAsync("DeploymentHealthChanged", health, cancellationToken);
     }
 
     public async Task NotifyEnvironmentHealthChangedAsync(
@@ -72,16 +56,16 @@ public class HealthNotificationService : IHealthNotificationService
     }
 
     public async Task NotifyGlobalHealthChangedAsync(
-        StackHealthSummaryDto healthSummary,
+        StackHealthDto health,
         CancellationToken cancellationToken = default)
     {
         _logger.LogDebug(
             "Sending global health update for stack {StackName}",
-            healthSummary.StackName);
+            health.StackName);
 
         await _hubContext.Clients
             .Group("health:all")
-            .SendAsync("GlobalHealthChanged", healthSummary, cancellationToken);
+            .SendAsync("GlobalHealthChanged", health, cancellationToken);
     }
 
     public async Task NotifyObserverResultAsync(

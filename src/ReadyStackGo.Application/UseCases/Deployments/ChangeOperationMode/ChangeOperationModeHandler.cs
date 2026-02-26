@@ -161,24 +161,41 @@ public class ChangeOperationModeHandler : IRequestHandler<ChangeOperationModeCom
     {
         try
         {
-            // Create a health summary with the updated operation mode
-            var healthSummary = new StackHealthSummaryDto
+            var healthyCount = deployment.Services.Count(s => s.Status == "running");
+
+            // Create a health DTO with the updated operation mode
+            var healthDto = new StackHealthDto
             {
                 DeploymentId = deployment.Id.Value.ToString(),
+                EnvironmentId = deployment.EnvironmentId.Value.ToString(),
                 StackName = deployment.StackName,
                 CurrentVersion = deployment.StackVersion,
+                TargetVersion = null,
                 OverallStatus = deployment.OperationMode == OperationMode.Normal ? "Healthy" : "Degraded",
                 OperationMode = deployment.OperationMode.Name,
-                HealthyServices = deployment.Services.Count(s => s.Status == "running"),
+                HealthyServices = healthyCount,
                 TotalServices = deployment.Services.Count,
                 StatusMessage = GetStatusMessage(deployment),
                 RequiresAttention = deployment.OperationMode == OperationMode.Maintenance,
-                CapturedAtUtc = DateTime.UtcNow
+                CapturedAtUtc = DateTime.UtcNow,
+                Self = new SelfHealthDto
+                {
+                    Status = deployment.OperationMode == OperationMode.Normal ? "Healthy" : "Degraded",
+                    HealthyCount = healthyCount,
+                    TotalCount = deployment.Services.Count,
+                    Services = deployment.Services.Select(s => new ServiceHealthDto
+                    {
+                        Name = s.ServiceName,
+                        Status = s.Status == "running" ? "Healthy" : "Unhealthy",
+                        ContainerId = s.ContainerId,
+                        ContainerName = s.ContainerName,
+                    }).ToList()
+                }
             };
 
             // Notify clients subscribed to this deployment
             await _healthNotificationService.NotifyDeploymentHealthChangedAsync(
-                deployment.Id, healthSummary, cancellationToken);
+                deployment.Id, healthDto, cancellationToken);
 
             // Also notify via environment channel (UI subscribes to this)
             var environmentSummary = new EnvironmentHealthSummaryDto
@@ -189,7 +206,7 @@ public class ChangeOperationModeHandler : IRequestHandler<ChangeOperationModeCom
                 HealthyCount = deployment.OperationMode == OperationMode.Normal ? 1 : 0,
                 DegradedCount = deployment.OperationMode == OperationMode.Maintenance ? 1 : 0,
                 UnhealthyCount = 0,
-                Stacks = new List<StackHealthSummaryDto> { healthSummary }
+                Stacks = new List<StackHealthDto> { healthDto }
             };
 
             await _healthNotificationService.NotifyEnvironmentHealthChangedAsync(
@@ -197,7 +214,7 @@ public class ChangeOperationModeHandler : IRequestHandler<ChangeOperationModeCom
 
             // Also notify via global channel
             await _healthNotificationService.NotifyGlobalHealthChangedAsync(
-                healthSummary, cancellationToken);
+                healthDto, cancellationToken);
 
             _logger.LogDebug(
                 "Sent SignalR notification for operation mode change on deployment {DeploymentId}",

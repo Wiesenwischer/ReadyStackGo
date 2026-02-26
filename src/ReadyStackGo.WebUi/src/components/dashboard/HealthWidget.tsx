@@ -6,7 +6,7 @@ import {
   getEnvironmentHealthSummary,
   getHealthStatusPresentation,
   type EnvironmentHealthSummaryDto,
-  type StackHealthSummaryDto,
+  type StackHealthDto,
 } from '../../api/health';
 
 interface HealthWidgetProps {
@@ -16,13 +16,13 @@ interface HealthWidgetProps {
 interface ProductHealthGroup {
   productDeploymentId: string;
   productDisplayName: string;
-  stacks: StackHealthSummaryDto[];
+  stacks: StackHealthDto[];
   healthyStacks: number;
   totalStacks: number;
   overallStatus: string;
 }
 
-function aggregateProductStatus(stacks: StackHealthSummaryDto[]): string {
+function aggregateProductStatus(stacks: StackHealthDto[]): string {
   const statuses = stacks.map(s => s.overallStatus.toLowerCase());
   if (statuses.some(s => s === 'unhealthy')) return 'Unhealthy';
   if (statuses.some(s => s === 'degraded')) return 'Degraded';
@@ -47,26 +47,15 @@ export default function HealthWidget({ className = '' }: HealthWidgetProps) {
       // Update individual deployment in current summary
       setHealthSummary((prev) => {
         if (!prev) return prev;
+        const updatedStacks = prev.stacks.map((s) =>
+          s.deploymentId === health.deploymentId ? health : s
+        );
         return {
           ...prev,
-          stacks: prev.stacks.map((s) =>
-            s.deploymentId === health.deploymentId ? health : s
-          ),
-          healthyCount: prev.stacks.filter(s =>
-            s.deploymentId === health.deploymentId
-              ? health.overallStatus.toLowerCase() === 'healthy'
-              : s.overallStatus.toLowerCase() === 'healthy'
-          ).length,
-          degradedCount: prev.stacks.filter(s =>
-            s.deploymentId === health.deploymentId
-              ? health.overallStatus.toLowerCase() === 'degraded'
-              : s.overallStatus.toLowerCase() === 'degraded'
-          ).length,
-          unhealthyCount: prev.stacks.filter(s =>
-            s.deploymentId === health.deploymentId
-              ? health.overallStatus.toLowerCase() === 'unhealthy'
-              : s.overallStatus.toLowerCase() === 'unhealthy'
-          ).length,
+          stacks: updatedStacks,
+          healthyCount: updatedStacks.filter(s => s.overallStatus.toLowerCase() === 'healthy').length,
+          degradedCount: updatedStacks.filter(s => s.overallStatus.toLowerCase() === 'degraded').length,
+          unhealthyCount: updatedStacks.filter(s => s.overallStatus.toLowerCase() === 'unhealthy').length,
         };
       });
     },
@@ -111,7 +100,7 @@ export default function HealthWidget({ className = '' }: HealthWidgetProps) {
     if (!healthSummary) return { productGroups: [], standaloneStacks: [] };
 
     const groups = new Map<string, ProductHealthGroup>();
-    const standalone: StackHealthSummaryDto[] = [];
+    const standalone: StackHealthDto[] = [];
 
     for (const stack of healthSummary.stacks) {
       // Skip stacks with no services (e.g. containers deleted outside RSGO)

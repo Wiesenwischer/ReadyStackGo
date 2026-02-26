@@ -11,14 +11,14 @@ import { useHealthHub } from "../../hooks/useHealthHub";
 import {
   getHealthStatusPresentation,
   getOperationModePresentation,
-  type StackHealthSummaryDto
+  type StackHealthDto
 } from "../../api/health";
 
 export default function Deployments() {
   const { activeEnvironment } = useEnvironment();
   const [deployments, setDeployments] = useState<DeploymentSummary[]>([]);
   const [productDeployments, setProductDeployments] = useState<ProductDeploymentSummaryDto[]>([]);
-  const [healthData, setHealthData] = useState<Map<string, StackHealthSummaryDto>>(new Map());
+  const [healthData, setHealthData] = useState<Map<string, StackHealthDto>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +33,7 @@ export default function Deployments() {
     },
     onEnvironmentHealthChanged: (summary) => {
       // Update all stacks from environment summary
-      const newMap = new Map<string, StackHealthSummaryDto>();
+      const newMap = new Map<string, StackHealthDto>();
       summary.stacks.forEach(stack => {
         newMap.set(stack.deploymentId, stack);
       });
@@ -340,7 +340,7 @@ function ProductDeploymentRow({ deployment, formatDate }: ProductDeploymentRowPr
 
 interface DeploymentRowProps {
   deployment: DeploymentSummary;
-  health?: StackHealthSummaryDto;
+  health?: StackHealthDto;
   formatDate: (date: string) => string;
 }
 

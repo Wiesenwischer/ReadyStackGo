@@ -9,12 +9,16 @@ export interface StackHealthDto {
   targetVersion: string | null;
   overallStatus: string;
   operationMode: string;
+  healthyServices: number;
+  totalServices: number;
   statusMessage: string;
   requiresAttention: boolean;
   capturedAtUtc: string;
   self: SelfHealthDto;
   bus: BusHealthDto | null;
   infra: InfraHealthDto | null;
+  productDeploymentId?: string;
+  productDisplayName?: string;
 }
 
 export interface SelfHealthDto {
@@ -84,7 +88,7 @@ export interface EnvironmentHealthSummaryDto {
   healthyCount: number;
   degradedCount: number;
   unhealthyCount: number;
-  stacks: StackHealthSummaryDto[];
+  stacks: StackHealthDto[];
 }
 
 export interface StackHealthSummaryDto {
