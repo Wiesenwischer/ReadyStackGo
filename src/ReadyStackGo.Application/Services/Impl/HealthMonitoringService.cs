@@ -212,6 +212,8 @@ public class HealthMonitoringService : IHealthMonitoringService
         HealthStatus healthStatus;
         string? reason = null;
         int? restartCount = null;
+        IReadOnlyList<HealthCheckEntry>? healthCheckEntries = null;
+        int? responseTimeMs = null;
 
         // Check if container is running first - if not, HTTP check doesn't make sense
         if (container.State.ToLowerInvariant() != "running")
@@ -226,6 +228,8 @@ public class HealthMonitoringService : IHealthMonitoringService
                 container, serviceName, healthConfig, cancellationToken);
             healthStatus = httpResult.Status;
             reason = httpResult.Reason;
+            healthCheckEntries = httpResult.Entries;
+            responseTimeMs = httpResult.ResponseTimeMs;
         }
         // Fall back to Docker status
         else
@@ -247,13 +251,16 @@ public class HealthMonitoringService : IHealthMonitoringService
             container.Id,
             container.Name.TrimStart('/'),
             reason,
-            restartCount);
+            restartCount,
+            healthCheckEntries,
+            responseTimeMs);
     }
 
     /// <summary>
     /// Performs HTTP health check for a container.
+    /// Returns status, reason, health check entries, and response time.
     /// </summary>
-    private async Task<(HealthStatus Status, string? Reason)> PerformHttpHealthCheckAsync(
+    private async Task<HttpHealthCheckPipelineResult> PerformHttpHealthCheckAsync(
         ContainerDto container,
         string serviceName,
         ServiceHealthCheckConfig config,
@@ -269,7 +276,8 @@ public class HealthMonitoringService : IHealthMonitoringService
             _logger.LogWarning(
                 "No port configured for HTTP health check on service {ServiceName}, falling back to Docker status",
                 serviceName);
-            return (DetermineHealthStatusFromDocker(container), "No port for HTTP health check");
+            return new HttpHealthCheckPipelineResult(
+                DetermineHealthStatusFromDocker(container), "No port for HTTP health check");
         }
 
         var httpConfig = new HttpHealthCheckConfig
@@ -286,9 +294,21 @@ public class HealthMonitoringService : IHealthMonitoringService
             var result = await _httpHealthChecker!.CheckHealthAsync(
                 containerAddress, httpConfig, cancellationToken);
 
+            // Map entries from infrastructure result to domain value objects
+            var entries = result.Entries?.Select(e => HealthCheckEntry.Create(
+                e.Name,
+                MapEntryStatus(e.Status),
+                e.Description,
+                e.DurationMs,
+                e.Data,
+                e.Tags as IReadOnlyList<string>,
+                e.Exception
+            )).ToList() as IReadOnlyList<HealthCheckEntry>;
+
             if (result.IsHealthy)
             {
-                return (HealthStatus.Healthy, null);
+                return new HttpHealthCheckPipelineResult(
+                    HealthStatus.Healthy, null, entries, result.ResponseTimeMs);
             }
             else
             {
@@ -307,15 +327,34 @@ public class HealthMonitoringService : IHealthMonitoringService
                     reason += $" ({result.ResponseTimeMs}ms)";
                 }
 
-                return (status, reason);
+                return new HttpHealthCheckPipelineResult(
+                    status, reason, entries, result.ResponseTimeMs);
             }
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "HTTP health check failed for {ServiceName}", serviceName);
-            return (HealthStatus.Unhealthy, $"HTTP health check error: {ex.Message}");
+            return new HttpHealthCheckPipelineResult(
+                HealthStatus.Unhealthy, $"HTTP health check error: {ex.Message}");
         }
     }
+
+    private static HealthStatus MapEntryStatus(string statusString)
+    {
+        return statusString.ToLowerInvariant() switch
+        {
+            "healthy" => HealthStatus.Healthy,
+            "degraded" => HealthStatus.Degraded,
+            "unhealthy" => HealthStatus.Unhealthy,
+            _ => HealthStatus.Unknown
+        };
+    }
+
+    private record HttpHealthCheckPipelineResult(
+        HealthStatus Status,
+        string? Reason,
+        IReadOnlyList<HealthCheckEntry>? Entries = null,
+        int? ResponseTimeMs = null);
 
     /// <summary>
     /// Gets the first exposed port from a container.
