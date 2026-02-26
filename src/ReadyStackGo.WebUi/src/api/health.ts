@@ -35,6 +35,18 @@ export interface ServiceHealthDto {
   containerName: string | null;
   reason: string | null;
   restartCount: number;
+  healthCheckEntries?: HealthCheckEntryDto[];
+  responseTimeMs?: number;
+}
+
+export interface HealthCheckEntryDto {
+  name: string;
+  status: string;
+  description?: string;
+  durationMs?: number;
+  data?: Record<string, string>;
+  tags?: string[];
+  exception?: string;
 }
 
 export interface BusHealthDto {
