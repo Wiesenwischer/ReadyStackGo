@@ -56,7 +56,7 @@ public class HttpHealthChecker : IHttpHealthChecker
 
             // Try to parse ASP.NET Core health response
             string? reportedStatus = null;
-            Dictionary<string, string>? details = null;
+            List<HealthCheckEntryResult>? entries = null;
 
             try
             {
@@ -65,7 +65,7 @@ public class HttpHealthChecker : IHttpHealthChecker
                 {
                     var parsed = ParseHealthResponse(content);
                     reportedStatus = parsed.Status;
-                    details = parsed.Details;
+                    entries = parsed.Entries;
                 }
             }
             catch (Exception ex)
@@ -90,7 +90,7 @@ public class HttpHealthChecker : IHttpHealthChecker
                     StatusCode = statusCode,
                     ResponseTimeMs = responseTimeMs,
                     ReportedStatus = reportedStatus ?? "Healthy",
-                    Details = details
+                    Entries = entries
                 };
             }
             else
@@ -108,7 +108,7 @@ public class HttpHealthChecker : IHttpHealthChecker
                     ResponseTimeMs = responseTimeMs,
                     Error = error,
                     ReportedStatus = reportedStatus ?? "Unhealthy",
-                    Details = details
+                    Entries = entries
                 };
             }
         }
@@ -140,9 +140,9 @@ public class HttpHealthChecker : IHttpHealthChecker
 
     /// <summary>
     /// Parses ASP.NET Core health check response format.
-    /// Supports both simple string responses and JSON responses.
+    /// Supports both simple string responses and JSON responses with full entry details.
     /// </summary>
-    private (string? Status, Dictionary<string, string>? Details) ParseHealthResponse(string content)
+    private (string? Status, List<HealthCheckEntryResult>? Entries) ParseHealthResponse(string content)
     {
         content = content.Trim();
 
@@ -169,30 +169,24 @@ public class HttpHealthChecker : IHttpHealthChecker
                     status = statusProp.GetString();
                 }
 
-                // Try to extract individual check results
-                Dictionary<string, string>? details = null;
-                if (json.TryGetProperty("entries", out var entries) ||
-                    json.TryGetProperty("Entries", out entries) ||
-                    json.TryGetProperty("results", out entries) ||
-                    json.TryGetProperty("Results", out entries))
+                // Try to extract individual check results with full details
+                List<HealthCheckEntryResult>? entries = null;
+                if (json.TryGetProperty("entries", out var entriesElement) ||
+                    json.TryGetProperty("Entries", out entriesElement) ||
+                    json.TryGetProperty("results", out entriesElement) ||
+                    json.TryGetProperty("Results", out entriesElement))
                 {
-                    details = new Dictionary<string, string>();
-                    if (entries.ValueKind == JsonValueKind.Object)
+                    if (entriesElement.ValueKind == JsonValueKind.Object)
                     {
-                        foreach (var entry in entries.EnumerateObject())
+                        entries = new List<HealthCheckEntryResult>();
+                        foreach (var entry in entriesElement.EnumerateObject())
                         {
-                            var entryStatus = "Unknown";
-                            if (entry.Value.TryGetProperty("status", out var entryStatusProp) ||
-                                entry.Value.TryGetProperty("Status", out entryStatusProp))
-                            {
-                                entryStatus = entryStatusProp.GetString() ?? "Unknown";
-                            }
-                            details[entry.Name] = entryStatus;
+                            entries.Add(ParseHealthCheckEntry(entry.Name, entry.Value));
                         }
                     }
                 }
 
-                return (status, details);
+                return (status, entries);
             }
             catch (JsonException)
             {
@@ -201,5 +195,93 @@ public class HttpHealthChecker : IHttpHealthChecker
         }
 
         return (null, null);
+    }
+
+    private static HealthCheckEntryResult ParseHealthCheckEntry(string name, JsonElement entry)
+    {
+        var entryStatus = "Unknown";
+        if (entry.TryGetProperty("status", out var statusProp) ||
+            entry.TryGetProperty("Status", out statusProp))
+        {
+            entryStatus = statusProp.GetString() ?? "Unknown";
+        }
+
+        string? description = null;
+        if (entry.TryGetProperty("description", out var descProp) ||
+            entry.TryGetProperty("Description", out descProp))
+        {
+            description = descProp.ValueKind == JsonValueKind.String ? descProp.GetString() : null;
+        }
+
+        double? durationMs = null;
+        if (entry.TryGetProperty("duration", out var durationProp) ||
+            entry.TryGetProperty("Duration", out durationProp))
+        {
+            durationMs = ParseDurationToMs(durationProp);
+        }
+
+        Dictionary<string, string>? data = null;
+        if (entry.TryGetProperty("data", out var dataProp) ||
+            entry.TryGetProperty("Data", out dataProp))
+        {
+            if (dataProp.ValueKind == JsonValueKind.Object)
+            {
+                data = new Dictionary<string, string>();
+                foreach (var kvp in dataProp.EnumerateObject())
+                {
+                    data[kvp.Name] = kvp.Value.ToString();
+                }
+            }
+        }
+
+        List<string>? tags = null;
+        if (entry.TryGetProperty("tags", out var tagsProp) ||
+            entry.TryGetProperty("Tags", out tagsProp))
+        {
+            if (tagsProp.ValueKind == JsonValueKind.Array)
+            {
+                tags = new List<string>();
+                foreach (var tag in tagsProp.EnumerateArray())
+                {
+                    var tagStr = tag.GetString();
+                    if (tagStr != null)
+                        tags.Add(tagStr);
+                }
+            }
+        }
+
+        string? exception = null;
+        if (entry.TryGetProperty("exception", out var exProp) ||
+            entry.TryGetProperty("Exception", out exProp))
+        {
+            exception = exProp.ValueKind == JsonValueKind.String ? exProp.GetString() : null;
+        }
+
+        return new HealthCheckEntryResult
+        {
+            Name = name,
+            Status = entryStatus,
+            Description = description,
+            DurationMs = durationMs,
+            Data = data,
+            Tags = tags,
+            Exception = exception
+        };
+    }
+
+    private static double? ParseDurationToMs(JsonElement durationProp)
+    {
+        if (durationProp.ValueKind == JsonValueKind.String)
+        {
+            var durationStr = durationProp.GetString();
+            if (durationStr != null && TimeSpan.TryParse(durationStr, out var ts))
+                return ts.TotalMilliseconds;
+        }
+        else if (durationProp.ValueKind == JsonValueKind.Number)
+        {
+            return durationProp.GetDouble();
+        }
+
+        return null;
     }
 }
