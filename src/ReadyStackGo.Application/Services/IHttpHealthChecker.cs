@@ -84,7 +84,14 @@ public record HttpHealthCheckResult
     /// <summary>
     /// Additional details from the health response (e.g., individual check results).
     /// </summary>
+    [Obsolete("Use Entries instead. Will be removed in v1.0.")]
     public Dictionary<string, string>? Details { get; init; }
+
+    /// <summary>
+    /// Parsed health check entries from the response body.
+    /// Each entry represents an individual health check (e.g., database, redis, disk).
+    /// </summary>
+    public List<HealthCheckEntryResult>? Entries { get; init; }
 
     public static HttpHealthCheckResult Healthy(int statusCode, int responseTimeMs, string? reportedStatus = null) =>
         new()
@@ -112,4 +119,45 @@ public record HttpHealthCheckResult
             Error = error,
             ReportedStatus = "Unhealthy"
         };
+}
+
+/// <summary>
+/// Parsed health check entry from an ASP.NET Core HealthReport response.
+/// </summary>
+public record HealthCheckEntryResult
+{
+    /// <summary>
+    /// Name of the health check (e.g., "database", "redis", "disk").
+    /// </summary>
+    public required string Name { get; init; }
+
+    /// <summary>
+    /// Status string (e.g., "Healthy", "Degraded", "Unhealthy").
+    /// </summary>
+    public required string Status { get; init; }
+
+    /// <summary>
+    /// Optional description from the health check.
+    /// </summary>
+    public string? Description { get; init; }
+
+    /// <summary>
+    /// Duration of the health check in milliseconds.
+    /// </summary>
+    public double? DurationMs { get; init; }
+
+    /// <summary>
+    /// Additional data reported by the health check (key-value pairs).
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? Data { get; init; }
+
+    /// <summary>
+    /// Tags associated with the health check.
+    /// </summary>
+    public IReadOnlyList<string>? Tags { get; init; }
+
+    /// <summary>
+    /// Exception message if the health check threw an exception.
+    /// </summary>
+    public string? Exception { get; init; }
 }
