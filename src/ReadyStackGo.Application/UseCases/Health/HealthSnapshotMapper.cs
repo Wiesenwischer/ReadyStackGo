@@ -56,6 +56,13 @@ public static class HealthSnapshotMapper
         };
     }
 
+    /// <summary>
+    /// Maps a single ServiceHealth domain object to a ServiceHealthDto.
+    /// Used by GetServiceHealthHandler for service-level detail queries.
+    /// </summary>
+    public static ServiceHealthDto MapServiceToDto(ServiceHealth service) =>
+        MapServiceHealth(service);
+
     private static ServiceHealthDto MapServiceHealth(ServiceHealth service)
     {
         return new ServiceHealthDto
