@@ -44,6 +44,7 @@ export default function ContainerLogs() {
     }
   }, [lines, autoScroll]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleLogLine = useCallback((_containerId: string, logLine: string) => {
     setLines(prev => {
       const next = [...prev, logLine];
@@ -51,7 +52,7 @@ export default function ContainerLogs() {
     });
   }, []);
 
-  const handleStreamEnded = useCallback((_containerId: string, _reason: string) => {
+  const handleStreamEnded = useCallback(() => {
     setStreamEnded(true);
   }, []);
 
