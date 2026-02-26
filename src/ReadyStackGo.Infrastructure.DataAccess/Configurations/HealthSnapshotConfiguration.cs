@@ -131,7 +131,18 @@ public class HealthSnapshotConfiguration : IEntityTypeConfiguration<HealthSnapsh
                 ContainerId = s.ContainerId,
                 ContainerName = s.ContainerName,
                 Reason = s.Reason,
-                RestartCount = s.RestartCount
+                RestartCount = s.RestartCount,
+                HealthCheckEntries = s.HealthCheckEntries?.Select(e => new HealthCheckEntryDto
+                {
+                    Name = e.Name,
+                    Status = e.Status.Value,
+                    Description = e.Description,
+                    DurationMs = e.DurationMs,
+                    Data = e.Data?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
+                    Tags = e.Tags?.ToList(),
+                    Exception = e.Exception
+                }).ToList(),
+                ResponseTimeMs = s.ResponseTimeMs
             }).ToList()
         };
         return JsonSerializer.Serialize(dto, JsonOptions);
@@ -153,7 +164,17 @@ public class HealthSnapshotConfiguration : IEntityTypeConfiguration<HealthSnapsh
                 s.ContainerId,
                 s.ContainerName,
                 s.Reason,
-                s.RestartCount));
+                s.RestartCount,
+                s.HealthCheckEntries?.Select(e =>
+                    HealthCheckEntry.Create(
+                        e.Name,
+                        HealthStatus.FromValue(e.Status),
+                        e.Description,
+                        e.DurationMs,
+                        e.Data,
+                        e.Tags,
+                        e.Exception)).ToList(),
+                s.ResponseTimeMs));
 
         return SelfHealth.Create(services);
     }
@@ -282,6 +303,19 @@ public class HealthSnapshotConfiguration : IEntityTypeConfiguration<HealthSnapsh
         public string? ContainerName { get; set; }
         public string? Reason { get; set; }
         public int? RestartCount { get; set; }
+        public List<HealthCheckEntryDto>? HealthCheckEntries { get; set; }
+        public int? ResponseTimeMs { get; set; }
+    }
+
+    private class HealthCheckEntryDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public int Status { get; set; }
+        public string? Description { get; set; }
+        public double? DurationMs { get; set; }
+        public Dictionary<string, string>? Data { get; set; }
+        public List<string>? Tags { get; set; }
+        public string? Exception { get; set; }
     }
 
     private class BusHealthDto
