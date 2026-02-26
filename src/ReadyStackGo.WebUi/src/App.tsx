@@ -11,6 +11,7 @@ import UpgradeStack from "./pages/Deployments/UpgradeStack";
 import RollbackStack from "./pages/Deployments/RollbackStack";
 import RemoveStack from "./pages/Deployments/RemoveStack";
 import HealthDashboard from "./pages/Monitoring/HealthDashboard";
+import ServiceHealthDetail from "./pages/Monitoring/ServiceHealthDetail";
 import StackCatalog from "./pages/Catalog/StackCatalog";
 import ProductDetail from "./pages/Catalog/ProductDetail";
 import DeployStack from "./pages/Deployments/DeployStack";
@@ -187,6 +188,14 @@ export default function App() {
                   element={
                     <EnvironmentGuard>
                       <HealthDashboard />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/health/:deploymentId/:serviceName"
+                  element={
+                    <EnvironmentGuard>
+                      <ServiceHealthDetail />
                     </EnvironmentGuard>
                   }
                 />
