@@ -215,21 +215,21 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Product Deployment Cards (Name, Version, Status, Stack Progress, Actions)
   - Frontend `listProductDeployments()` API Function (Missing in v0.27)
   - Product-Level DeploymentName Refactoring (Single Name Instead of Per-Stack)
+- **v0.29** – Health Check Details (2026-02-26)
+  - Full ASP.NET Core HealthReport Parsing (entries with status, description, duration, data, tags, exception)
+  - Health Check Entry Domain Model (`HealthCheckEntry` Value Object)
+  - Data Pipeline: HttpChecker → Domain → DTO → SignalR/API
+  - Inline Health Check Detail in Dashboard (expandable service rows)
+  - Dedicated Service Health Detail Page (`/health/:deploymentId/:serviceName`)
+  - Dedicated Service Health Detail API Endpoint
+  - Service Response Time Tracking
+  - EF Core Persistence for Health Check Entries (JSON serialization)
 
 ---
 
 ## Planned
 
 Epics are listed in priority order. Top = next.
-
-### Epic: Health Check Details
-
-- Full ASP.NET Core HealthReport Parsing (entries with status, description, duration, data, tags, exception)
-- Health Check Entry Domain Model (`HealthCheckEntry` Value Object)
-- Data Pipeline: HttpChecker → Domain → DTO → SignalR/API
-- Inline Health Check Detail in Dashboard (expandable service rows)
-- Dedicated Service Health Detail Page (`/health/:deploymentId/:serviceName`)
-- Service response time tracking
 
 ### Epic: Orphaned Container Recovery
 
