@@ -184,6 +184,14 @@ export default function ProductDeploymentDetail() {
           >
             View in Catalog
           </Link>
+          {deployment.canRetry && (
+            <Link
+              to={`/retry-product/${deployment.productDeploymentId}`}
+              className="inline-flex items-center justify-center rounded bg-yellow-100 px-3 py-1.5 text-sm font-medium text-yellow-700 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:hover:bg-yellow-900/50"
+            >
+              Retry Failed
+            </Link>
+          )}
           {deployment.canUpgrade && (
             <Link
               to={`/upgrade-product/${deployment.productDeploymentId}`}

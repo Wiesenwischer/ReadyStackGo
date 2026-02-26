@@ -411,10 +411,10 @@ export default function DeployProduct() {
 
       setStackResults(response.stackResults || []);
 
-      // Update stack statuses from results
+      // Update stack statuses from results (keyed by stackName to match SignalR updates)
       const finalStatuses: Record<string, StackProgressStatus> = {};
       for (const result of response.stackResults || []) {
-        finalStatuses[result.stackDisplayName] = result.success ? 'running' : 'failed';
+        finalStatuses[result.stackName] = result.success ? 'running' : 'failed';
       }
       setStackStatuses(finalStatuses);
 

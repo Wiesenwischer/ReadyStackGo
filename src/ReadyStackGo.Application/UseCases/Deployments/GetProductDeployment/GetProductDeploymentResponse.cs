@@ -23,6 +23,7 @@ public class GetProductDeploymentResponse
     public int FailedStacks { get; set; }
     public string? PreviousVersion { get; set; }
     public int UpgradeCount { get; set; }
+    public bool CanRetry { get; set; }
     public bool CanUpgrade { get; set; }
     public bool CanRemove { get; set; }
     public double? DurationSeconds { get; set; }

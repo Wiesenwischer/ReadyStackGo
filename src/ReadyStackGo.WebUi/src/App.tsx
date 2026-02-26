@@ -18,6 +18,7 @@ import DeployStack from "./pages/Deployments/DeployStack";
 import DeployProduct from "./pages/Deployments/DeployProduct";
 import UpgradeProduct from "./pages/Deployments/UpgradeProduct";
 import RemoveProduct from "./pages/Deployments/RemoveProduct";
+import RetryProduct from "./pages/Deployments/RetryProduct";
 import ProductDeploymentDetail from "./pages/Deployments/ProductDeploymentDetail";
 import Environments from "./pages/Environments/Environments";
 import AddEnvironment from "./pages/Environments/AddEnvironment";
@@ -244,6 +245,14 @@ export default function App() {
                   element={
                     <EnvironmentGuard>
                       <RemoveProduct />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/retry-product/:productDeploymentId"
+                  element={
+                    <EnvironmentGuard>
+                      <RetryProduct />
                     </EnvironmentGuard>
                   }
                 />

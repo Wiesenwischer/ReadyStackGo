@@ -49,6 +49,7 @@ public class ListProductDeploymentsHandler
                 TotalStacks = pd.TotalStacks,
                 CompletedStacks = pd.CompletedStacks,
                 FailedStacks = pd.FailedStacks,
+                CanRetry = pd.CanRetry,
                 CanUpgrade = pd.CanUpgrade,
                 CanRemove = pd.CanRemove
             }).ToList()
