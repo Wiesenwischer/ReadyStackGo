@@ -207,6 +207,7 @@ public class Program
         app.MapHub<HealthHub>("/hubs/health");
         app.MapHub<DeploymentHub>("/hubs/deployment");
         app.MapHub<UpdateHub>("/hubs/update");
+        app.MapHub<ContainerHub>("/hubs/container");
 
         // SPA fallback: serve index.html for non-API, non-file routes
         // MapFallback uses {*path:nonfile} which skips paths with dots (e.g. version
