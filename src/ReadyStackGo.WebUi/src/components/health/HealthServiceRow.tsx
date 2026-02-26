@@ -1,12 +1,14 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { type ServiceHealthDto, getHealthStatusPresentation } from '../../api/health';
 import HealthCheckEntryRow from './HealthCheckEntryRow';
 
 interface HealthServiceRowProps {
   service: ServiceHealthDto;
+  deploymentId?: string;
 }
 
-export default function HealthServiceRow({ service }: HealthServiceRowProps) {
+export default function HealthServiceRow({ service, deploymentId }: HealthServiceRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const presentation = getHealthStatusPresentation(service.status);
   const hasEntries = service.healthCheckEntries && service.healthCheckEntries.length > 0;
@@ -56,6 +58,18 @@ export default function HealthServiceRow({ service }: HealthServiceRowProps) {
           >
             {presentation.label}
           </span>
+          {deploymentId && (
+            <Link
+              to={`/health/${deploymentId}/${encodeURIComponent(service.name)}`}
+              className="text-gray-400 hover:text-brand-500 transition-colors"
+              onClick={(e) => e.stopPropagation()}
+              title="View details"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </Link>
+          )}
           {hasEntries && (
             <svg
               className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
