@@ -92,4 +92,21 @@ export const containerApi = {
       `/api/containers/repair-all-orphaned?environment=${encodeURIComponent(environmentId)}`
     );
   },
+
+  async getLogs(environmentId: string, containerId: string, tail?: number): Promise<string> {
+    const params = new URLSearchParams({ environment: environmentId });
+    if (tail != null) params.set('tail', tail.toString());
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+    const token = localStorage.getItem('auth_token');
+    const headers: HeadersInit = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const response = await fetch(`${baseUrl}/api/containers/${containerId}/logs?${params}`, {
+      headers,
+    });
+    if (!response.ok) {
+      if (response.status === 401) window.location.href = '/login';
+      throw new Error(`Failed to get container logs: ${response.statusText}`);
+    }
+    return response.text();
+  },
 };
