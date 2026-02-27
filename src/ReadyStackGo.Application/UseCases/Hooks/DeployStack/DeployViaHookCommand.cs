@@ -4,6 +4,7 @@ using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.ProductDeployments;
 using ReadyStackGo.Domain.StackManagement.Stacks;
 
 namespace ReadyStackGo.Application.UseCases.Hooks.DeployStack;
@@ -45,17 +46,20 @@ public record DeployViaHookCommand(
 public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, DeployViaHookResponse>
 {
     private readonly IDeploymentRepository _deploymentRepository;
+    private readonly IProductDeploymentRepository _productDeploymentRepository;
     private readonly IProductSourceService _productSourceService;
     private readonly IMediator _mediator;
     private readonly ILogger<DeployViaHookHandler> _logger;
 
     public DeployViaHookHandler(
         IDeploymentRepository deploymentRepository,
+        IProductDeploymentRepository productDeploymentRepository,
         IProductSourceService productSourceService,
         IMediator mediator,
         ILogger<DeployViaHookHandler> logger)
     {
         _deploymentRepository = deploymentRepository;
+        _productDeploymentRepository = productDeploymentRepository;
         _productSourceService = productSourceService;
         _mediator = mediator;
         _logger = logger;
@@ -81,6 +85,7 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
 
         // 1b. Resolve StackId from ProductId if not directly provided
         string resolvedStackId;
+        string? resolvedStackDefinitionName = null;
         if (!string.IsNullOrWhiteSpace(request.StackId))
         {
             resolvedStackId = request.StackId;
@@ -94,12 +99,40 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
                 return DeployViaHookResponse.Failed(resolveResult.Error!);
             }
             resolvedStackId = resolveResult.StackId!;
+            resolvedStackDefinitionName = resolveResult.StackDefinitionName;
         }
 
         var environmentId = new EnvironmentId(envGuid);
 
+        // 1c. If deploying via ProductId, check if stack belongs to an active ProductDeployment
+        // and resolve the actual deployment stack name (e.g., "Analytics" → "ams-project-analytics")
+        var deployStackName = request.StackName;
+        if (!string.IsNullOrWhiteSpace(request.ProductId))
+        {
+            var productDeployment = _productDeploymentRepository
+                .GetActiveByProductGroupId(environmentId, request.ProductId);
+
+            if (productDeployment != null)
+            {
+                var stackDefName = resolvedStackDefinitionName ?? request.StackDefinitionName;
+                if (!string.IsNullOrWhiteSpace(stackDefName))
+                {
+                    var productStack = productDeployment.Stacks.FirstOrDefault(s =>
+                        string.Equals(s.StackName, stackDefName, StringComparison.OrdinalIgnoreCase));
+
+                    if (productStack?.DeploymentStackName != null)
+                    {
+                        deployStackName = productStack.DeploymentStackName;
+                        _logger.LogInformation(
+                            "Stack is part of product deployment '{ProductName}', using deployment name '{DeploymentStackName}' instead of '{RequestStackName}'",
+                            productDeployment.ProductName, deployStackName, request.StackName);
+                    }
+                }
+            }
+        }
+
         // 2. Check for existing deployment (idempotent behavior)
-        var existing = _deploymentRepository.GetByStackName(environmentId, request.StackName);
+        var existing = _deploymentRepository.GetByStackName(environmentId, deployStackName);
         string action;
         string stackId;
         Dictionary<string, string> variables;
@@ -127,7 +160,7 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
 
             _logger.LogInformation(
                 "Stack '{StackName}' already running in environment {EnvironmentId}, triggering redeploy with {VarCount} variables ({OverrideCount} overrides from webhook)",
-                request.StackName, request.EnvironmentId, variables.Count, request.Variables.Count);
+                deployStackName, request.EnvironmentId, variables.Count, request.Variables.Count);
         }
         else
         {
@@ -138,14 +171,14 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
 
             _logger.LogInformation(
                 "Deploying stack '{StackName}' ({StackId}) to environment {EnvironmentId}",
-                request.StackName, resolvedStackId, request.EnvironmentId);
+                deployStackName, resolvedStackId, request.EnvironmentId);
         }
 
         // 3. Delegate to DeployStackCommand
         var deployResult = await _mediator.Send(new DeployStackCommand(
             request.EnvironmentId,
             stackId,
-            request.StackName,
+            deployStackName,
             variables,
             null), cancellationToken);
 
@@ -173,7 +206,7 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
         };
     }
 
-    private record StackIdResolutionResult(bool Success, string? StackId, string? Error);
+    private record StackIdResolutionResult(bool Success, string? StackId, string? StackDefinitionName, string? Error);
 
     private async Task<StackIdResolutionResult> ResolveStackIdFromProduct(
         string productId, string? version, string? stackDefinitionName, CancellationToken ct)
@@ -182,7 +215,7 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
         var product = await _productSourceService.GetProductAsync(productId, ct);
         if (product == null)
         {
-            return new(false, null, $"Product '{productId}' not found in catalog.");
+            return new(false, null, null, $"Product '{productId}' not found in catalog.");
         }
 
         // 2. If specific version requested, find that version
@@ -197,7 +230,7 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
                 var available = string.Join(", ", versions
                     .Where(v => v.ProductVersion != null)
                     .Select(v => v.ProductVersion));
-                return new(false, null,
+                return new(false, null, null,
                     $"Version '{version}' not found for product '{productId}'. Available versions: {available}");
             }
 
@@ -212,7 +245,7 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
             if (found == null)
             {
                 var availableStacks = string.Join(", ", product.Stacks.Select(s => s.Name));
-                return new(false, null,
+                return new(false, null, null,
                     $"Stack '{stackDefinitionName}' not found in product '{productId}'. " +
                     $"Available stacks: {availableStacks}");
             }
@@ -223,7 +256,7 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
             if (product.IsMultiStack)
             {
                 var availableStacks = string.Join(", ", product.Stacks.Select(s => s.Name));
-                return new(false, null,
+                return new(false, null, null,
                     $"Product '{productId}' contains multiple stacks. " +
                     $"Specify 'stackDefinitionName' to select one. Available stacks: {availableStacks}");
             }
@@ -234,6 +267,6 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
             "Resolved ProductId '{ProductId}' to StackId '{StackId}'",
             productId, stack.Id.Value);
 
-        return new(true, stack.Id.Value, null);
+        return new(true, stack.Id.Value, stack.Name, null);
     }
 }

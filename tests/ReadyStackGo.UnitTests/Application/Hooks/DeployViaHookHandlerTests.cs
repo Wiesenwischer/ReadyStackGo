@@ -8,6 +8,7 @@ using ReadyStackGo.Application.UseCases.Hooks.DeployStack;
 using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.ProductDeployments;
 using ReadyStackGo.Domain.StackManagement.Stacks;
 
 namespace ReadyStackGo.UnitTests.Application.Hooks;
@@ -15,6 +16,7 @@ namespace ReadyStackGo.UnitTests.Application.Hooks;
 public class DeployViaHookHandlerTests
 {
     private readonly Mock<IDeploymentRepository> _deploymentRepoMock;
+    private readonly Mock<IProductDeploymentRepository> _productDeploymentRepoMock;
     private readonly Mock<IProductSourceService> _productSourceMock;
     private readonly Mock<IMediator> _mediatorMock;
     private readonly Mock<ILogger<DeployViaHookHandler>> _loggerMock;
@@ -27,11 +29,13 @@ public class DeployViaHookHandlerTests
     public DeployViaHookHandlerTests()
     {
         _deploymentRepoMock = new Mock<IDeploymentRepository>();
+        _productDeploymentRepoMock = new Mock<IProductDeploymentRepository>();
         _productSourceMock = new Mock<IProductSourceService>();
         _mediatorMock = new Mock<IMediator>();
         _loggerMock = new Mock<ILogger<DeployViaHookHandler>>();
         _handler = new DeployViaHookHandler(
             _deploymentRepoMock.Object,
+            _productDeploymentRepoMock.Object,
             _productSourceMock.Object,
             _mediatorMock.Object,
             _loggerMock.Object);
@@ -744,6 +748,263 @@ public class DeployViaHookHandlerTests
 
     #endregion
 
+    #region ProductDeployment-Aware Stack Name Resolution
+
+    [Fact]
+    public async Task Handle_ProductIdWithActiveProductDeployment_UsesDeploymentStackName()
+    {
+        // Product deployed as "ams-project" with stack "Analytics" → derived name "ams-project-analytics"
+        var product = CreateSingleStackProduct("com.test.product", version: "1.0.0",
+            sourceId: "source1", stackName: "Analytics");
+        SetupProductLookup("com.test.product", product);
+
+        var productDeployment = CreateRunningProductDeployment(
+            "com.test.product", "ams-project",
+            ("Analytics", "Analytics", product.DefaultStack.Id.Value));
+
+        _productDeploymentRepoMock
+            .Setup(r => r.GetActiveByProductGroupId(
+                It.Is<EnvironmentId>(e => e.Value == Guid.Parse(TestEnvironmentId)),
+                "com.test.product"))
+            .Returns(productDeployment);
+
+        // The existing deployment uses the derived name "ams-project-analytics"
+        var existingDeployment = CreateRunningDeployment(
+            stackName: "ams-project-analytics",
+            stackId: product.DefaultStack.Id.Value);
+        _deploymentRepoMock
+            .Setup(r => r.GetByStackName(
+                It.Is<EnvironmentId>(e => e.Value == Guid.Parse(TestEnvironmentId)),
+                "ams-project-analytics"))
+            .Returns(existingDeployment);
+
+        SetupSuccessfulDeploy();
+
+        var result = await _handler.Handle(
+            new DeployViaHookCommand(null, "Analytics", TestEnvironmentId, new(),
+                ProductId: "com.test.product", StackDefinitionName: "Analytics"),
+            CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        result.Action.Should().Be("redeployed");
+
+        // Should use the derived deployment stack name, not the raw request name
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<DeployStackCommand>(cmd => cmd.StackName == "ams-project-analytics"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ProductIdWithActiveProductDeployment_MergesVariablesFromExistingDeployment()
+    {
+        var product = CreateSingleStackProduct("com.test.product", version: "1.0.0",
+            sourceId: "source1", stackName: "Analytics");
+        SetupProductLookup("com.test.product", product);
+
+        var productDeployment = CreateRunningProductDeployment(
+            "com.test.product", "ams-project",
+            ("Analytics", "Analytics", product.DefaultStack.Id.Value));
+
+        _productDeploymentRepoMock
+            .Setup(r => r.GetActiveByProductGroupId(
+                It.Is<EnvironmentId>(e => e.Value == Guid.Parse(TestEnvironmentId)),
+                "com.test.product"))
+            .Returns(productDeployment);
+
+        var existingVars = new Dictionary<string, string>
+        {
+            ["DB_HOST"] = "stored-host",
+            ["LOG_LEVEL"] = "Warning"
+        };
+        var existingDeployment = CreateRunningDeployment(
+            stackName: "ams-project-analytics",
+            stackId: product.DefaultStack.Id.Value,
+            variables: existingVars);
+        _deploymentRepoMock
+            .Setup(r => r.GetByStackName(
+                It.Is<EnvironmentId>(e => e.Value == Guid.Parse(TestEnvironmentId)),
+                "ams-project-analytics"))
+            .Returns(existingDeployment);
+
+        SetupSuccessfulDeploy();
+
+        var webhookVars = new Dictionary<string, string> { ["LOG_LEVEL"] = "Debug" };
+        var result = await _handler.Handle(
+            new DeployViaHookCommand(null, "Analytics", TestEnvironmentId, webhookVars,
+                ProductId: "com.test.product", StackDefinitionName: "Analytics"),
+            CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<DeployStackCommand>(cmd =>
+                cmd.Variables["DB_HOST"] == "stored-host" &&
+                cmd.Variables["LOG_LEVEL"] == "Debug"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ProductIdWithActiveProductDeployment_NoMatchingStack_FallsBackToRequestStackName()
+    {
+        var product = CreateSingleStackProduct("com.test.product", version: "1.0.0",
+            sourceId: "source1", stackName: "Analytics");
+        SetupProductLookup("com.test.product", product);
+
+        // Product deployment exists but has different stacks
+        var productDeployment = CreateRunningProductDeployment(
+            "com.test.product", "ams-project",
+            ("OtherStack", "Other Stack", "some-other-id"));
+
+        _productDeploymentRepoMock
+            .Setup(r => r.GetActiveByProductGroupId(
+                It.Is<EnvironmentId>(e => e.Value == Guid.Parse(TestEnvironmentId)),
+                "com.test.product"))
+            .Returns(productDeployment);
+
+        SetupNoExistingDeployment();
+        SetupSuccessfulDeploy();
+
+        var result = await _handler.Handle(
+            new DeployViaHookCommand(null, "Analytics", TestEnvironmentId, new(),
+                ProductId: "com.test.product", StackDefinitionName: "Analytics"),
+            CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        result.Action.Should().Be("deployed");
+
+        // Should use the raw request stack name since no matching product stack was found
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<DeployStackCommand>(cmd => cmd.StackName == "Analytics"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ProductIdWithNoActiveProductDeployment_DeploysAsStandalone()
+    {
+        var product = CreateSingleStackProduct("com.test.product", version: "1.0.0",
+            sourceId: "source1", stackName: "Analytics");
+        SetupProductLookup("com.test.product", product);
+
+        _productDeploymentRepoMock
+            .Setup(r => r.GetActiveByProductGroupId(
+                It.IsAny<EnvironmentId>(), "com.test.product"))
+            .Returns((ProductDeployment?)null);
+
+        SetupNoExistingDeployment();
+        SetupSuccessfulDeploy();
+
+        var result = await _handler.Handle(
+            new DeployViaHookCommand(null, "Analytics", TestEnvironmentId, new(),
+                ProductId: "com.test.product", StackDefinitionName: "Analytics"),
+            CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        result.Action.Should().Be("deployed");
+
+        // No product deployment → use raw request stack name
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<DeployStackCommand>(cmd => cmd.StackName == "Analytics"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_StackIdOnly_DoesNotCheckProductDeployment()
+    {
+        SetupNoExistingDeployment();
+        SetupSuccessfulDeploy();
+
+        await _handler.Handle(
+            new DeployViaHookCommand(TestStackId, TestStackName, TestEnvironmentId, new()),
+            CancellationToken.None);
+
+        // StackId path should NOT look up ProductDeployments
+        _productDeploymentRepoMock.Verify(
+            r => r.GetActiveByProductGroupId(It.IsAny<EnvironmentId>(), It.IsAny<string>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_ProductIdWithActiveProductDeployment_ResponseUsesRequestStackName()
+    {
+        var product = CreateSingleStackProduct("com.test.product", version: "1.0.0",
+            sourceId: "source1", stackName: "Analytics");
+        SetupProductLookup("com.test.product", product);
+
+        var productDeployment = CreateRunningProductDeployment(
+            "com.test.product", "ams-project",
+            ("Analytics", "Analytics", product.DefaultStack.Id.Value));
+
+        _productDeploymentRepoMock
+            .Setup(r => r.GetActiveByProductGroupId(
+                It.Is<EnvironmentId>(e => e.Value == Guid.Parse(TestEnvironmentId)),
+                "com.test.product"))
+            .Returns(productDeployment);
+
+        var existingDeployment = CreateRunningDeployment(
+            stackName: "ams-project-analytics",
+            stackId: product.DefaultStack.Id.Value);
+        _deploymentRepoMock
+            .Setup(r => r.GetByStackName(
+                It.Is<EnvironmentId>(e => e.Value == Guid.Parse(TestEnvironmentId)),
+                "ams-project-analytics"))
+            .Returns(existingDeployment);
+
+        SetupSuccessfulDeploy();
+
+        var result = await _handler.Handle(
+            new DeployViaHookCommand(null, "Analytics", TestEnvironmentId, new(),
+                ProductId: "com.test.product", StackDefinitionName: "Analytics"),
+            CancellationToken.None);
+
+        // Response should use the user-facing request stack name, not the derived name
+        result.StackName.Should().Be("Analytics");
+        result.Message.Should().Contain("Analytics");
+    }
+
+    [Fact]
+    public async Task Handle_ProductIdWithActiveProductDeployment_CaseInsensitiveStackMatch()
+    {
+        var product = CreateSingleStackProduct("com.test.product", version: "1.0.0",
+            sourceId: "source1", stackName: "ProjectManagement");
+        SetupProductLookup("com.test.product", product);
+
+        var productDeployment = CreateRunningProductDeployment(
+            "com.test.product", "ams-project",
+            ("ProjectManagement", "Project Management", product.DefaultStack.Id.Value));
+
+        _productDeploymentRepoMock
+            .Setup(r => r.GetActiveByProductGroupId(
+                It.Is<EnvironmentId>(e => e.Value == Guid.Parse(TestEnvironmentId)),
+                "com.test.product"))
+            .Returns(productDeployment);
+
+        var existingDeployment = CreateRunningDeployment(
+            stackName: "ams-project-projectmanagement",
+            stackId: product.DefaultStack.Id.Value);
+        _deploymentRepoMock
+            .Setup(r => r.GetByStackName(
+                It.Is<EnvironmentId>(e => e.Value == Guid.Parse(TestEnvironmentId)),
+                "ams-project-projectmanagement"))
+            .Returns(existingDeployment);
+
+        SetupSuccessfulDeploy();
+
+        // StackDefinitionName with different casing
+        var result = await _handler.Handle(
+            new DeployViaHookCommand(null, "ProjectManagement", TestEnvironmentId, new(),
+                ProductId: "com.test.product", StackDefinitionName: "projectmanagement"),
+            CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        result.Action.Should().Be("redeployed");
+
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<DeployStackCommand>(cmd => cmd.StackName == "ams-project-projectmanagement"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
     #region Helpers
 
     private void SetupNoExistingDeployment()
@@ -814,6 +1075,34 @@ public class DeployViaHookHandlerTests
         deployment.MarkAsRunning();
         deployment.MarkAsRemoved();
         return deployment;
+    }
+
+    private static ProductDeployment CreateRunningProductDeployment(
+        string productGroupId,
+        string deploymentName,
+        params (string stackName, string displayName, string stackId)[] stacks)
+    {
+        var envId = new EnvironmentId(Guid.Parse(TestEnvironmentId));
+        var stackConfigs = stacks.Select(s =>
+            new StackDeploymentConfig(s.stackName, s.displayName, s.stackId, 1,
+                new Dictionary<string, string>())).ToList();
+
+        var pd = ProductDeployment.InitiateDeployment(
+            ProductDeploymentId.NewId(), envId,
+            productGroupId, $"source1:{productGroupId}:1.0.0",
+            productGroupId, productGroupId, "1.0.0",
+            UserId.NewId(), deploymentName,
+            stackConfigs,
+            new Dictionary<string, string>());
+
+        // Transition each stack to Running
+        foreach (var stack in pd.GetStacksInDeployOrder())
+        {
+            pd.StartStack(stack.StackName, DeploymentId.NewId());
+            pd.CompleteStack(stack.StackName);
+        }
+
+        return pd;
     }
 
     #endregion
