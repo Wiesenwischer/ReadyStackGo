@@ -63,14 +63,14 @@ Ziel ist es, dem User zwei Aktionen für verwaiste Container-Gruppen anzubieten:
 
 Reihenfolge basierend auf Abhängigkeiten:
 
-- [ ] **Feature 1: Remove Orphaned Stack** – Alle Container einer verwaisten Stack-Gruppe entfernen
+- [x] **Feature 1: Remove Orphaned Stack** – Alle Container einer verwaisten Stack-Gruppe entfernen
   - Neuer Command: `RemoveOrphanedStackCommand(EnvironmentId, StackName)`
   - Handler: Container mit `rsgo.stack == stackName` listen, `RemoveContainerAsync(force: true)` für jeden
   - Neuer Endpoint: `DELETE /api/containers/orphaned-stacks/{stackName}?environment={envId}`
   - Permission: `Deployments.Delete`
   - Abhängig von: -
 
-- [ ] **Feature 2: Repair Orphaned Stack** – Deployment-Eintrag für verwaiste Container erstellen
+- [x] **Feature 2: Repair Orphaned Stack** – Deployment-Eintrag für verwaiste Container erstellen
   - Neuer Command: `RepairOrphanedStackCommand(EnvironmentId, StackName)`
   - Handler:
     1. Container mit `rsgo.stack == stackName` aus Docker listen
@@ -83,7 +83,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Response: Erfolg/Misserfolg + erstellte DeploymentId
   - Abhängig von: -
 
-- [ ] **Feature 3: UI-Aktionen im Container-View** – Buttons für Remove und Repair bei Orphaned Stacks
+- [x] **Feature 3: UI-Aktionen im Container-View** – Buttons für Remove und Repair bei Orphaned Stacks
   - In allen drei Views (List, Stack, Product): Aktions-Buttons bei Orphaned Badge anzeigen
   - "Repair" Button: Ruft Repair-Endpoint auf, refresht View
   - "Remove" Button: Confirmation Dialog, ruft Remove-Endpoint auf, refresht View
@@ -92,13 +92,13 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Product-View: Buttons im "Unknown Product" Bereich
   - Abhängig von: Feature 1, Feature 2
 
-- [ ] **Feature 4: Tests** – Unit Tests für Handler, Edge Cases
+- [x] **Feature 4: Tests** – Unit Tests für Handler, Edge Cases
   - `RemoveOrphanedStackHandlerTests`: Happy path, Stack nicht gefunden, Environment nicht gefunden
   - `RepairOrphanedStackHandlerTests`: Happy path, Catalog-Match gefunden, kein Catalog-Match, Container ohne Labels
   - Edge Cases: Was passiert wenn Container während Repair/Remove gestoppt werden?
   - Abhängig von: Feature 1, Feature 2
 
-- [ ] **Phase abschließen** – Build, Tests, Commit, PR gegen main
+- [x] **Phase abschließen** – Build, Tests, Commit, PR gegen main
 
 ## Test-Strategie
 
