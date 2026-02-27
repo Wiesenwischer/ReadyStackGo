@@ -184,7 +184,7 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Volume Details (Size, Mount Points, Labels, Container References)
   - Create/Delete Volumes with Driver Selection
   - Orphaned Volume Detection and Bulk Cleanup
-- **v0.26** – Container Management Improvements (2026-02-17)
+- **v0.26** – Container Management, Notifications & System Info (2026-02-17)
   - Container Remove Action with Force Flag and Safety Checks
   - Container Context Endpoint (Stack/Product/Deployment Resolution)
   - Three Container Views (List, Stack-Grouped, Product-Grouped)
@@ -193,7 +193,17 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Dedicated Delete Confirmation Pages (Stack Sources, Environments)
   - ams.project Stack Source in Curated Registry
   - External Network Auto-Creation for Multi-Stack Products
-- **v0.27** – Product Deployment (2026-02-21)
+  - In-Memory Notification Store (Max 50, FIFO Eviction, Singleton — Transient Pre-v1.0)
+  - Notification API Endpoints (List, Unread-Count, Mark-Read, Mark-All-Read, Dismiss)
+  - NotificationDropdown (Bell Icon with Animated Badge, 60s Polling)
+  - Update Available Notification (Deduplicated Per Version)
+  - Source Sync Result Notification (Success/Warning/Error with Detail Rollup)
+  - Deployment Result Notification (Deploy, Upgrade, Rollback, Remove — Stack & Product)
+  - Settings > System Tab (Version Info, Build Info, "Check for Updates" Button)
+  - User-Dropdown Version Badge (Version Display + Update Indicator)
+  - Shared `useVersionInfo` Hook (SidebarWidget, UserDropdown, SystemInfo)
+  - `forceCheck` Query Parameter on Version Endpoint (Bypass 24h Cache)
+- **v0.27** – Product Deployment & Orphaned Container Recovery (2026-02-21)
   - ProductDeployment Aggregate Root with ProductStackDeployment Child Entities
   - Product-Level State Machine (Deploying → Running / PartiallyRunning / Failed → Removing → Removed)
   - Deploy Product Flow (Orchestrated N-Stack Deployment with Shared Variable Wizard)
@@ -209,6 +219,10 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Shared DeploymentProgressPanel Component (Extracted from Single-Stack Deployment)
   - Product Deployment E2E Tests with Multi-Stack Test Product
   - Step-by-Step Documentation with Screenshots (DE/EN)
+  - Repair Orphaned Stacks (Reconcile Running Containers with Fresh Database via Catalog Matching)
+  - Bulk Remove Orphaned Stacks (Delete All Containers of an Orphaned Stack Group)
+  - Repair All Orphaned Stacks (Batch Repair with Per-Stack Error Handling)
+  - Orphaned Stack UI Actions (Repair/Remove Buttons with Confirmation Dialogs in All Container Views)
 
 - **v0.28** – Deployments Overview with Product Info (2026-02-25)
   - Product Deployments Section in Deployments Overview (Above Stack Deployments)
@@ -240,27 +254,8 @@ Release version numbers are assigned when an Epic ships, not during planning.
 
 Epics are listed in priority order. Top = next.
 
-### Epic: Orphaned Container Recovery
+### Epic: Notifications Phase 2
 
-- Repair Orphaned Stacks (Reconcile running containers with fresh database)
-- Bulk Remove Orphaned Stacks (Delete all containers of an orphaned stack group)
-- UI Actions in Container Views (Repair/Remove buttons on orphaned badges)
-
-### Epic: Notifications & System Info
-
-**Phase 1** (next)
-- In-Memory Notification Store (max 50, transient, no DB)
-- Notification API Endpoints (list, unread-count, mark-read, dismiss)
-- NotificationDropdown with Real Data (Bell Icon, Badge, Polling 60s)
-- Update Available Notification (deduplicated per version)
-- Source Sync Result Notification (success/warning/error)
-- Deployment Result Notification (deploy, upgrade, rollback, remove)
-- Settings > System Tab (version info, build info, "Check for updates" button)
-- User-Dropdown Version Badge (version display + update indicator)
-- Shared `useVersionInfo` Hook (SidebarWidget, UserDropdown, Settings)
-- `forceCheck` Query Parameter on Version Endpoint (bypass 24h cache)
-
-**Phase 2** (later)
 - Container Health Change Notification (unhealthy, stopped — with throttling)
 - API Key First-Use Notification
 - TLS Certificate Expiry Notification (30d, 14d, 7d, 3d, 1d staged warnings)
