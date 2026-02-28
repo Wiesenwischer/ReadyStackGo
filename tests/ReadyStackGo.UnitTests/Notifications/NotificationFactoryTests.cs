@@ -91,7 +91,7 @@ public class NotificationFactoryTests
             success: true, stacksLoaded: 1, sourcesSynced: 1,
             errors: [], warnings: []);
 
-        notification.ActionUrl.Should().Be("/stack-sources");
+        notification.ActionUrl.Should().Be("/settings/stack-sources");
         notification.ActionLabel.Should().Be("View Sources");
     }
 
@@ -178,9 +178,19 @@ public class NotificationFactoryTests
             success: true, operation: "deploy", stackName: "my-stack",
             deploymentId: "dep-123");
 
-        notification.ActionUrl.Should().Be("/deployments/dep-123");
+        notification.ActionUrl.Should().Be("/deployments/my-stack");
         notification.ActionLabel.Should().Be("View Deployment");
         notification.Metadata["deploymentId"].Should().Be("dep-123");
+    }
+
+    [Fact]
+    public void CreateDeploymentResult_WithDeploymentId_UsesStackNameInActionUrl()
+    {
+        var notification = NotificationFactory.CreateDeploymentResult(
+            success: true, operation: "deploy", stackName: "my stack/special",
+            deploymentId: "dep-123");
+
+        notification.ActionUrl.Should().Be("/deployments/my%20stack%2Fspecial");
     }
 
     [Fact]
