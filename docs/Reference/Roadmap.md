@@ -260,6 +260,15 @@ Epics are listed in priority order. Top = next.
 - API Key First-Use Notification
 - TLS Certificate Expiry Notification (30d, 14d, 7d, 3d, 1d staged warnings)
 
+### Epic: Redeploy Product Deployment
+
+- Redeploy All Stacks of a Running Product Deployment (Same Version, Fresh Pull)
+- Redeploy Single Stack Within a Product Deployment (Selective Stack Redeploy)
+- New `Redeploying` Status in Product Deployment State Machine
+- Variable Override Support During Redeploy (Stored Base + Webhook Overrides)
+- Redeploy Product UI (Stack Selection, Confirmation, Progress Panel)
+- Hook Support for Product Redeploy (`/api/hooks/redeploy` with `productId`)
+
 ### Epic: Distribution Architecture
 
 **WebUI Monorepo Refactoring**
