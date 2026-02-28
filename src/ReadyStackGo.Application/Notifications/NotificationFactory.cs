@@ -20,7 +20,7 @@ public static class NotificationFactory
             Title = title,
             Message = message,
             Severity = severity,
-            ActionUrl = "/stack-sources",
+            ActionUrl = "/settings/stack-sources",
             ActionLabel = "View Sources",
             Metadata = new Dictionary<string, string>
             {
@@ -48,7 +48,7 @@ public static class NotificationFactory
         if (!string.IsNullOrEmpty(deploymentId))
         {
             metadata["deploymentId"] = deploymentId;
-            actionUrl = $"/deployments/{deploymentId}";
+            actionUrl = $"/deployments/{Uri.EscapeDataString(stackName)}";
         }
 
         return new Notification
