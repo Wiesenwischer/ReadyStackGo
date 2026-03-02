@@ -11,10 +11,11 @@ using ReadyStackGo.Domain.SharedKernel;
 ///
 /// State machine:
 ///   Deploying        → Running | PartiallyRunning | Failed
-///   Running          → Upgrading | Removing
-///   PartiallyRunning → Deploying (retry) | Upgrading | Removing
+///   Running          → Upgrading | Removing | Stopped
+///   PartiallyRunning → Deploying (retry) | Upgrading | Removing | Stopped
 ///   Upgrading        → Running | PartiallyRunning | Failed
 ///   Failed           → Deploying (retry) | Upgrading | Removing
+///   Stopped          → Running | PartiallyRunning | Upgrading | Removing
 ///   Removing         → Removed (terminal)
 /// </summary>
 public class ProductDeployment : AggregateRoot<ProductDeploymentId>
@@ -69,10 +70,11 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     private static readonly Dictionary<ProductDeploymentStatus, ProductDeploymentStatus[]> ValidTransitions = new()
     {
         { ProductDeploymentStatus.Deploying, new[] { ProductDeploymentStatus.Running, ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Failed } },
-        { ProductDeploymentStatus.Running, new[] { ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing } },
-        { ProductDeploymentStatus.PartiallyRunning, new[] { ProductDeploymentStatus.Deploying, ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing } },
+        { ProductDeploymentStatus.Running, new[] { ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing, ProductDeploymentStatus.Stopped } },
+        { ProductDeploymentStatus.PartiallyRunning, new[] { ProductDeploymentStatus.Deploying, ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing, ProductDeploymentStatus.Stopped } },
         { ProductDeploymentStatus.Upgrading, new[] { ProductDeploymentStatus.Running, ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Failed } },
         { ProductDeploymentStatus.Failed, new[] { ProductDeploymentStatus.Deploying, ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing } },
+        { ProductDeploymentStatus.Stopped, new[] { ProductDeploymentStatus.Running, ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing } },
         { ProductDeploymentStatus.Removing, new[] { ProductDeploymentStatus.Removed } },
         { ProductDeploymentStatus.Removed, Array.Empty<ProductDeploymentStatus>() }
     };
@@ -450,6 +452,45 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     }
 
     /// <summary>
+    /// Marks the product deployment as stopped. All containers have been deliberately stopped.
+    /// </summary>
+    public void MarkAsStopped(string reason)
+    {
+        SelfAssertArgumentNotEmpty(reason, "Reason is required.");
+        EnsureValidTransition(ProductDeploymentStatus.Stopped);
+
+        Status = ProductDeploymentStatus.Stopped;
+        ErrorMessage = null;
+
+        RecordPhase($"Stopped: {reason}");
+    }
+
+    /// <summary>
+    /// Marks the product deployment as restarted after containers have been started again.
+    /// Transitions to Running (all stacks ok) or PartiallyRunning (some failed).
+    /// </summary>
+    public void MarkAsRestarted(int restartedStacks, int failedStacks)
+    {
+        SelfAssertStateTrue(Status == ProductDeploymentStatus.Stopped,
+            $"Cannot mark as restarted when product status is {Status}.");
+
+        if (failedStacks > 0 && restartedStacks > 0)
+        {
+            EnsureValidTransition(ProductDeploymentStatus.PartiallyRunning);
+            Status = ProductDeploymentStatus.PartiallyRunning;
+            ErrorMessage = $"{failedStacks} of {TotalStacks} stacks failed to restart";
+            RecordPhase($"Restarted with errors: {restartedStacks} restarted, {failedStacks} failed");
+        }
+        else
+        {
+            EnsureValidTransition(ProductDeploymentStatus.Running);
+            Status = ProductDeploymentStatus.Running;
+            ErrorMessage = null;
+            RecordPhase($"Restarted: {restartedStacks} stacks restarted");
+        }
+    }
+
+    /// <summary>
     /// Marks a stack as removed during the removal process.
     /// If all stacks are removed, the product deployment transitions to Removed.
     /// </summary>
@@ -513,12 +554,12 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
 
     /// <summary>
     /// Synchronizes a stack's status from its underlying Deployment aggregate.
-    /// Only effective when the product is in an operational state (Running/PartiallyRunning).
+    /// Only effective when the product is in an operational or stopped state.
     /// Returns true if any status was changed.
     /// </summary>
     public bool SyncStackHealth(string stackName, StackDeploymentStatus actualStatus, string? errorMessage = null)
     {
-        if (!IsOperational) return false;
+        if (!IsOperational && Status != ProductDeploymentStatus.Stopped) return false;
 
         var stack = _stacks.FirstOrDefault(s =>
             s.StackName.Equals(stackName, StringComparison.OrdinalIgnoreCase));
@@ -533,7 +574,7 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     /// </summary>
     public bool RecalculateProductStatus()
     {
-        if (!IsOperational) return false;
+        if (!IsOperational && Status != ProductDeploymentStatus.Stopped) return false;
 
         var allRunning = _stacks.All(s => s.Status == StackDeploymentStatus.Running);
         var anyFailed = _stacks.Any(s => s.Status == StackDeploymentStatus.Failed);
@@ -563,10 +604,10 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     // ═══════════════════════════════════════════════════════════════════
 
     public bool CanRetry => Status is ProductDeploymentStatus.PartiallyRunning or ProductDeploymentStatus.Failed;
-    public bool CanUpgrade => IsOperational;
-    public bool CanRemove => IsOperational || Status == ProductDeploymentStatus.Failed;
+    public bool CanUpgrade => IsOperational || Status == ProductDeploymentStatus.Stopped;
+    public bool CanRemove => IsOperational || Status is ProductDeploymentStatus.Failed or ProductDeploymentStatus.Stopped;
     public bool CanStop => IsOperational;
-    public bool CanRestart => IsOperational;
+    public bool CanRestart => IsOperational || Status == ProductDeploymentStatus.Stopped;
     public bool CanRollback => Status == ProductDeploymentStatus.Failed && PreviousVersion is not null;
 
     /// <summary>

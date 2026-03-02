@@ -9,7 +9,7 @@ namespace ReadyStackGo.Application.UseCases.Deployments.StopProductContainers;
 /// <summary>
 /// Stops all (or selected) containers of a product deployment.
 /// Iterates over product stacks and calls IDockerService.StopStackContainersAsync for each.
-/// Does NOT change the ProductDeployment state machine.
+/// Transitions the ProductDeployment to Stopped when all stacks are stopped successfully.
 /// </summary>
 public class StopProductContainersHandler : IRequestHandler<StopProductContainersCommand, StopProductContainersResponse>
 {
@@ -46,7 +46,7 @@ public class StopProductContainersHandler : IRequestHandler<StopProductContainer
         }
 
         // 2. Validate status — only operational deployments can have containers stopped
-        if (!productDeployment.IsOperational)
+        if (!productDeployment.CanStop)
         {
             return StopProductContainersResponse.Failed(
                 $"Cannot stop containers. Product deployment status is {productDeployment.Status}, must be Running or PartiallyRunning.");
@@ -124,7 +124,15 @@ public class StopProductContainersHandler : IRequestHandler<StopProductContainer
             ? $"Stopped containers for {stoppedCount} stack(s) of product '{productDeployment.ProductName}'."
             : $"Stopped {stoppedCount}/{results.Count} stack(s) with {failedCount} error(s).";
 
-        // 7. Create in-app notification
+        // 7. Transition to Stopped when all stacks were stopped successfully
+        if (success)
+        {
+            productDeployment.MarkAsStopped(message);
+            _repository.Update(productDeployment);
+            _repository.SaveChanges();
+        }
+
+        // 8. Create in-app notification
         await CreateInAppNotificationAsync(productDeployment, success, stoppedCount, failedCount, cancellationToken);
 
         return new StopProductContainersResponse

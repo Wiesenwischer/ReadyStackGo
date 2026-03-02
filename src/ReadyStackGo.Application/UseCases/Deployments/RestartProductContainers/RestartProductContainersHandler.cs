@@ -10,7 +10,7 @@ namespace ReadyStackGo.Application.UseCases.Deployments.RestartProductContainers
 /// Restarts all (or selected) containers of a product deployment.
 /// For each stack: Stop containers, then Start containers (sequentially).
 /// If Stop fails for a stack, Start is NOT attempted for that stack.
-/// Does NOT change the ProductDeployment state machine.
+/// Transitions Stopped → Running/PartiallyRunning based on restart results.
 /// </summary>
 public class RestartProductContainersHandler : IRequestHandler<RestartProductContainersCommand, RestartProductContainersResponse>
 {
@@ -46,11 +46,11 @@ public class RestartProductContainersHandler : IRequestHandler<RestartProductCon
             return RestartProductContainersResponse.Failed("Product deployment not found.");
         }
 
-        // 2. Validate status — only operational deployments can be restarted
-        if (!productDeployment.IsOperational)
+        // 2. Validate status — operational or stopped deployments can be restarted
+        if (!productDeployment.CanRestart)
         {
             return RestartProductContainersResponse.Failed(
-                $"Cannot restart containers. Product deployment status is {productDeployment.Status}, must be Running or PartiallyRunning.");
+                $"Cannot restart containers. Product deployment status is {productDeployment.Status}.");
         }
 
         // 3. Resolve environment ID
@@ -135,7 +135,15 @@ public class RestartProductContainersHandler : IRequestHandler<RestartProductCon
             ? $"Restarted containers for {restartedCount} stack(s) of product '{productDeployment.ProductName}'."
             : $"Restarted {restartedCount}/{results.Count} stack(s) with {failedCount} error(s).";
 
-        // 7. Create in-app notification
+        // 7. Transition from Stopped back to Running/PartiallyRunning
+        if (productDeployment.Status == ProductDeploymentStatus.Stopped)
+        {
+            productDeployment.MarkAsRestarted(restartedCount, failedCount);
+            _repository.Update(productDeployment);
+            _repository.SaveChanges();
+        }
+
+        // 8. Create in-app notification
         await CreateInAppNotificationAsync(productDeployment, success, restartedCount, failedCount, cancellationToken);
 
         return new RestartProductContainersResponse
