@@ -46,7 +46,7 @@ Stop und Restart aller Container eines Product Deployments — auf Produkt-Ebene
 
 ### Backend
 
-- [ ] **Feature 1: StopProductContainers Command + Handler** — Alle Container eines Product Deployments stoppen
+- [x] **Feature 1: StopProductContainers Command + Handler** — Alle Container eines Product Deployments stoppen
   - Betroffene Dateien:
     - `src/ReadyStackGo.Application/UseCases/ProductDeployments/StopContainers/StopProductContainersCommand.cs` (NEU)
     - `src/ReadyStackGo.Application/UseCases/ProductDeployments/StopContainers/StopProductContainersHandler.cs` (NEU)
@@ -81,7 +81,7 @@ Stop und Restart aller Container eines Product Deployments — auf Produkt-Ebene
     - Unit: ProductDeployment nicht gefunden, falscher Status (z.B. `Deploying`)
     - Unit: Teilweiser Fehler (ein Stack schlägt fehl, Rest erfolgreich)
 
-- [ ] **Feature 2: RestartProductContainers Command + Handler** — Alle Container stoppen und wieder starten
+- [x] **Feature 2: RestartProductContainers Command + Handler** — Alle Container stoppen und wieder starten
   - Betroffene Dateien:
     - `src/ReadyStackGo.Application/UseCases/ProductDeployments/RestartContainers/RestartProductContainersCommand.cs` (NEU)
     - `src/ReadyStackGo.Application/UseCases/ProductDeployments/RestartContainers/RestartProductContainersHandler.cs` (NEU)
@@ -102,7 +102,7 @@ Stop und Restart aller Container eines Product Deployments — auf Produkt-Ebene
 
 ### API
 
-- [ ] **Feature 3: API Endpoints** — FastEndpoints für Stop/Restart
+- [x] **Feature 3: API Endpoints** — FastEndpoints für Stop/Restart
   - Betroffene Dateien:
     - `src/ReadyStackGo.Api/Endpoints/Deployments/StopProductContainersEndpoint.cs` (NEU)
     - `src/ReadyStackGo.Api/Endpoints/Deployments/RestartProductContainersEndpoint.cs` (NEU)
@@ -121,7 +121,7 @@ Stop und Restart aller Container eines Product Deployments — auf Produkt-Ebene
 
 ### UI
 
-- [ ] **Feature 4: UI — Stop/Restart Buttons auf ProductDeploymentDetail** — Buttons + Bestätigungsdialog
+- [x] **Feature 4: UI — Stop/Restart Buttons auf ProductDeploymentDetail** — Buttons + Bestätigungsdialog
   - Betroffene Dateien:
     - `src/ReadyStackGo.WebUi/src/pages/Deployments/ProductDeploymentDetail.tsx` — Buttons hinzufügen
     - `src/ReadyStackGo.WebUi/src/api/productDeployments.ts` — `stopProductContainers()`, `restartProductContainers()` API-Funktionen
@@ -136,7 +136,7 @@ Stop und Restart aller Container eines Product Deployments — auf Produkt-Ebene
 
 ### Hook
 
-- [ ] **Feature 5: Hook — Stop/Restart via API Key** — `/api/hooks/stop-containers` und `/api/hooks/restart-containers`
+- [x] **Feature 5: Hook — Stop/Restart via API Key** — `/api/hooks/stop-containers` und `/api/hooks/restart-containers`
   - Betroffene Dateien:
     - `src/ReadyStackGo.Application/UseCases/Hooks/StopContainers/StopContainersViaHookCommand.cs` (NEU)
     - `src/ReadyStackGo.Application/UseCases/Hooks/RestartContainers/RestartContainersViaHookCommand.cs` (NEU)

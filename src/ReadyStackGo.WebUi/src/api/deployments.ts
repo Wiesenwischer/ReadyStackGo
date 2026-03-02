@@ -156,6 +156,8 @@ export interface ProductDeploymentSummaryDto {
   canRetry: boolean;
   canUpgrade: boolean;
   canRemove: boolean;
+  canStop: boolean;
+  canRestart: boolean;
 }
 
 export interface ListProductDeploymentsResponse {
@@ -503,6 +505,8 @@ export interface GetProductDeploymentResponse {
   canRetry: boolean;
   canUpgrade: boolean;
   canRemove: boolean;
+  canStop: boolean;
+  canRestart: boolean;
   durationSeconds?: number;
   stacks: ProductStackDeploymentDto[];
   sharedVariables: Record<string, string>;
@@ -716,5 +720,84 @@ export async function removeProductDeployment(
   return apiDelete<RemoveProductResponse>(
     `/api/environments/${environmentId}/product-deployments/${productDeploymentId}`,
     request
+  );
+}
+
+// ============================================================================
+// Product Container Control API
+// ============================================================================
+
+export interface StopProductContainersRequest {
+  stackNames?: string[];
+}
+
+export interface StackContainerResult {
+  stackName: string;
+  stackDisplayName: string;
+  success: boolean;
+  containersStopped: number;
+  error?: string;
+}
+
+export interface StopProductContainersResponse {
+  success: boolean;
+  message?: string;
+  productDeploymentId?: string;
+  productName?: string;
+  totalStacks: number;
+  stoppedStacks: number;
+  failedStacks: number;
+  results: StackContainerResult[];
+}
+
+export interface RestartProductContainersRequest {
+  stackNames?: string[];
+}
+
+export interface StackRestartResult {
+  stackName: string;
+  stackDisplayName: string;
+  success: boolean;
+  containersStopped: number;
+  containersStarted: number;
+  error?: string;
+}
+
+export interface RestartProductContainersResponse {
+  success: boolean;
+  message?: string;
+  productDeploymentId?: string;
+  productName?: string;
+  totalStacks: number;
+  restartedStacks: number;
+  failedStacks: number;
+  results: StackRestartResult[];
+}
+
+/**
+ * Stop all (or selected) containers of a product deployment.
+ */
+export async function stopProductContainers(
+  environmentId: string,
+  productDeploymentId: string,
+  request?: StopProductContainersRequest
+): Promise<StopProductContainersResponse> {
+  return apiPost<StopProductContainersResponse>(
+    `/api/environments/${environmentId}/product-deployments/${productDeploymentId}/stop-containers`,
+    request ?? {}
+  );
+}
+
+/**
+ * Restart all (or selected) containers of a product deployment (Stop + Start).
+ */
+export async function restartProductContainers(
+  environmentId: string,
+  productDeploymentId: string,
+  request?: RestartProductContainersRequest
+): Promise<RestartProductContainersResponse> {
+  return apiPost<RestartProductContainersResponse>(
+    `/api/environments/${environmentId}/product-deployments/${productDeploymentId}/restart-containers`,
+    request ?? {}
   );
 }

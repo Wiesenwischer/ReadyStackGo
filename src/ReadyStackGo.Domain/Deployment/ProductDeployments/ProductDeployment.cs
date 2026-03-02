@@ -565,6 +565,8 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     public bool CanRetry => Status is ProductDeploymentStatus.PartiallyRunning or ProductDeploymentStatus.Failed;
     public bool CanUpgrade => IsOperational;
     public bool CanRemove => IsOperational || Status == ProductDeploymentStatus.Failed;
+    public bool CanStop => IsOperational;
+    public bool CanRestart => IsOperational;
     public bool CanRollback => Status == ProductDeploymentStatus.Failed && PreviousVersion is not null;
 
     /// <summary>

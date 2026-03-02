@@ -26,6 +26,8 @@ public class GetProductDeploymentResponse
     public bool CanRetry { get; set; }
     public bool CanUpgrade { get; set; }
     public bool CanRemove { get; set; }
+    public bool CanStop { get; set; }
+    public bool CanRestart { get; set; }
     public double? DurationSeconds { get; set; }
     public List<ProductStackDeploymentDto> Stacks { get; set; } = new();
     public Dictionary<string, string> SharedVariables { get; set; } = new();
