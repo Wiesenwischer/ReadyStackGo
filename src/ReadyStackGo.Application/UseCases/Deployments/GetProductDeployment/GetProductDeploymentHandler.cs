@@ -57,6 +57,8 @@ public class GetProductDeploymentHandler : IRequestHandler<GetProductDeploymentQ
             CanRetry = pd.CanRetry,
             CanUpgrade = pd.CanUpgrade,
             CanRemove = pd.CanRemove,
+            CanStop = pd.CanStop,
+            CanRestart = pd.CanRestart,
             DurationSeconds = pd.GetDuration()?.TotalSeconds,
             SharedVariables = new Dictionary<string, string>(pd.SharedVariables),
             Stacks = pd.GetStacksInDeployOrder().Select(s => new ProductStackDeploymentDto

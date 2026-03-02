@@ -100,6 +100,8 @@ public sealed class Permission : ValueObject
         public static Permission Redeploy => new("Hooks", "Redeploy");
         public static Permission Upgrade => new("Hooks", "Upgrade");
         public static Permission SyncSources => new("Hooks", "SyncSources");
+        public static Permission StopContainers => new("Hooks", "StopContainers");
+        public static Permission RestartContainers => new("Hooks", "RestartContainers");
     }
 
     protected override IEnumerable<object?> GetEqualityComponents()
