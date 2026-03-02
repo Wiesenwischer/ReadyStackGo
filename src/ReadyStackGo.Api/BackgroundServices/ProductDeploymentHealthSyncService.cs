@@ -71,7 +71,7 @@ public class ProductDeploymentHealthSyncService : BackgroundService
         foreach (var productDeployment in activeDeployments)
         {
             if (cancellationToken.IsCancellationRequested) break;
-            if (!productDeployment.IsOperational && productDeployment.Status != ProductDeploymentStatus.Stopped) continue;
+            if (!productDeployment.IsOperational) continue;
 
             var changed = false;
 

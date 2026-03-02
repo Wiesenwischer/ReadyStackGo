@@ -110,6 +110,24 @@ public class ProductStackDeployment
         ErrorMessage = null;
     }
 
+    internal void MarkStopped()
+    {
+        AssertionConcern.AssertStateTrue(
+            Status == StackDeploymentStatus.Running,
+            $"Cannot stop stack '{StackName}': current status is {Status}, expected Running.");
+
+        Status = StackDeploymentStatus.Stopped;
+    }
+
+    internal void MarkRestarted()
+    {
+        AssertionConcern.AssertStateTrue(
+            Status == StackDeploymentStatus.Stopped,
+            $"Cannot restart stack '{StackName}': current status is {Status}, expected Stopped.");
+
+        Status = StackDeploymentStatus.Running;
+    }
+
     /// <summary>
     /// Synchronizes the stack status from the underlying Deployment aggregate.
     /// Used by the health-sync background service for eventual consistency.

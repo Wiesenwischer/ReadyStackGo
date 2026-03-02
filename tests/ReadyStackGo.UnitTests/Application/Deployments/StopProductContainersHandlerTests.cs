@@ -514,26 +514,24 @@ public class StopProductContainersHandlerTests
 
     #endregion
 
-    #region State Machine Not Affected
+    #region State Machine Transitions
 
     [Fact]
-    public async Task Handle_DoesNotChangeProductDeploymentStatus()
+    public async Task Handle_AllStopsSuceeded_TransitionsToStopped()
     {
         var deployment = CreateRunningDeployment(2);
-        var statusBefore = deployment.Status;
         SetupDeploymentFound(deployment);
         SetupAllStopsSucceed();
 
         await _handler.Handle(CreateCommand(deployment), CancellationToken.None);
 
-        deployment.Status.Should().Be(statusBefore);
-        // No calls to Update/SaveChanges on the repository
-        _repositoryMock.Verify(r => r.Update(It.IsAny<ProductDeployment>()), Times.Never);
-        _repositoryMock.Verify(r => r.SaveChanges(), Times.Never);
+        deployment.Status.Should().Be(ProductDeploymentStatus.Stopped);
+        _repositoryMock.Verify(r => r.Update(deployment), Times.Once);
+        _repositoryMock.Verify(r => r.SaveChanges(), Times.Once);
     }
 
     [Fact]
-    public async Task Handle_PartiallyRunningDeployment_StopsOperationalStacks()
+    public async Task Handle_PartiallyRunningDeployment_TransitionsToStopped()
     {
         var deployment = CreatePartiallyRunningDeployment(3);
         deployment.Status.Should().Be(ProductDeploymentStatus.PartiallyRunning);
@@ -543,8 +541,32 @@ public class StopProductContainersHandlerTests
         var result = await _handler.Handle(CreateCommand(deployment), CancellationToken.None);
 
         result.Success.Should().BeTrue();
-        // Status should still be PartiallyRunning
-        deployment.Status.Should().Be(ProductDeploymentStatus.PartiallyRunning);
+        deployment.Status.Should().Be(ProductDeploymentStatus.Stopped);
+    }
+
+    [Fact]
+    public async Task Handle_PartialFailure_DoesNotChangeStatus()
+    {
+        var deployment = CreateRunningDeployment(2);
+        var statusBefore = deployment.Status;
+        SetupDeploymentFound(deployment);
+
+        // First stack succeeds, second fails
+        var callCount = 0;
+        _dockerServiceMock
+            .Setup(d => d.StopStackContainersAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                callCount++;
+                if (callCount > 1) throw new Exception("Failed");
+                return new List<string> { "container1" };
+            });
+
+        await _handler.Handle(CreateCommand(deployment), CancellationToken.None);
+
+        deployment.Status.Should().Be(statusBefore);
+        _repositoryMock.Verify(r => r.Update(It.IsAny<ProductDeployment>()), Times.Never);
     }
 
     #endregion

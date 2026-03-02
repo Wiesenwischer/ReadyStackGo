@@ -28,5 +28,10 @@ public enum StackDeploymentStatus
     /// <summary>
     /// Stack has been removed.
     /// </summary>
-    Removed = 4
+    Removed = 4,
+
+    /// <summary>
+    /// Stack containers have been deliberately stopped.
+    /// </summary>
+    Stopped = 5
 }

@@ -71,13 +71,29 @@ test.describe.serial('Container Control', () => {
           (pd: { productName?: string; productDisplayName?: string; status?: string }) =>
             (pd.productName?.toLowerCase().includes('e2e') ||
              pd.productDisplayName?.toLowerCase().includes('e2e')) &&
-            (pd.status === 'Running' || pd.status === 'PartiallyRunning')
+            (pd.status === 'Running' || pd.status === 'PartiallyRunning' || pd.status === 'Stopped')
         );
         if (e2ePd) {
           productDeploymentId = e2ePd.productDeploymentId;
-          console.log(`Found e2e-platform product deployment: ${productDeploymentId}`);
+          console.log(`Found e2e-platform product deployment: ${productDeploymentId} (status: ${e2ePd.status})`);
+          // If stopped, restart it first so tests can run the full stop→restart cycle
+          if (e2ePd.status === 'Stopped') {
+            console.log('Deployment is stopped, restarting containers...');
+            try {
+              execSync(
+                `curl -sf -X POST "${BASE_URL}/api/environments/${environmentId}/product-deployments/${productDeploymentId}/restart-containers" ` +
+                `-H "Authorization: Bearer ${authToken}" ` +
+                `-H "Content-Type: application/json" -d "{}"`,
+                { encoding: 'utf-8', timeout: 30_000, stdio: ['pipe', 'pipe', 'ignore'] }
+              );
+              await new Promise(r => setTimeout(r, 5_000));
+              console.log('Containers restarted');
+            } catch {
+              console.warn('Could not restart containers');
+            }
+          }
         } else {
-          console.warn('No running e2e-platform product deployment found. Deploying one...');
+          console.warn('No e2e-platform product deployment found. Deploying one...');
           await deployE2ePlatform();
         }
       } catch {

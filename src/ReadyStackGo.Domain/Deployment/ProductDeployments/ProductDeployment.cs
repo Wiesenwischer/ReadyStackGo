@@ -453,11 +453,17 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
 
     /// <summary>
     /// Marks the product deployment as stopped. All containers have been deliberately stopped.
+    /// Also transitions all running stacks to Stopped.
     /// </summary>
     public void MarkAsStopped(string reason)
     {
         SelfAssertArgumentNotEmpty(reason, "Reason is required.");
         EnsureValidTransition(ProductDeploymentStatus.Stopped);
+
+        foreach (var stack in _stacks.Where(s => s.Status == StackDeploymentStatus.Running))
+        {
+            stack.MarkStopped();
+        }
 
         Status = ProductDeploymentStatus.Stopped;
         ErrorMessage = null;
@@ -467,12 +473,17 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
 
     /// <summary>
     /// Marks the product deployment as restarted after containers have been started again.
-    /// Transitions to Running (all stacks ok) or PartiallyRunning (some failed).
+    /// Transitions stopped stacks back to Running and sets product status accordingly.
     /// </summary>
     public void MarkAsRestarted(int restartedStacks, int failedStacks)
     {
         SelfAssertStateTrue(Status == ProductDeploymentStatus.Stopped,
             $"Cannot mark as restarted when product status is {Status}.");
+
+        foreach (var stack in _stacks.Where(s => s.Status == StackDeploymentStatus.Stopped))
+        {
+            stack.MarkRestarted();
+        }
 
         if (failedStacks > 0 && restartedStacks > 0)
         {
@@ -559,7 +570,7 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     /// </summary>
     public bool SyncStackHealth(string stackName, StackDeploymentStatus actualStatus, string? errorMessage = null)
     {
-        if (!IsOperational && Status != ProductDeploymentStatus.Stopped) return false;
+        if (!IsOperational) return false;
 
         var stack = _stacks.FirstOrDefault(s =>
             s.StackName.Equals(stackName, StringComparison.OrdinalIgnoreCase));
@@ -574,7 +585,7 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     /// </summary>
     public bool RecalculateProductStatus()
     {
-        if (!IsOperational && Status != ProductDeploymentStatus.Stopped) return false;
+        if (!IsOperational) return false;
 
         var allRunning = _stacks.All(s => s.Status == StackDeploymentStatus.Running);
         var anyFailed = _stacks.Any(s => s.Status == StackDeploymentStatus.Failed);

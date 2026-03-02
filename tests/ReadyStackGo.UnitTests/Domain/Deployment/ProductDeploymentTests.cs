@@ -1322,6 +1322,16 @@ public class ProductDeploymentTests
     }
 
     [Fact]
+    public void MarkAsStopped_TransitionsRunningStacksToStopped()
+    {
+        var pd = CreateRunningDeployment(2);
+
+        pd.MarkAsStopped("All containers stopped");
+
+        pd.Stacks.Should().AllSatisfy(s => s.Status.Should().Be(StackDeploymentStatus.Stopped));
+    }
+
+    [Fact]
     public void MarkAsStopped_FromPartiallyRunning_TransitionsToStopped()
     {
         var pd = CreatePartiallyRunningDeployment();
@@ -1386,6 +1396,16 @@ public class ProductDeploymentTests
 
         pd.Status.Should().Be(ProductDeploymentStatus.Running);
         pd.ErrorMessage.Should().BeNull();
+    }
+
+    [Fact]
+    public void MarkAsRestarted_TransitionsStoppedStacksToRunning()
+    {
+        var pd = CreateStoppedDeployment();
+
+        pd.MarkAsRestarted(restartedStacks: 2, failedStacks: 0);
+
+        pd.Stacks.Should().AllSatisfy(s => s.Status.Should().Be(StackDeploymentStatus.Running));
     }
 
     [Fact]
@@ -1472,26 +1492,27 @@ public class ProductDeploymentTests
     #region Stopped Status - Health Sync
 
     [Fact]
-    public void SyncStackHealth_WhenStopped_AllowsSync()
+    public void SyncStackHealth_WhenStopped_IsIgnored()
     {
         var pd = CreateStoppedDeployment();
 
         var changed = pd.SyncStackHealth("stack-0", StackDeploymentStatus.Running);
 
-        // Stack was already Running before being stopped, so no change
+        // Health sync should not interfere with deliberately stopped deployments
         changed.Should().BeFalse();
+        pd.Stacks.First().Status.Should().Be(StackDeploymentStatus.Stopped);
     }
 
     [Fact]
-    public void RecalculateProductStatus_WhenStopped_AllRunning_TransitionsToRunning()
+    public void RecalculateProductStatus_WhenStopped_IsIgnored()
     {
         var pd = CreateStoppedDeployment();
 
         var changed = pd.RecalculateProductStatus();
 
-        // All stacks are Running, so should transition from Stopped to Running
-        changed.Should().BeTrue();
-        pd.Status.Should().Be(ProductDeploymentStatus.Running);
+        // Should not recalculate for stopped deployments
+        changed.Should().BeFalse();
+        pd.Status.Should().Be(ProductDeploymentStatus.Stopped);
     }
 
     #endregion

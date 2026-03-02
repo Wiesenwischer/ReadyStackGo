@@ -466,10 +466,10 @@ public class RestartProductContainersHandlerTests
 
     #endregion
 
-    #region State Machine Not Affected
+    #region State Machine Transitions
 
     [Fact]
-    public async Task Handle_DoesNotChangeProductDeploymentStatus()
+    public async Task Handle_FromRunning_DoesNotChangeStatus()
     {
         var deployment = CreateRunningDeployment(2);
         var statusBefore = deployment.Status;
@@ -484,7 +484,7 @@ public class RestartProductContainersHandlerTests
     }
 
     [Fact]
-    public async Task Handle_PartiallyRunningDeployment_RestartsOperationalStacks()
+    public async Task Handle_PartiallyRunningDeployment_DoesNotChangeStatus()
     {
         var deployment = CreatePartiallyRunningDeployment(3);
         deployment.Status.Should().Be(ProductDeploymentStatus.PartiallyRunning);
@@ -495,6 +495,22 @@ public class RestartProductContainersHandlerTests
 
         result.Success.Should().BeTrue();
         deployment.Status.Should().Be(ProductDeploymentStatus.PartiallyRunning);
+    }
+
+    [Fact]
+    public async Task Handle_FromStopped_TransitionsToRunning()
+    {
+        var deployment = CreateRunningDeployment(2);
+        deployment.MarkAsStopped("Stopped for test");
+        SetupDeploymentFound(deployment);
+        SetupAllRestartsSucceed();
+
+        var result = await _handler.Handle(CreateCommand(deployment), CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        deployment.Status.Should().Be(ProductDeploymentStatus.Running);
+        _repositoryMock.Verify(r => r.Update(deployment), Times.Once);
+        _repositoryMock.Verify(r => r.SaveChanges(), Times.Once);
     }
 
     #endregion
