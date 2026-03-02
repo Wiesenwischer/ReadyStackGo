@@ -2,8 +2,6 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router";
 import {
   getProductDeployment,
-  stopProductContainers,
-  restartProductContainers,
   type GetProductDeploymentResponse,
   type ProductStackDeploymentDto,
 } from "../../api/deployments";
@@ -73,9 +71,6 @@ export default function ProductDeploymentDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showVariables, setShowVariables] = useState(false);
-  const [containerAction, setContainerAction] = useState<'stop' | 'restart' | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [actionResult, setActionResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const loadDeployment = useCallback(async () => {
     if (!activeEnvironment || !productDeploymentId) {
@@ -95,24 +90,6 @@ export default function ProductDeploymentDetail() {
       setLoading(false);
     }
   }, [activeEnvironment, productDeploymentId]);
-
-  const handleContainerAction = useCallback(async (action: 'stop' | 'restart') => {
-    if (!activeEnvironment || !productDeploymentId) return;
-    setContainerAction(null);
-    setActionLoading(true);
-    setActionResult(null);
-    try {
-      const result = action === 'stop'
-        ? await stopProductContainers(activeEnvironment.id, productDeploymentId)
-        : await restartProductContainers(activeEnvironment.id, productDeploymentId);
-      setActionResult({ success: result.success, message: result.message ?? `${action === 'stop' ? 'Stop' : 'Restart'} completed` });
-      await loadDeployment();
-    } catch (err) {
-      setActionResult({ success: false, message: err instanceof Error ? err.message : `Failed to ${action} containers` });
-    } finally {
-      setActionLoading(false);
-    }
-  }, [activeEnvironment, productDeploymentId, loadDeployment]);
 
   useEffect(() => {
     loadDeployment();
@@ -224,22 +201,20 @@ export default function ProductDeploymentDetail() {
             </Link>
           )}
           {deployment.canStop && (
-            <button
-              onClick={() => setContainerAction('stop')}
-              disabled={actionLoading}
-              className="inline-flex items-center justify-center rounded bg-orange-100 px-3 py-1.5 text-sm font-medium text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:hover:bg-orange-900/50 disabled:opacity-50"
+            <Link
+              to={`/stop-product/${deployment.productDeploymentId}`}
+              className="inline-flex items-center justify-center rounded bg-orange-100 px-3 py-1.5 text-sm font-medium text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:hover:bg-orange-900/50"
             >
               Stop Containers
-            </button>
+            </Link>
           )}
           {deployment.canRestart && (
-            <button
-              onClick={() => setContainerAction('restart')}
-              disabled={actionLoading}
-              className="inline-flex items-center justify-center rounded bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50 disabled:opacity-50"
+            <Link
+              to={`/restart-product/${deployment.productDeploymentId}`}
+              className="inline-flex items-center justify-center rounded bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50"
             >
               Restart Containers
-            </button>
+            </Link>
           )}
           {deployment.canRemove && (
             <Link
@@ -251,80 +226,6 @@ export default function ProductDeploymentDetail() {
           )}
         </div>
       </div>
-
-      {/* Confirmation Dialog */}
-      {containerAction && (
-        <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-sm font-medium text-gray-900 dark:text-white">
-            {containerAction === 'stop'
-              ? `Stop all containers of "${deployment.productDisplayName}"?`
-              : `Restart all containers of "${deployment.productDisplayName}"?`}
-          </p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {containerAction === 'stop'
-              ? 'This will stop all running containers. The deployment status will not change.'
-              : 'This will stop and start all containers sequentially. The deployment status will not change.'}
-          </p>
-          <div className="mt-3 flex items-center gap-2">
-            <button
-              onClick={() => handleContainerAction(containerAction)}
-              className={`inline-flex items-center rounded px-3 py-1.5 text-sm font-medium text-white ${
-                containerAction === 'stop'
-                  ? 'bg-orange-600 hover:bg-orange-700'
-                  : 'bg-amber-600 hover:bg-amber-700'
-              }`}
-            >
-              {containerAction === 'stop' ? 'Stop Containers' : 'Restart Containers'}
-            </button>
-            <button
-              onClick={() => setContainerAction(null)}
-              className="inline-flex items-center rounded px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Action Loading */}
-      {actionLoading && (
-        <div className="mb-6 rounded-lg border border-brand-200 bg-brand-50 p-4 dark:border-brand-800 dark:bg-brand-900/20">
-          <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 animate-spin text-brand-600" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            <span className="text-sm text-brand-800 dark:text-brand-300">Processing...</span>
-          </div>
-        </div>
-      )}
-
-      {/* Action Result */}
-      {actionResult && (
-        <div className={`mb-6 rounded-lg p-4 ${
-          actionResult.success
-            ? 'bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800'
-            : 'bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-800'
-        }`}>
-          <div className="flex items-center justify-between">
-            <p className={`text-sm ${
-              actionResult.success
-                ? 'text-green-800 dark:text-green-300'
-                : 'text-red-800 dark:text-red-300'
-            }`}>
-              {actionResult.message}
-            </p>
-            <button
-              onClick={() => setActionResult(null)}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Error Alert */}
       {deployment.errorMessage && (

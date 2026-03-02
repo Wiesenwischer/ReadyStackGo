@@ -14,7 +14,7 @@ const BASE_URL = 'http://localhost:8080';
 
 /**
  * E2E Tests for Container Control (Stop / Restart)
- * Tests the stop and restart container actions on the product deployment detail page.
+ * Tests the dedicated stop and restart pages for product deployments.
  * Requires a running product deployment (e2e-platform from product-deployment.spec.ts).
  */
 
@@ -172,7 +172,7 @@ test.describe.serial('Container Control', () => {
     await login(page);
   });
 
-  test('should show Stop and Restart buttons on running product deployment', async ({ page }) => {
+  test('should show Stop and Restart links on running product deployment', async ({ page }) => {
     test.skip(!productDeploymentId, 'No product deployment available');
 
     await page.goto(`/product-deployments/${productDeploymentId}`);
@@ -182,13 +182,13 @@ test.describe.serial('Container Control', () => {
     // Verify the product deployment detail page loaded
     await expect(page.getByText('Back to Deployments')).toBeVisible({ timeout: 10_000 });
 
-    // Verify Stop Containers button is visible
-    const stopButton = page.getByRole('button', { name: /stop containers/i });
-    await expect(stopButton).toBeVisible({ timeout: 10_000 });
+    // Verify Stop Containers link is visible
+    const stopLink = page.getByRole('link', { name: /stop containers/i });
+    await expect(stopLink).toBeVisible({ timeout: 10_000 });
 
-    // Verify Restart Containers button is visible
-    const restartButton = page.getByRole('button', { name: /restart containers/i });
-    await expect(restartButton).toBeVisible();
+    // Verify Restart Containers link is visible
+    const restartLink = page.getByRole('link', { name: /restart containers/i });
+    await expect(restartLink).toBeVisible();
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'container-control-01-buttons.png'),
@@ -196,71 +196,70 @@ test.describe.serial('Container Control', () => {
     });
   });
 
-  test('should show confirmation dialog when clicking Stop', async ({ page }) => {
+  test('should navigate to stop confirmation page', async ({ page }) => {
     test.skip(!productDeploymentId, 'No product deployment available');
 
     await page.goto(`/product-deployments/${productDeploymentId}`);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    // Click Stop Containers button
-    const stopButton = page.getByRole('button', { name: /stop containers/i });
-    await expect(stopButton).toBeVisible({ timeout: 10_000 });
-    await stopButton.click();
+    // Click Stop Containers link
+    const stopLink = page.getByRole('link', { name: /stop containers/i });
+    await expect(stopLink).toBeVisible({ timeout: 10_000 });
+    await stopLink.click();
 
-    // Confirmation dialog should appear
-    await expect(page.getByText(/stop all containers of/i)).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText(/this will stop all running containers/i)).toBeVisible();
+    // Should navigate to the stop confirmation page
+    await page.waitForURL(`**/stop-product/${productDeploymentId}`, { timeout: 10_000 });
 
-    // Confirm and Cancel buttons should be present inside the confirmation dialog
-    const confirmDialog = page.locator('.border-gray-200, .dark\\:border-gray-700').filter({ hasText: /stop all containers of/i });
-    const confirmButton = confirmDialog.getByRole('button', { name: /stop containers/i });
-    await expect(confirmButton).toBeVisible();
-    const cancelButton = confirmDialog.getByRole('button', { name: /cancel/i });
-    await expect(cancelButton).toBeVisible();
+    // Confirmation page should show the stop title
+    await expect(page.getByText('Stop Product Containers')).toBeVisible({ timeout: 10_000 });
+
+    // Should show product details
+    await expect(page.getByText('Product Details')).toBeVisible();
+
+    // Should show the stacks to stop section
+    await expect(page.getByText('Stacks to stop')).toBeVisible();
+
+    // Cancel link and Stop button should be present
+    await expect(page.getByRole('link', { name: /cancel/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /stop all containers/i })).toBeVisible();
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'container-control-02-stop-confirm.png'),
       fullPage: false
     });
 
-    // Cancel the action
-    await cancelButton.click();
-
-    // Confirmation should disappear
-    await expect(page.getByText(/stop all containers of/i)).not.toBeVisible();
+    // Cancel should navigate back to deployment detail
+    await page.getByRole('link', { name: /cancel/i }).click();
+    await page.waitForURL(`**/product-deployments/${productDeploymentId}`, { timeout: 10_000 });
   });
 
   test('should stop containers and show result', async ({ page }) => {
     test.skip(!productDeploymentId, 'No product deployment available');
 
-    await page.goto(`/product-deployments/${productDeploymentId}`);
+    // Navigate directly to the stop page
+    await page.goto(`/stop-product/${productDeploymentId}`);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    // Click Stop Containers
-    const stopButton = page.getByRole('button', { name: /stop containers/i });
-    await expect(stopButton).toBeVisible({ timeout: 10_000 });
-    await stopButton.click();
+    // Verify confirm page loaded
+    await expect(page.getByText('Stop Product Containers')).toBeVisible({ timeout: 10_000 });
 
-    // Wait for confirmation dialog and confirm
-    await expect(page.getByText(/stop all containers of/i)).toBeVisible({ timeout: 5_000 });
-    const confirmDialog = page.locator('.border-gray-200, .dark\\:border-gray-700').filter({ hasText: /stop all containers of/i });
-    const confirmButton = confirmDialog.getByRole('button', { name: /stop containers/i });
-    await confirmButton.click();
+    // Click the stop button
+    await page.getByRole('button', { name: /stop all containers/i }).click();
 
-    // Should show loading spinner
-    await expect(page.getByText(/processing/i)).toBeVisible({ timeout: 5_000 });
+    // Should show stopping spinner
+    await expect(page.getByText('Stopping Containers...')).toBeVisible({ timeout: 5_000 });
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'container-control-03-stop-loading.png'),
       fullPage: false
     });
 
-    // Wait for result feedback
-    const successResult = page.locator('.bg-green-50, .dark\\:bg-green-900\\/20');
-    const errorResult = page.locator('.bg-red-50, .dark\\:bg-red-900\\/20');
-    await expect(successResult.or(errorResult)).toBeVisible({ timeout: 30_000 });
+    // Wait for result — either success or error
+    const successHeading = page.getByText('Containers Stopped Successfully!');
+    const errorHeading = page.getByText('Stop Completed with Errors');
+    await expect(successHeading.or(errorHeading)).toBeVisible({ timeout: 30_000 });
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'container-control-04-stop-result.png'),
@@ -268,42 +267,44 @@ test.describe.serial('Container Control', () => {
     });
   });
 
-  test('should show confirmation dialog when clicking Restart', async ({ page }) => {
+  test('should navigate to restart page and restart containers', async ({ page }) => {
     test.skip(!productDeploymentId, 'No product deployment available');
 
-    await page.goto(`/product-deployments/${productDeploymentId}`);
+    // Navigate directly to the restart page
+    await page.goto(`/restart-product/${productDeploymentId}`);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    // Click Restart Containers button
-    const restartButton = page.getByRole('button', { name: /restart containers/i });
-    // If containers were stopped, the button might not be available
-    const isVisible = await restartButton.isVisible().catch(() => false);
-    test.skip(!isVisible, 'Restart button not visible (containers may be stopped)');
+    // Check if we can restart — the page shows an error if canRestart is false
+    const confirmTitle = page.getByText('Restart Product Containers');
+    const errorBox = page.locator('.bg-red-50');
+    const visible = await confirmTitle.isVisible().catch(() => false);
 
-    await restartButton.click();
+    if (!visible) {
+      // canRestart might be false after stopping — skip
+      test.skip(true, 'Restart not available (containers may already be stopped)');
+      return;
+    }
 
-    // Confirmation dialog should appear with restart-specific text
-    await expect(page.getByText(/restart all containers of/i)).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText(/this will stop and start all containers sequentially/i)).toBeVisible();
+    // Should show product details and stacks to restart
+    await expect(page.getByText('Product Details')).toBeVisible();
+    await expect(page.getByText('Stacks to restart')).toBeVisible();
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'container-control-05-restart-confirm.png'),
       fullPage: false
     });
 
-    // Confirm the restart
-    const confirmDialog = page.locator('.border-gray-200, .dark\\:border-gray-700').filter({ hasText: /restart all containers of/i });
-    const confirmButton = confirmDialog.getByRole('button', { name: /restart containers/i });
-    await confirmButton.click();
+    // Click the restart button
+    await page.getByRole('button', { name: /restart all containers/i }).click();
 
-    // Should show loading
-    await expect(page.getByText(/processing/i)).toBeVisible({ timeout: 5_000 });
+    // Should show restarting spinner
+    await expect(page.getByText('Restarting Containers...')).toBeVisible({ timeout: 5_000 });
 
-    // Wait for result feedback
-    const successResult = page.locator('.bg-green-50, .dark\\:bg-green-900\\/20');
-    const errorResult = page.locator('.bg-red-50, .dark\\:bg-red-900\\/20');
-    await expect(successResult.or(errorResult)).toBeVisible({ timeout: 60_000 });
+    // Wait for result
+    const successHeading = page.getByText('Containers Restarted Successfully!');
+    const errorHeading = page.getByText('Restart Completed with Errors');
+    await expect(successHeading.or(errorHeading)).toBeVisible({ timeout: 60_000 });
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'container-control-06-restart-result.png'),
