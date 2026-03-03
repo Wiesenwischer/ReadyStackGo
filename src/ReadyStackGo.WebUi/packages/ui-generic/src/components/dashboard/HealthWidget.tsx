@@ -1,14 +1,13 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { useAuth } from '../../context/AuthContext';
 import {
-  useHealthHub,
   getEnvironmentHealthSummary,
   getHealthStatusPresentation,
   type EnvironmentHealthSummaryDto,
   type StackHealthDto,
 } from '@rsgo/core';
+import { useHealthHub } from '../../hooks/useHealthHub';
 
 interface HealthWidgetProps {
   className?: string;
@@ -33,13 +32,12 @@ function aggregateProductStatus(stacks: StackHealthDto[]): string {
 
 export default function HealthWidget({ className = '' }: HealthWidgetProps) {
   const { activeEnvironment } = useEnvironment();
-  const { token } = useAuth();
   const [healthSummary, setHealthSummary] = useState<EnvironmentHealthSummaryDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // SignalR for real-time updates
-  const { connectionState, subscribeToEnvironment, unsubscribeFromEnvironment } = useHealthHub(token, {
+  const { connectionState, subscribeToEnvironment, unsubscribeFromEnvironment } = useHealthHub({
     onEnvironmentHealthChanged: (summary) => {
       if (summary.environmentId === activeEnvironment?.id) {
         setHealthSummary(summary);

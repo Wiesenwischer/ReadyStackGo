@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router';
-import { deployProduct, type DeployProductStackResult, type Product, type ProductStack, type StackVariable, getProduct, getEnvironmentVariables, saveEnvironmentVariables, useDeploymentHub, type DeploymentProgressUpdate, type InitContainerLogEntry } from '@rsgo/core';
+import { deployProduct, type DeployProductStackResult, type Product, type ProductStack, type StackVariable, getProduct, getEnvironmentVariables, saveEnvironmentVariables, type DeploymentProgressUpdate, type InitContainerLogEntry } from '@rsgo/core';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { useAuth } from '../../context/AuthContext';
+import { useDeploymentHub } from '../../hooks/useDeploymentHub';
 import VariableInput, { groupVariables } from '../../components/variables/VariableInput';
 import { DeploymentProgressPanel } from '../../components/deployments/DeploymentProgressPanel';
 
@@ -63,8 +63,6 @@ type StackProgressStatus = 'pending' | 'deploying' | 'running' | 'failed';
 export default function DeployProduct() {
   const { productId } = useParams<{ productId: string }>();
   const { activeEnvironment } = useEnvironment();
-  const { token } = useAuth();
-
   const [state, setState] = useState<DeployState>('loading');
   const [product, setProduct] = useState<Product | null>(null);
   const [error, setError] = useState('');
@@ -168,7 +166,7 @@ export default function DeployProduct() {
     }
   }, []);
 
-  const { subscribeToDeployment, connectionState } = useDeploymentHub(token, {
+  const { subscribeToDeployment, connectionState } = useDeploymentHub({
     onDeploymentProgress: handleDeploymentProgress,
     onInitContainerLog: handleInitContainerLog,
   });

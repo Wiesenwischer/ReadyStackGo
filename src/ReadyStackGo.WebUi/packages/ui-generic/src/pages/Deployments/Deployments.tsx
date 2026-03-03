@@ -8,14 +8,12 @@ import {
   getHealthStatusPresentation,
   getOperationModePresentation,
   type StackHealthDto,
-  useHealthHub,
 } from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
-import { useAuth } from "../../context/AuthContext";
+import { useHealthHub } from "../../hooks/useHealthHub";
 
 export default function Deployments() {
   const { activeEnvironment } = useEnvironment();
-  const { token } = useAuth();
   const [deployments, setDeployments] = useState<DeploymentSummary[]>([]);
   const [productDeployments, setProductDeployments] = useState<ProductDeploymentSummaryDto[]>([]);
   const [healthData, setHealthData] = useState<Map<string, StackHealthDto>>(new Map());
@@ -23,7 +21,7 @@ export default function Deployments() {
   const [error, setError] = useState<string | null>(null);
 
   // SignalR Health Hub connection
-  const { connectionState, subscribeToEnvironment, unsubscribeFromEnvironment } = useHealthHub(token, {
+  const { connectionState, subscribeToEnvironment, unsubscribeFromEnvironment } = useHealthHub({
     onDeploymentHealthChanged: (health) => {
       setHealthData(prev => {
         const newMap = new Map(prev);

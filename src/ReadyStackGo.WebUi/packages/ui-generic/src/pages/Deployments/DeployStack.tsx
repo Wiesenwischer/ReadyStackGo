@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router';
-import { deployCompose, deployStack, type StackDetail, getStack, getProduct, type Product, type ProductVersion, getEnvironmentVariables, saveEnvironmentVariables, useDeploymentHub, type DeploymentProgressUpdate, type InitContainerLogEntry } from '@rsgo/core';
+import { deployCompose, deployStack, type StackDetail, getStack, getProduct, type Product, type ProductVersion, getEnvironmentVariables, saveEnvironmentVariables, type DeploymentProgressUpdate, type InitContainerLogEntry } from '@rsgo/core';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { useAuth } from '../../context/AuthContext';
+import { useDeploymentHub } from '../../hooks/useDeploymentHub';
 import VariableInput, { groupVariables } from '../../components/variables/VariableInput';
 import { DeploymentProgressPanel } from '../../components/deployments/DeploymentProgressPanel';
 
@@ -36,7 +36,6 @@ type DeployState = 'loading' | 'configure' | 'deploying' | 'success' | 'error';
 export default function DeployStack() {
   const { stackId } = useParams<{ stackId: string }>();
   const { activeEnvironment } = useEnvironment();
-  const { token } = useAuth();
 
   // Check if this is a custom deployment (no pre-defined stack)
   const isCustomDeploy = stackId === 'custom';
@@ -88,7 +87,7 @@ export default function DeployStack() {
     }
   }, []);
 
-  const { subscribeToDeployment, connectionState } = useDeploymentHub(token, {
+  const { subscribeToDeployment, connectionState } = useDeploymentHub({
     onDeploymentProgress: handleDeploymentProgress,
     onInitContainerLog: handleInitContainerLog,
   });

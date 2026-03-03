@@ -29,8 +29,10 @@
     "paths": {
       "@/*": ["./src/*"],
       "@rsgo/core": ["./packages/core/src/index.ts"],
-      "@rsgo/core/*": ["./packages/core/src/*"]
+      "@rsgo/core/*": ["./packages/core/src/*"],
+      "@rsgo/ui-generic": ["./packages/ui-generic/src/index.ts"],
+      "@rsgo/ui-generic/*": ["./packages/ui-generic/src/*"]
     }
   },
-  "include": ["src", "packages/core/src"]
+  "include": ["src", "packages/core/src", "packages/ui-generic/src"]
 }

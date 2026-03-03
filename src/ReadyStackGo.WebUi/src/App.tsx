@@ -1,32 +1,32 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router";
-import AppLayout from "./layout/AppLayout";
-import { ScrollToTop } from "./components/common/ScrollToTop";
-import Dashboard from "./pages/Dashboard";
-import Containers from "./pages/Monitoring/Containers";
-import Volumes from "./pages/Monitoring/Volumes";
-import VolumeDetail from "./pages/Monitoring/VolumeDetail";
-import Deployments from "./pages/Deployments/Deployments";
-import DeploymentDetail from "./pages/Deployments/DeploymentDetail";
-import UpgradeStack from "./pages/Deployments/UpgradeStack";
-import RollbackStack from "./pages/Deployments/RollbackStack";
-import RemoveStack from "./pages/Deployments/RemoveStack";
-import HealthDashboard from "./pages/Monitoring/HealthDashboard";
-import ServiceHealthDetail from "./pages/Monitoring/ServiceHealthDetail";
-import ContainerLogs from "./pages/Monitoring/ContainerLogs";
-import StackCatalog from "./pages/Catalog/StackCatalog";
-import ProductDetail from "./pages/Catalog/ProductDetail";
-import DeployStack from "./pages/Deployments/DeployStack";
-import DeployProduct from "./pages/Deployments/DeployProduct";
-import UpgradeProduct from "./pages/Deployments/UpgradeProduct";
-import RemoveProduct from "./pages/Deployments/RemoveProduct";
-import RetryProduct from "./pages/Deployments/RetryProduct";
-import RedeployProduct from "./pages/Deployments/RedeployProduct";
-import StopProduct from "./pages/Deployments/StopProduct";
-import RestartProduct from "./pages/Deployments/RestartProduct";
-import ProductDeploymentDetail from "./pages/Deployments/ProductDeploymentDetail";
-import Environments from "./pages/Environments/Environments";
-import AddEnvironment from "./pages/Environments/AddEnvironment";
-import DeleteEnvironment from "./pages/Environments/DeleteEnvironment";
+import AppLayout from "@rsgo/ui-generic/layout/AppLayout";
+import { ScrollToTop } from "@rsgo/ui-generic/components/common/ScrollToTop";
+import Dashboard from "@rsgo/ui-generic/pages/Dashboard";
+import Containers from "@rsgo/ui-generic/pages/Monitoring/Containers";
+import Volumes from "@rsgo/ui-generic/pages/Monitoring/Volumes";
+import VolumeDetail from "@rsgo/ui-generic/pages/Monitoring/VolumeDetail";
+import Deployments from "@rsgo/ui-generic/pages/Deployments/Deployments";
+import DeploymentDetail from "@rsgo/ui-generic/pages/Deployments/DeploymentDetail";
+import UpgradeStack from "@rsgo/ui-generic/pages/Deployments/UpgradeStack";
+import RollbackStack from "@rsgo/ui-generic/pages/Deployments/RollbackStack";
+import RemoveStack from "@rsgo/ui-generic/pages/Deployments/RemoveStack";
+import HealthDashboard from "@rsgo/ui-generic/pages/Monitoring/HealthDashboard";
+import ServiceHealthDetail from "@rsgo/ui-generic/pages/Monitoring/ServiceHealthDetail";
+import ContainerLogs from "@rsgo/ui-generic/pages/Monitoring/ContainerLogs";
+import StackCatalog from "@rsgo/ui-generic/pages/Catalog/StackCatalog";
+import ProductDetail from "@rsgo/ui-generic/pages/Catalog/ProductDetail";
+import DeployStack from "@rsgo/ui-generic/pages/Deployments/DeployStack";
+import DeployProduct from "@rsgo/ui-generic/pages/Deployments/DeployProduct";
+import UpgradeProduct from "@rsgo/ui-generic/pages/Deployments/UpgradeProduct";
+import RemoveProduct from "@rsgo/ui-generic/pages/Deployments/RemoveProduct";
+import RetryProduct from "@rsgo/ui-generic/pages/Deployments/RetryProduct";
+import RedeployProduct from "@rsgo/ui-generic/pages/Deployments/RedeployProduct";
+import StopProduct from "@rsgo/ui-generic/pages/Deployments/StopProduct";
+import RestartProduct from "@rsgo/ui-generic/pages/Deployments/RestartProduct";
+import ProductDeploymentDetail from "@rsgo/ui-generic/pages/Deployments/ProductDeploymentDetail";
+import Environments from "@rsgo/ui-generic/pages/Environments/Environments";
+import AddEnvironment from "@rsgo/ui-generic/pages/Environments/AddEnvironment";
+import DeleteEnvironment from "@rsgo/ui-generic/pages/Environments/DeleteEnvironment";
 import {
   SettingsIndex,
   StackSourcesList,
@@ -46,22 +46,22 @@ import {
   ResetToSelfSigned,
   CiCdList,
   SystemInfo,
-} from "./pages/Settings";
-import SetupEnvironment from "./pages/Environments/SetupEnvironment";
-import SetupOrganization from "./pages/Settings/Organization/SetupOrganization";
-import Login from "./pages/Auth/Login";
-import Wizard from "./pages/Wizard";
-import Onboarding from "./pages/Onboarding";
-import Profile from "./pages/Profile/Profile";
-import NotFound from "./pages/NotFound";
-import UpdateStatus from "./pages/UpdateStatus";
-import { AuthProvider } from "./context/AuthContext";
-import { ThemeProvider } from "./context/ThemeContext";
-import { EnvironmentProvider } from "./context/EnvironmentContext";
-import ProtectedRoute from "./components/auth/ProtectedRoute";
-import WizardGuard from "./components/wizard/WizardGuard";
-import OnboardingGuard from "./components/onboarding/OnboardingGuard";
-import EnvironmentGuard from "./components/environment/EnvironmentGuard";
+} from "@rsgo/ui-generic/pages/Settings";
+import SetupEnvironment from "@rsgo/ui-generic/pages/Environments/SetupEnvironment";
+import SetupOrganization from "@rsgo/ui-generic/pages/Settings/Organization/SetupOrganization";
+import Login from "@rsgo/ui-generic/pages/Auth/Login";
+import Wizard from "@rsgo/ui-generic/pages/Wizard";
+import Onboarding from "@rsgo/ui-generic/pages/Onboarding";
+import Profile from "@rsgo/ui-generic/pages/Profile/Profile";
+import NotFound from "@rsgo/ui-generic/pages/NotFound";
+import UpdateStatus from "@rsgo/ui-generic/pages/UpdateStatus";
+import { AuthProvider } from "@rsgo/ui-generic/context/AuthContext";
+import { ThemeProvider } from "@rsgo/ui-generic/context/ThemeContext";
+import { EnvironmentProvider } from "@rsgo/ui-generic/context/EnvironmentContext";
+import ProtectedRoute from "@rsgo/ui-generic/components/auth/ProtectedRoute";
+import WizardGuard from "@rsgo/ui-generic/components/wizard/WizardGuard";
+import OnboardingGuard from "@rsgo/ui-generic/components/onboarding/OnboardingGuard";
+import EnvironmentGuard from "@rsgo/ui-generic/components/environment/EnvironmentGuard";
 
 export default function App() {
   return (
