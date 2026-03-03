@@ -247,20 +247,20 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Deploy Hook Resolution by ProductId (Stable CI/CD Without Instance-Specific SourceId)
   - Optional `productId`, `version`, `stackDefinitionName` Fields on `/api/hooks/deploy`
   - Backward-Compatible: Existing `stackId`-Based Requests Still Supported
+- **v0.31** – Product Container Control (2026-03-03)
+  - Stop All Containers of a Product Deployment (Graceful Shutdown)
+  - Restart All Containers of a Product Deployment (Stop + Start Sequentially)
+  - Per-Stack Stop/Restart Within a Product Deployment (Selective Control)
+  - Stop/Restart UI with Dedicated Pages and Confirmation Dialogs
+  - Stopped Status in Product and Stack Deployment State Machines
+  - Hook Support for Stop/Restart (`/api/hooks/stop-containers`, `/api/hooks/restart-containers`)
+  - API Key Permissions for StopContainers and RestartContainers
 
 ---
 
 ## Planned
 
 Epics are listed in priority order. Top = next.
-
-### Epic: Product Container Control
-
-- Stop All Containers of a Product Deployment (Graceful Shutdown)
-- Restart All Containers of a Product Deployment (Stop + Start Sequentially)
-- Per-Stack Stop/Restart Within a Product Deployment (Selective Control)
-- Stop/Restart UI Buttons on ProductDeploymentDetail Page
-- Hook Support for Stop/Restart (`/api/hooks/stop-containers`, `/api/hooks/restart-containers`)
 
 ### Epic: Notifications Phase 2
 
