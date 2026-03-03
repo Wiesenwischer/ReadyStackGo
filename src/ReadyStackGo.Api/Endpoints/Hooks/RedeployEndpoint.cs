@@ -24,6 +24,12 @@ public class RedeployEndpoint : Endpoint<RedeployStackRequest, RedeployStackResp
 
     public override async Task HandleAsync(RedeployStackRequest req, CancellationToken ct)
     {
+        // Validate: either stackName or productId is required
+        if (string.IsNullOrWhiteSpace(req.StackName) && string.IsNullOrWhiteSpace(req.ProductId))
+        {
+            ThrowError("Either stackName or productId is required.");
+        }
+
         // Resolve EnvironmentId: from request body, or fallback to API Key's env_id claim
         var environmentId = req.EnvironmentId;
 
@@ -38,7 +44,7 @@ public class RedeployEndpoint : Endpoint<RedeployStackRequest, RedeployStackResp
         }
 
         var response = await _mediator.Send(
-            new RedeployStackCommand(req.StackName, environmentId!, req.Variables), ct);
+            new RedeployStackCommand(req.StackName, environmentId!, req.Variables, req.ProductId, req.StackDefinitionName), ct);
 
         if (!response.Success)
         {
