@@ -1,160 +1,26 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
-import {
-  getDeployment,
-  getRollbackInfo,
-  rollbackDeployment,
-  type GetDeploymentResponse,
-  type RollbackInfoResponse,
-  type DeploymentProgressUpdate,
-  type InitContainerLogEntry,
-} from '@rsgo/core';
+import { useRollbackStore } from '@rsgo/core';
+import { useAuth } from '../../context/AuthContext';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { useDeploymentHub } from '../../hooks/useDeploymentHub';
-
-// Format phase names for display (PullingImages -> Pulling Images)
-const formatPhase = (phase: string | undefined): string => {
-  if (!phase) return '';
-  return phase.replace(/([A-Z])/g, ' $1').trim();
-};
-
-type RollbackState = 'loading' | 'confirm' | 'rolling_back' | 'success' | 'error';
 
 export default function RollbackStack() {
   const { stackName } = useParams<{ stackName: string }>();
   const navigate = useNavigate();
+  const { token } = useAuth();
   const { activeEnvironment } = useEnvironment();
-
-  const [state, setState] = useState<RollbackState>('loading');
-  const [deployment, setDeployment] = useState<GetDeploymentResponse | null>(null);
-  const [rollbackInfo, setRollbackInfo] = useState<RollbackInfoResponse | null>(null);
-  const [error, setError] = useState('');
-
-  // Rollback progress state
-  const rollbackSessionIdRef = useRef<string | null>(null);
-  const [progressUpdate, setProgressUpdate] = useState<DeploymentProgressUpdate | null>(null);
-  const [initContainerLogs, setInitContainerLogs] = useState<Record<string, string[]>>({});
   const logEndRef = useRef<HTMLDivElement>(null);
 
-  // SignalR hub for real-time rollback progress
-  const handleRollbackProgress = useCallback((update: DeploymentProgressUpdate) => {
-    const currentSessionId = rollbackSessionIdRef.current;
-    if (currentSessionId && update.sessionId === currentSessionId) {
-      setProgressUpdate(update);
-
-      if (update.isComplete) {
-        if (update.isError) {
-          setError(update.errorMessage || 'Rollback failed');
-          setState('error');
-        } else {
-          setState('success');
-        }
-      }
-    }
-  }, []);
-
-  const handleInitContainerLog = useCallback((log: InitContainerLogEntry) => {
-    const currentSessionId = rollbackSessionIdRef.current;
-    if (currentSessionId && log.sessionId === currentSessionId) {
-      setInitContainerLogs(prev => ({
-        ...prev,
-        [log.containerName]: [...(prev[log.containerName] || []), log.logLine]
-      }));
-    }
-  }, []);
-
-  const { subscribeToDeployment, connectionState } = useDeploymentHub({
-    onDeploymentProgress: handleRollbackProgress,
-    onInitContainerLog: handleInitContainerLog,
-  });
+  const store = useRollbackStore(token, activeEnvironment?.id, stackName);
 
   // Auto-scroll init container logs to bottom
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [initContainerLogs]);
-
-  // Load deployment and rollback info
-  useEffect(() => {
-    if (!stackName || !activeEnvironment) {
-      return;
-    }
-
-    const loadData = async () => {
-      try {
-        setState('loading');
-        setError('');
-
-        // Load deployment
-        const deploymentResponse = await getDeployment(activeEnvironment.id, decodeURIComponent(stackName));
-        if (!deploymentResponse.success || !deploymentResponse.deploymentId) {
-          setError(deploymentResponse.message || 'Deployment not found');
-          setState('error');
-          return;
-        }
-        setDeployment(deploymentResponse);
-
-        // Load rollback info
-        const rollbackInfoResponse = await getRollbackInfo(activeEnvironment.id, deploymentResponse.deploymentId);
-        setRollbackInfo(rollbackInfoResponse);
-
-        if (!rollbackInfoResponse.canRollback) {
-          setError('Rollback is not available for this deployment. The deployment must be in a Failed state to rollback.');
-          setState('error');
-          return;
-        }
-
-        setState('confirm');
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load rollback data');
-        setState('error');
-      }
-    };
-
-    loadData();
-  }, [stackName, activeEnvironment]);
-
-  const handleRollback = async () => {
-    if (!activeEnvironment || !deployment?.deploymentId) {
-      setError('Missing required data');
-      return;
-    }
-
-    // Generate session ID before API call
-    const sessionId = `rollback-${deployment.stackName}-${Date.now()}`;
-    rollbackSessionIdRef.current = sessionId;
-
-    setState('rolling_back');
-    setError('');
-    setProgressUpdate(null);
-    setInitContainerLogs({});
-    // Subscribe to SignalR before starting
-    if (connectionState === 'connected') {
-      await subscribeToDeployment(sessionId);
-    }
-
-    try {
-      const response = await rollbackDeployment(activeEnvironment.id, deployment.deploymentId, { sessionId });
-
-      if (!response.success) {
-        setError(response.message || 'Rollback failed');
-        setState('error');
-        return;
-      }
-
-      // State will be set to 'success' by SignalR callback
-      // But if no SignalR connection, set it immediately
-      if (connectionState !== 'connected') {
-        setState('success');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Rollback failed');
-      setState('error');
-    }
-  };
+  }, [store.initContainerLogs]);
 
   const getBackUrl = () => `/deployments/${encodeURIComponent(stackName || '')}`;
 
-  if (state === 'loading') {
+  if (store.state === 'loading') {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="flex items-center justify-center py-12">
@@ -167,7 +33,7 @@ export default function RollbackStack() {
     );
   }
 
-  if (state === 'error' && !rollbackInfo) {
+  if (store.state === 'error' && !store.rollbackInfo) {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="mb-6">
@@ -182,13 +48,13 @@ export default function RollbackStack() {
           </Link>
         </div>
         <div className="rounded-md bg-red-50 p-4 dark:bg-red-900/20">
-          <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+          <p className="text-sm text-red-800 dark:text-red-200">{store.error}</p>
         </div>
       </div>
     );
   }
 
-  if (state === 'success') {
+  if (store.state === 'success') {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="rounded-2xl border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -202,7 +68,7 @@ export default function RollbackStack() {
               Rollback Successful!
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {deployment?.stackName} has been rolled back to version {rollbackInfo?.rollbackTargetVersion}
+              {store.deployment?.stackName} has been rolled back to version {store.rollbackInfo?.rollbackTargetVersion}
             </p>
 
             <div className="flex gap-4">
@@ -225,7 +91,7 @@ export default function RollbackStack() {
     );
   }
 
-  if (state === 'rolling_back') {
+  if (store.state === 'rolling_back') {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="rounded-2xl border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -235,7 +101,7 @@ export default function RollbackStack() {
               Rolling Back...
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Rolling back {deployment?.stackName} to version {rollbackInfo?.rollbackTargetVersion}
+              Rolling back {store.deployment?.stackName} to version {store.rollbackInfo?.rollbackTargetVersion}
             </p>
 
             {/* Progress Section */}
@@ -244,16 +110,16 @@ export default function RollbackStack() {
               <div className="mb-4">
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-gray-600 dark:text-gray-400">
-                    {formatPhase(progressUpdate?.phase) || 'Initializing'}
+                    {store.formattedPhase || 'Initializing'}
                   </span>
                   <span className="text-gray-600 dark:text-gray-400">
-                    {progressUpdate?.percentComplete ?? 0}%
+                    {store.progressUpdate?.percentComplete ?? 0}%
                   </span>
                 </div>
                 <div className="h-3 bg-gray-200 rounded-full dark:bg-gray-700 overflow-hidden">
                   <div
                     className="h-full bg-amber-600 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${progressUpdate?.percentComplete ?? 0}%` }}
+                    style={{ width: `${store.progressUpdate?.percentComplete ?? 0}%` }}
                   />
                 </div>
               </div>
@@ -261,20 +127,20 @@ export default function RollbackStack() {
               {/* Status Message */}
               <div className="text-center">
                 <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                  {progressUpdate?.message || 'Starting rollback...'}
+                  {store.progressUpdate?.message || 'Starting rollback...'}
                 </p>
 
-                {progressUpdate && (progressUpdate.totalServices > 0 || progressUpdate.totalInitContainers > 0) && (
+                {store.progressUpdate && (store.progressUpdate.totalServices > 0 || store.progressUpdate.totalInitContainers > 0) && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    {progressUpdate.phase === 'PullingImages'
-                      ? `Images: ${progressUpdate.completedServices} / ${progressUpdate.totalServices}`
-                      : progressUpdate.phase === 'InitializingContainers'
-                        ? `Init Containers: ${progressUpdate.completedInitContainers} / ${progressUpdate.totalInitContainers}`
-                        : `Services: ${progressUpdate.completedServices} / ${progressUpdate.totalServices}`
+                    {store.progressUpdate.phase === 'PullingImages'
+                      ? `Images: ${store.progressUpdate.completedServices} / ${store.progressUpdate.totalServices}`
+                      : store.progressUpdate.phase === 'InitializingContainers'
+                        ? `Init Containers: ${store.progressUpdate.completedInitContainers} / ${store.progressUpdate.totalInitContainers}`
+                        : `Services: ${store.progressUpdate.completedServices} / ${store.progressUpdate.totalServices}`
                     }
-                    {progressUpdate.currentService && (
+                    {store.progressUpdate.currentService && (
                       <span className="ml-2">
-                        (current: <span className="font-mono">{progressUpdate.currentService}</span>)
+                        (current: <span className="font-mono">{store.progressUpdate.currentService}</span>)
                       </span>
                     )}
                   </p>
@@ -284,26 +150,26 @@ export default function RollbackStack() {
               {/* Connection Status */}
               <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                 <span className={`w-2 h-2 rounded-full ${
-                  connectionState === 'connected' ? 'bg-green-500' :
-                  connectionState === 'connecting' ? 'bg-yellow-500' :
-                  connectionState === 'reconnecting' ? 'bg-yellow-500' :
+                  store.connectionState === 'connected' ? 'bg-green-500' :
+                  store.connectionState === 'connecting' ? 'bg-yellow-500' :
+                  store.connectionState === 'reconnecting' ? 'bg-yellow-500' :
                   'bg-red-500'
                 }`} />
-                {connectionState === 'connected' ? 'Live updates' :
-                 connectionState === 'connecting' ? 'Connecting...' :
-                 connectionState === 'reconnecting' ? 'Reconnecting...' :
+                {store.connectionState === 'connected' ? 'Live updates' :
+                 store.connectionState === 'connecting' ? 'Connecting...' :
+                 store.connectionState === 'reconnecting' ? 'Reconnecting...' :
                  'Updates unavailable'}
               </div>
             </div>
 
             {/* Init Container Logs - full width */}
-            {Object.keys(initContainerLogs).length > 0 && (
+            {Object.keys(store.initContainerLogs).length > 0 && (
               <div className="mt-6 w-full">
                 <div className="px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-t-lg">
                   Init Container Logs
                 </div>
                 <div className="bg-gray-900 rounded-b-lg p-3 max-h-80 overflow-y-auto">
-                  {Object.entries(initContainerLogs).map(([name, lines]) => (
+                  {Object.entries(store.initContainerLogs).map(([name, lines]) => (
                     <div key={name} className="mb-2 last:mb-0">
                       <div className="text-xs font-bold text-blue-400 mb-1">{name}</div>
                       {lines.map((line, i) => (
@@ -340,18 +206,18 @@ export default function RollbackStack() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-          Rollback {deployment?.stackName}
+          Rollback {store.deployment?.stackName}
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
-          Rollback to version <span className="font-medium">{rollbackInfo?.rollbackTargetVersion}</span>
+          Rollback to version <span className="font-medium">{store.rollbackInfo?.rollbackTargetVersion}</span>
         </p>
       </div>
 
       {/* Error Display */}
-      {error && (
+      {store.error && (
         <div className="mb-6 p-4 text-sm text-red-800 bg-red-100 rounded-lg dark:bg-red-900/30 dark:text-red-400">
           <p className="font-medium mb-1">Error</p>
-          <p>{error}</p>
+          <p>{store.error}</p>
         </div>
       )}
 
@@ -371,8 +237,8 @@ export default function RollbackStack() {
                   Confirm Rollback
                 </h3>
                 <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
-                  This will restore <strong>{deployment?.stackName}</strong> to version{' '}
-                  <strong>{rollbackInfo?.rollbackTargetVersion}</strong>.
+                  This will restore <strong>{store.deployment?.stackName}</strong> to version{' '}
+                  <strong>{store.rollbackInfo?.rollbackTargetVersion}</strong>.
                 </p>
                 <ul className="text-sm text-amber-700 dark:text-amber-300 list-disc list-inside space-y-1">
                   <li>The current failed deployment will be replaced</li>
@@ -384,7 +250,7 @@ export default function RollbackStack() {
           </div>
 
           {/* Snapshot Info */}
-          {rollbackInfo?.snapshotDescription && (
+          {store.rollbackInfo?.snapshotDescription && (
             <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Snapshot Details
@@ -393,14 +259,14 @@ export default function RollbackStack() {
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 dark:text-gray-400">Description</span>
                   <span className="font-medium text-gray-900 dark:text-white">
-                    {rollbackInfo.snapshotDescription}
+                    {store.rollbackInfo.snapshotDescription}
                   </span>
                 </div>
-                {rollbackInfo.snapshotCreatedAt && (
+                {store.rollbackInfo.snapshotCreatedAt && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500 dark:text-gray-400">Created At</span>
                     <span className="font-medium text-gray-900 dark:text-white">
-                      {new Date(rollbackInfo.snapshotCreatedAt).toLocaleString()}
+                      {new Date(store.rollbackInfo.snapshotCreatedAt).toLocaleString()}
                     </span>
                   </div>
                 )}
@@ -415,7 +281,7 @@ export default function RollbackStack() {
           <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
             {/* Rollback Button */}
             <button
-              onClick={handleRollback}
+              onClick={store.handleRollback}
               disabled={!activeEnvironment}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-amber-600 px-6 py-3 text-center font-medium text-white hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -445,13 +311,13 @@ export default function RollbackStack() {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500 dark:text-gray-400">Current Version</span>
                 <span className="font-medium text-gray-900 dark:text-white">
-                  {rollbackInfo?.currentVersion || 'Unknown'}
+                  {store.rollbackInfo?.currentVersion || 'Unknown'}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500 dark:text-gray-400">Rollback To</span>
                 <span className="font-medium text-amber-600 dark:text-amber-400">
-                  {rollbackInfo?.rollbackTargetVersion}
+                  {store.rollbackInfo?.rollbackTargetVersion}
                 </span>
               </div>
             </div>

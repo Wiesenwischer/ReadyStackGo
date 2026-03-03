@@ -1,135 +1,21 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
-import { getDeployment, removeDeployment, type GetDeploymentResponse, type DeploymentProgressUpdate } from '@rsgo/core';
+import { useRemoveStackStore } from '@rsgo/core';
+import { useAuth } from '../../context/AuthContext';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { useDeploymentHub } from '../../hooks/useDeploymentHub';
-
-// Format phase names for display (RemovingContainers -> Removing Containers)
-const formatPhase = (phase: string | undefined): string => {
-  if (!phase) return '';
-  return phase.replace(/([A-Z])/g, ' $1').trim();
-};
-
-type RemoveState = 'loading' | 'confirm' | 'removing' | 'success' | 'error';
 
 export default function RemoveStack() {
   const { stackName } = useParams<{ stackName: string }>();
+  const { token } = useAuth();
   const { activeEnvironment } = useEnvironment();
   const navigate = useNavigate();
 
-  const [state, setState] = useState<RemoveState>('loading');
-  const [deployment, setDeployment] = useState<GetDeploymentResponse | null>(null);
-  const [error, setError] = useState('');
-
-  // Progress state
-  const removeSessionIdRef = useRef<string | null>(null);
-  const [progressUpdate, setProgressUpdate] = useState<DeploymentProgressUpdate | null>(null);
-
-  // Prevent race condition: first completion (SignalR or API) wins
-  const completedRef = useRef(false);
-
-  // SignalR hub for real-time progress
-  const handleRemoveProgress = useCallback((update: DeploymentProgressUpdate) => {
-    const currentSessionId = removeSessionIdRef.current;
-    if (currentSessionId && update.sessionId === currentSessionId) {
-      setProgressUpdate(update);
-
-      // Check if removal completed (success or error) — first completion wins
-      if (update.isComplete && !completedRef.current) {
-        completedRef.current = true;
-        if (update.isError) {
-          setError(update.errorMessage || 'Removal failed');
-          setState('error');
-        } else {
-          setState('success');
-        }
-      }
-    }
-  }, []);
-
-  const { subscribeToDeployment, connectionState } = useDeploymentHub({
-    onDeploymentProgress: handleRemoveProgress,
-  });
-
-  // Load deployment details
-  useEffect(() => {
-    if (!activeEnvironment || !stackName) {
-      setState('error');
-      setError('No environment or stack name provided');
-      return;
-    }
-
-    const loadDeployment = async () => {
-      try {
-        setState('loading');
-        setError('');
-
-        const response = await getDeployment(activeEnvironment.id, decodeURIComponent(stackName));
-        if (response.success) {
-          setDeployment(response);
-          setState('confirm');
-        } else {
-          setError(response.message || 'Deployment not found');
-          setState('error');
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load deployment');
-        setState('error');
-      }
-    };
-
-    loadDeployment();
-  }, [activeEnvironment, stackName]);
-
-  const handleRemove = async () => {
-    if (!activeEnvironment || !deployment?.deploymentId) {
-      setError('No deployment to remove');
-      return;
-    }
-
-    // Generate session ID BEFORE the API call
-    const sessionId = `remove-${deployment.stackName}-${Date.now()}`;
-    removeSessionIdRef.current = sessionId;
-    completedRef.current = false;
-
-    setState('removing');
-    setError('');
-    setProgressUpdate(null);
-
-    // Subscribe to SignalR group BEFORE starting the API call
-    if (connectionState === 'connected') {
-      await subscribeToDeployment(sessionId);
-    }
-
-    // Fire-and-forget: Don't block on API response.
-    // SignalR delivers live progress; API response serves as fallback.
-    removeDeployment(activeEnvironment.id, deployment.deploymentId, { sessionId })
-      .then(response => {
-        // Only drive state if SignalR hasn't already completed
-        if (!completedRef.current) {
-          completedRef.current = true;
-          if (!response.success) {
-            setError(response.errors?.join('\n') || response.message || 'Removal failed');
-            setState('error');
-          } else {
-            setState('success');
-          }
-        }
-      })
-      .catch(err => {
-        if (!completedRef.current) {
-          completedRef.current = true;
-          setError(err instanceof Error ? err.message : 'Removal failed');
-          setState('error');
-        }
-      });
-  };
+  const store = useRemoveStackStore(token, activeEnvironment?.id, stackName);
 
   const handleCancel = () => {
     navigate('/deployments');
   };
 
-  if (state === 'loading') {
+  if (store.state === 'loading') {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="flex items-center justify-center py-12">
@@ -142,7 +28,7 @@ export default function RemoveStack() {
     );
   }
 
-  if (state === 'error' && !deployment) {
+  if (store.state === 'error' && !store.deployment) {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="mb-6">
@@ -157,13 +43,13 @@ export default function RemoveStack() {
           </Link>
         </div>
         <div className="rounded-md bg-red-50 p-4 dark:bg-red-900/20">
-          <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+          <p className="text-sm text-red-800 dark:text-red-200">{store.error}</p>
         </div>
       </div>
     );
   }
 
-  if (state === 'success') {
+  if (store.state === 'success') {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="rounded-2xl border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -177,7 +63,7 @@ export default function RemoveStack() {
               Deployment Removed Successfully!
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {deployment?.stackName} has been removed from {activeEnvironment?.name}
+              {store.deployment?.stackName} has been removed from {activeEnvironment?.name}
             </p>
 
             <div className="flex gap-4">
@@ -200,7 +86,7 @@ export default function RemoveStack() {
     );
   }
 
-  if (state === 'removing') {
+  if (store.state === 'removing') {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="rounded-2xl border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -210,7 +96,7 @@ export default function RemoveStack() {
               Removing Deployment...
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Removing {deployment?.stackName} from {activeEnvironment?.name}
+              Removing {store.deployment?.stackName} from {activeEnvironment?.name}
             </p>
 
             {/* Progress Section */}
@@ -219,16 +105,16 @@ export default function RemoveStack() {
               <div className="mb-4">
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-gray-600 dark:text-gray-400">
-                    {formatPhase(progressUpdate?.phase) || 'Initializing'}
+                    {store.formattedPhase || 'Initializing'}
                   </span>
                   <span className="text-gray-600 dark:text-gray-400">
-                    {progressUpdate?.percentComplete ?? 0}%
+                    {store.progressUpdate?.percentComplete ?? 0}%
                   </span>
                 </div>
                 <div className="h-3 bg-gray-200 rounded-full dark:bg-gray-700 overflow-hidden">
                   <div
                     className="h-full bg-red-600 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${progressUpdate?.percentComplete ?? 0}%` }}
+                    style={{ width: `${store.progressUpdate?.percentComplete ?? 0}%` }}
                   />
                 </div>
               </div>
@@ -236,16 +122,16 @@ export default function RemoveStack() {
               {/* Status Message */}
               <div className="text-center">
                 <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                  {progressUpdate?.message || 'Starting removal...'}
+                  {store.progressUpdate?.message || 'Starting removal...'}
                 </p>
 
                 {/* Container Progress */}
-                {progressUpdate && progressUpdate.totalServices > 0 && (
+                {store.progressUpdate && store.progressUpdate.totalServices > 0 && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    Containers: {progressUpdate.completedServices} / {progressUpdate.totalServices}
-                    {progressUpdate.currentService && (
+                    Containers: {store.progressUpdate.completedServices} / {store.progressUpdate.totalServices}
+                    {store.progressUpdate.currentService && (
                       <span className="ml-2">
-                        (current: <span className="font-mono">{progressUpdate.currentService}</span>)
+                        (current: <span className="font-mono">{store.progressUpdate.currentService}</span>)
                       </span>
                     )}
                   </p>
@@ -255,14 +141,14 @@ export default function RemoveStack() {
               {/* Connection Status */}
               <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                 <span className={`w-2 h-2 rounded-full ${
-                  connectionState === 'connected' ? 'bg-green-500' :
-                  connectionState === 'connecting' ? 'bg-yellow-500' :
-                  connectionState === 'reconnecting' ? 'bg-yellow-500' :
+                  store.connectionState === 'connected' ? 'bg-green-500' :
+                  store.connectionState === 'connecting' ? 'bg-yellow-500' :
+                  store.connectionState === 'reconnecting' ? 'bg-yellow-500' :
                   'bg-red-500'
                 }`} />
-                {connectionState === 'connected' ? 'Live updates' :
-                 connectionState === 'connecting' ? 'Connecting...' :
-                 connectionState === 'reconnecting' ? 'Reconnecting...' :
+                {store.connectionState === 'connected' ? 'Live updates' :
+                 store.connectionState === 'connecting' ? 'Connecting...' :
+                 store.connectionState === 'reconnecting' ? 'Reconnecting...' :
                  'Updates unavailable'}
               </div>
             </div>
@@ -302,7 +188,7 @@ export default function RemoveStack() {
             Remove Deployment
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-2 text-center">
-            Are you sure you want to remove <strong className="text-gray-900 dark:text-white">{deployment?.stackName}</strong>?
+            Are you sure you want to remove <strong className="text-gray-900 dark:text-white">{store.deployment?.stackName}</strong>?
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 text-center max-w-md">
             This will stop and remove all containers associated with this deployment.
@@ -315,7 +201,7 @@ export default function RemoveStack() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Stack Name:</span>
-                <span className="font-medium text-gray-900 dark:text-white">{deployment?.stackName}</span>
+                <span className="font-medium text-gray-900 dark:text-white">{store.deployment?.stackName}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Environment:</span>
@@ -323,16 +209,16 @@ export default function RemoveStack() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Services:</span>
-                <span className="font-medium text-gray-900 dark:text-white">{deployment?.services.length || 0}</span>
+                <span className="font-medium text-gray-900 dark:text-white">{store.deployment?.services.length || 0}</span>
               </div>
             </div>
           </div>
 
           {/* Error Display */}
-          {error && (
+          {store.error && (
             <div className="w-full max-w-md mb-6 p-4 text-sm text-red-800 bg-red-100 rounded-lg dark:bg-red-900/30 dark:text-red-400">
               <p className="font-medium mb-1">Error</p>
-              <p>{error}</p>
+              <p>{store.error}</p>
             </div>
           )}
 
@@ -345,7 +231,7 @@ export default function RemoveStack() {
               Cancel
             </button>
             <button
-              onClick={handleRemove}
+              onClick={store.handleRemove}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-red-600 px-6 py-3 text-center font-medium text-white hover:bg-red-700"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
