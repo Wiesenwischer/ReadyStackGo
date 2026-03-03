@@ -156,6 +156,7 @@ export interface ProductDeploymentSummaryDto {
   canRetry: boolean;
   canUpgrade: boolean;
   canRemove: boolean;
+  canRedeploy: boolean;
   canStop: boolean;
   canRestart: boolean;
 }
@@ -505,6 +506,7 @@ export interface GetProductDeploymentResponse {
   canRetry: boolean;
   canUpgrade: boolean;
   canRemove: boolean;
+  canRedeploy: boolean;
   canStop: boolean;
   canRestart: boolean;
   durationSeconds?: number;
@@ -704,6 +706,32 @@ export async function retryProduct(
 ): Promise<DeployProductResponse> {
   return apiPost<DeployProductResponse>(
     `/api/environments/${environmentId}/product-deployments/${productDeploymentId}/retry`,
+    request ?? {}
+  );
+}
+
+// ============================================================================
+// Product Redeploy API
+// ============================================================================
+
+export interface RedeployProductRequest {
+  stackNames?: string[];
+  variables?: Record<string, string>;
+  sessionId?: string;
+  continueOnError?: boolean;
+}
+
+/**
+ * Redeploy all or selected stacks of a running product deployment.
+ * Same version, fresh image pull. Only available when product deployment is Running.
+ */
+export async function redeployProduct(
+  environmentId: string,
+  productDeploymentId: string,
+  request?: RedeployProductRequest
+): Promise<DeployProductResponse> {
+  return apiPost<DeployProductResponse>(
+    `/api/environments/${environmentId}/product-deployments/${productDeploymentId}/redeploy`,
     request ?? {}
   );
 }

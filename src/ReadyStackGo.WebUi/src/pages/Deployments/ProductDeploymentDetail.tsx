@@ -188,6 +188,14 @@ export default function ProductDeploymentDetail() {
           >
             View in Catalog
           </Link>
+          {deployment.canRedeploy && (
+            <Link
+              to={`/redeploy-product/${deployment.productDeploymentId}`}
+              className="inline-flex items-center justify-center rounded bg-blue-100 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50"
+            >
+              Redeploy
+            </Link>
+          )}
           {deployment.canRetry && (
             <Link
               to={`/retry-product/${deployment.productDeploymentId}`}

@@ -20,6 +20,7 @@ import DeployProduct from "./pages/Deployments/DeployProduct";
 import UpgradeProduct from "./pages/Deployments/UpgradeProduct";
 import RemoveProduct from "./pages/Deployments/RemoveProduct";
 import RetryProduct from "./pages/Deployments/RetryProduct";
+import RedeployProduct from "./pages/Deployments/RedeployProduct";
 import StopProduct from "./pages/Deployments/StopProduct";
 import RestartProduct from "./pages/Deployments/RestartProduct";
 import ProductDeploymentDetail from "./pages/Deployments/ProductDeploymentDetail";
@@ -264,6 +265,14 @@ export default function App() {
                   element={
                     <EnvironmentGuard>
                       <RetryProduct />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/redeploy-product/:productDeploymentId"
+                  element={
+                    <EnvironmentGuard>
+                      <RedeployProduct />
                     </EnvironmentGuard>
                   }
                 />
