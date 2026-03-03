@@ -1,10 +1,9 @@
-import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router";
 import {
-  getProductDeployment,
-  type GetProductDeploymentResponse,
+  useProductDeploymentDetailStore,
   type ProductStackDeploymentDto,
 } from '@rsgo/core';
+import { useAuth } from "../../context/AuthContext";
 import { useEnvironment } from "../../context/EnvironmentContext";
 
 function getProductStatusPresentation(status: string) {
@@ -48,58 +47,14 @@ function getStackStatusPresentation(status: string) {
   }
 }
 
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-};
-
-const formatDuration = (seconds?: number): string => {
-  if (seconds == null) return "-";
-  const rounded = Math.round(seconds);
-  if (rounded < 60) return `${rounded}s`;
-  const minutes = Math.floor(rounded / 60);
-  const remainingSeconds = rounded % 60;
-  return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
-};
-
-const formatStackDuration = (startedAt?: string, completedAt?: string): string => {
-  if (!startedAt || !completedAt) return "-";
-  const seconds = (new Date(completedAt).getTime() - new Date(startedAt).getTime()) / 1000;
-  return formatDuration(seconds);
-};
-
 export default function ProductDeploymentDetail() {
   const { productDeploymentId } = useParams<{ productDeploymentId: string }>();
+  const { token } = useAuth();
   const { activeEnvironment } = useEnvironment();
-  const [deployment, setDeployment] = useState<GetProductDeploymentResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showVariables, setShowVariables] = useState(false);
 
-  const loadDeployment = useCallback(async () => {
-    if (!activeEnvironment || !productDeploymentId) {
-      setError(!activeEnvironment ? "No active environment" : "No deployment ID provided");
-      setLoading(false);
-      return;
-    }
+  const store = useProductDeploymentDetailStore(token, activeEnvironment?.id, productDeploymentId);
 
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await getProductDeployment(activeEnvironment.id, productDeploymentId);
-      setDeployment(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load product deployment");
-    } finally {
-      setLoading(false);
-    }
-  }, [activeEnvironment, productDeploymentId]);
-
-  useEffect(() => {
-    loadDeployment();
-  }, [loadDeployment]);
-
-  if (loading) {
+  if (store.state === 'loading') {
     return (
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
         <div className="animate-pulse">
@@ -114,7 +69,7 @@ export default function ProductDeploymentDetail() {
     );
   }
 
-  if (error || !deployment) {
+  if (store.error || !store.deployment) {
     return (
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
         <div className="mb-6">
@@ -130,13 +85,14 @@ export default function ProductDeploymentDetail() {
         </div>
         <div className="rounded-md bg-red-50 p-4 dark:bg-red-900/20">
           <p className="text-sm text-red-800 dark:text-red-200">
-            {error || "Product deployment not found"}
+            {store.error || "Product deployment not found"}
           </p>
         </div>
       </div>
     );
   }
 
+  const deployment = store.deployment;
   const status = getProductStatusPresentation(deployment.status);
   const variableEntries = Object.entries(deployment.sharedVariables ?? {});
 
@@ -172,7 +128,7 @@ export default function ProductDeploymentDetail() {
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
             <span className="font-mono text-xs">{deployment.deploymentName}</span>
             <span className="mx-2">·</span>
-            Deployed {formatDate(deployment.createdAt)}
+            Deployed {store.formatDate(deployment.createdAt)}
             {activeEnvironment && (
               <>
                 <span className="mx-2">·</span>
@@ -255,16 +211,16 @@ export default function ProductDeploymentDetail() {
           </span>
         </OverviewCard>
         <OverviewCard label="Deployed">
-          <span className="text-sm text-gray-900 dark:text-white">{formatDate(deployment.createdAt)}</span>
+          <span className="text-sm text-gray-900 dark:text-white">{store.formatDate(deployment.createdAt)}</span>
           {deployment.completedAt && (
             <span className="text-xs text-gray-500 dark:text-gray-400 block">
-              Completed {formatDate(deployment.completedAt)}
+              Completed {store.formatDate(deployment.completedAt)}
             </span>
           )}
         </OverviewCard>
         <OverviewCard label="Duration">
           <span className="text-sm font-mono text-gray-900 dark:text-white">
-            {formatDuration(deployment.durationSeconds)}
+            {store.formatDuration(deployment.durationSeconds)}
           </span>
         </OverviewCard>
         <OverviewCard label="Stacks">
@@ -302,7 +258,7 @@ export default function ProductDeploymentDetail() {
           {deployment.stacks
             .sort((a, b) => a.order - b.order)
             .map((stack) => (
-              <StackRow key={stack.stackId} stack={stack} />
+              <StackRow key={stack.stackId} stack={stack} formatDate={store.formatDate} formatStackDuration={store.formatStackDuration} />
             ))}
         </div>
       </div>
@@ -311,20 +267,20 @@ export default function ProductDeploymentDetail() {
       {variableEntries.length > 0 && (
         <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
           <button
-            onClick={() => setShowVariables(!showVariables)}
+            onClick={store.toggleVariables}
             className="w-full px-4 py-5 md:px-6 flex items-center justify-between text-left"
           >
             <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
               Shared Variables ({variableEntries.length})
             </h4>
             <svg
-              className={`w-5 h-5 text-gray-500 transition-transform ${showVariables ? 'rotate-180' : ''}`}
+              className={`w-5 h-5 text-gray-500 transition-transform ${store.showVariables ? 'rotate-180' : ''}`}
               fill="none" stroke="currentColor" viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-          {showVariables && (
+          {store.showVariables && (
             <div className="border-t border-gray-200 dark:border-gray-700 p-4 md:p-6">
               <div className="grid gap-3 md:grid-cols-2">
                 {variableEntries.map(([key, value]) => (
@@ -357,7 +313,7 @@ function OverviewCard({ label, children }: { label: string; children: React.Reac
   );
 }
 
-function StackRow({ stack }: { stack: ProductStackDeploymentDto }) {
+function StackRow({ stack, formatDate, formatStackDuration }: { stack: ProductStackDeploymentDto; formatDate: (s: string) => string; formatStackDuration: (s?: string, e?: string) => string }) {
   const status = getStackStatusPresentation(stack.status);
   const displayName = stack.stackDisplayName || stack.stackName;
   const canDrillDown = stack.deploymentStackName;

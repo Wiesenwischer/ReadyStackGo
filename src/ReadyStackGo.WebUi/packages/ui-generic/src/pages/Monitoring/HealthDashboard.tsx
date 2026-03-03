@@ -1,185 +1,22 @@
-import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router';
 import { useEnvironment } from '../../context/EnvironmentContext';
+import { useAuth } from '../../context/AuthContext';
 import {
-  getEnvironmentHealthSummary,
+  useHealthDashboardStore,
   getHealthStatusPresentation,
-  type EnvironmentHealthSummaryDto,
-  type StackHealthDto,
+  type ProductGroup,
+  type StatusFilter,
 } from '@rsgo/core';
-import { useHealthHub } from '../../hooks/useHealthHub';
 import HealthStackCard from '../../components/health/HealthStackCard';
-
-type StatusFilter = 'all' | 'healthy' | 'degraded' | 'unhealthy';
-
-interface ProductGroup {
-  productDeploymentId: string;
-  productDisplayName: string;
-  stacks: StackHealthDto[];
-  healthyStacks: number;
-  totalStacks: number;
-  healthyServices: number;
-  totalServices: number;
-  overallStatus: string;
-}
-
-function aggregateProductStatus(stacks: StackHealthDto[]): string {
-  const statuses = stacks.map(s => s.overallStatus.toLowerCase());
-  if (statuses.some(s => s === 'unhealthy')) return 'Unhealthy';
-  if (statuses.some(s => s === 'degraded')) return 'Degraded';
-  if (statuses.every(s => s === 'healthy')) return 'Healthy';
-  return 'Unknown';
-}
 
 export default function HealthDashboard() {
   const { activeEnvironment } = useEnvironment();
-  const [healthSummary, setHealthSummary] = useState<EnvironmentHealthSummaryDto | null>(null);
-  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Filters
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // SignalR for real-time updates
-  const { connectionState, subscribeToEnvironment, unsubscribeFromEnvironment } = useHealthHub({
-    onEnvironmentHealthChanged: (summary) => {
-      if (summary.environmentId === activeEnvironment?.id) {
-        setHealthSummary(summary);
-      }
-    },
-    onDeploymentHealthChanged: (health) => {
-      setHealthSummary((prev) => {
-        if (!prev) return prev;
-        const updatedStacks = prev.stacks.map((s) =>
-          s.deploymentId === health.deploymentId ? health : s
-        );
-        return {
-          ...prev,
-          stacks: updatedStacks,
-          healthyCount: updatedStacks.filter(s => s.overallStatus.toLowerCase() === 'healthy').length,
-          degradedCount: updatedStacks.filter(s => s.overallStatus.toLowerCase() === 'degraded').length,
-          unhealthyCount: updatedStacks.filter(s => s.overallStatus.toLowerCase() === 'unhealthy').length,
-        };
-      });
-    },
-  });
-
-  // Fetch initial data
-  useEffect(() => {
-    if (!activeEnvironment) {
-      setHealthSummary(null);
-      setLoading(false);
-      return;
-    }
-
-    const fetchHealth = async () => {
-      try {
-        setLoading(true);
-        const data = await getEnvironmentHealthSummary(activeEnvironment.id);
-        setHealthSummary(data);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load health data');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchHealth();
-  }, [activeEnvironment]);
-
-  // Subscribe to SignalR updates
-  useEffect(() => {
-    if (connectionState === 'connected' && activeEnvironment) {
-      subscribeToEnvironment(activeEnvironment.id);
-      return () => {
-        unsubscribeFromEnvironment(activeEnvironment.id);
-      };
-    }
-  }, [connectionState, activeEnvironment, subscribeToEnvironment, unsubscribeFromEnvironment]);
-
-  // Filter stacks — also match product display name in search
-  const filteredStacks = useMemo(() => {
-    return healthSummary?.stacks.filter((stack) => {
-      if (statusFilter !== 'all') {
-        if (stack.overallStatus.toLowerCase() !== statusFilter) {
-          return false;
-        }
-      }
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        return (
-          stack.stackName.toLowerCase().includes(query) ||
-          stack.currentVersion?.toLowerCase().includes(query) ||
-          stack.productDisplayName?.toLowerCase().includes(query)
-        );
-      }
-      return true;
-    }) ?? [];
-  }, [healthSummary, statusFilter, searchQuery]);
-
-  // Group filtered stacks by product
-  const { productGroups, standaloneStacks, productCount, standaloneCount } = useMemo(() => {
-    const groups = new Map<string, ProductGroup>();
-    const standalone: StackHealthDto[] = [];
-
-    for (const stack of filteredStacks) {
-      if (stack.productDeploymentId && stack.productDisplayName) {
-        const existing = groups.get(stack.productDeploymentId);
-        const isHealthy = stack.overallStatus.toLowerCase() === 'healthy';
-        if (existing) {
-          existing.stacks.push(stack);
-          existing.totalStacks += 1;
-          existing.healthyServices += stack.healthyServices;
-          existing.totalServices += stack.totalServices;
-          if (isHealthy) existing.healthyStacks += 1;
-        } else {
-          groups.set(stack.productDeploymentId, {
-            productDeploymentId: stack.productDeploymentId,
-            productDisplayName: stack.productDisplayName,
-            stacks: [stack],
-            healthyStacks: isHealthy ? 1 : 0,
-            totalStacks: 1,
-            healthyServices: stack.healthyServices,
-            totalServices: stack.totalServices,
-            overallStatus: 'Healthy',
-          });
-        }
-      } else {
-        standalone.push(stack);
-      }
-    }
-
-    const productGroupList = Array.from(groups.values()).map(g => ({
-      ...g,
-      overallStatus: aggregateProductStatus(g.stacks),
-    }));
-
-    return {
-      productGroups: productGroupList,
-      standaloneStacks: standalone,
-      productCount: productGroupList.length,
-      standaloneCount: standalone.length,
-    };
-  }, [filteredStacks]);
-
-  const toggleProductExpanded = (productId: string) => {
-    setExpandedProducts(prev => {
-      const next = new Set(prev);
-      if (next.has(productId)) {
-        next.delete(productId);
-      } else {
-        next.add(productId);
-      }
-      return next;
-    });
-  };
+  const { token } = useAuth();
+  const store = useHealthDashboardStore(token, activeEnvironment?.id);
 
   // Connection indicator
   const getConnectionIndicator = () => {
-    switch (connectionState) {
+    switch (store.connectionState) {
       case 'connected':
         return (
           <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
@@ -205,7 +42,7 @@ export default function HealthDashboard() {
     }
   };
 
-  if (loading) {
+  if (store.loading) {
     return (
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
         <div className="animate-pulse">
@@ -225,14 +62,14 @@ export default function HealthDashboard() {
     );
   }
 
-  if (error) {
+  if (store.error) {
     return (
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
         <div className="rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-800 dark:bg-red-900/20">
           <h2 className="text-lg font-semibold text-red-800 dark:text-red-300 mb-2">
             Error Loading Health Data
           </h2>
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+          <p className="text-sm text-red-600 dark:text-red-400">{store.error}</p>
         </div>
       </div>
     );
@@ -253,7 +90,7 @@ export default function HealthDashboard() {
     );
   }
 
-  const hasAnyResults = productGroups.length > 0 || standaloneStacks.length > 0;
+  const hasAnyResults = store.productGroups.length > 0 || store.standaloneStacks.length > 0;
 
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
@@ -281,13 +118,13 @@ export default function HealthDashboard() {
         </div>
       </div>
 
-      {/* Summary Cards — product-aware */}
-      {healthSummary && (
+      {/* Summary Cards -- product-aware */}
+      {store.healthSummary && (
         <div className="mb-6">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <SummaryCard
               label="Healthy"
-              count={healthSummary.healthyCount}
+              count={store.healthSummary.healthyCount}
               bgColor="bg-green-50 dark:bg-green-900/20"
               textColor="text-green-600 dark:text-green-400"
               labelColor="text-green-700 dark:text-green-300"
@@ -295,7 +132,7 @@ export default function HealthDashboard() {
             />
             <SummaryCard
               label="Degraded"
-              count={healthSummary.degradedCount}
+              count={store.healthSummary.degradedCount}
               bgColor="bg-yellow-50 dark:bg-yellow-900/20"
               textColor="text-yellow-600 dark:text-yellow-400"
               labelColor="text-yellow-700 dark:text-yellow-300"
@@ -303,7 +140,7 @@ export default function HealthDashboard() {
             />
             <SummaryCard
               label="Unhealthy"
-              count={healthSummary.unhealthyCount}
+              count={store.healthSummary.unhealthyCount}
               bgColor="bg-red-50 dark:bg-red-900/20"
               textColor="text-red-600 dark:text-red-400"
               labelColor="text-red-700 dark:text-red-300"
@@ -315,11 +152,11 @@ export default function HealthDashboard() {
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total</span>
               </div>
               <div className="text-3xl font-bold text-gray-600 dark:text-gray-400">
-                {healthSummary.totalStacks}
+                {store.healthSummary.totalStacks}
               </div>
-              {productCount > 0 && (
+              {store.productCount > 0 && (
                 <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {productCount} {productCount === 1 ? 'product' : 'products'}, {standaloneCount} standalone
+                  {store.productCount} {store.productCount === 1 ? 'product' : 'products'}, {store.standaloneCount} standalone
                 </div>
               )}
             </div>
@@ -334,22 +171,22 @@ export default function HealthDashboard() {
             (filter) => (
               <button
                 key={filter}
-                onClick={() => setStatusFilter(filter)}
+                onClick={() => store.setStatusFilter(filter)}
                 className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                  statusFilter === filter
+                  store.statusFilter === filter
                     ? 'bg-brand-500 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
                 }`}
               >
                 {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                {filter !== 'all' && healthSummary && (
+                {filter !== 'all' && store.healthSummary && (
                   <span className="ml-1.5 opacity-70">
                     (
                     {filter === 'healthy'
-                      ? healthSummary.healthyCount
+                      ? store.healthSummary.healthyCount
                       : filter === 'degraded'
-                      ? healthSummary.degradedCount
-                      : healthSummary.unhealthyCount}
+                      ? store.healthSummary.degradedCount
+                      : store.healthSummary.unhealthyCount}
                     )
                   </span>
                 )}
@@ -361,8 +198,8 @@ export default function HealthDashboard() {
           <input
             type="text"
             placeholder="Search stacks or products..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={store.searchQuery}
+            onChange={(e) => store.setSearchQuery(e.target.value)}
             className="w-full sm:w-64 rounded-lg border border-gray-300 bg-white px-4 py-2 pl-10 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
           />
           <svg
@@ -381,7 +218,7 @@ export default function HealthDashboard() {
         </div>
       </div>
 
-      {/* Stack List — grouped by product */}
+      {/* Stack List -- grouped by product */}
       {!hasAnyResults ? (
         <div className="rounded-xl border border-gray-200 bg-white p-8 text-center dark:border-gray-800 dark:bg-white/[0.03]">
           <svg
@@ -398,12 +235,12 @@ export default function HealthDashboard() {
             />
           </svg>
           <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
-            {healthSummary?.totalStacks === 0
+            {store.healthSummary?.totalStacks === 0
               ? 'No Deployments'
               : 'No Matching Stacks'}
           </h3>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            {healthSummary?.totalStacks === 0
+            {store.healthSummary?.totalStacks === 0
               ? 'Deploy a stack to start monitoring its health.'
               : 'Try adjusting your filters or search query.'}
           </p>
@@ -411,24 +248,24 @@ export default function HealthDashboard() {
       ) : (
         <div className="space-y-4">
           {/* Product groups */}
-          {productGroups.map((group) => (
+          {store.productGroups.map((group) => (
             <ProductGroupCard
               key={group.productDeploymentId}
               group={group}
-              isExpanded={expandedProducts.has(group.productDeploymentId)}
-              onToggle={() => toggleProductExpanded(group.productDeploymentId)}
+              isExpanded={store.expandedProducts.has(group.productDeploymentId)}
+              onToggle={() => store.toggleProductExpanded(group.productDeploymentId)}
             />
           ))}
 
           {/* Standalone stacks section */}
-          {standaloneStacks.length > 0 && productGroups.length > 0 && (
+          {store.standaloneStacks.length > 0 && store.productGroups.length > 0 && (
             <div className="pt-2">
               <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">
                 Standalone Stacks
               </h3>
             </div>
           )}
-          {standaloneStacks.map((stack) => (
+          {store.standaloneStacks.map((stack) => (
             <HealthStackCard
               key={stack.deploymentId}
               stack={stack}

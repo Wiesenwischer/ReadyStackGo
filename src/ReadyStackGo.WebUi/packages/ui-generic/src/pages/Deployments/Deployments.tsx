@@ -1,8 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router";
 import {
-  listDeployments,
-  listProductDeployments,
+  useDeploymentsStore,
   type DeploymentSummary,
   type ProductDeploymentSummaryDto,
   getHealthStatusPresentation,
@@ -10,86 +8,15 @@ import {
   type StackHealthDto,
 } from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
-import { useHealthHub } from "../../hooks/useHealthHub";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Deployments() {
   const { activeEnvironment } = useEnvironment();
-  const [deployments, setDeployments] = useState<DeploymentSummary[]>([]);
-  const [productDeployments, setProductDeployments] = useState<ProductDeploymentSummaryDto[]>([]);
-  const [healthData, setHealthData] = useState<Map<string, StackHealthDto>>(new Map());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // SignalR Health Hub connection
-  const { connectionState, subscribeToEnvironment, unsubscribeFromEnvironment } = useHealthHub({
-    onDeploymentHealthChanged: (health) => {
-      setHealthData(prev => {
-        const newMap = new Map(prev);
-        newMap.set(health.deploymentId, health);
-        return newMap;
-      });
-    },
-    onEnvironmentHealthChanged: (summary) => {
-      // Update all stacks from environment summary
-      const newMap = new Map<string, StackHealthDto>();
-      summary.stacks.forEach(stack => {
-        newMap.set(stack.deploymentId, stack);
-      });
-      setHealthData(newMap);
-    }
-  });
-
-  // Subscribe to environment when it changes
-  useEffect(() => {
-    if (activeEnvironment && connectionState === 'connected') {
-      subscribeToEnvironment(activeEnvironment.id);
-      return () => {
-        unsubscribeFromEnvironment(activeEnvironment.id);
-      };
-    }
-  }, [activeEnvironment, connectionState, subscribeToEnvironment, unsubscribeFromEnvironment]);
-
-  const loadDeployments = useCallback(async () => {
-    if (!activeEnvironment) {
-      setDeployments([]);
-      setProductDeployments([]);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      const [stackResponse, productResponse] = await Promise.all([
-        listDeployments(activeEnvironment.id),
-        listProductDeployments(activeEnvironment.id),
-      ]);
-      if (stackResponse.success) {
-        setDeployments(stackResponse.deployments);
-      } else {
-        setError("Failed to load deployments");
-      }
-      if (productResponse.success) {
-        setProductDeployments(productResponse.productDeployments);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load deployments");
-    } finally {
-      setLoading(false);
-    }
-  }, [activeEnvironment]);
-
-  useEffect(() => {
-    loadDeployments();
-  }, [loadDeployments]);
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
+  const { token } = useAuth();
+  const store = useDeploymentsStore(token, activeEnvironment?.id);
 
   const getConnectionStatusBadge = () => {
-    switch (connectionState) {
+    switch (store.connectionState) {
       case 'connected':
         return (
           <span className="inline-flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
@@ -115,7 +42,7 @@ export default function Deployments() {
     }
   };
 
-  const hasNoDeployments = !loading && activeEnvironment && deployments.length === 0 && productDeployments.length === 0;
+  const hasNoDeployments = !store.loading && activeEnvironment && store.deployments.length === 0 && store.productDeployments.length === 0;
 
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
@@ -150,13 +77,13 @@ export default function Deployments() {
         </div>
       )}
 
-      {error && (
+      {store.error && (
         <div className="mb-6 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
-          <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+          <p className="text-sm text-red-800 dark:text-red-200">{store.error}</p>
         </div>
       )}
 
-      {loading ? (
+      {store.loading ? (
         <div className="rounded-2xl border border-gray-200 bg-white px-4 py-8 dark:border-gray-800 dark:bg-white/[0.03]">
           <p className="text-center text-sm text-gray-600 dark:text-gray-400">
             Loading deployments...
@@ -188,7 +115,7 @@ export default function Deployments() {
       ) : (
         <div className="flex flex-col gap-6">
           {/* Product Deployments Section */}
-          {productDeployments.length > 0 && (
+          {store.productDeployments.length > 0 && (
             <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
               <div className="px-4 py-6 md:px-6 xl:px-7.5">
                 <h4 className="text-xl font-semibold text-black dark:text-white">
@@ -196,11 +123,11 @@ export default function Deployments() {
                 </h4>
               </div>
               <div className="border-t border-stroke dark:border-strokedark">
-                {productDeployments.map((pd) => (
+                {store.productDeployments.map((pd) => (
                   <ProductDeploymentRow
                     key={pd.productDeploymentId}
                     deployment={pd}
-                    formatDate={formatDate}
+                    formatDate={store.formatDate}
                   />
                 ))}
               </div>
@@ -208,7 +135,7 @@ export default function Deployments() {
           )}
 
           {/* Stack Deployments Section */}
-          {deployments.length > 0 && (
+          {store.deployments.length > 0 && (
             <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
               <div className="px-4 py-6 md:px-6 xl:px-7.5">
                 <h4 className="text-xl font-semibold text-black dark:text-white">
@@ -216,14 +143,14 @@ export default function Deployments() {
                 </h4>
               </div>
               <div className="border-t border-stroke dark:border-strokedark">
-                {deployments.map((deployment) => {
-                  const health = healthData.get(deployment.deploymentId || '');
+                {store.deployments.map((deployment) => {
+                  const health = store.healthData.get(deployment.deploymentId || '');
                   return (
                     <DeploymentRow
                       key={deployment.deploymentId || deployment.stackName}
                       deployment={deployment}
                       health={health}
-                      formatDate={formatDate}
+                      formatDate={store.formatDate}
                     />
                   );
                 })}

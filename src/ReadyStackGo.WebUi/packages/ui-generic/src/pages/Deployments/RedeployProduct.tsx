@@ -1,185 +1,20 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router';
 import {
-  getProductDeployment,
-  redeployProduct,
-  type GetProductDeploymentResponse,
+  useRedeployProductStore,
   type DeployProductStackResult,
-  type DeploymentProgressUpdate,
 } from '@rsgo/core';
+import { useAuth } from '../../context/AuthContext';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { useDeploymentHub } from '../../hooks/useDeploymentHub';
-
-type RedeployState = 'loading' | 'confirm' | 'redeploying' | 'success' | 'error';
-type StackRedeployStatus = 'pending' | 'deploying' | 'running' | 'failed';
 
 export default function RedeployProduct() {
   const { productDeploymentId } = useParams<{ productDeploymentId: string }>();
+  const { token } = useAuth();
   const { activeEnvironment } = useEnvironment();
 
-  const [state, setState] = useState<RedeployState>('loading');
-  const [deployment, setDeployment] = useState<GetProductDeploymentResponse | null>(null);
-  const [error, setError] = useState('');
-  const [stackResults, setStackResults] = useState<DeployProductStackResult[]>([]);
-
-  // Per-stack progress tracking
-  const [stackStatuses, setStackStatuses] = useState<Record<string, StackRedeployStatus>>({});
-  // Progress state
-  const redeploySessionIdRef = useRef<string | null>(null);
-  const [progressUpdate, setProgressUpdate] = useState<DeploymentProgressUpdate | null>(null);
-
-  // Prevent race condition: first completion (SignalR or API) wins
-  const completedRef = useRef(false);
-
-  // SignalR hub for real-time progress
-  const handleRedeployProgress = useCallback((update: DeploymentProgressUpdate) => {
-    const currentSessionId = redeploySessionIdRef.current;
-    if (!currentSessionId || update.sessionId !== currentSessionId) return;
-
-    setProgressUpdate(update);
-
-    // Track per-stack status using currentService (stack technical name)
-    if (update.phase === 'ProductDeploy' && update.currentService) {
-      const stackName = update.currentService;
-      if (update.message?.startsWith('Redeploying stack')) {
-        setStackStatuses(prev => ({
-          ...prev,
-          [stackName]: 'deploying',
-        }));
-      } else if (update.message?.includes('redeployed successfully')) {
-        setStackStatuses(prev => ({
-          ...prev,
-          [stackName]: 'running',
-        }));
-      } else if (update.message?.includes('redeploy failed')) {
-        setStackStatuses(prev => ({
-          ...prev,
-          [stackName]: 'failed',
-        }));
-      }
-    }
-
-    // SignalR isComplete drives the final state transition
-    if (update.isComplete && !completedRef.current) {
-      completedRef.current = true;
-      if (update.isError) {
-        setError(update.errorMessage || 'Redeploy failed');
-        setState('error');
-      } else {
-        setState('success');
-      }
-    }
-  }, []);
-
-  const { subscribeToDeployment, connectionState } = useDeploymentHub({
-    onDeploymentProgress: handleRedeployProgress,
-  });
-
-  // Load product deployment details
-  useEffect(() => {
-    if (!activeEnvironment || !productDeploymentId) {
-      setState('error');
-      setError('No environment or product deployment ID provided');
-      return;
-    }
-
-    const loadDeployment = async () => {
-      try {
-        setState('loading');
-        setError('');
-
-        const response = await getProductDeployment(activeEnvironment.id, productDeploymentId);
-        setDeployment(response);
-
-        if (!response.canRedeploy) {
-          setError(`Product "${response.productDisplayName}" cannot be redeployed in its current state (${response.status})`);
-          setState('error');
-          return;
-        }
-
-        // Initialize all stacks as pending (all will be redeployed)
-        const initialStatuses: Record<string, StackRedeployStatus> = {};
-        for (const stack of response.stacks) {
-          initialStatuses[stack.stackName] = 'pending';
-        }
-        setStackStatuses(initialStatuses);
-
-        setState('confirm');
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load product deployment');
-        setState('error');
-      }
-    };
-
-    loadDeployment();
-  }, [activeEnvironment, productDeploymentId]);
-
-  const handleRedeploy = async () => {
-    if (!activeEnvironment || !deployment) {
-      setError('No deployment to redeploy');
-      return;
-    }
-
-    // Generate session ID BEFORE the API call
-    const sessionId = `product-redeploy-${deployment.productName}-${Date.now()}`;
-    redeploySessionIdRef.current = sessionId;
-    completedRef.current = false;
-
-    setState('redeploying');
-    setError('');
-    setProgressUpdate(null);
-
-    // Subscribe to SignalR group BEFORE starting the API call
-    if (connectionState === 'connected') {
-      await subscribeToDeployment(sessionId);
-    }
-
-    // Fire-and-forget: SignalR drives live progress.
-    // API response is stored for the success screen and serves as a fallback.
-    redeployProduct(
-      activeEnvironment.id,
-      deployment.productDeploymentId,
-      { sessionId, continueOnError: true }
-    )
-      .then(response => {
-        // Always store API results (success screen needs them)
-        setStackResults(response.stackResults || []);
-
-        // Fallback: if SignalR hasn't completed within 3s, use API response
-        setTimeout(() => {
-          if (!completedRef.current) {
-            completedRef.current = true;
-
-            const finalStatuses: Record<string, StackRedeployStatus> = {};
-            for (const stack of deployment.stacks) {
-              const result = response.stackResults.find(r => r.stackName === stack.stackName);
-              finalStatuses[stack.stackName] = result?.success ? 'running' : 'failed';
-            }
-            setStackStatuses(finalStatuses);
-
-            if (!response.success) {
-              setError(response.message || 'Redeploy completed with errors');
-              setState('error');
-            } else {
-              setState('success');
-            }
-          }
-        }, 3000);
-      })
-      .catch(err => {
-        // Fallback: if SignalR hasn't completed within 3s, use API error
-        setTimeout(() => {
-          if (!completedRef.current) {
-            completedRef.current = true;
-            setError(err instanceof Error ? err.message : 'Redeploy failed');
-            setState('error');
-          }
-        }, 3000);
-      });
-  };
+  const store = useRedeployProductStore(token, activeEnvironment?.id, productDeploymentId);
 
   // --- Loading state ---
-  if (state === 'loading') {
+  if (store.state === 'loading') {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="flex items-center justify-center py-12">
@@ -193,7 +28,7 @@ export default function RedeployProduct() {
   }
 
   // --- Error state (no deployment loaded) ---
-  if (state === 'error' && !deployment) {
+  if (store.state === 'error' && !store.deployment) {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="mb-6">
@@ -208,21 +43,21 @@ export default function RedeployProduct() {
           </Link>
         </div>
         <div className="rounded-md bg-red-50 p-4 dark:bg-red-900/20">
-          <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+          <p className="text-sm text-red-800 dark:text-red-200">{store.error}</p>
         </div>
       </div>
     );
   }
 
   // --- Success state ---
-  if (state === 'success') {
-    const displayResults: DeployProductStackResult[] = stackResults.length > 0
-      ? stackResults
-      : (deployment?.stacks.map(s => ({
+  if (store.state === 'success') {
+    const displayResults: DeployProductStackResult[] = store.stackResults.length > 0
+      ? store.stackResults
+      : (store.deployment?.stacks.map(s => ({
             stackName: s.stackName,
             stackDisplayName: s.stackDisplayName,
             serviceCount: s.serviceCount,
-            success: stackStatuses[s.stackName] !== 'failed',
+            success: store.stackStatuses[s.stackName] !== 'failed',
           })) ?? []);
     const successCount = displayResults.filter(r => r.success).length;
 
@@ -239,7 +74,7 @@ export default function RedeployProduct() {
               Redeploy Successful!
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {deployment?.productDisplayName} — {successCount} stack{successCount !== 1 ? 's' : ''} redeployed successfully
+              {store.deployment?.productDisplayName} — {successCount} stack{successCount !== 1 ? 's' : ''} redeployed successfully
             </p>
 
             {/* Stack Results Summary */}
@@ -265,7 +100,7 @@ export default function RedeployProduct() {
 
             <div className="flex gap-4">
               <Link
-                to={`/product-deployments/${deployment?.productDeploymentId}`}
+                to={`/product-deployments/${store.deployment?.productDeploymentId}`}
                 className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white hover:bg-brand-700"
               >
                 View Deployment
@@ -284,10 +119,10 @@ export default function RedeployProduct() {
   }
 
   // --- Redeploying state ---
-  if (state === 'redeploying') {
-    const totalStacks = deployment?.totalStacks ?? 0;
-    const completedRedeployStacks = Object.values(stackStatuses).filter(s => s === 'running').length;
-    const failedRedeployStacks = Object.values(stackStatuses).filter(s => s === 'failed').length;
+  if (store.state === 'redeploying') {
+    const totalStacks = store.deployment?.totalStacks ?? 0;
+    const completedRedeployStacks = Object.values(store.stackStatuses).filter(s => s === 'running').length;
+    const failedRedeployStacks = Object.values(store.stackStatuses).filter(s => s === 'failed').length;
     const processedStacks = completedRedeployStacks + failedRedeployStacks;
 
     return (
@@ -299,7 +134,7 @@ export default function RedeployProduct() {
               Redeploying Stacks...
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Redeploying {deployment?.productDisplayName} in {activeEnvironment?.name}
+              Redeploying {store.deployment?.productDisplayName} in {activeEnvironment?.name}
             </p>
 
             <div className="w-full max-w-lg">
@@ -307,7 +142,7 @@ export default function RedeployProduct() {
               <div className="mb-6">
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-gray-600 dark:text-gray-400">
-                    {progressUpdate?.message || 'Initializing redeploy...'}
+                    {store.progressUpdate?.message || 'Initializing redeploy...'}
                   </span>
                   <span className="text-gray-600 dark:text-gray-400">
                     {processedStacks}/{totalStacks} stacks
@@ -323,11 +158,11 @@ export default function RedeployProduct() {
 
               {/* Per-Stack Status List */}
               <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                {deployment?.stacks
+                {store.deployment?.stacks
                   .slice()
                   .sort((a, b) => a.order - b.order)
                   .map((stack) => {
-                    const status = stackStatuses[stack.stackName] || 'pending';
+                    const status = store.stackStatuses[stack.stackName] || 'pending';
                     return (
                       <div
                         key={stack.stackName}
@@ -373,14 +208,14 @@ export default function RedeployProduct() {
               {/* Connection Status */}
               <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                 <span className={`w-2 h-2 rounded-full ${
-                  connectionState === 'connected' ? 'bg-green-500' :
-                  connectionState === 'connecting' ? 'bg-yellow-500' :
-                  connectionState === 'reconnecting' ? 'bg-yellow-500' :
+                  store.connectionState === 'connected' ? 'bg-green-500' :
+                  store.connectionState === 'connecting' ? 'bg-yellow-500' :
+                  store.connectionState === 'reconnecting' ? 'bg-yellow-500' :
                   'bg-red-500'
                 }`} />
-                {connectionState === 'connected' ? 'Live updates' :
-                 connectionState === 'connecting' ? 'Connecting...' :
-                 connectionState === 'reconnecting' ? 'Reconnecting...' :
+                {store.connectionState === 'connected' ? 'Live updates' :
+                 store.connectionState === 'connecting' ? 'Connecting...' :
+                 store.connectionState === 'reconnecting' ? 'Reconnecting...' :
                  'Updates unavailable'}
               </div>
             </div>
@@ -391,15 +226,15 @@ export default function RedeployProduct() {
   }
 
   // --- Error state (with deployment loaded, e.g. partial failure) ---
-  if (state === 'error' && deployment) {
-    const errorDisplayResults: DeployProductStackResult[] = stackResults.length > 0
-      ? stackResults
-      : (deployment.stacks.map(s => ({
+  if (store.state === 'error' && store.deployment) {
+    const errorDisplayResults: DeployProductStackResult[] = store.stackResults.length > 0
+      ? store.stackResults
+      : (store.deployment.stacks.map(s => ({
             stackName: s.stackName,
             stackDisplayName: s.stackDisplayName,
             serviceCount: s.serviceCount,
-            success: stackStatuses[s.stackName] === 'running',
-            errorMessage: stackStatuses[s.stackName] === 'failed' ? 'Redeploy failed' : undefined,
+            success: store.stackStatuses[s.stackName] === 'running',
+            errorMessage: store.stackStatuses[s.stackName] === 'failed' ? 'Redeploy failed' : undefined,
           })));
     const successCount = errorDisplayResults.filter(r => r.success).length;
     const failedCount = errorDisplayResults.filter(r => !r.success).length;
@@ -408,7 +243,7 @@ export default function RedeployProduct() {
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="mb-6">
           <Link
-            to={`/product-deployments/${deployment.productDeploymentId}`}
+            to={`/product-deployments/${store.deployment.productDeploymentId}`}
             className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -430,7 +265,7 @@ export default function RedeployProduct() {
               Redeploy Completed with Errors
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-2">
-              {error}
+              {store.error}
             </p>
             {errorDisplayResults.length > 0 && (
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
@@ -480,7 +315,7 @@ export default function RedeployProduct() {
 
             <div className="flex gap-4">
               <Link
-                to={`/product-deployments/${deployment.productDeploymentId}`}
+                to={`/product-deployments/${store.deployment.productDeploymentId}`}
                 className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white hover:bg-brand-700"
               >
                 View Deployment
@@ -499,14 +334,14 @@ export default function RedeployProduct() {
   }
 
   // --- Confirm state ---
-  const allStacks = deployment?.stacks.slice().sort((a, b) => a.order - b.order) ?? [];
+  const allStacks = store.deployment?.stacks.slice().sort((a, b) => a.order - b.order) ?? [];
 
   return (
     <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
       {/* Breadcrumb */}
       <div className="mb-6">
         <Link
-          to={`/product-deployments/${deployment?.productDeploymentId}`}
+          to={`/product-deployments/${store.deployment?.productDeploymentId}`}
           className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -530,7 +365,7 @@ export default function RedeployProduct() {
             Redeploy Product
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-2 text-center">
-            Redeploy all stacks of <strong className="text-gray-900 dark:text-white">{deployment?.productDisplayName}</strong>?
+            Redeploy all stacks of <strong className="text-gray-900 dark:text-white">{store.deployment?.productDisplayName}</strong>?
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 text-center max-w-md">
             This will re-deploy all {allStacks.length} stack{allStacks.length !== 1 ? 's' : ''} with a fresh image pull
@@ -543,11 +378,11 @@ export default function RedeployProduct() {
             <div className="space-y-2 text-sm mb-4">
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Product:</span>
-                <span className="font-medium text-gray-900 dark:text-white">{deployment?.productDisplayName}</span>
+                <span className="font-medium text-gray-900 dark:text-white">{store.deployment?.productDisplayName}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Version:</span>
-                <span className="font-medium text-gray-900 dark:text-white">v{deployment?.productVersion}</span>
+                <span className="font-medium text-gray-900 dark:text-white">v{store.deployment?.productVersion}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Environment:</span>
@@ -583,23 +418,23 @@ export default function RedeployProduct() {
           </div>
 
           {/* Error Display */}
-          {error && (
+          {store.error && (
             <div className="w-full max-w-lg mb-6 p-4 text-sm text-red-800 bg-red-100 rounded-lg dark:bg-red-900/30 dark:text-red-400">
               <p className="font-medium mb-1">Error</p>
-              <p>{error}</p>
+              <p>{store.error}</p>
             </div>
           )}
 
           {/* Action Buttons */}
           <div className="flex gap-4">
             <Link
-              to={`/product-deployments/${deployment?.productDeploymentId}`}
+              to={`/product-deployments/${store.deployment?.productDeploymentId}`}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-gray-100 px-6 py-3 text-center font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
             >
               Cancel
             </Link>
             <button
-              onClick={handleRedeploy}
+              onClick={store.handleRedeploy}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-500 px-6 py-3 text-center font-medium text-white hover:bg-blue-600"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

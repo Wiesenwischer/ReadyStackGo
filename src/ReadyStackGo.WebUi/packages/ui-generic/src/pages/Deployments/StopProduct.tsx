@@ -1,89 +1,17 @@
-import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router';
-import {
-  getProductDeployment,
-  stopProductContainers,
-  type GetProductDeploymentResponse,
-  type StackContainerResult,
-} from '@rsgo/core';
+import { useStopProductStore } from '@rsgo/core';
+import { useAuth } from '../../context/AuthContext';
 import { useEnvironment } from '../../context/EnvironmentContext';
-
-type StopState = 'loading' | 'confirm' | 'stopping' | 'success' | 'error';
 
 export default function StopProduct() {
   const { productDeploymentId } = useParams<{ productDeploymentId: string }>();
+  const { token } = useAuth();
   const { activeEnvironment } = useEnvironment();
 
-  const [state, setState] = useState<StopState>('loading');
-  const [deployment, setDeployment] = useState<GetProductDeploymentResponse | null>(null);
-  const [error, setError] = useState('');
-  const [stopResults, setStopResults] = useState<StackContainerResult[]>([]);
-
-  // Total service count
-  const totalServices = deployment?.stacks.reduce((sum, s) => sum + s.serviceCount, 0) ?? 0;
-
-  // Load product deployment details
-  useEffect(() => {
-    if (!activeEnvironment || !productDeploymentId) {
-      setState('error');
-      setError('No environment or product deployment ID provided');
-      return;
-    }
-
-    const loadDeployment = async () => {
-      try {
-        setState('loading');
-        setError('');
-
-        const response = await getProductDeployment(activeEnvironment.id, productDeploymentId);
-        setDeployment(response);
-
-        if (!response.canStop) {
-          setError(`Product "${response.productDisplayName}" cannot be stopped in its current state (${response.status})`);
-          setState('error');
-          return;
-        }
-
-        setState('confirm');
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load product deployment');
-        setState('error');
-      }
-    };
-
-    loadDeployment();
-  }, [activeEnvironment, productDeploymentId]);
-
-  const handleStop = async () => {
-    if (!activeEnvironment || !deployment) {
-      setError('No deployment to stop');
-      return;
-    }
-
-    setState('stopping');
-    setError('');
-
-    try {
-      const response = await stopProductContainers(
-        activeEnvironment.id,
-        deployment.productDeploymentId
-      );
-      setStopResults(response.results);
-
-      if (response.success) {
-        setState('success');
-      } else {
-        setError(response.message || 'Stop completed with errors');
-        setState('error');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to stop containers');
-      setState('error');
-    }
-  };
+  const store = useStopProductStore(token, activeEnvironment?.id, productDeploymentId);
 
   // --- Loading state ---
-  if (state === 'loading') {
+  if (store.state === 'loading') {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="flex items-center justify-center py-12">
@@ -97,7 +25,7 @@ export default function StopProduct() {
   }
 
   // --- Error state (no deployment loaded) ---
-  if (state === 'error' && !deployment) {
+  if (store.state === 'error' && !store.deployment) {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="mb-6">
@@ -112,15 +40,15 @@ export default function StopProduct() {
           </Link>
         </div>
         <div className="rounded-md bg-red-50 p-4 dark:bg-red-900/20">
-          <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+          <p className="text-sm text-red-800 dark:text-red-200">{store.error}</p>
         </div>
       </div>
     );
   }
 
   // --- Success state ---
-  if (state === 'success') {
-    const successCount = stopResults.filter(r => r.success).length;
+  if (store.state === 'success') {
+    const successCount = store.stopResults.filter(r => r.success).length;
 
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
@@ -135,14 +63,14 @@ export default function StopProduct() {
               Containers Stopped Successfully!
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {deployment?.productDisplayName} ({successCount} stack{successCount !== 1 ? 's' : ''}) containers have been stopped
+              {store.deployment?.productDisplayName} ({successCount} stack{successCount !== 1 ? 's' : ''}) containers have been stopped
             </p>
 
             {/* Stack Results Summary */}
-            {stopResults.length > 0 && (
+            {store.stopResults.length > 0 && (
               <div className="w-full max-w-lg mb-6">
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                  {stopResults.map((result) => (
+                  {store.stopResults.map((result) => (
                     <div key={result.stackName} className="flex items-center justify-between px-4 py-3 border-b last:border-b-0 border-gray-200 dark:border-gray-700">
                       <div className="flex items-center gap-3">
                         <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -180,7 +108,7 @@ export default function StopProduct() {
   }
 
   // --- Stopping state ---
-  if (state === 'stopping') {
+  if (store.state === 'stopping') {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="rounded-2xl border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -190,13 +118,13 @@ export default function StopProduct() {
               Stopping Containers...
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Stopping {deployment?.productDisplayName} in {activeEnvironment?.name}
+              Stopping {store.deployment?.productDisplayName} in {activeEnvironment?.name}
             </p>
 
             <div className="w-full max-w-lg">
               {/* Stack List */}
               <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                {deployment?.stacks
+                {store.deployment?.stacks
                   .slice()
                   .sort((a, b) => a.order - b.order)
                   .map((stack) => (
@@ -224,9 +152,9 @@ export default function StopProduct() {
   }
 
   // --- Error state (with deployment loaded, e.g. partial failure) ---
-  if (state === 'error' && deployment) {
-    const successCount = stopResults.filter(r => r.success).length;
-    const failedCount = stopResults.filter(r => !r.success).length;
+  if (store.state === 'error' && store.deployment) {
+    const successCount = store.stopResults.filter(r => r.success).length;
+    const failedCount = store.stopResults.filter(r => !r.success).length;
 
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
@@ -254,19 +182,19 @@ export default function StopProduct() {
               Stop Completed with Errors
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-2">
-              {error}
+              {store.error}
             </p>
-            {stopResults.length > 0 && (
+            {store.stopResults.length > 0 && (
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                {successCount} stopped, {failedCount} failed of {stopResults.length} stacks
+                {successCount} stopped, {failedCount} failed of {store.stopResults.length} stacks
               </p>
             )}
 
             {/* Per-Stack Results */}
-            {stopResults.length > 0 && (
+            {store.stopResults.length > 0 && (
               <div className="w-full max-w-lg mb-6">
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                  {stopResults.map((result) => (
+                  {store.stopResults.map((result) => (
                     <div key={result.stackName} className="px-4 py-3 border-b last:border-b-0 border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -353,10 +281,10 @@ export default function StopProduct() {
             Stop Product Containers
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-2 text-center">
-            Are you sure you want to stop all containers of <strong className="text-gray-900 dark:text-white">{deployment?.productDisplayName}</strong>?
+            Are you sure you want to stop all containers of <strong className="text-gray-900 dark:text-white">{store.deployment?.productDisplayName}</strong>?
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 text-center max-w-md">
-            This will stop all {deployment?.totalStacks} stack{(deployment?.totalStacks ?? 0) !== 1 ? 's' : ''} with {totalServices} container{totalServices !== 1 ? 's' : ''}.
+            This will stop all {store.deployment?.totalStacks} stack{(store.deployment?.totalStacks ?? 0) !== 1 ? 's' : ''} with {store.totalServices} container{store.totalServices !== 1 ? 's' : ''}.
             Containers can be restarted later.
           </p>
 
@@ -366,11 +294,11 @@ export default function StopProduct() {
             <div className="space-y-2 text-sm mb-4">
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Product:</span>
-                <span className="font-medium text-gray-900 dark:text-white">{deployment?.productDisplayName}</span>
+                <span className="font-medium text-gray-900 dark:text-white">{store.deployment?.productDisplayName}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Version:</span>
-                <span className="font-medium text-gray-900 dark:text-white">v{deployment?.productVersion}</span>
+                <span className="font-medium text-gray-900 dark:text-white">v{store.deployment?.productVersion}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Environment:</span>
@@ -378,11 +306,11 @@ export default function StopProduct() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Stacks:</span>
-                <span className="font-medium text-gray-900 dark:text-white">{deployment?.totalStacks}</span>
+                <span className="font-medium text-gray-900 dark:text-white">{store.deployment?.totalStacks}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Total Services:</span>
-                <span className="font-medium text-gray-900 dark:text-white">{totalServices}</span>
+                <span className="font-medium text-gray-900 dark:text-white">{store.totalServices}</span>
               </div>
             </div>
 
@@ -391,7 +319,7 @@ export default function StopProduct() {
               Stacks to stop
             </h4>
             <div className="space-y-1">
-              {deployment?.stacks
+              {store.deployment?.stacks
                 .slice()
                 .sort((a, b) => a.order - b.order)
                 .map((stack) => (
@@ -418,10 +346,10 @@ export default function StopProduct() {
           </div>
 
           {/* Error Display */}
-          {error && (
+          {store.error && (
             <div className="w-full max-w-lg mb-6 p-4 text-sm text-red-800 bg-red-100 rounded-lg dark:bg-red-900/30 dark:text-red-400">
               <p className="font-medium mb-1">Error</p>
-              <p>{error}</p>
+              <p>{store.error}</p>
             </div>
           )}
 
@@ -434,7 +362,7 @@ export default function StopProduct() {
               Cancel
             </Link>
             <button
-              onClick={handleStop}
+              onClick={store.handleStop}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-orange-600 px-6 py-3 text-center font-medium text-white hover:bg-orange-700"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
