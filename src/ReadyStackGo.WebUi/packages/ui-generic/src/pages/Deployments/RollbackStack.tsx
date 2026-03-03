@@ -6,12 +6,11 @@ import {
   rollbackDeployment,
   type GetDeploymentResponse,
   type RollbackInfoResponse,
-  useDeploymentHub,
   type DeploymentProgressUpdate,
   type InitContainerLogEntry,
 } from '@rsgo/core';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { useAuth } from '../../context/AuthContext';
+import { useDeploymentHub } from '../../hooks/useDeploymentHub';
 
 // Format phase names for display (PullingImages -> Pulling Images)
 const formatPhase = (phase: string | undefined): string => {
@@ -25,7 +24,6 @@ export default function RollbackStack() {
   const { stackName } = useParams<{ stackName: string }>();
   const navigate = useNavigate();
   const { activeEnvironment } = useEnvironment();
-  const { token } = useAuth();
 
   const [state, setState] = useState<RollbackState>('loading');
   const [deployment, setDeployment] = useState<GetDeploymentResponse | null>(null);
@@ -65,7 +63,7 @@ export default function RollbackStack() {
     }
   }, []);
 
-  const { subscribeToDeployment, connectionState } = useDeploymentHub(token, {
+  const { subscribeToDeployment, connectionState } = useDeploymentHub({
     onDeploymentProgress: handleRollbackProgress,
     onInitContainerLog: handleInitContainerLog,
   });

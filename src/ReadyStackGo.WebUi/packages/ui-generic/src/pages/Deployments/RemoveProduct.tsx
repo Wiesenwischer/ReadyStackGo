@@ -5,11 +5,10 @@ import {
   removeProductDeployment,
   type GetProductDeploymentResponse,
   type RemoveProductStackResult,
-  useDeploymentHub,
   type DeploymentProgressUpdate,
 } from '@rsgo/core';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { useAuth } from '../../context/AuthContext';
+import { useDeploymentHub } from '../../hooks/useDeploymentHub';
 
 // Format phase names for display (RemovingContainers -> Removing Containers)
 const formatPhase = (phase: string | undefined): string => {
@@ -23,7 +22,6 @@ type StackRemoveStatus = 'pending' | 'removing' | 'removed' | 'failed';
 export default function RemoveProduct() {
   const { productDeploymentId } = useParams<{ productDeploymentId: string }>();
   const { activeEnvironment } = useEnvironment();
-  const { token } = useAuth();
 
   const [state, setState] = useState<RemoveState>('loading');
   const [deployment, setDeployment] = useState<GetProductDeploymentResponse | null>(null);
@@ -82,7 +80,7 @@ export default function RemoveProduct() {
     }
   }, []);
 
-  const { subscribeToDeployment, connectionState } = useDeploymentHub(token, {
+  const { subscribeToDeployment, connectionState } = useDeploymentHub({
     onDeploymentProgress: handleRemoveProgress,
   });
 

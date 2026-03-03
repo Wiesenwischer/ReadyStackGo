@@ -31,6 +31,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@rsgo/core': path.resolve(__dirname, './packages/core/src'),
+      '@rsgo/ui-generic': path.resolve(__dirname, './packages/ui-generic/src'),
     },
   },
 })

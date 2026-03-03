@@ -1,14 +1,13 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { useAuth } from '../../context/AuthContext';
 import {
-  useHealthHub,
   getEnvironmentHealthSummary,
   getHealthStatusPresentation,
   type EnvironmentHealthSummaryDto,
   type StackHealthDto,
 } from '@rsgo/core';
+import { useHealthHub } from '../../hooks/useHealthHub';
 import HealthStackCard from '../../components/health/HealthStackCard';
 
 type StatusFilter = 'all' | 'healthy' | 'degraded' | 'unhealthy';
@@ -34,7 +33,6 @@ function aggregateProductStatus(stacks: StackHealthDto[]): string {
 
 export default function HealthDashboard() {
   const { activeEnvironment } = useEnvironment();
-  const { token } = useAuth();
   const [healthSummary, setHealthSummary] = useState<EnvironmentHealthSummaryDto | null>(null);
   const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -45,7 +43,7 @@ export default function HealthDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // SignalR for real-time updates
-  const { connectionState, subscribeToEnvironment, unsubscribeFromEnvironment } = useHealthHub(token, {
+  const { connectionState, subscribeToEnvironment, unsubscribeFromEnvironment } = useHealthHub({
     onEnvironmentHealthChanged: (summary) => {
       if (summary.environmentId === activeEnvironment?.id) {
         setHealthSummary(summary);

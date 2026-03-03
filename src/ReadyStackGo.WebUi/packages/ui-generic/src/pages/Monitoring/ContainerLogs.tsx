@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { useAuth } from '../../context/AuthContext';
-import { containerApi, useContainerLogsHub, type ConnectionState } from '@rsgo/core';
+import { containerApi, type ConnectionState } from '@rsgo/core';
+import { useContainerLogsHub } from '../../hooks/useContainerLogsHub';
 
 const MAX_LINES = 10000;
 const TAIL_OPTIONS = [100, 500, 1000] as const;
@@ -12,7 +12,6 @@ export default function ContainerLogs() {
   const [searchParams] = useSearchParams();
   const containerName = searchParams.get('name') || containerId || '';
   const { activeEnvironment } = useEnvironment();
-  const { token } = useAuth();
 
   const [lines, setLines] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,7 +56,7 @@ export default function ContainerLogs() {
     setStreamEnded(true);
   }, []);
 
-  const { connectionState, subscribeToContainerLogs, unsubscribeFromContainerLogs } = useContainerLogsHub(token, {
+  const { connectionState, subscribeToContainerLogs, unsubscribeFromContainerLogs } = useContainerLogsHub({
     onLogLine: handleLogLine,
     onStreamEnded: handleStreamEnded,
   });
