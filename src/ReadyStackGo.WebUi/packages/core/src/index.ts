@@ -47,6 +47,12 @@ export * from './realtime/useUpdateHub';
 export * from './hooks/useNotifications';
 export * from './hooks/useVersionInfo';
 
+// Store Hooks (ViewModel layer)
+export { useRegistryStore, type UseRegistryStoreReturn } from './hooks/useRegistryStore';
+export { useStackSourceStore, type UseStackSourceStoreReturn } from './hooks/useStackSourceStore';
+export { useTlsStore, type UseTlsStoreReturn } from './hooks/useTlsStore';
+export { useApiKeyStore, type UseApiKeyStoreReturn } from './hooks/useApiKeyStore';
+
 // Services
 export * from './services/AuthService';
 export * from './services/EnvironmentService';

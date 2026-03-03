@@ -1,49 +1,8 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  getRegistries,
-  setDefaultRegistry,
-  type RegistryDto,
-} from '@rsgo/core';
+import { useRegistryStore } from '@rsgo/core';
 
 export default function RegistriesList() {
-  const [registries, setRegistries] = useState<RegistryDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-
-  const loadRegistries = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await getRegistries();
-      setRegistries(response.registries);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load registries");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadRegistries();
-  }, []);
-
-  const handleSetDefault = async (id: string) => {
-    try {
-      setActionLoading(id);
-      const response = await setDefaultRegistry(id);
-      if (response.success) {
-        await loadRegistries();
-      } else {
-        setError(response.message || "Failed to set default registry");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to set default registry");
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  const store = useRegistryStore();
 
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
@@ -77,7 +36,7 @@ export default function RegistriesList() {
               Add Registry
             </Link>
             <button
-              onClick={loadRegistries}
+              onClick={store.refresh}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-gray-100 px-4 py-2 text-center font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -88,11 +47,11 @@ export default function RegistriesList() {
           </div>
         </div>
 
-        {error && (
+        {store.error && (
           <div className="mx-4 mb-4 rounded-md bg-red-50 p-3 dark:bg-red-900/20">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
-              <button onClick={() => setError(null)} className="text-red-500 hover:text-red-600">
+              <p className="text-sm text-red-800 dark:text-red-200">{store.error}</p>
+              <button onClick={store.clearError} className="text-red-500 hover:text-red-600">
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -101,13 +60,13 @@ export default function RegistriesList() {
           </div>
         )}
 
-        {loading ? (
+        {store.loading ? (
           <div className="border-t border-stroke px-4 py-8 dark:border-strokedark">
             <p className="text-center text-sm text-gray-600 dark:text-gray-400">
               Loading registries...
             </p>
           </div>
-        ) : registries.length === 0 ? (
+        ) : store.registries.length === 0 ? (
           <div className="border-t border-stroke px-4 py-16 dark:border-strokedark">
             <div className="text-center max-w-md mx-auto">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900/30">
@@ -134,7 +93,7 @@ export default function RegistriesList() {
           </div>
         ) : (
           <div className="border-t border-stroke dark:border-strokedark">
-            {registries.map((registry) => (
+            {store.registries.map((registry) => (
               <div
                 key={registry.id}
                 className="border-b border-stroke px-4 py-4 dark:border-strokedark last:border-b-0 md:px-6"
@@ -186,11 +145,11 @@ export default function RegistriesList() {
                     </Link>
                     {!registry.isDefault && (
                       <button
-                        onClick={() => handleSetDefault(registry.id)}
-                        disabled={actionLoading === registry.id}
+                        onClick={() => store.handleSetDefault(registry.id)}
+                        disabled={store.actionLoading === registry.id}
                         className="inline-flex items-center justify-center rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {actionLoading === registry.id ? "..." : "Set Default"}
+                        {store.actionLoading === registry.id ? "..." : "Set Default"}
                       </button>
                     )}
                     <Link

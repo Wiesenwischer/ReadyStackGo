@@ -1,12 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  getApiKeys,
-  createApiKey,
-  revokeApiKey,
-  type ApiKeyDto,
-  type CreateApiKeyRequest,
-} from '@rsgo/core';
+import { useApiKeyStore, type ApiKeyDto, type CreateApiKeyRequest } from '@rsgo/core';
 import { useEnvironment } from "../../../context/EnvironmentContext";
 
 const AVAILABLE_PERMISSIONS = [
@@ -19,109 +13,67 @@ const AVAILABLE_PERMISSIONS = [
 ];
 
 export default function CiCdList() {
-  const [apiKeys, setApiKeys] = useState<ApiKeyDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const store = useApiKeyStore();
+  const { environments } = useEnvironment();
+
+  // Local UI state for modals and forms
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showRevokeModal, setShowRevokeModal] = useState<string | null>(null);
   const [revokeReason, setRevokeReason] = useState("");
-  const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
 
   // Create form state
   const [newKeyName, setNewKeyName] = useState("");
   const [newKeyPermissions, setNewKeyPermissions] = useState<string[]>(["Hooks.Redeploy"]);
   const [newKeyExpiry, setNewKeyExpiry] = useState("");
   const [newKeyEnvironmentId, setNewKeyEnvironmentId] = useState("");
-  const { environments } = useEnvironment();
-
-  const loadApiKeys = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await getApiKeys();
-      setApiKeys(response.apiKeys);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load API keys");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadApiKeys();
-  }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newKeyName.trim()) return;
 
-    try {
-      setActionLoading(true);
-      setError(null);
-      const request: CreateApiKeyRequest = {
-        name: newKeyName.trim(),
-        permissions: newKeyPermissions,
-      };
-      if (newKeyEnvironmentId) {
-        request.environmentId = newKeyEnvironmentId;
-      }
-      if (newKeyExpiry) {
-        const date = new Date(newKeyExpiry + "T23:59:59");
-        request.expiresAt = date.toISOString();
-      }
+    const request: CreateApiKeyRequest = {
+      name: newKeyName.trim(),
+      permissions: newKeyPermissions,
+    };
+    if (newKeyEnvironmentId) {
+      request.environmentId = newKeyEnvironmentId;
+    }
+    if (newKeyExpiry) {
+      const date = new Date(newKeyExpiry + "T23:59:59");
+      request.expiresAt = date.toISOString();
+    }
 
-      const response = await createApiKey(request);
-      if (response.success && response.apiKey) {
-        setCreatedKey(response.apiKey.fullKey);
-        setShowCreateModal(false);
-        setNewKeyName("");
-        setNewKeyPermissions(["Hooks.Redeploy"]);
-        setNewKeyExpiry("");
-        setNewKeyEnvironmentId("");
-        await loadApiKeys();
-      } else {
-        setError(response.message || "Failed to create API key");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create API key");
-    } finally {
-      setActionLoading(false);
+    const success = await store.handleCreate(request);
+    if (success) {
+      setShowCreateModal(false);
+      setNewKeyName("");
+      setNewKeyPermissions(["Hooks.Redeploy"]);
+      setNewKeyExpiry("");
+      setNewKeyEnvironmentId("");
     }
   };
 
   const handleRevoke = async () => {
     if (!showRevokeModal) return;
 
-    try {
-      setActionLoading(true);
-      setError(null);
-      const response = await revokeApiKey(showRevokeModal, revokeReason || undefined);
-      if (response.success) {
-        setShowRevokeModal(null);
-        setRevokeReason("");
-        await loadApiKeys();
-      } else {
-        setError(response.message || "Failed to revoke API key");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to revoke API key");
-    } finally {
-      setActionLoading(false);
+    const success = await store.handleRevoke(showRevokeModal, revokeReason || undefined);
+    if (success) {
+      setShowRevokeModal(null);
+      setRevokeReason("");
     }
   };
 
   const handleCopyKey = async () => {
-    if (!createdKey) return;
+    if (!store.createdKey) return;
     try {
-      await navigator.clipboard.writeText(createdKey);
+      await navigator.clipboard.writeText(store.createdKey);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Fallback for non-secure contexts
       const textArea = document.createElement("textarea");
-      textArea.value = createdKey;
+      textArea.value = store.createdKey;
       document.body.appendChild(textArea);
       textArea.select();
       document.execCommand("copy");
@@ -170,7 +122,7 @@ export default function CiCdList() {
     );
   };
 
-  const revokeTarget = apiKeys.find((k) => k.id === showRevokeModal);
+  const revokeTarget = store.apiKeys.find((k) => k.id === showRevokeModal);
 
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
@@ -203,17 +155,17 @@ export default function CiCdList() {
       </div>
 
       {/* Error alert */}
-      {error && (
+      {store.error && (
         <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
-          {error}
-          <button onClick={() => setError(null)} className="ml-2 font-medium underline">
+          {store.error}
+          <button onClick={store.clearError} className="ml-2 font-medium underline">
             Dismiss
           </button>
         </div>
       )}
 
       {/* Created key banner */}
-      {createdKey && (
+      {store.createdKey && (
         <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20">
           <div className="flex items-start gap-3">
             <svg className="mt-0.5 h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -225,7 +177,7 @@ export default function CiCdList() {
               </p>
               <div className="mt-2 flex items-center gap-2">
                 <code className="rounded bg-green-100 px-3 py-1.5 font-mono text-sm text-green-900 dark:bg-green-900/40 dark:text-green-200 select-all">
-                  {createdKey}
+                  {store.createdKey}
                 </code>
                 <button
                   onClick={handleCopyKey}
@@ -250,7 +202,7 @@ export default function CiCdList() {
               </div>
             </div>
             <button
-              onClick={() => setCreatedKey(null)}
+              onClick={store.clearCreatedKey}
               className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-200"
             >
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -262,11 +214,11 @@ export default function CiCdList() {
       )}
 
       {/* Loading state */}
-      {loading ? (
+      {store.loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
         </div>
-      ) : apiKeys.length === 0 ? (
+      ) : store.apiKeys.length === 0 ? (
         /* Empty state */
         <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center dark:border-gray-800 dark:bg-white/[0.03]">
           <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -300,7 +252,7 @@ export default function CiCdList() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-              {apiKeys.map((key) => (
+              {store.apiKeys.map((key) => (
                 <tr key={key.id} className={key.isRevoked ? "opacity-60" : ""}>
                   <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
                     {key.name}
@@ -428,10 +380,10 @@ export default function CiCdList() {
                 </button>
                 <button
                   type="submit"
-                  disabled={actionLoading || newKeyPermissions.length === 0}
+                  disabled={store.actionLoading || newKeyPermissions.length === 0}
                   className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50 transition-colors"
                 >
-                  {actionLoading ? "Creating..." : "Create"}
+                  {store.actionLoading ? "Creating..." : "Create"}
                 </button>
               </div>
             </form>
@@ -467,10 +419,10 @@ export default function CiCdList() {
               </button>
               <button
                 onClick={handleRevoke}
-                disabled={actionLoading}
+                disabled={store.actionLoading}
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
               >
-                {actionLoading ? "Revoking..." : "Revoke Key"}
+                {store.actionLoading ? "Revoking..." : "Revoke Key"}
               </button>
             </div>
           </div>
