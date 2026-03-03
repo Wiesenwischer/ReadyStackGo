@@ -160,13 +160,13 @@ export default function RegistrySettings() {
 
 Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
 
-- [ ] **Feature 1: Core API Layer** — `api/` nach `core/api/` verschieben, Types extrahieren nach `core/types/`
+- [x] **Feature 1: Core API Layer** — `api/` nach `core/api/` verschieben, Types extrahieren nach `core/types/` — erledigt via Monorepo-Refactoring (PRs #194–#200)
   - Betroffene Dateien: Alle 12 `api/*.ts`, neue `core/types/*.ts`
   - Import-Pfade in allen Konsumenten aktualisieren
   - Abhängig von: -
   - Tests: Build + `npm run dev` muss funktionieren, kein visueller Unterschied
 
-- [ ] **Feature 2: Core Services** — SignalR und Auth/Environment-Logik in `core/services/` extrahieren
+- [x] **Feature 2: Core Services** — SignalR und Auth/Environment-Logik in `core/services/` extrahieren — PR #201
   - `AuthService.ts` aus `AuthContext.tsx` (Login, Logout, Token-Management, localStorage)
   - `EnvironmentService.ts` aus `EnvironmentContext.tsx` (Load, Select, Persist)
   - `DeploymentHub.ts` aus `useDeploymentHub.ts` (SignalR-Connection, Event-Subscriptions)
