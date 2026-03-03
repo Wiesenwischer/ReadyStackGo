@@ -5,12 +5,13 @@ namespace ReadyStackGo.Domain.Deployment.ProductDeployments;
 ///
 /// State machine:
 ///   Deploying        → Running | PartiallyRunning | Failed
-///   Running          → Upgrading | Removing | Stopped
+///   Running          → Upgrading | Removing | Stopped | Redeploying
 ///   PartiallyRunning → Deploying (retry) | Upgrading | Removing | Stopped
 ///   Upgrading        → Running | PartiallyRunning | Failed
 ///   Failed           → Deploying (retry) | Upgrading | Removing
 ///   Stopped          → Running | PartiallyRunning | Upgrading | Removing
 ///   Removing         → Removed (terminal)
+///   Redeploying      → Running | PartiallyRunning | Failed
 /// </summary>
 public enum ProductDeploymentStatus
 {
@@ -52,5 +53,10 @@ public enum ProductDeploymentStatus
     /// <summary>
     /// All containers have been deliberately stopped by the user.
     /// </summary>
-    Stopped = 7
+    Stopped = 7,
+
+    /// <summary>
+    /// Redeployment of all or selected stacks is in progress (same version, fresh pull).
+    /// </summary>
+    Redeploying = 8
 }

@@ -139,6 +139,29 @@ public sealed class ProductUpgradeInitiated : DomainEvent
 }
 
 /// <summary>
+/// Raised when a product redeploy is initiated (same version, fresh pull).
+/// </summary>
+public sealed class ProductRedeployInitiated : DomainEvent
+{
+    public ProductDeploymentId ProductDeploymentId { get; }
+    public string ProductName { get; }
+    public int RedeployStackCount { get; }
+    public int TotalStacks { get; }
+
+    public ProductRedeployInitiated(
+        ProductDeploymentId productDeploymentId,
+        string productName,
+        int redeployStackCount,
+        int totalStacks)
+    {
+        ProductDeploymentId = productDeploymentId;
+        ProductName = productName;
+        RedeployStackCount = redeployStackCount;
+        TotalStacks = totalStacks;
+    }
+}
+
+/// <summary>
 /// Raised when a product deployment retry is initiated.
 /// </summary>
 public sealed class ProductRetryInitiated : DomainEvent

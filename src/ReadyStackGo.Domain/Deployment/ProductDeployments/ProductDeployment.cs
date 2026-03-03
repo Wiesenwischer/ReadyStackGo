@@ -11,12 +11,13 @@ using ReadyStackGo.Domain.SharedKernel;
 ///
 /// State machine:
 ///   Deploying        → Running | PartiallyRunning | Failed
-///   Running          → Upgrading | Removing | Stopped
+///   Running          → Upgrading | Removing | Stopped | Redeploying
 ///   PartiallyRunning → Deploying (retry) | Upgrading | Removing | Stopped
 ///   Upgrading        → Running | PartiallyRunning | Failed
 ///   Failed           → Deploying (retry) | Upgrading | Removing
 ///   Stopped          → Running | PartiallyRunning | Upgrading | Removing
 ///   Removing         → Removed (terminal)
+///   Redeploying      → Running | PartiallyRunning | Failed
 /// </summary>
 public class ProductDeployment : AggregateRoot<ProductDeploymentId>
 {
@@ -40,7 +41,8 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     public bool IsTerminal => Status == ProductDeploymentStatus.Removed;
     public bool IsInProgress => Status is ProductDeploymentStatus.Deploying
                                        or ProductDeploymentStatus.Upgrading
-                                       or ProductDeploymentStatus.Removing;
+                                       or ProductDeploymentStatus.Removing
+                                       or ProductDeploymentStatus.Redeploying;
     public bool IsOperational => Status is ProductDeploymentStatus.Running
                                         or ProductDeploymentStatus.PartiallyRunning;
 
@@ -70,13 +72,14 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     private static readonly Dictionary<ProductDeploymentStatus, ProductDeploymentStatus[]> ValidTransitions = new()
     {
         { ProductDeploymentStatus.Deploying, new[] { ProductDeploymentStatus.Running, ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Failed } },
-        { ProductDeploymentStatus.Running, new[] { ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing, ProductDeploymentStatus.Stopped } },
+        { ProductDeploymentStatus.Running, new[] { ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing, ProductDeploymentStatus.Stopped, ProductDeploymentStatus.Redeploying } },
         { ProductDeploymentStatus.PartiallyRunning, new[] { ProductDeploymentStatus.Deploying, ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing, ProductDeploymentStatus.Stopped } },
         { ProductDeploymentStatus.Upgrading, new[] { ProductDeploymentStatus.Running, ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Failed } },
         { ProductDeploymentStatus.Failed, new[] { ProductDeploymentStatus.Deploying, ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing } },
         { ProductDeploymentStatus.Stopped, new[] { ProductDeploymentStatus.Running, ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing } },
         { ProductDeploymentStatus.Removing, new[] { ProductDeploymentStatus.Removed } },
-        { ProductDeploymentStatus.Removed, Array.Empty<ProductDeploymentStatus>() }
+        { ProductDeploymentStatus.Removed, Array.Empty<ProductDeploymentStatus>() },
+        { ProductDeploymentStatus.Redeploying, new[] { ProductDeploymentStatus.Running, ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Failed } }
     };
 
     // For EF Core
@@ -311,7 +314,7 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     public void StartStack(string stackName, DeploymentId deploymentId)
     {
         SelfAssertStateTrue(
-            Status is ProductDeploymentStatus.Deploying or ProductDeploymentStatus.Upgrading,
+            Status is ProductDeploymentStatus.Deploying or ProductDeploymentStatus.Upgrading or ProductDeploymentStatus.Redeploying,
             $"Cannot start stack when product status is {Status}.");
 
         var stack = FindStack(stackName);
@@ -329,7 +332,7 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     public void CompleteStack(string stackName)
     {
         SelfAssertStateTrue(
-            Status is ProductDeploymentStatus.Deploying or ProductDeploymentStatus.Upgrading,
+            Status is ProductDeploymentStatus.Deploying or ProductDeploymentStatus.Upgrading or ProductDeploymentStatus.Redeploying,
             $"Cannot complete stack when product status is {Status}.");
 
         var stack = FindStack(stackName);
@@ -351,7 +354,7 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     public void FailStack(string stackName, string errorMessage)
     {
         SelfAssertStateTrue(
-            Status is ProductDeploymentStatus.Deploying or ProductDeploymentStatus.Upgrading,
+            Status is ProductDeploymentStatus.Deploying or ProductDeploymentStatus.Upgrading or ProductDeploymentStatus.Redeploying,
             $"Cannot fail stack when product status is {Status}.");
 
         var stack = FindStack(stackName);
@@ -449,6 +452,53 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
 
         RecordPhase("Retry initiated");
         AddDomainEvent(new ProductRetryInitiated(Id, ProductName, TotalStacks));
+    }
+
+    /// <summary>
+    /// Starts a redeploy of all or selected stacks. Transitions from Running to Redeploying.
+    /// Resets targeted stacks to Pending; leaves non-targeted stacks as Running.
+    /// </summary>
+    /// <param name="stackNames">
+    /// Optional list of stack names to redeploy. If null, all stacks are redeployed.
+    /// </param>
+    public void StartRedeploy(IReadOnlyList<string>? stackNames = null)
+    {
+        SelfAssertStateTrue(CanRedeploy,
+            $"Cannot redeploy when product status is {Status}.");
+        EnsureValidTransition(ProductDeploymentStatus.Redeploying);
+
+        if (stackNames is { Count: > 0 })
+        {
+            foreach (var name in stackNames)
+            {
+                FindStack(name); // Validates existence
+            }
+
+            foreach (var stack in _stacks)
+            {
+                if (stackNames.Any(n => n.Equals(stack.StackName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    stack.ResetToPending();
+                }
+            }
+        }
+        else
+        {
+            foreach (var stack in _stacks)
+            {
+                stack.ResetToPending();
+            }
+        }
+
+        Status = ProductDeploymentStatus.Redeploying;
+        CompletedAt = null;
+        ErrorMessage = null;
+
+        var stackCount = stackNames is { Count: > 0 } ? stackNames.Count : TotalStacks;
+        RecordPhase(stackNames is { Count: > 0 }
+            ? $"Redeploy initiated for stacks: {string.Join(", ", stackNames)}"
+            : "Redeploy initiated for all stacks");
+        AddDomainEvent(new ProductRedeployInitiated(Id, ProductName, stackCount, TotalStacks));
     }
 
     /// <summary>
@@ -620,6 +670,7 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     public bool CanStop => IsOperational;
     public bool CanRestart => IsOperational || Status == ProductDeploymentStatus.Stopped;
     public bool CanRollback => Status == ProductDeploymentStatus.Failed && PreviousVersion is not null;
+    public bool CanRedeploy => Status == ProductDeploymentStatus.Running;
 
     /// <summary>
     /// Gets stacks in manifest deployment order (ascending).
@@ -661,6 +712,7 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     private void CompleteDeployment()
     {
         var wasUpgrade = Status == ProductDeploymentStatus.Upgrading;
+        var wasRedeploy = Status == ProductDeploymentStatus.Redeploying;
 
         Status = ProductDeploymentStatus.Running;
         CompletedAt = SystemClock.UtcNow;
@@ -672,9 +724,12 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
         }
 
         var duration = GetDuration()!.Value;
-        RecordPhase(wasUpgrade
+        var phaseMessage = wasUpgrade
             ? $"Upgrade to {ProductVersion} completed"
-            : "Deployment completed");
+            : wasRedeploy
+                ? "Redeploy completed"
+                : "Deployment completed";
+        RecordPhase(phaseMessage);
 
         AddDomainEvent(new ProductDeploymentCompleted(
             Id, ProductName, ProductVersion, TotalStacks, duration));
