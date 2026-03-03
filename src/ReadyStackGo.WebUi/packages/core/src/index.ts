@@ -56,6 +56,9 @@ export { useRemoveStackStore, type UseRemoveStackStoreReturn, type RemoveState }
 export { useRollbackStore, type UseRollbackStoreReturn, type RollbackState } from './hooks/useRollbackStore';
 export { useDeployStackStore, type UseDeployStackStoreReturn, type DeployState } from './hooks/useDeployStackStore';
 export { useUpgradeStackStore, type UseUpgradeStackStoreReturn, type UpgradeState } from './hooks/useUpgradeStackStore';
+export { useRemoveProductStore, type UseRemoveProductStoreReturn, type RemoveProductState } from './hooks/useRemoveProductStore';
+export { useRetryProductStore, type UseRetryProductStoreReturn, type RetryProductState } from './hooks/useRetryProductStore';
+export { useRedeployProductStore, type UseRedeployProductStoreReturn, type RedeployProductState } from './hooks/useRedeployProductStore';
 
 // Services
 export * from './services/AuthService';

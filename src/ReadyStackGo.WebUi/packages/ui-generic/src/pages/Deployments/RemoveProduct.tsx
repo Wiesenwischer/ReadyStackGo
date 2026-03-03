@@ -1,14 +1,10 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router';
 import {
-  getProductDeployment,
-  removeProductDeployment,
-  type GetProductDeploymentResponse,
+  useRemoveProductStore,
   type RemoveProductStackResult,
-  type DeploymentProgressUpdate,
 } from '@rsgo/core';
+import { useAuth } from '../../context/AuthContext';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { useDeploymentHub } from '../../hooks/useDeploymentHub';
 
 // Format phase names for display (RemovingContainers -> Removing Containers)
 const formatPhase = (phase: string | undefined): string => {
@@ -16,179 +12,15 @@ const formatPhase = (phase: string | undefined): string => {
   return phase.replace(/([A-Z])/g, ' $1').trim();
 };
 
-type RemoveState = 'loading' | 'confirm' | 'removing' | 'success' | 'error';
-type StackRemoveStatus = 'pending' | 'removing' | 'removed' | 'failed';
-
 export default function RemoveProduct() {
   const { productDeploymentId } = useParams<{ productDeploymentId: string }>();
+  const { token } = useAuth();
   const { activeEnvironment } = useEnvironment();
 
-  const [state, setState] = useState<RemoveState>('loading');
-  const [deployment, setDeployment] = useState<GetProductDeploymentResponse | null>(null);
-  const [error, setError] = useState('');
-  const [stackResults, setStackResults] = useState<RemoveProductStackResult[]>([]);
-
-  // Per-stack progress tracking
-  const [stackStatuses, setStackStatuses] = useState<Record<string, StackRemoveStatus>>({});
-  // Progress state
-  const removeSessionIdRef = useRef<string | null>(null);
-  const [progressUpdate, setProgressUpdate] = useState<DeploymentProgressUpdate | null>(null);
-
-  // Prevent race condition: first completion (SignalR or API) wins
-  const completedRef = useRef(false);
-
-  // Total service count
-  const totalServices = deployment?.stacks.reduce((sum, s) => sum + s.serviceCount, 0) ?? 0;
-
-  // SignalR hub for real-time progress
-  const handleRemoveProgress = useCallback((update: DeploymentProgressUpdate) => {
-    const currentSessionId = removeSessionIdRef.current;
-    if (!currentSessionId || update.sessionId !== currentSessionId) return;
-
-    setProgressUpdate(update);
-
-    // Track per-stack status using currentService (stack technical name)
-    if (update.phase === 'ProductRemoval' && update.currentService) {
-      const stackName = update.currentService;
-      if (update.message?.startsWith('Removing stack')) {
-        setStackStatuses(prev => ({
-          ...prev,
-          [stackName]: 'removing',
-        }));
-      } else if (update.message?.startsWith('Stack removed:')) {
-        setStackStatuses(prev => ({
-          ...prev,
-          [stackName]: 'removed',
-        }));
-      } else if (update.message?.startsWith('Stack removal failed:')) {
-        setStackStatuses(prev => ({
-          ...prev,
-          [stackName]: 'failed',
-        }));
-      }
-    }
-
-    // SignalR isComplete drives the final state transition
-    if (update.isComplete && !completedRef.current) {
-      completedRef.current = true;
-      if (update.isError) {
-        setError(update.errorMessage || 'Removal failed');
-        setState('error');
-      } else {
-        setState('success');
-      }
-    }
-  }, []);
-
-  const { subscribeToDeployment, connectionState } = useDeploymentHub({
-    onDeploymentProgress: handleRemoveProgress,
-  });
-
-  // Load product deployment details
-  useEffect(() => {
-    if (!activeEnvironment || !productDeploymentId) {
-      setState('error');
-      setError('No environment or product deployment ID provided');
-      return;
-    }
-
-    const loadDeployment = async () => {
-      try {
-        setState('loading');
-        setError('');
-
-        const response = await getProductDeployment(activeEnvironment.id, productDeploymentId);
-        setDeployment(response);
-
-        if (!response.canRemove) {
-          setError(`Product "${response.productDisplayName}" cannot be removed in its current state (${response.status})`);
-          setState('error');
-          return;
-        }
-
-        // Initialize stack statuses
-        const initialStatuses: Record<string, StackRemoveStatus> = {};
-        for (const stack of response.stacks) {
-          initialStatuses[stack.stackName] = 'pending';
-        }
-        setStackStatuses(initialStatuses);
-
-        setState('confirm');
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load product deployment');
-        setState('error');
-      }
-    };
-
-    loadDeployment();
-  }, [activeEnvironment, productDeploymentId]);
-
-  const handleRemove = async () => {
-    if (!activeEnvironment || !deployment) {
-      setError('No deployment to remove');
-      return;
-    }
-
-    // Generate session ID BEFORE the API call
-    const sessionId = `product-remove-${deployment.productName}-${Date.now()}`;
-    removeSessionIdRef.current = sessionId;
-    completedRef.current = false;
-
-    setState('removing');
-    setError('');
-    setProgressUpdate(null);
-
-    // Subscribe to SignalR group BEFORE starting the API call
-    if (connectionState === 'connected') {
-      await subscribeToDeployment(sessionId);
-    }
-
-    // Fire-and-forget: SignalR drives live progress.
-    // API response is stored for the success screen and serves as a fallback
-    // if SignalR doesn't deliver the completion message.
-    removeProductDeployment(
-      activeEnvironment.id,
-      deployment.productDeploymentId,
-      { sessionId }
-    )
-      .then(response => {
-        // Always store API results (success screen needs them)
-        setStackResults(response.stackResults || []);
-
-        // Fallback: if SignalR hasn't completed within 3s, use API response
-        setTimeout(() => {
-          if (!completedRef.current) {
-            completedRef.current = true;
-
-            const finalStatuses: Record<string, StackRemoveStatus> = {};
-            for (const result of response.stackResults) {
-              finalStatuses[result.stackName] = result.success ? 'removed' : 'failed';
-            }
-            setStackStatuses(finalStatuses);
-
-            if (!response.success) {
-              setError(response.message || 'Removal completed with errors');
-              setState('error');
-            } else {
-              setState('success');
-            }
-          }
-        }, 3000);
-      })
-      .catch(err => {
-        // Fallback: if SignalR hasn't completed within 3s, use API error
-        setTimeout(() => {
-          if (!completedRef.current) {
-            completedRef.current = true;
-            setError(err instanceof Error ? err.message : 'Removal failed');
-            setState('error');
-          }
-        }, 3000);
-      });
-  };
+  const store = useRemoveProductStore(token, activeEnvironment?.id, productDeploymentId);
 
   // --- Loading state ---
-  if (state === 'loading') {
+  if (store.state === 'loading') {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="flex items-center justify-center py-12">
@@ -202,7 +34,7 @@ export default function RemoveProduct() {
   }
 
   // --- Error state (no deployment loaded) ---
-  if (state === 'error' && !deployment) {
+  if (store.state === 'error' && !store.deployment) {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="mb-6">
@@ -217,22 +49,21 @@ export default function RemoveProduct() {
           </Link>
         </div>
         <div className="rounded-md bg-red-50 p-4 dark:bg-red-900/20">
-          <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+          <p className="text-sm text-red-800 dark:text-red-200">{store.error}</p>
         </div>
       </div>
     );
   }
 
   // --- Success state ---
-  if (state === 'success') {
-    // Build display results: prefer API response, fall back to SignalR-tracked statuses
-    const displayResults: RemoveProductStackResult[] = stackResults.length > 0
-      ? stackResults
-      : (deployment?.stacks.map(s => ({
+  if (store.state === 'success') {
+    const displayResults: RemoveProductStackResult[] = store.stackResults.length > 0
+      ? store.stackResults
+      : (store.deployment?.stacks.map(s => ({
           stackName: s.stackName,
           stackDisplayName: s.stackDisplayName,
           serviceCount: s.serviceCount,
-          success: stackStatuses[s.stackName] !== 'failed',
+          success: store.stackStatuses[s.stackName] !== 'failed',
         })) ?? []);
     const successCount = displayResults.filter(r => r.success).length;
 
@@ -249,10 +80,9 @@ export default function RemoveProduct() {
               Product Removed Successfully!
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {deployment?.productDisplayName} ({successCount} stack{successCount !== 1 ? 's' : ''}) has been removed from {activeEnvironment?.name}
+              {store.deployment?.productDisplayName} ({successCount} stack{successCount !== 1 ? 's' : ''}) has been removed from {activeEnvironment?.name}
             </p>
 
-            {/* Stack Results Summary */}
             {displayResults.length > 0 && (
               <div className="w-full max-w-lg mb-6">
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -294,10 +124,10 @@ export default function RemoveProduct() {
   }
 
   // --- Removing state ---
-  if (state === 'removing') {
-    const totalStacks = deployment?.stacks.length ?? 0;
-    const removedStacks = Object.values(stackStatuses).filter(s => s === 'removed').length;
-    const failedStacks = Object.values(stackStatuses).filter(s => s === 'failed').length;
+  if (store.state === 'removing') {
+    const totalStacks = store.deployment?.stacks.length ?? 0;
+    const removedStacks = Object.values(store.stackStatuses).filter(s => s === 'removed').length;
+    const failedStacks = Object.values(store.stackStatuses).filter(s => s === 'failed').length;
     const processedStacks = removedStacks + failedStacks;
 
     return (
@@ -309,15 +139,14 @@ export default function RemoveProduct() {
               Removing Product...
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Removing {deployment?.productDisplayName} from {activeEnvironment?.name}
+              Removing {store.deployment?.productDisplayName} from {activeEnvironment?.name}
             </p>
 
             <div className="w-full max-w-lg">
-              {/* Overall Progress */}
               <div className="mb-6">
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-gray-600 dark:text-gray-400">
-                    {formatPhase(progressUpdate?.phase) || 'Initializing'}
+                    {formatPhase(store.progressUpdate?.phase) || 'Initializing'}
                   </span>
                   <span className="text-gray-600 dark:text-gray-400">
                     {processedStacks}/{totalStacks} stacks
@@ -331,20 +160,18 @@ export default function RemoveProduct() {
                 </div>
               </div>
 
-              {/* Status Message */}
               <div className="text-center mb-6">
                 <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                  {progressUpdate?.message || 'Starting removal...'}
+                  {store.progressUpdate?.message || 'Starting removal...'}
                 </p>
               </div>
 
-              {/* Per-Stack Status List */}
               <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                {deployment?.stacks
+                {store.deployment?.stacks
                   .slice()
-                  .sort((a, b) => b.order - a.order) // Reverse order (removal order)
+                  .sort((a, b) => b.order - a.order)
                   .map((stack) => {
-                    const status = stackStatuses[stack.stackName] || 'pending';
+                    const status = store.stackStatuses[stack.stackName] || 'pending';
                     return (
                       <div
                         key={stack.stackName}
@@ -353,7 +180,6 @@ export default function RemoveProduct() {
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          {/* Status Icon */}
                           {status === 'pending' && (
                             <div className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600" />
                           )}
@@ -387,17 +213,16 @@ export default function RemoveProduct() {
                   })}
               </div>
 
-              {/* Connection Status */}
               <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                 <span className={`w-2 h-2 rounded-full ${
-                  connectionState === 'connected' ? 'bg-green-500' :
-                  connectionState === 'connecting' ? 'bg-yellow-500' :
-                  connectionState === 'reconnecting' ? 'bg-yellow-500' :
+                  store.connectionState === 'connected' ? 'bg-green-500' :
+                  store.connectionState === 'connecting' ? 'bg-yellow-500' :
+                  store.connectionState === 'reconnecting' ? 'bg-yellow-500' :
                   'bg-red-500'
                 }`} />
-                {connectionState === 'connected' ? 'Live updates' :
-                 connectionState === 'connecting' ? 'Connecting...' :
-                 connectionState === 'reconnecting' ? 'Reconnecting...' :
+                {store.connectionState === 'connected' ? 'Live updates' :
+                 store.connectionState === 'connecting' ? 'Connecting...' :
+                 store.connectionState === 'reconnecting' ? 'Reconnecting...' :
                  'Updates unavailable'}
               </div>
             </div>
@@ -408,16 +233,15 @@ export default function RemoveProduct() {
   }
 
   // --- Error state (with deployment loaded, e.g. partial failure) ---
-  if (state === 'error' && deployment) {
-    // Build display results: prefer API response, fall back to SignalR-tracked statuses
-    const errorDisplayResults: RemoveProductStackResult[] = stackResults.length > 0
-      ? stackResults
-      : (deployment.stacks.map(s => ({
+  if (store.state === 'error' && store.deployment) {
+    const errorDisplayResults: RemoveProductStackResult[] = store.stackResults.length > 0
+      ? store.stackResults
+      : (store.deployment.stacks.map(s => ({
           stackName: s.stackName,
           stackDisplayName: s.stackDisplayName,
           serviceCount: s.serviceCount,
-          success: stackStatuses[s.stackName] === 'removed',
-          errorMessage: stackStatuses[s.stackName] === 'failed' ? 'Removal failed' : undefined,
+          success: store.stackStatuses[s.stackName] === 'removed',
+          errorMessage: store.stackStatuses[s.stackName] === 'failed' ? 'Removal failed' : undefined,
         })));
     const successCount = errorDisplayResults.filter(r => r.success).length;
     const failedCount = errorDisplayResults.filter(r => !r.success).length;
@@ -448,7 +272,7 @@ export default function RemoveProduct() {
               Removal Completed with Errors
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-2">
-              {error}
+              {store.error}
             </p>
             {errorDisplayResults.length > 0 && (
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
@@ -456,7 +280,6 @@ export default function RemoveProduct() {
               </p>
             )}
 
-            {/* Per-Stack Results */}
             {errorDisplayResults.length > 0 && (
               <div className="w-full max-w-lg mb-6">
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -519,7 +342,6 @@ export default function RemoveProduct() {
   // --- Confirm state ---
   return (
     <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
-      {/* Breadcrumb */}
       <div className="mb-6">
         <Link
           to="/catalog"
@@ -532,10 +354,8 @@ export default function RemoveProduct() {
         </Link>
       </div>
 
-      {/* Confirmation Card */}
       <div className="rounded-2xl border border-red-200 bg-white p-8 dark:border-red-800 dark:bg-white/[0.03]">
         <div className="flex flex-col items-center py-4">
-          {/* Warning Icon */}
           <div className="flex items-center justify-center w-16 h-16 mb-6 bg-red-100 rounded-full dark:bg-red-900/30">
             <svg className="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -546,24 +366,23 @@ export default function RemoveProduct() {
             Remove Product Deployment
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-2 text-center">
-            Are you sure you want to remove <strong className="text-gray-900 dark:text-white">{deployment?.productDisplayName}</strong>?
+            Are you sure you want to remove <strong className="text-gray-900 dark:text-white">{store.deployment?.productDisplayName}</strong>?
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 text-center max-w-md">
-            This will stop and remove all {deployment?.totalStacks} stack{(deployment?.totalStacks ?? 0) !== 1 ? 's' : ''} with {totalServices} container{totalServices !== 1 ? 's' : ''}.
+            This will stop and remove all {store.deployment?.totalStacks} stack{(store.deployment?.totalStacks ?? 0) !== 1 ? 's' : ''} with {store.totalServices} container{store.totalServices !== 1 ? 's' : ''}.
             This action cannot be undone.
           </p>
 
-          {/* Deployment Info */}
           <div className="w-full max-w-lg mb-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
             <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Product Details</h3>
             <div className="space-y-2 text-sm mb-4">
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Product:</span>
-                <span className="font-medium text-gray-900 dark:text-white">{deployment?.productDisplayName}</span>
+                <span className="font-medium text-gray-900 dark:text-white">{store.deployment?.productDisplayName}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Version:</span>
-                <span className="font-medium text-gray-900 dark:text-white">v{deployment?.productVersion}</span>
+                <span className="font-medium text-gray-900 dark:text-white">v{store.deployment?.productVersion}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Environment:</span>
@@ -571,20 +390,19 @@ export default function RemoveProduct() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Stacks:</span>
-                <span className="font-medium text-gray-900 dark:text-white">{deployment?.totalStacks}</span>
+                <span className="font-medium text-gray-900 dark:text-white">{store.deployment?.totalStacks}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Total Services:</span>
-                <span className="font-medium text-gray-900 dark:text-white">{totalServices}</span>
+                <span className="font-medium text-gray-900 dark:text-white">{store.totalServices}</span>
               </div>
             </div>
 
-            {/* Stack List */}
             <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">
               Stacks to remove (in reverse order)
             </h4>
             <div className="space-y-1">
-              {deployment?.stacks
+              {store.deployment?.stacks
                 .slice()
                 .sort((a, b) => b.order - a.order)
                 .map((stack) => (
@@ -610,15 +428,13 @@ export default function RemoveProduct() {
             </div>
           </div>
 
-          {/* Error Display */}
-          {error && (
+          {store.error && (
             <div className="w-full max-w-lg mb-6 p-4 text-sm text-red-800 bg-red-100 rounded-lg dark:bg-red-900/30 dark:text-red-400">
               <p className="font-medium mb-1">Error</p>
-              <p>{error}</p>
+              <p>{store.error}</p>
             </div>
           )}
 
-          {/* Action Buttons */}
           <div className="flex gap-4">
             <Link
               to="/catalog"
@@ -627,7 +443,7 @@ export default function RemoveProduct() {
               Cancel
             </Link>
             <button
-              onClick={handleRemove}
+              onClick={store.handleRemove}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-red-600 px-6 py-3 text-center font-medium text-white hover:bg-red-700"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
