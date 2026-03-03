@@ -118,6 +118,9 @@ public class Program
             builder.Configuration.GetSection(CertificateRenewalOptions.SectionName));
         builder.Services.AddHostedService<CertificateRenewalBackgroundService>();
 
+        // Certificate Expiry Notification Service
+        builder.Services.AddHostedService<CertificateExpiryCheckService>();
+
         // Add CORS for development
         builder.Services.AddCors(options =>
         {
