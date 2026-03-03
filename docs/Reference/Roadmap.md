@@ -263,21 +263,19 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - CertificateExpiryCheckService Background Service (12h Interval)
   - HealthChangeTracker Singleton (Per-Service Status Tracking with ConcurrentDictionary Cooldown)
   - 3 New NotificationType Enum Values: HealthChange, ApiKeyFirstUse, CertificateExpiry
+- **v0.33** – Redeploy Product Deployment (2026-03-03)
+  - Redeploy All Stacks of a Running Product Deployment (Same Version, Fresh Pull)
+  - Redeploy Single Stack Within a Product Deployment (Selective Stack Redeploy)
+  - New `Redeploying` Status in Product Deployment State Machine
+  - Variable Override Support During Redeploy (Stored Base + Webhook Overrides)
+  - Redeploy Product UI (Stack Selection, Confirmation, Progress Panel)
+  - Hook Support for Product Redeploy (`/api/hooks/redeploy` with `productId`)
 
 ---
 
 ## Planned
 
 Epics are listed in priority order. Top = next.
-
-### Epic: Redeploy Product Deployment
-
-- Redeploy All Stacks of a Running Product Deployment (Same Version, Fresh Pull)
-- Redeploy Single Stack Within a Product Deployment (Selective Stack Redeploy)
-- New `Redeploying` Status in Product Deployment State Machine
-- Variable Override Support During Redeploy (Stored Base + Webhook Overrides)
-- Redeploy Product UI (Stack Selection, Confirmation, Progress Panel)
-- Hook Support for Product Redeploy (`/api/hooks/redeploy` with `productId`)
 
 ### Epic: Distribution Architecture
 

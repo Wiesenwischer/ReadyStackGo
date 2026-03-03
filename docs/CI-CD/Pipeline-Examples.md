@@ -7,10 +7,29 @@ Konkrete Beispiele für die Integration von ReadyStackGo in CI/CD Pipelines.
 ### Redeploy (frische Images)
 
 ```bash
+# Standalone Stack Redeploy
 curl -sf -X POST https://rsgo.example.com/api/hooks/redeploy \
   -H "X-Api-Key: rsgo_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6" \
   -H "Content-Type: application/json" \
   -d '{"stackName": "ams-project"}'
+```
+
+### Product Redeploy (alle Stacks)
+
+```bash
+curl -sf -X POST https://rsgo.example.com/api/hooks/redeploy \
+  -H "X-Api-Key: rsgo_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6" \
+  -H "Content-Type: application/json" \
+  -d '{"productId": "ams.project"}'
+```
+
+### Product Redeploy (einzelner Stack mit Variable Override)
+
+```bash
+curl -sf -X POST https://rsgo.example.com/api/hooks/redeploy \
+  -H "X-Api-Key: rsgo_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6" \
+  -H "Content-Type: application/json" \
+  -d '{"productId": "ams.project", "stackDefinitionName": "Analytics", "variables": {"BUILD_NUM": "42"}}'
 ```
 
 ### Katalog synchronisieren
