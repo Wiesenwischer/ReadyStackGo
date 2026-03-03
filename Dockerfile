@@ -5,10 +5,14 @@ RUN corepack enable
 
 WORKDIR /app/frontend
 
-# Copy package files and pnpm config
+# Copy workspace config and all package.json files for dependency resolution
+COPY src/ReadyStackGo.WebUi/pnpm-workspace.yaml ./
 COPY src/ReadyStackGo.WebUi/package.json ./
 COPY src/ReadyStackGo.WebUi/pnpm-lock.yaml ./
 COPY src/ReadyStackGo.WebUi/.npmrc ./
+COPY src/ReadyStackGo.WebUi/packages/core/package.json ./packages/core/
+COPY src/ReadyStackGo.WebUi/packages/ui-generic/package.json ./packages/ui-generic/
+COPY src/ReadyStackGo.WebUi/apps/rsgo-generic/package.json ./apps/rsgo-generic/
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile

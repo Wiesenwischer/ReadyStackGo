@@ -3,6 +3,9 @@ layer(base);
 
 @import "tailwindcss";
 
+@source "../../../packages/ui-generic/src";
+@source "../../../packages/core/src";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme {

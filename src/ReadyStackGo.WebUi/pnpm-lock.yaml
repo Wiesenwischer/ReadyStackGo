@@ -11,9 +11,6 @@ importers:
       '@microsoft/signalr':
         specifier: ^8.0.7
         version: 8.0.17
-      '@tailwindcss/postcss':
-        specifier: ^4.1.17
-        version: 4.2.1
       i18next:
         specifier: ^25.6.2
         version: 25.8.13(typescript@5.9.3)
@@ -35,9 +32,6 @@ importers:
       recharts:
         specifier: ^3.6.0
         version: 3.7.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react-is@19.2.4)(react@19.2.4)(redux@5.0.1)
-      vite-plugin-svgr:
-        specifier: ^4.5.0
-        version: 4.5.0(rollup@4.59.0)(typescript@5.9.3)(vite@7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1))
     devDependencies:
       '@eslint/js':
         specifier: ^9.39.1
@@ -45,6 +39,67 @@ importers:
       '@playwright/test':
         specifier: ^1.56.1
         version: 1.58.2
+      '@types/react':
+        specifier: ^19.2.2
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.2
+        version: 19.2.3(@types/react@19.2.14)
+      eslint:
+        specifier: ^9.39.1
+        version: 9.39.3(jiti@2.6.1)
+      eslint-plugin-react-hooks:
+        specifier: ^7.0.1
+        version: 7.0.1(eslint@9.39.3(jiti@2.6.1))
+      eslint-plugin-react-refresh:
+        specifier: ^0.4.24
+        version: 0.4.26(eslint@9.39.3(jiti@2.6.1))
+      globals:
+        specifier: ^16.5.0
+        version: 16.5.0
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+      typescript-eslint:
+        specifier: ^8.46.3
+        version: 8.56.1(eslint@9.39.3(jiti@2.6.1))(typescript@5.9.3)
+
+  apps/rsgo-generic:
+    dependencies:
+      '@microsoft/signalr':
+        specifier: ^8.0.7
+        version: 8.0.17
+      '@rsgo/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@rsgo/ui-generic':
+        specifier: workspace:*
+        version: link:../../packages/ui-generic
+      i18next:
+        specifier: ^25.6.2
+        version: 25.8.13(typescript@5.9.3)
+      react:
+        specifier: ^19.2.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.2.0
+        version: 19.2.4(react@19.2.4)
+      react-i18next:
+        specifier: ^16.3.3
+        version: 16.5.4(i18next@25.8.13(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
+      react-router:
+        specifier: ^7.9.6
+        version: 7.13.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react-router-dom:
+        specifier: ^7.9.6
+        version: 7.13.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      recharts:
+        specifier: ^3.6.0
+        version: 3.7.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react-is@19.2.4)(react@19.2.4)(redux@5.0.1)
+    devDependencies:
+      '@tailwindcss/postcss':
+        specifier: ^4.1.17
+        version: 4.2.1
       '@types/node':
         specifier: ^24.10.1
         version: 24.11.0
@@ -60,18 +115,6 @@ importers:
       autoprefixer:
         specifier: ^10.4.22
         version: 10.4.27(postcss@8.5.8)
-      eslint:
-        specifier: ^9.39.1
-        version: 9.39.3(jiti@2.6.1)
-      eslint-plugin-react-hooks:
-        specifier: ^7.0.1
-        version: 7.0.1(eslint@9.39.3(jiti@2.6.1))
-      eslint-plugin-react-refresh:
-        specifier: ^0.4.24
-        version: 0.4.26(eslint@9.39.3(jiti@2.6.1))
-      globals:
-        specifier: ^16.5.0
-        version: 16.5.0
       postcss:
         specifier: ^8.5.6
         version: 8.5.8
@@ -81,21 +124,12 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
-      typescript-eslint:
-        specifier: ^8.46.3
-        version: 8.56.1(eslint@9.39.3(jiti@2.6.1))(typescript@5.9.3)
       vite:
         specifier: ^7.2.2
         version: 7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)
-
-  apps/rsgo-generic:
-    dependencies:
-      '@rsgo/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@rsgo/ui-generic':
-        specifier: workspace:*
-        version: link:../../packages/ui-generic
+      vite-plugin-svgr:
+        specifier: ^4.5.0
+        version: 4.5.0(rollup@4.59.0)(typescript@5.9.3)(vite@7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1))
 
   packages/core:
     dependencies:
@@ -111,18 +145,27 @@ importers:
       '@rsgo/core':
         specifier: workspace:*
         version: link:../core
+      i18next:
+        specifier: ^25.6.2
+        version: 25.8.13(typescript@5.9.3)
       react:
         specifier: ^19.2.0
         version: 19.2.4
       react-dom:
         specifier: ^19.2.0
         version: 19.2.4(react@19.2.4)
+      react-i18next:
+        specifier: ^16.3.3
+        version: 16.5.4(i18next@25.8.13(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
       react-router:
         specifier: ^7.9.6
         version: 7.13.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react-router-dom:
         specifier: ^7.9.6
         version: 7.13.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      recharts:
+        specifier: ^3.6.0
+        version: 3.7.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react-is@19.2.4)(react@19.2.4)(redux@5.0.1)
 
 packages:
 
