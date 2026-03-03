@@ -1,12 +1,14 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-
-interface User {
-  username: string;
-  role: string;
-}
+import {
+  getStoredAuth,
+  login as authLogin,
+  logout as authLogout,
+  setAuthDirectly as authSetAuthDirectly,
+  type AuthUser,
+} from '@rsgo/core/services/AuthService';
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
   token: string | null;
   login: (username: string, password: string) => Promise<void>;
   setAuthDirectly: (token: string, username: string, role: string) => void;
@@ -18,76 +20,35 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored auth token on mount
-    const storedToken = localStorage.getItem('auth_token');
-    const storedUser = localStorage.getItem('auth_user');
-
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+    const stored = getStoredAuth();
+    if (stored.isAuthenticated) {
+      setToken(stored.token);
+      setUser(stored.user);
     }
-
     setIsLoading(false);
   }, []);
 
   const login = async (username: string, password: string) => {
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Login failed');
-      }
-
-      const data = await response.json();
-
-      setToken(data.token);
-      setUser({
-        username: data.username,
-        role: data.role,
-      });
-
-      localStorage.setItem('auth_token', data.token);
-      localStorage.setItem('auth_user', JSON.stringify({
-        username: data.username,
-        role: data.role,
-      }));
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    }
+    const state = await authLogin(username, password);
+    setToken(state.token);
+    setUser(state.user);
   };
 
-  const setAuthDirectly = (token: string, username: string, role: string) => {
-    const userData = { username, role };
-    setToken(token);
-    setUser(userData);
-    localStorage.setItem('auth_token', token);
-    localStorage.setItem('auth_user', JSON.stringify(userData));
+  const setAuthDirectly = (newToken: string, username: string, role: string) => {
+    const state = authSetAuthDirectly(newToken, username, role);
+    setToken(state.token);
+    setUser(state.user);
   };
 
   const logout = () => {
+    authLogout();
     setToken(null);
     setUser(null);
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_user');
-
-    // Call logout endpoint (optional for JWT)
-    fetch('/api/auth/logout', {
-      method: 'POST',
-    }).catch(() => {
-      // Ignore errors on logout
-    });
   };
 
   return (

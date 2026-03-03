@@ -47,5 +47,9 @@ export * from './realtime/useUpdateHub';
 export * from './hooks/useNotifications';
 export * from './hooks/useVersionInfo';
 
+// Services
+export * from './services/AuthService';
+export * from './services/EnvironmentService';
+
 // Utils
 export * from './utils/timeAgo';

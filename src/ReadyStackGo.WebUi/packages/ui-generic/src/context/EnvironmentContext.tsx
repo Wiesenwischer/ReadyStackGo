@@ -1,5 +1,10 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import { getEnvironments, type EnvironmentResponse } from '@rsgo/core';
+import { type EnvironmentResponse } from '@rsgo/core';
+import {
+  loadEnvironments,
+  resolveActiveEnvironment,
+  selectEnvironment,
+} from '@rsgo/core/services/EnvironmentService';
 
 interface EnvironmentContextType {
   environments: EnvironmentResponse[];
@@ -11,8 +16,6 @@ interface EnvironmentContextType {
 
 const EnvironmentContext = createContext<EnvironmentContextType | null>(null);
 
-const ACTIVE_ENV_KEY = 'rsgo_active_environment';
-
 export function EnvironmentProvider({ children }: { children: ReactNode }) {
   const [environments, setEnvironments] = useState<EnvironmentResponse[]>([]);
   const [activeEnvironment, setActiveEnv] = useState<EnvironmentResponse | null>(null);
@@ -20,35 +23,10 @@ export function EnvironmentProvider({ children }: { children: ReactNode }) {
 
   const refreshEnvironments = async () => {
     try {
-      const response = await getEnvironments();
-      if (response.success) {
-        setEnvironments(response.environments);
-
-        // Restore active environment from localStorage or use default
-        const savedEnvId = localStorage.getItem(ACTIVE_ENV_KEY);
-        let activeEnv: EnvironmentResponse | undefined;
-
-        if (savedEnvId) {
-          activeEnv = response.environments.find(e => e.id === savedEnvId);
-        }
-
-        if (!activeEnv) {
-          // Fall back to default environment
-          activeEnv = response.environments.find(e => e.isDefault);
-        }
-
-        if (!activeEnv && response.environments.length > 0) {
-          // Fall back to first environment
-          activeEnv = response.environments[0];
-        }
-
-        if (activeEnv) {
-          setActiveEnv(activeEnv);
-          localStorage.setItem(ACTIVE_ENV_KEY, activeEnv.id);
-        }
-      } else {
-        console.error('Failed to load environments: response.success is false');
-      }
+      const envs = await loadEnvironments();
+      setEnvironments(envs);
+      const active = resolveActiveEnvironment(envs);
+      setActiveEnv(active);
     } catch (error) {
       console.error('Failed to load environments:', error);
     } finally {
@@ -61,10 +39,9 @@ export function EnvironmentProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setActiveEnvironment = (id: string) => {
-    const env = environments.find(e => e.id === id);
+    const env = selectEnvironment(environments, id);
     if (env) {
       setActiveEnv(env);
-      localStorage.setItem(ACTIVE_ENV_KEY, id);
     }
   };
 
