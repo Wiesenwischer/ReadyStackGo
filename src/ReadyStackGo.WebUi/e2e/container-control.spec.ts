@@ -303,7 +303,6 @@ test.describe.serial('Container Control', () => {
 
     // Check if we can restart — the page shows an error if canRestart is false
     const confirmTitle = page.getByText('Restart Product Containers');
-    const errorBox = page.locator('.bg-red-50');
     const visible = await confirmTitle.isVisible().catch(() => false);
 
     if (!visible) {
