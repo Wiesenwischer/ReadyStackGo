@@ -88,6 +88,42 @@ importers:
         specifier: ^7.2.2
         version: 7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)
 
+  apps/rsgo-generic:
+    dependencies:
+      '@rsgo/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@rsgo/ui-generic':
+        specifier: workspace:*
+        version: link:../../packages/ui-generic
+
+  packages/core:
+    dependencies:
+      '@microsoft/signalr':
+        specifier: ^8.0.7
+        version: 8.0.17
+      react:
+        specifier: ^19.2.0
+        version: 19.2.4
+
+  packages/ui-generic:
+    dependencies:
+      '@rsgo/core':
+        specifier: workspace:*
+        version: link:../core
+      react:
+        specifier: ^19.2.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.2.0
+        version: 19.2.4(react@19.2.4)
+      react-router:
+        specifier: ^7.9.6
+        version: 7.13.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react-router-dom:
+        specifier: ^7.9.6
+        version: 7.13.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+
 packages:
 
   '@alloc/quick-lru@5.2.0':
