@@ -255,18 +255,20 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Stopped Status in Product and Stack Deployment State Machines
   - Hook Support for Stop/Restart (`/api/hooks/stop-containers`, `/api/hooks/restart-containers`)
   - API Key Permissions for StopContainers and RestartContainers
+- **v0.32** – Notifications Phase 2 (2026-03-03)
+  - Container Health Change Notification (Unhealthy/Degraded/Recovery with Configurable Throttling)
+  - Health Notification Cooldown Setting on System Settings Page (1–60 Minutes)
+  - API Key First-Use Notification (Info-Level on First API Key Usage)
+  - TLS Certificate Expiry Notification (Staged Warnings at 30d, 14d, 7d, 3d, 1d, 0d)
+  - CertificateExpiryCheckService Background Service (12h Interval)
+  - HealthChangeTracker Singleton (Per-Service Status Tracking with ConcurrentDictionary Cooldown)
+  - 3 New NotificationType Enum Values: HealthChange, ApiKeyFirstUse, CertificateExpiry
 
 ---
 
 ## Planned
 
 Epics are listed in priority order. Top = next.
-
-### Epic: Notifications Phase 2
-
-- Container Health Change Notification (unhealthy, stopped — with throttling)
-- API Key First-Use Notification
-- TLS Certificate Expiry Notification (30d, 14d, 7d, 3d, 1d staged warnings)
 
 ### Epic: Redeploy Product Deployment
 
