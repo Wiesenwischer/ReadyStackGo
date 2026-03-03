@@ -175,7 +175,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Abhängig von: Feature 1
   - Tests: Login, Environment-Wechsel, Deployment-Progress, Health-Updates müssen funktionieren
 
-- [ ] **Feature 3: Store-Hooks für Settings-Seiten** — Business-Logik aus den schwersten Komponenten extrahieren
+- [x] **Feature 3: Store-Hooks für Settings-Seiten** — Business-Logik aus den schwersten Komponenten extrahieren — PR #202
   - `useRegistryStore.ts` aus `RegistrySettings.tsx` (460 Zeilen → Store + UI)
   - `useStackSourceStore.ts` aus `StackSourcesSettings.tsx`
   - `useTlsStore.ts` aus `TlsSettings.tsx`
