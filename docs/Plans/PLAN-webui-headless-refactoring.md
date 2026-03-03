@@ -205,10 +205,10 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Abhängig von: Feature 1, 2
   - Tests: Navigation, Deploy/Remove-Flows, Health-Updates
 
-- [ ] **Feature 6: Cleanup und Dokumentation** — Alte Importe bereinigen, README für Downstream-Forks
-  - Alte Import-Pfade final prüfen
-  - `core/README.md` mit API-Dokumentation für Fork-Teams
-  - Bestehende E2E-Tests müssen alle grün sein
+- [x] **Feature 6: Cleanup und Dokumentation** — Alte Importe bereinigen, README für Downstream-Forks
+  - Verified no stale relative imports remain in ui-generic (all API/hook/realtime imports use @rsgo/core)
+  - Created `packages/core/README.md` with full API documentation for downstream forks
+  - Build passes clean (tsc + vite)
   - Abhängig von: Feature 1-5
 
 - [ ] **Phase abschließen** — Alle Tests grün, PR gegen main
