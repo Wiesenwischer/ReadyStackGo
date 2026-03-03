@@ -1,194 +1,20 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router';
 import {
-  getProductDeployment,
-  retryProduct,
-  type GetProductDeploymentResponse,
+  useRetryProductStore,
   type DeployProductStackResult,
-  type DeploymentProgressUpdate,
 } from '@rsgo/core';
+import { useAuth } from '../../context/AuthContext';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { useDeploymentHub } from '../../hooks/useDeploymentHub';
-
-type RetryState = 'loading' | 'confirm' | 'retrying' | 'success' | 'error';
-type StackRetryStatus = 'skipped' | 'pending' | 'deploying' | 'running' | 'failed';
 
 export default function RetryProduct() {
   const { productDeploymentId } = useParams<{ productDeploymentId: string }>();
+  const { token } = useAuth();
   const { activeEnvironment } = useEnvironment();
 
-  const [state, setState] = useState<RetryState>('loading');
-  const [deployment, setDeployment] = useState<GetProductDeploymentResponse | null>(null);
-  const [error, setError] = useState('');
-  const [stackResults, setStackResults] = useState<DeployProductStackResult[]>([]);
-
-  // Per-stack progress tracking
-  const [stackStatuses, setStackStatuses] = useState<Record<string, StackRetryStatus>>({});
-  // Progress state
-  const retrySessionIdRef = useRef<string | null>(null);
-  const [progressUpdate, setProgressUpdate] = useState<DeploymentProgressUpdate | null>(null);
-
-  // Prevent race condition: first completion (SignalR or API) wins
-  const completedRef = useRef(false);
-
-  // SignalR hub for real-time progress
-  const handleRetryProgress = useCallback((update: DeploymentProgressUpdate) => {
-    const currentSessionId = retrySessionIdRef.current;
-    if (!currentSessionId || update.sessionId !== currentSessionId) return;
-
-    setProgressUpdate(update);
-
-    // Track per-stack status using currentService (stack technical name)
-    if (update.phase === 'ProductDeploy' && update.currentService) {
-      const stackName = update.currentService;
-      if (update.message?.startsWith('Retrying stack')) {
-        setStackStatuses(prev => ({
-          ...prev,
-          [stackName]: 'deploying',
-        }));
-      } else if (update.message?.includes('retried successfully')) {
-        setStackStatuses(prev => ({
-          ...prev,
-          [stackName]: 'running',
-        }));
-      } else if (update.message?.includes('retry failed')) {
-        setStackStatuses(prev => ({
-          ...prev,
-          [stackName]: 'failed',
-        }));
-      }
-    }
-
-    // SignalR isComplete drives the final state transition
-    if (update.isComplete && !completedRef.current) {
-      completedRef.current = true;
-      if (update.isError) {
-        setError(update.errorMessage || 'Retry failed');
-        setState('error');
-      } else {
-        setState('success');
-      }
-    }
-  }, []);
-
-  const { subscribeToDeployment, connectionState } = useDeploymentHub({
-    onDeploymentProgress: handleRetryProgress,
-  });
-
-  // Load product deployment details
-  useEffect(() => {
-    if (!activeEnvironment || !productDeploymentId) {
-      setState('error');
-      setError('No environment or product deployment ID provided');
-      return;
-    }
-
-    const loadDeployment = async () => {
-      try {
-        setState('loading');
-        setError('');
-
-        const response = await getProductDeployment(activeEnvironment.id, productDeploymentId);
-        setDeployment(response);
-
-        if (!response.canRetry) {
-          setError(`Product "${response.productDisplayName}" cannot be retried in its current state (${response.status})`);
-          setState('error');
-          return;
-        }
-
-        // Initialize stack statuses: Running stacks are skipped, Failed/Pending will be retried
-        const initialStatuses: Record<string, StackRetryStatus> = {};
-        for (const stack of response.stacks) {
-          initialStatuses[stack.stackName] = stack.status === 'Running' ? 'skipped' : 'pending';
-        }
-        setStackStatuses(initialStatuses);
-
-        setState('confirm');
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load product deployment');
-        setState('error');
-      }
-    };
-
-    loadDeployment();
-  }, [activeEnvironment, productDeploymentId]);
-
-  const handleRetry = async () => {
-    if (!activeEnvironment || !deployment) {
-      setError('No deployment to retry');
-      return;
-    }
-
-    // Generate session ID BEFORE the API call
-    const sessionId = `product-retry-${deployment.productName}-${Date.now()}`;
-    retrySessionIdRef.current = sessionId;
-    completedRef.current = false;
-
-    setState('retrying');
-    setError('');
-    setProgressUpdate(null);
-
-    // Subscribe to SignalR group BEFORE starting the API call
-    if (connectionState === 'connected') {
-      await subscribeToDeployment(sessionId);
-    }
-
-    // Fire-and-forget: SignalR drives live progress.
-    // API response is stored for the success screen and serves as a fallback
-    // if SignalR doesn't deliver the completion message.
-    retryProduct(
-      activeEnvironment.id,
-      deployment.productDeploymentId,
-      { sessionId, continueOnError: true }
-    )
-      .then(response => {
-        // Always store API results (success screen needs them)
-        setStackResults(response.stackResults || []);
-
-        // Fallback: if SignalR hasn't completed within 3s, use API response
-        setTimeout(() => {
-          if (!completedRef.current) {
-            completedRef.current = true;
-
-            const finalStatuses: Record<string, StackRetryStatus> = {};
-            for (const stack of deployment.stacks) {
-              if (stack.status === 'Running') {
-                finalStatuses[stack.stackName] = 'skipped';
-              } else {
-                const result = response.stackResults.find(r => r.stackName === stack.stackName);
-                finalStatuses[stack.stackName] = result?.success ? 'running' : 'failed';
-              }
-            }
-            setStackStatuses(finalStatuses);
-
-            if (!response.success) {
-              setError(response.message || 'Retry completed with errors');
-              setState('error');
-            } else {
-              setState('success');
-            }
-          }
-        }, 3000);
-      })
-      .catch(err => {
-        // Fallback: if SignalR hasn't completed within 3s, use API error
-        setTimeout(() => {
-          if (!completedRef.current) {
-            completedRef.current = true;
-            setError(err instanceof Error ? err.message : 'Retry failed');
-            setState('error');
-          }
-        }, 3000);
-      });
-  };
-
-  // Computed values
-  const failedStacks = deployment?.stacks.filter(s => s.status === 'Failed' || s.status === 'Pending') ?? [];
-  const runningStacks = deployment?.stacks.filter(s => s.status === 'Running') ?? [];
+  const store = useRetryProductStore(token, activeEnvironment?.id, productDeploymentId);
 
   // --- Loading state ---
-  if (state === 'loading') {
+  if (store.state === 'loading') {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="flex items-center justify-center py-12">
@@ -202,7 +28,7 @@ export default function RetryProduct() {
   }
 
   // --- Error state (no deployment loaded) ---
-  if (state === 'error' && !deployment) {
+  if (store.state === 'error' && !store.deployment) {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="mb-6">
@@ -217,23 +43,23 @@ export default function RetryProduct() {
           </Link>
         </div>
         <div className="rounded-md bg-red-50 p-4 dark:bg-red-900/20">
-          <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+          <p className="text-sm text-red-800 dark:text-red-200">{store.error}</p>
         </div>
       </div>
     );
   }
 
   // --- Success state ---
-  if (state === 'success') {
-    const displayResults: DeployProductStackResult[] = stackResults.length > 0
-      ? stackResults
-      : (deployment?.stacks
+  if (store.state === 'success') {
+    const displayResults: DeployProductStackResult[] = store.stackResults.length > 0
+      ? store.stackResults
+      : (store.deployment?.stacks
           .filter(s => s.status !== 'Running')
           .map(s => ({
             stackName: s.stackName,
             stackDisplayName: s.stackDisplayName,
             serviceCount: s.serviceCount,
-            success: stackStatuses[s.stackName] !== 'failed',
+            success: store.stackStatuses[s.stackName] !== 'failed',
           })) ?? []);
     const successCount = displayResults.filter(r => r.success).length;
 
@@ -250,7 +76,7 @@ export default function RetryProduct() {
               Retry Successful!
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {deployment?.productDisplayName} — {successCount} stack{successCount !== 1 ? 's' : ''} retried successfully
+              {store.deployment?.productDisplayName} — {successCount} stack{successCount !== 1 ? 's' : ''} retried successfully
             </p>
 
             {/* Stack Results Summary */}
@@ -276,7 +102,7 @@ export default function RetryProduct() {
 
             <div className="flex gap-4">
               <Link
-                to={`/product-deployments/${deployment?.productDeploymentId}`}
+                to={`/product-deployments/${store.deployment?.productDeploymentId}`}
                 className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white hover:bg-brand-700"
               >
                 View Deployment
@@ -295,10 +121,10 @@ export default function RetryProduct() {
   }
 
   // --- Retrying state ---
-  if (state === 'retrying') {
-    const totalRetryStacks = failedStacks.length;
-    const completedRetryStacks = Object.values(stackStatuses).filter(s => s === 'running').length;
-    const failedRetryStacks = Object.values(stackStatuses).filter(s => s === 'failed').length;
+  if (store.state === 'retrying') {
+    const totalRetryStacks = store.failedStacks.length;
+    const completedRetryStacks = Object.values(store.stackStatuses).filter(s => s === 'running').length;
+    const failedRetryStacks = Object.values(store.stackStatuses).filter(s => s === 'failed').length;
     const processedStacks = completedRetryStacks + failedRetryStacks;
 
     return (
@@ -310,7 +136,7 @@ export default function RetryProduct() {
               Retrying Failed Stacks...
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Retrying {deployment?.productDisplayName} in {activeEnvironment?.name}
+              Retrying {store.deployment?.productDisplayName} in {activeEnvironment?.name}
             </p>
 
             <div className="w-full max-w-lg">
@@ -318,7 +144,7 @@ export default function RetryProduct() {
               <div className="mb-6">
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-gray-600 dark:text-gray-400">
-                    {progressUpdate?.message || 'Initializing retry...'}
+                    {store.progressUpdate?.message || 'Initializing retry...'}
                   </span>
                   <span className="text-gray-600 dark:text-gray-400">
                     {processedStacks}/{totalRetryStacks} stacks
@@ -334,11 +160,11 @@ export default function RetryProduct() {
 
               {/* Per-Stack Status List */}
               <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                {deployment?.stacks
+                {store.deployment?.stacks
                   .slice()
                   .sort((a, b) => a.order - b.order)
                   .map((stack) => {
-                    const status = stackStatuses[stack.stackName] || 'pending';
+                    const status = store.stackStatuses[stack.stackName] || 'pending';
                     return (
                       <div
                         key={stack.stackName}
@@ -393,14 +219,14 @@ export default function RetryProduct() {
               {/* Connection Status */}
               <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                 <span className={`w-2 h-2 rounded-full ${
-                  connectionState === 'connected' ? 'bg-green-500' :
-                  connectionState === 'connecting' ? 'bg-yellow-500' :
-                  connectionState === 'reconnecting' ? 'bg-yellow-500' :
+                  store.connectionState === 'connected' ? 'bg-green-500' :
+                  store.connectionState === 'connecting' ? 'bg-yellow-500' :
+                  store.connectionState === 'reconnecting' ? 'bg-yellow-500' :
                   'bg-red-500'
                 }`} />
-                {connectionState === 'connected' ? 'Live updates' :
-                 connectionState === 'connecting' ? 'Connecting...' :
-                 connectionState === 'reconnecting' ? 'Reconnecting...' :
+                {store.connectionState === 'connected' ? 'Live updates' :
+                 store.connectionState === 'connecting' ? 'Connecting...' :
+                 store.connectionState === 'reconnecting' ? 'Reconnecting...' :
                  'Updates unavailable'}
               </div>
             </div>
@@ -411,17 +237,17 @@ export default function RetryProduct() {
   }
 
   // --- Error state (with deployment loaded, e.g. partial failure) ---
-  if (state === 'error' && deployment) {
-    const errorDisplayResults: DeployProductStackResult[] = stackResults.length > 0
-      ? stackResults
-      : (deployment.stacks
+  if (store.state === 'error' && store.deployment) {
+    const errorDisplayResults: DeployProductStackResult[] = store.stackResults.length > 0
+      ? store.stackResults
+      : (store.deployment.stacks
           .filter(s => s.status !== 'Running')
           .map(s => ({
             stackName: s.stackName,
             stackDisplayName: s.stackDisplayName,
             serviceCount: s.serviceCount,
-            success: stackStatuses[s.stackName] === 'running',
-            errorMessage: stackStatuses[s.stackName] === 'failed' ? 'Retry failed' : undefined,
+            success: store.stackStatuses[s.stackName] === 'running',
+            errorMessage: store.stackStatuses[s.stackName] === 'failed' ? 'Retry failed' : undefined,
           })));
     const successCount = errorDisplayResults.filter(r => r.success).length;
     const failedCount = errorDisplayResults.filter(r => !r.success).length;
@@ -430,7 +256,7 @@ export default function RetryProduct() {
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="mb-6">
           <Link
-            to={`/product-deployments/${deployment.productDeploymentId}`}
+            to={`/product-deployments/${store.deployment.productDeploymentId}`}
             className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -452,7 +278,7 @@ export default function RetryProduct() {
               Retry Completed with Errors
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-2">
-              {error}
+              {store.error}
             </p>
             {errorDisplayResults.length > 0 && (
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
@@ -502,7 +328,7 @@ export default function RetryProduct() {
 
             <div className="flex gap-4">
               <Link
-                to={`/product-deployments/${deployment.productDeploymentId}`}
+                to={`/product-deployments/${store.deployment.productDeploymentId}`}
                 className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white hover:bg-brand-700"
               >
                 View Deployment
@@ -526,7 +352,7 @@ export default function RetryProduct() {
       {/* Breadcrumb */}
       <div className="mb-6">
         <Link
-          to={`/product-deployments/${deployment?.productDeploymentId}`}
+          to={`/product-deployments/${store.deployment?.productDeploymentId}`}
           className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -550,11 +376,11 @@ export default function RetryProduct() {
             Retry Failed Stacks
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-2 text-center">
-            Retry failed stacks of <strong className="text-gray-900 dark:text-white">{deployment?.productDisplayName}</strong>?
+            Retry failed stacks of <strong className="text-gray-900 dark:text-white">{store.deployment?.productDisplayName}</strong>?
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 text-center max-w-md">
-            This will re-deploy {failedStacks.length} failed stack{failedStacks.length !== 1 ? 's' : ''} using the original configuration.
-            {runningStacks.length > 0 && ` ${runningStacks.length} already running stack${runningStacks.length !== 1 ? 's' : ''} will be skipped.`}
+            This will re-deploy {store.failedStacks.length} failed stack{store.failedStacks.length !== 1 ? 's' : ''} using the original configuration.
+            {store.runningStacks.length > 0 && ` ${store.runningStacks.length} already running stack${store.runningStacks.length !== 1 ? 's' : ''} will be skipped.`}
           </p>
 
           {/* Deployment Info */}
@@ -563,11 +389,11 @@ export default function RetryProduct() {
             <div className="space-y-2 text-sm mb-4">
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Product:</span>
-                <span className="font-medium text-gray-900 dark:text-white">{deployment?.productDisplayName}</span>
+                <span className="font-medium text-gray-900 dark:text-white">{store.deployment?.productDisplayName}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Version:</span>
-                <span className="font-medium text-gray-900 dark:text-white">v{deployment?.productVersion}</span>
+                <span className="font-medium text-gray-900 dark:text-white">v{store.deployment?.productVersion}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Environment:</span>
@@ -575,22 +401,22 @@ export default function RetryProduct() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Failed Stacks:</span>
-                <span className="font-medium text-red-600 dark:text-red-400">{failedStacks.length} of {deployment?.totalStacks}</span>
+                <span className="font-medium text-red-600 dark:text-red-400">{store.failedStacks.length} of {store.deployment?.totalStacks}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Running Stacks:</span>
-                <span className="font-medium text-green-600 dark:text-green-400">{runningStacks.length} (skipped)</span>
+                <span className="font-medium text-green-600 dark:text-green-400">{store.runningStacks.length} (skipped)</span>
               </div>
             </div>
 
             {/* Stacks to Retry */}
-            {failedStacks.length > 0 && (
+            {store.failedStacks.length > 0 && (
               <>
                 <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">
                   Stacks to retry
                 </h4>
                 <div className="space-y-1 mb-3">
-                  {failedStacks
+                  {store.failedStacks
                     .sort((a, b) => a.order - b.order)
                     .map((stack) => (
                       <div key={stack.stackName} className="flex items-center justify-between py-1">
@@ -612,13 +438,13 @@ export default function RetryProduct() {
             )}
 
             {/* Running Stacks (skipped) */}
-            {runningStacks.length > 0 && (
+            {store.runningStacks.length > 0 && (
               <>
                 <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">
                   Already running (will be skipped)
                 </h4>
                 <div className="space-y-1">
-                  {runningStacks
+                  {store.runningStacks
                     .sort((a, b) => a.order - b.order)
                     .map((stack) => (
                       <div key={stack.stackName} className="flex items-center justify-between py-1">
@@ -641,23 +467,23 @@ export default function RetryProduct() {
           </div>
 
           {/* Error Display */}
-          {error && (
+          {store.error && (
             <div className="w-full max-w-lg mb-6 p-4 text-sm text-red-800 bg-red-100 rounded-lg dark:bg-red-900/30 dark:text-red-400">
               <p className="font-medium mb-1">Error</p>
-              <p>{error}</p>
+              <p>{store.error}</p>
             </div>
           )}
 
           {/* Action Buttons */}
           <div className="flex gap-4">
             <Link
-              to={`/product-deployments/${deployment?.productDeploymentId}`}
+              to={`/product-deployments/${store.deployment?.productDeploymentId}`}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-gray-100 px-6 py-3 text-center font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
             >
               Cancel
             </Link>
             <button
-              onClick={handleRetry}
+              onClick={store.handleRetry}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-yellow-500 px-6 py-3 text-center font-medium text-white hover:bg-yellow-600"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
