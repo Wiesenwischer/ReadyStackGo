@@ -1,0 +1,10 @@
+{
+  "name": "rsgo-generic",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@rsgo/core": "workspace:*",
+    "@rsgo/ui-generic": "workspace:*"
+  }
+}
