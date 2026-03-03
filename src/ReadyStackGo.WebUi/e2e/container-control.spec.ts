@@ -281,6 +281,16 @@ test.describe.serial('Container Control', () => {
       path: path.join(SCREENSHOT_DIR, 'container-control-04-stop-result.png'),
       fullPage: false
     });
+
+    // Navigate back to the detail page to capture Stopped status
+    await page.goto(`/product-deployments/${productDeploymentId}`);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+
+    await page.screenshot({
+      path: path.join(SCREENSHOT_DIR, 'container-control-05-stopped-status.png'),
+      fullPage: false
+    });
   });
 
   test('should navigate to restart page and restart containers', async ({ page }) => {
@@ -307,7 +317,7 @@ test.describe.serial('Container Control', () => {
     await expect(page.getByText('Stacks to restart')).toBeVisible();
 
     await page.screenshot({
-      path: path.join(SCREENSHOT_DIR, 'container-control-05-restart-confirm.png'),
+      path: path.join(SCREENSHOT_DIR, 'container-control-06-restart-confirm.png'),
       fullPage: false
     });
 
@@ -323,7 +333,7 @@ test.describe.serial('Container Control', () => {
     await expect(successHeading.or(errorHeading)).toBeVisible({ timeout: 60_000 });
 
     await page.screenshot({
-      path: path.join(SCREENSHOT_DIR, 'container-control-06-restart-result.png'),
+      path: path.join(SCREENSHOT_DIR, 'container-control-07-restart-result.png'),
       fullPage: false
     });
   });

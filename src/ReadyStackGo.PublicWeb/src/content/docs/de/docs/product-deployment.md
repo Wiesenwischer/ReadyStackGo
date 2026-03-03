@@ -100,45 +100,58 @@ Wenn Sie zum Katalog zurückkehren und die Produkt-Detailseite erneut aufrufen, 
 
 ## Container Control: Stop & Restart
 
-Laufende Product Deployments können über die Detailseite gestoppt und neu gestartet werden — ohne den Deployment-Status zu verändern. Dies ist nützlich für Wartungsfenster, Debugging oder um Ressourcen temporär freizugeben.
+Laufende Product Deployments können über die Detailseite gestoppt und neu gestartet werden. Beim Stoppen wechselt das Deployment in den Status `Stopped` — sowohl auf Produkt- als auch auf Stack-Ebene. Dies ist nützlich für Wartungsfenster, Debugging oder um Ressourcen temporär freizugeben.
 
-### Stop & Restart Buttons
+### Stop & Restart Links
 
-Auf der Product Deployment Detailseite werden bei operativen Deployments (Status `Running` oder `PartiallyRunning`) die Buttons **Stop Containers** und **Restart Containers** angezeigt.
+Auf der Product Deployment Detailseite werden bei operativen Deployments (Status `Running` oder `PartiallyRunning`) die Links **Stop Containers** und **Restart Containers** angezeigt. Bei gestoppten Deployments (Status `Stopped`) ist nur **Restart Containers** verfügbar.
 
-![Stop und Restart Buttons auf der Product Deployment Detailseite](/images/docs/container-control-01-buttons.png)
+![Stop und Restart Links auf der Product Deployment Detailseite](/images/docs/container-control-01-buttons.png)
 
 ---
 
 ### Container stoppen
 
-Klicken Sie auf **Stop Containers**, um alle Container des Produkts zu stoppen. Es erscheint ein Bestätigungsdialog mit Hinweis, dass der Deployment-Status nicht verändert wird.
+Klicken Sie auf **Stop Containers**, um zur Bestätigungsseite zu gelangen. Dort werden alle Stacks aufgelistet, die gestoppt werden.
 
-![Bestätigungsdialog für Stop Containers](/images/docs/container-control-02-stop-confirm.png)
+![Bestätigungsseite für Stop Containers](/images/docs/container-control-02-stop-confirm.png)
 
 Nach Bestätigung wird der Vorgang ausgeführt. Ein Ladeindikator zeigt den Fortschritt an.
 
 ![Ladeindikator während Stop-Vorgang](/images/docs/container-control-03-stop-loading.png)
 
-Das Ergebnis wird als Feedback-Banner angezeigt — grün bei Erfolg, rot bei Fehlern.
+Das Ergebnis wird als Feedback-Seite angezeigt — grün bei Erfolg, rot bei Fehlern.
 
 ![Ergebnis des Stop-Vorgangs](/images/docs/container-control-04-stop-result.png)
 
-:::tip[Deployment-Status bleibt erhalten]
-Stop und Restart verändern nicht den Status des ProductDeployment-Aggregats. Der Health Sync Service erkennt die Statusänderung der Container und aktualisiert den angezeigten Status entsprechend.
+---
+
+### Stopped-Status
+
+Nach erfolgreichem Stoppen wechselt das Product Deployment in den Status `Stopped`. Auf der Detailseite werden sowohl das Produkt als auch alle Stacks mit einem orangenen **Stopped**-Badge angezeigt.
+
+![Product Deployment im Stopped-Status mit orangenen Badges](/images/docs/container-control-05-stopped-status.png)
+
+Im Stopped-Status sind folgende Aktionen verfügbar:
+- **Restart Containers** — Container wieder starten, wechselt zurück zu `Running`
+- **Upgrade** — Auf eine neue Version upgraden
+- **Remove** — Deployment entfernen
+
+:::tip[Stopped ≠ Removed]
+Ein gestopptes Deployment behält alle Konfigurationen und Stack-Zuordnungen. Die Container werden lediglich angehalten und können jederzeit wieder gestartet werden.
 :::
 
 ---
 
 ### Container neu starten
 
-Klicken Sie auf **Restart Containers**, um alle Container sequenziell zu stoppen und danach wieder zu starten. Im Bestätigungsdialog wird darauf hingewiesen, dass die Container nacheinander gestoppt und gestartet werden.
+Klicken Sie auf **Restart Containers**, um alle Container sequenziell zu stoppen und danach wieder zu starten. Dies funktioniert sowohl für laufende als auch für gestoppte Deployments.
 
-![Bestätigungsdialog für Restart Containers](/images/docs/container-control-05-restart-confirm.png)
+![Bestätigungsseite für Restart Containers](/images/docs/container-control-06-restart-confirm.png)
 
-Nach Abschluss zeigt das Ergebnis-Banner den Status an.
+Nach Abschluss zeigt die Ergebnis-Seite den Status an. Bei einem Restart aus dem Stopped-Status wechselt das Deployment zurück zu `Running` (bzw. `PartiallyRunning` bei Teilerfolg).
 
-![Ergebnis des Restart-Vorgangs](/images/docs/container-control-06-restart-result.png)
+![Ergebnis des Restart-Vorgangs](/images/docs/container-control-07-restart-result.png)
 
 :::note[Sequenzielles Restart]
 Beim Restart werden die Stacks nacheinander verarbeitet: Zuerst wird ein Stack gestoppt, dann gestartet, bevor der nächste Stack an die Reihe kommt. Wenn der Stop eines Stacks fehlschlägt, wird der Start für diesen Stack übersprungen.
@@ -218,6 +231,11 @@ Deploying ──→ Running              (alle Stacks erfolgreich)
 
 Running ──→ Upgrading ──→ Running / PartiallyRunning / Failed
         ──→ Removing  ──→ Removed (terminal)
+        ──→ Stopped   ──→ Running (Restart erfolgreich)
+                      ──→ PartiallyRunning (Restart teilweise)
+                      ──→ Removing / Upgrading
+
+PartiallyRunning ──→ Stopped (Container stoppen)
 
 Failed ──→ Upgrading (erneuter Versuch mit neuer Version)
        ──→ Removing  (Aufräumen)
@@ -228,6 +246,7 @@ Failed ──→ Upgrading (erneuter Versuch mit neuer Version)
 | `Deploying` | Deployment läuft, Stacks werden sequenziell ausgerollt |
 | `Running` | Alle Stacks erfolgreich deployed und aktiv |
 | `PartiallyRunning` | Einige Stacks laufen, andere sind fehlgeschlagen |
+| `Stopped` | Alle Container bewusst gestoppt (über Stop Containers) |
 | `Failed` | Deployment komplett fehlgeschlagen |
 | `Upgrading` | Upgrade auf eine neue Version läuft |
 | `Removing` | Alle Stacks werden entfernt |
