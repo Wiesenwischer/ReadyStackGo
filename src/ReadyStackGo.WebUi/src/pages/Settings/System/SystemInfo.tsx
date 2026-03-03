@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { systemApi } from "../../../api/system";
 import { useVersionInfo } from "../../../hooks/useVersionInfo";
 
 function formatRelativeTime(isoString?: string): string {
@@ -23,6 +24,41 @@ export default function SystemInfo() {
   const [checking, setChecking] = useState(false);
   const [checkResult, setCheckResult] = useState<"up-to-date" | null>(null);
   const navigate = useNavigate();
+
+  // Health Notification Settings
+  const [cooldownMinutes, setCooldownMinutes] = useState(5);
+  const [cooldownLoading, setCooldownLoading] = useState(true);
+  const [cooldownSaving, setCooldownSaving] = useState(false);
+  const [cooldownSuccess, setCooldownSuccess] = useState<string | null>(null);
+  const [cooldownError, setCooldownError] = useState<string | null>(null);
+
+  useEffect(() => {
+    systemApi.getHealthNotificationSettings()
+      .then((settings) => setCooldownMinutes(Math.round(settings.cooldownSeconds / 60)))
+      .catch(() => setCooldownError("Failed to load health notification settings"))
+      .finally(() => setCooldownLoading(false));
+  }, []);
+
+  const handleSaveCooldown = async () => {
+    setCooldownSaving(true);
+    setCooldownSuccess(null);
+    setCooldownError(null);
+    try {
+      const response = await systemApi.updateHealthNotificationSettings({
+        cooldownSeconds: cooldownMinutes * 60,
+      });
+      if (response.success) {
+        setCooldownSuccess(response.message ?? "Settings saved.");
+        setTimeout(() => setCooldownSuccess(null), 5000);
+      } else {
+        setCooldownError(response.message ?? "Failed to save settings.");
+      }
+    } catch {
+      setCooldownError("Failed to save health notification settings.");
+    } finally {
+      setCooldownSaving(false);
+    }
+  };
 
   const handleCheckNow = async () => {
     setChecking(true);
@@ -229,6 +265,78 @@ export default function SystemInfo() {
           {error}
         </div>
       )}
+
+      {/* Health Notification Settings */}
+      <div className="mt-6 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div className="border-b border-gray-200 px-6 py-5 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Health Notifications
+          </h3>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Configure how health change notifications behave.
+          </p>
+        </div>
+        <div className="px-6 py-5">
+          {cooldownLoading ? (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+              Loading...
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-end gap-4">
+                <div className="flex-1 max-w-xs">
+                  <label
+                    htmlFor="cooldown-minutes"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Notification Cooldown
+                  </label>
+                  <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                    Minimum time between notifications for the same service (1–60 minutes).
+                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      id="cooldown-minutes"
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={cooldownMinutes}
+                      onChange={(e) => setCooldownMinutes(Number(e.target.value))}
+                      className="w-20 rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:text-white"
+                    />
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      minutes
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={handleSaveCooldown}
+                  disabled={cooldownSaving}
+                  className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600 disabled:opacity-50"
+                >
+                  {cooldownSaving ? "Saving..." : "Save"}
+                </button>
+              </div>
+
+              {cooldownSuccess && (
+                <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                  {cooldownSuccess}
+                </div>
+              )}
+
+              {cooldownError && (
+                <div className="text-sm text-red-600 dark:text-red-400">
+                  {cooldownError}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

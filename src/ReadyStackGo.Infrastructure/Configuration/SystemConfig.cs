@@ -57,4 +57,11 @@ public class SystemConfig
     /// Whether the user has dismissed the onboarding checklist on the dashboard.
     /// </summary>
     public bool OnboardingDismissed { get; set; }
+
+    /// <summary>
+    /// Cooldown in seconds between health change notifications for the same service.
+    /// Prevents notification spam when services flap between statuses.
+    /// Default: 300 seconds (5 minutes).
+    /// </summary>
+    public int HealthNotificationCooldownSeconds { get; set; } = 300;
 }

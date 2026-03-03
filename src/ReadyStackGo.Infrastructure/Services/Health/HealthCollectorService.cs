@@ -18,6 +18,7 @@ public class HealthCollectorService : IHealthCollectorService
 {
     private readonly IHealthMonitoringService _healthMonitoringService;
     private readonly IHealthNotificationService _healthNotificationService;
+    private readonly IHealthChangeTracker _healthChangeTracker;
     private readonly IDeploymentRepository _deploymentRepository;
     private readonly IEnvironmentRepository _environmentRepository;
     private readonly IProductDeploymentRepository _productDeploymentRepository;
@@ -26,6 +27,7 @@ public class HealthCollectorService : IHealthCollectorService
     public HealthCollectorService(
         IHealthMonitoringService healthMonitoringService,
         IHealthNotificationService healthNotificationService,
+        IHealthChangeTracker healthChangeTracker,
         IDeploymentRepository deploymentRepository,
         IEnvironmentRepository environmentRepository,
         IProductDeploymentRepository productDeploymentRepository,
@@ -33,6 +35,7 @@ public class HealthCollectorService : IHealthCollectorService
     {
         _healthMonitoringService = healthMonitoringService;
         _healthNotificationService = healthNotificationService;
+        _healthChangeTracker = healthChangeTracker;
         _deploymentRepository = deploymentRepository;
         _environmentRepository = environmentRepository;
         _productDeploymentRepository = productDeploymentRepository;
@@ -87,7 +90,17 @@ public class HealthCollectorService : IHealthCollectorService
                 EnrichWithProductInfo(dto, deployment.Id);
                 stackHealthDtos.Add(dto);
 
-                // Notify about individual deployment health change
+                // Track health changes and create in-app notifications
+                var serviceStatuses = dto.Self.Services
+                    .Select(s => new ServiceHealthUpdate(s.Name, s.Status))
+                    .ToList();
+                await _healthChangeTracker.ProcessHealthUpdateAsync(
+                    deployment.Id.Value.ToString(),
+                    deployment.StackName,
+                    serviceStatuses,
+                    cancellationToken);
+
+                // Notify about individual deployment health change (SignalR real-time)
                 await _healthNotificationService.NotifyDeploymentHealthChangedAsync(
                     deployment.Id,
                     dto,
@@ -170,7 +183,17 @@ public class HealthCollectorService : IHealthCollectorService
             var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, deployment.EnvironmentId);
             EnrichWithProductInfo(dto, deploymentId);
 
-            // Notify about deployment health change
+            // Track health changes and create in-app notifications
+            var serviceStatuses = dto.Self.Services
+                .Select(s => new ServiceHealthUpdate(s.Name, s.Status))
+                .ToList();
+            await _healthChangeTracker.ProcessHealthUpdateAsync(
+                deploymentId.Value.ToString(),
+                deployment.StackName,
+                serviceStatuses,
+                cancellationToken);
+
+            // Notify about deployment health change (SignalR real-time)
             await _healthNotificationService.NotifyDeploymentHealthChangedAsync(
                 deploymentId,
                 dto,
