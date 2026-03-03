@@ -50,7 +50,7 @@ Ermöglicht das erneute Deployen einzelner Stacks oder aller Stacks eines laufen
 
 ### Kernfunktionalität
 
-- [ ] **Feature 1: Domain — Redeploying Status & State Machine** — `ProductDeploymentStatus.Redeploying`, Transition `Running → Redeploying`, Guards
+- [x] **Feature 1: Domain — Redeploying Status & State Machine** — `ProductDeploymentStatus.Redeploying`, Transition `Running → Redeploying`, Guards (PR #188)
   - Betroffene Dateien:
     - `src/ReadyStackGo.Domain/Deployment/ProductDeployments/ProductDeploymentStatus.cs` — neuer Enum-Wert `Redeploying = 7`
     - `src/ReadyStackGo.Domain/Deployment/ProductDeployments/ProductDeployment.cs`:
@@ -68,7 +68,7 @@ Ermöglicht das erneute Deployen einzelner Stacks oder aller Stacks eines laufen
     - Unit: `CanRedeploy` nur im Status `Running`, Transition-Guards, einzelne vs. alle Stacks resetten
     - Unit: Ungültige Übergänge (z.B. `Deploying → Redeploying` muss scheitern)
 
-- [ ] **Feature 2: Application — RedeployProductCommand & Handler** — MediatR Command + orchestrierter Redeploy-Flow
+- [x] **Feature 2: Application — RedeployProductCommand & Handler** — MediatR Command + orchestrierter Redeploy-Flow (PR #189)
   - Betroffene Dateien:
     - `src/ReadyStackGo.Application/UseCases/Deployments/RedeployProduct/RedeployProductCommand.cs` (NEU)
     - `src/ReadyStackGo.Application/UseCases/Deployments/RedeployProduct/RedeployProductHandler.cs` (NEU)
@@ -99,7 +99,7 @@ Ermöglicht das erneute Deployen einzelner Stacks oder aller Stacks eines laufen
     - Unit: Happy Path (alle Stacks), Single Stack, Variable Merge, Fehler-Handling
     - Unit: Ungültige Inputs (nicht existierendes ProductDeployment, falscher Status, unbekannter Stack-Name)
 
-- [ ] **Feature 3: API — Redeploy Endpoint** — FastEndpoint für Product Redeploy
+- [x] **Feature 3: API — Redeploy Endpoint** — FastEndpoint für Product Redeploy (PR #190)
   - Betroffene Dateien:
     - `src/ReadyStackGo.Api/Endpoints/Deployments/RedeployProductEndpoint.cs` (NEU)
     - `src/ReadyStackGo.Api/Endpoints/Deployments/Dtos/RedeployProductRequest.cs` (NEU)
@@ -118,7 +118,7 @@ Ermöglicht das erneute Deployen einzelner Stacks oder aller Stacks eines laufen
   - Tests:
     - Integration: Endpoint erreichbar, Permission-Check, Response-Format
 
-- [ ] **Feature 4: WebUI — Redeploy Button & Seite** — UI für Product Redeploy
+- [x] **Feature 4: WebUI — Redeploy Button & Seite** — UI für Product Redeploy (PR #191)
   - Betroffene Dateien:
     - `src/ReadyStackGo.WebUi/src/pages/Deployments/ProductDeploymentDetail.tsx` — Redeploy-Button hinzufügen
     - `src/ReadyStackGo.WebUi/src/pages/Deployments/RedeployProduct.tsx` (NEU) — Bestätigungsseite mit Stack-Auswahl
@@ -138,7 +138,7 @@ Ermöglicht das erneute Deployen einzelner Stacks oder aller Stacks eines laufen
 
 ### Hook-Integration
 
-- [ ] **Feature 5: Hook — Product Redeploy via Hook** — `/api/hooks/redeploy` für Product Deployments erweitern
+- [x] **Feature 5: Hook — Product Redeploy via Hook** — `/api/hooks/redeploy` für Product Deployments erweitern (PR #192)
   - Betroffene Dateien:
     - `src/ReadyStackGo.Application/UseCases/Hooks/RedeployStack/RedeployStackCommand.cs` — erweitern oder neuen Command
     - `src/ReadyStackGo.Api/Endpoints/Hooks/RedeployEndpoint.cs` — erweitern um `productId` Support

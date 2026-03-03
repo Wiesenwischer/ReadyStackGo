@@ -26,6 +26,7 @@ public class GetProductDeploymentResponse
     public bool CanRetry { get; set; }
     public bool CanUpgrade { get; set; }
     public bool CanRemove { get; set; }
+    public bool CanRedeploy { get; set; }
     public bool CanStop { get; set; }
     public bool CanRestart { get; set; }
     public double? DurationSeconds { get; set; }

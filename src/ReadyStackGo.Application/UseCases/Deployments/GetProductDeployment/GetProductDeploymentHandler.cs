@@ -57,6 +57,7 @@ public class GetProductDeploymentHandler : IRequestHandler<GetProductDeploymentQ
             CanRetry = pd.CanRetry,
             CanUpgrade = pd.CanUpgrade,
             CanRemove = pd.CanRemove,
+            CanRedeploy = pd.CanRedeploy,
             CanStop = pd.CanStop,
             CanRestart = pd.CanRestart,
             DurationSeconds = pd.GetDuration()?.TotalSeconds,

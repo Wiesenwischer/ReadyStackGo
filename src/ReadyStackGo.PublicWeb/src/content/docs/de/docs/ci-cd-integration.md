@@ -79,16 +79,23 @@ Alle Endpoints befinden sich unter `/api/hooks/` und erfordern API Key Authentif
 
 ### POST /api/hooks/redeploy
 
-Triggert ein Redeployment eines laufenden Stacks. Stoppt die bestehenden Container, pullt frische Images und startet neu – mit denselben Variablen und Einstellungen.
+Triggert ein Redeployment eines laufenden Stacks oder Product Deployments. Stoppt die bestehenden Container, pullt frische Images und startet neu – mit denselben Variablen und Einstellungen.
+
+Unterstützt zwei Modi:
+- **Standalone Stack Redeploy**: Mit `stackName` – einzelner Stack wird redeployed
+- **Product Redeploy**: Mit `productId` – alle oder ausgewählte Stacks eines Product Deployments werden redeployed
 
 **Parameter:**
 
 | Feld | Typ | Pflicht | Beschreibung |
 |------|-----|---------|--------------|
-| `stackName` | string | Ja | Name des deployten Stacks (wie in der Deployments-Übersicht angezeigt) |
-| `environmentId` | string | Nein* | ID des Environments. *Entfällt bei environment-gebundenem API Key. |
+| `stackName` | string | Bedingt* | Name des deployten Stacks. *Pflicht wenn kein `productId`. |
+| `productId` | string | Bedingt* | Product GroupId (z.B. `ams.project`). *Pflicht wenn kein `stackName`. |
+| `stackDefinitionName` | string | Nein | Nur bei `productId`: Name des Stacks innerhalb des Produkts. Wenn leer: alle Stacks. |
+| `environmentId` | string | Nein** | ID des Environments. **Entfällt bei environment-gebundenem API Key. |
+| `variables` | object | Nein | Variable Overrides als Key-Value-Paare |
 
-**Request:**
+**Request (Standalone Stack):**
 ```json
 {
   "stackName": "ams-project",
@@ -96,7 +103,23 @@ Triggert ein Redeployment eines laufenden Stacks. Stoppt die bestehenden Contain
 }
 ```
 
-**Response (200):**
+**Request (Product – alle Stacks):**
+```json
+{
+  "productId": "ams.project"
+}
+```
+
+**Request (Product – einzelner Stack mit Overrides):**
+```json
+{
+  "productId": "ams.project",
+  "stackDefinitionName": "Analytics",
+  "variables": { "BUILD_NUM": "42" }
+}
+```
+
+**Response (200) – Stack:**
 ```json
 {
   "success": true,
@@ -107,13 +130,30 @@ Triggert ein Redeployment eines laufenden Stacks. Stoppt die bestehenden Contain
 }
 ```
 
+**Response (200) – Product:**
+```json
+{
+  "success": true,
+  "message": "Successfully triggered redeploy of product 'AMS Project'.",
+  "productDeploymentId": "p1d2e3...",
+  "stackName": "AMS Project",
+  "stackVersion": "6.4.0"
+}
+```
+
 **Fehler-Responses:**
 ```json
+// 400 – Weder stackName noch productId
+{ "success": false, "message": "Either stackName or productId is required." }
+
 // 400 – Stack nicht gefunden
 { "success": false, "message": "No deployment found for stack 'xyz' in environment '...'" }
 
-// 400 – Stack nicht im Status Running
-{ "success": false, "message": "Deployment is in status 'Failed', only running deployments can be redeployed." }
+// 400 – Product Deployment nicht gefunden
+{ "success": false, "message": "No active product deployment found for product 'xyz' in environment '...'" }
+
+// 400 – Nicht im Status Running
+{ "success": false, "message": "Only running deployments can be redeployed. Current status: Failed" }
 ```
 
 **Permission:** `Hooks.Redeploy`

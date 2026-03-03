@@ -738,6 +738,7 @@ public class ProductDeploymentTests
     [InlineData(ProductDeploymentStatus.Running, ProductDeploymentStatus.Upgrading, true)]
     [InlineData(ProductDeploymentStatus.Running, ProductDeploymentStatus.Removing, true)]
     [InlineData(ProductDeploymentStatus.Running, ProductDeploymentStatus.Stopped, true)]
+    [InlineData(ProductDeploymentStatus.Running, ProductDeploymentStatus.Redeploying, true)]
     [InlineData(ProductDeploymentStatus.Running, ProductDeploymentStatus.Deploying, false)]
     [InlineData(ProductDeploymentStatus.Running, ProductDeploymentStatus.Failed, false)]
     [InlineData(ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Upgrading, true)]
@@ -760,6 +761,11 @@ public class ProductDeploymentTests
     [InlineData(ProductDeploymentStatus.Stopped, ProductDeploymentStatus.Stopped, false)]
     [InlineData(ProductDeploymentStatus.Removing, ProductDeploymentStatus.Removed, true)]
     [InlineData(ProductDeploymentStatus.Removing, ProductDeploymentStatus.Running, false)]
+    [InlineData(ProductDeploymentStatus.Redeploying, ProductDeploymentStatus.Running, true)]
+    [InlineData(ProductDeploymentStatus.Redeploying, ProductDeploymentStatus.PartiallyRunning, true)]
+    [InlineData(ProductDeploymentStatus.Redeploying, ProductDeploymentStatus.Failed, true)]
+    [InlineData(ProductDeploymentStatus.Redeploying, ProductDeploymentStatus.Upgrading, false)]
+    [InlineData(ProductDeploymentStatus.Redeploying, ProductDeploymentStatus.Removing, false)]
     [InlineData(ProductDeploymentStatus.Removed, ProductDeploymentStatus.Deploying, false)]
     [InlineData(ProductDeploymentStatus.Removed, ProductDeploymentStatus.Running, false)]
     [InlineData(ProductDeploymentStatus.Removed, ProductDeploymentStatus.Removing, false)]
@@ -1598,6 +1604,7 @@ public class ProductDeploymentTests
             ProductDeploymentStatus.Stopped => CreateStoppedDeployment(),
             ProductDeploymentStatus.Removing => CreateRemovingDeployment(),
             ProductDeploymentStatus.Removed => CreateRemovedDeployment(),
+            ProductDeploymentStatus.Redeploying => CreateRedeployingDeployment(),
             _ => throw new ArgumentOutOfRangeException(nameof(status))
         };
     }
@@ -1641,6 +1648,13 @@ public class ProductDeploymentTests
         var pd = CreateRunningDeployment(1);
         pd.StartRemoval();
         pd.MarkStackRemoved("stack-0");
+        return pd;
+    }
+
+    private static ProductDeployment CreateRedeployingDeployment()
+    {
+        var pd = CreateRunningDeployment(2);
+        pd.StartRedeploy();
         return pd;
     }
 
