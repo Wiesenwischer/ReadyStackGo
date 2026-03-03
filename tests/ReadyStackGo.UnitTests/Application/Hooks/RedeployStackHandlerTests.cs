@@ -2,17 +2,21 @@ using FluentAssertions;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Moq;
+using ReadyStackGo.Application.UseCases.Deployments.DeployProduct;
 using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
+using ReadyStackGo.Application.UseCases.Deployments.RedeployProduct;
 using ReadyStackGo.Application.UseCases.Hooks.RedeployStack;
 using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.ProductDeployments;
 
 namespace ReadyStackGo.UnitTests.Application.Hooks;
 
 public class RedeployStackHandlerTests
 {
     private readonly Mock<IDeploymentRepository> _deploymentRepoMock;
+    private readonly Mock<IProductDeploymentRepository> _productDeploymentRepoMock;
     private readonly Mock<IMediator> _mediatorMock;
     private readonly Mock<ILogger<RedeployStackHandler>> _loggerMock;
     private readonly RedeployStackHandler _handler;
@@ -24,10 +28,12 @@ public class RedeployStackHandlerTests
     public RedeployStackHandlerTests()
     {
         _deploymentRepoMock = new Mock<IDeploymentRepository>();
+        _productDeploymentRepoMock = new Mock<IProductDeploymentRepository>();
         _mediatorMock = new Mock<IMediator>();
         _loggerMock = new Mock<ILogger<RedeployStackHandler>>();
         _handler = new RedeployStackHandler(
             _deploymentRepoMock.Object,
+            _productDeploymentRepoMock.Object,
             _mediatorMock.Object,
             _loggerMock.Object);
     }
@@ -257,6 +263,28 @@ public class RedeployStackHandlerTests
         result.Message.Should().Contain("Invalid environment ID");
     }
 
+    [Fact]
+    public async Task Handle_NoStackNameOrProductId_ReturnsError()
+    {
+        var result = await _handler.Handle(
+            new RedeployStackCommand(null, TestEnvironmentId),
+            CancellationToken.None);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("stackName or productId");
+    }
+
+    [Fact]
+    public async Task Handle_EmptyStackNameAndNoProductId_ReturnsError()
+    {
+        var result = await _handler.Handle(
+            new RedeployStackCommand("", TestEnvironmentId),
+            CancellationToken.None);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("stackName or productId");
+    }
+
     #endregion
 
     #region Deploy Failure Propagation
@@ -471,6 +499,168 @@ public class RedeployStackHandlerTests
 
     #endregion
 
+    #region Product Redeploy
+
+    [Fact]
+    public async Task Handle_ProductId_RoutesToProductRedeploy()
+    {
+        var productDeployment = CreateRunningProductDeployment("test.product");
+        SetupProductDeploymentLookup("test.product", productDeployment);
+        SetupSuccessfulProductRedeploy(productDeployment.Id.Value.ToString());
+
+        var result = await _handler.Handle(
+            new RedeployStackCommand(null, TestEnvironmentId, ProductId: "test.product"),
+            CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        result.ProductDeploymentId.Should().Be(productDeployment.Id.Value.ToString());
+        result.Message.Should().Contain("test-product");
+    }
+
+    [Fact]
+    public async Task Handle_ProductId_DispatchesRedeployProductCommand()
+    {
+        var productDeployment = CreateRunningProductDeployment("test.product");
+        SetupProductDeploymentLookup("test.product", productDeployment);
+        SetupSuccessfulProductRedeploy(productDeployment.Id.Value.ToString());
+
+        await _handler.Handle(
+            new RedeployStackCommand(null, TestEnvironmentId, ProductId: "test.product"),
+            CancellationToken.None);
+
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<RedeployProductCommand>(cmd =>
+                cmd.EnvironmentId == TestEnvironmentId &&
+                cmd.ProductDeploymentId == productDeployment.Id.Value.ToString() &&
+                cmd.StackNames == null),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ProductIdWithStackDefinitionName_RedeploysOnlyNamedStack()
+    {
+        var productDeployment = CreateRunningProductDeployment("test.product");
+        SetupProductDeploymentLookup("test.product", productDeployment);
+        SetupSuccessfulProductRedeploy(productDeployment.Id.Value.ToString());
+
+        await _handler.Handle(
+            new RedeployStackCommand(null, TestEnvironmentId,
+                ProductId: "test.product", StackDefinitionName: "Analytics"),
+            CancellationToken.None);
+
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<RedeployProductCommand>(cmd =>
+                cmd.StackNames != null &&
+                cmd.StackNames.Count == 1 &&
+                cmd.StackNames[0] == "Analytics"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ProductIdWithVariables_PassesVariablesToCommand()
+    {
+        var productDeployment = CreateRunningProductDeployment("test.product");
+        SetupProductDeploymentLookup("test.product", productDeployment);
+        SetupSuccessfulProductRedeploy(productDeployment.Id.Value.ToString());
+
+        var variables = new Dictionary<string, string> { ["BUILD_NUM"] = "42" };
+
+        await _handler.Handle(
+            new RedeployStackCommand(null, TestEnvironmentId, variables, ProductId: "test.product"),
+            CancellationToken.None);
+
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<RedeployProductCommand>(cmd =>
+                cmd.VariableOverrides != null &&
+                cmd.VariableOverrides["BUILD_NUM"] == "42"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ProductIdNotFound_ReturnsError()
+    {
+        _productDeploymentRepoMock
+            .Setup(r => r.GetActiveByProductGroupId(It.IsAny<EnvironmentId>(), It.IsAny<string>()))
+            .Returns((ProductDeployment?)null);
+
+        var result = await _handler.Handle(
+            new RedeployStackCommand(null, TestEnvironmentId, ProductId: "unknown.product"),
+            CancellationToken.None);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("No active product deployment");
+        result.Message.Should().Contain("unknown.product");
+    }
+
+    [Fact]
+    public async Task Handle_ProductRedeployFails_PropagatesError()
+    {
+        var productDeployment = CreateRunningProductDeployment("test.product");
+        SetupProductDeploymentLookup("test.product", productDeployment);
+
+        _mediatorMock
+            .Setup(m => m.Send(It.IsAny<RedeployProductCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(DeployProductResponse.Failed("Lock acquisition failed"));
+
+        var result = await _handler.Handle(
+            new RedeployStackCommand(null, TestEnvironmentId, ProductId: "test.product"),
+            CancellationToken.None);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("Lock acquisition failed");
+    }
+
+    [Fact]
+    public async Task Handle_ProductIdWithInvalidEnvironmentId_ReturnsError()
+    {
+        var result = await _handler.Handle(
+            new RedeployStackCommand(null, "not-a-guid", ProductId: "test.product"),
+            CancellationToken.None);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("Invalid environment ID");
+    }
+
+    [Fact]
+    public async Task Handle_ProductIdNullStackDefinitionName_RedeploysAllStacks()
+    {
+        var productDeployment = CreateRunningProductDeployment("test.product");
+        SetupProductDeploymentLookup("test.product", productDeployment);
+        SetupSuccessfulProductRedeploy(productDeployment.Id.Value.ToString());
+
+        await _handler.Handle(
+            new RedeployStackCommand(null, TestEnvironmentId,
+                ProductId: "test.product", StackDefinitionName: null),
+            CancellationToken.None);
+
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<RedeployProductCommand>(cmd => cmd.StackNames == null),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ProductIdWithStackNameIgnored_UsesProductPath()
+    {
+        // When productId is set, stackName should be ignored and product path should be used
+        var productDeployment = CreateRunningProductDeployment("test.product");
+        SetupProductDeploymentLookup("test.product", productDeployment);
+        SetupSuccessfulProductRedeploy(productDeployment.Id.Value.ToString());
+
+        var result = await _handler.Handle(
+            new RedeployStackCommand("some-stack-name", TestEnvironmentId, ProductId: "test.product"),
+            CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        _mediatorMock.Verify(m => m.Send(
+            It.IsAny<RedeployProductCommand>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+        _mediatorMock.Verify(m => m.Send(
+            It.IsAny<DeployStackCommand>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    #endregion
+
     #region Helpers
 
     private void SetupDeploymentLookup(Deployment deployment)
@@ -517,6 +707,52 @@ public class RedeployStackHandlerTests
         deployment.MarkAsRunning();
         deployment.MarkAsRemoved();
         return deployment;
+    }
+
+    private static ProductDeployment CreateRunningProductDeployment(string productGroupId)
+    {
+        var stackConfigs = new List<StackDeploymentConfig>
+        {
+            new("Analytics", "Analytics", "source1:analytics", 2, new Dictionary<string, string>()),
+            new("Backend", "Backend", "source1:backend", 1, new Dictionary<string, string>())
+        };
+
+        var deployment = ProductDeployment.InitiateDeployment(
+            ProductDeploymentId.NewId(),
+            new EnvironmentId(Guid.Parse(TestEnvironmentId)),
+            productGroupId, $"{productGroupId}:1.0.0",
+            "test-product", "Test Product", "1.0.0",
+            UserId.Create(), "test-deployment",
+            stackConfigs, new Dictionary<string, string>());
+
+        foreach (var stack in deployment.GetStacksInDeployOrder())
+        {
+            deployment.StartStack(stack.StackName, DeploymentId.NewId());
+            deployment.CompleteStack(stack.StackName);
+        }
+
+        return deployment;
+    }
+
+    private void SetupProductDeploymentLookup(string productGroupId, ProductDeployment productDeployment)
+    {
+        _productDeploymentRepoMock
+            .Setup(r => r.GetActiveByProductGroupId(
+                It.Is<EnvironmentId>(e => e.Value == Guid.Parse(TestEnvironmentId)),
+                It.Is<string>(s => s == productGroupId)))
+            .Returns(productDeployment);
+    }
+
+    private void SetupSuccessfulProductRedeploy(string productDeploymentId)
+    {
+        _mediatorMock
+            .Setup(m => m.Send(It.IsAny<RedeployProductCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DeployProductResponse
+            {
+                Success = true,
+                ProductDeploymentId = productDeploymentId,
+                Message = "Redeploy completed"
+            });
     }
 
     #endregion
