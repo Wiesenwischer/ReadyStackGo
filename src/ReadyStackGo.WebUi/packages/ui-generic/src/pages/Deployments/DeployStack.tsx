@@ -1,210 +1,27 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useRef } from 'react';
 import { useParams, Link } from 'react-router';
-import { deployCompose, deployStack, type StackDetail, getStack, getProduct, type Product, type ProductVersion, getEnvironmentVariables, saveEnvironmentVariables, type DeploymentProgressUpdate, type InitContainerLogEntry } from '@rsgo/core';
+import { useDeployStackStore } from '@rsgo/core';
+import { useAuth } from '../../context/AuthContext';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { useDeploymentHub } from '../../hooks/useDeploymentHub';
 import VariableInput, { groupVariables } from '../../components/variables/VariableInput';
 import { DeploymentProgressPanel } from '../../components/deployments/DeploymentProgressPanel';
 
-// Parse .env file content and return key-value pairs
-const parseEnvContent = (content: string): Record<string, string> => {
-  const result: Record<string, string> = {};
-  const lines = content.split('\n');
-  for (const line of lines) {
-    const trimmed = line.trim();
-    // Skip empty lines and comments
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    // Find first = sign
-    const eqIndex = trimmed.indexOf('=');
-    if (eqIndex === -1) continue;
-    const key = trimmed.substring(0, eqIndex).trim();
-    let value = trimmed.substring(eqIndex + 1).trim();
-    // Remove surrounding quotes if present
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
-    if (key) {
-      result[key] = value;
-    }
-  }
-  return result;
-};
-
-type DeployState = 'loading' | 'configure' | 'deploying' | 'success' | 'error';
-
 export default function DeployStack() {
   const { stackId } = useParams<{ stackId: string }>();
+  const { token } = useAuth();
   const { activeEnvironment } = useEnvironment();
-
-  // Check if this is a custom deployment (no pre-defined stack)
-  const isCustomDeploy = stackId === 'custom';
-
-  const [state, setState] = useState<DeployState>(isCustomDeploy ? 'configure' : 'loading');
-  const [stack, setStack] = useState<StackDetail | null>(null);
-  const [product, setProduct] = useState<Product | null>(null);
-  const [selectedStackId, setSelectedStackId] = useState<string | null>(stackId || null);
-  const [stackName, setStackName] = useState('');
-  const [yamlContent, setYamlContent] = useState('');
-  const [variableValues, setVariableValues] = useState<Record<string, string>>({});
-  const [error, setError] = useState('');
-  const [deployWarnings, setDeployWarnings] = useState<string[]>([]);
   const envFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Deployment progress state
-  // Use ref for session ID to avoid stale closures in SignalR callback
-  const deploymentSessionIdRef = useRef<string | null>(null);
-  const [progressUpdate, setProgressUpdate] = useState<DeploymentProgressUpdate | null>(null);
-  const [initContainerLogs, setInitContainerLogs] = useState<Record<string, string[]>>({});
+  const store = useDeployStackStore(token, activeEnvironment?.id, stackId);
 
-  // SignalR hub for real-time deployment progress
-  // Use ref to avoid stale closure - the callback may fire before state is updated
-  const handleDeploymentProgress = useCallback((update: DeploymentProgressUpdate) => {
-    // Check against ref (updated synchronously) for immediate filtering
-    const currentSessionId = deploymentSessionIdRef.current;
-    if (currentSessionId && update.sessionId === currentSessionId) {
-      setProgressUpdate(update);
-
-      // Check if deployment completed (success or error)
-      if (update.isComplete) {
-        if (update.isError) {
-          setError(update.errorMessage || 'Deployment failed');
-          setState('error');
-        } else {
-          setState('success');
-        }
-      }
-    }
-  }, []);
-
-  const handleInitContainerLog = useCallback((log: InitContainerLogEntry) => {
-    const currentSessionId = deploymentSessionIdRef.current;
-    if (currentSessionId && log.sessionId === currentSessionId) {
-      setInitContainerLogs(prev => ({
-        ...prev,
-        [log.containerName]: [...(prev[log.containerName] || []), log.logLine]
-      }));
-    }
-  }, []);
-
-  const { subscribeToDeployment, connectionState } = useDeploymentHub({
-    onDeploymentProgress: handleDeploymentProgress,
-    onInitContainerLog: handleInitContainerLog,
-  });
-
-  // Load stack details (only if not custom)
-  useEffect(() => {
-    if (isCustomDeploy) {
-      return; // No loading needed for custom deploy
-    }
-
-    if (!stackId) {
-      setError('No stack ID provided');
-      setState('error');
-      return;
-    }
-
-    const loadStack = async () => {
-      try {
-        setState('loading');
-        setError('');
-
-        const detail = await getStack(stackId);
-        setStack(detail);
-        setStackName(detail.name);
-        setSelectedStackId(stackId);
-
-        // Load product to get available versions
-        if (detail.productId) {
-          try {
-            const productData = await getProduct(detail.productId);
-            setProduct(productData);
-          } catch {
-            // Product load failure is not critical, version selection just won't be available
-          }
-        }
-
-        // Initialize variable values with defaults
-        const initialValues: Record<string, string> = {};
-        detail.variables.forEach(v => {
-          initialValues[v.name] = v.defaultValue || '';
-        });
-
-        // Load saved environment variables and merge with defaults
-        if (activeEnvironment) {
-          try {
-            const savedVars = await getEnvironmentVariables(activeEnvironment.id);
-            // Merge saved values with defaults (saved values take precedence)
-            Object.keys(savedVars.variables).forEach(key => {
-              if (Object.prototype.hasOwnProperty.call(initialValues, key)) {
-                initialValues[key] = savedVars.variables[key];
-              }
-            });
-          } catch {
-            // If loading fails, just use defaults
-          }
-        }
-
-        setVariableValues(initialValues);
-
-        setState('configure');
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load stack');
-        setState('error');
-      }
-    };
-
-    loadStack();
-  }, [stackId, isCustomDeploy]);
-
-  // Handle version change
-  const handleVersionChange = async (version: ProductVersion) => {
-    if (!product) return;
-
-    try {
-      // Find the stack for the selected version (use default stack of that version)
-      const newStackId = version.defaultStackId;
-      setSelectedStackId(newStackId);
-
-      // Load the stack details for the new version
-      const detail = await getStack(newStackId);
-      setStack(detail);
-      setStackName(detail.name);
-
-      // Re-initialize variables, keeping values where applicable
-      const initialValues: Record<string, string> = {};
-      detail.variables.forEach(v => {
-        // Keep existing value if variable exists, otherwise use default
-        if (variableValues[v.name] !== undefined) {
-          initialValues[v.name] = variableValues[v.name];
-        } else {
-          initialValues[v.name] = v.defaultValue || '';
-        }
-      });
-      setVariableValues(initialValues);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load version');
-    }
-  };
-
-  // Handle .env file import
+  // Handle .env file import (file reading is UI concern, parsing delegated to store)
   const handleEnvFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && stack) {
+    if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
         const content = event.target?.result as string;
-        const envValues = parseEnvContent(content);
-        // Update variable values with matching keys from .env
-        setVariableValues(prev => {
-          const updated = { ...prev };
-          for (const v of stack.variables) {
-            if (envValues[v.name] !== undefined) {
-              updated[v.name] = envValues[v.name];
-            }
-          }
-          return updated;
-        });
+        store.handleEnvFileContent(content);
       };
       reader.readAsText(file);
     }
@@ -214,126 +31,7 @@ export default function DeployStack() {
     }
   };
 
-  // Handle reset to defaults
-  const handleResetToDefaults = () => {
-    if (!stack) return;
-
-    // Reset all variables to their default values
-    const defaultValues: Record<string, string> = {};
-    stack.variables.forEach(v => {
-      defaultValues[v.name] = v.defaultValue || '';
-    });
-    setVariableValues(defaultValues);
-  };
-
-  const handleDeploy = async () => {
-    if (!stackName.trim()) {
-      setError('Please provide a stack name');
-      return;
-    }
-
-    if (!activeEnvironment) {
-      setError('No environment selected');
-      return;
-    }
-
-    // For custom deploy, require YAML content
-    if (isCustomDeploy && !yamlContent.trim()) {
-      setError('Please provide docker-compose YAML content');
-      return;
-    }
-
-    // For stack deploy, require stack to be loaded
-    if (!isCustomDeploy && !stack) {
-      setError('Stack not loaded');
-      return;
-    }
-
-    // Check required variables (only for stack deploy)
-    if (stack) {
-      const missingRequired = stack.variables
-        .filter(v => v.isRequired && !variableValues[v.name])
-        .map(v => v.label || v.name);
-
-      if (missingRequired.length > 0) {
-        setError(`Missing required variables: ${missingRequired.join(', ')}`);
-        return;
-      }
-    }
-
-    // Generate session ID BEFORE the API call so we can receive progress updates immediately
-    const sessionId = `${stackName}-${Date.now()}`;
-    deploymentSessionIdRef.current = sessionId;
-
-    setState('deploying');
-    setError('');
-    setProgressUpdate(null);
-    setInitContainerLogs({});
-    // Subscribe to SignalR group BEFORE starting the API call
-    // This ensures we don't miss any progress updates
-    if (connectionState === 'connected') {
-      await subscribeToDeployment(sessionId);
-    }
-
-    try {
-      let response;
-
-      if (isCustomDeploy) {
-        // Custom deploy: use old API with YAML content
-        response = await deployCompose(activeEnvironment.id, {
-          stackName,
-          yamlContent,
-          variables: variableValues,
-          sessionId,
-        });
-      } else {
-        // Catalog deploy: use new API with stackId (no YAML needed)
-        response = await deployStack(activeEnvironment.id, selectedStackId!, {
-          stackName,
-          variables: variableValues,
-          sessionId,
-        });
-      }
-
-      if (!response.success) {
-        setError(response.errors.join('\n') || response.message || 'Deployment failed');
-        setState('error');
-        return;
-      }
-
-      setDeployWarnings(response.warnings || []);
-
-      // Save variable values for this environment (fire and forget)
-      if (activeEnvironment) {
-        try {
-          await saveEnvironmentVariables(activeEnvironment.id, {
-            variables: variableValues
-          });
-        } catch {
-          // Ignore save errors - deployment was successful
-        }
-      }
-
-      // State will be set to 'success' by SignalR callback when deployment completes
-      // But if no SignalR connection, set it immediately
-      if (connectionState !== 'connected') {
-        setState('success');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Deployment failed');
-      setState('error');
-    }
-  };
-
-  // Get back URL - go back to product detail page in catalog
-  const getBackUrl = () => {
-    if (stack?.productId) {
-      return `/catalog/${encodeURIComponent(stack.productId)}`;
-    }
-    return '/catalog';
-  };
-
-  if (state === 'loading') {
+  if (store.state === 'loading') {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="flex items-center justify-center py-12">
@@ -346,7 +44,7 @@ export default function DeployStack() {
     );
   }
 
-  if (state === 'error' && !stack) {
+  if (store.state === 'error' && !store.stack) {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="mb-6">
@@ -361,13 +59,13 @@ export default function DeployStack() {
           </Link>
         </div>
         <div className="rounded-md bg-red-50 p-4 dark:bg-red-900/20">
-          <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+          <p className="text-sm text-red-800 dark:text-red-200">{store.error}</p>
         </div>
       </div>
     );
   }
 
-  if (state === 'success') {
+  if (store.state === 'success') {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="rounded-2xl border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -381,14 +79,14 @@ export default function DeployStack() {
               Stack Deployed Successfully!
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {stackName} has been deployed to {activeEnvironment?.name}
+              {store.stackName} has been deployed to {activeEnvironment?.name}
             </p>
 
-            {deployWarnings.length > 0 && (
+            {store.deployWarnings.length > 0 && (
               <div className="w-full max-w-md mb-6 p-4 text-sm text-yellow-800 bg-yellow-100 rounded-lg dark:bg-yellow-900/30 dark:text-yellow-400">
                 <p className="font-medium mb-2">Warnings:</p>
                 <ul className="ml-4 list-disc">
-                  {deployWarnings.map((w, i) => (
+                  {store.deployWarnings.map((w, i) => (
                     <li key={i}>{w}</li>
                   ))}
                 </ul>
@@ -403,7 +101,7 @@ export default function DeployStack() {
                 View Deployments
               </Link>
               <Link
-                to={getBackUrl()}
+                to={store.backUrl}
                 className="inline-flex items-center justify-center gap-2 rounded-md bg-gray-100 px-6 py-3 text-center font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
               >
                 Back to Product
@@ -415,7 +113,7 @@ export default function DeployStack() {
     );
   }
 
-  if (state === 'deploying') {
+  if (store.state === 'deploying') {
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="rounded-2xl border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -425,15 +123,15 @@ export default function DeployStack() {
               Deploying Stack...
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Deploying {stackName} to {activeEnvironment?.name}
+              Deploying {store.stackName} to {activeEnvironment?.name}
             </p>
 
             {/* Progress Section */}
             <div className="w-full max-w-md">
               <DeploymentProgressPanel
-                progressUpdate={progressUpdate}
-                initContainerLogs={initContainerLogs}
-                connectionState={connectionState}
+                progressUpdate={store.progressUpdate}
+                initContainerLogs={store.initContainerLogs}
+                connectionState={store.connectionState}
               />
             </div>
           </div>
@@ -448,7 +146,7 @@ export default function DeployStack() {
       {/* Breadcrumb */}
       <div className="mb-6">
         <Link
-          to={getBackUrl()}
+          to={store.backUrl}
           className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -461,21 +159,21 @@ export default function DeployStack() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-          {isCustomDeploy ? 'Deploy Custom Stack' : `Deploy ${stack?.name}`}
+          {store.isCustomDeploy ? 'Deploy Custom Stack' : `Deploy ${store.stack?.name}`}
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
-          {isCustomDeploy
+          {store.isCustomDeploy
             ? 'Deploy a custom docker-compose stack'
             : `Configure and deploy this stack to `}
-          {!isCustomDeploy && <span className="font-medium">{activeEnvironment?.name}</span>}
+          {!store.isCustomDeploy && <span className="font-medium">{activeEnvironment?.name}</span>}
         </p>
       </div>
 
       {/* Error Display - Directly under header for visibility */}
-      {error && (
+      {store.error && (
         <div className="mb-6 p-4 text-sm text-red-800 bg-red-100 rounded-lg dark:bg-red-900/30 dark:text-red-400">
           <p className="font-medium mb-1">Error</p>
-          <p>{error}</p>
+          <p>{store.error}</p>
         </div>
       )}
 
@@ -497,27 +195,27 @@ export default function DeployStack() {
             </h2>
 
             {/* Version Selection (only if multiple versions available) */}
-            {!isCustomDeploy && product?.availableVersions && product.availableVersions.length > 1 && (
+            {!store.isCustomDeploy && store.product?.availableVersions && store.product.availableVersions.length > 1 && (
               <div className="mb-4">
                 <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   Version
                 </label>
                 <select
-                  value={stack?.version || ''}
+                  value={store.stack?.version || ''}
                   onChange={(e) => {
-                    const version = product.availableVersions?.find(v => v.version === e.target.value);
-                    if (version) handleVersionChange(version);
+                    const version = store.product!.availableVersions?.find(v => v.version === e.target.value);
+                    if (version) store.handleVersionChange(version);
                   }}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-brand-500"
                 >
-                  {product.availableVersions.map((v) => (
+                  {store.product.availableVersions.map((v) => (
                     <option key={v.productId} value={v.version}>
                       {v.version}{v.isCurrent ? ' (current)' : ''}
                     </option>
                   ))}
                 </select>
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {product.availableVersions.length} versions available
+                  {store.product.availableVersions.length} versions available
                 </p>
               </div>
             )}
@@ -528,8 +226,8 @@ export default function DeployStack() {
               </label>
               <input
                 type="text"
-                value={stackName}
-                onChange={(e) => setStackName(e.target.value)}
+                value={store.stackName}
+                onChange={(e) => store.setStackName(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-brand-500"
                 placeholder="my-stack"
               />
@@ -540,7 +238,7 @@ export default function DeployStack() {
           </div>
 
           {/* Custom YAML Input (for custom deploy) */}
-          {isCustomDeploy && (
+          {store.isCustomDeploy && (
             <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Docker Compose YAML
@@ -549,8 +247,8 @@ export default function DeployStack() {
                 Paste your docker-compose.yml content below.
               </p>
               <textarea
-                value={yamlContent}
-                onChange={(e) => setYamlContent(e.target.value)}
+                value={store.yamlContent}
+                onChange={(e) => store.setYamlContent(e.target.value)}
                 rows={15}
                 className="w-full px-4 py-3 font-mono text-sm border border-gray-300 rounded-lg dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-brand-500"
                 placeholder={`version: "3.8"
@@ -564,7 +262,7 @@ services:
           )}
 
           {/* Variables (for stack deploy) */}
-          {!isCustomDeploy && stack && stack.variables.length > 0 && (
+          {!store.isCustomDeploy && store.stack && store.stack.variables.length > 0 && (
             <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Environment Variables
@@ -575,7 +273,7 @@ services:
 
               {/* Render variables grouped */}
               {(() => {
-                const groups = groupVariables(stack.variables);
+                const groups = groupVariables(store.stack.variables);
                 return Array.from(groups.entries()).map(([groupName, groupVars]) => (
                   <div key={groupName} className="mb-6 last:mb-0">
                     {groups.size > 1 && (
@@ -588,10 +286,8 @@ services:
                         <VariableInput
                           key={v.name}
                           variable={v}
-                          value={variableValues[v.name] || ''}
-                          onChange={(newValue) =>
-                            setVariableValues({ ...variableValues, [v.name]: newValue })
-                          }
+                          value={store.variableValues[v.name] || ''}
+                          onChange={(newValue) => store.setVariableValue(v.name, newValue)}
                         />
                       ))}
                     </div>
@@ -608,7 +304,7 @@ services:
           {/* Import & Deploy Actions - First for better UX */}
           <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
             {/* Import .env Button (only for stack deploy with variables) */}
-            {!isCustomDeploy && stack && stack.variables.length > 0 && (
+            {!store.isCustomDeploy && store.stack && store.stack.variables.length > 0 && (
               <>
                 <input
                   ref={envFileInputRef}
@@ -629,7 +325,7 @@ services:
 
                 {/* Reset to Defaults Button */}
                 <button
-                  onClick={handleResetToDefaults}
+                  onClick={store.handleResetToDefaults}
                   className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-gray-100 px-6 py-3 text-center font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 mb-3"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -642,8 +338,8 @@ services:
 
             {/* Deploy Button */}
             <button
-              onClick={handleDeploy}
-              disabled={!activeEnvironment || !stackName.trim() || (!isCustomDeploy && !selectedStackId) || (isCustomDeploy && !yamlContent.trim())}
+              onClick={store.handleDeploy}
+              disabled={!activeEnvironment || !store.stackName.trim() || (!store.isCustomDeploy && !store.selectedStackId) || (store.isCustomDeploy && !store.yamlContent.trim())}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -657,15 +353,15 @@ services:
           </div>
 
           {/* Stack Info (only for stack deploy) */}
-          {!isCustomDeploy && (
+          {!store.isCustomDeploy && (
             <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Stack Info
               </h2>
 
-              {stack?.description && (
+              {store.stack?.description && (
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  {stack.description}
+                  {store.stack.description}
                 </p>
               )}
 
@@ -673,32 +369,32 @@ services:
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 dark:text-gray-400">Services</span>
                   <span className="font-medium text-gray-900 dark:text-white">
-                    {stack?.services.length || 0}
+                    {store.stack?.services.length || 0}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 dark:text-gray-400">Variables</span>
                   <span className="font-medium text-gray-900 dark:text-white">
-                    {stack?.variables.length || 0}
+                    {store.stack?.variables.length || 0}
                   </span>
                 </div>
-                {stack?.version && (
+                {store.stack?.version && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500 dark:text-gray-400">Version</span>
                     <span className="font-medium text-gray-900 dark:text-white">
-                      {stack.version}
+                      {store.stack.version}
                     </span>
                   </div>
                 )}
               </div>
 
-              {stack && stack.services.length > 0 && (
+              {store.stack && store.stack.services.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                   <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
                     Services
                   </p>
                   <div className="space-y-1">
-                    {stack.services.map((service) => (
+                    {store.stack.services.map((service) => (
                       <div
                         key={service.name}
                         className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
@@ -716,7 +412,7 @@ services:
           )}
 
           {/* Custom Deploy Info */}
-          {isCustomDeploy && (
+          {store.isCustomDeploy && (
             <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Custom Deployment

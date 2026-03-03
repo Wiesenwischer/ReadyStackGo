@@ -47,5 +47,19 @@ export * from './realtime/useUpdateHub';
 export * from './hooks/useNotifications';
 export * from './hooks/useVersionInfo';
 
+// Store Hooks (ViewModel layer)
+export { useRegistryStore, type UseRegistryStoreReturn } from './hooks/useRegistryStore';
+export { useStackSourceStore, type UseStackSourceStoreReturn } from './hooks/useStackSourceStore';
+export { useTlsStore, type UseTlsStoreReturn } from './hooks/useTlsStore';
+export { useApiKeyStore, type UseApiKeyStoreReturn } from './hooks/useApiKeyStore';
+export { useRemoveStackStore, type UseRemoveStackStoreReturn, type RemoveState } from './hooks/useRemoveStackStore';
+export { useRollbackStore, type UseRollbackStoreReturn, type RollbackState } from './hooks/useRollbackStore';
+export { useDeployStackStore, type UseDeployStackStoreReturn, type DeployState } from './hooks/useDeployStackStore';
+export { useUpgradeStackStore, type UseUpgradeStackStoreReturn, type UpgradeState } from './hooks/useUpgradeStackStore';
+
+// Services
+export * from './services/AuthService';
+export * from './services/EnvironmentService';
+
 // Utils
 export * from './utils/timeAgo';

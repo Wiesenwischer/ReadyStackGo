@@ -160,13 +160,13 @@ export default function RegistrySettings() {
 
 Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
 
-- [ ] **Feature 1: Core API Layer** — `api/` nach `core/api/` verschieben, Types extrahieren nach `core/types/`
+- [x] **Feature 1: Core API Layer** — `api/` nach `core/api/` verschieben, Types extrahieren nach `core/types/` — erledigt via Monorepo-Refactoring (PRs #194–#200)
   - Betroffene Dateien: Alle 12 `api/*.ts`, neue `core/types/*.ts`
   - Import-Pfade in allen Konsumenten aktualisieren
   - Abhängig von: -
   - Tests: Build + `npm run dev` muss funktionieren, kein visueller Unterschied
 
-- [ ] **Feature 2: Core Services** — SignalR und Auth/Environment-Logik in `core/services/` extrahieren
+- [x] **Feature 2: Core Services** — SignalR und Auth/Environment-Logik in `core/services/` extrahieren — PR #201
   - `AuthService.ts` aus `AuthContext.tsx` (Login, Logout, Token-Management, localStorage)
   - `EnvironmentService.ts` aus `EnvironmentContext.tsx` (Load, Select, Persist)
   - `DeploymentHub.ts` aus `useDeploymentHub.ts` (SignalR-Connection, Event-Subscriptions)
@@ -175,7 +175,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Abhängig von: Feature 1
   - Tests: Login, Environment-Wechsel, Deployment-Progress, Health-Updates müssen funktionieren
 
-- [ ] **Feature 3: Store-Hooks für Settings-Seiten** — Business-Logik aus den schwersten Komponenten extrahieren
+- [x] **Feature 3: Store-Hooks für Settings-Seiten** — Business-Logik aus den schwersten Komponenten extrahieren — PR #202
   - `useRegistryStore.ts` aus `RegistrySettings.tsx` (460 Zeilen → Store + UI)
   - `useStackSourceStore.ts` aus `StackSourcesSettings.tsx`
   - `useTlsStore.ts` aus `TlsSettings.tsx`
@@ -184,11 +184,11 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Abhängig von: Feature 1
   - Tests: Alle Settings-Seiten funktional testen (CRUD-Operationen, Modals, Error-States)
 
-- [ ] **Feature 4: Store-Hooks für Deployment-Seiten** — Komplexeste Business-Logik extrahieren
-  - `useDeployStore.ts` aus `DeployStack.tsx` (State-Machine: loading → configure → deploying → success/error)
-  - `useRollbackStore.ts` aus der Rollback-Seite
-  - `useUpgradeStore.ts` aus der Upgrade-Seite
-  - `useRemoveStore.ts` aus der Remove-Seite
+- [x] **Feature 4: Store-Hooks für Deployment-Seiten** — Komplexeste Business-Logik extrahieren — PR #203
+  - `useDeployStackStore.ts` aus `DeployStack.tsx` (State-Machine: loading → configure → deploying → success/error)
+  - `useRollbackStore.ts` aus `RollbackStack.tsx`
+  - `useUpgradeStackStore.ts` aus `UpgradeStack.tsx`
+  - `useRemoveStackStore.ts` aus `RemoveStack.tsx`
   - Betroffene Dateien: `pages/Deployments/*`
   - Abhängig von: Feature 2 (wegen SignalR-Dependency)
   - Tests: Deploy-Flow end-to-end, Progress-Updates, Error-Handling
