@@ -8,7 +8,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from 'recharts';
-import { getHealthHistory, type StackHealthSummaryDto } from '../../api/health';
+import { getHealthHistory, type StackHealthSummaryDto } from '@rsgo/core';
 
 interface HealthHistoryChartProps {
   deploymentId: string;

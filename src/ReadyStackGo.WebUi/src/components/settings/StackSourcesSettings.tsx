@@ -8,7 +8,7 @@ import {
   syncAllSources,
   type StackSourceDto,
   type CreateStackSourceRequest,
-} from "../../api/stackSources";
+} from '@rsgo/core';
 
 export default function StackSourcesSettings() {
   const navigate = useNavigate();

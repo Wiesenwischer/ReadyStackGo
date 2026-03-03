@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
-import { getDeployment, removeDeployment, type GetDeploymentResponse } from '../../api/deployments';
+import { getDeployment, removeDeployment, type GetDeploymentResponse, useDeploymentHub, type DeploymentProgressUpdate } from '@rsgo/core';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { useDeploymentHub, type DeploymentProgressUpdate } from '../../hooks/useDeploymentHub';
+import { useAuth } from '../../context/AuthContext';
 
 // Format phase names for display (RemovingContainers -> Removing Containers)
 const formatPhase = (phase: string | undefined): string => {
@@ -15,6 +15,7 @@ type RemoveState = 'loading' | 'confirm' | 'removing' | 'success' | 'error';
 export default function RemoveStack() {
   const { stackName } = useParams<{ stackName: string }>();
   const { activeEnvironment } = useEnvironment();
+  const { token } = useAuth();
   const navigate = useNavigate();
 
   const [state, setState] = useState<RemoveState>('loading');
@@ -47,7 +48,7 @@ export default function RemoveStack() {
     }
   }, []);
 
-  const { subscribeToDeployment, connectionState } = useDeploymentHub({
+  const { subscribeToDeployment, connectionState } = useDeploymentHub(token, {
     onDeploymentProgress: handleRemoveProgress,
   });
 

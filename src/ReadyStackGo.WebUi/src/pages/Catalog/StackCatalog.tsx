@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router";
-import { getProducts, syncSources, type Product } from "../../api/stacks";
+import { getProducts, syncAllSources, type Product } from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
 
 export default function StackCatalog() {
@@ -27,7 +27,7 @@ export default function StackCatalog() {
     try {
       setSyncing(true);
       setError(null);
-      await syncSources();
+      await syncAllSources();
       await loadProducts();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to sync sources");

@@ -1,12 +1,14 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router";
-import { getProduct, type Product, type ProductStack } from "../../api/stacks";
 import {
+  getProduct,
+  type Product,
+  type ProductStack,
   getProductDeploymentByProduct,
   checkProductUpgrade,
   type GetProductDeploymentResponse,
   type ProductStackDeploymentDto,
-} from "../../api/deployments";
+} from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
 
 export default function ProductDetail() {

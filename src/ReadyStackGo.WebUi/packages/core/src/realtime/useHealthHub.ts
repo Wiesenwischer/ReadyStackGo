@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as signalR from '@microsoft/signalr';
-import { useAuth } from '../context/AuthContext';
 import type { StackHealthDto, EnvironmentHealthSummaryDto } from '../api/health';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
@@ -22,8 +21,7 @@ export interface UseHealthHubReturn {
   unsubscribeFromAllHealth: () => Promise<void>;
 }
 
-export function useHealthHub(options: UseHealthHubOptions = {}): UseHealthHubReturn {
-  const { token } = useAuth();
+export function useHealthHub(token: string | null, options: UseHealthHubOptions = {}): UseHealthHubReturn {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const optionsRef = useRef(options);

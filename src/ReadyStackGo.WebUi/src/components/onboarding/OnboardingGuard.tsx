@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getOnboardingStatus } from '../../api/onboarding';
+import { getOnboardingStatus } from '@rsgo/core';
 
 interface OnboardingGuardProps {
   children: ReactNode;

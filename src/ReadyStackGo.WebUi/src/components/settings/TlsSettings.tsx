@@ -6,7 +6,7 @@ import {
   type LetsEncryptStatus,
   type LetsEncryptChallengeType,
   type LetsEncryptDnsProviderType,
-} from "../../api/system";
+} from '@rsgo/core';
 
 type CertFormat = "pfx" | "pem";
 

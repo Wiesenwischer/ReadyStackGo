@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiPost } from '../../../api/client';
+import { apiPost } from '@rsgo/core';
 
 interface SqlServerConnectionBuilderProps {
   isOpen: boolean;

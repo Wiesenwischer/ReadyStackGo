@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import WizardLayout from './WizardLayout';
 import AdminStep from './AdminStep';
-import { createAdmin, installStack, getWizardStatus, type WizardTimeoutInfo } from '../../api/wizard';
+import { createAdmin, installStack, getWizardStatus, type WizardTimeoutInfo } from '@rsgo/core';
 import { useAuth } from '../../context/AuthContext';
 
 export default function Wizard() {

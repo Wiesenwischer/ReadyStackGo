@@ -4,7 +4,7 @@ import {
   getRegistries,
   setDefaultRegistry,
   type RegistryDto,
-} from "../../../api/registries";
+} from '@rsgo/core';
 
 export default function RegistriesList() {
   const [registries, setRegistries] = useState<RegistryDto[]>([]);

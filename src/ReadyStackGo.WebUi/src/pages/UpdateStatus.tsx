@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { systemApi, type VersionInfo } from "../api/system";
-import { useUpdateHub } from "../hooks/useUpdateHub";
+import { systemApi, type VersionInfo, useUpdateHub } from '@rsgo/core';
 
 const VERSION_POLL_INTERVAL_MS = 3000;
 const VERSION_POLL_TIMEOUT_MS = 120000;

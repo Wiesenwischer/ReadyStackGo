@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getWizardRegistry, type WizardRegistrySource } from '../../api/wizard';
+import { getWizardRegistry, type WizardRegistrySource } from '@rsgo/core';
 
 interface StackSourcesStepProps {
   onNext: (selectedIds: string[]) => Promise<void>;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { createEnvironment } from '../../api/environments';
-import { getWizardStatus } from '../../api/wizard';
+import { createEnvironment } from '@rsgo/core';
+import { getWizardStatus } from '@rsgo/core';
 
 interface OnboardingEnvStepProps {
   onNext: () => void;

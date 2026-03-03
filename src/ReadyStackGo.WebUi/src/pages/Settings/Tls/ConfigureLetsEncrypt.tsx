@@ -4,7 +4,7 @@ import {
   systemApi,
   type LetsEncryptChallengeType,
   type LetsEncryptDnsProviderType,
-} from "../../../api/system";
+} from '@rsgo/core';
 
 export default function ConfigureLetsEncrypt() {
   const navigate = useNavigate();

@@ -6,9 +6,7 @@ import OnboardingEnvStep from './OnboardingEnvStep';
 import OnboardingSourcesStep from './OnboardingSourcesStep';
 import OnboardingCompleteStep from './OnboardingCompleteStep';
 import RegistriesStep from '../Wizard/RegistriesStep';
-import { getOnboardingStatus } from '../../api/onboarding';
-import { setRegistries } from '../../api/wizard';
-import type { RegistryInputDto } from '../../api/wizard';
+import { getOnboardingStatus, setRegistries, type RegistryInputDto } from '@rsgo/core';
 
 const TOTAL_STEPS = 5; // org, env, sources, registries, complete
 

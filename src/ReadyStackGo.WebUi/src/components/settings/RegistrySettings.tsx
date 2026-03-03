@@ -8,7 +8,7 @@ import {
   type RegistryDto,
   type CreateRegistryRequest,
   type UpdateRegistryRequest,
-} from "../../api/registries";
+} from '@rsgo/core';
 
 export default function RegistrySettings() {
   const navigate = useNavigate();

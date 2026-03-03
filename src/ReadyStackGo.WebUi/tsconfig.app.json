@@ -27,8 +27,10 @@
     /* Path Alias */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@rsgo/core": ["./packages/core/src/index.ts"],
+      "@rsgo/core/*": ["./packages/core/src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "packages/core/src"]
 }

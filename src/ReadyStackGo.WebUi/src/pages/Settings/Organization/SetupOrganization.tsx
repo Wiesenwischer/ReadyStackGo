@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { createOrganization } from '../../../api/organizations';
+import { createOrganization } from '@rsgo/core';
 
 export default function SetupOrganization() {
   const navigate = useNavigate();

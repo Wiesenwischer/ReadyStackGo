@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as signalR from '@microsoft/signalr';
-import { useAuth } from '../context/AuthContext';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
@@ -16,8 +15,7 @@ export interface UseContainerLogsHubReturn {
   unsubscribeFromContainerLogs: (containerId: string) => Promise<void>;
 }
 
-export function useContainerLogsHub(options: UseContainerLogsHubOptions = {}): UseContainerLogsHubReturn {
-  const { token } = useAuth();
+export function useContainerLogsHub(token: string | null, options: UseContainerLogsHubOptions = {}): UseContainerLogsHubReturn {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const optionsRef = useRef(options);

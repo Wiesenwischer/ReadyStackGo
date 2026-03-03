@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { getRegistry, deleteRegistry, type RegistryDto } from "../../../api/registries";
+import { getRegistry, deleteRegistry, type RegistryDto } from '@rsgo/core';
 
 type DeleteState = "loading" | "confirm" | "deleting" | "success" | "error";
 

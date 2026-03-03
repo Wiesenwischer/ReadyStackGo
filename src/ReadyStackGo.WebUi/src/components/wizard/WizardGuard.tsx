@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getWizardStatus } from '../../api/wizard';
+import { getWizardStatus } from '@rsgo/core';
 
 interface WizardGuardProps {
   children: ReactNode;

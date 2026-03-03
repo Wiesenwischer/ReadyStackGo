@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as signalR from '@microsoft/signalr';
-import { useAuth } from '../context/AuthContext';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
@@ -40,8 +39,7 @@ export interface UseDeploymentHubReturn {
   unsubscribeFromDeployment: (sessionId: string) => Promise<void>;
 }
 
-export function useDeploymentHub(options: UseDeploymentHubOptions = {}): UseDeploymentHubReturn {
-  const { token } = useAuth();
+export function useDeploymentHub(token: string | null, options: UseDeploymentHubOptions = {}): UseDeploymentHubReturn {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const optionsRef = useRef(options);

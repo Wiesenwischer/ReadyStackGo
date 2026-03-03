@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { createStackSource, type CreateStackSourceRequest } from "../../../api/stackSources";
+import { createStackSource, type CreateStackSourceRequest } from '@rsgo/core';
 
 export default function AddGitSource() {
   const navigate = useNavigate();

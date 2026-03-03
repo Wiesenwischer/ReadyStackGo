@@ -6,7 +6,7 @@ import {
   type HealthCheckEntryDto,
   getServiceHealth,
   getHealthStatusPresentation,
-} from '../../api/health';
+} from '@rsgo/core';
 
 export default function ServiceHealthDetail() {
   const { deploymentId, serviceName } = useParams<{

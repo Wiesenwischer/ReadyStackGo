@@ -5,9 +5,11 @@ import {
   retryProduct,
   type GetProductDeploymentResponse,
   type DeployProductStackResult,
-} from '../../api/deployments';
+  useDeploymentHub,
+  type DeploymentProgressUpdate,
+} from '@rsgo/core';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { useDeploymentHub, type DeploymentProgressUpdate } from '../../hooks/useDeploymentHub';
+import { useAuth } from '../../context/AuthContext';
 
 type RetryState = 'loading' | 'confirm' | 'retrying' | 'success' | 'error';
 type StackRetryStatus = 'skipped' | 'pending' | 'deploying' | 'running' | 'failed';
@@ -15,6 +17,7 @@ type StackRetryStatus = 'skipped' | 'pending' | 'deploying' | 'running' | 'faile
 export default function RetryProduct() {
   const { productDeploymentId } = useParams<{ productDeploymentId: string }>();
   const { activeEnvironment } = useEnvironment();
+  const { token } = useAuth();
 
   const [state, setState] = useState<RetryState>('loading');
   const [deployment, setDeployment] = useState<GetProductDeploymentResponse | null>(null);
@@ -70,7 +73,7 @@ export default function RetryProduct() {
     }
   }, []);
 
-  const { subscribeToDeployment, connectionState } = useDeploymentHub({
+  const { subscribeToDeployment, connectionState } = useDeploymentHub(token, {
     onDeploymentProgress: handleRetryProgress,
   });
 

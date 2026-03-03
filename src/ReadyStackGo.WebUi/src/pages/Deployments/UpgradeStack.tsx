@@ -5,12 +5,16 @@ import {
   checkUpgrade,
   upgradeDeployment,
   type GetDeploymentResponse,
-  type CheckUpgradeResponse
-} from '../../api/deployments';
-import { getStack, type StackDetail } from '../../api/stacks';
+  type CheckUpgradeResponse,
+  getStack,
+  type StackDetail,
+  useDeploymentHub,
+  type DeploymentProgressUpdate,
+  type InitContainerLogEntry,
+} from '@rsgo/core';
 import { useEnvironment } from '../../context/EnvironmentContext';
+import { useAuth } from '../../context/AuthContext';
 import VariableInput, { groupVariables } from '../../components/variables/VariableInput';
-import { useDeploymentHub, type DeploymentProgressUpdate, type InitContainerLogEntry } from '../../hooks/useDeploymentHub';
 
 // Format phase names for display (PullingImages -> Pulling Images)
 const formatPhase = (phase: string | undefined): string => {
@@ -47,6 +51,7 @@ export default function UpgradeStack() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { activeEnvironment } = useEnvironment();
+  const { token } = useAuth();
 
   // Get optional target version from URL params
   const targetVersionParam = searchParams.get('version');
@@ -93,7 +98,7 @@ export default function UpgradeStack() {
     }
   }, []);
 
-  const { subscribeToDeployment, connectionState } = useDeploymentHub({
+  const { subscribeToDeployment, connectionState } = useDeploymentHub(token, {
     onDeploymentProgress: handleUpgradeProgress,
     onInitContainerLog: handleInitContainerLog,
   });

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { createOrganization } from '../../api/organizations';
+import { createOrganization } from '@rsgo/core';
 
 interface OnboardingOrgStepProps {
   onNext: () => void;

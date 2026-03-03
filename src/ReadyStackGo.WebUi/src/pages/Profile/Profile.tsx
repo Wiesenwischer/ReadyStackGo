@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { userApi, type UserProfile } from "../../api/user";
+import { userApi, type UserProfile } from '@rsgo/core';
 
 function formatDate(isoString?: string): string {
   if (!isoString) return "-";

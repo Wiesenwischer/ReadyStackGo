@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { dashboardApi, type DashboardStats } from '../api/dashboard';
+import { dashboardApi, type DashboardStats } from '@rsgo/core';
 import { useEnvironment } from '../context/EnvironmentContext';
 import HealthWidget from '../components/dashboard/HealthWidget';
 import SetupHint from '../components/dashboard/SetupHint';

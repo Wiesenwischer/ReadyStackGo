@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { type DeploymentProgressUpdate, type ConnectionState } from '../../hooks/useDeploymentHub';
+import { type DeploymentProgressUpdate, type ConnectionState } from '@rsgo/core';
 import { formatPhase } from './formatPhase';
 
 export interface DeploymentProgressPanelProps {
