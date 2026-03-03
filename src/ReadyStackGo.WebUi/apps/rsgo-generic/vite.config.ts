@@ -21,17 +21,21 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      '/hubs': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
   build: {
-    outDir: '../ReadyStackGo.Api/wwwroot',
+    outDir: '../../../ReadyStackGo.Api/wwwroot',
     emptyOutDir: true,
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@rsgo/core': path.resolve(__dirname, './packages/core/src'),
-      '@rsgo/ui-generic': path.resolve(__dirname, './packages/ui-generic/src'),
+      '@rsgo/core': path.resolve(__dirname, '../../packages/core/src'),
+      '@rsgo/ui-generic': path.resolve(__dirname, '../../packages/ui-generic/src'),
     },
   },
 })

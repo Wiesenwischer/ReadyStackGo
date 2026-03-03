@@ -1,8 +1,21 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo",
-    "types": ["vite/client"]
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "types": ["vite/client"],
+
+    /* Path Alias */
+    "baseUrl": ".",
+    "paths": {
+      "@rsgo/core": ["../../packages/core/src/index.ts"],
+      "@rsgo/core/*": ["../../packages/core/src/*"],
+      "@rsgo/ui-generic": ["../../packages/ui-generic/src/index.ts"],
+      "@rsgo/ui-generic/*": ["../../packages/ui-generic/src/*"]
+    }
   },
-  "include": ["src"]
+  "include": [
+    "src",
+    "../../packages/core/src",
+    "../../packages/ui-generic/src"
+  ]
 }
