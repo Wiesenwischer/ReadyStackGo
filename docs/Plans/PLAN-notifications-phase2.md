@@ -49,7 +49,7 @@ Drei neue Notification-Typen für proaktive Benachrichtigungen hinzufügen: Cont
 
 ### Grundlage
 
-- [ ] **Feature 1: NotificationType Erweiterung** — Neue Enum-Werte und Factory-Methoden
+- [x] **Feature 1: NotificationType Erweiterung** — Neue Enum-Werte und Factory-Methoden
   - Betroffene Dateien:
     - `src/ReadyStackGo.Application/Notifications/Notification.cs` — 3 neue `NotificationType` Werte: `HealthChange`, `ApiKeyFirstUse`, `CertificateExpiry`
     - `src/ReadyStackGo.Application/Notifications/NotificationFactory.cs` — 3 neue statische Methoden
@@ -68,7 +68,7 @@ Drei neue Notification-Typen für proaktive Benachrichtigungen hinzufügen: Cont
 
 ### Health Change Notification
 
-- [ ] **Feature 2: Health Change Notification mit Throttling** — In-App-Notification bei Health-Status-Änderungen
+- [x] **Feature 2: Health Change Notification mit Throttling** — In-App-Notification bei Health-Status-Änderungen
   - Betroffene Dateien:
     - `src/ReadyStackGo.Infrastructure/Services/Health/HealthCollectorService.cs` — `INotificationService` injizieren, Status-Change-Detection + Throttling
   - Implementierung:
@@ -87,7 +87,7 @@ Drei neue Notification-Typen für proaktive Benachrichtigungen hinzufügen: Cont
 
 ### API Key First-Use Notification
 
-- [ ] **Feature 3: API Key First-Use Notification** — Benachrichtigung bei erstmaliger Verwendung eines API Keys
+- [x] **Feature 3: API Key First-Use Notification** — Benachrichtigung bei erstmaliger Verwendung eines API Keys
   - Betroffene Dateien:
     - `src/ReadyStackGo.Infrastructure.Security/Authentication/ApiKeyAuthenticationHandler.cs` — First-Use-Check vor `RecordUsage()`
   - Implementierung:
@@ -107,7 +107,7 @@ Drei neue Notification-Typen für proaktive Benachrichtigungen hinzufügen: Cont
 
 ### TLS Certificate Expiry Notification
 
-- [ ] **Feature 4: TLS Certificate Expiry Background Service** — Gestaffelte Warnungen bei ablaufenden Zertifikaten
+- [x] **Feature 4: TLS Certificate Expiry Background Service** — Gestaffelte Warnungen bei ablaufenden Zertifikaten
   - Betroffene Dateien:
     - `src/ReadyStackGo.Api/BackgroundServices/CertificateExpiryCheckService.cs` (NEU) — Background Service
     - `src/ReadyStackGo.Api/Program.cs` — Service registrieren
@@ -137,8 +137,8 @@ Drei neue Notification-Typen für proaktive Benachrichtigungen hinzufügen: Cont
 
 ### Abschluss
 
-- [ ] **Dokumentation & Website** — Wiki, Public Website (DE/EN), Roadmap
-- [ ] **Phase abschließen** — Alle Tests grün, PR gegen main
+- [x] **Dokumentation & Website** — Wiki, Public Website (DE/EN), Roadmap
+- [x] **Phase abschließen** — Alle Tests grün, PR gegen main
 
 ## Test-Strategie
 
