@@ -184,11 +184,11 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Abhängig von: Feature 1
   - Tests: Alle Settings-Seiten funktional testen (CRUD-Operationen, Modals, Error-States)
 
-- [ ] **Feature 4: Store-Hooks für Deployment-Seiten** — Komplexeste Business-Logik extrahieren
-  - `useDeployStore.ts` aus `DeployStack.tsx` (State-Machine: loading → configure → deploying → success/error)
-  - `useRollbackStore.ts` aus der Rollback-Seite
-  - `useUpgradeStore.ts` aus der Upgrade-Seite
-  - `useRemoveStore.ts` aus der Remove-Seite
+- [x] **Feature 4: Store-Hooks für Deployment-Seiten** — Komplexeste Business-Logik extrahieren — PR #203
+  - `useDeployStackStore.ts` aus `DeployStack.tsx` (State-Machine: loading → configure → deploying → success/error)
+  - `useRollbackStore.ts` aus `RollbackStack.tsx`
+  - `useUpgradeStackStore.ts` aus `UpgradeStack.tsx`
+  - `useRemoveStackStore.ts` aus `RemoveStack.tsx`
   - Betroffene Dateien: `pages/Deployments/*`
   - Abhängig von: Feature 2 (wegen SignalR-Dependency)
   - Tests: Deploy-Flow end-to-end, Progress-Updates, Error-Handling
