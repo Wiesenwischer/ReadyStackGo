@@ -23,7 +23,10 @@ public enum NotificationType
     UpdateAvailable,
     SourceSyncResult,
     DeploymentResult,
-    ProductDeploymentResult
+    ProductDeploymentResult,
+    HealthChange,
+    ApiKeyFirstUse,
+    CertificateExpiry
 }
 
 public enum NotificationSeverity

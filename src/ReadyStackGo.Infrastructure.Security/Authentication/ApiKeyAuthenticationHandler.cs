@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using ReadyStackGo.Application.Notifications;
+using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.IdentityAccess.ApiKeys;
 using ReadyStackGo.Domain.IdentityAccess.Roles;
 
@@ -73,10 +75,32 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
             return Task.FromResult(AuthenticateResult.Fail("API key has expired."));
         }
 
+        // Check for first use before recording
+        var isFirstUse = apiKey.LastUsedAt == null;
+
         // Record usage
         apiKey.RecordUsage();
         repository.Update(apiKey);
         repository.SaveChanges();
+
+        // Create first-use notification (fire-and-forget)
+        if (isFirstUse)
+        {
+            try
+            {
+                var notificationService = _serviceProvider.GetService<INotificationService>();
+                if (notificationService != null)
+                {
+                    var notification = NotificationFactory.CreateApiKeyFirstUseNotification(
+                        apiKey.Name, apiKey.KeyPrefix);
+                    _ = notificationService.AddAsync(notification);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Failed to create first-use notification for API key {KeyName}", apiKey.Name);
+            }
+        }
 
         // Build claims
         var claims = new List<Claim>

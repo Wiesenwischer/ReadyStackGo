@@ -49,7 +49,7 @@ Drei neue Notification-Typen für proaktive Benachrichtigungen hinzufügen: Cont
 
 ### Grundlage
 
-- [ ] **Feature 1: NotificationType Erweiterung** — Neue Enum-Werte und Factory-Methoden
+- [x] **Feature 1: NotificationType Erweiterung** — Neue Enum-Werte und Factory-Methoden
   - Betroffene Dateien:
     - `src/ReadyStackGo.Application/Notifications/Notification.cs` — 3 neue `NotificationType` Werte: `HealthChange`, `ApiKeyFirstUse`, `CertificateExpiry`
     - `src/ReadyStackGo.Application/Notifications/NotificationFactory.cs` — 3 neue statische Methoden
@@ -68,7 +68,7 @@ Drei neue Notification-Typen für proaktive Benachrichtigungen hinzufügen: Cont
 
 ### Health Change Notification
 
-- [ ] **Feature 2: Health Change Notification mit Throttling** — In-App-Notification bei Health-Status-Änderungen
+- [x] **Feature 2: Health Change Notification mit Throttling** — In-App-Notification bei Health-Status-Änderungen
   - Betroffene Dateien:
     - `src/ReadyStackGo.Infrastructure/Services/Health/HealthCollectorService.cs` — `INotificationService` injizieren, Status-Change-Detection + Throttling
   - Implementierung:
@@ -87,7 +87,7 @@ Drei neue Notification-Typen für proaktive Benachrichtigungen hinzufügen: Cont
 
 ### API Key First-Use Notification
 
-- [ ] **Feature 3: API Key First-Use Notification** — Benachrichtigung bei erstmaliger Verwendung eines API Keys
+- [x] **Feature 3: API Key First-Use Notification** — Benachrichtigung bei erstmaliger Verwendung eines API Keys
   - Betroffene Dateien:
     - `src/ReadyStackGo.Infrastructure.Security/Authentication/ApiKeyAuthenticationHandler.cs` — First-Use-Check vor `RecordUsage()`
   - Implementierung:
@@ -107,7 +107,7 @@ Drei neue Notification-Typen für proaktive Benachrichtigungen hinzufügen: Cont
 
 ### TLS Certificate Expiry Notification
 
-- [ ] **Feature 4: TLS Certificate Expiry Background Service** — Gestaffelte Warnungen bei ablaufenden Zertifikaten
+- [x] **Feature 4: TLS Certificate Expiry Background Service** — Gestaffelte Warnungen bei ablaufenden Zertifikaten
   - Betroffene Dateien:
     - `src/ReadyStackGo.Api/BackgroundServices/CertificateExpiryCheckService.cs` (NEU) — Background Service
     - `src/ReadyStackGo.Api/Program.cs` — Service registrieren
@@ -137,8 +137,8 @@ Drei neue Notification-Typen für proaktive Benachrichtigungen hinzufügen: Cont
 
 ### Abschluss
 
-- [ ] **Dokumentation & Website** — Wiki, Public Website (DE/EN), Roadmap
-- [ ] **Phase abschließen** — Alle Tests grün, PR gegen main
+- [x] **Dokumentation & Website** — Wiki, Public Website (DE/EN), Roadmap
+- [x] **Phase abschließen** — Alle Tests grün, PR gegen main
 
 ## Test-Strategie
 
@@ -155,16 +155,17 @@ Drei neue Notification-Typen für proaktive Benachrichtigungen hinzufügen: Cont
 
 ## Offene Punkte
 
-- [ ] Sollen Self-Signed-Zertifikate Expiry-Warnungen erzeugen? (Sie werden meist automatisch neu generiert beim Neustart)
-- [ ] Soll der Health-Change-Cooldown konfigurierbar sein oder fest auf 5 Minuten?
-- [ ] Soll die Health-Recovery (Unhealthy→Healthy) auch eine Notification erzeugen? (Info-Severity "Service recovered")
+- [x] ~~Sollen Self-Signed-Zertifikate Expiry-Warnungen erzeugen?~~ → Ja, alle Zertifikate warnen
+- [x] ~~Soll der Health-Change-Cooldown konfigurierbar sein oder fest auf 5 Minuten?~~ → Konfigurierbar über Settings-Page
+- [x] ~~Soll die Health-Recovery (Unhealthy→Healthy) auch eine Notification erzeugen?~~ → Ja, Info-Severity "Service recovered"
 
 ## Entscheidungen
 
 | Entscheidung | Optionen | Gewählt | Begründung |
 |---|---|---|---|
-| Health Throttle | A) ExistsAsync Dedup, B) ConcurrentDict Cooldown, C) Beides | **C) Beides** | ConcurrentDict für Echtzeit-Cooldown (5 Min), ExistsAsync als Backup gegen Restarts |
+| Health Throttle | A) ExistsAsync Dedup, B) ConcurrentDict Cooldown, C) Beides | **C) Beides** | ConcurrentDict für Echtzeit-Cooldown (default 5 Min), ExistsAsync als Backup gegen Restarts |
 | TLS Service | A) CertificateRenewalService erweitern, B) Neuer Service | **B) Neuer Service** | Separation of Concerns — Renewal ≠ Expiry Notification |
 | First-Use DI | A) Constructor Injection, B) ServiceProvider Resolve | **B) ServiceProvider** | Auth Handler hat keinen Zugriff auf DI-Container direkt, `HttpContext.RequestServices` ist der Standard-Weg |
-| Health Notification Scope | A) Nur Verschlechterung, B) Verschlechterung + Recovery | - | **Offen — User fragen** |
-| Self-Signed Expiry | A) Warnen, B) Ignorieren | - | **Offen — User fragen** |
+| Health Notification Scope | A) Nur Verschlechterung, B) Verschlechterung + Recovery | **B) Verschlechterung + Recovery** | Recovery als Info-Notification — User möchte wissen wenn Services wieder gesund sind |
+| Self-Signed Expiry | A) Warnen, B) Ignorieren | **A) Warnen** | Alle Zertifikate gleich behandeln — User explizit gewünscht |
+| Health Cooldown | A) Fix 5 Min, B) Konfigurierbar | **B) Konfigurierbar** | Settings-Page-Eintrag, Default 5 Minuten. User möchte den Wert selbst anpassen können |

@@ -40,6 +40,19 @@ public class SystemConfigService : ISystemConfigService
         };
     }
 
+    public async Task<int> GetHealthNotificationCooldownSecondsAsync()
+    {
+        var config = await _configStore.GetSystemConfigAsync();
+        return config.HealthNotificationCooldownSeconds;
+    }
+
+    public async Task SetHealthNotificationCooldownSecondsAsync(int seconds)
+    {
+        var config = await _configStore.GetSystemConfigAsync();
+        config.HealthNotificationCooldownSeconds = seconds;
+        await _configStore.SaveSystemConfigAsync(config);
+    }
+
     private static InfraWizardState MapToInfraWizardState(AppWizardState state)
     {
         return state switch
