@@ -5,9 +5,11 @@ import {
   redeployProduct,
   type GetProductDeploymentResponse,
   type DeployProductStackResult,
-} from '../../api/deployments';
+  useDeploymentHub,
+  type DeploymentProgressUpdate,
+} from '@rsgo/core';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { useDeploymentHub, type DeploymentProgressUpdate } from '../../hooks/useDeploymentHub';
+import { useAuth } from '../../context/AuthContext';
 
 type RedeployState = 'loading' | 'confirm' | 'redeploying' | 'success' | 'error';
 type StackRedeployStatus = 'pending' | 'deploying' | 'running' | 'failed';
@@ -15,6 +17,7 @@ type StackRedeployStatus = 'pending' | 'deploying' | 'running' | 'failed';
 export default function RedeployProduct() {
   const { productDeploymentId } = useParams<{ productDeploymentId: string }>();
   const { activeEnvironment } = useEnvironment();
+  const { token } = useAuth();
 
   const [state, setState] = useState<RedeployState>('loading');
   const [deployment, setDeployment] = useState<GetProductDeploymentResponse | null>(null);
@@ -70,7 +73,7 @@ export default function RedeployProduct() {
     }
   }, []);
 
-  const { subscribeToDeployment, connectionState } = useDeploymentHub({
+  const { subscribeToDeployment, connectionState } = useDeploymentHub(token, {
     onDeploymentProgress: handleRedeployProgress,
   });
 

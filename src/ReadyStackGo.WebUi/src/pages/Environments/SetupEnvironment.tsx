@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import {
   createEnvironment,
   type CreateEnvironmentRequest,
-} from "../../api/environments";
-import { getWizardStatus } from "../../api/wizard";
+  getWizardStatus,
+} from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
 
 /**

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { getStackSource, deleteStackSource, type StackSourceDetailDto } from "../../../api/stackSources";
+import { getStackSource, deleteStackSource, type StackSourceDetailDto } from '@rsgo/core';
 
 type DeleteState = "loading" | "confirm" | "deleting" | "success" | "error";
 

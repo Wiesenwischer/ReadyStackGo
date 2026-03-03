@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { WizardTimeoutInfo } from '../../api/wizard';
+import type { WizardTimeoutInfo } from '@rsgo/core';
 
 interface WizardCountdownProps {
   timeout: WizardTimeoutInfo;

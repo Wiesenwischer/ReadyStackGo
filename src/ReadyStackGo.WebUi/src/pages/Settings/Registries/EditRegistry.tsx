@@ -5,7 +5,7 @@ import {
   updateRegistry,
   type RegistryDto,
   type UpdateRegistryRequest,
-} from "../../../api/registries";
+} from '@rsgo/core';
 
 const KNOWN_REGISTRIES = [
   { label: "Docker Hub", url: "https://index.docker.io/v1/" },

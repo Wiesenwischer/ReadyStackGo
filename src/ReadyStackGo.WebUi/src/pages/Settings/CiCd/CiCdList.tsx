@@ -6,7 +6,7 @@ import {
   revokeApiKey,
   type ApiKeyDto,
   type CreateApiKeyRequest,
-} from "../../../api/apiKeys";
+} from '@rsgo/core';
 import { useEnvironment } from "../../../context/EnvironmentContext";
 
 const AVAILABLE_PERMISSIONS = [

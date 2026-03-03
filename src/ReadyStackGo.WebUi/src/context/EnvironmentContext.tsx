@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import { getEnvironments, type EnvironmentResponse } from '../api/environments';
+import { getEnvironments, type EnvironmentResponse } from '@rsgo/core';
 
 interface EnvironmentContextType {
   environments: EnvironmentResponse[];

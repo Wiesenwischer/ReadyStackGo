@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { useVersionInfo } from "../hooks/useVersionInfo";
+import { useVersionInfo } from '@rsgo/core';
 
 const DISMISSED_KEY = "rsgo_update_dismissed";
 

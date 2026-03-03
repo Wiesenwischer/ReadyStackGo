@@ -7,11 +7,17 @@ import {
   type GetProductDeploymentResponse,
   type CheckProductUpgradeResponse,
   type UpgradeProductStackResult,
-} from '../../api/deployments';
+  type Product,
+  type ProductStack,
+  type StackVariable,
+  getProduct,
+  useDeploymentHub,
+  type DeploymentProgressUpdate,
+  type InitContainerLogEntry,
+} from '@rsgo/core';
 import { useEnvironment } from '../../context/EnvironmentContext';
-import { type Product, type ProductStack, type StackVariable, getProduct } from '../../api/stacks';
+import { useAuth } from '../../context/AuthContext';
 import VariableInput, { groupVariables } from '../../components/variables/VariableInput';
-import { useDeploymentHub, type DeploymentProgressUpdate, type InitContainerLogEntry } from '../../hooks/useDeploymentHub';
 
 // Format phase names for display (PullingImages -> Pulling Images)
 const formatPhase = (phase: string | undefined): string => {
@@ -73,6 +79,7 @@ export default function UpgradeProduct() {
   const { productDeploymentId } = useParams<{ productDeploymentId: string }>();
   const [searchParams] = useSearchParams();
   const { activeEnvironment } = useEnvironment();
+  const { token } = useAuth();
 
   // Get optional target version from URL params
   const targetVersionParam = searchParams.get('version');
@@ -149,7 +156,7 @@ export default function UpgradeProduct() {
     }
   }, []);
 
-  const { subscribeToDeployment, connectionState } = useDeploymentHub({
+  const { subscribeToDeployment, connectionState } = useDeploymentHub(token, {
     onDeploymentProgress: handleUpgradeProgress,
     onInitContainerLog: handleInitContainerLog,
   });

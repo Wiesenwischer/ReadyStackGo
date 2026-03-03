@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { useVersionInfo } from "../../hooks/useVersionInfo";
+import { useVersionInfo } from '@rsgo/core';
 
 const UserDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);

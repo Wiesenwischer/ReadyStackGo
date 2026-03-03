@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import type { WizardTimeoutInfo } from '../../api/wizard';
+import type { WizardTimeoutInfo } from '@rsgo/core';
 import WizardCountdown from '../../components/wizard/WizardCountdown';
 
 interface WizardLayoutProps {

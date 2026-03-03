@@ -9,24 +9,24 @@ import {
   type DeployedServiceInfo,
   type InitContainerResultDto,
   type RollbackInfoResponse,
-  type CheckUpgradeResponse
-} from "../../api/deployments";
-import { useEnvironment } from "../../context/EnvironmentContext";
-import { useHealthHub } from "../../hooks/useHealthHub";
-import {
+  type CheckUpgradeResponse,
   getHealthStatusPresentation,
   getOperationModePresentation,
   getStackHealth,
   enterMaintenanceMode,
   exitMaintenanceMode,
   type StackHealthDto,
-  type ServiceHealthDto
-} from "../../api/health";
+  type ServiceHealthDto,
+  useHealthHub,
+} from '@rsgo/core';
+import { useEnvironment } from "../../context/EnvironmentContext";
+import { useAuth } from "../../context/AuthContext";
 import HealthHistoryChart from "../../components/health/HealthHistoryChart";
 
 export default function DeploymentDetail() {
   const { stackName } = useParams<{ stackName: string }>();
   const { activeEnvironment } = useEnvironment();
+  const { token } = useAuth();
   const [deployment, setDeployment] = useState<GetDeploymentResponse | null>(null);
   const [health, setHealth] = useState<StackHealthDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,7 +45,7 @@ export default function DeploymentDetail() {
   const [markFailedError, setMarkFailedError] = useState<string | null>(null);
 
   // SignalR Health Hub connection
-  const { connectionState, subscribeToDeployment, unsubscribeFromDeployment } = useHealthHub({
+  const { connectionState, subscribeToDeployment, unsubscribeFromDeployment } = useHealthHub(token, {
     onDeploymentHealthChanged: (healthData) => {
       if (deployment?.deploymentId && healthData.deploymentId === deployment.deploymentId) {
         setHealth(healthData);

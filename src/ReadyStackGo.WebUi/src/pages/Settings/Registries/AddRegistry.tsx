@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { createRegistry, type CreateRegistryRequest } from "../../../api/registries";
+import { createRegistry, type CreateRegistryRequest } from '@rsgo/core';
 
 const KNOWN_REGISTRIES = [
   { label: "Docker Hub", url: "https://index.docker.io/v1/" },

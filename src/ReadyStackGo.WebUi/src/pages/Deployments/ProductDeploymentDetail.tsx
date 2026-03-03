@@ -4,7 +4,7 @@ import {
   getProductDeployment,
   type GetProductDeploymentResponse,
   type ProductStackDeploymentDto,
-} from "../../api/deployments";
+} from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
 
 function getProductStatusPresentation(status: string) {

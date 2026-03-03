@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getWizardRegistry, setSources, type WizardRegistrySource } from '../../api/wizard';
+import { getWizardRegistry, setSources, type WizardRegistrySource } from '@rsgo/core';
 
 interface OnboardingSourcesStepProps {
   onNext: () => void;

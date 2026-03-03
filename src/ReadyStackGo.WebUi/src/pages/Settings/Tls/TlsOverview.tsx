@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { systemApi, type TlsConfig, type LetsEncryptStatus, type ReverseProxySslMode } from "../../../api/system";
+import { systemApi, type TlsConfig, type LetsEncryptStatus, type ReverseProxySslMode } from '@rsgo/core';
 
 export default function TlsOverview() {
   const [config, setConfig] = useState<TlsConfig | null>(null);

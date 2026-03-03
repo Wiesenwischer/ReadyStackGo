@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { type HealthCheckEntryDto, getHealthStatusPresentation } from '../../api/health';
+import { type HealthCheckEntryDto, getHealthStatusPresentation } from '@rsgo/core';
 
 interface HealthCheckEntryRowProps {
   entry: HealthCheckEntryDto;

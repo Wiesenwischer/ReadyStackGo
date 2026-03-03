@@ -1,4 +1,4 @@
-import { type StackVariable } from '../../api/stacks';
+import { type StackVariable } from '@rsgo/core';
 import StringInput from './inputs/StringInput';
 import NumberInput from './inputs/NumberInput';
 import BooleanInput from './inputs/BooleanInput';

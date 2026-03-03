@@ -8,7 +8,7 @@ import {
   exportSources,
   importSources,
   type StackSourceDto,
-} from "../../../api/stackSources";
+} from '@rsgo/core';
 
 export default function StackSourcesList() {
   const [stackSources, setStackSources] = useState<StackSourceDto[]>([]);

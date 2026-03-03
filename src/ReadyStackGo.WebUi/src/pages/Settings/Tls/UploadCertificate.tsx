@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { systemApi, type UpdateTlsConfigRequest } from "../../../api/system";
+import { systemApi, type UpdateTlsConfigRequest } from '@rsgo/core';
 
 type CertFormat = "pfx" | "pem";
 

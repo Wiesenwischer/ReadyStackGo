@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { createEnvironment, type CreateEnvironmentRequest } from "../../api/environments";
-import { getWizardStatus } from "../../api/wizard";
+import { createEnvironment, type CreateEnvironmentRequest, getWizardStatus } from '@rsgo/core';
 
 export default function AddEnvironment() {
   const navigate = useNavigate();

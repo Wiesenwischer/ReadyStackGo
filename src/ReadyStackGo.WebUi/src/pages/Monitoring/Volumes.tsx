@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router";
-import { volumeApi, type Volume } from "../../api/volumes";
+import { volumeApi, type Volume } from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
 
 export default function Volumes() {

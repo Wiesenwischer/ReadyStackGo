@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { detectRegistries, checkRegistryAccess, verifyRegistryAccess, type DetectedRegistryArea, type RegistryInputDto } from '../../api/wizard';
+import { detectRegistries, checkRegistryAccess, verifyRegistryAccess, type DetectedRegistryArea, type RegistryInputDto } from '@rsgo/core';
 
 type CardStatus = 'action-required' | 'verified' | 'skipped';
 type VerifyStatus = 'idle' | 'verifying' | 'success' | 'error';

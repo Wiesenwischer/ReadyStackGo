@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { systemApi } from "../../../api/system";
-import { useVersionInfo } from "../../../hooks/useVersionInfo";
+import { systemApi, useVersionInfo } from '@rsgo/core';
 
 function formatRelativeTime(isoString?: string): string {
   if (!isoString) return "Never";

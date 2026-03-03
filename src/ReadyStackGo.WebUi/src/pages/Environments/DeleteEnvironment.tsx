@@ -4,7 +4,7 @@ import {
   getEnvironment,
   deleteEnvironment,
   type EnvironmentResponse,
-} from "../../api/environments";
+} from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
 
 type DeleteState = "loading" | "confirm" | "deleting" | "success" | "error";

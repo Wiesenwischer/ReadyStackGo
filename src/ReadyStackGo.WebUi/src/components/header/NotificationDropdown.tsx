@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { useNotifications } from "../../hooks/useNotifications";
-import { timeAgo } from "../../utils/timeAgo";
-import type { NotificationSeverity } from "../../api/notifications";
+import { useNotifications, timeAgo, type NotificationSeverity } from '@rsgo/core';
 
 const severityConfig: Record<
   NotificationSeverity,

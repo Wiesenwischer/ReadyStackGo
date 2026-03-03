@@ -4,7 +4,7 @@ import {
   type StackHealthDto,
   getHealthStatusPresentation,
   getOperationModePresentation,
-} from '../../api/health';
+} from '@rsgo/core';
 import HealthServiceRow from './HealthServiceRow';
 
 interface HealthStackCardProps {

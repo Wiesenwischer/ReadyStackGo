@@ -4,7 +4,7 @@ import {
   getEnvironments,
   setDefaultEnvironment,
   type EnvironmentResponse,
-} from "../../api/environments";
+} from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
 
 export default function Environments() {

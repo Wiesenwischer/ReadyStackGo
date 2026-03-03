@@ -4,7 +4,7 @@ import {
   containerApi,
   type Container,
   type StackContextInfo,
-} from "../../api/containers";
+} from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
 
 type ViewMode = "list" | "stacks" | "products";

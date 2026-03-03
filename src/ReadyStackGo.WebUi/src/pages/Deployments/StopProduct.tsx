@@ -5,7 +5,7 @@ import {
   stopProductContainers,
   type GetProductDeploymentResponse,
   type StackContainerResult,
-} from '../../api/deployments';
+} from '@rsgo/core';
 import { useEnvironment } from '../../context/EnvironmentContext';
 
 type StopState = 'loading' | 'confirm' | 'stopping' | 'success' | 'error';

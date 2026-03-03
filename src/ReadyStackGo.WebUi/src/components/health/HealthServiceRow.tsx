@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { type ServiceHealthDto, getHealthStatusPresentation } from '../../api/health';
+import { type ServiceHealthDto, getHealthStatusPresentation } from '@rsgo/core';
 import HealthCheckEntryRow from './HealthCheckEntryRow';
 
 interface HealthServiceRowProps {

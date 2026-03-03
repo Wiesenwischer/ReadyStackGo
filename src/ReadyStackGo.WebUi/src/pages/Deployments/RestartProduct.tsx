@@ -5,7 +5,7 @@ import {
   restartProductContainers,
   type GetProductDeploymentResponse,
   type StackRestartResult,
-} from '../../api/deployments';
+} from '@rsgo/core';
 import { useEnvironment } from '../../context/EnvironmentContext';
 
 type RestartState = 'loading' | 'confirm' | 'restarting' | 'success' | 'error';

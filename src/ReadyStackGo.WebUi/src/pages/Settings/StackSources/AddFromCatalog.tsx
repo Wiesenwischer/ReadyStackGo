@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getRegistrySources, addFromRegistry, type RegistrySourceDto } from "../../../api/stackSources";
+import { getRegistrySources, addFromRegistry, type RegistrySourceDto } from '@rsgo/core';
 
 export default function AddFromCatalog() {
   const navigate = useNavigate();

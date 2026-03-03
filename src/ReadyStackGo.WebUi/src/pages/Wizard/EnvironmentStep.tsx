@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { getWizardStatus } from '../../api/wizard';
+import { getWizardStatus } from '@rsgo/core';
 
 interface EnvironmentStepProps {
   onNext: (data: { name: string; socketPath: string } | null) => Promise<void>;

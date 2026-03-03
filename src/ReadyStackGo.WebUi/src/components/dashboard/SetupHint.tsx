@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getOnboardingStatus } from '../../api/onboarding';
+import { getOnboardingStatus } from '@rsgo/core';
 
 /**
  * Minimal, non-dismissable banner shown on the Dashboard when optional
