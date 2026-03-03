@@ -193,15 +193,17 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Abhängig von: Feature 2 (wegen SignalR-Dependency)
   - Tests: Deploy-Flow end-to-end, Progress-Updates, Error-Handling
 
-- [ ] **Feature 5: Store-Hooks für restliche Seiten** — Katalog, Environments, Monitoring, Wizard
-  - `useCatalogStore.ts` für StackCatalog + ProductDetail
-  - `useEnvironmentStore.ts` für Environments-Seite
-  - `useHealthDashboardStore.ts` für Health-Dashboard
-  - `useContainerStore.ts` für Container-Monitoring
-  - `useWizardStore.ts` für Wizard-Steps
-  - Betroffene Dateien: Alle verbleibenden `pages/*`
+- [x] **Feature 5: Store-Hooks für restliche Seiten** — Product Operations, Deployment-Seiten, Health-Dashboard
+  - `useRemoveProductStore.ts`, `useRedeployProductStore.ts`, `useRetryProductStore.ts` — Product-Operationen mit SignalR
+  - `useDeployProductStore.ts`, `useUpgradeProductStore.ts` — Komplexe Product-Deployment-Flows (~1600 Zeilen → Store + UI)
+  - `useDeploymentsStore.ts` — Deployment-Liste mit Health-Hub
+  - `useDeploymentDetailStore.ts` — Deployment-Detail mit Maintenance-Mode, Rollback/Upgrade-Info
+  - `useHealthDashboardStore.ts` — Health-Dashboard mit SignalR + Filter
+  - `useRestartProductStore.ts`, `useStopProductStore.ts`, `useProductDeploymentDetailStore.ts` — Weitere Product-Seiten
+  - Übersprungen: Catalog, Environments, Wizard, Dashboard (bereits dünn genug, kein Refactoring-Nutzen)
+  - Betroffene Dateien: 11 neue Hooks in `@rsgo/core/src/hooks/`, 10 Seiten in `ui-generic/src/pages/` refactored
   - Abhängig von: Feature 1, 2
-  - Tests: Navigation, Filter, Wizard-Flow
+  - Tests: Navigation, Deploy/Remove-Flows, Health-Updates
 
 - [ ] **Feature 6: Cleanup und Dokumentation** — Alte Importe bereinigen, README für Downstream-Forks
   - Alte Import-Pfade final prüfen
