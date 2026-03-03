@@ -737,10 +737,12 @@ public class ProductDeploymentTests
     [InlineData(ProductDeploymentStatus.Deploying, ProductDeploymentStatus.Removed, false)]
     [InlineData(ProductDeploymentStatus.Running, ProductDeploymentStatus.Upgrading, true)]
     [InlineData(ProductDeploymentStatus.Running, ProductDeploymentStatus.Removing, true)]
+    [InlineData(ProductDeploymentStatus.Running, ProductDeploymentStatus.Stopped, true)]
     [InlineData(ProductDeploymentStatus.Running, ProductDeploymentStatus.Deploying, false)]
     [InlineData(ProductDeploymentStatus.Running, ProductDeploymentStatus.Failed, false)]
     [InlineData(ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Upgrading, true)]
     [InlineData(ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Removing, true)]
+    [InlineData(ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Stopped, true)]
     [InlineData(ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Running, false)]
     [InlineData(ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Running, true)]
     [InlineData(ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.PartiallyRunning, true)]
@@ -749,6 +751,13 @@ public class ProductDeploymentTests
     [InlineData(ProductDeploymentStatus.Failed, ProductDeploymentStatus.Upgrading, true)]
     [InlineData(ProductDeploymentStatus.Failed, ProductDeploymentStatus.Removing, true)]
     [InlineData(ProductDeploymentStatus.Failed, ProductDeploymentStatus.Running, false)]
+    [InlineData(ProductDeploymentStatus.Stopped, ProductDeploymentStatus.Running, true)]
+    [InlineData(ProductDeploymentStatus.Stopped, ProductDeploymentStatus.PartiallyRunning, true)]
+    [InlineData(ProductDeploymentStatus.Stopped, ProductDeploymentStatus.Upgrading, true)]
+    [InlineData(ProductDeploymentStatus.Stopped, ProductDeploymentStatus.Removing, true)]
+    [InlineData(ProductDeploymentStatus.Stopped, ProductDeploymentStatus.Deploying, false)]
+    [InlineData(ProductDeploymentStatus.Stopped, ProductDeploymentStatus.Failed, false)]
+    [InlineData(ProductDeploymentStatus.Stopped, ProductDeploymentStatus.Stopped, false)]
     [InlineData(ProductDeploymentStatus.Removing, ProductDeploymentStatus.Removed, true)]
     [InlineData(ProductDeploymentStatus.Removing, ProductDeploymentStatus.Running, false)]
     [InlineData(ProductDeploymentStatus.Removed, ProductDeploymentStatus.Deploying, false)]
@@ -1299,6 +1308,229 @@ public class ProductDeploymentTests
 
     #endregion
 
+    #region Stopped Status - MarkAsStopped
+
+    [Fact]
+    public void MarkAsStopped_FromRunning_TransitionsToStopped()
+    {
+        var pd = CreateRunningDeployment(2);
+
+        pd.MarkAsStopped("All containers stopped");
+
+        pd.Status.Should().Be(ProductDeploymentStatus.Stopped);
+        pd.ErrorMessage.Should().BeNull();
+    }
+
+    [Fact]
+    public void MarkAsStopped_TransitionsRunningStacksToStopped()
+    {
+        var pd = CreateRunningDeployment(2);
+
+        pd.MarkAsStopped("All containers stopped");
+
+        pd.Stacks.Should().AllSatisfy(s => s.Status.Should().Be(StackDeploymentStatus.Stopped));
+    }
+
+    [Fact]
+    public void MarkAsStopped_FromPartiallyRunning_TransitionsToStopped()
+    {
+        var pd = CreatePartiallyRunningDeployment();
+
+        pd.MarkAsStopped("All containers stopped");
+
+        pd.Status.Should().Be(ProductDeploymentStatus.Stopped);
+    }
+
+    [Fact]
+    public void MarkAsStopped_FromDeploying_ThrowsInvalidOperationException()
+    {
+        var pd = CreateTestDeployment(1);
+
+        var act = () => pd.MarkAsStopped("Should not work");
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void MarkAsStopped_FromFailed_ThrowsInvalidOperationException()
+    {
+        var pd = CreateFailedDeployment();
+
+        var act = () => pd.MarkAsStopped("Should not work");
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void MarkAsStopped_WithEmptyReason_ThrowsArgumentException()
+    {
+        var pd = CreateRunningDeployment(1);
+
+        var act = () => pd.MarkAsStopped("");
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void MarkAsStopped_RecordsPhaseHistory()
+    {
+        var pd = CreateRunningDeployment(1);
+        var phasesBefore = pd.PhaseHistory.Count;
+
+        pd.MarkAsStopped("User stopped containers");
+
+        pd.PhaseHistory.Should().HaveCount(phasesBefore + 1);
+        pd.PhaseHistory.Last().Message.Should().Contain("Stopped");
+    }
+
+    #endregion
+
+    #region Stopped Status - MarkAsRestarted
+
+    [Fact]
+    public void MarkAsRestarted_AllSucceeded_TransitionsToRunning()
+    {
+        var pd = CreateStoppedDeployment();
+
+        pd.MarkAsRestarted(restartedStacks: 2, failedStacks: 0);
+
+        pd.Status.Should().Be(ProductDeploymentStatus.Running);
+        pd.ErrorMessage.Should().BeNull();
+    }
+
+    [Fact]
+    public void MarkAsRestarted_TransitionsStoppedStacksToRunning()
+    {
+        var pd = CreateStoppedDeployment();
+
+        pd.MarkAsRestarted(restartedStacks: 2, failedStacks: 0);
+
+        pd.Stacks.Should().AllSatisfy(s => s.Status.Should().Be(StackDeploymentStatus.Running));
+    }
+
+    [Fact]
+    public void MarkAsRestarted_SomeFailed_TransitionsToPartiallyRunning()
+    {
+        var pd = CreateStoppedDeployment();
+
+        pd.MarkAsRestarted(restartedStacks: 1, failedStacks: 1);
+
+        pd.Status.Should().Be(ProductDeploymentStatus.PartiallyRunning);
+        pd.ErrorMessage.Should().Contain("failed to restart");
+    }
+
+    [Fact]
+    public void MarkAsRestarted_FromRunning_ThrowsInvalidOperationException()
+    {
+        var pd = CreateRunningDeployment(1);
+
+        var act = () => pd.MarkAsRestarted(1, 0);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void MarkAsRestarted_RecordsPhaseHistory()
+    {
+        var pd = CreateStoppedDeployment();
+        var phasesBefore = pd.PhaseHistory.Count;
+
+        pd.MarkAsRestarted(2, 0);
+
+        pd.PhaseHistory.Should().HaveCount(phasesBefore + 1);
+        pd.PhaseHistory.Last().Message.Should().Contain("Restarted");
+    }
+
+    #endregion
+
+    #region Stopped Status - Capability Properties
+
+    [Fact]
+    public void CanStop_WhenStopped_ReturnsFalse()
+    {
+        var pd = CreateStoppedDeployment();
+        pd.CanStop.Should().BeFalse();
+    }
+
+    [Fact]
+    public void CanRestart_WhenStopped_ReturnsTrue()
+    {
+        var pd = CreateStoppedDeployment();
+        pd.CanRestart.Should().BeTrue();
+    }
+
+    [Fact]
+    public void CanRemove_WhenStopped_ReturnsTrue()
+    {
+        var pd = CreateStoppedDeployment();
+        pd.CanRemove.Should().BeTrue();
+    }
+
+    [Fact]
+    public void CanUpgrade_WhenStopped_ReturnsTrue()
+    {
+        var pd = CreateStoppedDeployment();
+        pd.CanUpgrade.Should().BeTrue();
+    }
+
+    [Fact]
+    public void CanRetry_WhenStopped_ReturnsFalse()
+    {
+        var pd = CreateStoppedDeployment();
+        pd.CanRetry.Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsOperational_WhenStopped_ReturnsFalse()
+    {
+        var pd = CreateStoppedDeployment();
+        pd.IsOperational.Should().BeFalse();
+    }
+
+    #endregion
+
+    #region Stopped Status - Health Sync
+
+    [Fact]
+    public void SyncStackHealth_WhenStopped_IsIgnored()
+    {
+        var pd = CreateStoppedDeployment();
+
+        var changed = pd.SyncStackHealth("stack-0", StackDeploymentStatus.Running);
+
+        // Health sync should not interfere with deliberately stopped deployments
+        changed.Should().BeFalse();
+        pd.Stacks.First().Status.Should().Be(StackDeploymentStatus.Stopped);
+    }
+
+    [Fact]
+    public void RecalculateProductStatus_WhenStopped_IsIgnored()
+    {
+        var pd = CreateStoppedDeployment();
+
+        var changed = pd.RecalculateProductStatus();
+
+        // Should not recalculate for stopped deployments
+        changed.Should().BeFalse();
+        pd.Status.Should().Be(ProductDeploymentStatus.Stopped);
+    }
+
+    #endregion
+
+    #region Stopped Status - Removal from Stopped
+
+    [Fact]
+    public void StartRemoval_FromStopped_TransitionsToRemoving()
+    {
+        var pd = CreateStoppedDeployment();
+
+        pd.StartRemoval();
+
+        pd.Status.Should().Be(ProductDeploymentStatus.Removing);
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static List<StackDeploymentConfig> CreateStackConfigs(int count)
@@ -1363,6 +1595,7 @@ public class ProductDeploymentTests
             ProductDeploymentStatus.PartiallyRunning => CreatePartiallyRunningDeployment(),
             ProductDeploymentStatus.Upgrading => CreateUpgradingDeployment(),
             ProductDeploymentStatus.Failed => CreateFailedDeployment(),
+            ProductDeploymentStatus.Stopped => CreateStoppedDeployment(),
             ProductDeploymentStatus.Removing => CreateRemovingDeployment(),
             ProductDeploymentStatus.Removed => CreateRemovedDeployment(),
             _ => throw new ArgumentOutOfRangeException(nameof(status))
@@ -1386,6 +1619,13 @@ public class ProductDeploymentTests
         pd.StartStack("stack-0", DeploymentId.NewId());
         pd.FailStack("stack-0", "Error");
         pd.MarkAsFailed("All failed");
+        return pd;
+    }
+
+    private static ProductDeployment CreateStoppedDeployment()
+    {
+        var pd = CreateRunningDeployment(2);
+        pd.MarkAsStopped("All containers stopped");
         return pd;
     }
 

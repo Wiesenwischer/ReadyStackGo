@@ -20,6 +20,8 @@ import DeployProduct from "./pages/Deployments/DeployProduct";
 import UpgradeProduct from "./pages/Deployments/UpgradeProduct";
 import RemoveProduct from "./pages/Deployments/RemoveProduct";
 import RetryProduct from "./pages/Deployments/RetryProduct";
+import StopProduct from "./pages/Deployments/StopProduct";
+import RestartProduct from "./pages/Deployments/RestartProduct";
 import ProductDeploymentDetail from "./pages/Deployments/ProductDeploymentDetail";
 import Environments from "./pages/Environments/Environments";
 import AddEnvironment from "./pages/Environments/AddEnvironment";
@@ -262,6 +264,22 @@ export default function App() {
                   element={
                     <EnvironmentGuard>
                       <RetryProduct />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/stop-product/:productDeploymentId"
+                  element={
+                    <EnvironmentGuard>
+                      <StopProduct />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/restart-product/:productDeploymentId"
+                  element={
+                    <EnvironmentGuard>
+                      <RestartProduct />
                     </EnvironmentGuard>
                   }
                 />

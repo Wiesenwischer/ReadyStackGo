@@ -4,12 +4,13 @@ namespace ReadyStackGo.Domain.Deployment.ProductDeployments;
 /// Status of a product deployment lifecycle.
 ///
 /// State machine:
-///   Deploying  → Running | PartiallyRunning | Failed
-///   Running    → Upgrading | Removing
-///   PartiallyRunning → Upgrading | Removing
-///   Upgrading  → Running | PartiallyRunning | Failed
-///   Failed     → Upgrading | Removing
-///   Removing   → Removed (terminal)
+///   Deploying        → Running | PartiallyRunning | Failed
+///   Running          → Upgrading | Removing | Stopped
+///   PartiallyRunning → Deploying (retry) | Upgrading | Removing | Stopped
+///   Upgrading        → Running | PartiallyRunning | Failed
+///   Failed           → Deploying (retry) | Upgrading | Removing
+///   Stopped          → Running | PartiallyRunning | Upgrading | Removing
+///   Removing         → Removed (terminal)
 /// </summary>
 public enum ProductDeploymentStatus
 {
@@ -46,5 +47,10 @@ public enum ProductDeploymentStatus
     /// <summary>
     /// All stacks have been removed (terminal state).
     /// </summary>
-    Removed = 6
+    Removed = 6,
+
+    /// <summary>
+    /// All containers have been deliberately stopped by the user.
+    /// </summary>
+    Stopped = 7
 }

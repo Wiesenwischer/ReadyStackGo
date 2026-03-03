@@ -14,6 +14,8 @@ const AVAILABLE_PERMISSIONS = [
   { value: "Hooks.Redeploy", label: "Redeploy", description: "Trigger redeployment of running stacks" },
   { value: "Hooks.Upgrade", label: "Upgrade", description: "Upgrade stacks to a new version" },
   { value: "Hooks.SyncSources", label: "Sync Sources", description: "Synchronize stack catalog sources" },
+  { value: "Hooks.StopContainers", label: "Stop Containers", description: "Stop containers of a product deployment" },
+  { value: "Hooks.RestartContainers", label: "Restart Containers", description: "Restart containers of a product deployment" },
 ];
 
 export default function CiCdList() {

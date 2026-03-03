@@ -98,6 +98,98 @@ Wenn Sie zum Katalog zurückkehren und die Produkt-Detailseite erneut aufrufen, 
 
 ---
 
+## Container Control: Stop & Restart
+
+Laufende Product Deployments können über die Detailseite gestoppt und neu gestartet werden. Beim Stoppen wechselt das Deployment in den Status `Stopped` — sowohl auf Produkt- als auch auf Stack-Ebene. Dies ist nützlich für Wartungsfenster, Debugging oder um Ressourcen temporär freizugeben.
+
+### Stop & Restart Links
+
+Auf der Product Deployment Detailseite werden bei operativen Deployments (Status `Running` oder `PartiallyRunning`) die Links **Stop Containers** und **Restart Containers** angezeigt. Bei gestoppten Deployments (Status `Stopped`) ist nur **Restart Containers** verfügbar.
+
+![Stop und Restart Links auf der Product Deployment Detailseite](/images/docs/container-control-01-buttons.png)
+
+---
+
+### Container stoppen
+
+Klicken Sie auf **Stop Containers**, um zur Bestätigungsseite zu gelangen. Dort werden alle Stacks aufgelistet, die gestoppt werden.
+
+![Bestätigungsseite für Stop Containers](/images/docs/container-control-02-stop-confirm.png)
+
+Nach Bestätigung wird der Vorgang ausgeführt. Ein Ladeindikator zeigt den Fortschritt an.
+
+![Ladeindikator während Stop-Vorgang](/images/docs/container-control-03-stop-loading.png)
+
+Das Ergebnis wird als Feedback-Seite angezeigt — grün bei Erfolg, rot bei Fehlern.
+
+![Ergebnis des Stop-Vorgangs](/images/docs/container-control-04-stop-result.png)
+
+---
+
+### Stopped-Status
+
+Nach erfolgreichem Stoppen wechselt das Product Deployment in den Status `Stopped`. Auf der Detailseite werden sowohl das Produkt als auch alle Stacks mit einem orangenen **Stopped**-Badge angezeigt.
+
+![Product Deployment im Stopped-Status mit orangenen Badges](/images/docs/container-control-05-stopped-status.png)
+
+Im Stopped-Status sind folgende Aktionen verfügbar:
+- **Restart Containers** — Container wieder starten, wechselt zurück zu `Running`
+- **Upgrade** — Auf eine neue Version upgraden
+- **Remove** — Deployment entfernen
+
+:::tip[Stopped ≠ Removed]
+Ein gestopptes Deployment behält alle Konfigurationen und Stack-Zuordnungen. Die Container werden lediglich angehalten und können jederzeit wieder gestartet werden.
+:::
+
+---
+
+### Container neu starten
+
+Klicken Sie auf **Restart Containers**, um alle Container sequenziell zu stoppen und danach wieder zu starten. Dies funktioniert sowohl für laufende als auch für gestoppte Deployments.
+
+![Bestätigungsseite für Restart Containers](/images/docs/container-control-06-restart-confirm.png)
+
+Nach Abschluss zeigt die Ergebnis-Seite den Status an. Bei einem Restart aus dem Stopped-Status wechselt das Deployment zurück zu `Running` (bzw. `PartiallyRunning` bei Teilerfolg).
+
+![Ergebnis des Restart-Vorgangs](/images/docs/container-control-07-restart-result.png)
+
+:::note[Sequenzielles Restart]
+Beim Restart werden die Stacks nacheinander verarbeitet: Zuerst wird ein Stack gestoppt, dann gestartet, bevor der nächste Stack an die Reihe kommt. Wenn der Stop eines Stacks fehlschlägt, wird der Start für diesen Stack übersprungen.
+:::
+
+---
+
+### Container Control via Hook
+
+Container können auch über die Hook-API gesteuert werden — ideal für CI/CD Pipelines oder externe Automations-Tools.
+
+**Stop:** `POST /api/hooks/stop-containers`
+**Restart:** `POST /api/hooks/restart-containers`
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|--------------|
+| `productId` | string | Ja | Product Group ID (z.B. `e2e.test.platform`) |
+| `stackDefinitionName` | string | Nein | Einzelnen Stack filtern (z.B. `frontend`) |
+| `environmentId` | string | Nein | Environment ID (Fallback: API Key `env_id` Claim) |
+
+**Permissions:** `Hooks.StopContainers` bzw. `Hooks.RestartContainers`
+
+```bash
+# Alle Container eines Produkts stoppen
+curl -X POST http://localhost:8080/api/hooks/stop-containers \
+  -H "X-Api-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"productId": "e2e.test.platform"}'
+
+# Einzelnen Stack neu starten
+curl -X POST http://localhost:8080/api/hooks/restart-containers \
+  -H "X-Api-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"productId": "e2e.test.platform", "stackDefinitionName": "frontend"}'
+```
+
+---
+
 ## Konzept: Zwei-Ebenen-Architektur
 
 Product Deployment arbeitet auf zwei Ebenen:
@@ -139,6 +231,11 @@ Deploying ──→ Running              (alle Stacks erfolgreich)
 
 Running ──→ Upgrading ──→ Running / PartiallyRunning / Failed
         ──→ Removing  ──→ Removed (terminal)
+        ──→ Stopped   ──→ Running (Restart erfolgreich)
+                      ──→ PartiallyRunning (Restart teilweise)
+                      ──→ Removing / Upgrading
+
+PartiallyRunning ──→ Stopped (Container stoppen)
 
 Failed ──→ Upgrading (erneuter Versuch mit neuer Version)
        ──→ Removing  (Aufräumen)
@@ -149,6 +246,7 @@ Failed ──→ Upgrading (erneuter Versuch mit neuer Version)
 | `Deploying` | Deployment läuft, Stacks werden sequenziell ausgerollt |
 | `Running` | Alle Stacks erfolgreich deployed und aktiv |
 | `PartiallyRunning` | Einige Stacks laufen, andere sind fehlgeschlagen |
+| `Stopped` | Alle Container bewusst gestoppt (über Stop Containers) |
 | `Failed` | Deployment komplett fehlgeschlagen |
 | `Upgrading` | Upgrade auf eine neue Version läuft |
 | `Removing` | Alle Stacks werden entfernt |
@@ -447,6 +545,88 @@ Prüft ob ein Upgrade für ein Product Deployment verfügbar ist, indem die depl
   "canUpgrade": true
 }
 ```
+
+---
+
+### POST /api/environments/{environmentId}/product-deployments/{id}/stop-containers
+
+Stoppt alle laufenden Container eines Product Deployments. Optional kann auf einzelne Stacks gefiltert werden.
+
+**Permission:** `Deployments.Execute`
+
+**Request (optionaler Body):**
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|--------------|
+| `stackNames` | string[] | Nein | Nur diese Stacks stoppen (Standard: alle) |
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "message": "Stopped 2 of 2 stacks successfully.",
+  "totalStacks": 2,
+  "stoppedStacks": 2,
+  "failedStacks": 0,
+  "stackResults": [
+    {
+      "stackName": "frontend",
+      "success": true,
+      "containersStopped": 1
+    },
+    {
+      "stackName": "backend",
+      "success": true,
+      "containersStopped": 2
+    }
+  ]
+}
+```
+
+---
+
+### POST /api/environments/{environmentId}/product-deployments/{id}/restart-containers
+
+Startet alle Container eines Product Deployments neu (Stop + Start pro Stack sequenziell).
+
+**Permission:** `Deployments.Execute`
+
+**Request (optionaler Body):**
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|--------------|
+| `stackNames` | string[] | Nein | Nur diese Stacks neu starten (Standard: alle) |
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "message": "Restarted 2 of 2 stacks successfully.",
+  "totalStacks": 2,
+  "restartedStacks": 2,
+  "failedStacks": 0,
+  "stackResults": [
+    {
+      "stackName": "frontend",
+      "success": true,
+      "containersStopped": 1,
+      "containersStarted": 1
+    },
+    {
+      "stackName": "backend",
+      "success": true,
+      "containersStopped": 2,
+      "containersStarted": 2
+    }
+  ]
+}
+```
+
+:::note
+Beim Restart wird jeder Stack zuerst gestoppt, dann gestartet. Wenn der Stop eines Stacks fehlschlägt, wird der Start für diesen Stack übersprungen.
+:::
 
 ---
 

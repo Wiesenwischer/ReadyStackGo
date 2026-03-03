@@ -51,7 +51,9 @@ public class ListProductDeploymentsHandler
                 FailedStacks = pd.FailedStacks,
                 CanRetry = pd.CanRetry,
                 CanUpgrade = pd.CanUpgrade,
-                CanRemove = pd.CanRemove
+                CanRemove = pd.CanRemove,
+                CanStop = pd.CanStop,
+                CanRestart = pd.CanRestart
             }).ToList()
         };
 

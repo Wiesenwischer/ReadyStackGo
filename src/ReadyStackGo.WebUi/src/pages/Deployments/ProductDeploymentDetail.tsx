@@ -18,6 +18,8 @@ function getProductStatusPresentation(status: string) {
       return { label: 'Failed', bgColor: 'bg-red-100 dark:bg-red-900/30', textColor: 'text-red-800 dark:text-red-300' };
     case 'PartiallyRunning':
       return { label: 'Partially Running', bgColor: 'bg-yellow-100 dark:bg-yellow-900/30', textColor: 'text-yellow-800 dark:text-yellow-300' };
+    case 'Stopped':
+      return { label: 'Stopped', bgColor: 'bg-orange-100 dark:bg-orange-900/30', textColor: 'text-orange-800 dark:text-orange-300' };
     case 'Removing':
       return { label: 'Removing', bgColor: 'bg-gray-100 dark:bg-gray-700', textColor: 'text-gray-700 dark:text-gray-300' };
     case 'Removed':
@@ -39,6 +41,8 @@ function getStackStatusPresentation(status: string) {
       return { label: 'Failed', bgColor: 'bg-red-100 dark:bg-red-900/30', textColor: 'text-red-800 dark:text-red-300' };
     case 'Removed':
       return { label: 'Removed', bgColor: 'bg-gray-100 dark:bg-gray-700', textColor: 'text-gray-500 dark:text-gray-400' };
+    case 'Stopped':
+      return { label: 'Stopped', bgColor: 'bg-orange-100 dark:bg-orange-900/30', textColor: 'text-orange-800 dark:text-orange-300' };
     default:
       return { label: status, bgColor: 'bg-gray-100 dark:bg-gray-700', textColor: 'text-gray-700 dark:text-gray-300' };
   }
@@ -198,6 +202,22 @@ export default function ProductDeploymentDetail() {
               className="inline-flex items-center justify-center rounded bg-brand-100 px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-200 dark:bg-brand-900/30 dark:text-brand-400 dark:hover:bg-brand-900/50"
             >
               Upgrade
+            </Link>
+          )}
+          {deployment.canStop && (
+            <Link
+              to={`/stop-product/${deployment.productDeploymentId}`}
+              className="inline-flex items-center justify-center rounded bg-orange-100 px-3 py-1.5 text-sm font-medium text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:hover:bg-orange-900/50"
+            >
+              Stop Containers
+            </Link>
+          )}
+          {deployment.canRestart && (
+            <Link
+              to={`/restart-product/${deployment.productDeploymentId}`}
+              className="inline-flex items-center justify-center rounded bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50"
+            >
+              Restart Containers
             </Link>
           )}
           {deployment.canRemove && (
