@@ -14,4 +14,14 @@ public interface ISystemConfigService
     /// Sets the wizard state.
     /// </summary>
     Task SetWizardStateAsync(WizardState state);
+
+    /// <summary>
+    /// Gets the health notification cooldown in seconds.
+    /// </summary>
+    Task<int> GetHealthNotificationCooldownSecondsAsync();
+
+    /// <summary>
+    /// Sets the health notification cooldown in seconds.
+    /// </summary>
+    Task SetHealthNotificationCooldownSecondsAsync(int seconds);
 }

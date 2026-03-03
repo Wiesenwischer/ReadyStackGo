@@ -129,6 +129,20 @@ export interface UpdateProgressInfo {
   progressPercent?: number;
 }
 
+// Health Notification Settings
+export interface HealthNotificationSettings {
+  cooldownSeconds: number;
+}
+
+export interface UpdateHealthNotificationSettingsRequest {
+  cooldownSeconds: number;
+}
+
+export interface UpdateHealthNotificationSettingsResponse {
+  success: boolean;
+  message?: string;
+}
+
 export const systemApi = {
   getVersion: (forceCheck?: boolean) =>
     apiGet<VersionInfo>(`/api/system/version${forceCheck ? '?forceCheck=true' : ''}`),
@@ -144,4 +158,10 @@ export const systemApi = {
     apiPost<ConfigureLetsEncryptResponse>('/api/system/tls/letsencrypt', request),
   confirmLetsEncryptDns: () =>
     apiPost<ConfigureLetsEncryptResponse>('/api/system/tls/letsencrypt/confirm-dns', {}),
+
+  // Health Notification Settings
+  getHealthNotificationSettings: () =>
+    apiGet<HealthNotificationSettings>('/api/system/health-notification-settings'),
+  updateHealthNotificationSettings: (request: UpdateHealthNotificationSettingsRequest) =>
+    apiPut<UpdateHealthNotificationSettingsResponse>('/api/system/health-notification-settings', request),
 };

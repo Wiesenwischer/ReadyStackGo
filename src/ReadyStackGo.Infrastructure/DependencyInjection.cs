@@ -88,6 +88,7 @@ public static class DependencyInjection
         // Health Monitoring (v0.11)
         services.AddScoped<IHealthMonitoringService, HealthMonitoringService>();
         services.AddScoped<IHealthCollectorService, HealthCollectorService>();
+        services.AddSingleton<IHealthChangeTracker, HealthChangeTracker>();
 
         // Maintenance Observers (v0.11)
         services.AddSingleton<IMaintenanceObserverFactory, MaintenanceObserverFactory>();
