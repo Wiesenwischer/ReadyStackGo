@@ -1,239 +1,22 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useParams, Link } from "react-router";
 import {
-  getDeployment,
-  getRollbackInfo,
-  checkUpgrade,
-  markDeploymentFailed,
-  type GetDeploymentResponse,
+  useDeploymentDetailStore,
   type DeployedServiceInfo,
   type InitContainerResultDto,
-  type RollbackInfoResponse,
-  type CheckUpgradeResponse,
-  getHealthStatusPresentation,
-  getOperationModePresentation,
-  getStackHealth,
-  enterMaintenanceMode,
-  exitMaintenanceMode,
-  type StackHealthDto,
   type ServiceHealthDto,
 } from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
-import { useHealthHub } from "../../hooks/useHealthHub";
+import { useAuth } from "../../context/AuthContext";
 import HealthHistoryChart from "../../components/health/HealthHistoryChart";
 
 export default function DeploymentDetail() {
   const { stackName } = useParams<{ stackName: string }>();
   const { activeEnvironment } = useEnvironment();
-  const [deployment, setDeployment] = useState<GetDeploymentResponse | null>(null);
-  const [health, setHealth] = useState<StackHealthDto | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [modeActionLoading, setModeActionLoading] = useState(false);
-  const [modeActionError, setModeActionError] = useState<string | null>(null);
+  const { token } = useAuth();
+  const store = useDeploymentDetailStore(token, activeEnvironment?.id, stackName);
 
-  // Rollback state
-  const [rollbackInfo, setRollbackInfo] = useState<RollbackInfoResponse | null>(null);
-
-  // Upgrade state (simplified - just info, navigation handled via Link)
-  const [upgradeInfo, setUpgradeInfo] = useState<CheckUpgradeResponse | null>(null);
-
-  // Mark as Failed state (for stuck deployments)
-  const [markFailedLoading, setMarkFailedLoading] = useState(false);
-  const [markFailedError, setMarkFailedError] = useState<string | null>(null);
-
-  // SignalR Health Hub connection
-  const { connectionState, subscribeToDeployment, unsubscribeFromDeployment } = useHealthHub({
-    onDeploymentHealthChanged: (healthData) => {
-      if (deployment?.deploymentId && healthData.deploymentId === deployment.deploymentId) {
-        setHealth(healthData);
-      }
-    }
-  });
-
-  // Subscribe to deployment when connected and deployment is loaded
-  useEffect(() => {
-    const deploymentId = deployment?.deploymentId;
-    if (deploymentId && connectionState === 'connected') {
-      subscribeToDeployment(deploymentId);
-      return () => {
-        unsubscribeFromDeployment(deploymentId);
-      };
-    }
-  }, [deployment?.deploymentId, connectionState, subscribeToDeployment, unsubscribeFromDeployment]);
-
-  useEffect(() => {
-    const loadDeployment = async () => {
-      if (!activeEnvironment || !stackName) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await getDeployment(activeEnvironment.id, decodeURIComponent(stackName));
-        if (response.success) {
-          setDeployment(response);
-
-          // Load health data (force refresh for immediate data)
-          if (response.deploymentId) {
-            try {
-              const healthData = await getStackHealth(activeEnvironment.id, response.deploymentId, true);
-              setHealth(healthData);
-            } catch (healthErr) {
-              console.warn("Could not load health data:", healthErr);
-            }
-          }
-        } else {
-          setError(response.message || "Deployment not found");
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load deployment");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadDeployment();
-  }, [activeEnvironment, stackName]);
-
-  // Load rollback info when deployment is loaded
-  useEffect(() => {
-    const loadRollbackInfo = async () => {
-      if (!activeEnvironment || !deployment?.deploymentId) return;
-
-      try {
-        const info = await getRollbackInfo(activeEnvironment.id, deployment.deploymentId);
-        setRollbackInfo(info);
-      } catch (err) {
-        console.warn("Could not load rollback info:", err);
-      }
-    };
-
-    loadRollbackInfo();
-  }, [activeEnvironment, deployment?.deploymentId]);
-
-  // Load upgrade info when deployment is loaded
-  useEffect(() => {
-    const loadUpgradeInfo = async () => {
-      if (!activeEnvironment || !deployment?.deploymentId) return;
-
-      try {
-        const info = await checkUpgrade(activeEnvironment.id, deployment.deploymentId);
-        setUpgradeInfo(info);
-      } catch (err) {
-        console.warn("Could not load upgrade info:", err);
-      }
-    };
-
-    loadUpgradeInfo();
-  }, [activeEnvironment, deployment?.deploymentId]);
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "-";
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const handleEnterMaintenance = async () => {
-    if (!deployment?.deploymentId || !activeEnvironment) return;
-    try {
-      setModeActionLoading(true);
-      setModeActionError(null);
-      const response = await enterMaintenanceMode(activeEnvironment.id, deployment.deploymentId);
-      if (!response.success) {
-        setModeActionError(response.message || 'Failed to enter maintenance mode');
-      } else {
-        // Refresh health data from server
-        try {
-          const healthData = await getStackHealth(activeEnvironment.id, deployment.deploymentId, true);
-          setHealth(healthData);
-        } catch {
-          // Optimistic fallback
-          if (health) {
-            setHealth({ ...health, operationMode: 'Maintenance' });
-          }
-        }
-      }
-    } catch (err) {
-      setModeActionError(err instanceof Error ? err.message : 'Failed to enter maintenance mode');
-    } finally {
-      setModeActionLoading(false);
-    }
-  };
-
-  const handleExitMaintenance = async () => {
-    if (!deployment?.deploymentId || !activeEnvironment) return;
-    try {
-      setModeActionLoading(true);
-      setModeActionError(null);
-      const response = await exitMaintenanceMode(activeEnvironment.id, deployment.deploymentId);
-      if (!response.success) {
-        setModeActionError(response.message || 'Failed to exit maintenance mode');
-      } else {
-        // Refresh health data from server
-        try {
-          const healthData = await getStackHealth(activeEnvironment.id, deployment.deploymentId, true);
-          setHealth(healthData);
-        } catch {
-          // Optimistic fallback
-          if (health) {
-            setHealth({ ...health, operationMode: 'Normal' });
-          }
-        }
-      }
-    } catch (err) {
-      setModeActionError(err instanceof Error ? err.message : 'Failed to exit maintenance mode');
-    } finally {
-      setModeActionLoading(false);
-    }
-  };
-
-  const handleMarkAsFailed = async () => {
-    if (!deployment?.deploymentId || !activeEnvironment) return;
-    try {
-      setMarkFailedLoading(true);
-      setMarkFailedError(null);
-      const response = await markDeploymentFailed(
-        activeEnvironment.id,
-        deployment.deploymentId,
-        "Manually marked as failed by user"
-      );
-      if (!response.success) {
-        setMarkFailedError(response.message || 'Failed to mark deployment as failed');
-      } else {
-        // Refresh the deployment data to get updated status
-        const refreshed = await getDeployment(activeEnvironment.id, decodeURIComponent(stackName || ''));
-        if (refreshed.success) {
-          setDeployment(refreshed);
-        }
-        // Also reload rollback info since status changed
-        if (deployment.deploymentId) {
-          try {
-            const info = await getRollbackInfo(activeEnvironment.id, deployment.deploymentId);
-            setRollbackInfo(info);
-          } catch {
-            // Ignore
-          }
-        }
-      }
-    } catch (err) {
-      setMarkFailedError(err instanceof Error ? err.message : 'Failed to mark deployment as failed');
-    } finally {
-      setMarkFailedLoading(false);
-    }
-  };
-
-  const statusPresentation = health
-    ? getHealthStatusPresentation(health.overallStatus)
-    : getHealthStatusPresentation('unknown');
-
-  const modePresentation = health
-    ? getOperationModePresentation(health.operationMode)
-    : null;
-
-  if (loading) {
+  if (store.loading) {
     return (
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
         <div className="animate-pulse">
@@ -248,7 +31,7 @@ export default function DeploymentDetail() {
     );
   }
 
-  if (error || !deployment) {
+  if (store.error || !store.deployment) {
     return (
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
         <div className="mb-6">
@@ -264,7 +47,7 @@ export default function DeploymentDetail() {
         </div>
         <div className="rounded-md bg-red-50 p-4 dark:bg-red-900/20">
           <p className="text-sm text-red-800 dark:text-red-200">
-            {error || "Deployment not found"}
+            {store.error || "Deployment not found"}
           </p>
         </div>
       </div>
@@ -291,62 +74,62 @@ export default function DeploymentDetail() {
         <div>
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {deployment.stackName}
+              {store.deployment.stackName}
             </h2>
             {/* Health Status Badge */}
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${statusPresentation.bgColor} ${statusPresentation.textColor}`}>
-              {health?.requiresAttention && (
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${store.statusPresentation.bgColor} ${store.statusPresentation.textColor}`}>
+              {store.health?.requiresAttention && (
                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
               )}
-              {statusPresentation.label}
+              {store.statusPresentation.label}
             </span>
             {/* Operation Mode Badge (if not Normal) */}
-            {modePresentation && health?.operationMode !== 'Normal' && (
-              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${modePresentation.bgColor} ${modePresentation.textColor}`}>
-                {modePresentation.label}
+            {store.modePresentation && store.health?.operationMode !== 'Normal' && (
+              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${store.modePresentation.bgColor} ${store.modePresentation.textColor}`}>
+                {store.modePresentation.label}
               </span>
             )}
           </div>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Deployed {formatDate(deployment.deployedAt)} in {activeEnvironment?.name}
+            Deployed {store.formatDate(store.deployment.deployedAt)} in {activeEnvironment?.name}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {connectionState === 'connected' && (
+          {store.connectionState === 'connected' && (
             <span className="inline-flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
               <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
               Live
             </span>
           )}
           {/* Operation Mode Controls */}
-          {deployment?.deploymentId && health && (
+          {store.deployment?.deploymentId && store.health && (
             <>
-              {health.operationMode === 'Normal' && (
+              {store.health.operationMode === 'Normal' && (
                 <button
-                  onClick={handleEnterMaintenance}
-                  disabled={modeActionLoading}
+                  onClick={store.handleEnterMaintenance}
+                  disabled={store.modeActionLoading}
                   className="inline-flex items-center justify-center gap-2 rounded-md bg-yellow-100 px-4 py-2 text-sm font-medium text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:hover:bg-yellow-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  {modeActionLoading ? 'Entering...' : 'Enter Maintenance'}
+                  {store.modeActionLoading ? 'Entering...' : 'Enter Maintenance'}
                 </button>
               )}
-              {health.operationMode === 'Maintenance' && (
+              {store.health.operationMode === 'Maintenance' && (
                 <button
-                  onClick={handleExitMaintenance}
-                  disabled={modeActionLoading}
+                  onClick={store.handleExitMaintenance}
+                  disabled={store.modeActionLoading}
                   className="inline-flex items-center justify-center gap-2 rounded-md bg-green-100 px-4 py-2 text-sm font-medium text-green-800 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  {modeActionLoading ? 'Exiting...' : 'Exit Maintenance'}
+                  {store.modeActionLoading ? 'Exiting...' : 'Exit Maintenance'}
                 </button>
               )}
             </>
@@ -355,7 +138,7 @@ export default function DeploymentDetail() {
       </div>
 
       {/* Operation Mode Error */}
-      {modeActionError && (
+      {store.modeActionError && (
         <div className="mb-6 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
           <div className="flex">
             <div className="flex-shrink-0">
@@ -364,11 +147,11 @@ export default function DeploymentDetail() {
               </svg>
             </div>
             <div className="ml-3">
-              <p className="text-sm text-red-800 dark:text-red-200">{modeActionError}</p>
+              <p className="text-sm text-red-800 dark:text-red-200">{store.modeActionError}</p>
             </div>
             <div className="ml-auto pl-3">
               <button
-                onClick={() => setModeActionError(null)}
+                onClick={store.clearModeActionError}
                 className="inline-flex rounded-md p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50"
               >
                 <span className="sr-only">Dismiss</span>
@@ -382,7 +165,7 @@ export default function DeploymentDetail() {
       )}
 
       {/* Stuck Deployment Panel - shown when deployment is in Installing or Upgrading status */}
-      {(deployment?.status === 'Installing' || deployment?.status === 'Upgrading') && (
+      {(store.deployment?.status === 'Installing' || store.deployment?.status === 'Upgrading') && (
         <div className="mb-6 rounded-2xl border border-orange-200 bg-orange-50 p-6 dark:border-orange-800 dark:bg-orange-900/20">
           <div className="flex items-start justify-between">
             <div>
@@ -390,35 +173,35 @@ export default function DeploymentDetail() {
                 <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                {deployment.status === 'Installing' ? 'Installation in Progress' : 'Upgrade in Progress'}
+                {store.deployment.status === 'Installing' ? 'Installation in Progress' : 'Upgrade in Progress'}
               </h4>
               <p className="mt-1 text-sm text-orange-800 dark:text-orange-200">
-                This deployment appears to be stuck in <strong>{deployment.status}</strong> status.
+                This deployment appears to be stuck in <strong>{store.deployment.status}</strong> status.
                 If the operation has stalled or the application was restarted during the operation,
                 you can manually mark it as failed to enable recovery options.
               </p>
-              {markFailedError && (
+              {store.markFailedError && (
                 <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                  {markFailedError}
+                  {store.markFailedError}
                 </p>
               )}
             </div>
             <button
-              onClick={handleMarkAsFailed}
-              disabled={markFailedLoading}
+              onClick={store.handleMarkAsFailed}
+              disabled={store.markFailedLoading}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 dark:bg-orange-700 dark:hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              {markFailedLoading ? 'Marking...' : 'Mark as Failed'}
+              {store.markFailedLoading ? 'Marking...' : 'Mark as Failed'}
             </button>
           </div>
         </div>
       )}
 
       {/* Rollback Panel - only shown when canRollback is true */}
-      {rollbackInfo?.canRollback && (
+      {store.rollbackInfo?.canRollback && (
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-800 dark:bg-amber-900/20">
           <div className="flex items-start justify-between">
             <div>
@@ -429,16 +212,16 @@ export default function DeploymentDetail() {
                 Rollback Available
               </h4>
               <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
-                The upgrade failed. You can rollback to version <strong>{rollbackInfo.rollbackTargetVersion}</strong>
-                {rollbackInfo.snapshotDescription && (
+                The upgrade failed. You can rollback to version <strong>{store.rollbackInfo.rollbackTargetVersion}</strong>
+                {store.rollbackInfo.snapshotDescription && (
                   <span className="block mt-1 text-amber-700 dark:text-amber-300">
-                    {rollbackInfo.snapshotDescription}
+                    {store.rollbackInfo.snapshotDescription}
                   </span>
                 )}
               </p>
-              {rollbackInfo.snapshotCreatedAt && (
+              {store.rollbackInfo.snapshotCreatedAt && (
                 <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                  Snapshot created: {formatDate(rollbackInfo.snapshotCreatedAt)}
+                  Snapshot created: {store.formatDate(store.rollbackInfo.snapshotCreatedAt)}
                 </p>
               )}
             </div>
@@ -456,7 +239,7 @@ export default function DeploymentDetail() {
       )}
 
       {/* Upgrade Panel - navigates to upgrade page */}
-      {upgradeInfo?.upgradeAvailable && upgradeInfo.canUpgrade && (
+      {store.upgradeInfo?.upgradeAvailable && store.upgradeInfo.canUpgrade && (
         <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-6 dark:border-blue-800 dark:bg-blue-900/20">
           <div className="flex items-start justify-between">
             <div className="flex-1">
@@ -467,10 +250,10 @@ export default function DeploymentDetail() {
                 Upgrade Available
               </h4>
               <p className="mt-1 text-sm text-blue-800 dark:text-blue-200">
-                Version <strong>{upgradeInfo.currentVersion}</strong> &rarr; <strong>{upgradeInfo.latestVersion}</strong>
-                {(upgradeInfo.availableVersions?.length ?? 0) > 1 && (
+                Version <strong>{store.upgradeInfo.currentVersion}</strong> &rarr; <strong>{store.upgradeInfo.latestVersion}</strong>
+                {(store.upgradeInfo.availableVersions?.length ?? 0) > 1 && (
                   <span className="ml-2 text-blue-600 dark:text-blue-400">
-                    ({upgradeInfo.availableVersions?.length} versions available)
+                    ({store.upgradeInfo.availableVersions?.length} versions available)
                   </span>
                 )}
               </p>
@@ -491,7 +274,7 @@ export default function DeploymentDetail() {
       )}
 
       {/* Upgrade not available message - show reason if can't upgrade */}
-      {upgradeInfo?.upgradeAvailable && !upgradeInfo.canUpgrade && upgradeInfo.cannotUpgradeReason && (
+      {store.upgradeInfo?.upgradeAvailable && !store.upgradeInfo.canUpgrade && store.upgradeInfo.cannotUpgradeReason && (
         <div className="mb-6 rounded-2xl border border-gray-200 bg-gray-50 p-6 dark:border-gray-700 dark:bg-gray-800/50">
           <div className="flex items-start gap-3">
             <svg className="w-5 h-5 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -499,10 +282,10 @@ export default function DeploymentDetail() {
             </svg>
             <div>
               <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                Upgrade Available ({upgradeInfo.currentVersion} &rarr; {upgradeInfo.latestVersion})
+                Upgrade Available ({store.upgradeInfo.currentVersion} &rarr; {store.upgradeInfo.latestVersion})
               </h4>
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                {upgradeInfo.cannotUpgradeReason}
+                {store.upgradeInfo.cannotUpgradeReason}
               </p>
             </div>
           </div>
@@ -510,7 +293,7 @@ export default function DeploymentDetail() {
       )}
 
       {/* Health Summary Card */}
-      {health && (
+      {store.health && (
         <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
           <h4 className="text-lg font-semibold text-black dark:text-white mb-4">
             Health Status
@@ -518,44 +301,44 @@ export default function DeploymentDetail() {
           <div className="grid gap-4 md:grid-cols-3">
             <div className="text-center p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50">
               <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                {health.healthyServices}/{health.totalServices}
+                {store.health.healthyServices}/{store.health.totalServices}
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400">Services Healthy</div>
             </div>
             <div className="text-center p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50">
               <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                {health.operationMode}
+                {store.health.operationMode}
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400">Operation Mode</div>
             </div>
             <div className="text-center p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50">
               <div className="text-sm font-medium text-gray-900 dark:text-white">
-                {health.statusMessage}
+                {store.health.statusMessage}
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400">Status</div>
             </div>
           </div>
-          {health.currentVersion && (
+          {store.health.currentVersion && (
             <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-              Version: {health.currentVersion}
+              Version: {store.health.currentVersion}
             </div>
           )}
         </div>
       )}
 
       {/* Health History Chart */}
-      {deployment?.deploymentId && (
+      {store.deployment?.deploymentId && (
         <HealthHistoryChart
-          deploymentId={deployment.deploymentId}
+          deploymentId={store.deployment.deploymentId}
           className="mb-6"
         />
       )}
 
       {/* Init Container Results */}
-      {deployment.initContainerResults && deployment.initContainerResults.length > 0 && (
+      {store.deployment.initContainerResults && store.deployment.initContainerResults.length > 0 && (
         <InitContainerResultsPanel
-          results={deployment.initContainerResults}
-          formatDate={formatDate}
+          results={store.deployment.initContainerResults}
+          formatDate={store.formatDate}
         />
       )}
 
@@ -563,24 +346,24 @@ export default function DeploymentDetail() {
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div className="px-4 py-6 md:px-6 xl:px-7.5">
           <h4 className="text-xl font-semibold text-black dark:text-white">
-            Services ({health?.self.services.length ?? deployment.services.length})
+            Services ({store.health?.self.services.length ?? store.deployment.services.length})
           </h4>
         </div>
 
         <div className="border-t border-stroke dark:border-strokedark">
-          {(health?.self.services.length ?? deployment.services.length) === 0 ? (
+          {(store.health?.self.services.length ?? store.deployment.services.length) === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-gray-600 dark:text-gray-400">
               No services found
             </div>
-          ) : health ? (
+          ) : store.health ? (
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {health.self.services.map((service) => (
+              {store.health.self.services.map((service) => (
                 <ServiceHealthRow key={service.name} service={service} />
               ))}
             </div>
           ) : (
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {deployment.services.map((service) => (
+              {store.deployment.services.map((service) => (
                 <ServiceRow key={service.serviceName} service={service} />
               ))}
             </div>
@@ -589,7 +372,7 @@ export default function DeploymentDetail() {
       </div>
 
       {/* Configuration */}
-      {deployment.configuration && Object.keys(deployment.configuration).length > 0 && (
+      {store.deployment.configuration && Object.keys(store.deployment.configuration).length > 0 && (
         <div className="mt-6 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="px-4 py-6 md:px-6 xl:px-7.5">
             <h4 className="text-xl font-semibold text-black dark:text-white">
@@ -598,7 +381,7 @@ export default function DeploymentDetail() {
           </div>
           <div className="border-t border-stroke dark:border-strokedark p-4 md:p-6">
             <div className="grid gap-3 md:grid-cols-2">
-              {Object.entries(deployment.configuration).map(([key, value]) => (
+              {Object.entries(store.deployment.configuration).map(([key, value]) => (
                 <div key={key} className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800/50">
                   <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     {key}
