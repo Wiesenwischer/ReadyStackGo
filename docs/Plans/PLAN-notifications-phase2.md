@@ -155,16 +155,17 @@ Drei neue Notification-Typen für proaktive Benachrichtigungen hinzufügen: Cont
 
 ## Offene Punkte
 
-- [ ] Sollen Self-Signed-Zertifikate Expiry-Warnungen erzeugen? (Sie werden meist automatisch neu generiert beim Neustart)
-- [ ] Soll der Health-Change-Cooldown konfigurierbar sein oder fest auf 5 Minuten?
-- [ ] Soll die Health-Recovery (Unhealthy→Healthy) auch eine Notification erzeugen? (Info-Severity "Service recovered")
+- [x] ~~Sollen Self-Signed-Zertifikate Expiry-Warnungen erzeugen?~~ → Ja, alle Zertifikate warnen
+- [x] ~~Soll der Health-Change-Cooldown konfigurierbar sein oder fest auf 5 Minuten?~~ → Konfigurierbar über Settings-Page
+- [x] ~~Soll die Health-Recovery (Unhealthy→Healthy) auch eine Notification erzeugen?~~ → Ja, Info-Severity "Service recovered"
 
 ## Entscheidungen
 
 | Entscheidung | Optionen | Gewählt | Begründung |
 |---|---|---|---|
-| Health Throttle | A) ExistsAsync Dedup, B) ConcurrentDict Cooldown, C) Beides | **C) Beides** | ConcurrentDict für Echtzeit-Cooldown (5 Min), ExistsAsync als Backup gegen Restarts |
+| Health Throttle | A) ExistsAsync Dedup, B) ConcurrentDict Cooldown, C) Beides | **C) Beides** | ConcurrentDict für Echtzeit-Cooldown (default 5 Min), ExistsAsync als Backup gegen Restarts |
 | TLS Service | A) CertificateRenewalService erweitern, B) Neuer Service | **B) Neuer Service** | Separation of Concerns — Renewal ≠ Expiry Notification |
 | First-Use DI | A) Constructor Injection, B) ServiceProvider Resolve | **B) ServiceProvider** | Auth Handler hat keinen Zugriff auf DI-Container direkt, `HttpContext.RequestServices` ist der Standard-Weg |
-| Health Notification Scope | A) Nur Verschlechterung, B) Verschlechterung + Recovery | - | **Offen — User fragen** |
-| Self-Signed Expiry | A) Warnen, B) Ignorieren | - | **Offen — User fragen** |
+| Health Notification Scope | A) Nur Verschlechterung, B) Verschlechterung + Recovery | **B) Verschlechterung + Recovery** | Recovery als Info-Notification — User möchte wissen wenn Services wieder gesund sind |
+| Self-Signed Expiry | A) Warnen, B) Ignorieren | **A) Warnen** | Alle Zertifikate gleich behandeln — User explizit gewünscht |
+| Health Cooldown | A) Fix 5 Min, B) Konfigurierbar | **B) Konfigurierbar** | Settings-Page-Eintrag, Default 5 Minuten. User möchte den Wert selbst anpassen können |

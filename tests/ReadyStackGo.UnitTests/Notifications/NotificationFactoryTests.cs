@@ -221,4 +221,247 @@ public class NotificationFactoryTests
         notification.Metadata["operation"].Should().Be("deploy");
         notification.Metadata["stackName"].Should().Be("my-stack");
     }
+
+    // --- CreateHealthChangeNotification ---
+
+    [Fact]
+    public void CreateHealthChangeNotification_Unhealthy_ReturnsErrorSeverity()
+    {
+        var notification = NotificationFactory.CreateHealthChangeNotification(
+            stackName: "web-app", serviceName: "api",
+            previousStatus: "Healthy", currentStatus: "Unhealthy");
+
+        notification.Severity.Should().Be(NotificationSeverity.Error);
+        notification.Title.Should().Be("Service Health Changed");
+        notification.Message.Should().Contain("Healthy").And.Contain("Unhealthy");
+    }
+
+    [Fact]
+    public void CreateHealthChangeNotification_NotFound_ReturnsErrorSeverity()
+    {
+        var notification = NotificationFactory.CreateHealthChangeNotification(
+            stackName: "web-app", serviceName: "api",
+            previousStatus: "Healthy", currentStatus: "NotFound");
+
+        notification.Severity.Should().Be(NotificationSeverity.Error);
+    }
+
+    [Fact]
+    public void CreateHealthChangeNotification_Degraded_ReturnsWarningSeverity()
+    {
+        var notification = NotificationFactory.CreateHealthChangeNotification(
+            stackName: "web-app", serviceName: "api",
+            previousStatus: "Healthy", currentStatus: "Degraded");
+
+        notification.Severity.Should().Be(NotificationSeverity.Warning);
+    }
+
+    [Fact]
+    public void CreateHealthChangeNotification_Recovery_ReturnsInfoSeverityAndRecoveryTitle()
+    {
+        var notification = NotificationFactory.CreateHealthChangeNotification(
+            stackName: "web-app", serviceName: "api",
+            previousStatus: "Unhealthy", currentStatus: "Healthy");
+
+        notification.Severity.Should().Be(NotificationSeverity.Info);
+        notification.Title.Should().Be("Service Recovered");
+    }
+
+    [Fact]
+    public void CreateHealthChangeNotification_SetsCorrectType()
+    {
+        var notification = NotificationFactory.CreateHealthChangeNotification(
+            stackName: "web-app", serviceName: "api",
+            previousStatus: "Healthy", currentStatus: "Unhealthy");
+
+        notification.Type.Should().Be(NotificationType.HealthChange);
+    }
+
+    [Fact]
+    public void CreateHealthChangeNotification_WithDeploymentId_SetsActionUrl()
+    {
+        var notification = NotificationFactory.CreateHealthChangeNotification(
+            stackName: "web-app", serviceName: "api",
+            previousStatus: "Healthy", currentStatus: "Unhealthy",
+            deploymentId: "dep-123");
+
+        notification.ActionUrl.Should().Be("/deployments/web-app");
+        notification.ActionLabel.Should().Be("View Deployment");
+        notification.Metadata["deploymentId"].Should().Be("dep-123");
+    }
+
+    [Fact]
+    public void CreateHealthChangeNotification_WithoutDeploymentId_FallsBackToHealthUrl()
+    {
+        var notification = NotificationFactory.CreateHealthChangeNotification(
+            stackName: "web-app", serviceName: "api",
+            previousStatus: "Healthy", currentStatus: "Unhealthy");
+
+        notification.ActionUrl.Should().Be("/health");
+        notification.ActionLabel.Should().Be("View Health");
+    }
+
+    [Fact]
+    public void CreateHealthChangeNotification_IncludesMetadata()
+    {
+        var notification = NotificationFactory.CreateHealthChangeNotification(
+            stackName: "web-app", serviceName: "api",
+            previousStatus: "Healthy", currentStatus: "Unhealthy",
+            deploymentId: "dep-123");
+
+        notification.Metadata["serviceKey"].Should().Be("dep-123:api");
+        notification.Metadata["stackName"].Should().Be("web-app");
+        notification.Metadata["serviceName"].Should().Be("api");
+        notification.Metadata["previousStatus"].Should().Be("Healthy");
+        notification.Metadata["currentStatus"].Should().Be("Unhealthy");
+    }
+
+    [Fact]
+    public void CreateHealthChangeNotification_SpecialCharsInStackName_EscapesInActionUrl()
+    {
+        var notification = NotificationFactory.CreateHealthChangeNotification(
+            stackName: "my stack/special", serviceName: "api",
+            previousStatus: "Healthy", currentStatus: "Unhealthy",
+            deploymentId: "dep-123");
+
+        notification.ActionUrl.Should().Be("/deployments/my%20stack%2Fspecial");
+    }
+
+    // --- CreateApiKeyFirstUseNotification ---
+
+    [Fact]
+    public void CreateApiKeyFirstUseNotification_ReturnsInfoSeverity()
+    {
+        var notification = NotificationFactory.CreateApiKeyFirstUseNotification(
+            keyName: "CI Pipeline", keyPrefix: "rsgo_abc");
+
+        notification.Severity.Should().Be(NotificationSeverity.Info);
+    }
+
+    [Fact]
+    public void CreateApiKeyFirstUseNotification_SetsCorrectType()
+    {
+        var notification = NotificationFactory.CreateApiKeyFirstUseNotification(
+            keyName: "CI Pipeline", keyPrefix: "rsgo_abc");
+
+        notification.Type.Should().Be(NotificationType.ApiKeyFirstUse);
+    }
+
+    [Fact]
+    public void CreateApiKeyFirstUseNotification_ContainsKeyNameAndPrefix()
+    {
+        var notification = NotificationFactory.CreateApiKeyFirstUseNotification(
+            keyName: "CI Pipeline", keyPrefix: "rsgo_abc");
+
+        notification.Title.Should().Be("API Key First Used");
+        notification.Message.Should().Contain("CI Pipeline").And.Contain("rsgo_abc");
+    }
+
+    [Fact]
+    public void CreateApiKeyFirstUseNotification_SetsActionUrl()
+    {
+        var notification = NotificationFactory.CreateApiKeyFirstUseNotification(
+            keyName: "CI Pipeline", keyPrefix: "rsgo_abc");
+
+        notification.ActionUrl.Should().Be("/settings/api-keys");
+        notification.ActionLabel.Should().Be("View API Keys");
+    }
+
+    [Fact]
+    public void CreateApiKeyFirstUseNotification_IncludesMetadata()
+    {
+        var notification = NotificationFactory.CreateApiKeyFirstUseNotification(
+            keyName: "CI Pipeline", keyPrefix: "rsgo_abc");
+
+        notification.Metadata["keyName"].Should().Be("CI Pipeline");
+        notification.Metadata["keyPrefix"].Should().Be("rsgo_abc");
+    }
+
+    // --- CreateCertificateExpiryNotification ---
+
+    [Theory]
+    [InlineData(30)]
+    [InlineData(14)]
+    [InlineData(8)]
+    public void CreateCertificateExpiryNotification_WarningThresholds_ReturnsWarningSeverity(
+        int daysRemaining)
+    {
+        var notification = NotificationFactory.CreateCertificateExpiryNotification(
+            subject: "*.example.com", thumbprint: "ABC123",
+            expiresAt: DateTime.UtcNow.AddDays(daysRemaining), daysRemaining: daysRemaining);
+
+        notification.Severity.Should().Be(NotificationSeverity.Warning);
+        notification.Title.Should().Be("Certificate Expiring Soon");
+    }
+
+    [Theory]
+    [InlineData(7)]
+    [InlineData(3)]
+    [InlineData(1)]
+    public void CreateCertificateExpiryNotification_ErrorThresholds_ReturnsErrorSeverity(
+        int daysRemaining)
+    {
+        var notification = NotificationFactory.CreateCertificateExpiryNotification(
+            subject: "*.example.com", thumbprint: "ABC123",
+            expiresAt: DateTime.UtcNow.AddDays(daysRemaining), daysRemaining: daysRemaining);
+
+        notification.Severity.Should().Be(NotificationSeverity.Error);
+        notification.Title.Should().Be("Certificate Expiring Soon");
+    }
+
+    [Fact]
+    public void CreateCertificateExpiryNotification_Expired_ReturnsErrorWithExpiredTitle()
+    {
+        var notification = NotificationFactory.CreateCertificateExpiryNotification(
+            subject: "*.example.com", thumbprint: "ABC123",
+            expiresAt: DateTime.UtcNow.AddDays(-1), daysRemaining: 0);
+
+        notification.Severity.Should().Be(NotificationSeverity.Error);
+        notification.Title.Should().Be("Certificate Expired!");
+        notification.Message.Should().Contain("has expired");
+    }
+
+    [Fact]
+    public void CreateCertificateExpiryNotification_NotExpired_ContainsDaysInMessage()
+    {
+        var notification = NotificationFactory.CreateCertificateExpiryNotification(
+            subject: "*.example.com", thumbprint: "ABC123",
+            expiresAt: DateTime.UtcNow.AddDays(14), daysRemaining: 14);
+
+        notification.Message.Should().Contain("14 day(s)");
+    }
+
+    [Fact]
+    public void CreateCertificateExpiryNotification_SetsCorrectType()
+    {
+        var notification = NotificationFactory.CreateCertificateExpiryNotification(
+            subject: "*.example.com", thumbprint: "ABC123",
+            expiresAt: DateTime.UtcNow.AddDays(30), daysRemaining: 30);
+
+        notification.Type.Should().Be(NotificationType.CertificateExpiry);
+    }
+
+    [Fact]
+    public void CreateCertificateExpiryNotification_SetsActionUrl()
+    {
+        var notification = NotificationFactory.CreateCertificateExpiryNotification(
+            subject: "*.example.com", thumbprint: "ABC123",
+            expiresAt: DateTime.UtcNow.AddDays(30), daysRemaining: 30);
+
+        notification.ActionUrl.Should().Be("/settings/tls");
+        notification.ActionLabel.Should().Be("View TLS Settings");
+    }
+
+    [Fact]
+    public void CreateCertificateExpiryNotification_IncludesMetadata()
+    {
+        var notification = NotificationFactory.CreateCertificateExpiryNotification(
+            subject: "*.example.com", thumbprint: "ABC123",
+            expiresAt: DateTime.UtcNow.AddDays(14), daysRemaining: 14);
+
+        notification.Metadata["subject"].Should().Be("*.example.com");
+        notification.Metadata["thumbprint"].Should().Be("ABC123");
+        notification.Metadata["daysRemaining"].Should().Be("14");
+        notification.Metadata["threshold"].Should().Be("ABC123:14");
+    }
 }

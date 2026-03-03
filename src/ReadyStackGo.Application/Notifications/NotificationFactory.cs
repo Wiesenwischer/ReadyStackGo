@@ -110,6 +110,101 @@ public static class NotificationFactory
         };
     }
 
+    public static Notification CreateHealthChangeNotification(
+        string stackName, string serviceName,
+        string previousStatus, string currentStatus,
+        string? deploymentId = null)
+    {
+        var isRecovery = currentStatus.Equals("Healthy", StringComparison.OrdinalIgnoreCase);
+        var severity = ResolveHealthSeverity(currentStatus);
+        var title = isRecovery ? "Service Recovered" : "Service Health Changed";
+        var message = $"Service '{serviceName}' in stack '{stackName}' changed from {previousStatus} to {currentStatus}.";
+
+        var metadata = new Dictionary<string, string>
+        {
+            ["serviceKey"] = $"{deploymentId}:{serviceName}",
+            ["stackName"] = stackName,
+            ["serviceName"] = serviceName,
+            ["previousStatus"] = previousStatus,
+            ["currentStatus"] = currentStatus
+        };
+
+        string? actionUrl = null;
+        if (!string.IsNullOrEmpty(deploymentId))
+        {
+            metadata["deploymentId"] = deploymentId;
+            actionUrl = $"/deployments/{Uri.EscapeDataString(stackName)}";
+        }
+
+        return new Notification
+        {
+            Type = NotificationType.HealthChange,
+            Title = title,
+            Message = message,
+            Severity = severity,
+            ActionUrl = actionUrl ?? "/health",
+            ActionLabel = actionUrl != null ? "View Deployment" : "View Health",
+            Metadata = metadata
+        };
+    }
+
+    public static Notification CreateApiKeyFirstUseNotification(
+        string keyName, string keyPrefix)
+    {
+        return new Notification
+        {
+            Type = NotificationType.ApiKeyFirstUse,
+            Title = "API Key First Used",
+            Message = $"API key '{keyName}' ({keyPrefix}...) was used for the first time.",
+            Severity = NotificationSeverity.Info,
+            ActionUrl = "/settings/api-keys",
+            ActionLabel = "View API Keys",
+            Metadata = new Dictionary<string, string>
+            {
+                ["keyName"] = keyName,
+                ["keyPrefix"] = keyPrefix
+            }
+        };
+    }
+
+    public static Notification CreateCertificateExpiryNotification(
+        string subject, string thumbprint, DateTime expiresAt, int daysRemaining)
+    {
+        var severity = daysRemaining <= 7
+            ? NotificationSeverity.Error
+            : NotificationSeverity.Warning;
+
+        var title = daysRemaining <= 0 ? "Certificate Expired!" : "Certificate Expiring Soon";
+        var message = daysRemaining <= 0
+            ? $"Certificate for '{subject}' has expired!"
+            : $"Certificate for '{subject}' expires in {daysRemaining} day(s).";
+
+        return new Notification
+        {
+            Type = NotificationType.CertificateExpiry,
+            Title = title,
+            Message = message,
+            Severity = severity,
+            ActionUrl = "/settings/tls",
+            ActionLabel = "View TLS Settings",
+            Metadata = new Dictionary<string, string>
+            {
+                ["subject"] = subject,
+                ["thumbprint"] = thumbprint,
+                ["daysRemaining"] = daysRemaining.ToString(),
+                ["threshold"] = $"{thumbprint}:{daysRemaining}"
+            }
+        };
+    }
+
+    private static NotificationSeverity ResolveHealthSeverity(string currentStatus) =>
+        currentStatus.ToLowerInvariant() switch
+        {
+            "unhealthy" or "notfound" => NotificationSeverity.Error,
+            "degraded" => NotificationSeverity.Warning,
+            _ => NotificationSeverity.Info
+        };
+
     private static (NotificationSeverity Severity, string Title, string Message) ResolveSyncSeverity(
         bool success, int stacksLoaded, int sourcesSynced,
         IReadOnlyList<string> errors, IReadOnlyList<string> warnings,
