@@ -1,19 +1,23 @@
 # Stage 1: Build Frontend (Vite + React)
 FROM node:20-alpine AS frontend-build
 
+RUN corepack enable
+
 WORKDIR /app/frontend
 
-# Copy package files
-COPY src/ReadyStackGo.WebUi/package*.json ./
+# Copy package files and pnpm config
+COPY src/ReadyStackGo.WebUi/package.json ./
+COPY src/ReadyStackGo.WebUi/pnpm-lock.yaml ./
+COPY src/ReadyStackGo.WebUi/.npmrc ./
 
 # Install dependencies
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Copy source files
 COPY src/ReadyStackGo.WebUi/ ./
 
 # Build frontend (outputs to ../ReadyStackGo.Api/wwwroot)
-RUN npm run build
+RUN pnpm build
 
 # Stage 2: Build Backend (.NET)
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS backend-build
