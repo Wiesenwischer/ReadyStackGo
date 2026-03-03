@@ -162,8 +162,8 @@ Stop und Restart aller Container eines Product Deployments — auf Produkt-Ebene
 
 ### Abschluss
 
-- [ ] **Dokumentation & Website** — Wiki, Public Website (DE/EN), Roadmap
-- [ ] **Phase abschließen** — Alle Tests grün, PR gegen main
+- [x] **Dokumentation & Website** — Wiki, Public Website (DE/EN), Roadmap
+- [x] **Phase abschließen** — Alle Tests grün, PR gegen main
 
 ## Test-Strategie
 
