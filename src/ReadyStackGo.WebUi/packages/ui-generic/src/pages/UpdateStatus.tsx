@@ -1,178 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { systemApi, type VersionInfo, useUpdateHub } from '@rsgo/core';
-
-const VERSION_POLL_INTERVAL_MS = 3000;
-const VERSION_POLL_TIMEOUT_MS = 120000;
-
-type Phase = "connecting" | "triggering" | "pulling" | "creating" | "starting" | "restarting" | "success" | "error";
+import { useUpdateStore } from '@rsgo/core';
 
 export default function UpdateStatus() {
   const [searchParams] = useSearchParams();
   const targetVersion = searchParams.get("version") ?? "";
   const releaseUrl = searchParams.get("releaseUrl") ?? "";
 
-  const [phase, setPhase] = useState<Phase>("connecting");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [currentVersion, setCurrentVersion] = useState<string | null>(null);
-  const [pullPercent, setPullPercent] = useState(0);
-
-  const hasTriggered = useRef(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const { connectionState, progress } = useUpdateHub();
-
-  // Stop version polling
-  const stopPolling = useCallback(() => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => () => stopPolling(), [stopPolling]);
-
-  // Start polling version endpoint to detect restart completion
-  const startVersionPolling = useCallback(() => {
-    stopPolling();
-
-    pollRef.current = setInterval(async () => {
-      try {
-        const info: VersionInfo = await systemApi.getVersion();
-        if (info.serverVersion === targetVersion) {
-          stopPolling();
-          setPhase("success");
-          localStorage.removeItem("rsgo_update_dismissed");
-          setTimeout(() => {
-            window.location.href = "/";
-          }, 2000);
-        }
-      } catch {
-        // Server is restarting, keep polling
-      }
-    }, VERSION_POLL_INTERVAL_MS);
-
-    timeoutRef.current = setTimeout(() => {
-      stopPolling();
-      setPhase("error");
-      setErrorMessage(
-        "Update is taking longer than expected. The server may still be restarting — try refreshing this page in a moment."
-      );
-    }, VERSION_POLL_TIMEOUT_MS);
-  }, [stopPolling, targetVersion]);
-
-  // React to SignalR progress updates
-  useEffect(() => {
-    if (!progress) return;
-
-    switch (progress.phase) {
-      case "pulling":
-        setPhase("pulling");
-        setPullPercent(progress.progressPercent ?? 0);
-        break;
-      case "creating":
-        setPhase("creating");
-        break;
-      case "starting":
-        setPhase("starting");
-        break;
-      case "handed_off":
-        setPhase("restarting");
-        startVersionPolling();
-        break;
-      case "error":
-        setPhase("error");
-        setErrorMessage(progress.message ?? "Update failed.");
-        break;
-    }
-  }, [progress, startVersionPolling]);
-
-  // Trigger update once connected
-  useEffect(() => {
-    if (!targetVersion || hasTriggered.current || connectionState !== "connected") return;
-
-    // If progress shows update already in progress (e.g. page refresh), don't re-trigger
-    if (progress && progress.phase !== "idle" && progress.phase !== "error") return;
-
-    hasTriggered.current = true;
-    setPhase("triggering");
-
-    const triggerUpdate = async () => {
-      try {
-        const info = await systemApi.getVersion();
-        setCurrentVersion(info.serverVersion);
-      } catch {
-        // Ignore, proceed without current version
-      }
-
-      try {
-        const result = await systemApi.triggerUpdate(targetVersion);
-        if (!result.success) {
-          setPhase("error");
-          setErrorMessage(result.message);
-        }
-        // Otherwise, progress will come via SignalR
-      } catch (error) {
-        setPhase("error");
-        setErrorMessage(
-          error instanceof Error ? error.message : "Failed to trigger update."
-        );
-      }
-    };
-
-    triggerUpdate();
-  }, [targetVersion, connectionState, progress, startVersionPolling]);
-
-  // If SignalR connection drops while in an active phase, assume server is restarting
-  useEffect(() => {
-    if (connectionState === "disconnected" && (phase === "pulling" || phase === "creating" || phase === "starting")) {
-      setPhase("restarting");
-      startVersionPolling();
-    }
-  }, [connectionState, phase, startVersionPolling]);
-
-  const handleRetry = () => {
-    hasTriggered.current = false;
-    setPhase("triggering");
-    setErrorMessage(null);
-    setPullPercent(0);
-
-    const trigger = async () => {
-      hasTriggered.current = true;
-      try {
-        const result = await systemApi.triggerUpdate(targetVersion);
-        if (!result.success) {
-          setPhase("error");
-          setErrorMessage(result.message);
-        }
-      } catch (error) {
-        setPhase("error");
-        setErrorMessage(
-          error instanceof Error ? error.message : "Failed to trigger update."
-        );
-      }
-    };
-    trigger();
-  };
-
-  const phaseMessage = (): string => {
-    switch (phase) {
-      case "connecting": return "Connecting...";
-      case "triggering": return `Updating to v${targetVersion}`;
-      case "pulling": return `Downloading v${targetVersion}`;
-      case "creating": return "Preparing new container...";
-      case "starting": return "Starting update process...";
-      case "restarting": return "Restarting with new version...";
-      default: return "";
-    }
-  };
-
-  const isWorking = phase === "connecting" || phase === "triggering" || phase === "pulling" || phase === "creating" || phase === "starting" || phase === "restarting";
+  const store = useUpdateStore(targetVersion);
 
   return (
     <div className="relative min-h-screen bg-white dark:bg-gray-900">
@@ -196,7 +30,7 @@ export default function UpdateStatus() {
           </h1>
 
           {/* Working states */}
-          {isWorking && (
+          {store.isWorking && (
             <div className="rounded-2xl border border-brand-200 bg-brand-50/50 p-8 dark:border-brand-800 dark:bg-brand-900/10">
               {/* Spinner */}
               <div className="mx-auto mb-6 h-16 w-16">
@@ -207,37 +41,37 @@ export default function UpdateStatus() {
               </div>
 
               <h2 className="mb-2 text-xl font-semibold text-gray-900 dark:text-white">
-                {phaseMessage()}
+                {store.phaseMessage}
               </h2>
 
               {/* Progress bar during pull */}
-              {phase === "pulling" && (
+              {store.phase === "pulling" && (
                 <div className="mx-auto mt-4 mb-2 max-w-xs">
                   <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
                     <div
                       className="h-2 rounded-full bg-brand-500 transition-all duration-300"
-                      style={{ width: `${pullPercent}%` }}
+                      style={{ width: `${store.pullPercent}%` }}
                     />
                   </div>
                   <p className="mt-2 text-sm font-medium text-brand-600 dark:text-brand-400">
-                    {pullPercent}%
+                    {store.pullPercent}%
                   </p>
                 </div>
               )}
 
-              {phase !== "pulling" && (
+              {store.phase !== "pulling" && (
                 <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-                  {phase === "restarting"
+                  {store.phase === "restarting"
                     ? "RSGO will restart momentarily. This page will reload automatically once the new version is running."
                     : "This may take a moment..."}
                 </p>
               )}
 
               {/* Version badge */}
-              {currentVersion && (
+              {store.currentVersion && (
                 <div className="mt-4 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm dark:bg-gray-800">
                   <span className="text-gray-500 dark:text-gray-400">
-                    v{currentVersion}
+                    v{store.currentVersion}
                   </span>
                   <svg className="h-4 w-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
@@ -251,7 +85,7 @@ export default function UpdateStatus() {
           )}
 
           {/* Success state */}
-          {phase === "success" && (
+          {store.phase === "success" && (
             <div className="rounded-2xl border border-green-200 bg-green-50/50 p-8 dark:border-green-800 dark:bg-green-900/10">
               <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
                 <svg className="h-8 w-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -277,7 +111,7 @@ export default function UpdateStatus() {
           )}
 
           {/* Error state */}
-          {phase === "error" && (
+          {store.phase === "error" && (
             <div className="rounded-2xl border border-red-200 bg-red-50/50 p-8 dark:border-red-800 dark:bg-red-900/10">
               <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
                 <svg className="h-8 w-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -290,12 +124,12 @@ export default function UpdateStatus() {
               </h2>
 
               <p className="mb-6 text-sm text-red-700 dark:text-red-300">
-                {errorMessage}
+                {store.errorMessage}
               </p>
 
               <div className="flex flex-col gap-3">
                 <button
-                  onClick={handleRetry}
+                  onClick={store.retry}
                   className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-5 py-3 text-sm font-medium text-white hover:bg-brand-600"
                 >
                   Retry update
@@ -311,7 +145,7 @@ export default function UpdateStatus() {
           )}
 
           {/* Release notes link */}
-          {releaseUrl && phase !== "error" && (
+          {releaseUrl && store.phase !== "error" && (
             <a
               href={releaseUrl}
               target="_blank"
