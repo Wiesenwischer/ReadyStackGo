@@ -14,8 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ReadyStackGo.Application\ReadyStackGo.Application.csproj" />
-    <ProjectReference Include="..\ReadyStackGo.Infrastructure\ReadyStackGo.Infrastructure.csproj" />
+    <ProjectReference Include="..\ReadyStackGo.Core\ReadyStackGo.Core.csproj" />
   </ItemGroup>
 
 </Project>

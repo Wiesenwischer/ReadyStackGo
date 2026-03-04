@@ -6,6 +6,17 @@ export interface OnboardingItemDto {
   name?: string;
 }
 
+export interface OnboardingStepDto {
+  id: string;
+  title: string;
+  description: string;
+  componentType: string;
+  required: boolean;
+  order: number;
+  done: boolean;
+  count: number;
+}
+
 export interface OnboardingStatusResponse {
   isComplete: boolean;
   isDismissed: boolean;
@@ -13,6 +24,8 @@ export interface OnboardingStatusResponse {
   environment: OnboardingItemDto;
   stackSources: OnboardingItemDto;
   registries: OnboardingItemDto;
+  distributionId: string;
+  steps?: OnboardingStepDto[];
 }
 
 export async function getOnboardingStatus(): Promise<OnboardingStatusResponse> {

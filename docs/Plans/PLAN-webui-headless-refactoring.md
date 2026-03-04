@@ -211,6 +211,16 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Build passes clean (tsc + vite)
   - Abhängig von: Feature 1-5
 
+- [x] **Feature 7: Backend Extension Points** — Interfaces und Patterns für downstream Distributionen
+  - `ISetupWizardDefinitionProvider` + `GenericSetupWizardDefinitionProvider` — datengetriebene Onboarding-Schritte
+  - `IBootstrapper` + `GenericBootstrapper` — distributionsspezifische Initialisierung beim Start
+  - `ReadyStackGo.Core` Meta-Package (Domain + Application + Infrastructure)
+  - Multi-Assembly FastEndpoints Discovery (explizite Assembly-Konfiguration)
+  - `GET /api/wizard/definition` Endpoint für Step-Definitionen
+  - Data-driven `steps` Array in `GET /api/onboarding/status` Response
+  - Distribution Architecture Dokumentation (`docs/Architecture/Distribution-Architecture.md`)
+  - Abhängig von: Feature 1-6
+
 - [ ] **Phase abschließen** — Alle Tests grün, PR gegen main
 
 ## Offene Punkte

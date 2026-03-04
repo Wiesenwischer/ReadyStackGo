@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Description>ReadyStackGo Core - Domain, Application, and Infrastructure meta-package for downstream distributions</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ReadyStackGo.Domain\ReadyStackGo.Domain.csproj" />
+    <ProjectReference Include="..\ReadyStackGo.Application\ReadyStackGo.Application.csproj" />
+    <ProjectReference Include="..\ReadyStackGo.Infrastructure\ReadyStackGo.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
