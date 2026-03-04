@@ -84,10 +84,12 @@ Reihenfolge basierend auf Abhängigkeiten und Impact — wichtigste/komplexeste 
   - Nicht refactored (unused): `EnvironmentStep.tsx`, `StackSourcesStep.tsx` (Legacy-Wizard-Steps, werden in Feature 7/8 bereinigt)
   - Abhängig von: -
 
-- [ ] **Feature 7: Komponenten-Hooks & Deep Import Cleanup** — HealthWidget, SetupHint, SqlServerConnectionBuilder, Deep Imports
-  - Neue Hooks:
-    - `useHealthWidgetStore` — Environment Health Summary + Health-Aggregation (Business-Logik aus `HealthWidget.tsx:25-30, 48-59`)
+- [x] **Feature 7: Komponenten-Hooks & Deep Import Cleanup** — HealthWidget, SetupHint, SqlServerConnectionBuilder, Deep Imports — PR #215
+  - Neue Hooks (4):
+    - `useHealthWidgetStore` — Environment Health Summary + SignalR + Product-Gruppierung
+    - `useSetupHintStore` — Onboarding-Status für Setup-Hinweis
     - `useConnectionTestStore` — SQL Server Connection-Test
+    - `useHealthHistoryStore` — Health-History für Chart
   - Deep Import Fixes:
     - `context/AuthContext.tsx` — `@rsgo/core/services/AuthService` → `@rsgo/core`
     - `context/EnvironmentContext.tsx` — `@rsgo/core/services/EnvironmentService` → `@rsgo/core`
