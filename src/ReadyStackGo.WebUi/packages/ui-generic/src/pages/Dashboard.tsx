@@ -1,43 +1,11 @@
-import { useEffect, useState, useCallback } from 'react';
-import { dashboardApi, type DashboardStats } from '@rsgo/core';
+import { useDashboardStore } from '@rsgo/core';
 import { useEnvironment } from '../context/EnvironmentContext';
 import HealthWidget from '../components/dashboard/HealthWidget';
 import SetupHint from '../components/dashboard/SetupHint';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { activeEnvironment } = useEnvironment();
-
-  const fetchStats = useCallback(async () => {
-    if (!activeEnvironment) {
-      setStats(null);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const data = await dashboardApi.getStats(activeEnvironment.id);
-      setStats(data);
-      // Check for error message in successful response
-      if (data.errorMessage) {
-        setError(data.errorMessage);
-      } else {
-        setError(null);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setLoading(false);
-    }
-  }, [activeEnvironment]);
-
-  useEffect(() => {
-    fetchStats();
-    const interval = setInterval(fetchStats, 10000);
-    return () => clearInterval(interval);
-  }, [fetchStats]);
+  const { stats, loading, error } = useDashboardStore(activeEnvironment?.id);
 
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">

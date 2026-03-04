@@ -1,44 +1,10 @@
-import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router";
-import { getProducts, syncAllSources, type Product } from '@rsgo/core';
+import { useCatalogStore, type Product } from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
 
 export default function StackCatalog() {
   const { activeEnvironment } = useEnvironment();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
-
-  const loadProducts = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await getProducts();
-      setProducts(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load products");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const handleSync = async () => {
-    try {
-      setSyncing(true);
-      setError(null);
-      await syncAllSources();
-      await loadProducts();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sync sources");
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
+  const { products, loading, error, syncing, handleSync } = useCatalogStore();
 
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
