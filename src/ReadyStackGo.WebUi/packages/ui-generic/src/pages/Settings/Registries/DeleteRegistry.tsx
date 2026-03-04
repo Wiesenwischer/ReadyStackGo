@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { getRegistry, deleteRegistry, type RegistryDto } from '@rsgo/core';
+import { useRegistryStore, type RegistryDto } from '@rsgo/core';
 
 type DeleteState = "loading" | "confirm" | "deleting" | "success" | "error";
 
 export default function DeleteRegistry() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const store = useRegistryStore();
 
   const [state, setState] = useState<DeleteState>("loading");
   const [registry, setRegistry] = useState<RegistryDto | null>(null);
@@ -20,26 +21,21 @@ export default function DeleteRegistry() {
     }
 
     const loadRegistry = async () => {
-      try {
-        setState("loading");
-        setError("");
+      setState("loading");
+      setError("");
 
-        const response = await getRegistry(id);
-        if (response.success && response.registry) {
-          setRegistry(response.registry);
-          setState("confirm");
-        } else {
-          setError(response.message || "Registry not found");
-          setState("error");
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load registry");
+      const data = await store.getById(id);
+      if (data) {
+        setRegistry(data);
+        setState("confirm");
+      } else {
+        setError(store.error || "Registry not found");
         setState("error");
       }
     };
 
     loadRegistry();
-  }, [id]);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDelete = async () => {
     if (!id) {
@@ -50,21 +46,14 @@ export default function DeleteRegistry() {
     setState("deleting");
     setError("");
 
-    try {
-      const response = await deleteRegistry(id);
-
-      if (response.success) {
-        setState("success");
-        // Navigate back after 2 seconds
-        setTimeout(() => {
-          navigate("/settings/registries");
-        }, 2000);
-      } else {
-        setError(response.message || "Failed to delete registry");
-        setState("error");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete registry");
+    const success = await store.remove(id);
+    if (success) {
+      setState("success");
+      setTimeout(() => {
+        navigate("/settings/registries");
+      }, 2000);
+    } else {
+      setError(store.error || "Failed to delete registry");
       setState("error");
     }
   };

@@ -1,11 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import {
-  getRegistry,
-  updateRegistry,
-  type RegistryDto,
-  type UpdateRegistryRequest,
-} from '@rsgo/core';
+import { useRegistryStore, type RegistryDto, type UpdateRegistryRequest } from '@rsgo/core';
 
 const KNOWN_REGISTRIES = [
   { label: "Docker Hub", url: "https://index.docker.io/v1/" },
@@ -18,9 +13,8 @@ const KNOWN_REGISTRIES = [
 export default function EditRegistry() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const store = useRegistryStore();
+  const [initialLoading, setInitialLoading] = useState(true);
   const [registry, setRegistry] = useState<RegistryDto | null>(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -41,71 +35,53 @@ export default function EditRegistry() {
   };
 
   useEffect(() => {
-    const loadRegistry = async () => {
-      if (!id) return;
+    if (!id) return;
 
-      try {
-        setLoading(true);
-        const response = await getRegistry(id);
-        if (response.success && response.registry) {
-          setRegistry(response.registry);
-          setFormData({
-            name: response.registry.name,
-            url: response.registry.url,
-            username: response.registry.username || "",
-            password: "",
-          });
-          setPatternsInput(response.registry.imagePatterns.join("\n"));
-        } else {
-          setError(response.message || "Registry not found");
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load registry");
-      } finally {
-        setLoading(false);
+    const loadRegistry = async () => {
+      const data = await store.getById(id);
+      if (data) {
+        setRegistry(data);
+        setFormData({
+          name: data.name,
+          url: data.url,
+          username: data.username || "",
+          password: "",
+        });
+        setPatternsInput(data.imagePatterns.join("\n"));
       }
+      setInitialLoading(false);
     };
 
     loadRegistry();
-  }, [id]);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id || !registry) return;
 
-    setError(null);
+    store.clearError();
 
     const patterns = patternsInput
       .split("\n")
       .map((p) => p.trim())
       .filter((p) => p.length > 0);
 
-    try {
-      setSaving(true);
+    const request: UpdateRegistryRequest = {
+      name: formData.name !== registry.name ? formData.name : undefined,
+      url: formData.url !== registry.url ? formData.url : undefined,
+      username: formData.username || undefined,
+      password: formData.password || undefined,
+      clearCredentials: clearCredentials,
+      imagePatterns: patterns,
+    };
 
-      const request: UpdateRegistryRequest = {
-        name: formData.name !== registry.name ? formData.name : undefined,
-        url: formData.url !== registry.url ? formData.url : undefined,
-        username: formData.username || undefined,
-        password: formData.password || undefined,
-        clearCredentials: clearCredentials,
-        imagePatterns: patterns,
-      };
-
-      const response = await updateRegistry(id, request);
-      if (response.success) {
-        navigate("/settings/registries");
-      } else {
-        setError(response.message || "Failed to update registry");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update registry");
-    } finally {
-      setSaving(false);
+    const success = await store.update(id, request);
+    if (success) {
+      navigate("/settings/registries");
     }
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
         <div className="flex items-center justify-center py-16">
@@ -166,9 +142,9 @@ export default function EditRegistry() {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
-          {error && (
+          {store.error && (
             <div className="mb-6 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
-              <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+              <p className="text-sm text-red-800 dark:text-red-200">{store.error}</p>
             </div>
           )}
 
@@ -308,10 +284,10 @@ export default function EditRegistry() {
             </Link>
             <button
               type="submit"
-              disabled={saving}
+              disabled={store.actionLoading !== null}
               className="rounded-md bg-brand-600 px-6 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {saving ? "Saving..." : "Save Changes"}
+              {store.actionLoading !== null ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </form>

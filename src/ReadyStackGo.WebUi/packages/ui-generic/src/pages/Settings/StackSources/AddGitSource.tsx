@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { createStackSource, type CreateStackSourceRequest } from '@rsgo/core';
+import { useStackSourceStore, type CreateStackSourceRequest } from '@rsgo/core';
 
 export default function AddGitSource() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const store = useStackSourceStore();
   const [formData, setFormData] = useState({
     id: "",
     name: "",
@@ -20,34 +19,24 @@ export default function AddGitSource() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    store.clearError();
 
-    try {
-      setLoading(true);
+    const request: CreateStackSourceRequest = {
+      id: formData.id,
+      name: formData.name,
+      type: "GitRepository",
+      gitUrl: formData.gitUrl,
+      branch: formData.branch || "main",
+      path: formData.path || undefined,
+      filePattern: formData.filePattern || undefined,
+      gitUsername: formData.gitUsername || undefined,
+      gitPassword: formData.gitPassword || undefined,
+      sslVerify: formData.sslVerify,
+    };
 
-      const request: CreateStackSourceRequest = {
-        id: formData.id,
-        name: formData.name,
-        type: "GitRepository",
-        gitUrl: formData.gitUrl,
-        branch: formData.branch || "main",
-        path: formData.path || undefined,
-        filePattern: formData.filePattern || undefined,
-        gitUsername: formData.gitUsername || undefined,
-        gitPassword: formData.gitPassword || undefined,
-        sslVerify: formData.sslVerify,
-      };
-
-      const response = await createStackSource(request);
-      if (response.success) {
-        navigate("/settings/stack-sources");
-      } else {
-        setError(response.message || "Failed to create stack source");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create stack source");
-    } finally {
-      setLoading(false);
+    const success = await store.create(request);
+    if (success) {
+      navigate("/settings/stack-sources");
     }
   };
 
@@ -90,9 +79,9 @@ export default function AddGitSource() {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
-          {error && (
+          {store.error && (
             <div className="mb-6 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
-              <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+              <p className="text-sm text-red-800 dark:text-red-200">{store.error}</p>
             </div>
           )}
 
@@ -261,10 +250,10 @@ export default function AddGitSource() {
             </Link>
             <button
               type="submit"
-              disabled={loading}
+              disabled={store.actionLoading === 'creating'}
               className="rounded-md bg-brand-600 px-6 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Creating..." : "Create Source"}
+              {store.actionLoading === 'creating' ? "Creating..." : "Create Source"}
             </button>
           </div>
         </form>

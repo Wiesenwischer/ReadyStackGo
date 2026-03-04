@@ -41,7 +41,7 @@ Reihenfolge basierend auf Abhängigkeiten und Impact — wichtigste/komplexeste 
   - Betroffene Dateien: `pages/Monitoring/Containers.tsx`, `ContainerLogs.tsx`, `Volumes.tsx`, `VolumeDetail.tsx`, `ServiceHealthDetail.tsx`
   - Abhängig von: -
 
-- [ ] **Feature 2: Dashboard & Catalog Store-Hooks** — Dashboard, StackCatalog, ProductDetail
+- [x] **Feature 2: Dashboard & Catalog Store-Hooks** — Dashboard, StackCatalog, ProductDetail
   - Neue Hooks:
     - `useDashboardStore` — Stats laden mit Polling
     - `useCatalogStore` — Products laden, Sync auslösen
@@ -49,7 +49,7 @@ Reihenfolge basierend auf Abhängigkeiten und Impact — wichtigste/komplexeste 
   - Betroffene Dateien: `pages/Dashboard.tsx`, `pages/Catalog/StackCatalog.tsx`, `pages/Catalog/ProductDetail.tsx`
   - Abhängig von: -
 
-- [ ] **Feature 3: Settings CRUD-Subseiten** — Bestehende Hooks um CRUD-Actions erweitern
+- [x] **Feature 3: Settings CRUD-Subseiten** — Bestehende Hooks um CRUD-Actions erweitern
   - Erweiterte Hooks:
     - `useTlsStore` — Aktionen für `ResetToSelfSigned`, `UploadCertificate`, `ConfigureLetsEncrypt`
     - `useRegistryStore` — Aktionen für `AddRegistry`, `EditRegistry`, `DeleteRegistry` (getById, create, update, delete)

@@ -1,14 +1,14 @@
 import { useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { systemApi, type UpdateTlsConfigRequest } from '@rsgo/core';
+import { useTlsStore, type UpdateTlsConfigRequest } from '@rsgo/core';
 
 type CertFormat = "pfx" | "pem";
 
 export default function UploadCertificate() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const store = useTlsStore();
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Form state
   const [certFormat, setCertFormat] = useState<CertFormat>("pfx");
@@ -39,49 +39,37 @@ export default function UploadCertificate() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setValidationError(null);
+    store.clearError();
 
-    try {
-      setLoading(true);
+    let request: UpdateTlsConfigRequest;
 
-      let request: UpdateTlsConfigRequest;
-
-      if (certFormat === "pfx") {
-        if (!pfxFile) {
-          setError("Please select a PFX file");
-          return;
-        }
-
-        const base64 = await fileToBase64(pfxFile);
-        request = {
-          pfxBase64: base64,
-          pfxPassword: pfxPassword,
-        };
-      } else {
-        if (!certPem || !keyPem) {
-          setError("Please provide both certificate and private key PEM");
-          return;
-        }
-
-        request = {
-          certificatePem: certPem,
-          privateKeyPem: keyPem,
-        };
+    if (certFormat === "pfx") {
+      if (!pfxFile) {
+        setValidationError("Please select a PFX file");
+        return;
       }
 
-      const response = await systemApi.updateTlsConfig(request);
-
-      if (response.success) {
-        navigate("/settings/tls", {
-          state: { message: response.message || "Certificate uploaded successfully. Restart required." }
-        });
-      } else {
-        setError(response.message || "Failed to upload certificate");
+      const base64 = await fileToBase64(pfxFile);
+      request = {
+        pfxBase64: base64,
+        pfxPassword: pfxPassword,
+      };
+    } else {
+      if (!certPem || !keyPem) {
+        setValidationError("Please provide both certificate and private key PEM");
+        return;
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload certificate");
-    } finally {
-      setLoading(false);
+
+      request = {
+        certificatePem: certPem,
+        privateKeyPem: keyPem,
+      };
+    }
+
+    const success = await store.uploadCertificate(request);
+    if (success) {
+      navigate("/settings/tls");
     }
   };
 
@@ -125,13 +113,13 @@ export default function UploadCertificate() {
       </div>
 
       {/* Error */}
-      {error && (
+      {(store.error || validationError) && (
         <div className="mb-6 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
           <div className="flex">
             <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
             </svg>
-            <p className="ml-3 text-sm text-red-800 dark:text-red-200">{error}</p>
+            <p className="ml-3 text-sm text-red-800 dark:text-red-200">{store.error || validationError}</p>
           </div>
         </div>
       )}
@@ -306,10 +294,10 @@ export default function UploadCertificate() {
             </Link>
             <button
               type="submit"
-              disabled={loading}
+              disabled={store.actionLoading}
               className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {loading ? (
+              {store.actionLoading ? (
                 <>
                   <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />

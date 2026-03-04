@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { createRegistry, type CreateRegistryRequest } from '@rsgo/core';
+import { useRegistryStore, type CreateRegistryRequest } from '@rsgo/core';
 
 const KNOWN_REGISTRIES = [
   { label: "Docker Hub", url: "https://index.docker.io/v1/" },
@@ -12,8 +12,7 @@ const KNOWN_REGISTRIES = [
 
 export default function AddRegistry() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const store = useRegistryStore();
   const [formData, setFormData] = useState({
     name: "Docker Hub",
     url: "https://index.docker.io/v1/",
@@ -35,34 +34,24 @@ export default function AddRegistry() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    store.clearError();
 
     const patterns = patternsInput
       .split("\n")
       .map((p) => p.trim())
       .filter((p) => p.length > 0);
 
-    try {
-      setLoading(true);
+    const request: CreateRegistryRequest = {
+      name: formData.name,
+      url: formData.url,
+      username: formData.username || undefined,
+      password: formData.password || undefined,
+      imagePatterns: patterns.length > 0 ? patterns : undefined,
+    };
 
-      const request: CreateRegistryRequest = {
-        name: formData.name,
-        url: formData.url,
-        username: formData.username || undefined,
-        password: formData.password || undefined,
-        imagePatterns: patterns.length > 0 ? patterns : undefined,
-      };
-
-      const response = await createRegistry(request);
-      if (response.success) {
-        navigate("/settings/registries");
-      } else {
-        setError(response.message || "Failed to create registry");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create registry");
-    } finally {
-      setLoading(false);
+    const success = await store.create(request);
+    if (success) {
+      navigate("/settings/registries");
     }
   };
 
@@ -101,9 +90,9 @@ export default function AddRegistry() {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
-          {error && (
+          {store.error && (
             <div className="mb-6 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
-              <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+              <p className="text-sm text-red-800 dark:text-red-200">{store.error}</p>
             </div>
           )}
 
@@ -225,10 +214,10 @@ export default function AddRegistry() {
             </Link>
             <button
               type="submit"
-              disabled={loading}
+              disabled={store.actionLoading === 'creating'}
               className="rounded-md bg-brand-600 px-6 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Creating..." : "Create Registry"}
+              {store.actionLoading === 'creating' ? "Creating..." : "Create Registry"}
             </button>
           </div>
         </form>

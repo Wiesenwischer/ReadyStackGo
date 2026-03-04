@@ -1,8 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   getRegistries,
+  getRegistry,
+  createRegistry,
+  updateRegistry,
+  deleteRegistry,
   setDefaultRegistry,
   type RegistryDto,
+  type CreateRegistryRequest,
+  type UpdateRegistryRequest,
 } from '../api/registries';
 
 export interface UseRegistryStoreReturn {
@@ -13,6 +19,10 @@ export interface UseRegistryStoreReturn {
   refresh: () => Promise<void>;
   handleSetDefault: (id: string) => Promise<void>;
   clearError: () => void;
+  getById: (id: string) => Promise<RegistryDto | null>;
+  create: (request: CreateRegistryRequest) => Promise<boolean>;
+  update: (id: string, request: UpdateRegistryRequest) => Promise<boolean>;
+  remove: (id: string) => Promise<boolean>;
 }
 
 export function useRegistryStore(): UseRegistryStoreReturn {
@@ -54,6 +64,85 @@ export function useRegistryStore(): UseRegistryStoreReturn {
     }
   }, [refresh]);
 
+  const getById = useCallback(async (id: string): Promise<RegistryDto | null> => {
+    try {
+      setActionLoading(id);
+      setError(null);
+      const response = await getRegistry(id);
+      if (response.success && response.registry) {
+        return response.registry;
+      } else {
+        setError(response.message || 'Registry not found');
+        return null;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load registry');
+      return null;
+    } finally {
+      setActionLoading(null);
+    }
+  }, []);
+
+  const create = useCallback(async (request: CreateRegistryRequest): Promise<boolean> => {
+    try {
+      setActionLoading('creating');
+      setError(null);
+      const response = await createRegistry(request);
+      if (response.success) {
+        await refresh();
+        return true;
+      } else {
+        setError(response.message || 'Failed to create registry');
+        return false;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create registry');
+      return false;
+    } finally {
+      setActionLoading(null);
+    }
+  }, [refresh]);
+
+  const update = useCallback(async (id: string, request: UpdateRegistryRequest): Promise<boolean> => {
+    try {
+      setActionLoading(id);
+      setError(null);
+      const response = await updateRegistry(id, request);
+      if (response.success) {
+        await refresh();
+        return true;
+      } else {
+        setError(response.message || 'Failed to update registry');
+        return false;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update registry');
+      return false;
+    } finally {
+      setActionLoading(null);
+    }
+  }, [refresh]);
+
+  const remove = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      setActionLoading(id);
+      setError(null);
+      const response = await deleteRegistry(id);
+      if (response.success) {
+        await refresh();
+        return true;
+      } else {
+        setError(response.message || 'Failed to delete registry');
+        return false;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete registry');
+      return false;
+    } finally {
+      setActionLoading(null);
+    }
+  }, [refresh]);
+
   const clearError = useCallback(() => setError(null), []);
 
   return {
@@ -64,5 +153,9 @@ export function useRegistryStore(): UseRegistryStoreReturn {
     refresh,
     handleSetDefault,
     clearError,
+    getById,
+    create,
+    update,
+    remove,
   };
 }
