@@ -1,11 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router';
 import { useEnvironment } from '../../context/EnvironmentContext';
 import {
-  type ServiceHealthDetailResult,
   type HealthCheckEntryDto,
-  getServiceHealth,
   getHealthStatusPresentation,
+  useServiceHealthDetailStore,
 } from '@rsgo/core';
 
 export default function ServiceHealthDetail() {
@@ -14,42 +12,11 @@ export default function ServiceHealthDetail() {
     serviceName: string;
   }>();
   const { activeEnvironment } = useEnvironment();
-  const [result, setResult] = useState<ServiceHealthDetailResult | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadData = useCallback(
-    async (forceRefresh = false) => {
-      if (!activeEnvironment || !deploymentId || !serviceName) return;
-
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getServiceHealth(
-          activeEnvironment.id,
-          deploymentId,
-          decodeURIComponent(serviceName),
-          forceRefresh
-        );
-        setResult(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load service health');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [activeEnvironment, deploymentId, serviceName]
+  const { result, loading, error, refresh } = useServiceHealthDetailStore(
+    activeEnvironment?.id,
+    deploymentId,
+    serviceName,
   );
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  // Auto-refresh every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(() => loadData(), 30000);
-    return () => clearInterval(interval);
-  }, [loadData]);
 
   if (loading && !result) {
     return (
@@ -122,7 +89,7 @@ export default function ServiceHealthDetail() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => loadData(true)}
+            onClick={() => refresh(true)}
             className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             Refresh

@@ -1,72 +1,17 @@
-import { useEffect, useState, useCallback } from "react";
+import { useCallback } from "react";
 import { Link, useParams, useNavigate } from "react-router";
-import { volumeApi, type Volume } from '@rsgo/core';
+import { useVolumeDetailStore } from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
 
 export default function VolumeDetail() {
   const { name } = useParams<{ name: string }>();
   const navigate = useNavigate();
-  const [volume, setVolume] = useState<Volume | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [deleteState, setDeleteState] = useState<"idle" | "confirm" | "deleting">("idle");
   const { activeEnvironment } = useEnvironment();
-
-  const loadVolume = useCallback(async () => {
-    if (!activeEnvironment || !name) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await volumeApi.get(activeEnvironment.id, decodeURIComponent(name));
-      setVolume(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load volume");
-    } finally {
-      setLoading(false);
-    }
-  }, [activeEnvironment, name]);
-
-  useEffect(() => {
-    loadVolume();
-  }, [loadVolume]);
-
-  const handleDelete = async () => {
-    if (!activeEnvironment || !volume) return;
-
-    try {
-      setDeleteState("deleting");
-      await volumeApi.remove(activeEnvironment.id, volume.name, volume.containerCount > 0);
-      navigate("/volumes");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to remove volume");
-      setDeleteState("idle");
-    }
-  };
-
-  const formatSize = (bytes?: number) => {
-    if (bytes === undefined || bytes === null) return "Unknown";
-    if (bytes === 0) return "0 B";
-    const units = ["B", "KB", "MB", "GB", "TB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
-  };
-
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return "-";
-    const date = new Date(dateStr);
-    return date.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  };
+  const onDeleted = useCallback(() => navigate("/volumes"), [navigate]);
+  const {
+    volume, loading, error, deleteState, setDeleteState,
+    refresh, handleDelete, formatSize, formatDate,
+  } = useVolumeDetailStore(activeEnvironment?.id, name, onDeleted);
 
   if (loading) {
     return (
@@ -124,7 +69,7 @@ export default function VolumeDetail() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={loadVolume}
+            onClick={refresh}
             className="inline-flex items-center justify-center gap-2 rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
