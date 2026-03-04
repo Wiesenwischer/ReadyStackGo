@@ -1,54 +1,15 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  getEnvironments,
-  setDefaultEnvironment,
-  type EnvironmentResponse,
-} from '@rsgo/core';
+import { useEnvironmentStore } from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
 
 export default function Environments() {
   const { refreshEnvironments: refreshEnvContext } = useEnvironment();
-  const [environments, setEnvironments] = useState<EnvironmentResponse[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-
-  const loadEnvironments = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await getEnvironments();
-      if (response.success) {
-        setEnvironments(response.environments);
-      } else {
-        setError("Failed to load environments");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load environments");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadEnvironments();
-  }, []);
+  const store = useEnvironmentStore();
 
   const handleSetDefault = async (id: string) => {
-    try {
-      setActionLoading(id);
-      const response = await setDefaultEnvironment(id);
-      if (response.success) {
-        await loadEnvironments();
-        await refreshEnvContext();
-      } else {
-        setError(response.message || "Failed to set default environment");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to set default environment");
-    } finally {
-      setActionLoading(null);
+    const success = await store.handleSetDefault(id);
+    if (success) {
+      await refreshEnvContext();
     }
   };
 
@@ -69,7 +30,7 @@ export default function Environments() {
             Add Environment
           </Link>
           <button
-            onClick={loadEnvironments}
+            onClick={store.refresh}
             className="inline-flex items-center justify-center gap-2 rounded-md bg-gray-100 px-6 py-3 text-center font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -80,9 +41,9 @@ export default function Environments() {
         </div>
       </div>
 
-      {error && (
+      {store.error && (
         <div className="mb-6 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
-          <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+          <p className="text-sm text-red-800 dark:text-red-200">{store.error}</p>
         </div>
       )}
 
@@ -97,13 +58,13 @@ export default function Environments() {
             </p>
           </div>
 
-          {loading ? (
+          {store.loading ? (
             <div className="border-t border-stroke px-4 py-8 dark:border-strokedark">
               <p className="text-center text-sm text-gray-600 dark:text-gray-400">
                 Loading environments...
               </p>
             </div>
-          ) : environments.length === 0 ? (
+          ) : store.environments.length === 0 ? (
             <div className="border-t border-stroke px-4 py-16 dark:border-strokedark">
               <div className="text-center max-w-md mx-auto">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900/30">
@@ -145,7 +106,7 @@ export default function Environments() {
                 </div>
               </div>
 
-              {environments.map((env) => (
+              {store.environments.map((env) => (
                 <div
                   key={env.id}
                   className="grid grid-cols-6 border-t border-stroke px-4 py-4.5 dark:border-strokedark sm:grid-cols-8 md:px-6 2xl:px-7.5"
@@ -182,10 +143,10 @@ export default function Environments() {
                     {!env.isDefault && (
                       <button
                         onClick={() => handleSetDefault(env.id)}
-                        disabled={actionLoading === env.id}
+                        disabled={store.actionLoading === env.id}
                         className="inline-flex items-center justify-center rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {actionLoading === env.id ? "..." : "Set Default"}
+                        {store.actionLoading === env.id ? "..." : "Set Default"}
                       </button>
                     )}
                     <Link

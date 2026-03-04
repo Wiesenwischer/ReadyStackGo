@@ -75,6 +75,7 @@ export { useServiceHealthDetailStore, type UseServiceHealthDetailStoreReturn } f
 export { useDashboardStore, type UseDashboardStoreReturn } from './hooks/useDashboardStore';
 export { useCatalogStore, type UseCatalogStoreReturn } from './hooks/useCatalogStore';
 export { useProductDetailStore, type UseProductDetailStoreReturn } from './hooks/useProductDetailStore';
+export { useEnvironmentStore, type UseEnvironmentStoreReturn } from './hooks/useEnvironmentStore';
 
 // Services
 export * from './services/AuthService';

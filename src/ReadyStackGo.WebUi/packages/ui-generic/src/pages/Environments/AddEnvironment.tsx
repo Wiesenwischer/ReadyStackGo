@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { createEnvironment, type CreateEnvironmentRequest, getWizardStatus } from '@rsgo/core';
+import { useEnvironmentStore, type CreateEnvironmentRequest, getWizardStatus } from '@rsgo/core';
 
 export default function AddEnvironment() {
   const navigate = useNavigate();
+  const store = useEnvironmentStore();
   const [formData, setFormData] = useState<CreateEnvironmentRequest>({
     name: "",
     socketPath: "",
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [defaultSocketPath, setDefaultSocketPath] = useState<string>("");
 
   useEffect(() => {
@@ -30,20 +29,10 @@ export default function AddEnvironment() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-
-    try {
-      setLoading(true);
-      const response = await createEnvironment(formData);
-      if (response.success) {
-        navigate("/environments");
-      } else {
-        setError(response.message || "Failed to create environment");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create environment");
-    } finally {
-      setLoading(false);
+    store.clearError();
+    const success = await store.create(formData);
+    if (success) {
+      navigate("/environments");
     }
   };
 
@@ -78,9 +67,9 @@ export default function AddEnvironment() {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
-          {error && (
+          {store.error && (
             <div className="mb-6 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
-              <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+              <p className="text-sm text-red-800 dark:text-red-200">{store.error}</p>
             </div>
           )}
 
@@ -129,10 +118,10 @@ export default function AddEnvironment() {
             </Link>
             <button
               type="submit"
-              disabled={loading}
+              disabled={store.actionLoading === 'creating'}
               className="rounded-md bg-brand-600 px-6 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Creating..." : "Create Environment"}
+              {store.actionLoading === 'creating' ? "Creating..." : "Create Environment"}
             </button>
           </div>
         </form>
