@@ -1,5 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
-import { systemApi, type TlsConfig, type LetsEncryptStatus, type ReverseProxySslMode } from '../api/system';
+import {
+  systemApi,
+  type TlsConfig,
+  type LetsEncryptStatus,
+  type ReverseProxySslMode,
+  type UpdateTlsConfigRequest,
+  type ConfigureLetsEncryptRequest,
+} from '../api/system';
+
+export interface ConfigureLetsEncryptResult {
+  success: boolean;
+  awaitingDnsChallenge: boolean;
+  message?: string;
+}
 
 export interface UseTlsStoreReturn {
   config: TlsConfig | null;
@@ -16,6 +29,9 @@ export interface UseTlsStoreReturn {
   clearError: () => void;
   clearSuccess: () => void;
   formatDate: (dateString: string) => string;
+  resetToSelfSigned: () => Promise<boolean>;
+  uploadCertificate: (request: UpdateTlsConfigRequest) => Promise<boolean>;
+  configureLetsEncrypt: (request: ConfigureLetsEncryptRequest) => Promise<ConfigureLetsEncryptResult>;
 }
 
 export function useTlsStore(): UseTlsStoreReturn {
@@ -125,6 +141,85 @@ export function useTlsStore(): UseTlsStoreReturn {
   const showCertificateSettings = !config?.reverseProxy?.enabled ||
     config.reverseProxy.sslMode !== 'Termination';
 
+  const resetToSelfSigned = useCallback(async (): Promise<boolean> => {
+    try {
+      setActionLoading(true);
+      setError(null);
+      setSuccess(null);
+
+      const response = await systemApi.updateTlsConfig({ resetToSelfSigned: true });
+
+      if (response.success) {
+        setSuccess(response.message || 'Reset to self-signed certificate. Restart required.');
+        await refresh();
+        return true;
+      } else {
+        setError(response.message || 'Failed to reset certificate');
+        return false;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reset certificate');
+      return false;
+    } finally {
+      setActionLoading(false);
+    }
+  }, [refresh]);
+
+  const uploadCertificate = useCallback(async (request: UpdateTlsConfigRequest): Promise<boolean> => {
+    try {
+      setActionLoading(true);
+      setError(null);
+      setSuccess(null);
+
+      const response = await systemApi.updateTlsConfig(request);
+
+      if (response.success) {
+        setSuccess(response.message || 'Certificate uploaded successfully. Restart required.');
+        await refresh();
+        return true;
+      } else {
+        setError(response.message || 'Failed to upload certificate');
+        return false;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload certificate');
+      return false;
+    } finally {
+      setActionLoading(false);
+    }
+  }, [refresh]);
+
+  const configureLetsEncrypt = useCallback(async (
+    request: ConfigureLetsEncryptRequest
+  ): Promise<ConfigureLetsEncryptResult> => {
+    try {
+      setActionLoading(true);
+      setError(null);
+      setSuccess(null);
+
+      const response = await systemApi.configureLetsEncrypt(request);
+
+      if (response.success) {
+        setSuccess(response.message || "Let's Encrypt certificate configured successfully");
+        await refresh();
+        return { success: true, awaitingDnsChallenge: false, message: response.message };
+      } else if (response.awaitingManualDnsChallenge) {
+        setSuccess('DNS challenges created. Please create the TXT records shown below.');
+        await refresh();
+        return { success: false, awaitingDnsChallenge: true, message: response.message };
+      } else {
+        setError(response.message || "Failed to configure Let's Encrypt");
+        return { success: false, awaitingDnsChallenge: false, message: response.message };
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to configure Let's Encrypt";
+      setError(message);
+      return { success: false, awaitingDnsChallenge: false, message };
+    } finally {
+      setActionLoading(false);
+    }
+  }, [refresh]);
+
   const clearError = useCallback(() => setError(null), []);
   const clearSuccess = useCallback(() => setSuccess(null), []);
 
@@ -151,5 +246,8 @@ export function useTlsStore(): UseTlsStoreReturn {
     clearError,
     clearSuccess,
     formatDate,
+    resetToSelfSigned,
+    uploadCertificate,
+    configureLetsEncrypt,
   };
 }

@@ -1,30 +1,14 @@
-import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { systemApi } from '@rsgo/core';
+import { useTlsStore } from '@rsgo/core';
 
 export default function ResetToSelfSigned() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const store = useTlsStore();
 
   const handleReset = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await systemApi.updateTlsConfig({ resetToSelfSigned: true });
-
-      if (response.success) {
-        navigate("/settings/tls", {
-          state: { message: "Reset to self-signed certificate. Restart required." }
-        });
-      } else {
-        setError(response.message || "Failed to reset certificate");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reset certificate");
-    } finally {
-      setLoading(false);
+    const success = await store.resetToSelfSigned();
+    if (success) {
+      navigate("/settings/tls");
     }
   };
 
@@ -68,13 +52,13 @@ export default function ResetToSelfSigned() {
       </div>
 
       {/* Error */}
-      {error && (
+      {store.error && (
         <div className="mb-6 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
           <div className="flex">
             <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
             </svg>
-            <p className="ml-3 text-sm text-red-800 dark:text-red-200">{error}</p>
+            <p className="ml-3 text-sm text-red-800 dark:text-red-200">{store.error}</p>
           </div>
         </div>
       )}
@@ -148,10 +132,10 @@ export default function ResetToSelfSigned() {
           </Link>
           <button
             onClick={handleReset}
-            disabled={loading}
+            disabled={store.actionLoading}
             className="inline-flex items-center gap-2 rounded-lg bg-yellow-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? (
+            {store.actionLoading ? (
               <>
                 <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />

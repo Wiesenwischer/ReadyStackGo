@@ -1,12 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   getStackSources,
+  getStackSource,
+  createStackSource,
+  deleteStackSource,
+  getRegistrySources,
+  addFromRegistry,
   updateStackSource,
   syncSource,
   syncAllSources,
   exportSources,
   importSources,
   type StackSourceDto,
+  type StackSourceDetailDto,
+  type CreateStackSourceRequest,
+  type RegistrySourceDto,
 } from '../api/stackSources';
 
 export interface UseStackSourceStoreReturn {
@@ -22,6 +30,11 @@ export interface UseStackSourceStoreReturn {
   handleExport: () => Promise<void>;
   handleImportFile: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
   clearError: () => void;
+  getById: (id: string) => Promise<StackSourceDetailDto | null>;
+  create: (request: CreateStackSourceRequest) => Promise<boolean>;
+  remove: (id: string) => Promise<boolean>;
+  getCuratedSources: () => Promise<RegistrySourceDto[]>;
+  addFromCatalog: (sourceId: string) => Promise<boolean>;
 }
 
 export function useStackSourceStore(): UseStackSourceStoreReturn {
@@ -143,6 +156,92 @@ export function useStackSourceStore(): UseStackSourceStoreReturn {
     }
   }, [refresh]);
 
+  const getById = useCallback(async (id: string): Promise<StackSourceDetailDto | null> => {
+    try {
+      setActionLoading(id);
+      setError(null);
+      return await getStackSource(id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load stack source');
+      return null;
+    } finally {
+      setActionLoading(null);
+    }
+  }, []);
+
+  const create = useCallback(async (request: CreateStackSourceRequest): Promise<boolean> => {
+    try {
+      setActionLoading('creating');
+      setError(null);
+      const response = await createStackSource(request);
+      if (response.success) {
+        await refresh();
+        return true;
+      } else {
+        setError(response.message || 'Failed to create stack source');
+        return false;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create stack source');
+      return false;
+    } finally {
+      setActionLoading(null);
+    }
+  }, [refresh]);
+
+  const remove = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      setActionLoading(id);
+      setError(null);
+      const response = await deleteStackSource(id);
+      if (response.success) {
+        await refresh();
+        return true;
+      } else {
+        setError(response.message || 'Failed to delete stack source');
+        return false;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete stack source');
+      return false;
+    } finally {
+      setActionLoading(null);
+    }
+  }, [refresh]);
+
+  const getCuratedSources = useCallback(async (): Promise<RegistrySourceDto[]> => {
+    try {
+      setActionLoading('catalog');
+      setError(null);
+      return await getRegistrySources();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load catalog');
+      return [];
+    } finally {
+      setActionLoading(null);
+    }
+  }, []);
+
+  const addFromCatalog = useCallback(async (sourceId: string): Promise<boolean> => {
+    try {
+      setActionLoading(sourceId);
+      setError(null);
+      const response = await addFromRegistry(sourceId);
+      if (response.success) {
+        await refresh();
+        return true;
+      } else {
+        setError(response.message || 'Failed to add source from catalog');
+        return false;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add source from catalog');
+      return false;
+    } finally {
+      setActionLoading(null);
+    }
+  }, [refresh]);
+
   const clearError = useCallback(() => setError(null), []);
 
   return {
@@ -158,5 +257,10 @@ export function useStackSourceStore(): UseStackSourceStoreReturn {
     handleExport,
     handleImportFile,
     clearError,
+    getById,
+    create,
+    remove,
+    getCuratedSources,
+    addFromCatalog,
   };
 }

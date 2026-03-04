@@ -1,42 +1,27 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getRegistrySources, addFromRegistry, type RegistrySourceDto } from '@rsgo/core';
+import { useStackSourceStore, type RegistrySourceDto } from '@rsgo/core';
 
 export default function AddFromCatalog() {
   const navigate = useNavigate();
+  const store = useStackSourceStore();
   const [sources, setSources] = useState<RegistrySourceDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
     const fetchSources = async () => {
-      try {
-        const entries = await getRegistrySources();
-        setSources(entries);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load catalog");
-      } finally {
-        setLoading(false);
-      }
+      const entries = await store.getCuratedSources();
+      setSources(entries);
+      setInitialLoading(false);
     };
     fetchSources();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAdd = async (source: RegistrySourceDto) => {
-    setError(null);
-    setAdding(source.id);
-    try {
-      const response = await addFromRegistry(source.id);
-      if (response.success) {
-        navigate("/settings/stack-sources");
-      } else {
-        setError(response.message || "Failed to add source");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add source");
-    } finally {
-      setAdding(null);
+    store.clearError();
+    const success = await store.addFromCatalog(source.id);
+    if (success) {
+      navigate("/settings/stack-sources");
     }
   };
 
@@ -79,13 +64,13 @@ export default function AddFromCatalog() {
         </div>
 
         <div className="p-6">
-          {error && (
+          {store.error && (
             <div className="mb-6 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
-              <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+              <p className="text-sm text-red-800 dark:text-red-200">{store.error}</p>
             </div>
           )}
 
-          {loading ? (
+          {initialLoading ? (
             <div className="flex items-center justify-center py-12">
               <svg className="animate-spin h-8 w-8 text-brand-600 dark:text-brand-400" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -137,10 +122,10 @@ export default function AddFromCatalog() {
                     ) : (
                       <button
                         onClick={() => handleAdd(source)}
-                        disabled={adding !== null}
+                        disabled={store.actionLoading !== null}
                         className="rounded-md bg-brand-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {adding === source.id ? "Adding..." : "Add"}
+                        {store.actionLoading === source.id ? "Adding..." : "Add"}
                       </button>
                     )}
                   </div>

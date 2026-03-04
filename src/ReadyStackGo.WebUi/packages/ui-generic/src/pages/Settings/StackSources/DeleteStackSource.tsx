@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { getStackSource, deleteStackSource, type StackSourceDetailDto } from '@rsgo/core';
+import { useStackSourceStore, type StackSourceDetailDto } from '@rsgo/core';
 
 type DeleteState = "loading" | "confirm" | "deleting" | "success" | "error";
 
 export default function DeleteStackSource() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const store = useStackSourceStore();
 
   const [state, setState] = useState<DeleteState>("loading");
   const [source, setSource] = useState<StackSourceDetailDto | null>(null);
@@ -20,26 +21,21 @@ export default function DeleteStackSource() {
     }
 
     const loadSource = async () => {
-      try {
-        setState("loading");
-        setError("");
+      setState("loading");
+      setError("");
 
-        const response = await getStackSource(id);
-        if (response) {
-          setSource(response);
-          setState("confirm");
-        } else {
-          setError("Stack source not found");
-          setState("error");
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load stack source");
+      const data = await store.getById(id);
+      if (data) {
+        setSource(data);
+        setState("confirm");
+      } else {
+        setError(store.error || "Stack source not found");
         setState("error");
       }
     };
 
     loadSource();
-  }, [id]);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDelete = async () => {
     if (!id) {
@@ -50,20 +46,14 @@ export default function DeleteStackSource() {
     setState("deleting");
     setError("");
 
-    try {
-      const response = await deleteStackSource(id);
-
-      if (response.success) {
-        setState("success");
-        setTimeout(() => {
-          navigate("/settings/stack-sources");
-        }, 2000);
-      } else {
-        setError(response.message || "Failed to delete stack source");
-        setState("error");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete stack source");
+    const success = await store.remove(id);
+    if (success) {
+      setState("success");
+      setTimeout(() => {
+        navigate("/settings/stack-sources");
+      }, 2000);
+    } else {
+      setError(store.error || "Failed to delete stack source");
       setState("error");
     }
   };

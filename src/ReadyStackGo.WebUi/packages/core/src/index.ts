@@ -50,7 +50,7 @@ export * from './hooks/useVersionInfo';
 // Store Hooks (ViewModel layer)
 export { useRegistryStore, type UseRegistryStoreReturn } from './hooks/useRegistryStore';
 export { useStackSourceStore, type UseStackSourceStoreReturn } from './hooks/useStackSourceStore';
-export { useTlsStore, type UseTlsStoreReturn } from './hooks/useTlsStore';
+export { useTlsStore, type UseTlsStoreReturn, type ConfigureLetsEncryptResult } from './hooks/useTlsStore';
 export { useApiKeyStore, type UseApiKeyStoreReturn } from './hooks/useApiKeyStore';
 export { useRemoveStackStore, type UseRemoveStackStoreReturn, type RemoveState } from './hooks/useRemoveStackStore';
 export { useRollbackStore, type UseRollbackStoreReturn, type RollbackState } from './hooks/useRollbackStore';
