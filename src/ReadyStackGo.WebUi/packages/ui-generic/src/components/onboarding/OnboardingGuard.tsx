@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getOnboardingStatus } from '@rsgo/core';
+import { useOnboardingStore } from '@rsgo/core';
 
 interface OnboardingGuardProps {
   children: ReactNode;
@@ -15,6 +15,7 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { checkIsOrgDone } = useOnboardingStore();
 
   useEffect(() => {
     const checkOnboardingStatus = async () => {
@@ -26,9 +27,9 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
       }
 
       try {
-        const status = await getOnboardingStatus();
+        const orgDone = await checkIsOrgDone();
 
-        if (!status.organization.done) {
+        if (!orgDone) {
           // Organization not configured → mandatory onboarding
           navigate('/onboarding', { replace: true });
         } else {
@@ -44,7 +45,7 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
     };
 
     checkOnboardingStatus();
-  }, [navigate, location.pathname]);
+  }, [navigate, location.pathname, checkIsOrgDone]);
 
   if (isChecking) {
     return (

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getWizardStatus } from '@rsgo/core';
+import { useWizardStore } from '@rsgo/core';
 
 interface WizardGuardProps {
   children: ReactNode;
@@ -11,6 +11,7 @@ export default function WizardGuard({ children }: WizardGuardProps) {
   const [isWizardCompleted, setIsWizardCompleted] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { checkIsCompleted } = useWizardStore();
 
   useEffect(() => {
     const checkWizardStatus = async () => {
@@ -22,9 +23,9 @@ export default function WizardGuard({ children }: WizardGuardProps) {
       }
 
       try {
-        const status = await getWizardStatus();
+        const completed = await checkIsCompleted();
 
-        if (!status.isCompleted) {
+        if (!completed) {
           // Wizard not completed, redirect to wizard
           navigate('/wizard', { replace: true });
         } else {
@@ -40,7 +41,7 @@ export default function WizardGuard({ children }: WizardGuardProps) {
     };
 
     checkWizardStatus();
-  }, [navigate, location.pathname]);
+  }, [navigate, location.pathname, checkIsCompleted]);
 
   if (isChecking) {
     return (

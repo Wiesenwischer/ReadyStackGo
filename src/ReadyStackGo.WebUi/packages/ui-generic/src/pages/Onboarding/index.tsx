@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import OnboardingLayout from './OnboardingLayout';
 import OnboardingOrgStep from './OnboardingOrgStep';
@@ -6,39 +6,22 @@ import OnboardingEnvStep from './OnboardingEnvStep';
 import OnboardingSourcesStep from './OnboardingSourcesStep';
 import OnboardingCompleteStep from './OnboardingCompleteStep';
 import RegistriesStep from '../Wizard/RegistriesStep';
-import { getOnboardingStatus, setRegistries, type RegistryInputDto } from '@rsgo/core';
+import { useOnboardingStore, type RegistryInputDto } from '@rsgo/core';
 
 const TOTAL_STEPS = 5; // org, env, sources, registries, complete
 
 export default function Onboarding() {
-  const [step, setStep] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
-  const [configuredEnv, setConfiguredEnv] = useState(false);
-  const [configuredSources, setConfiguredSources] = useState(false);
-  const [configuredRegistries, setConfiguredRegistries] = useState(false);
+  const store = useOnboardingStore();
   const navigate = useNavigate();
 
-  // Check if onboarding is already complete (org exists) → redirect to dashboard
-  const checkStatus = useCallback(async () => {
-    try {
-      const status = await getOnboardingStatus();
-      if (status.organization.done) {
-        // Org already configured — redirect to app
-        navigate('/', { replace: true });
-        return;
-      }
-    } catch {
-      // Continue with onboarding on error
-    } finally {
-      setIsLoading(false);
-    }
-  }, [navigate]);
-
+  // Redirect to dashboard if org already configured
   useEffect(() => {
-    checkStatus();
-  }, [checkStatus]);
+    if (!store.isLoading && store.isOrgAlreadyDone) {
+      navigate('/', { replace: true });
+    }
+  }, [store.isLoading, store.isOrgAlreadyDone, navigate]);
 
-  if (isLoading) {
+  if (store.isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-white dark:bg-gray-900">
         <div className="text-center">
@@ -53,42 +36,38 @@ export default function Onboarding() {
   }
 
   const handleRegistriesNext = async (registries: RegistryInputDto[]) => {
-    if (registries.length > 0) {
-      await setRegistries({ registries });
-    }
-    setConfiguredRegistries(true);
-    setStep(5);
+    await store.submitRegistries(registries);
   };
 
   const renderStep = () => {
-    switch (step) {
+    switch (store.step) {
       case 1:
-        return <OnboardingOrgStep onNext={() => setStep(2)} />;
+        return <OnboardingOrgStep onNext={() => store.goToStep(2)} />;
       case 2:
         return (
           <OnboardingEnvStep
-            onNext={() => { setConfiguredEnv(true); setStep(3); }}
-            onSkip={() => setStep(3)}
+            onNext={() => { store.markEnvConfigured(); store.goToStep(3); }}
+            onSkip={() => store.goToStep(3)}
           />
         );
       case 3:
         return (
           <OnboardingSourcesStep
-            onNext={() => { setConfiguredSources(true); setStep(4); }}
-            onSkip={() => setStep(4)}
+            onNext={() => { store.markSourcesConfigured(); store.goToStep(4); }}
+            onSkip={() => store.goToStep(4)}
           />
         );
       case 4:
         return (
-          <RegistriesStep onNext={handleRegistriesNext} onSkip={() => setStep(5)} />
+          <RegistriesStep onNext={handleRegistriesNext} onSkip={() => store.goToStep(5)} />
         );
       case 5:
         return (
           <OnboardingCompleteStep
             configuredOrg={true}
-            configuredEnv={configuredEnv}
-            configuredSources={configuredSources}
-            configuredRegistries={configuredRegistries}
+            configuredEnv={store.configuredEnv}
+            configuredSources={store.configuredSources}
+            configuredRegistries={store.configuredRegistries}
           />
         );
       default:
@@ -97,7 +76,7 @@ export default function Onboarding() {
   };
 
   return (
-    <OnboardingLayout step={step} totalSteps={TOTAL_STEPS}>
+    <OnboardingLayout step={store.step} totalSteps={TOTAL_STEPS}>
       {renderStep()}
     </OnboardingLayout>
   );

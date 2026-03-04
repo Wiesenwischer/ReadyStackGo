@@ -71,11 +71,17 @@ Reihenfolge basierend auf Abhängigkeiten und Impact — wichtigste/komplexeste 
   - Betroffene Dateien: `pages/Profile/Profile.tsx`, `pages/Settings/System/SystemInfo.tsx`, `pages/UpdateStatus.tsx`
   - Abhängig von: -
 
-- [ ] **Feature 6: Wizard & Onboarding Store-Hooks** — Gesamter Wizard- und Onboarding-Flow
-  - Neue Hooks:
-    - `useWizardStore` — Admin-Creation, Environment, StackSources, Registries, Install — mit WizardGuard
-    - `useOnboardingStore` — Onboarding-Status, Steps, Org/Env/Sources/Registries — mit OnboardingGuard
-  - Betroffene Dateien: `pages/Wizard/index.tsx`, `EnvironmentStep.tsx`, `StackSourcesStep.tsx`, `RegistriesStep.tsx`, `pages/Onboarding/index.tsx`, `OnboardingOrgStep.tsx`, `OnboardingEnvStep.tsx`, `OnboardingSourcesStep.tsx`, `components/wizard/WizardGuard.tsx`, `components/onboarding/OnboardingGuard.tsx`
+- [x] **Feature 6: Wizard & Onboarding Store-Hooks** — Gesamter Wizard- und Onboarding-Flow — PR #214
+  - Entscheidung: Per-Step-Hooks statt One-per-Flow (Steps sind eigenständig mit eigenen API-Calls)
+  - Neue Hooks (6):
+    - `useWizardStore` — Wizard-Status, Timeout, Admin-Creation, Install + Guard-Check
+    - `useOnboardingStore` — Onboarding-Status, Step-Management, Registry-Submit + Guard-Check
+    - `useOnboardingOrgStore` — Organization-Formular mit Validierung
+    - `useOnboardingEnvStore` — Environment-Formular mit Default-Socket-Path
+    - `useOnboardingSourcesStore` — Source-Registry laden, Selection, Submit
+    - `useRegistriesStepStore` — Registry-Detection, Card-State-Machine, Access-Verification
+  - Betroffene Dateien: `pages/Wizard/index.tsx`, `RegistriesStep.tsx`, `pages/Onboarding/index.tsx`, `OnboardingOrgStep.tsx`, `OnboardingEnvStep.tsx`, `OnboardingSourcesStep.tsx`, `components/wizard/WizardGuard.tsx`, `components/onboarding/OnboardingGuard.tsx`
+  - Nicht refactored (unused): `EnvironmentStep.tsx`, `StackSourcesStep.tsx` (Legacy-Wizard-Steps, werden in Feature 7/8 bereinigt)
   - Abhängig von: -
 
 - [ ] **Feature 7: Komponenten-Hooks & Deep Import Cleanup** — HealthWidget, SetupHint, SqlServerConnectionBuilder, Deep Imports
@@ -98,13 +104,13 @@ Reihenfolge basierend auf Abhängigkeiten und Impact — wichtigste/komplexeste 
 
 ## Offene Punkte
 
-- [ ] Sollen Wizard/Onboarding-Hooks aufgeteilt werden (ein Hook pro Step) oder ein großer Hook pro Flow?
-  - Empfehlung: Ein Hook pro Flow (`useWizardStore`, `useOnboardingStore`) — Steps teilen sich State (z.B. wizardStatus)
+- [x] Sollen Wizard/Onboarding-Hooks aufgeteilt werden (ein Hook pro Step) oder ein großer Hook pro Flow?
+  - Entscheidung: **Per-Step-Hooks** — Steps verwalten eigene API-Calls, Formular-State und Validierung selbstständig. Orchestrierung über Parent-Hooks (`useWizardStore`, `useOnboardingStore`)
 
 ## Entscheidungen
 
 | Entscheidung | Optionen | Gewählt | Begründung |
 |---|---|---|---|
 | Hook-Erweiterung vs. neue Hooks | A) Neue Hooks für CRUD-Subseiten, B) Bestehende Hooks erweitern | **B) Erweitern** | `useRegistryStore` existiert für Liste — Add/Edit/Delete nutzen gleiche API, gleichen Cache |
-| Wizard-Hook-Granularität | A) Ein Hook pro Step, B) Ein Hook pro Flow | **TBD** | Abhängig von Shared-State-Analyse |
+| Wizard-Hook-Granularität | A) Ein Hook pro Step, B) Ein Hook pro Flow | **A) Per-Step** | Steps sind eigenständig mit eigenen API-Calls und Formular-State. Parent-Hooks orchestrieren nur Step-Wechsel |
 | Container-Gruppierungslogik | A) Im Hook, B) Separate Utility | **A) Im Hook** | Gruppierung ist View-Model-Logik, nicht wiederverwendbar |
