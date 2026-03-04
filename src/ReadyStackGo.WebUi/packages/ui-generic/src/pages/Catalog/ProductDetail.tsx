@@ -1,12 +1,8 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router";
 import {
-  getProduct,
-  type Product,
+  useProductDetailStore,
   type ProductStack,
-  getProductDeploymentByProduct,
-  checkProductUpgrade,
-  type GetProductDeploymentResponse,
   type ProductStackDeploymentDto,
 } from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
@@ -14,76 +10,12 @@ import { useEnvironment } from "../../context/EnvironmentContext";
 export default function ProductDetail() {
   const { productId } = useParams<{ productId: string }>();
   const { activeEnvironment } = useEnvironment();
-
   const navigate = useNavigate();
-  const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // Product deployment status
-  const [productDeployment, setProductDeployment] = useState<GetProductDeploymentResponse | null>(null);
-  const [upgradeAvailable, setUpgradeAvailable] = useState(false);
-
-  const loadProduct = useCallback(async () => {
-    if (!productId) {
-      setError("No product ID provided");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await getProduct(productId);
-      setProduct(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load product");
-    } finally {
-      setLoading(false);
-    }
-  }, [productId]);
-
-  useEffect(() => {
-    loadProduct();
-  }, [loadProduct]);
-
-  // Check for active product deployment and upgrade availability
-  useEffect(() => {
-    if (!product || !activeEnvironment) {
-      setProductDeployment(null);
-      setUpgradeAvailable(false);
-      return;
-    }
-
-    const checkDeploymentStatus = async () => {
-      try {
-        const deployment = await getProductDeploymentByProduct(
-          activeEnvironment.id,
-          product.groupId
-        );
-        setProductDeployment(deployment);
-
-        // Check if upgrade is available
-        if (deployment.canUpgrade) {
-          try {
-            const upgradeCheck = await checkProductUpgrade(
-              activeEnvironment.id,
-              deployment.productDeploymentId
-            );
-            setUpgradeAvailable(upgradeCheck.upgradeAvailable && upgradeCheck.canUpgrade);
-          } catch {
-            setUpgradeAvailable(false);
-          }
-        }
-      } catch {
-        // No active deployment for this product — that's fine
-        setProductDeployment(null);
-        setUpgradeAvailable(false);
-      }
-    };
-
-    checkDeploymentStatus();
-  }, [product, activeEnvironment]);
+  const {
+    product, loading, error,
+    productDeployment, upgradeAvailable,
+  } = useProductDetailStore(productId, activeEnvironment?.id);
 
   const handleDeployAll = () => {
     if (product) {
