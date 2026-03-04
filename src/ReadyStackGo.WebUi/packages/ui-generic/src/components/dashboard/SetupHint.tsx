@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getOnboardingStatus } from '@rsgo/core';
+import { useSetupHintStore } from '@rsgo/core';
 
 /**
  * Minimal, non-dismissable banner shown on the Dashboard when optional
@@ -8,26 +7,8 @@ import { getOnboardingStatus } from '@rsgo/core';
  * Disappears automatically once all items are configured.
  */
 export default function SetupHint() {
-  const [hints, setHints] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { hints, loading } = useSetupHintStore();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        const status = await getOnboardingStatus();
-        const missing: string[] = [];
-        if (!status.stackSources.done) missing.push('stack sources');
-        if (!status.registries.done) missing.push('container registries');
-        setHints(missing);
-      } catch {
-        // Non-critical — don't show anything on error
-      } finally {
-        setLoading(false);
-      }
-    };
-    checkStatus();
-  }, []);
 
   if (loading || hints.length === 0) {
     return null;

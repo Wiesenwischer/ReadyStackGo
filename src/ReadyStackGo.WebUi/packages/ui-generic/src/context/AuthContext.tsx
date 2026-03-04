@@ -5,7 +5,7 @@ import {
   logout as authLogout,
   setAuthDirectly as authSetAuthDirectly,
   type AuthUser,
-} from '@rsgo/core/services/AuthService';
+} from '@rsgo/core';
 
 interface AuthContextType {
   user: AuthUser | null;
