@@ -33,7 +33,19 @@ public class GetOnboardingStatusEndpoint : EndpointWithoutRequest<OnboardingStat
             Organization = MapItem(result.Organization),
             Environment = MapItem(result.Environment),
             StackSources = MapItem(result.StackSources),
-            Registries = MapItem(result.Registries)
+            Registries = MapItem(result.Registries),
+            DistributionId = result.DistributionId,
+            Steps = result.Steps?.Select(s => new OnboardingStepDto
+            {
+                Id = s.Id,
+                Title = s.Title,
+                Description = s.Description,
+                ComponentType = s.ComponentType,
+                Required = s.Required,
+                Order = s.Order,
+                Done = s.Done,
+                Count = s.Count
+            }).ToList()
         };
     }
 
@@ -53,6 +65,8 @@ public class OnboardingStatusResponse
     public required OnboardingItemDto Environment { get; set; }
     public required OnboardingItemDto StackSources { get; set; }
     public required OnboardingItemDto Registries { get; set; }
+    public string DistributionId { get; set; } = "generic";
+    public List<OnboardingStepDto>? Steps { get; set; }
 }
 
 public class OnboardingItemDto
@@ -60,4 +74,16 @@ public class OnboardingItemDto
     public bool Done { get; set; }
     public int Count { get; set; }
     public string? Name { get; set; }
+}
+
+public class OnboardingStepDto
+{
+    public required string Id { get; set; }
+    public required string Title { get; set; }
+    public required string Description { get; set; }
+    public required string ComponentType { get; set; }
+    public bool Required { get; set; }
+    public int Order { get; set; }
+    public bool Done { get; set; }
+    public int Count { get; set; }
 }

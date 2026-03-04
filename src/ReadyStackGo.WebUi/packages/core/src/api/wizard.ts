@@ -166,7 +166,26 @@ export interface InstallStackResponse {
   errors: string[];
 }
 
+// Wizard definition (distribution extension point)
+export interface WizardStepDefinition {
+  id: string;
+  title: string;
+  description: string;
+  componentType: string;
+  required: boolean;
+  order: number;
+}
+
+export interface WizardDefinitionResponse {
+  distributionId: string;
+  steps: WizardStepDefinition[];
+}
+
 // API functions
+export async function getWizardDefinition(): Promise<WizardDefinitionResponse> {
+  return apiGet<WizardDefinitionResponse>('/api/wizard/definition');
+}
+
 export async function getWizardStatus(): Promise<WizardStatusResponse> {
   return apiGet<WizardStatusResponse>('/api/wizard/status');
 }

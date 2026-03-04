@@ -18,6 +18,7 @@ public class GetOnboardingStatusHandlerTests
     private readonly Mock<IStackSourceRepository> _sourceRepoMock = new();
     private readonly Mock<IRegistryRepository> _registryRepoMock = new();
     private readonly Mock<IOnboardingStateService> _onboardingStateMock = new();
+    private readonly ISetupWizardDefinitionProvider _wizardDefinitionProvider = new ReadyStackGo.Application.Services.Impl.GenericSetupWizardDefinitionProvider();
 
     public GetOnboardingStatusHandlerTests()
     {
@@ -34,7 +35,8 @@ public class GetOnboardingStatusHandlerTests
         _envRepoMock.Object,
         _sourceRepoMock.Object,
         _registryRepoMock.Object,
-        _onboardingStateMock.Object);
+        _onboardingStateMock.Object,
+        _wizardDefinitionProvider);
 
     private Organization SetupOrganization(string name = "Test Org")
     {

@@ -15,19 +15,22 @@ public class GetOnboardingStatusHandler : IRequestHandler<GetOnboardingStatusQue
     private readonly IStackSourceRepository _stackSourceRepository;
     private readonly IRegistryRepository _registryRepository;
     private readonly IOnboardingStateService _onboardingStateService;
+    private readonly ISetupWizardDefinitionProvider _wizardDefinitionProvider;
 
     public GetOnboardingStatusHandler(
         IOrganizationRepository organizationRepository,
         IEnvironmentRepository environmentRepository,
         IStackSourceRepository stackSourceRepository,
         IRegistryRepository registryRepository,
-        IOnboardingStateService onboardingStateService)
+        IOnboardingStateService onboardingStateService,
+        ISetupWizardDefinitionProvider wizardDefinitionProvider)
     {
         _organizationRepository = organizationRepository;
         _environmentRepository = environmentRepository;
         _stackSourceRepository = stackSourceRepository;
         _registryRepository = registryRepository;
         _onboardingStateService = onboardingStateService;
+        _wizardDefinitionProvider = wizardDefinitionProvider;
     }
 
     public async Task<OnboardingStatusResult> Handle(GetOnboardingStatusQuery request, CancellationToken cancellationToken)
@@ -52,12 +55,35 @@ public class GetOnboardingStatusHandler : IRequestHandler<GetOnboardingStatusQue
 
         var isDismissed = await _onboardingStateService.IsDismissedAsync(cancellationToken);
 
+        // Build data-driven steps from wizard definition provider
+        var definition = _wizardDefinitionProvider.GetDefinition();
+        var stepStatusLookup = new Dictionary<string, (bool Done, int Count)>
+        {
+            ["organization"] = (hasOrg, hasOrg ? 1 : 0),
+            ["environment"] = (envCount > 0, envCount),
+            ["stack-sources"] = (sourceCount > 0, sourceCount),
+            ["registries"] = (registryCount > 0, registryCount)
+        };
+
+        var steps = definition.Steps
+            .OrderBy(s => s.Order)
+            .Select(s =>
+            {
+                var (done, count) = stepStatusLookup.GetValueOrDefault(s.Id);
+                return new OnboardingStepStatus(
+                    s.Id, s.Title, s.Description, s.ComponentType,
+                    s.Required, s.Order, done, count);
+            })
+            .ToList();
+
         return new OnboardingStatusResult(
             IsComplete: hasOrg,
             IsDismissed: isDismissed,
             Organization: new OnboardingItemStatus(hasOrg, hasOrg ? 1 : 0, organization?.Name),
             Environment: new OnboardingItemStatus(envCount > 0, envCount),
             StackSources: new OnboardingItemStatus(sourceCount > 0, sourceCount),
-            Registries: new OnboardingItemStatus(registryCount > 0, registryCount));
+            Registries: new OnboardingItemStatus(registryCount > 0, registryCount),
+            DistributionId: definition.Id,
+            Steps: steps);
     }
 }
