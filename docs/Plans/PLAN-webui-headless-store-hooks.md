@@ -57,7 +57,7 @@ Reihenfolge basierend auf Abhängigkeiten und Impact — wichtigste/komplexeste 
   - Betroffene Dateien: `pages/Settings/Tls/ResetToSelfSigned.tsx`, `UploadCertificate.tsx`, `ConfigureLetsEncrypt.tsx`, `pages/Settings/Registries/AddRegistry.tsx`, `EditRegistry.tsx`, `DeleteRegistry.tsx`, `pages/Settings/StackSources/AddGitSource.tsx`, `AddLocalSource.tsx`, `AddFromCatalog.tsx`, `DeleteStackSource.tsx`
   - Abhängig von: -
 
-- [ ] **Feature 4: Environment Store-Hook** — Alle Environment-Seiten
+- [x] **Feature 4: Environment Store-Hook** — Alle Environment-Seiten
   - Neuer Hook:
     - `useEnvironmentStore` — Liste, Default setzen, Create, Delete, getById
   - Betroffene Dateien: `pages/Environments/Environments.tsx`, `AddEnvironment.tsx`, `SetupEnvironment.tsx`, `DeleteEnvironment.tsx`

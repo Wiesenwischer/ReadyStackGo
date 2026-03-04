@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import {
-  createEnvironment,
+  useEnvironmentStore,
   type CreateEnvironmentRequest,
   getWizardStatus,
 } from '@rsgo/core';
@@ -12,15 +12,13 @@ import { useEnvironment } from "../../context/EnvironmentContext";
  */
 export default function SetupEnvironment() {
   const { environments, isLoading, refreshEnvironments } = useEnvironment();
+  const store = useEnvironmentStore();
   const [formData, setFormData] = useState<CreateEnvironmentRequest>({
     name: "Local Docker",
-    socketPath: "", // Will be set from API
+    socketPath: "",
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [defaultSocketPath, setDefaultSocketPath] = useState<string>("");
 
-  // Fetch default socket path from server on mount
   useEffect(() => {
     const fetchDefaultSocketPath = async () => {
       try {
@@ -29,7 +27,6 @@ export default function SetupEnvironment() {
         setDefaultSocketPath(socketPath);
         setFormData(prev => ({ ...prev, socketPath }));
       } catch {
-        // Fallback to Linux default if API fails
         const fallback = "unix:///var/run/docker.sock";
         setDefaultSocketPath(fallback);
         setFormData(prev => ({ ...prev, socketPath: fallback }));
@@ -38,7 +35,6 @@ export default function SetupEnvironment() {
     fetchDefaultSocketPath();
   }, []);
 
-  // Redirect to dashboard if environments already exist
   useEffect(() => {
     if (!isLoading && environments.length > 0) {
       window.location.href = "/";
@@ -47,24 +43,11 @@ export default function SetupEnvironment() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-
-    try {
-      setLoading(true);
-      const response = await createEnvironment(formData);
-      console.log('Create environment response:', response);
-      if (response.success) {
-        await refreshEnvironments();
-        // Use window.location for a full page reload to ensure fresh state
-        window.location.href = "/";
-      } else {
-        setError(response.message || "Failed to create environment");
-      }
-    } catch (err) {
-      console.error('Create environment error:', err);
-      setError(err instanceof Error ? err.message : "Failed to create environment");
-    } finally {
-      setLoading(false);
+    store.clearError();
+    const success = await store.create(formData);
+    if (success) {
+      await refreshEnvironments();
+      window.location.href = "/";
     }
   };
 
@@ -103,9 +86,9 @@ export default function SetupEnvironment() {
           </div>
 
           {/* Error */}
-          {error && (
+          {store.error && (
             <div className="mb-4 rounded-md bg-red-50 p-3 dark:bg-red-900/20">
-              <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+              <p className="text-sm text-red-800 dark:text-red-200">{store.error}</p>
             </div>
           )}
 
@@ -144,10 +127,10 @@ export default function SetupEnvironment() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={store.actionLoading === 'creating'}
               className="mt-6 w-full rounded-lg bg-brand-600 px-4 py-3 text-sm font-medium text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? "Creating Environment..." : "Create Environment"}
+              {store.actionLoading === 'creating' ? "Creating Environment..." : "Create Environment"}
             </button>
           </form>
 

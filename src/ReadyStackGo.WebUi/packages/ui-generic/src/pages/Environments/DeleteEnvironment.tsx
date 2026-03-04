@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import {
-  getEnvironment,
-  deleteEnvironment,
-  type EnvironmentResponse,
-} from '@rsgo/core';
+import { useEnvironmentStore, type EnvironmentResponse } from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
 
 type DeleteState = "loading" | "confirm" | "deleting" | "success" | "error";
@@ -13,6 +9,7 @@ export default function DeleteEnvironment() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { refreshEnvironments: refreshEnvContext } = useEnvironment();
+  const store = useEnvironmentStore();
 
   const [state, setState] = useState<DeleteState>("loading");
   const [environment, setEnvironment] = useState<EnvironmentResponse | null>(null);
@@ -26,15 +23,14 @@ export default function DeleteEnvironment() {
     }
 
     const loadEnvironment = async () => {
-      try {
-        setState("loading");
-        setError("");
-
-        const env = await getEnvironment(id);
+      setState("loading");
+      setError("");
+      const env = await store.getById(id);
+      if (env) {
         setEnvironment(env);
         setState("confirm");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load environment");
+      } else {
+        setError(store.error || "Failed to load environment");
         setState("error");
       }
     };
@@ -51,21 +47,15 @@ export default function DeleteEnvironment() {
     setState("deleting");
     setError("");
 
-    try {
-      const response = await deleteEnvironment(id);
-
-      if (response.success) {
-        setState("success");
-        await refreshEnvContext();
-        setTimeout(() => {
-          navigate("/environments");
-        }, 2000);
-      } else {
-        setError(response.message || "Failed to delete environment");
-        setState("error");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete environment");
+    const success = await store.remove(id);
+    if (success) {
+      setState("success");
+      await refreshEnvContext();
+      setTimeout(() => {
+        navigate("/environments");
+      }, 2000);
+    } else {
+      setError(store.error || "Failed to delete environment");
       setState("error");
     }
   };
