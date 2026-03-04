@@ -342,6 +342,52 @@ Der Core kennt:
 
 ---
 
+## 5.2 Maintenance Observer für ams.project
+
+Die ams.project Stack-Manifeste sollen den **SQL Extended Property Observer** konfigurieren, damit ReadyStackGo den Maintenance-Modus der ams.erp-Datenbank automatisch erkennt.
+
+**Zu überwachende Extended Property:** `ams-MaintenanceMode`
+
+Im Product-Manifest (`rsgo.yaml`) des ams.project Products wird die `maintenance`-Sektion auf Product-Ebene definiert — sie gilt dann für alle Stacks des Products:
+
+```yaml
+metadata:
+  name: ams.project
+  productVersion: "1.0.0"
+
+maintenance:
+  observer:
+    type: sqlExtendedProperty
+    connectionName: AMS_ERP_DB         # Referenz auf die Variable mit der Verbindungszeichenfolge
+    propertyName: ams-MaintenanceMode
+    maintenanceValue: "1"
+    normalValue: "0"
+    pollingInterval: 30s
+
+sharedVariables:
+  AMS_ERP_DB:
+    label: ams.erp Datenbank
+    type: SqlServerConnectionString
+    required: true
+    group: Database
+
+stacks:
+  identityaccess:
+    include: IdentityAccess/identityaccess.yaml
+  business-services:
+    include: BusinessServices/business-services.yaml
+  # ...
+```
+
+**Wichtig:**
+
+- Die `maintenance`-Sektion steht im **Product-Manifest** (nicht in Fragment-Manifesten der einzelnen Stacks).
+- `connectionName: AMS_ERP_DB` referenziert die Manifest-Variable — der tatsächliche Connection String wird beim Deployment vom Benutzer eingegeben.
+- ReadyStackGo prüft alle 30 Sekunden die Extended Property `ams-MaintenanceMode` in der ams.erp-Datenbank.
+- Wert `"1"` → Maintenance-Modus aktiv, Wert `"0"` → Normalbetrieb.
+
+---
+
 ## 6. Docker-Images & Deployments
 
 ### 6.1 Generic Image (GitHub)
