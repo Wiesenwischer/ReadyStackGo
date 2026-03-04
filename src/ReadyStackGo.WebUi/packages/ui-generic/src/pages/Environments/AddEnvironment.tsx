@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useEnvironmentStore, type CreateEnvironmentRequest, getWizardStatus } from '@rsgo/core';
+import { useEnvironmentStore, type CreateEnvironmentRequest } from '@rsgo/core';
 
 export default function AddEnvironment() {
   const navigate = useNavigate();
@@ -9,23 +9,16 @@ export default function AddEnvironment() {
     name: "",
     socketPath: "",
   });
-  const [defaultSocketPath, setDefaultSocketPath] = useState<string>("");
 
   useEffect(() => {
-    const fetchDefaultSocketPath = async () => {
-      try {
-        const status = await getWizardStatus();
-        const socketPath = status.defaultDockerSocketPath || "unix:///var/run/docker.sock";
-        setDefaultSocketPath(socketPath);
-        setFormData(prev => ({ ...prev, socketPath }));
-      } catch {
-        const fallback = "unix:///var/run/docker.sock";
-        setDefaultSocketPath(fallback);
-        setFormData(prev => ({ ...prev, socketPath: fallback }));
-      }
-    };
-    fetchDefaultSocketPath();
-  }, []);
+    store.loadDefaultSocketPath();
+  }, [store.loadDefaultSocketPath]);
+
+  useEffect(() => {
+    if (store.defaultSocketPath && !formData.socketPath) {
+      setFormData(prev => ({ ...prev, socketPath: store.defaultSocketPath }));
+    }
+  }, [store.defaultSocketPath, formData.socketPath]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,7 +92,7 @@ export default function AddEnvironment() {
                 type="text"
                 value={formData.socketPath}
                 onChange={(e) => setFormData({ ...formData, socketPath: e.target.value })}
-                placeholder={defaultSocketPath || "Loading..."}
+                placeholder={store.defaultSocketPath || "Loading..."}
                 required
                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm font-mono focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:text-white"
               />

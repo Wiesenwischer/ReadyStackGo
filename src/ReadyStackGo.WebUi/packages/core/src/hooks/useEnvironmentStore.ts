@@ -8,13 +8,16 @@ import {
   type EnvironmentResponse,
   type CreateEnvironmentRequest,
 } from '../api/environments';
+import { getWizardStatus } from '../api/wizard';
 
 export interface UseEnvironmentStoreReturn {
   environments: EnvironmentResponse[];
   loading: boolean;
   error: string | null;
   actionLoading: string | null;
+  defaultSocketPath: string;
   refresh: () => Promise<void>;
+  loadDefaultSocketPath: () => Promise<void>;
   handleSetDefault: (id: string) => Promise<boolean>;
   clearError: () => void;
   getById: (id: string) => Promise<EnvironmentResponse | null>;
@@ -27,6 +30,16 @@ export function useEnvironmentStore(): UseEnvironmentStoreReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [defaultSocketPath, setDefaultSocketPath] = useState('');
+
+  const loadDefaultSocketPath = useCallback(async () => {
+    try {
+      const status = await getWizardStatus();
+      setDefaultSocketPath(status.defaultDockerSocketPath || 'unix:///var/run/docker.sock');
+    } catch {
+      setDefaultSocketPath('unix:///var/run/docker.sock');
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -130,7 +143,9 @@ export function useEnvironmentStore(): UseEnvironmentStoreReturn {
     loading,
     error,
     actionLoading,
+    defaultSocketPath,
     refresh,
+    loadDefaultSocketPath,
     handleSetDefault,
     clearError,
     getById,

@@ -89,6 +89,7 @@ export { useHealthWidgetStore, type UseHealthWidgetStoreReturn, type ProductHeal
 export { useSetupHintStore, type UseSetupHintStoreReturn } from './hooks/useSetupHintStore';
 export { useConnectionTestStore, type UseConnectionTestStoreReturn, type TestConnectionResponse } from './hooks/useConnectionTestStore';
 export { useHealthHistoryStore, type UseHealthHistoryStoreReturn } from './hooks/useHealthHistoryStore';
+export { useSetupOrganizationStore, type UseSetupOrganizationStoreReturn } from './hooks/useSetupOrganizationStore';
 
 // Services
 export * from './services/AuthService';

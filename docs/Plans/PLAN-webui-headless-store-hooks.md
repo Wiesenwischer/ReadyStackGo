@@ -96,10 +96,14 @@ Reihenfolge basierend auf Abhängigkeiten und Impact — wichtigste/komplexeste 
   - Betroffene Dateien: `components/dashboard/HealthWidget.tsx`, `components/dashboard/SetupHint.tsx`, `components/variables/builders/SqlServerConnectionBuilder.tsx`, `components/health/HealthHistoryChart.tsx`, `context/AuthContext.tsx`, `context/EnvironmentContext.tsx`
   - Abhängig von: -
 
-- [ ] **Feature 8: Final Audit & Cleanup** — Verifizierung, dass keine direkten API-Aufrufe mehr in ui-generic existieren
-  - Automatischer Scan: `grep -r "apiGet\|apiPost\|apiPut\|apiDelete\|from.*api/" packages/ui-generic/src/` muss leer sein (außer Type-Imports)
-  - Build prüfen: `pnpm build` und `tsc` sauber
-  - Docker Container bauen und manuell testen
+- [x] **Feature 8: Final Audit & Cleanup** — Verifizierung, dass keine direkten API-Aufrufe mehr in ui-generic existieren
+  - Audit-Ergebnis: 4 Violations gefunden und behoben:
+    - Deleted legacy wizard steps (`EnvironmentStep.tsx`, `StackSourcesStep.tsx`) — dead code, not routed
+    - New `useSetupOrganizationStore` hook for `SetupOrganization.tsx`
+    - Extended `useEnvironmentStore` with `defaultSocketPath` + `loadDefaultSocketPath()` for `AddEnvironment.tsx`
+  - Verbleibende Utility-Imports (`getHealthStatusPresentation`, `timeAgo`) sind pure Formatter-Funktionen, keine API-Calls — kein Violation
+  - Build: `pnpm build` + `tsc` sauber
+  - Docker: Container gebaut und auf localhost:8080 getestet
   - Abhängig von: Feature 1-7
 
 - [ ] **Dokumentation & Phase abschließen** — Roadmap, Plan-Update, PR gegen main

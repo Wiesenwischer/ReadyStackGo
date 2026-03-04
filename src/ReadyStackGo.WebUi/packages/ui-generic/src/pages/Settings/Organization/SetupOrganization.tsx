@@ -1,34 +1,15 @@
-import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { createOrganization } from '@rsgo/core';
+import { useSetupOrganizationStore } from '@rsgo/core';
 
 export default function SetupOrganization() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [name, setName] = useState('');
+  const store = useSetupOrganizationStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-
-    if (!name.trim()) {
-      setError('Organization name is required');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const response = await createOrganization({ name: name.trim() });
-      if (response.success) {
-        navigate('/');
-      } else {
-        setError('Failed to create organization');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create organization');
-    } finally {
-      setLoading(false);
+    const success = await store.submit();
+    if (success) {
+      navigate('/');
     }
   };
 
@@ -55,9 +36,9 @@ export default function SetupOrganization() {
       <div className="max-w-lg">
         <form onSubmit={handleSubmit}>
           <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-            {error && (
+            {store.error && (
               <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-900/30 dark:text-red-300">
-                {error}
+                {store.error}
               </div>
             )}
 
@@ -71,12 +52,12 @@ export default function SetupOrganization() {
               <input
                 id="org-name"
                 type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={store.name}
+                onChange={(e) => store.setName(e.target.value)}
                 placeholder="My Company"
                 className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:border-brand-500"
                 autoFocus
-                disabled={loading}
+                disabled={store.loading}
               />
               <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
                 This is the name of your company or team. You can change it later.
@@ -86,10 +67,10 @@ export default function SetupOrganization() {
             <div className="flex items-center gap-3">
               <button
                 type="submit"
-                disabled={loading || !name.trim()}
+                disabled={store.loading || !store.name.trim()}
                 className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {loading ? 'Creating...' : 'Create Organization'}
+                {store.loading ? 'Creating...' : 'Create Organization'}
               </button>
               <Link
                 to="/"
