@@ -106,7 +106,7 @@ Reihenfolge basierend auf Abhängigkeiten und Impact — wichtigste/komplexeste 
   - Docker: Container gebaut und auf localhost:8080 getestet
   - Abhängig von: Feature 1-7
 
-- [ ] **Dokumentation & Phase abschließen** — Roadmap, Plan-Update, PR gegen main
+- [x] **Dokumentation & Phase abschließen** — Roadmap, Plan-Update, PR gegen main (PR #217)
 
 ## Offene Punkte
 
