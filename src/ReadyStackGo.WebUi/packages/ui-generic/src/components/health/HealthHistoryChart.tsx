@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import {
   AreaChart,
   Area,
@@ -8,7 +7,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from 'recharts';
-import { getHealthHistory, type StackHealthSummaryDto } from '@rsgo/core';
+import { useHealthHistoryStore } from '@rsgo/core';
 
 interface HealthHistoryChartProps {
   deploymentId: string;
@@ -27,26 +26,7 @@ export default function HealthHistoryChart({
   deploymentId,
   className = '',
 }: HealthHistoryChartProps) {
-  const [history, setHistory] = useState<StackHealthSummaryDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        setLoading(true);
-        const data = await getHealthHistory(deploymentId, 100);
-        setHistory(data);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load history');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchHistory();
-  }, [deploymentId]);
+  const { history, loading, error } = useHealthHistoryStore(deploymentId);
 
   if (loading) {
     return (

@@ -85,6 +85,10 @@ export { useOnboardingOrgStore, type UseOnboardingOrgStoreReturn } from './hooks
 export { useOnboardingEnvStore, type UseOnboardingEnvStoreReturn } from './hooks/useOnboardingEnvStore';
 export { useOnboardingSourcesStore, type UseOnboardingSourcesStoreReturn } from './hooks/useOnboardingSourcesStore';
 export { useRegistriesStepStore, type UseRegistriesStepStoreReturn, type RegistryCardState, type CardStatus, type VerifyStatus, type InitialCheckStatus } from './hooks/useRegistriesStepStore';
+export { useHealthWidgetStore, type UseHealthWidgetStoreReturn, type ProductHealthGroup } from './hooks/useHealthWidgetStore';
+export { useSetupHintStore, type UseSetupHintStoreReturn } from './hooks/useSetupHintStore';
+export { useConnectionTestStore, type UseConnectionTestStoreReturn, type TestConnectionResponse } from './hooks/useConnectionTestStore';
+export { useHealthHistoryStore, type UseHealthHistoryStoreReturn } from './hooks/useHealthHistoryStore';
 
 // Services
 export * from './services/AuthService';

@@ -1,10 +1,10 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import { type EnvironmentResponse } from '@rsgo/core';
 import {
+  type EnvironmentResponse,
   loadEnvironments,
   resolveActiveEnvironment,
   selectEnvironment,
-} from '@rsgo/core/services/EnvironmentService';
+} from '@rsgo/core';
 
 interface EnvironmentContextType {
   environments: EnvironmentResponse[];

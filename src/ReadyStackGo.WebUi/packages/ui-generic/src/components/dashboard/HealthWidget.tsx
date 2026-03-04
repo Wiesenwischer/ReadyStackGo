@@ -1,141 +1,26 @@
-import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router';
 import { useEnvironment } from '../../context/EnvironmentContext';
+import { useAuth } from '../../context/AuthContext';
 import {
-  getEnvironmentHealthSummary,
   getHealthStatusPresentation,
-  type EnvironmentHealthSummaryDto,
-  type StackHealthDto,
+  useHealthWidgetStore,
 } from '@rsgo/core';
-import { useHealthHub } from '../../hooks/useHealthHub';
 
 interface HealthWidgetProps {
   className?: string;
 }
 
-interface ProductHealthGroup {
-  productDeploymentId: string;
-  productDisplayName: string;
-  stacks: StackHealthDto[];
-  healthyStacks: number;
-  totalStacks: number;
-  overallStatus: string;
-}
-
-function aggregateProductStatus(stacks: StackHealthDto[]): string {
-  const statuses = stacks.map(s => s.overallStatus.toLowerCase());
-  if (statuses.some(s => s === 'unhealthy')) return 'Unhealthy';
-  if (statuses.some(s => s === 'degraded')) return 'Degraded';
-  if (statuses.every(s => s === 'healthy')) return 'Healthy';
-  return 'Unknown';
-}
-
 export default function HealthWidget({ className = '' }: HealthWidgetProps) {
   const { activeEnvironment } = useEnvironment();
-  const [healthSummary, setHealthSummary] = useState<EnvironmentHealthSummaryDto | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // SignalR for real-time updates
-  const { connectionState, subscribeToEnvironment, unsubscribeFromEnvironment } = useHealthHub({
-    onEnvironmentHealthChanged: (summary) => {
-      if (summary.environmentId === activeEnvironment?.id) {
-        setHealthSummary(summary);
-      }
-    },
-    onDeploymentHealthChanged: (health) => {
-      // Update individual deployment in current summary
-      setHealthSummary((prev) => {
-        if (!prev) return prev;
-        const updatedStacks = prev.stacks.map((s) =>
-          s.deploymentId === health.deploymentId ? health : s
-        );
-        return {
-          ...prev,
-          stacks: updatedStacks,
-          healthyCount: updatedStacks.filter(s => s.overallStatus.toLowerCase() === 'healthy').length,
-          degradedCount: updatedStacks.filter(s => s.overallStatus.toLowerCase() === 'degraded').length,
-          unhealthyCount: updatedStacks.filter(s => s.overallStatus.toLowerCase() === 'unhealthy').length,
-        };
-      });
-    },
-  });
-
-  // Fetch initial data
-  useEffect(() => {
-    if (!activeEnvironment) {
-      setHealthSummary(null);
-      setLoading(false);
-      return;
-    }
-
-    const fetchHealth = async () => {
-      try {
-        setLoading(true);
-        const data = await getEnvironmentHealthSummary(activeEnvironment.id);
-        setHealthSummary(data);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load health data');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchHealth();
-  }, [activeEnvironment]);
-
-  // Subscribe to SignalR updates
-  useEffect(() => {
-    if (connectionState === 'connected' && activeEnvironment) {
-      subscribeToEnvironment(activeEnvironment.id);
-      return () => {
-        unsubscribeFromEnvironment(activeEnvironment.id);
-      };
-    }
-  }, [connectionState, activeEnvironment, subscribeToEnvironment, unsubscribeFromEnvironment]);
-
-  // Group stacks by product, filter out stacks with no services (e.g. containers deleted outside RSGO)
-  const { productGroups, standaloneStacks } = useMemo(() => {
-    if (!healthSummary) return { productGroups: [], standaloneStacks: [] };
-
-    const groups = new Map<string, ProductHealthGroup>();
-    const standalone: StackHealthDto[] = [];
-
-    for (const stack of healthSummary.stacks) {
-      // Skip stacks with no services (e.g. containers deleted outside RSGO)
-      if (stack.totalServices === 0) continue;
-
-      if (stack.productDeploymentId && stack.productDisplayName) {
-        const existing = groups.get(stack.productDeploymentId);
-        const isHealthy = stack.overallStatus.toLowerCase() === 'healthy';
-        if (existing) {
-          existing.stacks.push(stack);
-          existing.totalStacks += 1;
-          if (isHealthy) existing.healthyStacks += 1;
-        } else {
-          groups.set(stack.productDeploymentId, {
-            productDeploymentId: stack.productDeploymentId,
-            productDisplayName: stack.productDisplayName,
-            stacks: [stack],
-            healthyStacks: isHealthy ? 1 : 0,
-            totalStacks: 1,
-            overallStatus: 'Healthy', // recalculated below
-          });
-        }
-      } else {
-        standalone.push(stack);
-      }
-    }
-
-    // Recalculate aggregated status for each product group
-    const productGroupList = Array.from(groups.values()).map(g => ({
-      ...g,
-      overallStatus: aggregateProductStatus(g.stacks),
-    }));
-
-    return { productGroups: productGroupList, standaloneStacks: standalone };
-  }, [healthSummary]);
+  const { token } = useAuth();
+  const {
+    healthSummary,
+    loading,
+    error,
+    connectionState,
+    productGroups,
+    standaloneStacks,
+  } = useHealthWidgetStore(token, activeEnvironment?.id);
 
   const getConnectionIndicator = () => {
     switch (connectionState) {

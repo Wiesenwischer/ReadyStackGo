@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiPost } from '@rsgo/core';
+import { useConnectionTestStore } from '@rsgo/core';
 
 interface SqlServerConnectionBuilderProps {
   isOpen: boolean;
@@ -20,12 +20,6 @@ interface ConnectionParams {
   encrypt: boolean;
   connectionTimeout: string;
   integratedSecurity: boolean;
-}
-
-interface TestConnectionResponse {
-  success: boolean;
-  message: string;
-  serverVersion?: string;
 }
 
 /**
@@ -50,8 +44,7 @@ export default function SqlServerConnectionBuilder({
     connectionTimeout: '30',
     integratedSecurity: false,
   });
-  const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] = useState<TestConnectionResponse | null>(null);
+  const { isTesting, testResult, testConnection, clearResult } = useConnectionTestStore();
 
   // Parse existing connection string when dialog opens
   useEffect(() => {
@@ -178,28 +171,13 @@ export default function SqlServerConnectionBuilder({
   };
 
   const handleTestConnection = async () => {
-    setIsTesting(true);
-    setTestResult(null);
-
-    try {
-      const connectionString = buildConnectionString();
-      const result = await apiPost<TestConnectionResponse>('/api/connections/test/sqlserver', {
-        connectionString,
-      });
-      setTestResult(result);
-    } catch (err) {
-      setTestResult({
-        success: false,
-        message: err instanceof Error ? err.message : 'Connection test failed',
-      });
-    } finally {
-      setIsTesting(false);
-    }
+    const connectionString = buildConnectionString();
+    await testConnection(connectionString);
   };
 
   const updateParam = <K extends keyof ConnectionParams>(key: K, val: ConnectionParams[K]) => {
     setParams((prev) => ({ ...prev, [key]: val }));
-    setTestResult(null); // Clear test result when params change
+    clearResult();
   };
 
   if (!isOpen) return null;
