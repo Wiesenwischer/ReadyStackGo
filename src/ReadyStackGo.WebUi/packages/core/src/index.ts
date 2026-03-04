@@ -79,6 +79,12 @@ export { useEnvironmentStore, type UseEnvironmentStoreReturn } from './hooks/use
 export { useProfileStore, type UseProfileStoreReturn } from './hooks/useProfileStore';
 export { useSystemSettingsStore, type UseSystemSettingsStoreReturn } from './hooks/useSystemSettingsStore';
 export { useUpdateStore, type UseUpdateStoreReturn, type UpdatePhase } from './hooks/useUpdateStore';
+export { useWizardStore, type UseWizardStoreReturn } from './hooks/useWizardStore';
+export { useOnboardingStore, type UseOnboardingStoreReturn } from './hooks/useOnboardingStore';
+export { useOnboardingOrgStore, type UseOnboardingOrgStoreReturn } from './hooks/useOnboardingOrgStore';
+export { useOnboardingEnvStore, type UseOnboardingEnvStoreReturn } from './hooks/useOnboardingEnvStore';
+export { useOnboardingSourcesStore, type UseOnboardingSourcesStoreReturn } from './hooks/useOnboardingSourcesStore';
+export { useRegistriesStepStore, type UseRegistriesStepStoreReturn, type RegistryCardState, type CardStatus, type VerifyStatus, type InitialCheckStatus } from './hooks/useRegistriesStepStore';
 
 // Services
 export * from './services/AuthService';

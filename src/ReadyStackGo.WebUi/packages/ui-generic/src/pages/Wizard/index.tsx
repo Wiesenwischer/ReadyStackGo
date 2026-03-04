@@ -1,68 +1,31 @@
-import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import WizardLayout from './WizardLayout';
 import AdminStep from './AdminStep';
-import { createAdmin, installStack, getWizardStatus, type WizardTimeoutInfo } from '@rsgo/core';
+import { useWizardStore } from '@rsgo/core';
 import { useAuth } from '../../context/AuthContext';
 
 export default function Wizard() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [timeout, setTimeout] = useState<WizardTimeoutInfo | null>(null);
-  const [isTimedOut, setIsTimedOut] = useState(false);
-  const [isLocked, setIsLocked] = useState(false);
+  const {
+    isLoading,
+    timeout,
+    isTimedOut,
+    isLocked,
+    reloadState,
+    submitAdmin,
+    completeWizard,
+    handleTimeout,
+  } = useWizardStore();
   const navigate = useNavigate();
   const { setAuthDirectly } = useAuth();
 
-  // Handle wizard timeout - show timeout message
-  const handleTimeout = useCallback(() => {
-    setIsTimedOut(true);
-  }, []);
-
-  // Reload wizard state (after timeout or refresh)
-  const reloadWizardState = useCallback(async () => {
-    setIsLoading(true);
-    setIsTimedOut(false);
-    setIsLocked(false);
-    try {
-      const status = await getWizardStatus();
-      setTimeout(status.timeout ?? null);
-
-      // Check if locked or timed out on server side
-      if (status.timeout?.isLocked) {
-        setIsLocked(true);
-        setIsTimedOut(true);
-        return;
-      }
-      if (status.timeout?.isTimedOut) {
-        setIsTimedOut(true);
-        return;
-      }
-
-      if (status.isCompleted) {
-        // Admin already exists, redirect to dashboard
-        navigate('/', { replace: true });
-        return;
-      }
-    } catch (error) {
-      console.error('Failed to load wizard state:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [navigate]);
-
-  // Load wizard state on mount
-  useEffect(() => {
-    reloadWizardState();
-  }, [reloadWizardState]);
-
   const handleAdminCreated = async (data: { username: string; password: string }) => {
-    const response = await createAdmin(data);
+    const response = await submitAdmin(data);
     if (response.token && response.username && response.role) {
       setAuthDirectly(response.token, response.username, response.role);
     }
 
     // Mark wizard as installed (completes the wizard state machine)
-    await installStack();
+    await completeWizard();
 
     // Redirect to dashboard where the onboarding checklist will guide further setup
     navigate('/', { replace: true });
@@ -117,7 +80,7 @@ export default function Wizard() {
             </div>
           ) : (
             <button
-              onClick={reloadWizardState}
+              onClick={reloadState}
               className="px-6 py-3 bg-brand-600 text-white font-medium rounded-lg hover:bg-brand-700 transition-colors"
             >
               Refresh Status

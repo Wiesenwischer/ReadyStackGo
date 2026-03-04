@@ -1,47 +1,18 @@
-import { useState, type FormEvent } from 'react';
-import { createOrganization } from '@rsgo/core';
+import { type FormEvent } from 'react';
+import { useOnboardingOrgStore } from '@rsgo/core';
 
 interface OnboardingOrgStepProps {
   onNext: () => void;
 }
 
 export default function OnboardingOrgStep({ onNext }: OnboardingOrgStepProps) {
-  const [id, setId] = useState('');
-  const [name, setName] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const store = useOnboardingOrgStore();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError('');
-
-    if (id.length < 2) {
-      setError('Organization ID must be at least 2 characters long');
-      return;
-    }
-
-    if (!/^[a-z0-9-]+$/.test(id)) {
-      setError('Organization ID can only contain lowercase letters, numbers, and hyphens');
-      return;
-    }
-
-    if (name.trim().length < 3) {
-      setError('Organization name must be at least 3 characters long');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await createOrganization({ id, name: name.trim() });
-      if (response.success) {
-        onNext();
-      } else {
-        setError('Failed to create organization');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create organization');
-    } finally {
-      setIsLoading(false);
+    const success = await store.submit();
+    if (success) {
+      onNext();
     }
   };
 
@@ -57,9 +28,9 @@ export default function OnboardingOrgStep({ onNext }: OnboardingOrgStepProps) {
         </p>
       </div>
 
-      {error && (
+      {store.error && (
         <div className="mb-4 p-4 text-sm border border-red-300 rounded-lg bg-red-50 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
-          {error}
+          {store.error}
         </div>
       )}
 
@@ -71,8 +42,8 @@ export default function OnboardingOrgStep({ onNext }: OnboardingOrgStepProps) {
             </label>
             <input
               type="text"
-              value={id}
-              onChange={(e) => setId(e.target.value.toLowerCase())}
+              value={store.id}
+              onChange={(e) => store.setId(e.target.value)}
               placeholder="my-company"
               required
               minLength={2}
@@ -91,8 +62,8 @@ export default function OnboardingOrgStep({ onNext }: OnboardingOrgStepProps) {
             </label>
             <input
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={store.name}
+              onChange={(e) => store.setName(e.target.value)}
               placeholder="My Company Inc."
               required
               minLength={3}
@@ -107,10 +78,10 @@ export default function OnboardingOrgStep({ onNext }: OnboardingOrgStepProps) {
         <div className="pt-6">
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={store.isSubmitting}
             className="w-full py-3 text-sm font-medium text-white transition-colors rounded-lg bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoading ? 'Creating...' : 'Continue'}
+            {store.isSubmitting ? 'Creating...' : 'Continue'}
           </button>
         </div>
       </form>

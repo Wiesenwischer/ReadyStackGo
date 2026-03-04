@@ -1,22 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { detectRegistries, checkRegistryAccess, verifyRegistryAccess, type DetectedRegistryArea, type RegistryInputDto } from '@rsgo/core';
-
-type CardStatus = 'action-required' | 'verified' | 'skipped';
-type VerifyStatus = 'idle' | 'verifying' | 'success' | 'error';
-type InitialCheckStatus = 'pending' | 'checking' | 'done';
-
-interface RegistryCardState {
-  area: DetectedRegistryArea;
-  status: CardStatus;
-  verifyStatus: VerifyStatus;
-  verifyError: string;
-  username: string;
-  password: string;
-  name: string;
-  pattern: string;
-  accessLevel: 'Public' | 'AuthRequired' | 'Unknown' | null;
-  initialCheck: InitialCheckStatus;
-}
+import { useRegistriesStepStore, type RegistryInputDto } from '@rsgo/core';
 
 interface RegistriesStepProps {
   onNext: (registries: RegistryInputDto[]) => Promise<void>;
@@ -74,176 +57,16 @@ function GlobeIcon({ className }: { className?: string }) {
 }
 
 export default function RegistriesStep({ onNext, onSkip }: RegistriesStepProps) {
-  const [cards, setCards] = useState<RegistryCardState[]>([]);
-  const [error, setError] = useState('');
+  const store = useRegistriesStepStore();
   const [isLoading, setIsLoading] = useState(false);
   const [isSkipping, setIsSkipping] = useState(false);
-  const [isFetching, setIsFetching] = useState(true);
-  const [checksComplete, setChecksComplete] = useState(false);
-
-  useEffect(() => {
-    const fetchAndCheck = async () => {
-      try {
-        // Phase 1: Load areas fast (no access check)
-        const response = await detectRegistries();
-        const cardStates: RegistryCardState[] = response.areas
-          .filter(a => !a.isConfigured)
-          .map(area => ({
-            area,
-            status: 'action-required' as const,
-            verifyStatus: 'idle' as const,
-            verifyError: '',
-            username: '',
-            password: '',
-            name: area.suggestedName,
-            pattern: area.suggestedPattern,
-            accessLevel: null,
-            initialCheck: area.images.length > 0 ? 'pending' as const : 'done' as const,
-          }));
-        setCards(cardStates);
-        setIsFetching(false);
-
-        // Phase 2: Check each area via backend (parallel, per-card updates)
-        const checksToRun = cardStates
-          .map((card, index) => ({ card, index }))
-          .filter(({ card }) => card.area.images.length > 0);
-
-        if (checksToRun.length === 0) {
-          setChecksComplete(true);
-          return;
-        }
-
-        // Mark all as checking
-        setCards(prev => prev.map(c =>
-          c.initialCheck === 'pending' ? { ...c, initialCheck: 'checking' as const } : c
-        ));
-
-        // Fire all checks in parallel, update each card as result arrives
-        await Promise.all(checksToRun.map(async ({ card, index }) => {
-          try {
-            const result = await checkRegistryAccess(card.area.images[0]);
-            setCards(prev => prev.map((c, i) => {
-              if (i !== index) return c;
-              if (result.accessLevel === 'Public') {
-                return {
-                  ...c,
-                  initialCheck: 'done' as const,
-                  status: 'verified' as const,
-                  accessLevel: 'Public' as const,
-                };
-              }
-              return {
-                ...c,
-                initialCheck: 'done' as const,
-                accessLevel: result.accessLevel,
-              };
-            }));
-          } catch {
-            setCards(prev => prev.map((c, i) => i === index ? {
-              ...c,
-              initialCheck: 'done' as const,
-              accessLevel: 'Unknown' as const,
-            } : c));
-          }
-        }));
-
-        setChecksComplete(true);
-      } catch {
-        setError('Failed to detect container registries');
-        setIsFetching(false);
-        setChecksComplete(true);
-      }
-    };
-    fetchAndCheck();
-  }, []);
-
-  const updateCard = (index: number, updates: Partial<RegistryCardState>) => {
-    setCards(prev => prev.map((card, i) => i === index ? { ...card, ...updates } : card));
-  };
-
-  const handleVerify = async (index: number) => {
-    const card = cards[index];
-    if (!card || card.area.images.length === 0) return;
-
-    updateCard(index, { verifyStatus: 'verifying', verifyError: '' });
-
-    try {
-      const result = await verifyRegistryAccess({
-        image: card.area.images[0],
-        username: card.username || undefined,
-        password: card.password || undefined,
-      });
-
-      if (result.accessLevel === 'Public') {
-        // If credentials were provided, the registry isn't truly public — mark as authenticated
-        updateCard(index, {
-          verifyStatus: 'success',
-          status: 'verified',
-          accessLevel: (card.username && card.password) ? 'AuthRequired' : 'Public',
-        });
-      } else if (result.accessLevel === 'AuthRequired') {
-        if (card.username && card.password) {
-          // Had credentials but they didn't work
-          updateCard(index, {
-            verifyStatus: 'error',
-            verifyError: 'Access denied — check your credentials',
-            accessLevel: 'AuthRequired',
-          });
-        } else {
-          // No credentials provided, registry requires auth
-          updateCard(index, {
-            verifyStatus: 'error',
-            verifyError: 'Credentials required for this registry',
-            accessLevel: 'AuthRequired',
-          });
-        }
-      } else {
-        updateCard(index, {
-          verifyStatus: 'error',
-          verifyError: 'Could not reach registry — try again later',
-          accessLevel: 'Unknown',
-        });
-      }
-    } catch {
-      updateCard(index, {
-        verifyStatus: 'error',
-        verifyError: 'Network error — could not verify access',
-      });
-    }
-  };
-
-  const handleSkipCard = (index: number) => {
-    updateCard(index, { status: 'skipped' });
-  };
-
-  const handleUndoSkip = (index: number) => {
-    updateCard(index, { status: 'action-required', verifyStatus: 'idle', verifyError: '' });
-  };
-
-  const handleUndoVerified = (index: number) => {
-    updateCard(index, {
-      status: 'action-required',
-      verifyStatus: 'idle',
-      verifyError: '',
-      accessLevel: null,
-    });
-  };
+  const [error, setError] = useState('');
 
   const handleSubmit = async () => {
     setError('');
     setIsLoading(true);
     try {
-      // Submit verified cards that have credentials (authenticated registries)
-      const registries: RegistryInputDto[] = cards
-        .filter(c => c.status === 'verified' && c.accessLevel === 'AuthRequired' && c.username && c.password)
-        .map(card => ({
-          name: card.name,
-          host: card.area.host,
-          pattern: card.pattern,
-          requiresAuth: true,
-          username: card.username,
-          password: card.password,
-        }));
+      const registries = store.getRegistriesToSubmit();
       await onNext(registries);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to configure registries');
@@ -267,17 +90,12 @@ export default function RegistriesStep({ onNext, onSkip }: RegistriesStepProps) 
     }
   };
 
-  const verifiedCards = cards.filter(c => c.status === 'verified');
-  const actionCards = cards.filter(c => c.status === 'action-required' && c.initialCheck === 'done');
-  const skippedCards = cards.filter(c => c.status === 'skipped');
-  const checksRunning = cards.some(c => c.initialCheck === 'checking');
-
   // Enter key advances when not typing in a credential input
   const stableHandleSubmit = useCallback(() => {
-    if (!isLoading && !isSkipping && !checksRunning && checksComplete) {
+    if (!isLoading && !isSkipping && !store.checksRunning && store.checksComplete) {
       handleSubmit();
     }
-  }, [isLoading, isSkipping, checksRunning, checksComplete]);
+  }, [isLoading, isSkipping, store.checksRunning, store.checksComplete]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -291,8 +109,10 @@ export default function RegistriesStep({ onNext, onSkip }: RegistriesStepProps) 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [stableHandleSubmit]);
 
+  const displayError = error || store.error;
+
   // Phase 0: initial detection
-  if (isFetching) {
+  if (store.isFetching) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-3">
         <SpinnerIcon />
@@ -302,9 +122,9 @@ export default function RegistriesStep({ onNext, onSkip }: RegistriesStepProps) 
   }
 
   // Phase 1: checking access per area
-  if (!checksComplete) {
-    const done = cards.filter(c => c.initialCheck === 'done').length;
-    const total = cards.length;
+  if (!store.checksComplete) {
+    const done = store.cards.filter(c => c.initialCheck === 'done').length;
+    const total = store.cards.length;
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-4">
         <SpinnerIcon />
@@ -312,7 +132,7 @@ export default function RegistriesStep({ onNext, onSkip }: RegistriesStepProps) 
           Checking registry access... ({done}/{total})
         </p>
         <div className="w-full max-w-sm space-y-1">
-          {cards.map(card => (
+          {store.cards.map(card => (
             <div key={`${card.area.host}-${card.area.namespace}`} className="flex items-center gap-2 text-xs">
               {card.initialCheck === 'done' ? (
                 <CheckIcon className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
@@ -332,7 +152,7 @@ export default function RegistriesStep({ onNext, onSkip }: RegistriesStepProps) 
   }
 
   // Phase 2: no registries detected at all
-  if (cards.length === 0) {
+  if (store.cards.length === 0) {
     return (
       <div>
         <div className="mb-6">
@@ -355,15 +175,15 @@ export default function RegistriesStep({ onNext, onSkip }: RegistriesStepProps) 
       <div className="mb-6">
         <h2 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white">Container Registries</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          {actionCards.length > 0
+          {store.actionCards.length > 0
             ? 'Verify access for each registry. Enter credentials or confirm public access.'
             : 'All registries verified — you can continue.'}
         </p>
       </div>
 
-      {error && (
+      {displayError && (
         <div className="mb-4 p-4 text-sm border border-red-300 rounded-lg bg-red-50 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
-          {error}
+          {displayError}
         </div>
       )}
 
@@ -373,18 +193,18 @@ export default function RegistriesStep({ onNext, onSkip }: RegistriesStepProps) 
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 rounded-full bg-amber-500" />
             <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              Action Required {actionCards.length > 0 && <span className="text-gray-400 dark:text-gray-500">({actionCards.length})</span>}
+              Action Required {store.actionCards.length > 0 && <span className="text-gray-400 dark:text-gray-500">({store.actionCards.length})</span>}
             </h3>
           </div>
 
-          {actionCards.length === 0 && (
+          {store.actionCards.length === 0 && (
             <div className="p-4 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 text-center">
               <CheckIcon className="mx-auto w-6 h-6 text-green-400 dark:text-green-500 mb-1" />
               <p className="text-xs text-gray-400 dark:text-gray-500">All done!</p>
             </div>
           )}
 
-          {cards.map((card, index) => {
+          {store.cards.map((card, index) => {
             if (card.status !== 'action-required' || card.initialCheck !== 'done') return null;
             return (
               <div key={`${card.area.host}-${card.area.namespace}`}
@@ -424,7 +244,7 @@ export default function RegistriesStep({ onNext, onSkip }: RegistriesStepProps) 
                     <input
                       type="text"
                       value={card.username}
-                      onChange={e => updateCard(index, { username: e.target.value, verifyStatus: 'idle', verifyError: '' })}
+                      onChange={e => store.updateCard(index, { username: e.target.value, verifyStatus: 'idle', verifyError: '' })}
                       placeholder="Username"
                       disabled={card.verifyStatus === 'verifying'}
                       className="w-full px-2 py-1.5 text-xs rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 disabled:opacity-50"
@@ -432,7 +252,7 @@ export default function RegistriesStep({ onNext, onSkip }: RegistriesStepProps) 
                     <input
                       type="password"
                       value={card.password}
-                      onChange={e => updateCard(index, { password: e.target.value, verifyStatus: 'idle', verifyError: '' })}
+                      onChange={e => store.updateCard(index, { password: e.target.value, verifyStatus: 'idle', verifyError: '' })}
                       placeholder="Password / Token"
                       disabled={card.verifyStatus === 'verifying'}
                       className="w-full px-2 py-1.5 text-xs rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 disabled:opacity-50"
@@ -448,7 +268,7 @@ export default function RegistriesStep({ onNext, onSkip }: RegistriesStepProps) 
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => handleVerify(index)}
+                      onClick={() => store.handleVerify(index)}
                       disabled={card.verifyStatus === 'verifying'}
                       className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white rounded-md bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
@@ -463,7 +283,7 @@ export default function RegistriesStep({ onNext, onSkip }: RegistriesStepProps) 
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleSkipCard(index)}
+                      onClick={() => store.handleSkipCard(index)}
                       disabled={card.verifyStatus === 'verifying'}
                       className="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
@@ -490,10 +310,10 @@ export default function RegistriesStep({ onNext, onSkip }: RegistriesStepProps) 
           })}
 
           {/* Skipped section */}
-          {skippedCards.length > 0 && (
+          {store.skippedCards.length > 0 && (
             <div className="mt-2">
               <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">Skipped</p>
-              {cards.map((card, index) => {
+              {store.cards.map((card, index) => {
                 if (card.status !== 'skipped') return null;
                 return (
                   <div key={`${card.area.host}-${card.area.namespace}`}
@@ -503,7 +323,7 @@ export default function RegistriesStep({ onNext, onSkip }: RegistriesStepProps) 
                     </span>
                     <button
                       type="button"
-                      onClick={() => handleUndoSkip(index)}
+                      onClick={() => store.handleUndoSkip(index)}
                       className="ml-2 text-brand-600 dark:text-brand-400 hover:underline flex-shrink-0"
                     >
                       Undo
@@ -520,18 +340,18 @@ export default function RegistriesStep({ onNext, onSkip }: RegistriesStepProps) 
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 rounded-full bg-green-500" />
             <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              Verified {verifiedCards.length > 0 && <span className="text-gray-400 dark:text-gray-500">({verifiedCards.length})</span>}
+              Verified {store.verifiedCards.length > 0 && <span className="text-gray-400 dark:text-gray-500">({store.verifiedCards.length})</span>}
             </h3>
           </div>
 
-          {verifiedCards.length === 0 && (
+          {store.verifiedCards.length === 0 && (
             <div className="p-4 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 text-center">
               <ShieldCheckIcon className="mx-auto w-6 h-6 text-gray-300 dark:text-gray-600 mb-1" />
               <p className="text-xs text-gray-400 dark:text-gray-500">No registries verified yet</p>
             </div>
           )}
 
-          {cards.map((card, index) => {
+          {store.cards.map((card, index) => {
             if (card.status !== 'verified') return null;
             return (
               <div key={`${card.area.host}-${card.area.namespace}`}
@@ -561,7 +381,7 @@ export default function RegistriesStep({ onNext, onSkip }: RegistriesStepProps) 
                   </div>
                   <button
                     type="button"
-                    onClick={() => handleUndoVerified(index)}
+                    onClick={() => store.handleUndoVerified(index)}
                     className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0"
                   >
                     Undo
@@ -586,10 +406,10 @@ export default function RegistriesStep({ onNext, onSkip }: RegistriesStepProps) 
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isLoading || isSkipping || checksRunning}
+          disabled={isLoading || isSkipping || store.checksRunning}
           className="flex-1 py-3 text-sm font-medium text-white transition-colors rounded-lg bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isLoading ? 'Configuring...' : checksRunning ? 'Checking registries...' : 'Continue'}
+          {isLoading ? 'Configuring...' : store.checksRunning ? 'Checking registries...' : 'Continue'}
         </button>
       </div>
     </div>
