@@ -1,118 +1,18 @@
-import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router";
-import { volumeApi, type Volume } from '@rsgo/core';
+import { useVolumeStore } from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
 
 export default function Volumes() {
-  const [volumes, setVolumes] = useState<Volume[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showOrphanedOnly, setShowOrphanedOnly] = useState(false);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createName, setCreateName] = useState("");
-  const [createDriver, setCreateDriver] = useState("");
-  const [createLoading, setCreateLoading] = useState(false);
   const { activeEnvironment } = useEnvironment();
-
-  const loadVolumes = useCallback(async () => {
-    if (!activeEnvironment) {
-      setVolumes([]);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await volumeApi.list(activeEnvironment.id);
-      setVolumes(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load volumes");
-    } finally {
-      setLoading(false);
-    }
-  }, [activeEnvironment]);
-
-  useEffect(() => {
-    loadVolumes();
-  }, [loadVolumes]);
-
-  const handleDelete = async (name: string, force: boolean = false) => {
-    if (!activeEnvironment) return;
-
-    try {
-      setActionLoading(name);
-      await volumeApi.remove(activeEnvironment.id, name, force);
-      setConfirmDelete(null);
-      await loadVolumes();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to remove volume");
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleBulkDeleteOrphaned = async () => {
-    if (!activeEnvironment) return;
-
-    const orphaned = volumes.filter((v) => v.isOrphaned);
-    setConfirmBulkDelete(false);
-    setActionLoading("bulk");
-
-    try {
-      for (const vol of orphaned) {
-        await volumeApi.remove(activeEnvironment.id, vol.name, false);
-      }
-      await loadVolumes();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to remove orphaned volumes");
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeEnvironment || !createName.trim()) return;
-
-    try {
-      setCreateLoading(true);
-      setError(null);
-      await volumeApi.create(activeEnvironment.id, {
-        name: createName.trim(),
-        driver: createDriver.trim() || undefined,
-      });
-      setCreateName("");
-      setCreateDriver("");
-      setShowCreateForm(false);
-      await loadVolumes();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create volume");
-    } finally {
-      setCreateLoading(false);
-    }
-  };
-
-  const filteredVolumes = showOrphanedOnly
-    ? volumes.filter((v) => v.isOrphaned)
-    : volumes;
-
-  const orphanedCount = volumes.filter((v) => v.isOrphaned).length;
-
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return "-";
-    const date = new Date(dateStr);
-    return date.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  const {
+    loading, error, showOrphanedOnly, actionLoading,
+    confirmDelete, confirmBulkDelete, showCreateForm,
+    createName, createDriver, createLoading,
+    filteredVolumes, orphanedCount,
+    refresh, handleDelete, handleBulkDeleteOrphaned, handleCreate,
+    setShowOrphanedOnly, setConfirmDelete, setConfirmBulkDelete,
+    setShowCreateForm, setCreateName, setCreateDriver, formatDate,
+  } = useVolumeStore(activeEnvironment?.id);
 
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
@@ -148,7 +48,7 @@ export default function Volumes() {
             Create Volume
           </button>
           <button
-            onClick={loadVolumes}
+            onClick={refresh}
             className="inline-flex items-center justify-center gap-2 rounded-md bg-gray-100 px-6 py-3 text-center font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,249 +1,22 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
 import { Link } from "react-router";
 import {
-  containerApi,
   type Container,
   type StackContextInfo,
+  useContainerStore,
 } from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
 
-type ViewMode = "list" | "stacks" | "products";
-
 export default function Containers() {
-  const [containers, setContainers] = useState<Container[]>([]);
-  const [context, setContext] = useState<Record<string, StackContextInfo>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [removeConfirm, setRemoveConfirm] = useState<string | null>(null);
-  const [orphanConfirm, setOrphanConfirm] = useState<{
-    stackName: string;
-    action: "repair" | "remove";
-  } | null>(null);
-  const [repairAllConfirm, setRepairAllConfirm] = useState(false);
-  const [orphanActionLoading, setOrphanActionLoading] = useState<string | null>(
-    null
-  );
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const { activeEnvironment } = useEnvironment();
-
-  const loadContainers = useCallback(async () => {
-    if (!activeEnvironment) {
-      setContainers([]);
-      setContext({});
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      const [data, ctx] = await Promise.all([
-        containerApi.list(activeEnvironment.id),
-        containerApi.getContext(activeEnvironment.id),
-      ]);
-      setContainers(data);
-      setContext(ctx.success ? ctx.stacks : {});
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load containers"
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [activeEnvironment]);
-
-  useEffect(() => {
-    loadContainers();
-  }, [loadContainers]);
-
-  const handleStart = async (id: string) => {
-    if (!activeEnvironment) return;
-    try {
-      setActionLoading(id);
-      await containerApi.start(activeEnvironment.id, id);
-      await loadContainers();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to start container"
-      );
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleStop = async (id: string) => {
-    if (!activeEnvironment) return;
-    try {
-      setActionLoading(id);
-      await containerApi.stop(activeEnvironment.id, id);
-      await loadContainers();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to stop container"
-      );
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleRemove = async (id: string, force: boolean) => {
-    if (!activeEnvironment) return;
-    try {
-      setActionLoading(id);
-      setRemoveConfirm(null);
-      await containerApi.remove(activeEnvironment.id, id, force);
-      await loadContainers();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to remove container"
-      );
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleRepairOrphan = async (stackName: string) => {
-    if (!activeEnvironment) return;
-    try {
-      setOrphanActionLoading(`repair:${stackName}`);
-      setOrphanConfirm(null);
-      await containerApi.repairOrphanedStack(activeEnvironment.id, stackName);
-      await loadContainers();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to repair orphaned stack"
-      );
-    } finally {
-      setOrphanActionLoading(null);
-    }
-  };
-
-  const handleRemoveOrphan = async (stackName: string) => {
-    if (!activeEnvironment) return;
-    try {
-      setOrphanActionLoading(`remove:${stackName}`);
-      setOrphanConfirm(null);
-      await containerApi.removeOrphanedStack(activeEnvironment.id, stackName);
-      await loadContainers();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to remove orphaned stack"
-      );
-    } finally {
-      setOrphanActionLoading(null);
-    }
-  };
-
-  const handleRepairAllOrphaned = async () => {
-    if (!activeEnvironment) return;
-    try {
-      setOrphanActionLoading("repair-all");
-      setRepairAllConfirm(false);
-      await containerApi.repairAllOrphanedStacks(activeEnvironment.id);
-      await loadContainers();
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to repair all orphaned stacks"
-      );
-    } finally {
-      setOrphanActionLoading(null);
-    }
-  };
-
-  const getStackName = (c: Container) => c.labels?.["rsgo.stack"];
-
-  const getContextInfo = useCallback(
-    (stackName: string | undefined) => {
-      if (!stackName) return undefined;
-      const key = Object.keys(context).find(
-        (k) => k.toLowerCase() === stackName.toLowerCase()
-      );
-      return key ? context[key] : undefined;
-    },
-    [context]
-  );
-
-  // Grouped data for Stack/Product views
-  const groupedByStack = useMemo(() => {
-    const managed: Record<
-      string,
-      { containers: Container[]; context?: StackContextInfo }
-    > = {};
-    const unmanaged: Container[] = [];
-
-    for (const c of containers) {
-      const stackName = getStackName(c);
-      if (stackName) {
-        if (!managed[stackName]) {
-          managed[stackName] = {
-            containers: [],
-            context: getContextInfo(stackName),
-          };
-        }
-        managed[stackName].containers.push(c);
-      } else {
-        unmanaged.push(c);
-      }
-    }
-    return { managed, unmanaged };
-  }, [containers, getContextInfo]);
-
-  const groupedByProduct = useMemo(() => {
-    const products: Record<
-      string,
-      {
-        displayName: string;
-        stacks: Record<
-          string,
-          { containers: Container[]; context?: StackContextInfo }
-        >;
-      }
-    > = {};
-    const unknownProduct: Record<
-      string,
-      { containers: Container[]; context?: StackContextInfo }
-    > = {};
-    const unmanaged: Container[] = [];
-
-    for (const c of containers) {
-      const stackName = getStackName(c);
-      if (!stackName) {
-        unmanaged.push(c);
-        continue;
-      }
-      const ctx = getContextInfo(stackName);
-      const productKey = ctx?.productName ?? null;
-      const productDisplay = ctx?.productDisplayName ?? null;
-
-      if (productKey && productDisplay) {
-        if (!products[productKey]) {
-          products[productKey] = { displayName: productDisplay, stacks: {} };
-        }
-        if (!products[productKey].stacks[stackName]) {
-          products[productKey].stacks[stackName] = {
-            containers: [],
-            context: ctx,
-          };
-        }
-        products[productKey].stacks[stackName].containers.push(c);
-      } else {
-        if (!unknownProduct[stackName]) {
-          unknownProduct[stackName] = { containers: [], context: ctx };
-        }
-        unknownProduct[stackName].containers.push(c);
-      }
-    }
-    return { products, unknownProduct, unmanaged };
-  }, [containers, getContextInfo]);
-
-  const hasOrphanedStacks = useMemo(() => {
-    return Object.values(groupedByStack.managed).some(
-      (g) => g.context && !g.context.deploymentExists
-    );
-  }, [groupedByStack]);
+  const {
+    containers, loading, error, actionLoading,
+    removeConfirm, orphanConfirm, repairAllConfirm, orphanActionLoading,
+    viewMode, groupedByStack, groupedByProduct, hasOrphanedStacks,
+    refresh, handleStart, handleStop, handleRemove,
+    handleRepairOrphan, handleRemoveOrphan, handleRepairAllOrphaned,
+    setViewMode, setRemoveConfirm, setOrphanConfirm, setRepairAllConfirm,
+    getStackName, getContextInfo,
+  } = useContainerStore(activeEnvironment?.id);
 
   // --- Reusable sub-components ---
 
@@ -1116,7 +889,7 @@ export default function Containers() {
             )
           )}
           <button
-            onClick={loadContainers}
+            onClick={refresh}
             className="inline-flex items-center justify-center gap-2 rounded-md bg-gray-100 px-6 py-3 text-center font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
           >
             <svg
