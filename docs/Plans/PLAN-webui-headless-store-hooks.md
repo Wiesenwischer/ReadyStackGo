@@ -63,11 +63,11 @@ Reihenfolge basierend auf Abhängigkeiten und Impact — wichtigste/komplexeste 
   - Betroffene Dateien: `pages/Environments/Environments.tsx`, `AddEnvironment.tsx`, `SetupEnvironment.tsx`, `DeleteEnvironment.tsx`
   - Abhängig von: -
 
-- [ ] **Feature 5: Profile, System & Update Store-Hooks** — Profile, SystemInfo, UpdateStatus
+- [x] **Feature 5: Profile, System & Update Store-Hooks** — Profile, SystemInfo, UpdateStatus — PR #213
   - Neue Hooks:
-    - `useProfileStore` — Profil laden, Passwort ändern
-    - `useSystemSettingsStore` — Health-Notification Settings (SystemInfo-Seite)
-    - `useUpdateStore` — Update-Flow State-Machine (7 Phasen: idle → checking → available → updating → ...)
+    - `useProfileStore` — Profil laden, Passwort ändern, Form-State
+    - `useSystemSettingsStore` — Health-Notification Settings (Cooldown CRUD)
+    - `useUpdateStore` — Update-Flow State-Machine (8 Phasen: connecting → triggering → pulling → creating → starting → restarting → success → error)
   - Betroffene Dateien: `pages/Profile/Profile.tsx`, `pages/Settings/System/SystemInfo.tsx`, `pages/UpdateStatus.tsx`
   - Abhängig von: -
 

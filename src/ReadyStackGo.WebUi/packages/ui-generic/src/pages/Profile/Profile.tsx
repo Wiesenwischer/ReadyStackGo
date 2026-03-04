@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { userApi, type UserProfile } from '@rsgo/core';
+import { useProfileStore } from '@rsgo/core';
 
 function formatDate(isoString?: string): string {
   if (!isoString) return "-";
@@ -13,76 +12,12 @@ function formatDate(isoString?: string): string {
 }
 
 export default function Profile() {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const store = useProfileStore();
 
-  // Password change form
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [changing, setChanging] = useState(false);
-  const [changeError, setChangeError] = useState<string | null>(null);
-  const [changeSuccess, setChangeSuccess] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadProfile();
-  }, []);
-
-  const loadProfile = async () => {
-    try {
-      const data = await userApi.getProfile();
-      setProfile(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load profile");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleChangePassword = async (e: React.FormEvent) => {
+  const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();
-    setChangeError(null);
-    setChangeSuccess(null);
-
-    if (newPassword !== confirmPassword) {
-      setChangeError("New passwords do not match");
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      setChangeError("Password must be at least 8 characters");
-      return;
-    }
-
-    setChanging(true);
-    try {
-      const result = await userApi.changePassword({
-        currentPassword,
-        newPassword,
-      });
-
-      if (result.success) {
-        setChangeSuccess(result.message ?? "Password changed successfully");
-        setCurrentPassword("");
-        setNewPassword("");
-        setConfirmPassword("");
-        // Reload profile to get updated passwordChangedAt
-        loadProfile();
-      } else {
-        setChangeError(result.message ?? "Failed to change password");
-      }
-    } catch (err) {
-      setChangeError(
-        err instanceof Error ? err.message : "Failed to change password"
-      );
-    } finally {
-      setChanging(false);
-    }
+    store.changePassword();
   };
-
-  const roleLabel =
-    profile?.role === "admin" ? "System Administrator" : "User";
 
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
@@ -96,13 +31,13 @@ export default function Profile() {
         </p>
       </div>
 
-      {isLoading ? (
+      {store.isLoading ? (
         <div className="flex items-center justify-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
         </div>
-      ) : error ? (
+      ) : store.error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
-          {error}
+          {store.error}
         </div>
       ) : (
         <div className="space-y-6">
@@ -120,7 +55,7 @@ export default function Profile() {
                     Username
                   </dt>
                   <dd className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-                    {profile?.username}
+                    {store.profile?.username}
                   </dd>
                 </div>
                 <div>
@@ -129,7 +64,7 @@ export default function Profile() {
                   </dt>
                   <dd className="mt-1">
                     <span className="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-900/20 dark:text-brand-400">
-                      {roleLabel}
+                      {store.roleLabel}
                     </span>
                   </dd>
                 </div>
@@ -138,7 +73,7 @@ export default function Profile() {
                     Member since
                   </dt>
                   <dd className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-                    {formatDate(profile?.createdAt)}
+                    {formatDate(store.profile?.createdAt)}
                   </dd>
                 </div>
                 <div>
@@ -146,7 +81,7 @@ export default function Profile() {
                     Password last changed
                   </dt>
                   <dd className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-                    {formatDate(profile?.passwordChangedAt)}
+                    {formatDate(store.profile?.passwordChangedAt)}
                   </dd>
                 </div>
               </dl>
@@ -172,8 +107,8 @@ export default function Profile() {
                   <input
                     id="currentPassword"
                     type="password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    value={store.currentPassword}
+                    onChange={(e) => store.setCurrentPassword(e.target.value)}
                     required
                     className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-white"
                   />
@@ -188,8 +123,8 @@ export default function Profile() {
                   <input
                     id="newPassword"
                     type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
+                    value={store.newPassword}
+                    onChange={(e) => store.setNewPassword(e.target.value)}
                     required
                     minLength={8}
                     className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-white"
@@ -209,32 +144,32 @@ export default function Profile() {
                   <input
                     id="confirmPassword"
                     type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    value={store.confirmPassword}
+                    onChange={(e) => store.setConfirmPassword(e.target.value)}
                     required
                     minLength={8}
                     className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-white"
                   />
                 </div>
 
-                {changeError && (
+                {store.changeError && (
                   <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
-                    {changeError}
+                    {store.changeError}
                   </div>
                 )}
 
-                {changeSuccess && (
+                {store.changeSuccess && (
                   <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400">
-                    {changeSuccess}
+                    {store.changeSuccess}
                   </div>
                 )}
 
                 <button
                   type="submit"
-                  disabled={changing || !currentPassword || !newPassword || !confirmPassword}
+                  disabled={!store.canSubmitPasswordChange}
                   className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {changing ? (
+                  {store.changing ? (
                     <>
                       <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                       Changing...
