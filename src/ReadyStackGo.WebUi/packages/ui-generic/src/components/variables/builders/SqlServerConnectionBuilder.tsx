@@ -46,13 +46,6 @@ export default function SqlServerConnectionBuilder({
   });
   const { isTesting, testResult, testConnection, clearResult } = useConnectionTestStore();
 
-  // Parse existing connection string when dialog opens
-  useEffect(() => {
-    if (isOpen && value) {
-      parseConnectionString(value);
-    }
-  }, [isOpen, value]);
-
   const parseConnectionString = (connStr: string) => {
     const newParams: ConnectionParams = {
       server: '',
@@ -121,6 +114,13 @@ export default function SqlServerConnectionBuilder({
 
     setParams(newParams);
   };
+
+  // Parse existing connection string when dialog opens
+  useEffect(() => {
+    if (isOpen && value) {
+      parseConnectionString(value);
+    }
+  }, [isOpen, value]);
 
   const buildConnectionString = (): string => {
     const parts: string[] = [];

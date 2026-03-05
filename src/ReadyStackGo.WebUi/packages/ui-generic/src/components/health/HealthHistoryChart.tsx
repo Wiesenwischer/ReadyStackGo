@@ -22,6 +22,42 @@ interface ChartDataPoint {
   statusLabel: string;
 }
 
+function getStatusColor(status: string) {
+  switch (status.toLowerCase()) {
+    case 'healthy':
+      return '#22c55e'; // green-500
+    case 'degraded':
+      return '#eab308'; // yellow-500
+    case 'unhealthy':
+      return '#ef4444'; // red-500
+    default:
+      return '#6b7280'; // gray-500
+  }
+}
+
+function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: ChartDataPoint }> }) {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+        <p className="text-sm font-medium text-gray-900 dark:text-white">
+          {data.time}
+        </p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Health: {data.healthyPercent}%
+        </p>
+        <p
+          className="text-sm font-medium"
+          style={{ color: getStatusColor(data.status) }}
+        >
+          {data.statusLabel}
+        </p>
+      </div>
+    );
+  }
+  return null;
+}
+
 export default function HealthHistoryChart({
   deploymentId,
   className = '',
@@ -85,42 +121,6 @@ export default function HealthHistoryChart({
       };
     })
     .reverse(); // Oldest first for chart
-
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'healthy':
-        return '#22c55e'; // green-500
-      case 'degraded':
-        return '#eab308'; // yellow-500
-      case 'unhealthy':
-        return '#ef4444'; // red-500
-      default:
-        return '#6b7280'; // gray-500
-    }
-  };
-
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: ChartDataPoint }> }) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-sm font-medium text-gray-900 dark:text-white">
-            {data.time}
-          </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Health: {data.healthyPercent}%
-          </p>
-          <p
-            className="text-sm font-medium"
-            style={{ color: getStatusColor(data.status) }}
-          >
-            {data.statusLabel}
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
 
   // Determine chart color based on current (latest) status
   const currentStatus = history[0]?.overallStatus || 'unknown';
