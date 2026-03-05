@@ -30,6 +30,11 @@ stacks:                           # Stack definitions (Multi-Stack only)
 services:                         # Service definitions (Single-Stack or Fragment)
   app: ...
 
+maintenance:                      # Maintenance observer (optional)
+  observer:
+    type: sqlExtendedProperty
+    ...
+
 volumes:                          # Volume definitions
   data: {}
 
@@ -407,6 +412,105 @@ networks:
   # External network (already exists)
   proxy:
     external: true
+```
+
+---
+
+## Maintenance
+
+The optional `maintenance` section configures automatic maintenance mode detection. ReadyStackGo periodically checks an external system and switches the product to maintenance mode when the configured condition is met.
+
+### Observer Configuration
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `type` | string | **Yes** | Observer type: `sqlExtendedProperty`, `sqlQuery`, `http`, or `file` |
+| `maintenanceValue` | string | **Yes** | Value that indicates maintenance mode is active |
+| `normalValue` | string | No | Value that indicates normal operation. If not set, any value other than `maintenanceValue` is treated as normal |
+| `pollingInterval` | string | No | Check frequency (default: `30s`). Supports `s`, `m`, `h` suffixes |
+
+#### SQL Extended Property (`sqlExtendedProperty`)
+
+Reads a SQL Server extended property at the database level.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `connectionString` | string | **Yes*** | Direct connection string (supports `${VAR}` substitution) |
+| `connectionName` | string | **Yes*** | Name of a manifest variable containing the connection string |
+| `propertyName` | string | **Yes** | Name of the extended property to read |
+
+*Either `connectionString` or `connectionName` is required.
+
+```yaml
+maintenance:
+  observer:
+    type: sqlExtendedProperty
+    connectionName: BACKEND_DB
+    propertyName: ams-MaintenanceMode
+    maintenanceValue: "1"
+    normalValue: "0"
+    pollingInterval: 30s
+```
+
+#### SQL Query (`sqlQuery`)
+
+Executes a custom SQL query that returns a single scalar value.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `connectionString` | string | **Yes*** | Direct connection string |
+| `connectionName` | string | **Yes*** | Variable name with connection string |
+| `query` | string | **Yes** | SQL query returning a scalar value |
+
+```yaml
+maintenance:
+  observer:
+    type: sqlQuery
+    connectionString: ${DB_CONNECTION}
+    query: "SELECT Value FROM dbo.Config WHERE [Key] = 'MaintenanceMode'"
+    maintenanceValue: "true"
+    pollingInterval: 1m
+```
+
+#### HTTP (`http`)
+
+Calls an HTTP endpoint and evaluates the response.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `url` | string | **Yes** | URL to call |
+| `method` | string | No | HTTP method (default: `GET`) |
+| `timeout` | string | No | Request timeout (default: `10s`) |
+| `jsonPath` | string | No | JSONPath expression to extract the value from the response body |
+
+```yaml
+maintenance:
+  observer:
+    type: http
+    url: https://api.example.com/status
+    jsonPath: $.maintenanceMode
+    maintenanceValue: "true"
+    pollingInterval: 1m
+```
+
+#### File (`file`)
+
+Monitors a file for existence or content.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `path` | string | **Yes** | Path to the file |
+| `mode` | string | No | `exists` (default) or `content` |
+| `contentPattern` | string | No | Regex to extract value from file content (first capture group) |
+
+```yaml
+maintenance:
+  observer:
+    type: file
+    path: /var/maintenance.flag
+    mode: exists
+    maintenanceValue: "true"
+    normalValue: "false"
 ```
 
 ---
