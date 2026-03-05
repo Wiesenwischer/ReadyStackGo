@@ -25,6 +25,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReadyStackGo.Infrastructure
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReadyStackGo.Infrastructure.Docker", "src\ReadyStackGo.Infrastructure.Docker\ReadyStackGo.Infrastructure.Docker.csproj", "{C99E8561-DB3E-44FC-81CA-EA1DDCCAC542}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReadyStackGo.Core", "src\ReadyStackGo.Core\ReadyStackGo.Core.csproj", "{89EE341C-85BF-4C44-95E0-A6236AAAF3BB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -143,6 +145,18 @@ Global
 		{C99E8561-DB3E-44FC-81CA-EA1DDCCAC542}.Release|x64.Build.0 = Release|Any CPU
 		{C99E8561-DB3E-44FC-81CA-EA1DDCCAC542}.Release|x86.ActiveCfg = Release|Any CPU
 		{C99E8561-DB3E-44FC-81CA-EA1DDCCAC542}.Release|x86.Build.0 = Release|Any CPU
+		{89EE341C-85BF-4C44-95E0-A6236AAAF3BB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{89EE341C-85BF-4C44-95E0-A6236AAAF3BB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{89EE341C-85BF-4C44-95E0-A6236AAAF3BB}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{89EE341C-85BF-4C44-95E0-A6236AAAF3BB}.Debug|x64.Build.0 = Debug|Any CPU
+		{89EE341C-85BF-4C44-95E0-A6236AAAF3BB}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{89EE341C-85BF-4C44-95E0-A6236AAAF3BB}.Debug|x86.Build.0 = Debug|Any CPU
+		{89EE341C-85BF-4C44-95E0-A6236AAAF3BB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{89EE341C-85BF-4C44-95E0-A6236AAAF3BB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{89EE341C-85BF-4C44-95E0-A6236AAAF3BB}.Release|x64.ActiveCfg = Release|Any CPU
+		{89EE341C-85BF-4C44-95E0-A6236AAAF3BB}.Release|x64.Build.0 = Release|Any CPU
+		{89EE341C-85BF-4C44-95E0-A6236AAAF3BB}.Release|x86.ActiveCfg = Release|Any CPU
+		{89EE341C-85BF-4C44-95E0-A6236AAAF3BB}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -157,5 +171,6 @@ Global
 		{2F14FA1F-7220-4545-8DC5-4B37B52DF712} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{E3B00D56-B68B-48F9-A58A-5CCE046F779C} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{C99E8561-DB3E-44FC-81CA-EA1DDCCAC542} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{89EE341C-85BF-4C44-95E0-A6236AAAF3BB} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

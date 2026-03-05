@@ -26,12 +26,17 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: 'src/ReadyStackGo.WebUi/package-lock.json'
+          cache: 'pnpm'
+          cache-dependency-path: 'src/ReadyStackGo.WebUi/pnpm-lock.yaml'
 
       - name: Restore .NET dependencies
         run: dotnet restore
@@ -50,19 +55,19 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: src/ReadyStackGo.WebUi
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Lint Frontend
         working-directory: src/ReadyStackGo.WebUi
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Type Check Frontend
         working-directory: src/ReadyStackGo.WebUi
-        run: npx tsc -b
+        run: pnpm exec tsc -b
 
       - name: Build frontend
         working-directory: src/ReadyStackGo.WebUi
-        run: npm run build
+        run: pnpm run build
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4

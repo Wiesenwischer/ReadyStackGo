@@ -26,7 +26,12 @@ public class Program
         // Add services to the container
         builder.Services.AddApplication();
         builder.Services.AddInfrastructure(builder.Configuration);
-        builder.Services.AddFastEndpoints();
+        builder.Services.AddFastEndpoints(o =>
+        {
+            // Explicit assembly specification for multi-assembly endpoint discovery.
+            // Downstream distributions add their own endpoint assemblies here.
+            o.Assemblies = [typeof(Program).Assembly];
+        });
 
         // Add Authentication with multi-scheme support (JWT + API Key)
         var jwtSettings = builder.Configuration.GetSection("Jwt");
@@ -138,6 +143,9 @@ public class Program
         // Initialize SQLite database
         app.Services.EnsureDatabaseCreated();
 
+        // Run distribution-specific bootstrap (idempotent, safe on every startup)
+        await RunBootstrapperAsync(app);
+
         // Bootstrap: Generate TLS certificate if not exists
         await BootstrapTlsCertificateAsync(app);
 
@@ -232,6 +240,28 @@ public class Program
         });
 
         await app.RunAsync();
+    }
+
+    /// <summary>
+    /// Run the distribution bootstrapper to seed default data on startup.
+    /// Operations must be idempotent (safe to run on every startup).
+    /// </summary>
+    private static async Task RunBootstrapperAsync(WebApplication app)
+    {
+        using var scope = app.Services.CreateScope();
+        var bootstrapper = scope.ServiceProvider.GetRequiredService<ReadyStackGo.Application.Services.IBootstrapper>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+        try
+        {
+            logger.LogInformation("Running distribution bootstrapper: {Type}", bootstrapper.GetType().Name);
+            await bootstrapper.BootstrapAsync();
+            logger.LogInformation("Distribution bootstrapper completed successfully");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Distribution bootstrapper failed. The application will continue.");
+        }
     }
 
     /// <summary>

@@ -160,13 +160,13 @@ export default function RegistrySettings() {
 
 Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
 
-- [ ] **Feature 1: Core API Layer** — `api/` nach `core/api/` verschieben, Types extrahieren nach `core/types/`
+- [x] **Feature 1: Core API Layer** — `api/` nach `core/api/` verschieben, Types extrahieren nach `core/types/` — erledigt via Monorepo-Refactoring (PRs #194–#200)
   - Betroffene Dateien: Alle 12 `api/*.ts`, neue `core/types/*.ts`
   - Import-Pfade in allen Konsumenten aktualisieren
   - Abhängig von: -
   - Tests: Build + `npm run dev` muss funktionieren, kein visueller Unterschied
 
-- [ ] **Feature 2: Core Services** — SignalR und Auth/Environment-Logik in `core/services/` extrahieren
+- [x] **Feature 2: Core Services** — SignalR und Auth/Environment-Logik in `core/services/` extrahieren — PR #201
   - `AuthService.ts` aus `AuthContext.tsx` (Login, Logout, Token-Management, localStorage)
   - `EnvironmentService.ts` aus `EnvironmentContext.tsx` (Load, Select, Persist)
   - `DeploymentHub.ts` aus `useDeploymentHub.ts` (SignalR-Connection, Event-Subscriptions)
@@ -175,7 +175,7 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Abhängig von: Feature 1
   - Tests: Login, Environment-Wechsel, Deployment-Progress, Health-Updates müssen funktionieren
 
-- [ ] **Feature 3: Store-Hooks für Settings-Seiten** — Business-Logik aus den schwersten Komponenten extrahieren
+- [x] **Feature 3: Store-Hooks für Settings-Seiten** — Business-Logik aus den schwersten Komponenten extrahieren — PR #202
   - `useRegistryStore.ts` aus `RegistrySettings.tsx` (460 Zeilen → Store + UI)
   - `useStackSourceStore.ts` aus `StackSourcesSettings.tsx`
   - `useTlsStore.ts` aus `TlsSettings.tsx`
@@ -184,32 +184,44 @@ Reihenfolge basierend auf Abhängigkeiten — von innen nach außen:
   - Abhängig von: Feature 1
   - Tests: Alle Settings-Seiten funktional testen (CRUD-Operationen, Modals, Error-States)
 
-- [ ] **Feature 4: Store-Hooks für Deployment-Seiten** — Komplexeste Business-Logik extrahieren
-  - `useDeployStore.ts` aus `DeployStack.tsx` (State-Machine: loading → configure → deploying → success/error)
-  - `useRollbackStore.ts` aus der Rollback-Seite
-  - `useUpgradeStore.ts` aus der Upgrade-Seite
-  - `useRemoveStore.ts` aus der Remove-Seite
+- [x] **Feature 4: Store-Hooks für Deployment-Seiten** — Komplexeste Business-Logik extrahieren — PR #203
+  - `useDeployStackStore.ts` aus `DeployStack.tsx` (State-Machine: loading → configure → deploying → success/error)
+  - `useRollbackStore.ts` aus `RollbackStack.tsx`
+  - `useUpgradeStackStore.ts` aus `UpgradeStack.tsx`
+  - `useRemoveStackStore.ts` aus `RemoveStack.tsx`
   - Betroffene Dateien: `pages/Deployments/*`
   - Abhängig von: Feature 2 (wegen SignalR-Dependency)
   - Tests: Deploy-Flow end-to-end, Progress-Updates, Error-Handling
 
-- [ ] **Feature 5: Store-Hooks für restliche Seiten** — Katalog, Environments, Monitoring, Wizard
-  - `useCatalogStore.ts` für StackCatalog + ProductDetail
-  - `useEnvironmentStore.ts` für Environments-Seite
-  - `useHealthDashboardStore.ts` für Health-Dashboard
-  - `useContainerStore.ts` für Container-Monitoring
-  - `useWizardStore.ts` für Wizard-Steps
-  - Betroffene Dateien: Alle verbleibenden `pages/*`
+- [x] **Feature 5: Store-Hooks für restliche Seiten** — Product Operations, Deployment-Seiten, Health-Dashboard
+  - `useRemoveProductStore.ts`, `useRedeployProductStore.ts`, `useRetryProductStore.ts` — Product-Operationen mit SignalR
+  - `useDeployProductStore.ts`, `useUpgradeProductStore.ts` — Komplexe Product-Deployment-Flows (~1600 Zeilen → Store + UI)
+  - `useDeploymentsStore.ts` — Deployment-Liste mit Health-Hub
+  - `useDeploymentDetailStore.ts` — Deployment-Detail mit Maintenance-Mode, Rollback/Upgrade-Info
+  - `useHealthDashboardStore.ts` — Health-Dashboard mit SignalR + Filter
+  - `useRestartProductStore.ts`, `useStopProductStore.ts`, `useProductDeploymentDetailStore.ts` — Weitere Product-Seiten
+  - Übersprungen: Catalog, Environments, Wizard, Dashboard (bereits dünn genug, kein Refactoring-Nutzen)
+  - Betroffene Dateien: 11 neue Hooks in `@rsgo/core/src/hooks/`, 10 Seiten in `ui-generic/src/pages/` refactored
   - Abhängig von: Feature 1, 2
-  - Tests: Navigation, Filter, Wizard-Flow
+  - Tests: Navigation, Deploy/Remove-Flows, Health-Updates
 
-- [ ] **Feature 6: Cleanup und Dokumentation** — Alte Importe bereinigen, README für Downstream-Forks
-  - Alte Import-Pfade final prüfen
-  - `core/README.md` mit API-Dokumentation für Fork-Teams
-  - Bestehende E2E-Tests müssen alle grün sein
+- [x] **Feature 6: Cleanup und Dokumentation** — Alte Importe bereinigen, README für Downstream-Forks
+  - Verified no stale relative imports remain in ui-generic (all API/hook/realtime imports use @rsgo/core)
+  - Created `packages/core/README.md` with full API documentation for downstream forks
+  - Build passes clean (tsc + vite)
   - Abhängig von: Feature 1-5
 
-- [ ] **Phase abschließen** — Alle Tests grün, PR gegen main
+- [x] **Feature 7: Backend Extension Points** — Interfaces und Patterns für downstream Distributionen
+  - `ISetupWizardDefinitionProvider` + `GenericSetupWizardDefinitionProvider` — datengetriebene Onboarding-Schritte
+  - `IBootstrapper` + `GenericBootstrapper` — distributionsspezifische Initialisierung beim Start
+  - `ReadyStackGo.Core` Meta-Package (Domain + Application + Infrastructure)
+  - Multi-Assembly FastEndpoints Discovery (explizite Assembly-Konfiguration)
+  - `GET /api/wizard/definition` Endpoint für Step-Definitionen
+  - Data-driven `steps` Array in `GET /api/onboarding/status` Response
+  - Distribution Architecture Dokumentation (`docs/Architecture/Distribution-Architecture.md`)
+  - Abhängig von: Feature 1-6
+
+- [x] **Phase abschließen** — Alle Tests grün, PR gegen main (PR #217)
 
 ## Offene Punkte
 

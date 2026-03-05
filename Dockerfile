@@ -1,19 +1,27 @@
 # Stage 1: Build Frontend (Vite + React)
 FROM node:20-alpine AS frontend-build
 
+RUN corepack enable
+
 WORKDIR /app/frontend
 
-# Copy package files
-COPY src/ReadyStackGo.WebUi/package*.json ./
+# Copy workspace config and all package.json files for dependency resolution
+COPY src/ReadyStackGo.WebUi/pnpm-workspace.yaml ./
+COPY src/ReadyStackGo.WebUi/package.json ./
+COPY src/ReadyStackGo.WebUi/pnpm-lock.yaml ./
+COPY src/ReadyStackGo.WebUi/.npmrc ./
+COPY src/ReadyStackGo.WebUi/packages/core/package.json ./packages/core/
+COPY src/ReadyStackGo.WebUi/packages/ui-generic/package.json ./packages/ui-generic/
+COPY src/ReadyStackGo.WebUi/apps/rsgo-generic/package.json ./apps/rsgo-generic/
 
 # Install dependencies
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Copy source files
 COPY src/ReadyStackGo.WebUi/ ./
 
 # Build frontend (outputs to ../ReadyStackGo.Api/wwwroot)
-RUN npm run build
+RUN pnpm build
 
 # Stage 2: Build Backend (.NET)
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS backend-build
@@ -29,6 +37,7 @@ COPY src/ReadyStackGo.Infrastructure/*.csproj ./src/ReadyStackGo.Infrastructure/
 COPY src/ReadyStackGo.Infrastructure.DataAccess/*.csproj ./src/ReadyStackGo.Infrastructure.DataAccess/
 COPY src/ReadyStackGo.Infrastructure.Docker/*.csproj ./src/ReadyStackGo.Infrastructure.Docker/
 COPY src/ReadyStackGo.Infrastructure.Security/*.csproj ./src/ReadyStackGo.Infrastructure.Security/
+COPY src/ReadyStackGo.Core/*.csproj ./src/ReadyStackGo.Core/
 
 # Restore dependencies (only for src projects, exclude tests)
 RUN dotnet restore src/ReadyStackGo.Api/ReadyStackGo.Api.csproj

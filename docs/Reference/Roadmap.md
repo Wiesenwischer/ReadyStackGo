@@ -270,31 +270,25 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Variable Override Support During Redeploy (Stored Base + Webhook Overrides)
   - Redeploy Product UI (Stack Selection, Confirmation, Progress Panel)
   - Hook Support for Product Redeploy (`/api/hooks/redeploy` with `productId`)
+- **v0.34** – Distribution Architecture (2026-03-04)
+  - pnpm Workspaces Monorepo (packages/core, packages/ui-generic, apps/rsgo-generic)
+  - @rsgo/core Package (TypeScript types, API clients, ViewModel hooks, SignalR services)
+  - @rsgo/ui-generic Package (React components, pages, layouts, thin contexts)
+  - ViewModel Hooks for All Pages (Settings, Deployments, Catalog, Health, Wizard)
+  - SignalR Service Classes with Thin React Hook Wrappers
+  - Auth/Environment Services Extracted from React Contexts
+  - Build Pipeline Adjustment (pnpm in Dockerfile)
+  - ISetupWizardDefinitionProvider + GenericSetupWizardDefinitionProvider (Data-Driven Wizard Steps)
+  - IBootstrapper + GenericBootstrapper (Distribution-Specific Initialization on First Start)
+  - NuGet Meta-Package ReadyStackGo.Core (Domain + Application + Infrastructure)
+  - Multi-Assembly FastEndpoints Endpoint Discovery
+  - Distribution Architecture Documentation
 
 ---
 
 ## Planned
 
 Epics are listed in priority order. Top = next.
-
-### Epic: Distribution Architecture
-
-**WebUI Monorepo Refactoring**
-- pnpm Workspaces Monorepo (packages/core, packages/ui-generic, apps/rsgo-generic)
-- @rsgo/core Package (TypeScript types, API clients, ViewModel hooks, SignalR services)
-- @rsgo/ui-generic Package (React components, pages, layouts, thin contexts)
-- ViewModel Hooks for All Pages (Settings, Deployments, Catalog, Health, Wizard)
-- SignalR Service Classes with Thin React Hook Wrappers
-- Auth/Environment Services Extracted from React Contexts
-- Build Pipeline Adjustment (pnpm in Dockerfile)
-
-**Backend Extension Points**
-- ISetupWizardDefinitionProvider (data-driven wizard steps)
-- IBootstrapper Pattern (distribution-specific initialization on first start)
-- GenericSetupWizardDefinitionProvider + GenericBootstrapper (default implementations)
-- NuGet Meta-Package ReadyStackGo.Core (Domain + Application + Infrastructure)
-- Multi-Assembly FastEndpoints Endpoint Discovery
-- Distribution Architecture Documentation
 
 ### Epic: OCI Stack Bundles
 

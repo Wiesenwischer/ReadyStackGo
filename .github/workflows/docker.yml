@@ -17,12 +17,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: 'src/ReadyStackGo.WebUi/package-lock.json'
+          cache: 'pnpm'
+          cache-dependency-path: 'src/ReadyStackGo.WebUi/pnpm-lock.yaml'
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -31,11 +36,11 @@ jobs:
 
       - name: Install Frontend Dependencies
         working-directory: src/ReadyStackGo.WebUi
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Install Playwright Browsers
         working-directory: src/ReadyStackGo.WebUi
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Build Backend
         run: dotnet build src/ReadyStackGo.Api/ReadyStackGo.Api.csproj --configuration Release
@@ -47,7 +52,7 @@ jobs:
 
       - name: Run E2E Tests
         working-directory: src/ReadyStackGo.WebUi
-        run: npm run test:e2e
+        run: pnpm run test:e2e
         continue-on-error: true
         timeout-minutes: 15
 

@@ -1,0 +1,41 @@
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
+import svgr from 'vite-plugin-svgr'
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [
+    react(),
+    svgr({
+      svgrOptions: {
+        icon: true,
+      },
+    }),
+  ],
+  server: {
+    port: 5174,
+    host: '127.0.0.1', // Explicitly bind to IPv4 for Playwright compatibility
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/hubs': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        ws: true,
+      },
+    },
+  },
+  build: {
+    outDir: '../../../ReadyStackGo.Api/wwwroot',
+    emptyOutDir: true,
+  },
+  resolve: {
+    alias: {
+      '@rsgo/core': path.resolve(__dirname, '../../packages/core/src'),
+      '@rsgo/ui-generic': path.resolve(__dirname, '../../packages/ui-generic/src'),
+    },
+  },
+})

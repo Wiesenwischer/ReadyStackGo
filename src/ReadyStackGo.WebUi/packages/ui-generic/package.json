@@ -1,0 +1,23 @@
+{
+  "name": "@rsgo/ui-generic",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@rsgo/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "i18next": "^25.6.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-i18next": "^16.3.3",
+    "react-router": "^7.9.6",
+    "react-router-dom": "^7.9.6",
+    "recharts": "^3.6.0"
+  }
+}
