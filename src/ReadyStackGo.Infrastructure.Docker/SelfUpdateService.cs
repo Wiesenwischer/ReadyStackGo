@@ -15,7 +15,7 @@ namespace ReadyStackGo.Infrastructure.Docker;
 /// </summary>
 public class SelfUpdateService : ISelfUpdateService, IDisposable
 {
-    private const string DockerHubImage = "wiesenwischer/readystackgo";
+    private const string DefaultImage = "wiesenwischer/readystackgo";
     private const string HelperImage = "wiesenwischer/rsgo-updater";
     private const string HelperImageTag = "latest";
     private const string UpdateContainerSuffix = "-update";
@@ -46,6 +46,9 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
     }
 
     public UpdateProgress GetProgress() => _progress;
+
+    private string GetImageName() =>
+        _configuration["SelfUpdate:Image"] ?? DefaultImage;
 
     public SelfUpdateResult TriggerUpdate(string targetVersion)
     {
@@ -84,7 +87,8 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
             _logger.LogInformation("Own container: {ContainerId} ({ContainerName})", containerId, containerName);
 
             // 2. Pull the new image (with progress tracking)
-            var newImageTag = $"{DockerHubImage}:{targetVersion}";
+            var imageName = GetImageName();
+            var newImageTag = $"{imageName}:{targetVersion}";
             _logger.LogInformation("Pulling image {Image}", newImageTag);
 
             var pullTracker = new PullProgressTracker();
@@ -92,7 +96,7 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
             await _client.Images.CreateImageAsync(
                 new ImagesCreateParameters
                 {
-                    FromImage = DockerHubImage,
+                    FromImage = imageName,
                     Tag = targetVersion
                 },
                 authConfig,
@@ -388,13 +392,17 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
     }
 
     /// <summary>
-    /// Gets Docker Hub auth config from configuration or docker config file.
+    /// Gets Docker registry auth config from configuration or docker config file.
+    /// Supports both Docker Hub and private registries based on the configured image name.
     /// Returns null if no credentials are configured (public image pull).
     /// </summary>
     private AuthConfig? GetAuthConfig()
     {
         try
         {
+            var registryServer = _configuration["Docker:ServerAddress"]
+                ?? GetRegistryFromImage(GetImageName());
+
             // 1. Try environment variables / configuration
             var username = _configuration["Docker:Username"];
             var password = _configuration["Docker:Password"];
@@ -405,7 +413,7 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
                 {
                     Username = username,
                     Password = password,
-                    ServerAddress = "https://index.docker.io/v1/"
+                    ServerAddress = registryServer
                 };
             }
 
@@ -420,12 +428,15 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
             if (config?.Auths == null)
                 return null;
 
-            // Try Docker Hub entries
-            DockerAuthEntry? auth = null;
-            if (config.Auths.TryGetValue("https://index.docker.io/v1/", out auth) ||
-                config.Auths.TryGetValue("https://index.docker.io/v1", out auth))
+            // Try matching registry entries (with and without https://, with and without trailing slash)
+            var candidates = new[] { registryServer };
+            if (registryServer == "https://index.docker.io/v1/")
+                candidates = new[] { "https://index.docker.io/v1/", "https://index.docker.io/v1" };
+
+            foreach (var candidate in candidates)
             {
-                if (!string.IsNullOrEmpty(auth.Auth))
+                if (config.Auths.TryGetValue(candidate, out var auth) &&
+                    !string.IsNullOrEmpty(auth.Auth))
                 {
                     var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(auth.Auth));
                     var parts = decoded.Split(':', 2);
@@ -435,7 +446,7 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
                         {
                             Username = parts[0],
                             Password = parts[1],
-                            ServerAddress = "https://index.docker.io/v1/"
+                            ServerAddress = registryServer
                         };
                     }
                 }
@@ -448,6 +459,24 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
             _logger.LogDebug(ex, "Failed to get Docker auth config, proceeding without auth");
             return null;
         }
+    }
+
+    /// <summary>
+    /// Extracts the registry server URL from a Docker image name.
+    /// Images without a registry prefix (e.g., "wiesenwischer/readystackgo") default to Docker Hub.
+    /// Images with a registry (e.g., "myregistry.local/repo/image") return "https://myregistry.local".
+    /// </summary>
+    internal static string GetRegistryFromImage(string imageName)
+    {
+        var firstSlash = imageName.IndexOf('/');
+        if (firstSlash > 0)
+        {
+            var prefix = imageName[..firstSlash];
+            if (prefix.Contains('.') || prefix.Contains(':'))
+                return $"https://{prefix}";
+        }
+
+        return "https://index.docker.io/v1/";
     }
 
     private string GetDockerConfigPath()
