@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using ReadyStackGo.Application.Services;
+using ReadyStackGo.Domain.Deployment.Health;
 
 namespace ReadyStackGo.Api.BackgroundServices;
 
@@ -11,6 +12,7 @@ public class HealthCollectorBackgroundService : BackgroundService
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<HealthCollectorBackgroundService> _logger;
     private readonly HealthCollectorOptions _options;
+    private DateTime _lastCleanup = DateTime.MinValue;
 
     public HealthCollectorBackgroundService(
         IServiceProvider serviceProvider,
@@ -25,8 +27,8 @@ public class HealthCollectorBackgroundService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation(
-            "Health Collector Background Service starting. Interval: {Interval}s",
-            _options.CollectionIntervalSeconds);
+            "Health Collector Background Service starting. Interval: {Interval}s, Retention: {Retention} days",
+            _options.CollectionIntervalSeconds, _options.RetentionDays);
 
         // Initial delay to let the application start up
         await Task.Delay(TimeSpan.FromSeconds(_options.InitialDelaySeconds), stoppingToken);
@@ -36,6 +38,7 @@ public class HealthCollectorBackgroundService : BackgroundService
             try
             {
                 await CollectHealthAsync(stoppingToken);
+                CleanupOldSnapshots();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -74,6 +77,33 @@ public class HealthCollectorBackgroundService : BackgroundService
 
         _logger.LogDebug("Health collection cycle completed");
     }
+
+    private void CleanupOldSnapshots()
+    {
+        // Run cleanup once per hour
+        if (DateTime.UtcNow - _lastCleanup < TimeSpan.FromHours(1))
+            return;
+
+        _lastCleanup = DateTime.UtcNow;
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var repository = scope.ServiceProvider.GetRequiredService<IHealthSnapshotRepository>();
+
+            var deleted = repository.RemoveOlderThan(TimeSpan.FromDays(_options.RetentionDays));
+            if (deleted > 0)
+            {
+                _logger.LogInformation(
+                    "Cleaned up {Count} health snapshots older than {Days} days",
+                    deleted, _options.RetentionDays);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to cleanup old health snapshots");
+        }
+    }
 }
 
 /// <summary>
@@ -101,4 +131,11 @@ public class HealthCollectorOptions
     /// Default: true.
     /// </summary>
     public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Number of days to retain health snapshots.
+    /// Snapshots older than this are automatically deleted.
+    /// Default: 30 days.
+    /// </summary>
+    public int RetentionDays { get; set; } = 30;
 }

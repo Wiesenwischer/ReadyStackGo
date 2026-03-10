@@ -40,8 +40,9 @@ public interface IHealthSnapshotRepository
 
     /// <summary>
     /// Removes old snapshots older than the specified age.
+    /// Returns the number of deleted rows.
     /// </summary>
-    void RemoveOlderThan(TimeSpan age);
+    int RemoveOlderThan(TimeSpan age);
 
     /// <summary>
     /// Saves changes to the repository.

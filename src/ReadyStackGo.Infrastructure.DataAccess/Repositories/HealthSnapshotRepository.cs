@@ -43,15 +43,26 @@ public class HealthSnapshotRepository : IHealthSnapshotRepository
 
     public IEnumerable<HealthSnapshot> GetLatestForEnvironment(EnvironmentId environmentId)
     {
-        // Get the latest snapshot for each deployment in the environment
-        // Using a subquery to get the max CapturedAtUtc per deployment
-        var latestSnapshots = _context.HealthSnapshots
-            .Where(h => h.EnvironmentId == environmentId)
-            .GroupBy(h => h.DeploymentId)
-            .Select(g => g.OrderByDescending(h => h.CapturedAtUtc).First())
-            .ToList();
+        // Use raw SQL to efficiently get the latest snapshot per deployment.
+        // The EF GroupBy+First pattern causes client-side evaluation, loading ALL rows.
+        var envId = environmentId.Value.ToString().ToUpperInvariant();
 
-        return latestSnapshots;
+        return _context.HealthSnapshots
+            .FromSqlRaw(
+                """
+                SELECT h.*
+                FROM "HealthSnapshots" h
+                INNER JOIN (
+                    SELECT "DeploymentId", MAX("CapturedAtUtc") AS "MaxDate"
+                    FROM "HealthSnapshots"
+                    WHERE UPPER("EnvironmentId") = {0}
+                    GROUP BY "DeploymentId"
+                ) latest ON h."DeploymentId" = latest."DeploymentId"
+                    AND h."CapturedAtUtc" = latest."MaxDate"
+                WHERE UPPER(h."EnvironmentId") = {0}
+                """,
+                envId)
+            .ToList();
     }
 
     public IEnumerable<HealthSnapshot> GetHistory(DeploymentId deploymentId, int limit = 10)
@@ -63,14 +74,16 @@ public class HealthSnapshotRepository : IHealthSnapshotRepository
             .ToList();
     }
 
-    public void RemoveOlderThan(TimeSpan age)
+    public int RemoveOlderThan(TimeSpan age)
     {
         var cutoff = DateTime.UtcNow - age;
-        var oldSnapshots = _context.HealthSnapshots
-            .Where(h => h.CapturedAtUtc < cutoff)
-            .ToList();
 
-        _context.HealthSnapshots.RemoveRange(oldSnapshots);
+        // Use ExecuteSql to delete directly in the database without loading entities.
+        // EF Core's interpolated SQL handles DateTime parameter formatting for SQLite.
+        return _context.Database.ExecuteSql(
+            $"""
+            DELETE FROM "HealthSnapshots" WHERE "CapturedAtUtc" < {cutoff}
+            """);
     }
 
     public void SaveChanges()
