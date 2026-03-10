@@ -210,6 +210,18 @@ public class SelfUpdateServiceTests
         result.NetworkingConfig.Should().BeNull();
     }
 
+    [Theory]
+    [InlineData("wiesenwischer/readystackgo", "https://index.docker.io/v1/")]
+    [InlineData("library/nginx", "https://index.docker.io/v1/")]
+    [InlineData("myregistry.local/repo/image", "https://myregistry.local")]
+    [InlineData("myregistry.local:5000/repo/image", "https://myregistry.local:5000")]
+    [InlineData("ghcr.io/owner/image", "https://ghcr.io")]
+    public void GetRegistryFromImage_ExtractsCorrectRegistry(string imageName, string expected)
+    {
+        var result = SelfUpdateService.GetRegistryFromImage(imageName);
+        result.Should().Be(expected);
+    }
+
     private static ContainerInspectResponse CreateMinimalInspection()
     {
         return new ContainerInspectResponse

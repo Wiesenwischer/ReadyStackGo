@@ -25,13 +25,28 @@ function getApiBaseUrl(): string {
   return import.meta.env.VITE_API_BASE_URL || '';
 }
 
-/** Read stored auth from localStorage. Returns unauthenticated state if nothing stored. */
+/** Check if a JWT token is expired (with 30s grace period). */
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    // exp is in seconds, Date.now() in ms — add 30s buffer
+    return payload.exp * 1000 < Date.now() + 30_000;
+  } catch {
+    return true;
+  }
+}
+
+/** Read stored auth from localStorage. Returns unauthenticated state if nothing stored or token expired. */
 export function getStoredAuth(): AuthState {
   const token = localStorage.getItem(AUTH_TOKEN_KEY);
   const userJson = localStorage.getItem(AUTH_USER_KEY);
 
   if (token && userJson) {
     try {
+      if (isTokenExpired(token)) {
+        clearStoredAuth();
+        return { user: null, token: null, isAuthenticated: false };
+      }
       const user: AuthUser = JSON.parse(userJson);
       return { user, token, isAuthenticated: true };
     } catch {

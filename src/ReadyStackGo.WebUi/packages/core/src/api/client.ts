@@ -25,7 +25,9 @@ export async function apiGet<T>(path: string): Promise<T> {
 
   if (!response.ok) {
     if (response.status === 401) {
-      // Unauthorized - redirect to login
+      // Unauthorized - clear stale token and redirect to login
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
       window.location.href = '/login';
     }
     // Try to get error details from response body
@@ -67,7 +69,9 @@ export async function apiPost<T = void>(path: string, body?: unknown): Promise<T
 
   if (!response.ok) {
     if (response.status === 401) {
-      // Unauthorized - redirect to login
+      // Unauthorized - clear stale token and redirect to login
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
       window.location.href = '/login';
     }
     // Try to get error details from response body
@@ -113,7 +117,9 @@ export async function apiPut<T = void>(path: string, body?: unknown): Promise<T>
 
   if (!response.ok) {
     if (response.status === 401) {
-      // Unauthorized - redirect to login
+      // Unauthorized - clear stale token and redirect to login
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
       window.location.href = '/login';
     }
     throw new Error(`API request failed: ${response.statusText}`);
@@ -145,7 +151,9 @@ export async function apiDelete<T = void>(path: string, body?: unknown): Promise
 
   if (!response.ok) {
     if (response.status === 401) {
-      // Unauthorized - redirect to login
+      // Unauthorized - clear stale token and redirect to login
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
       window.location.href = '/login';
     }
     throw new Error(`API request failed: ${response.statusText}`);
