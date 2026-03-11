@@ -58,13 +58,21 @@ public class ListContainersHandler : IRequestHandler<ListContainersQuery, ListCo
         }
 
         // Build lookup: container name → RSGO health status
+        // When multiple deployments monitor the same container (e.g. stale + current deployment),
+        // prefer the healthier status (lower Value = healthier: Healthy=0, Degraded=1, Unhealthy=2, etc.)
         var healthLookup = new Dictionary<string, HealthStatus>(StringComparer.OrdinalIgnoreCase);
         foreach (var snapshot in snapshots)
         {
             foreach (var service in snapshot.Self.Services)
             {
                 if (!string.IsNullOrEmpty(service.ContainerName))
-                    healthLookup[service.ContainerName] = service.Status;
+                {
+                    if (!healthLookup.TryGetValue(service.ContainerName, out var existing) ||
+                        service.Status.Value < existing.Value)
+                    {
+                        healthLookup[service.ContainerName] = service.Status;
+                    }
+                }
             }
         }
 
