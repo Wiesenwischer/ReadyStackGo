@@ -18,6 +18,7 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
     private readonly IProductSourceService _productSourceService;
     private readonly IProductDeploymentRepository _repository;
     private readonly IMediator _mediator;
+    private readonly IDeploymentService _deploymentService;
     private readonly IDeploymentNotificationService? _notificationService;
     private readonly INotificationService? _inAppNotificationService;
     private readonly ILogger<UpgradeProductHandler> _logger;
@@ -27,6 +28,7 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
         IProductSourceService productSourceService,
         IProductDeploymentRepository repository,
         IMediator mediator,
+        IDeploymentService deploymentService,
         ILogger<UpgradeProductHandler> logger,
         IDeploymentNotificationService? notificationService = null,
         INotificationService? inAppNotificationService = null,
@@ -35,6 +37,7 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
         _productSourceService = productSourceService;
         _repository = repository;
         _mediator = mediator;
+        _deploymentService = deploymentService;
         _logger = logger;
         _notificationService = notificationService;
         _inAppNotificationService = inAppNotificationService;
@@ -101,7 +104,6 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
             .ToDictionary(s => s.StackName, s => s, StringComparer.OrdinalIgnoreCase);
 
         var stackConfigs = new List<StackDeploymentConfig>();
-        var warnings = new List<string>();
 
         foreach (var reqStack in request.StackConfigs)
         {
@@ -129,14 +131,39 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
                 mergedVariables));
         }
 
-        // Check for stacks in existing deployment that are not in the target
+        // Remove stacks that exist in the current deployment but are not in the target version.
+        // A rename or removal of a stack means the old deployment is obsolete: remove it (Docker + DB).
         var targetStackNames = stackConfigs.Select(s => s.StackName).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var existingStack in existing.Stacks)
+        var stacksToRemove = existing.Stacks
+            .Where(s => !targetStackNames.Contains(s.StackName))
+            .ToList();
+
+        foreach (var oldStack in stacksToRemove)
         {
-            if (!targetStackNames.Contains(existingStack.StackName))
+            _logger.LogInformation(
+                "Stack '{StackName}' no longer in target version — removing as part of upgrade",
+                oldStack.StackName);
+            try
             {
-                warnings.Add(
-                    $"Stack '{existingStack.StackName}' exists in current deployment but not in target version. It will not be automatically removed.");
+                var removeResult = await _deploymentService.RemoveDeploymentAsync(
+                    request.EnvironmentId, oldStack.StackName);
+
+                if (!removeResult.Success)
+                {
+                    _logger.LogWarning(
+                        "Docker removal of old stack '{StackName}' failed ({Error}) — marking as removed in DB only",
+                        oldStack.StackName, removeResult.Message);
+                    await _deploymentService.MarkDeploymentAsRemovedAsync(
+                        request.EnvironmentId, oldStack.StackName);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Exception removing old stack '{StackName}' — marking as removed in DB only",
+                    oldStack.StackName);
+                await _deploymentService.MarkDeploymentAsRemovedAsync(
+                    request.EnvironmentId, oldStack.StackName);
             }
         }
 
@@ -312,7 +339,7 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
             Status = productDeployment.Status.ToString(),
             SessionId = sessionId,
             StackResults = stackResults,
-            Warnings = warnings.Count > 0 ? warnings : null
+            Warnings = null
         };
     }
 
