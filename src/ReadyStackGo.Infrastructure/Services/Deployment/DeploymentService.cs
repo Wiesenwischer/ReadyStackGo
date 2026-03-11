@@ -1051,7 +1051,8 @@ public class DeploymentService : IDeploymentService
                 ContainerName = resolvedContainerName,
                 Order = order++,
                 DependsOn = service.DependsOn.ToList(),
-                Lifecycle = service.Lifecycle
+                Lifecycle = service.Lifecycle,
+                HealthCheck = MapDockerHealthCheck(service.HealthCheck)
             };
 
             // Map ports - resolve ${VAR} placeholders in port mappings
@@ -1108,6 +1109,25 @@ public class DeploymentService : IDeploymentService
         ReorderStepsByDependencies(plan.Steps);
 
         return plan;
+    }
+
+    /// <summary>
+    /// Maps a ServiceHealthCheck to a DockerHealthCheck for container creation.
+    /// Only maps if the health check has a Docker test command defined.
+    /// </summary>
+    private static DockerHealthCheck? MapDockerHealthCheck(StackManagement.ServiceHealthCheck? healthCheck)
+    {
+        if (healthCheck == null || healthCheck.Test.Count == 0)
+            return null;
+
+        return new DockerHealthCheck
+        {
+            Test = healthCheck.Test.ToList(),
+            Interval = healthCheck.Interval,
+            Timeout = healthCheck.Timeout,
+            Retries = healthCheck.Retries,
+            StartPeriod = healthCheck.StartPeriod
+        };
     }
 
     /// <summary>

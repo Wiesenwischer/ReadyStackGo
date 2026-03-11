@@ -117,12 +117,6 @@ export default function Login() {
                   </div>
                 </div>
               </form>
-
-              <div className="mt-5">
-                <p className="text-sm font-normal text-center text-gray-500 dark:text-gray-400 sm:text-start">
-                  Default credentials: <span className="font-medium text-gray-700 dark:text-gray-300">admin / admin</span>
-                </p>
-              </div>
             </div>
           </div>
         </div>
