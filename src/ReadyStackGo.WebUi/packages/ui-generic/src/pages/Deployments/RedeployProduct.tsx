@@ -167,6 +167,7 @@ export default function RedeployProduct() {
                       <div
                         key={stack.stackName}
                         className={`flex items-center justify-between px-4 py-3 border-b last:border-b-0 border-gray-200 dark:border-gray-700 ${
+                          status === 'removing' ? 'bg-orange-50 dark:bg-orange-900/10' :
                           status === 'deploying' ? 'bg-blue-50 dark:bg-blue-900/10' : ''
                         }`}
                       >
@@ -174,6 +175,9 @@ export default function RedeployProduct() {
                           {/* Status Icon */}
                           {status === 'pending' && (
                             <div className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600" />
+                          )}
+                          {status === 'removing' && (
+                            <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
                           )}
                           {status === 'deploying' && (
                             <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -189,6 +193,7 @@ export default function RedeployProduct() {
                             </svg>
                           )}
                           <span className={`text-sm font-medium ${
+                            status === 'removing' ? 'text-orange-700 dark:text-orange-300' :
                             status === 'deploying' ? 'text-blue-700 dark:text-blue-300' :
                             status === 'running' ? 'text-green-700 dark:text-green-400' :
                             status === 'failed' ? 'text-red-600 dark:text-red-400' :

@@ -9,7 +9,7 @@ import { useDeploymentHub } from '../realtime/useDeploymentHub';
 import type { DeploymentProgressUpdate } from '../realtime/useDeploymentHub';
 
 export type RedeployProductState = 'loading' | 'confirm' | 'redeploying' | 'success' | 'error';
-export type StackRedeployStatus = 'pending' | 'deploying' | 'running' | 'failed';
+export type StackRedeployStatus = 'pending' | 'removing' | 'deploying' | 'running' | 'failed';
 
 export interface UseRedeployProductStoreReturn {
   state: RedeployProductState;
@@ -47,7 +47,9 @@ export function useRedeployProductStore(
 
     if (update.phase === 'ProductDeploy' && update.currentService) {
       const stackName = update.currentService;
-      if (update.message?.startsWith('Redeploying stack')) {
+      if (update.message?.startsWith('Removing stack')) {
+        setStackStatuses(prev => ({ ...prev, [stackName]: 'removing' }));
+      } else if (update.message?.startsWith('Redeploying stack')) {
         setStackStatuses(prev => ({ ...prev, [stackName]: 'deploying' }));
       } else if (update.message?.includes('redeployed successfully')) {
         setStackStatuses(prev => ({ ...prev, [stackName]: 'running' }));
