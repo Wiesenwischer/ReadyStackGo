@@ -40,7 +40,10 @@ export function useRedeployProductStore(
     const currentSessionId = redeploySessionIdRef.current;
     if (!currentSessionId || update.sessionId !== currentSessionId) return;
 
-    setProgressUpdate(update);
+    // Only show product-level progress messages, not inner stack deployment details
+    if (update.phase === 'ProductDeploy' || update.isComplete) {
+      setProgressUpdate(update);
+    }
 
     if (update.phase === 'ProductDeploy' && update.currentService) {
       const stackName = update.currentService;
