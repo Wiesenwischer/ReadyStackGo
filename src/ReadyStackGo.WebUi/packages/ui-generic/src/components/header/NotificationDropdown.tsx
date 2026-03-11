@@ -131,24 +131,24 @@ const NotificationDropdown = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-900 z-50">
-          <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-800">
-            <h5 className="text-sm font-medium text-gray-900 dark:text-white">
+        <div className="absolute right-0 mt-2 w-[360px] rounded-xl border border-gray-200 bg-white shadow-theme-xl dark:border-gray-800 dark:bg-gray-900 z-99999">
+          <div className="flex items-center justify-between px-4 py-3">
+            <h5 className="text-sm font-semibold text-gray-900 dark:text-white">
               Notifications
             </h5>
             {unreadCount > 0 && (
               <button
                 onClick={markAllAsRead}
-                className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
               >
                 Mark all as read
               </button>
             )}
           </div>
 
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-[400px] overflow-y-auto border-t border-gray-200 dark:border-gray-800">
             {notifications.length === 0 ? (
-              <div className="px-4 py-8 text-center">
+              <div className="px-4 py-10 text-center">
                 <svg
                   className="mx-auto h-8 w-8 text-gray-300 dark:text-gray-600"
                   fill="none"
@@ -178,60 +178,58 @@ const NotificationDropdown = () => {
                         notification.actionUrl
                       )
                     }
-                    className={`group flex items-start gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800 last:border-b-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 ${
+                    className={`relative flex items-start gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800 last:border-b-0 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50 ${
                       !notification.read
-                        ? "bg-blue-50/50 dark:bg-blue-500/5"
-                        : ""
+                        ? "bg-brand-50 dark:bg-brand-500/10"
+                        : "bg-white dark:bg-gray-900"
                     }`}
                   >
+                    {!notification.read && (
+                      <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-brand-500 rounded-r" />
+                    )}
                     <div
-                      className={`mt-0.5 flex-shrink-0 rounded-full p-1 ${config.bg} ${config.color}`}
+                      className={`mt-0.5 flex-shrink-0 rounded-full p-1.5 ${config.bg} ${config.color}`}
                     >
                       {config.icon}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <p
-                          className={`text-sm ${
-                            !notification.read
-                              ? "font-semibold text-gray-900 dark:text-white"
-                              : "font-medium text-gray-700 dark:text-gray-300"
-                          }`}
-                        >
-                          {notification.title}
-                        </p>
-                        <button
-                          onClick={(e) =>
-                            handleDismiss(e, notification.id)
-                          }
-                          className="flex-shrink-0 rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:text-gray-600 group-hover:opacity-100 dark:text-gray-500 dark:hover:text-gray-300"
-                          aria-label="Dismiss notification"
-                        >
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            strokeWidth={1.5}
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M6 18 18 6M6 6l12 12"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                      <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                      <p
+                        className={`text-sm leading-snug ${
+                          !notification.read
+                            ? "font-semibold text-gray-900 dark:text-white"
+                            : "font-medium text-gray-700 dark:text-gray-300"
+                        }`}
+                      >
+                        {notification.title}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
                         {notification.message}
                       </p>
-                      <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                      <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
                         {timeAgo(notification.createdAt)}
                       </p>
                     </div>
-                    {!notification.read && (
-                      <span className="mt-2 h-2 w-2 flex-shrink-0 rounded-full bg-blue-500" />
-                    )}
+                    <button
+                      onClick={(e) =>
+                        handleDismiss(e, notification.id)
+                      }
+                      className="mt-0.5 flex-shrink-0 rounded-md p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                      aria-label="Dismiss notification"
+                    >
+                      <svg
+                        className="h-3.5 w-3.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M6 18 18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
                   </div>
                 );
               })

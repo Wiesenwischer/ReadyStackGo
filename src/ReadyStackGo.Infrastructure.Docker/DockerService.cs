@@ -230,25 +230,6 @@ public class DockerService : IDockerService, IDisposable
             NetworkingConfig = networkingConfig
         };
 
-        // Apply Docker HEALTHCHECK if configured
-        if (request.HealthCheck != null && request.HealthCheck.Test.Count > 0)
-        {
-            var healthConfig = new HealthConfig
-            {
-                Test = request.HealthCheck.Test.ToList(),
-                Retries = request.HealthCheck.Retries ?? 0
-            };
-
-            if (request.HealthCheck.Interval.HasValue)
-                healthConfig.Interval = request.HealthCheck.Interval.Value;
-            if (request.HealthCheck.Timeout.HasValue)
-                healthConfig.Timeout = request.HealthCheck.Timeout.Value;
-            if (request.HealthCheck.StartPeriod.HasValue)
-                healthConfig.StartPeriod = request.HealthCheck.StartPeriod.Value.Ticks * 100; // Convert to nanoseconds
-
-            createParams.Healthcheck = healthConfig;
-        }
-
         var response = await client.Containers.CreateContainerAsync(createParams, cancellationToken);
 
         // Connect to additional networks with aliases
