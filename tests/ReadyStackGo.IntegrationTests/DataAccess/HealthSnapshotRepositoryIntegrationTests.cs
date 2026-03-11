@@ -7,7 +7,6 @@ using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Infrastructure.DataAccess.Repositories;
 using ReadyStackGo.IntegrationTests.Infrastructure;
-using UserId = ReadyStackGo.Domain.Deployment.UserId;
 
 /// <summary>
 /// Integration tests for HealthSnapshotRepository with real SQLite database.
@@ -27,20 +26,6 @@ public class HealthSnapshotRepositoryIntegrationTests : IDisposable
     }
 
     public void Dispose() => _fixture.Dispose();
-
-    private void AddActiveDeployment(DeploymentId deploymentId, EnvironmentId? environmentId = null)
-    {
-        var deployment = Deployment.StartInstallation(
-            deploymentId,
-            environmentId ?? _envId,
-            "stack-id",
-            "stack-name",
-            "rsgo-stack-name",
-            UserId.NewId());
-        deployment.MarkAsRunning();
-        _fixture.Context.Set<Deployment>().Add(deployment);
-        _fixture.Context.SaveChanges();
-    }
 
     private HealthSnapshot CreateSnapshot(
         string stackName,
@@ -207,8 +192,6 @@ public class HealthSnapshotRepositoryIntegrationTests : IDisposable
         // Arrange
         var deployment1Id = DeploymentId.NewId();
         var deployment2Id = DeploymentId.NewId();
-        AddActiveDeployment(deployment1Id);
-        AddActiveDeployment(deployment2Id);
 
         // Add older snapshot for deployment 1
         var snapshot1Old = CreateSnapshot("stack-1", deployment1Id);
@@ -237,20 +220,13 @@ public class HealthSnapshotRepositoryIntegrationTests : IDisposable
     }
 
     [Fact]
-    public void GetLatestForEnvironment_ShouldExcludeRemovedDeployments()
+    public void GetLatestForEnvironment_ShouldNotReturnSnapshotsAfterRemoveForDeployment()
     {
+        // When a deployment is removed, DeploymentService calls RemoveForDeployment.
+        // After that, GetLatestForEnvironment must not return those snapshots.
         // Arrange
         var activeDeploymentId = DeploymentId.NewId();
         var removedDeploymentId = DeploymentId.NewId();
-        AddActiveDeployment(activeDeploymentId);
-
-        // Removed deployment: create, complete, then mark removed
-        var removedDeployment = Deployment.StartInstallation(
-            removedDeploymentId, _envId, "stack-id", "stack-name", "rsgo-stack-name", UserId.NewId());
-        removedDeployment.MarkAsRunning();
-        removedDeployment.MarkAsRemoved();
-        _fixture.Context.Set<Deployment>().Add(removedDeployment);
-        _fixture.Context.SaveChanges();
 
         var snapshotActive = CreateSnapshot("active-stack", activeDeploymentId);
         _repository.Add(snapshotActive);
@@ -258,7 +234,9 @@ public class HealthSnapshotRepositoryIntegrationTests : IDisposable
         _repository.Add(snapshotRemoved);
         _repository.SaveChanges();
 
-        // Act
+        // Act — simulate what DeploymentService does when a deployment is removed
+        _repository.RemoveForDeployment(removedDeploymentId);
+
         var results = _repository.GetLatestForEnvironment(_envId).ToList();
 
         // Assert
@@ -283,8 +261,6 @@ public class HealthSnapshotRepositoryIntegrationTests : IDisposable
         var otherEnvId = EnvironmentId.NewId();
         var deployment1Id = DeploymentId.NewId();
         var deployment2Id = DeploymentId.NewId();
-        AddActiveDeployment(deployment1Id, _envId);
-        AddActiveDeployment(deployment2Id, otherEnvId);
 
         var snapshot1 = CreateSnapshot("stack-1", deployment1Id);
         _repository.Add(snapshot1);
@@ -398,6 +374,53 @@ public class HealthSnapshotRepositoryIntegrationTests : IDisposable
         _repository.SaveChanges();
 
         // Assert
+        using var verifyContext = _fixture.CreateNewContext();
+        verifyContext.HealthSnapshots.Should().HaveCount(1);
+    }
+
+    #endregion
+
+    #region RemoveForDeployment
+
+    [Fact]
+    public void RemoveForDeployment_ShouldDeleteAllSnapshotsForDeployment()
+    {
+        // Arrange
+        var deploymentId = DeploymentId.NewId();
+        var otherId = DeploymentId.NewId();
+
+        for (int i = 0; i < 3; i++)
+        {
+            _repository.Add(CreateSnapshot("stack", deploymentId));
+        }
+        _repository.Add(CreateSnapshot("other", otherId));
+        _repository.SaveChanges();
+
+        // Act
+        _repository.RemoveForDeployment(deploymentId);
+
+        // Assert
+        using var verifyContext = _fixture.CreateNewContext();
+        verifyContext.HealthSnapshots
+            .Where(h => h.DeploymentId == deploymentId)
+            .Should().BeEmpty();
+        verifyContext.HealthSnapshots
+            .Where(h => h.DeploymentId == otherId)
+            .Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void RemoveForDeployment_ShouldBeNoOpForNonExistentDeployment()
+    {
+        // Arrange
+        var deploymentId = DeploymentId.NewId();
+        _repository.Add(CreateSnapshot("stack", DeploymentId.NewId()));
+        _repository.SaveChanges();
+
+        // Act — should not throw
+        _repository.RemoveForDeployment(deploymentId);
+
+        // Assert — other snapshots untouched
         using var verifyContext = _fixture.CreateNewContext();
         verifyContext.HealthSnapshots.Should().HaveCount(1);
     }

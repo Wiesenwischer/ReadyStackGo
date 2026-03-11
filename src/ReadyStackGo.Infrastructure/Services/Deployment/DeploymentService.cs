@@ -5,6 +5,7 @@ using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Domain.IdentityAccess.Users;
 using StackManagement = ReadyStackGo.Domain.StackManagement.Stacks;
 using DeploymentUserId = ReadyStackGo.Domain.Deployment.UserId;
@@ -24,6 +25,7 @@ public class DeploymentService : IDeploymentService
     private readonly IDeploymentRepository _deploymentRepository;
     private readonly IEnvironmentRepository _environmentRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IHealthSnapshotRepository _healthSnapshotRepository;
     private readonly ILogger<DeploymentService> _logger;
 
     public DeploymentService(
@@ -32,6 +34,7 @@ public class DeploymentService : IDeploymentService
         IDeploymentRepository deploymentRepository,
         IEnvironmentRepository environmentRepository,
         IUserRepository userRepository,
+        IHealthSnapshotRepository healthSnapshotRepository,
         ILogger<DeploymentService> logger)
     {
         _manifestParser = manifestParser;
@@ -39,6 +42,7 @@ public class DeploymentService : IDeploymentService
         _deploymentRepository = deploymentRepository;
         _environmentRepository = environmentRepository;
         _userRepository = userRepository;
+        _healthSnapshotRepository = healthSnapshotRepository;
         _logger = logger;
     }
 
@@ -473,6 +477,9 @@ public class DeploymentService : IDeploymentService
                     _deploymentRepository.SaveChanges();
                     _logger.LogInformation("Marked deployment {DeploymentId} as removed", deployment.Id);
                 }
+
+                _healthSnapshotRepository.RemoveForDeployment(deployment.Id);
+                _logger.LogInformation("Removed health snapshots for deployment {DeploymentId}", deployment.Id);
             }
             else
             {
@@ -505,13 +512,19 @@ public class DeploymentService : IDeploymentService
             return Task.CompletedTask;
 
         var deployment = _deploymentRepository.GetByStackName(new EnvironmentId(envGuid), stackName);
-        if (deployment != null && deployment.Status != Domain.Deployment.Deployments.DeploymentStatus.Removed)
+        if (deployment != null)
         {
-            deployment.MarkAsRemoved();
-            _deploymentRepository.SaveChanges();
-            _logger.LogInformation(
-                "Marked deployment {DeploymentId} (stack: {StackName}) as removed without Docker removal",
-                deployment.Id, stackName);
+            if (deployment.Status != Domain.Deployment.Deployments.DeploymentStatus.Removed)
+            {
+                deployment.MarkAsRemoved();
+                _deploymentRepository.SaveChanges();
+                _logger.LogInformation(
+                    "Marked deployment {DeploymentId} (stack: {StackName}) as removed without Docker removal",
+                    deployment.Id, stackName);
+            }
+
+            _healthSnapshotRepository.RemoveForDeployment(deployment.Id);
+            _logger.LogInformation("Removed health snapshots for deployment {DeploymentId}", deployment.Id);
         }
 
         return Task.CompletedTask;
