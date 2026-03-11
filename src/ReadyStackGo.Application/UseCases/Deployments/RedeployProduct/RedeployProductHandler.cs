@@ -168,6 +168,10 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
                 stackResult.DeploymentStackName = stackDeploymentName;
 
                 _logger.LogInformation("Stack {StackName} redeployed successfully", stack.StackDisplayName);
+
+                await NotifyStackCompletedAsync(
+                    sessionId, stack.StackName, stack.StackDisplayName,
+                    true, null, i, stacks.Count, productDeployment.CompletedStacks, cancellationToken);
             }
             else
             {
@@ -190,6 +194,10 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
                 stackResult.ErrorMessage = error;
 
                 _logger.LogWarning("Stack {StackName} redeploy failed: {Error}", stack.StackDisplayName, error);
+
+                await NotifyStackCompletedAsync(
+                    sessionId, stack.StackName, stack.StackDisplayName,
+                    false, error, i, stacks.Count, productDeployment.CompletedStacks, cancellationToken);
 
                 if (!request.ContinueOnError)
                 {
@@ -295,6 +303,35 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Failed to send product redeploy progress notification");
+        }
+    }
+
+    private async Task NotifyStackCompletedAsync(
+        string sessionId, string stackName, string stackDisplayName,
+        bool success, string? error, int stackIndex, int totalStacks,
+        int completedStacks, CancellationToken ct)
+    {
+        if (_notificationService == null) return;
+
+        try
+        {
+            var percentComplete = totalStacks > 0 ? (int)(completedStacks * 100.0 / totalStacks) : 0;
+            var message = success
+                ? $"Stack {stackDisplayName} redeployed successfully"
+                : $"Stack {stackDisplayName} redeploy failed: {error}";
+            await _notificationService.NotifyProgressAsync(
+                sessionId,
+                "ProductDeploy",
+                message,
+                percentComplete,
+                stackName,
+                totalStacks,
+                completedStacks,
+                0, 0, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to send stack completion notification");
         }
     }
 
