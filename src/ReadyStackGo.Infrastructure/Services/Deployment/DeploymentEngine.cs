@@ -857,7 +857,15 @@ public class DeploymentEngine : IDeploymentEngine
                 ["rsgo.stack.name"] = stackDefinitionName ?? stackName,
                 ["rsgo.product"] = productGroupId ?? ""
             },
-            RestartPolicy = restartPolicy
+            RestartPolicy = restartPolicy,
+            HealthCheck = step.HealthCheck != null ? new ContainerHealthCheck
+            {
+                Test = step.HealthCheck.Test,
+                Interval = step.HealthCheck.Interval,
+                Timeout = step.HealthCheck.Timeout,
+                Retries = step.HealthCheck.Retries,
+                StartPeriod = step.HealthCheck.StartPeriod
+            } : null
         };
 
         var containerId = await _dockerService.CreateAndStartContainerAsync(environmentId, request);
