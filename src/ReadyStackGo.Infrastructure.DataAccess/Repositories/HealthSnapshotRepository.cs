@@ -45,11 +45,10 @@ public class HealthSnapshotRepository : IHealthSnapshotRepository
     {
         // Use raw SQL to efficiently get the latest snapshot per deployment.
         // The EF GroupBy+First pattern causes client-side evaluation, loading ALL rows.
+        // Stale snapshots from removed deployments are cleaned up at the source
+        // (DeploymentService calls RemoveForDeployment when marking a deployment as removed).
         var envId = environmentId.Value.ToString().ToUpperInvariant();
 
-        // Only include snapshots for deployments that have not been removed (Status != 4).
-        // Removed deployments can still have stale snapshots with container names that
-        // match currently running containers, which would cause false unhealthy status.
         return _context.HealthSnapshots
             .FromSqlRaw(
                 """
@@ -62,12 +61,19 @@ public class HealthSnapshotRepository : IHealthSnapshotRepository
                     GROUP BY "DeploymentId"
                 ) latest ON h."DeploymentId" = latest."DeploymentId"
                     AND h."CapturedAtUtc" = latest."MaxDate"
-                INNER JOIN "Deployments" d ON d."Id" = h."DeploymentId"
-                    AND d."Status" != 4
                 WHERE UPPER(h."EnvironmentId") = {0}
                 """,
                 envId)
             .ToList();
+    }
+
+    public void RemoveForDeployment(DeploymentId deploymentId)
+    {
+        var id = deploymentId.Value.ToString().ToUpperInvariant();
+        _context.Database.ExecuteSql(
+            $"""
+            DELETE FROM "HealthSnapshots" WHERE UPPER("DeploymentId") = {id}
+            """);
     }
 
     public IEnumerable<HealthSnapshot> GetHistory(DeploymentId deploymentId, int limit = 10)

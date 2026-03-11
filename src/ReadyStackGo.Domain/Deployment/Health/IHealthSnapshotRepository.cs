@@ -39,6 +39,12 @@ public interface IHealthSnapshotRepository
     IEnumerable<HealthSnapshot> GetHistory(DeploymentId deploymentId, int limit = 10);
 
     /// <summary>
+    /// Removes all snapshots for a specific deployment.
+    /// Called when a deployment is removed to avoid stale health data.
+    /// </summary>
+    void RemoveForDeployment(DeploymentId deploymentId);
+
+    /// <summary>
     /// Removes old snapshots older than the specified age.
     /// Returns the number of deleted rows.
     /// </summary>
