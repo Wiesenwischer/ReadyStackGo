@@ -17,6 +17,7 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
 {
     private readonly IProductDeploymentRepository _repository;
     private readonly IMediator _mediator;
+    private readonly IDeploymentService _deploymentService;
     private readonly IDeploymentNotificationService? _notificationService;
     private readonly INotificationService? _inAppNotificationService;
     private readonly ILogger<RedeployProductHandler> _logger;
@@ -25,6 +26,7 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
     public RedeployProductHandler(
         IProductDeploymentRepository repository,
         IMediator mediator,
+        IDeploymentService deploymentService,
         ILogger<RedeployProductHandler> logger,
         IDeploymentNotificationService? notificationService = null,
         INotificationService? inAppNotificationService = null,
@@ -32,6 +34,7 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
     {
         _repository = repository;
         _mediator = mediator;
+        _deploymentService = deploymentService;
         _logger = logger;
         _notificationService = notificationService;
         _inAppNotificationService = inAppNotificationService;
@@ -129,6 +132,24 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
 
             var stackDeploymentName = ProductDeployment.DeriveStackDeploymentName(
                 productDeployment.DeploymentName, stack.StackName);
+
+            // Remove the existing deployment first, then deploy fresh.
+            // Redeploy = remove old + deploy new.
+            await NotifyProductProgressAsync(
+                sessionId, stack.StackName, stack.StackDisplayName, i, stacks.Count,
+                productDeployment.CompletedStacks, cancellationToken,
+                phase: "Removing");
+
+            var removeResult = await _deploymentService.RemoveDeploymentAsync(
+                request.EnvironmentId, stackDeploymentName);
+            if (!removeResult.Success)
+            {
+                _logger.LogWarning(
+                    "Remove of stack '{StackName}' before redeploy failed ({Error}) — continuing with fresh deploy",
+                    stackDeploymentName, removeResult.Message);
+                await _deploymentService.MarkDeploymentAsRemovedAsync(
+                    request.EnvironmentId, stackDeploymentName);
+            }
 
             DeployStackResponse deployResult;
             try
@@ -283,17 +304,20 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
 
     private async Task NotifyProductProgressAsync(
         string sessionId, string stackName, string stackDisplayName, int stackIndex, int totalStacks,
-        int completedStacks, CancellationToken ct)
+        int completedStacks, CancellationToken ct, string phase = "Redeploying")
     {
         if (_notificationService == null) return;
 
         try
         {
             var percentComplete = totalStacks > 0 ? (int)(completedStacks * 100.0 / totalStacks) : 0;
+            var message = phase == "Removing"
+                ? $"Removing stack {stackIndex + 1}/{totalStacks}: {stackDisplayName}"
+                : $"Redeploying stack {stackIndex + 1}/{totalStacks}: {stackDisplayName}";
             await _notificationService.NotifyProgressAsync(
                 sessionId,
                 "ProductDeploy",
-                $"Redeploying stack {stackIndex + 1}/{totalStacks}: {stackDisplayName}",
+                message,
                 percentComplete,
                 stackName,
                 totalStacks,
