@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 using Moq;
 using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.UseCases.Deployments;
 using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 using ReadyStackGo.Application.UseCases.Deployments.UpgradeProduct;
 using ReadyStackGo.Domain.Deployment.Deployments;
@@ -19,6 +20,7 @@ public class UpgradeProductHandlerTests
     private readonly Mock<IProductSourceService> _productSourceMock;
     private readonly Mock<IProductDeploymentRepository> _repositoryMock;
     private readonly Mock<IMediator> _mediatorMock;
+    private readonly Mock<IDeploymentService> _deploymentServiceMock;
     private readonly Mock<IDeploymentNotificationService> _notificationMock;
     private readonly Mock<INotificationService> _inAppNotificationMock;
     private readonly Mock<ILogger<UpgradeProductHandler>> _loggerMock;
@@ -33,6 +35,7 @@ public class UpgradeProductHandlerTests
         _productSourceMock = new Mock<IProductSourceService>();
         _repositoryMock = new Mock<IProductDeploymentRepository>();
         _mediatorMock = new Mock<IMediator>();
+        _deploymentServiceMock = new Mock<IDeploymentService>();
         _notificationMock = new Mock<IDeploymentNotificationService>();
         _inAppNotificationMock = new Mock<INotificationService>();
         _loggerMock = new Mock<ILogger<UpgradeProductHandler>>();
@@ -40,10 +43,16 @@ public class UpgradeProductHandlerTests
 
         _repositoryMock.Setup(r => r.NextIdentity()).Returns(ProductDeploymentId.NewId());
 
+        // Default: removal succeeds
+        _deploymentServiceMock
+            .Setup(d => d.RemoveDeploymentAsync(It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(new DeployComposeResponse { Success = true });
+
         _handler = new UpgradeProductHandler(
             _productSourceMock.Object,
             _repositoryMock.Object,
             _mediatorMock.Object,
+            _deploymentServiceMock.Object,
             _loggerMock.Object,
             _notificationMock.Object,
             _inAppNotificationMock.Object,
@@ -838,8 +847,10 @@ public class UpgradeProductHandlerTests
     }
 
     [Fact]
-    public async Task Handle_MissingStacksInTarget_WarningGenerated()
+    public async Task Handle_StackRemovedFromTarget_RemovesOldDeployment()
     {
+        // When a stack is removed (or renamed) in the new version, the old deployment must be removed.
+        // This is the correct behavior: redeployment = remove old + deploy new.
         var currentProduct = CreateTestProduct(2, version: "1.0.0",
             stackNames: new List<string> { "stack-0", "old-stack" });
         var targetProduct = CreateTestProduct(1, version: "2.0.0",
@@ -854,8 +865,41 @@ public class UpgradeProductHandlerTests
             CreateUpgradeCommand(existing, targetProduct), CancellationToken.None);
 
         result.Success.Should().BeTrue();
-        result.Warnings.Should().NotBeNull();
-        result.Warnings.Should().ContainSingle(w => w.Contains("old-stack"));
+        result.Warnings.Should().BeNull("old stacks are removed, not just warned about");
+        _deploymentServiceMock.Verify(
+            d => d.RemoveDeploymentAsync(TestEnvironmentId, "old-stack"),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_StackRemovedFromTarget_DockerRemovalFails_FallsBackToDbOnly()
+    {
+        // If Docker removal fails (e.g. containers already moved to new compose project),
+        // the DB record must still be marked as Removed.
+        var currentProduct = CreateTestProduct(2, version: "1.0.0",
+            stackNames: new List<string> { "stack-0", "renamed-stack" });
+        var targetProduct = CreateTestProduct(1, version: "2.0.0",
+            stackNames: new List<string> { "stack-0" });
+        var existing = CreateExistingDeployment(currentProduct);
+
+        SetupExistingDeployment(existing);
+        SetupTargetProductFound(targetProduct);
+        SetupAllStacksSucceed();
+
+        _deploymentServiceMock
+            .Setup(d => d.RemoveDeploymentAsync(TestEnvironmentId, "renamed-stack"))
+            .ReturnsAsync(new DeployComposeResponse { Success = false, Message = "Stack not found in Docker" });
+        _deploymentServiceMock
+            .Setup(d => d.MarkDeploymentAsRemovedAsync(TestEnvironmentId, "renamed-stack"))
+            .Returns(Task.CompletedTask);
+
+        var result = await _handler.Handle(
+            CreateUpgradeCommand(existing, targetProduct), CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        _deploymentServiceMock.Verify(
+            d => d.MarkDeploymentAsRemovedAsync(TestEnvironmentId, "renamed-stack"),
+            Times.Once);
     }
 
     [Fact]
@@ -967,6 +1011,7 @@ public class UpgradeProductHandlerTests
             _productSourceMock.Object,
             _repositoryMock.Object,
             _mediatorMock.Object,
+            _deploymentServiceMock.Object,
             _loggerMock.Object);
 
         var currentProduct = CreateTestProduct(1, version: "1.0.0");

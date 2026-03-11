@@ -499,6 +499,24 @@ public class DeploymentService : IDeploymentService
         }
     }
 
+    public Task MarkDeploymentAsRemovedAsync(string environmentId, string stackName)
+    {
+        if (!Guid.TryParse(environmentId, out var envGuid))
+            return Task.CompletedTask;
+
+        var deployment = _deploymentRepository.GetByStackName(new EnvironmentId(envGuid), stackName);
+        if (deployment != null && deployment.Status != Domain.Deployment.Deployments.DeploymentStatus.Removed)
+        {
+            deployment.MarkAsRemoved();
+            _deploymentRepository.SaveChanges();
+            _logger.LogInformation(
+                "Marked deployment {DeploymentId} (stack: {StackName}) as removed without Docker removal",
+                deployment.Id, stackName);
+        }
+
+        return Task.CompletedTask;
+    }
+
     public async Task<DeployComposeResponse> RemoveDeploymentByIdAsync(string environmentId, string deploymentId)
     {
         try

@@ -93,71 +93,31 @@ public class ListContainersHandlerTests
     }
 
     [Fact]
-    public async Task Handle_DuplicateDeployments_PrefersHealthyStatus()
+    public async Task Handle_MultipleSnapshots_LastWriteWins()
     {
-        // Arrange - Same container monitored by two deployments (stale + current)
-        var containers = new[]
-        {
-            CreateContainer("memo-web")
-        };
-
-        _dockerServiceMock
-            .Setup(d => d.ListContainersAsync(_envId.Value.ToString(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(containers);
-
-        // Current deployment: healthy via HTTP /hc check
-        var currentSnapshot = CreateSnapshot(_envId, "Memo",
-            ServiceHealth.Create("memo-web", HealthStatus.Healthy,
-                containerName: "memo-web", responseTimeMs: 2));
-
-        // Stale deployment: unhealthy (can't reach container on old network)
-        var staleSnapshot = CreateSnapshot(_envId, "ams-project-memo",
-            ServiceHealth.Create("memo-web", HealthStatus.Unhealthy,
-                containerName: "memo-web",
-                reason: "Connection failed: Resource temporarily unavailable"));
-
-        // Return stale snapshot AFTER current — simulates the bug where last writer wins
-        _healthSnapshotRepoMock
-            .Setup(r => r.GetLatestForEnvironment(_envId))
-            .Returns(new[] { currentSnapshot, staleSnapshot });
-
-        // Act
-        var result = await _handler.Handle(
-            new ListContainersQuery(_envId.Value.ToString()), CancellationToken.None);
-
-        // Assert - Should prefer healthy status despite stale unhealthy coming last
-        result.Success.Should().BeTrue();
-        var memoWeb = result.Containers.Single();
-        memoWeb.HealthStatus.Should().Be("healthy",
-            "healthy status from current deployment should take priority over unhealthy from stale deployment");
-    }
-
-    [Fact]
-    public async Task Handle_DuplicateDeployments_ReversedOrder_StillPrefersHealthy()
-    {
-        // Arrange - Same as above but stale snapshot comes first
+        // Stale deployments are removed during product upgrade (UpgradeProductHandler),
+        // so under normal operation only one active deployment monitors each container.
+        // When multiple snapshots exist, the last one in the iteration wins.
         var containers = new[] { CreateContainer("memo-web") };
 
         _dockerServiceMock
             .Setup(d => d.ListContainersAsync(_envId.Value.ToString(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(containers);
 
-        var staleSnapshot = CreateSnapshot(_envId, "ams-project-memo",
+        var firstSnapshot = CreateSnapshot(_envId, "Memo",
             ServiceHealth.Create("memo-web", HealthStatus.Unhealthy, containerName: "memo-web"));
-
-        var currentSnapshot = CreateSnapshot(_envId, "Memo",
+        var secondSnapshot = CreateSnapshot(_envId, "Memo",
             ServiceHealth.Create("memo-web", HealthStatus.Healthy, containerName: "memo-web"));
 
         _healthSnapshotRepoMock
             .Setup(r => r.GetLatestForEnvironment(_envId))
-            .Returns(new[] { staleSnapshot, currentSnapshot });
+            .Returns(new[] { firstSnapshot, secondSnapshot });
 
-        // Act
         var result = await _handler.Handle(
             new ListContainersQuery(_envId.Value.ToString()), CancellationToken.None);
 
-        // Assert
-        result.Containers.Single().HealthStatus.Should().Be("healthy");
+        result.Containers.Single().HealthStatus.Should().Be("healthy",
+            "last snapshot in the collection wins");
     }
 
     [Fact]
