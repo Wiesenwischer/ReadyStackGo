@@ -1051,8 +1051,7 @@ public class DeploymentService : IDeploymentService
                 ContainerName = resolvedContainerName,
                 Order = order++,
                 DependsOn = service.DependsOn.ToList(),
-                Lifecycle = service.Lifecycle,
-                HealthCheck = MapDockerHealthCheck(service.HealthCheck)
+                Lifecycle = service.Lifecycle
             };
 
             // Map ports - resolve ${VAR} placeholders in port mappings
@@ -1109,74 +1108,6 @@ public class DeploymentService : IDeploymentService
         ReorderStepsByDependencies(plan.Steps);
 
         return plan;
-    }
-
-    /// <summary>
-    /// Maps a ServiceHealthCheck to a DockerHealthCheck for container creation.
-    /// Only maps if the health check has a Docker test command defined.
-    /// Transforms curl-based commands to wget for broader image compatibility.
-    /// </summary>
-    private static DockerHealthCheck? MapDockerHealthCheck(StackManagement.ServiceHealthCheck? healthCheck)
-    {
-        if (healthCheck == null || healthCheck.Test.Count == 0)
-            return null;
-
-        return new DockerHealthCheck
-        {
-            Test = TransformHealthCheckTest(healthCheck.Test),
-            Interval = healthCheck.Interval,
-            Timeout = healthCheck.Timeout,
-            Retries = healthCheck.Retries,
-            StartPeriod = healthCheck.StartPeriod
-        };
-    }
-
-    /// <summary>
-    /// Transforms a health check test command for maximum container compatibility.
-    /// Curl-based commands are converted to a shell script that tries wget first (available
-    /// in Alpine/Node images), then curl, then a raw TCP connect as last resort.
-    /// Non-curl commands (redis-cli, custom scripts) are passed through unchanged.
-    /// </summary>
-    private static IReadOnlyList<string> TransformHealthCheckTest(IReadOnlyList<string> test)
-    {
-        if (test.Count < 2) return test.ToList();
-
-        string? url = null;
-
-        // CMD format: ["CMD", "curl", "-f", "http://..."]
-        if (test[0] == "CMD" && test.Count >= 3 && test[1] == "curl")
-        {
-            url = test.LastOrDefault(t => t.StartsWith("http://") || t.StartsWith("https://"));
-        }
-
-        // CMD-SHELL format: ["CMD-SHELL", "curl ... http://... || exit 1"]
-        if (test[0] == "CMD-SHELL" && test.Count == 2 && test[1].Contains("curl"))
-        {
-            var match = System.Text.RegularExpressions.Regex.Match(
-                test[1], @"(https?://\S+)");
-            if (match.Success) url = match.Groups[1].Value;
-        }
-
-        if (url != null)
-        {
-            // Extract host and port for TCP fallback
-            var uri = new Uri(url);
-            var port = uri.Port > 0 ? uri.Port : (uri.Scheme == "https" ? 443 : 80);
-
-            // Generate a portable health check that works across image types:
-            // 1. wget (Alpine, Node, Debian with wget)
-            // 2. curl (Debian/Ubuntu with curl)
-            // 3. TCP port check via /proc/net (works in any Linux container without external tools)
-            var tcpPortHex = port.ToString("X4");
-            return new List<string>
-            {
-                "CMD-SHELL",
-                $"wget -qO- {url} >/dev/null 2>&1 || curl -sf {url} >/dev/null 2>&1 || grep -q ':{tcpPortHex} ' /proc/net/tcp 2>/dev/null || exit 1"
-            };
-        }
-
-        // Non-curl commands (redis-cli, custom scripts): pass through as-is
-        return test.ToList();
     }
 
     /// <summary>

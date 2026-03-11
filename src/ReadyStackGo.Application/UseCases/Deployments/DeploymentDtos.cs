@@ -72,42 +72,6 @@ public class DeploymentStep
     /// </summary>
     public ServiceLifecycle Lifecycle { get; set; } = ServiceLifecycle.Service;
 
-    /// <summary>
-    /// Docker HEALTHCHECK configuration for this container.
-    /// When set, Docker monitors the container's health status natively.
-    /// </summary>
-    public DockerHealthCheck? HealthCheck { get; set; }
-}
-
-/// <summary>
-/// Docker HEALTHCHECK configuration to apply when creating a container.
-/// </summary>
-public class DockerHealthCheck
-{
-    /// <summary>
-    /// Test command (e.g., ["CMD", "curl", "-f", "http://localhost:8080/hc"]).
-    /// </summary>
-    public required IReadOnlyList<string> Test { get; set; }
-
-    /// <summary>
-    /// Interval between health checks.
-    /// </summary>
-    public TimeSpan? Interval { get; set; }
-
-    /// <summary>
-    /// Timeout for each health check.
-    /// </summary>
-    public TimeSpan? Timeout { get; set; }
-
-    /// <summary>
-    /// Number of retries before marking unhealthy.
-    /// </summary>
-    public int? Retries { get; set; }
-
-    /// <summary>
-    /// Grace period before health checks start.
-    /// </summary>
-    public TimeSpan? StartPeriod { get; set; }
 }
 
 /// <summary>
