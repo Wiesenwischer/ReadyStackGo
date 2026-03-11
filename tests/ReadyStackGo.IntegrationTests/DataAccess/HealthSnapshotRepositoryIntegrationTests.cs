@@ -7,6 +7,7 @@ using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Infrastructure.DataAccess.Repositories;
 using ReadyStackGo.IntegrationTests.Infrastructure;
+using UserId = ReadyStackGo.Domain.Deployment.UserId;
 
 /// <summary>
 /// Integration tests for HealthSnapshotRepository with real SQLite database.
@@ -26,6 +27,20 @@ public class HealthSnapshotRepositoryIntegrationTests : IDisposable
     }
 
     public void Dispose() => _fixture.Dispose();
+
+    private void AddActiveDeployment(DeploymentId deploymentId, EnvironmentId? environmentId = null)
+    {
+        var deployment = Deployment.StartInstallation(
+            deploymentId,
+            environmentId ?? _envId,
+            "stack-id",
+            "stack-name",
+            "rsgo-stack-name",
+            UserId.NewId());
+        deployment.MarkAsRunning();
+        _fixture.Context.Set<Deployment>().Add(deployment);
+        _fixture.Context.SaveChanges();
+    }
 
     private HealthSnapshot CreateSnapshot(
         string stackName,
@@ -192,6 +207,8 @@ public class HealthSnapshotRepositoryIntegrationTests : IDisposable
         // Arrange
         var deployment1Id = DeploymentId.NewId();
         var deployment2Id = DeploymentId.NewId();
+        AddActiveDeployment(deployment1Id);
+        AddActiveDeployment(deployment2Id);
 
         // Add older snapshot for deployment 1
         var snapshot1Old = CreateSnapshot("stack-1", deployment1Id);
@@ -220,6 +237,36 @@ public class HealthSnapshotRepositoryIntegrationTests : IDisposable
     }
 
     [Fact]
+    public void GetLatestForEnvironment_ShouldExcludeRemovedDeployments()
+    {
+        // Arrange
+        var activeDeploymentId = DeploymentId.NewId();
+        var removedDeploymentId = DeploymentId.NewId();
+        AddActiveDeployment(activeDeploymentId);
+
+        // Removed deployment: create, complete, then mark removed
+        var removedDeployment = Deployment.StartInstallation(
+            removedDeploymentId, _envId, "stack-id", "stack-name", "rsgo-stack-name", UserId.NewId());
+        removedDeployment.MarkAsRunning();
+        removedDeployment.MarkAsRemoved();
+        _fixture.Context.Set<Deployment>().Add(removedDeployment);
+        _fixture.Context.SaveChanges();
+
+        var snapshotActive = CreateSnapshot("active-stack", activeDeploymentId);
+        _repository.Add(snapshotActive);
+        var snapshotRemoved = CreateSnapshot("removed-stack", removedDeploymentId);
+        _repository.Add(snapshotRemoved);
+        _repository.SaveChanges();
+
+        // Act
+        var results = _repository.GetLatestForEnvironment(_envId).ToList();
+
+        // Assert
+        results.Should().HaveCount(1);
+        results.Single().DeploymentId.Should().Be(activeDeploymentId);
+    }
+
+    [Fact]
     public void GetLatestForEnvironment_ShouldReturnEmptyForNoSnapshots()
     {
         // Act
@@ -234,11 +281,15 @@ public class HealthSnapshotRepositoryIntegrationTests : IDisposable
     {
         // Arrange
         var otherEnvId = EnvironmentId.NewId();
+        var deployment1Id = DeploymentId.NewId();
+        var deployment2Id = DeploymentId.NewId();
+        AddActiveDeployment(deployment1Id, _envId);
+        AddActiveDeployment(deployment2Id, otherEnvId);
 
-        var snapshot1 = CreateSnapshot("stack-1");
+        var snapshot1 = CreateSnapshot("stack-1", deployment1Id);
         _repository.Add(snapshot1);
 
-        var snapshot2 = CreateSnapshot("stack-2", environmentId: otherEnvId);
+        var snapshot2 = CreateSnapshot("stack-2", deployment2Id, environmentId: otherEnvId);
         _repository.Add(snapshot2);
 
         _repository.SaveChanges();

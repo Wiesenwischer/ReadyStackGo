@@ -47,6 +47,9 @@ public class HealthSnapshotRepository : IHealthSnapshotRepository
         // The EF GroupBy+First pattern causes client-side evaluation, loading ALL rows.
         var envId = environmentId.Value.ToString().ToUpperInvariant();
 
+        // Only include snapshots for deployments that have not been removed (Status != 4).
+        // Removed deployments can still have stale snapshots with container names that
+        // match currently running containers, which would cause false unhealthy status.
         return _context.HealthSnapshots
             .FromSqlRaw(
                 """
@@ -59,6 +62,8 @@ public class HealthSnapshotRepository : IHealthSnapshotRepository
                     GROUP BY "DeploymentId"
                 ) latest ON h."DeploymentId" = latest."DeploymentId"
                     AND h."CapturedAtUtc" = latest."MaxDate"
+                INNER JOIN "Deployments" d ON d."Id" = h."DeploymentId"
+                    AND d."Status" != 4
                 WHERE UPPER(h."EnvironmentId") = {0}
                 """,
                 envId)
