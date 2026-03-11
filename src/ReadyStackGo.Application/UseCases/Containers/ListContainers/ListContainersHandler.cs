@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using MediatR;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.Deployment.Environments;
@@ -9,11 +10,16 @@ public class ListContainersHandler : IRequestHandler<ListContainersQuery, ListCo
 {
     private readonly IDockerService _dockerService;
     private readonly IHealthSnapshotRepository _healthSnapshotRepository;
+    private readonly ILogger<ListContainersHandler> _logger;
 
-    public ListContainersHandler(IDockerService dockerService, IHealthSnapshotRepository healthSnapshotRepository)
+    public ListContainersHandler(
+        IDockerService dockerService,
+        IHealthSnapshotRepository healthSnapshotRepository,
+        ILogger<ListContainersHandler> logger)
     {
         _dockerService = dockerService;
         _healthSnapshotRepository = healthSnapshotRepository;
+        _logger = logger;
     }
 
     public async Task<ListContainersResult> Handle(ListContainersQuery request, CancellationToken cancellationToken)
@@ -21,9 +27,10 @@ public class ListContainersHandler : IRequestHandler<ListContainersQuery, ListCo
         try
         {
             var containers = await _dockerService.ListContainersAsync(request.EnvironmentId, cancellationToken);
+            var containerList = containers.ToList();
 
             // Enrich containers with RSGO health monitoring data
-            var enriched = EnrichWithHealthData(request.EnvironmentId, containers);
+            var enriched = EnrichWithHealthData(request.EnvironmentId, containerList);
 
             return new ListContainersResult(true, enriched);
         }
@@ -33,13 +40,22 @@ public class ListContainersHandler : IRequestHandler<ListContainersQuery, ListCo
         }
     }
 
-    private IEnumerable<ContainerDto> EnrichWithHealthData(string environmentId, IEnumerable<ContainerDto> containers)
+    private List<ContainerDto> EnrichWithHealthData(string environmentId, List<ContainerDto> containers)
     {
         if (!Guid.TryParse(environmentId, out var envGuid))
             return containers;
 
-        var snapshots = _healthSnapshotRepository.GetLatestForEnvironment(
-            EnvironmentId.FromGuid(envGuid));
+        IEnumerable<HealthSnapshot> snapshots;
+        try
+        {
+            snapshots = _healthSnapshotRepository.GetLatestForEnvironment(
+                EnvironmentId.FromGuid(envGuid));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load health snapshots for container enrichment");
+            return containers;
+        }
 
         // Build lookup: container name → RSGO health status
         var healthLookup = new Dictionary<string, HealthStatus>(StringComparer.OrdinalIgnoreCase);
@@ -64,6 +80,6 @@ public class ListContainersHandler : IRequestHandler<ListContainersQuery, ListCo
                 return c with { HealthStatus = rsgoStatus.Name.ToLowerInvariant() };
             }
             return c;
-        });
+        }).ToList();
     }
 }

@@ -415,24 +415,13 @@ public class HealthMonitoringService : IHealthMonitoringService
     }
 
     /// <summary>
-    /// Determines the health status based on Docker container state and health check.
-    /// Note: Init containers are filtered out before reaching this method.
+    /// Determines the health status based on Docker container state.
+    /// Docker's native HEALTHCHECK is ignored because it depends on tools (curl/wget)
+    /// that may not be available in the container image, leading to false "unhealthy" reports.
+    /// RSGO performs its own HTTP health checks via configured health endpoints instead.
     /// </summary>
     private static HealthStatus DetermineHealthStatusFromDocker(ContainerDto container)
     {
-        // First check Docker health status if available
-        if (!string.IsNullOrEmpty(container.HealthStatus) && container.HealthStatus != "none")
-        {
-            return container.HealthStatus.ToLowerInvariant() switch
-            {
-                "healthy" => HealthStatus.Healthy,
-                "unhealthy" => HealthStatus.Unhealthy,
-                "starting" => HealthStatus.Degraded,
-                _ => HealthStatus.Unknown
-            };
-        }
-
-        // Fall back to container state
         return container.State.ToLowerInvariant() switch
         {
             "running" => HealthStatus.Healthy,
