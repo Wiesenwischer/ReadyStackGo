@@ -111,11 +111,6 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
                 continue;
             }
 
-            // Send product-level progress
-            await NotifyProductProgressAsync(
-                sessionId, stack.StackName, stack.StackDisplayName, i, stacks.Count,
-                productDeployment.CompletedStacks, cancellationToken);
-
             _logger.LogInformation(
                 "Redeploying stack {StackIndex}/{TotalStacks}: {StackName} for product {ProductName}",
                 i + 1, stacks.Count, stack.StackDisplayName, productDeployment.ProductName);
@@ -150,6 +145,11 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
                 await _deploymentService.MarkDeploymentAsRemovedAsync(
                     request.EnvironmentId, stackDeploymentName);
             }
+
+            // Transition UI from 'removing' → 'deploying'
+            await NotifyProductProgressAsync(
+                sessionId, stack.StackName, stack.StackDisplayName, i, stacks.Count,
+                productDeployment.CompletedStacks, cancellationToken);
 
             DeployStackResponse deployResult;
             try
