@@ -295,6 +295,9 @@ Release version numbers are assigned when an Epic ships, not during planning.
 - **v0.40** – Maintenance & Cleanup (2026-03-12)
   - Delete obsolete spec files superseded by completed PLAN files
   - Add spec cleanup step to plan-feature skill
+- **v0.41** – PublicWeb Polish (2026-03-12)
+  - DevStatus banner updated from early-dev warning to v1.0 coming soon (brand blue, checkmarks)
+  - Remove AMS Distribution example from distributions documentation
 
 ---
 
