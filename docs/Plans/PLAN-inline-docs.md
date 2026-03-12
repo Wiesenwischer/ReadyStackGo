@@ -1,4 +1,4 @@
-# Phase: Inline Documentation (Embedded Docs in Container)
+# Phase: Documentation Link in Sidebar
 
 ## Ziel
 
