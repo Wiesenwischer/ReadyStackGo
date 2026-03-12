@@ -78,7 +78,22 @@ public class ListContainersHandler : IRequestHandler<ListContainersQuery, ListCo
             {
                 return c with { HealthStatus = rsgoStatus.Name.ToLowerInvariant() };
             }
-            return c;
+
+            // For containers not tracked by RSGO health monitoring, apply the same
+            // logic as HealthMonitoringService.DetermineHealthStatusFromDocker:
+            // Docker's native HEALTHCHECK is ignored because it can falsely report
+            // "unhealthy" when tools like curl/wget are unavailable in the image.
+            // A running container is considered healthy unless RSGO says otherwise.
+            var rsgoFallbackStatus = c.State?.ToLowerInvariant() switch
+            {
+                "running" => "healthy",
+                "restarting" => "degraded",
+                "paused" => "degraded",
+                "exited" => "unhealthy",
+                "dead" => "unhealthy",
+                _ => c.HealthStatus // keep Docker status for unknown states
+            };
+            return c with { HealthStatus = rsgoFallbackStatus };
         }).ToList();
     }
 }

@@ -123,7 +123,7 @@ public class ListContainersHandlerTests
     [Fact]
     public async Task Handle_NoSnapshots_ReturnsOriginalContainerData()
     {
-        // Arrange
+        // Arrange — no snapshots → healthLookup is empty → early return, Docker status preserved
         var containers = new[] { CreateContainer("api", healthStatus: "unhealthy") };
 
         _dockerServiceMock
@@ -138,8 +138,42 @@ public class ListContainersHandlerTests
         var result = await _handler.Handle(
             new ListContainersQuery(_envId.Value.ToString()), CancellationToken.None);
 
-        // Assert - Original Docker health status preserved
+        // Assert - No snapshots → skip enrichment → Docker status passed through as-is
         result.Containers.Single().HealthStatus.Should().Be("unhealthy");
+    }
+
+    [Fact]
+    public async Task Handle_RunningContainerNotInSnapshot_DockerHealthCheckIgnored()
+    {
+        // Arrange - container runs fine but Docker HEALTHCHECK reports "unhealthy"
+        // (e.g., curl/wget not available in image). When snapshots exist but this
+        // container is not tracked, fall back to state-based determination (running → healthy).
+        var containers = new[]
+        {
+            CreateContainer("memo-api", state: "running", healthStatus: "unhealthy"),
+            CreateContainer("untracked-worker", state: "running", healthStatus: "unhealthy")
+        };
+
+        _dockerServiceMock
+            .Setup(d => d.ListContainersAsync(_envId.Value.ToString(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(containers);
+
+        // Only memo-api is in a snapshot
+        var snapshot = CreateSnapshot(_envId, "Memo",
+            ServiceHealth.Create("memo-api", HealthStatus.Healthy, containerName: "memo-api"));
+
+        _healthSnapshotRepoMock
+            .Setup(r => r.GetLatestForEnvironment(_envId))
+            .Returns(new[] { snapshot });
+
+        // Act
+        var result = await _handler.Handle(
+            new ListContainersQuery(_envId.Value.ToString()), CancellationToken.None);
+
+        // Assert - both running containers show as healthy (Docker HEALTHCHECK ignored)
+        result.Containers.Should().AllSatisfy(c =>
+            c.HealthStatus.Should().Be("healthy",
+                "running containers must not show Docker HEALTHCHECK 'unhealthy'"));
     }
 
     [Fact]
@@ -186,13 +220,13 @@ public class ListContainersHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ContainerNotInSnapshot_KeepsOriginalStatus()
+    public async Task Handle_ContainerNotInSnapshot_UsesStateFallback()
     {
-        // Arrange
+        // Arrange - readystackgo is not tracked in any deployment snapshot
         var containers = new[]
         {
-            CreateContainer("memo-api", healthStatus: "unhealthy"),
-            CreateContainer("readystackgo", healthStatus: "none")  // RSGO itself, not in snapshots
+            CreateContainer("memo-api", state: "running", healthStatus: "unhealthy"),
+            CreateContainer("readystackgo", state: "running", healthStatus: "none")
         };
 
         _dockerServiceMock
@@ -210,10 +244,11 @@ public class ListContainersHandlerTests
         var result = await _handler.Handle(
             new ListContainersQuery(_envId.Value.ToString()), CancellationToken.None);
 
-        // Assert
+        // Assert - memo-api enriched from snapshot; readystackgo state=running → healthy
         var resultList = result.Containers.ToList();
         resultList.Single(c => c.Name == "memo-api").HealthStatus.Should().Be("healthy");
-        resultList.Single(c => c.Name == "readystackgo").HealthStatus.Should().Be("none");
+        resultList.Single(c => c.Name == "readystackgo").HealthStatus.Should().Be("healthy",
+            "state=running containers not in any snapshot are treated as healthy");
     }
 
     [Fact]
