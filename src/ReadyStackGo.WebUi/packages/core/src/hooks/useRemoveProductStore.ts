@@ -8,11 +8,6 @@ import {
 import { useDeploymentHub } from '../realtime/useDeploymentHub';
 import type { DeploymentProgressUpdate } from '../realtime/useDeploymentHub';
 
-const formatPhase = (phase: string | undefined): string => {
-  if (!phase) return '';
-  return phase.replace(/([A-Z])/g, ' $1').trim();
-};
-
 export type RemoveProductState = 'loading' | 'confirm' | 'removing' | 'success' | 'error';
 export type StackRemoveStatus = 'pending' | 'removing' | 'removed' | 'failed';
 
@@ -23,9 +18,10 @@ export interface UseRemoveProductStoreReturn {
   stackResults: RemoveProductStackResult[];
   stackStatuses: Record<string, StackRemoveStatus>;
   progressUpdate: DeploymentProgressUpdate | null;
+  selectedStack: string | null;
   connectionState: string;
-  formattedPhase: string;
   totalServices: number;
+  handleStackSelect: (stackName: string) => void;
   handleRemove: () => Promise<void>;
 }
 
@@ -41,6 +37,8 @@ export function useRemoveProductStore(
   const [stackStatuses, setStackStatuses] = useState<Record<string, StackRemoveStatus>>({});
   const removeSessionIdRef = useRef<string | null>(null);
   const [progressUpdate, setProgressUpdate] = useState<DeploymentProgressUpdate | null>(null);
+  const [selectedStack, setSelectedStack] = useState<string | null>(null);
+  const userSelectedStackRef = useRef(false);
   const completedRef = useRef(false);
 
   const totalServices = deployment?.stacks.reduce((sum, s) => sum + s.serviceCount, 0) ?? 0;
@@ -55,6 +53,9 @@ export function useRemoveProductStore(
       const stackName = update.currentService;
       if (update.message?.startsWith('Removing stack')) {
         setStackStatuses(prev => ({ ...prev, [stackName]: 'removing' }));
+        if (!userSelectedStackRef.current) {
+          setSelectedStack(stackName);
+        }
       } else if (update.message?.startsWith('Stack removed:')) {
         setStackStatuses(prev => ({ ...prev, [stackName]: 'removed' }));
       } else if (update.message?.startsWith('Stack removal failed:')) {
@@ -114,6 +115,11 @@ export function useRemoveProductStore(
     loadDeployment();
   }, [environmentId, productDeploymentId]);
 
+  const handleStackSelect = useCallback((stackName: string) => {
+    setSelectedStack(stackName);
+    userSelectedStackRef.current = true;
+  }, []);
+
   const handleRemove = useCallback(async () => {
     if (!environmentId || !deployment) {
       setError('No deployment to remove');
@@ -123,10 +129,12 @@ export function useRemoveProductStore(
     const sessionId = `product-remove-${deployment.productName}-${Date.now()}`;
     removeSessionIdRef.current = sessionId;
     completedRef.current = false;
+    userSelectedStackRef.current = false;
 
     setState('removing');
     setError('');
     setProgressUpdate(null);
+    setSelectedStack(null);
 
     if (connectionState === 'connected') {
       await subscribeToDeployment(sessionId);
@@ -173,9 +181,10 @@ export function useRemoveProductStore(
     stackResults,
     stackStatuses,
     progressUpdate,
+    selectedStack,
     connectionState,
-    formattedPhase: formatPhase(progressUpdate?.phase),
     totalServices,
+    handleStackSelect,
     handleRemove,
   };
 }
