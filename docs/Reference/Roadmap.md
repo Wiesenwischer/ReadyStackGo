@@ -300,6 +300,8 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Remove AMS Distribution example from distributions documentation
 - **v0.42** – Bugfix: Redeploy Premature Completion (2026-03-12)
   - Fix redeploy showing success after first stack due to SuppressNotification: false sending DeploymentCompleted per stack
+- **v0.43** – Bugfix: Container List Stale Health (2026-03-13)
+  - Fix container list showing stale unhealthy status from removed deployments by filtering to active deployments only
 
 ---
 
