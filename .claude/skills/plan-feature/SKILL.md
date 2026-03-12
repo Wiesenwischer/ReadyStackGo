@@ -114,26 +114,22 @@ Erstelle eine Specification unter `docs/Plans/PLAN-<feature-name>.md`.
 >
 > Shared logic lives in `@rsgo/core` (hooks, API calls, state). Pages/layouts must be reimplemented per distribution.
 >
-> **Versioning**: AMS distribution uses RSGO version as Major.Minor + own patch: `AMS v0.XX.P`.
-> - `AMS v0.35.0` = first AMS release based on RSGO v0.35
-> - `AMS v0.35.1` = AMS-only addition/fix, still on RSGO v0.35 core
-> - `AMS v0.36.0` = next AMS release based on RSGO v0.36
+> **Versioning**: AMS distribution has independent version numbers (e.g. v1.x.y). Each AMS release declares which RSGO core version it bundles in its release notes and `package.json`.
 >
-> **Note**: RSGO does not use patch releases pre-v1.0 — every fix becomes the next Minor version (v0.35 → v0.36). This keeps the `.P` slot unambiguous for AMS-only changes.
->
-> Features in rsgo-generic v0.XX should ideally land in AMS v0.XX.0; if deliberately deferred, mark it explicitly with target AMS version.
+> **Sync-Mechanismus**: RSGO PLAN files sind die Source of Truth. Jedes Feature mit AMS-Counterpart bekommt ein entsprechendes PLAN file im AMS Repo (`C:\proj\ReadyStackGo.Ams\docs\Plans\`). Vor jedem AMS-Release: alle RSGO PLANs auf offene AMS-Counterpart-Checkboxen prüfen.
 
 **Benötigt AMS UI eine Entsprechung?**
 
-- [ ] **Ja (AMS v0.XX.0)** — neue Seite / Komponente wird in ConsistentUI synchron mit RSGO v0.XX implementiert
-  - AMS UI Seite: `src/pages/<FeatureName>/<FeatureName>.ts` (Lit web component)
-  - Betroffene Dateien (AMS Repo): ...
-  - Abhängig von: rsgo-generic Implementierung (zur Orientierung)
-- [ ] **Ja (deferred)** — AMS-Implementierung wird auf spätere Version verschoben
+- [ ] **Ja** — AMS-Counterpart wird als eigenes PLAN file im AMS Repo angelegt
+  - RSGO PLAN referenziert: `docs/Plans/PLAN-<feature>.md` (dieses File)
+  - AMS PLAN: `C:\proj\ReadyStackGo.Ams\docs\Plans\PLAN-<feature>.md` (neu erstellen)
+  - AMS PLAN enthält: ConsistentUI-spezifische Implementierungsschritte + Verweis auf dieses RSGO-PLAN
+  - Zeitpunkt: <Gleichzeitig mit RSGO / Im nächsten AMS-Release>
+- [ ] **Ja (deferred)** — AMS-Counterpart wird später geplant
   - Begründung: <Warum wird es verschoben?>
-  - Geplant für: AMS v0.XX.0
+  - Erinnerung: Diese Checkbox bleibt offen bis AMS PLAN erstellt wurde
 - [ ] **Nein** — nur `@rsgo/core` betroffen (Logik/Hooks, kein UI) → keine AMS-Arbeit nötig
-- [ ] **Teilweise** — bestehende AMS-Seite muss erweitert werden (kein Neubau)
+- [ ] **Teilweise** — bestehende AMS-Seite muss erweitert werden; AMS PLAN mit Delta-Schritten anlegen
 
 ## Features / Schritte
 
@@ -207,6 +203,6 @@ git commit -m "Plan v0.XX <Versions-Titel>"
 - [ ] Technische Analyse durchgeführt
 - [ ] Roadmap aktualisiert (neue oder bestehende Version)
 - [ ] Planungsdatei erstellt (`docs/Plans/PLAN-*.md`)
-- [ ] **AMS UI Counterpart entschieden** (same version / deferred / Nein / Teilweise — mit Begründung und Zielversion im Plan)
+- [ ] **AMS UI Counterpart entschieden** — bei Ja: AMS PLAN file in `C:\proj\ReadyStackGo.Ams\docs\Plans\` erstellt
 - [ ] Offene Punkte dokumentiert
 - [ ] Änderungen committed
