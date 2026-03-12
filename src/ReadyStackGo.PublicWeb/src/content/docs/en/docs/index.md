@@ -17,3 +17,4 @@ Here you'll find detailed guides for using ReadyStackGo.
 - [Product Redeploy](/en/docs/product-redeploy/) - Redeploy products with real-time per-stack progress tracking
 - [Volume Management](/en/docs/volume-management/) - Manage Docker Volumes and clean up orphaned volumes
 - [Container Management](/en/docs/container-management/) - Monitor, control, and view logs for all Docker containers
+- [Remove Product](/en/docs/product-remove/) - Completely remove a product deployment with all stacks and containers
