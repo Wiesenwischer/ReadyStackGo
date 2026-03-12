@@ -283,6 +283,15 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - NuGet Meta-Package ReadyStackGo.Core (Domain + Application + Infrastructure)
   - Multi-Assembly FastEndpoints Endpoint Discovery
   - Distribution Architecture Documentation
+- **v0.39** – Documentation & PublicWeb Updates (2026-03-12)
+  - Cancel image pull after 3 minutes without progress
+  - Product Redeploy documentation with E2E tests and landing page highlight
+  - Container Management documentation with E2E tests and landing page highlight
+  - Remove Product documentation with E2E tests
+  - Container Control documentation with E2E tests and landing page highlight
+  - Custom Distributions documentation and landing page highlight
+  - DevStatus banner updated to "v1.0 Release in Vorbereitung / Coming Soon"
+  - AMS distribution planning: skills, plan files, independent versioning concept
 
 ---
 
