@@ -104,7 +104,25 @@ Erstelle eine Specification unter `docs/Plans/PLAN-<feature-name>.md`.
 - **Application**: <Commands, Queries, Services>
 - **Infrastructure**: <Repositories, External Services>
 - **API**: <Endpoints>
-- **WebUI**: <Pages, Components>
+- **WebUI (rsgo-generic)**: <Pages, Components>
+
+## AMS UI Counterpart
+
+> RSGO has two UI distributions with different design systems:
+> - **rsgo-generic**: React + Tailwind CSS (reference implementation, `packages/ui-generic`)
+> - **AMS UI**: ConsistentUI/Lit web components (separate repo `ReadyStackGo.Ams`)
+>
+> Shared logic lives in `@rsgo/core` (hooks, API calls, state). Pages/layouts must be reimplemented per distribution.
+
+**Benötigt AMS UI eine Entsprechung?**
+
+- [ ] **Ja** — neue Seite / Komponente muss in ConsistentUI reimplementiert werden
+  - AMS UI Seite: `src/pages/<FeatureName>/<FeatureName>.ts` (Lit web component)
+  - Betroffene Dateien (AMS Repo): ...
+  - Abhängig von: rsgo-generic Implementierung (zur Orientierung)
+  - Zeitpunkt: <Gleichzeitig / Nach rsgo-generic / Separater Epic>
+- [ ] **Nein** — nur `@rsgo/core` betroffen (Logik/Hooks, kein UI) → keine AMS-Arbeit nötig
+- [ ] **Teilweise** — bestehende AMS-Seite muss erweitert werden (kein Neubau)
 
 ## Features / Schritte
 
@@ -178,5 +196,6 @@ git commit -m "Plan v0.XX <Versions-Titel>"
 - [ ] Technische Analyse durchgeführt
 - [ ] Roadmap aktualisiert (neue oder bestehende Version)
 - [ ] Planungsdatei erstellt (`docs/Plans/PLAN-*.md`)
+- [ ] **AMS UI Counterpart entschieden** (Ja / Nein / Teilweise — mit Begründung im Plan)
 - [ ] Offene Punkte dokumentiert
 - [ ] Änderungen committed

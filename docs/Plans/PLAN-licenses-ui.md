@@ -17,7 +17,14 @@ Nutzer und Betreiber sollen die lizenzierten Drittanbieter-Pakete (npm + .NET) d
 ### Betroffene Bounded Contexts
 
 - **Infrastructure / Hosting**: Dockerfile (License-JSONs nach wwwroot/licenses/ kopieren)
-- **WebUI**: Neue Settings-Seite, SettingsIndex-Card, Route
+- **WebUI (rsgo-generic)**: Neue Settings-Seite, SettingsIndex-Card, Route
+
+## AMS UI Counterpart
+
+- [x] **Ja** — AMS UI Settings braucht ebenfalls eine Licenses-Seite in ConsistentUI
+  - AMS Repo: `src/pages/Settings/Licenses/` (Lit web component, fetcht dieselben statischen JSON-Dateien)
+  - Die JSON-Dateien werden bereits über Static Files serviert → kein Backend-Unterschied
+  - Zeitpunkt: Separater Epic im AMS Repo (nach rsgo-generic)
 
 ## Features / Schritte
 

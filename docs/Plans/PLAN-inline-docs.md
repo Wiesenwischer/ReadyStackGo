@@ -14,7 +14,13 @@ Nutzer sollen die RSGO-Dokumentation direkt aus der App heraus aufrufen können 
 
 ### Betroffene Bounded Contexts
 
-- **WebUI**: `AppSidebar.tsx` (neuer Nav-Link)
+- **WebUI (rsgo-generic)**: `AppSidebar.tsx` (neuer Nav-Link)
+
+## AMS UI Counterpart
+
+- [x] **Ja** — AMS UI Sidebar (`AppSidebar` equivalent in ConsistentUI) muss ebenfalls einen "Documentation"-Link erhalten
+  - AMS Repo: Entsprechende Sidebar-Komponente anpassen
+  - Zeitpunkt: Separater Epic im AMS Repo (nach rsgo-generic)
 
 ## Features / Schritte
 
