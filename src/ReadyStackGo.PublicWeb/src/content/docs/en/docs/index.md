@@ -16,3 +16,4 @@ Here you'll find detailed guides for using ReadyStackGo.
 - [Product Deployment](/en/docs/product-deployment/) - Deploy entire products with all stacks in a single operation
 - [Product Redeploy](/en/docs/product-redeploy/) - Redeploy products with real-time per-stack progress tracking
 - [Volume Management](/en/docs/volume-management/) - Manage Docker Volumes and clean up orphaned volumes
+- [Container Management](/en/docs/container-management/) - Monitor, control, and view logs for all Docker containers
