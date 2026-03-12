@@ -12,7 +12,6 @@ import {
   PulseIcon,
   SettingsIcon,
   StorageIcon,
-  DocsIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { useEnvironment } from "../context/EnvironmentContext";
@@ -22,7 +21,6 @@ type NavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
-  externalHref?: string;
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
   requiresEnvironment?: boolean;
 };
@@ -78,11 +76,6 @@ const configItems: NavItem[] = [
     icon: <SettingsIcon />,
     name: "Settings",
     path: "/settings",
-  },
-  {
-    icon: <DocsIcon />,
-    name: "Documentation",
-    externalHref: "https://readystackgo.pages.dev/",
   },
 ];
 
@@ -208,20 +201,6 @@ const AppSidebar: React.FC = () => {
                 </div>
               )}
             </button>
-          ) : nav.externalHref ? (
-            <a
-              href={nav.externalHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="menu-item group menu-item-inactive"
-            >
-              <span className="menu-item-icon-size menu-item-icon-inactive">
-                {nav.icon}
-              </span>
-              {(isExpanded || isHovered || isMobileOpen) && (
-                <span className="menu-item-text">{nav.name}</span>
-              )}
-            </a>
           ) : (
             nav.path && (
               <Link
