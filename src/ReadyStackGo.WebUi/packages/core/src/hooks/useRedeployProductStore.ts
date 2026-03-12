@@ -6,7 +6,7 @@ import {
   type DeployProductStackResult,
 } from '../api/deployments';
 import { useDeploymentHub } from '../realtime/useDeploymentHub';
-import type { DeploymentProgressUpdate } from '../realtime/useDeploymentHub';
+import type { DeploymentProgressUpdate, InitContainerLogEntry, ConnectionState } from '../realtime/useDeploymentHub';
 
 export type RedeployProductState = 'loading' | 'confirm' | 'redeploying' | 'success' | 'error';
 export type StackRedeployStatus = 'pending' | 'removing' | 'deploying' | 'running' | 'failed';
@@ -18,7 +18,11 @@ export interface UseRedeployProductStoreReturn {
   stackResults: DeployProductStackResult[];
   stackStatuses: Record<string, StackRedeployStatus>;
   progressUpdate: DeploymentProgressUpdate | null;
-  connectionState: string;
+  perStackProgress: Record<string, DeploymentProgressUpdate | null>;
+  perStackLogs: Record<string, Record<string, string[]>>;
+  selectedStack: string | null;
+  connectionState: ConnectionState;
+  handleStackSelect: (stackName: string) => void;
   handleRedeploy: () => Promise<void>;
 }
 
@@ -34,27 +38,41 @@ export function useRedeployProductStore(
   const [stackStatuses, setStackStatuses] = useState<Record<string, StackRedeployStatus>>({});
   const redeploySessionIdRef = useRef<string | null>(null);
   const [progressUpdate, setProgressUpdate] = useState<DeploymentProgressUpdate | null>(null);
+  const [perStackProgress, setPerStackProgress] = useState<Record<string, DeploymentProgressUpdate | null>>({});
+  const [perStackLogs, setPerStackLogs] = useState<Record<string, Record<string, string[]>>>({});
+  const [selectedStack, setSelectedStack] = useState<string | null>(null);
+  const currentDeployingStackRef = useRef<string | null>(null);
+  const userSelectedStackRef = useRef(false);
   const completedRef = useRef(false);
 
   const handleRedeployProgress = useCallback((update: DeploymentProgressUpdate) => {
     const currentSessionId = redeploySessionIdRef.current;
     if (!currentSessionId || update.sessionId !== currentSessionId) return;
 
-    // Only show product-level progress messages, not inner stack deployment details
-    if (update.phase === 'ProductDeploy' || update.isComplete) {
-      setProgressUpdate(update);
-    }
+    setProgressUpdate(update);
 
-    if (update.phase === 'ProductDeploy' && update.currentService) {
-      const stackName = update.currentService;
-      if (update.message?.startsWith('Removing stack')) {
-        setStackStatuses(prev => ({ ...prev, [stackName]: 'removing' }));
-      } else if (update.message?.startsWith('Redeploying stack')) {
-        setStackStatuses(prev => ({ ...prev, [stackName]: 'deploying' }));
-      } else if (update.message?.includes('redeployed successfully')) {
-        setStackStatuses(prev => ({ ...prev, [stackName]: 'running' }));
-      } else if (update.message?.includes('redeploy failed')) {
-        setStackStatuses(prev => ({ ...prev, [stackName]: 'failed' }));
+    if (update.phase === 'ProductDeploy') {
+      if (update.currentService) {
+        const stackName = update.currentService;
+        if (update.message?.startsWith('Removing stack')) {
+          setStackStatuses(prev => ({ ...prev, [stackName]: 'removing' }));
+        } else if (update.message?.startsWith('Redeploying stack')) {
+          currentDeployingStackRef.current = stackName;
+          setStackStatuses(prev => ({ ...prev, [stackName]: 'deploying' }));
+          if (!userSelectedStackRef.current) {
+            setSelectedStack(stackName);
+          }
+        } else if (update.message?.includes('redeployed successfully')) {
+          setStackStatuses(prev => ({ ...prev, [stackName]: 'running' }));
+        } else if (update.message?.includes('redeploy failed')) {
+          setStackStatuses(prev => ({ ...prev, [stackName]: 'failed' }));
+        }
+      }
+    } else {
+      // Route inner stack deployment events to the currently deploying stack
+      const deployingStack = currentDeployingStackRef.current;
+      if (deployingStack) {
+        setPerStackProgress(prev => ({ ...prev, [deployingStack]: update }));
       }
     }
 
@@ -69,8 +87,25 @@ export function useRedeployProductStore(
     }
   }, []);
 
+  const handleInitContainerLog = useCallback((log: InitContainerLogEntry) => {
+    const currentSessionId = redeploySessionIdRef.current;
+    if (currentSessionId && log.sessionId === currentSessionId) {
+      const deployingStack = currentDeployingStackRef.current;
+      if (deployingStack) {
+        setPerStackLogs(prev => ({
+          ...prev,
+          [deployingStack]: {
+            ...prev[deployingStack],
+            [log.containerName]: [...(prev[deployingStack]?.[log.containerName] || []), log.logLine],
+          },
+        }));
+      }
+    }
+  }, []);
+
   const { subscribeToDeployment, connectionState } = useDeploymentHub(token, {
     onDeploymentProgress: handleRedeployProgress,
+    onInitContainerLog: handleInitContainerLog,
   });
 
   useEffect(() => {
@@ -110,6 +145,11 @@ export function useRedeployProductStore(
     loadDeployment();
   }, [environmentId, productDeploymentId]);
 
+  const handleStackSelect = useCallback((stackName: string) => {
+    setSelectedStack(stackName);
+    userSelectedStackRef.current = true;
+  }, []);
+
   const handleRedeploy = useCallback(async () => {
     if (!environmentId || !deployment) {
       setError('No deployment to redeploy');
@@ -119,10 +159,15 @@ export function useRedeployProductStore(
     const sessionId = `product-redeploy-${deployment.productName}-${Date.now()}`;
     redeploySessionIdRef.current = sessionId;
     completedRef.current = false;
+    currentDeployingStackRef.current = null;
+    userSelectedStackRef.current = false;
 
     setState('redeploying');
     setError('');
     setProgressUpdate(null);
+    setPerStackProgress({});
+    setPerStackLogs({});
+    setSelectedStack(null);
 
     if (connectionState === 'connected') {
       await subscribeToDeployment(sessionId);
@@ -170,7 +215,11 @@ export function useRedeployProductStore(
     stackResults,
     stackStatuses,
     progressUpdate,
+    perStackProgress,
+    perStackLogs,
+    selectedStack,
     connectionState,
+    handleStackSelect,
     handleRedeploy,
   };
 }

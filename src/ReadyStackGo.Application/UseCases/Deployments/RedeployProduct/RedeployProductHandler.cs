@@ -160,7 +160,7 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
                     stackDeploymentName,
                     mergedVariables,
                     sessionId,
-                    SuppressNotification: true), cancellationToken);
+                    SuppressNotification: false), cancellationToken);
             }
             catch (Exception ex)
             {
