@@ -65,6 +65,8 @@ export const translations = {
 		'features.selfupdate.desc': 'Per Knopfdruck aktualisieren — RSGO tauscht seinen eigenen Container automatisch aus.',
 		'features.productdeploy.title': 'Product Deployment',
 		'features.productdeploy.desc': 'Deploye ganze Produkte mit allen Stacks in einem Vorgang — mit Shared Variables und koordiniertem Lifecycle.',
+		'features.redeploy.title': 'Rich Deployment Progress',
+		'features.redeploy.desc': 'Echtzeit-Einblick in jeden Deployment-Schritt — pro Stack, Service und Init-Container.',
 
 		// Feature Pages
 		'featurepage.multistack.subtitle': 'Definiere komplexe Anwendungen mit mehreren Docker Stacks und gemeinsamen Variablen in einem einzigen Manifest.',
@@ -158,6 +160,8 @@ export const translations = {
 		'features.selfupdate.desc': 'Update with one click — RSGO automatically swaps its own container.',
 		'features.productdeploy.title': 'Product Deployment',
 		'features.productdeploy.desc': 'Deploy entire products with all stacks in one operation — with shared variables and coordinated lifecycle.',
+		'features.redeploy.title': 'Rich Deployment Progress',
+		'features.redeploy.desc': 'Real-time insight into every deployment step — per stack, service and init container.',
 
 		// Feature Pages
 		'featurepage.multistack.subtitle': 'Define complex applications with multiple Docker Stacks and shared variables in a single manifest.',
