@@ -14,6 +14,7 @@ namespace ReadyStackGo.UnitTests.UseCases.Containers;
 public class ListContainersHandlerTests
 {
     private readonly Mock<IDockerService> _dockerServiceMock;
+    private readonly Mock<IDeploymentRepository> _deploymentRepoMock;
     private readonly Mock<IHealthSnapshotRepository> _healthSnapshotRepoMock;
     private readonly Mock<ILogger<ListContainersHandler>> _loggerMock;
     private readonly ListContainersHandler _handler;
@@ -23,11 +24,13 @@ public class ListContainersHandlerTests
     public ListContainersHandlerTests()
     {
         _dockerServiceMock = new Mock<IDockerService>();
+        _deploymentRepoMock = new Mock<IDeploymentRepository>();
         _healthSnapshotRepoMock = new Mock<IHealthSnapshotRepository>();
         _loggerMock = new Mock<ILogger<ListContainersHandler>>();
 
         _handler = new ListContainersHandler(
             _dockerServiceMock.Object,
+            _deploymentRepoMock.Object,
             _healthSnapshotRepoMock.Object,
             _loggerMock.Object);
     }
@@ -46,6 +49,35 @@ public class ListContainersHandlerTests
         };
     }
 
+    private static (HealthSnapshot Snapshot, Deployment Deployment) CreateSnapshotWithDeployment(
+        EnvironmentId envId,
+        string stackName,
+        DeploymentStatus deploymentStatus,
+        params ServiceHealth[] services)
+    {
+        var deploymentId = DeploymentId.NewId();
+        var deployment = Deployment.StartInstallation(
+            deploymentId, envId, "stack-1", stackName, stackName,
+            new UserId());
+        if (deploymentStatus == DeploymentStatus.Running)
+            deployment.MarkAsRunning();
+        else if (deploymentStatus == DeploymentStatus.Removed)
+        {
+            deployment.MarkAsRunning();
+            deployment.MarkAsRemoved();
+        }
+
+        var snapshot = HealthSnapshot.Capture(
+            OrganizationId.NewId(),
+            envId,
+            deploymentId,
+            stackName,
+            OperationMode.Normal,
+            self: SelfHealth.Create(services));
+
+        return (snapshot, deployment);
+    }
+
     private static HealthSnapshot CreateSnapshot(
         EnvironmentId envId,
         string stackName,
@@ -58,6 +90,13 @@ public class ListContainersHandlerTests
             stackName,
             OperationMode.Normal,
             self: SelfHealth.Create(services));
+    }
+
+    private void SetupDeployments(params Deployment[] deployments)
+    {
+        _deploymentRepoMock
+            .Setup(r => r.GetByEnvironment(_envId))
+            .Returns(deployments);
     }
 
     [Fact]
@@ -74,9 +113,11 @@ public class ListContainersHandlerTests
             .Setup(d => d.ListContainersAsync(_envId.Value.ToString(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(containers);
 
-        var snapshot = CreateSnapshot(_envId, "Memo",
+        var (snapshot, deployment) = CreateSnapshotWithDeployment(_envId, "Memo", DeploymentStatus.Running,
             ServiceHealth.Create("memo-api", HealthStatus.Healthy, containerName: "memo-api"),
             ServiceHealth.Create("memo-web", HealthStatus.Healthy, containerName: "memo-web"));
+
+        SetupDeployments(deployment);
 
         _healthSnapshotRepoMock
             .Setup(r => r.GetLatestForEnvironment(_envId))
@@ -93,21 +134,91 @@ public class ListContainersHandlerTests
     }
 
     [Fact]
-    public async Task Handle_MultipleSnapshots_LastWriteWins()
+    public async Task Handle_RemovedDeploymentSnapshots_AreFilteredOut()
     {
-        // Stale deployments are removed during product upgrade (UpgradeProductHandler),
-        // so under normal operation only one active deployment monitors each container.
-        // When multiple snapshots exist, the last one in the iteration wins.
+        // Arrange - stale snapshot from removed deployment shows unhealthy,
+        // but active deployment shows healthy. Container list must use active only.
+        var containers = new[] { CreateContainer("memo-api", healthStatus: "unhealthy") };
+
+        _dockerServiceMock
+            .Setup(d => d.ListContainersAsync(_envId.Value.ToString(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(containers);
+
+        var (staleSnapshot, removedDeployment) = CreateSnapshotWithDeployment(
+            _envId, "Memo-Old", DeploymentStatus.Removed,
+            ServiceHealth.Create("memo-api", HealthStatus.Unhealthy, containerName: "memo-api"));
+
+        var (activeSnapshot, activeDeployment) = CreateSnapshotWithDeployment(
+            _envId, "Memo", DeploymentStatus.Running,
+            ServiceHealth.Create("memo-api", HealthStatus.Healthy, containerName: "memo-api"));
+
+        SetupDeployments(removedDeployment, activeDeployment);
+
+        _healthSnapshotRepoMock
+            .Setup(r => r.GetLatestForEnvironment(_envId))
+            .Returns(new[] { staleSnapshot, activeSnapshot });
+
+        // Act
+        var result = await _handler.Handle(
+            new ListContainersQuery(_envId.Value.ToString()), CancellationToken.None);
+
+        // Assert - active snapshot wins, stale removed snapshot is filtered out
+        result.Containers.Single().HealthStatus.Should().Be("healthy",
+            "stale snapshots from removed deployments must not affect container health status");
+    }
+
+    [Fact]
+    public async Task Handle_StaleSnapshotLastInCollection_StillFiltered()
+    {
+        // Arrange - stale unhealthy snapshot comes AFTER active healthy snapshot in collection.
+        // Without filtering, last-write-wins would show unhealthy.
+        var containers = new[] { CreateContainer("memo-api") };
+
+        _dockerServiceMock
+            .Setup(d => d.ListContainersAsync(_envId.Value.ToString(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(containers);
+
+        var (activeSnapshot, activeDeployment) = CreateSnapshotWithDeployment(
+            _envId, "Memo", DeploymentStatus.Running,
+            ServiceHealth.Create("memo-api", HealthStatus.Healthy, containerName: "memo-api"));
+
+        var (staleSnapshot, removedDeployment) = CreateSnapshotWithDeployment(
+            _envId, "Memo-Old", DeploymentStatus.Removed,
+            ServiceHealth.Create("memo-api", HealthStatus.Unhealthy, containerName: "memo-api"));
+
+        SetupDeployments(activeDeployment, removedDeployment);
+
+        // Stale snapshot comes LAST — would overwrite healthy with unhealthy without filtering
+        _healthSnapshotRepoMock
+            .Setup(r => r.GetLatestForEnvironment(_envId))
+            .Returns(new[] { activeSnapshot, staleSnapshot });
+
+        // Act
+        var result = await _handler.Handle(
+            new ListContainersQuery(_envId.Value.ToString()), CancellationToken.None);
+
+        // Assert
+        result.Containers.Single().HealthStatus.Should().Be("healthy",
+            "removed deployment snapshots must be filtered before building lookup");
+    }
+
+    [Fact]
+    public async Task Handle_MultipleActiveSnapshots_LastWriteWins()
+    {
         var containers = new[] { CreateContainer("memo-web") };
 
         _dockerServiceMock
             .Setup(d => d.ListContainersAsync(_envId.Value.ToString(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(containers);
 
-        var firstSnapshot = CreateSnapshot(_envId, "Memo",
+        var (firstSnapshot, firstDeployment) = CreateSnapshotWithDeployment(
+            _envId, "Memo-1", DeploymentStatus.Running,
             ServiceHealth.Create("memo-web", HealthStatus.Unhealthy, containerName: "memo-web"));
-        var secondSnapshot = CreateSnapshot(_envId, "Memo",
+        var (secondSnapshot, secondDeployment) = CreateSnapshotWithDeployment(
+            _envId, "Memo-2", DeploymentStatus.Running,
             ServiceHealth.Create("memo-web", HealthStatus.Healthy, containerName: "memo-web"));
+
+        SetupDeployments(firstDeployment, secondDeployment);
 
         _healthSnapshotRepoMock
             .Setup(r => r.GetLatestForEnvironment(_envId))
@@ -117,7 +228,7 @@ public class ListContainersHandlerTests
             new ListContainersQuery(_envId.Value.ToString()), CancellationToken.None);
 
         result.Containers.Single().HealthStatus.Should().Be("healthy",
-            "last snapshot in the collection wins");
+            "last active snapshot in the collection wins");
     }
 
     [Fact]
@@ -129,6 +240,8 @@ public class ListContainersHandlerTests
         _dockerServiceMock
             .Setup(d => d.ListContainersAsync(_envId.Value.ToString(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(containers);
+
+        SetupDeployments();
 
         _healthSnapshotRepoMock
             .Setup(r => r.GetLatestForEnvironment(_envId))
@@ -159,8 +272,10 @@ public class ListContainersHandlerTests
             .ReturnsAsync(containers);
 
         // Only memo-api is in a snapshot
-        var snapshot = CreateSnapshot(_envId, "Memo",
+        var (snapshot, deployment) = CreateSnapshotWithDeployment(_envId, "Memo", DeploymentStatus.Running,
             ServiceHealth.Create("memo-api", HealthStatus.Healthy, containerName: "memo-api"));
+
+        SetupDeployments(deployment);
 
         _healthSnapshotRepoMock
             .Setup(r => r.GetLatestForEnvironment(_envId))
@@ -233,8 +348,10 @@ public class ListContainersHandlerTests
             .Setup(d => d.ListContainersAsync(_envId.Value.ToString(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(containers);
 
-        var snapshot = CreateSnapshot(_envId, "Memo",
+        var (snapshot, deployment) = CreateSnapshotWithDeployment(_envId, "Memo", DeploymentStatus.Running,
             ServiceHealth.Create("memo-api", HealthStatus.Healthy, containerName: "memo-api"));
+
+        SetupDeployments(deployment);
 
         _healthSnapshotRepoMock
             .Setup(r => r.GetLatestForEnvironment(_envId))
@@ -254,17 +371,21 @@ public class ListContainersHandlerTests
     [Fact]
     public async Task Handle_BothDeploymentsUnhealthy_ShowsUnhealthy()
     {
-        // Arrange - Both stale and current deployments report unhealthy
+        // Arrange - Both active deployments report unhealthy
         var containers = new[] { CreateContainer("broken-api") };
 
         _dockerServiceMock
             .Setup(d => d.ListContainersAsync(_envId.Value.ToString(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(containers);
 
-        var snapshot1 = CreateSnapshot(_envId, "OldStack",
+        var (snapshot1, deployment1) = CreateSnapshotWithDeployment(
+            _envId, "OldStack", DeploymentStatus.Running,
             ServiceHealth.Create("broken-api", HealthStatus.Unhealthy, containerName: "broken-api"));
-        var snapshot2 = CreateSnapshot(_envId, "NewStack",
+        var (snapshot2, deployment2) = CreateSnapshotWithDeployment(
+            _envId, "NewStack", DeploymentStatus.Running,
             ServiceHealth.Create("broken-api", HealthStatus.Unhealthy, containerName: "broken-api"));
+
+        SetupDeployments(deployment1, deployment2);
 
         _healthSnapshotRepoMock
             .Setup(r => r.GetLatestForEnvironment(_envId))
