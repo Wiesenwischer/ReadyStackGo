@@ -18,3 +18,4 @@ Hier finden Sie detaillierte Anleitungen zur Nutzung von ReadyStackGo.
 - [Volume Management](/de/docs/volume-management/) - Docker Volumes verwalten und verwaiste Volumes bereinigen
 - [Container Management](/de/docs/container-management/) - Alle Docker-Container überwachen, steuern und Logs einsehen
 - [Produkt entfernen](/de/docs/product-remove/) - Product Deployment mit allen Stacks und Containern vollständig entfernen
+- [Container stoppen & neustarten](/de/docs/container-control/) - Container eines Produkts stoppen, neustarten oder wiederherstellen
