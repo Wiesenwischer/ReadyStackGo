@@ -6,7 +6,7 @@ import {
   type DeployProductStackResult,
 } from '../api/deployments';
 import { useDeploymentHub } from '../realtime/useDeploymentHub';
-import type { DeploymentProgressUpdate } from '../realtime/useDeploymentHub';
+import type { DeploymentProgressUpdate, InitContainerLogEntry } from '../realtime/useDeploymentHub';
 
 export type RedeployProductState = 'loading' | 'confirm' | 'redeploying' | 'success' | 'error';
 export type StackRedeployStatus = 'pending' | 'removing' | 'deploying' | 'running' | 'failed';
@@ -18,6 +18,7 @@ export interface UseRedeployProductStoreReturn {
   stackResults: DeployProductStackResult[];
   stackStatuses: Record<string, StackRedeployStatus>;
   progressUpdate: DeploymentProgressUpdate | null;
+  initContainerLogs: Record<string, string[]>;
   connectionState: string;
   handleRedeploy: () => Promise<void>;
 }
@@ -34,16 +35,14 @@ export function useRedeployProductStore(
   const [stackStatuses, setStackStatuses] = useState<Record<string, StackRedeployStatus>>({});
   const redeploySessionIdRef = useRef<string | null>(null);
   const [progressUpdate, setProgressUpdate] = useState<DeploymentProgressUpdate | null>(null);
+  const [initContainerLogs, setInitContainerLogs] = useState<Record<string, string[]>>({});
   const completedRef = useRef(false);
 
   const handleRedeployProgress = useCallback((update: DeploymentProgressUpdate) => {
     const currentSessionId = redeploySessionIdRef.current;
     if (!currentSessionId || update.sessionId !== currentSessionId) return;
 
-    // Only show product-level progress messages, not inner stack deployment details
-    if (update.phase === 'ProductDeploy' || update.isComplete) {
-      setProgressUpdate(update);
-    }
+    setProgressUpdate(update);
 
     if (update.phase === 'ProductDeploy' && update.currentService) {
       const stackName = update.currentService;
@@ -69,8 +68,19 @@ export function useRedeployProductStore(
     }
   }, []);
 
+  const handleInitContainerLog = useCallback((log: InitContainerLogEntry) => {
+    const currentSessionId = redeploySessionIdRef.current;
+    if (currentSessionId && log.sessionId === currentSessionId) {
+      setInitContainerLogs(prev => ({
+        ...prev,
+        [log.containerName]: [...(prev[log.containerName] || []), log.logLine],
+      }));
+    }
+  }, []);
+
   const { subscribeToDeployment, connectionState } = useDeploymentHub(token, {
     onDeploymentProgress: handleRedeployProgress,
+    onInitContainerLog: handleInitContainerLog,
   });
 
   useEffect(() => {
@@ -123,6 +133,7 @@ export function useRedeployProductStore(
     setState('redeploying');
     setError('');
     setProgressUpdate(null);
+    setInitContainerLogs({});
 
     if (connectionState === 'connected') {
       await subscribeToDeployment(sessionId);
@@ -170,6 +181,7 @@ export function useRedeployProductStore(
     stackResults,
     stackStatuses,
     progressUpdate,
+    initContainerLogs,
     connectionState,
     handleRedeploy,
   };

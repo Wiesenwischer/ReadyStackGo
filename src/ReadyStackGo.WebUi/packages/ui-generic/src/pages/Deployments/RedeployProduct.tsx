@@ -5,6 +5,7 @@ import {
 } from '@rsgo/core';
 import { useAuth } from '../../context/AuthContext';
 import { useEnvironment } from '../../context/EnvironmentContext';
+import { DeploymentProgressPanel } from '../../components/deployments/DeploymentProgressPanel';
 
 export default function RedeployProduct() {
   const { productDeploymentId } = useParams<{ productDeploymentId: string }>();
@@ -120,11 +121,6 @@ export default function RedeployProduct() {
 
   // --- Redeploying state ---
   if (store.state === 'redeploying') {
-    const totalStacks = store.deployment?.totalStacks ?? 0;
-    const completedRedeployStacks = Object.values(store.stackStatuses).filter(s => s === 'running').length;
-    const failedRedeployStacks = Object.values(store.stackStatuses).filter(s => s === 'failed').length;
-    const processedStacks = completedRedeployStacks + failedRedeployStacks;
-
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
         <div className="rounded-2xl border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -138,22 +134,14 @@ export default function RedeployProduct() {
             </p>
 
             <div className="w-full max-w-lg">
-              {/* Overall Progress */}
+              {/* Deployment Progress Panel (phases, services, init container logs) */}
               <div className="mb-6">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600 dark:text-gray-400">
-                    {store.progressUpdate?.message || 'Initializing redeploy...'}
-                  </span>
-                  <span className="text-gray-600 dark:text-gray-400">
-                    {processedStacks}/{totalStacks} stacks
-                  </span>
-                </div>
-                <div className="h-3 bg-gray-200 rounded-full dark:bg-gray-700 overflow-hidden">
-                  <div
-                    className="h-full bg-blue-500 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${totalStacks > 0 ? (processedStacks / totalStacks) * 100 : 0}%` }}
-                  />
-                </div>
+                <DeploymentProgressPanel
+                  progressUpdate={store.progressUpdate}
+                  initContainerLogs={store.initContainerLogs}
+                  connectionState={store.connectionState}
+                  defaultMessage="Initializing redeploy..."
+                />
               </div>
 
               {/* Per-Stack Status List */}
@@ -172,7 +160,6 @@ export default function RedeployProduct() {
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          {/* Status Icon */}
                           {status === 'pending' && (
                             <div className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600" />
                           )}
@@ -208,20 +195,6 @@ export default function RedeployProduct() {
                       </div>
                     );
                   })}
-              </div>
-
-              {/* Connection Status */}
-              <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                <span className={`w-2 h-2 rounded-full ${
-                  store.connectionState === 'connected' ? 'bg-green-500' :
-                  store.connectionState === 'connecting' ? 'bg-yellow-500' :
-                  store.connectionState === 'reconnecting' ? 'bg-yellow-500' :
-                  'bg-red-500'
-                }`} />
-                {store.connectionState === 'connected' ? 'Live updates' :
-                 store.connectionState === 'connecting' ? 'Connecting...' :
-                 store.connectionState === 'reconnecting' ? 'Reconnecting...' :
-                 'Updates unavailable'}
               </div>
             </div>
           </div>
