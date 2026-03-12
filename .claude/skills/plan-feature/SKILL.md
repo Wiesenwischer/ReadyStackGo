@@ -113,14 +113,18 @@ Erstelle eine Specification unter `docs/Plans/PLAN-<feature-name>.md`.
 > - **AMS UI**: ConsistentUI/Lit web components (separate repo `ReadyStackGo.Ams`)
 >
 > Shared logic lives in `@rsgo/core` (hooks, API calls, state). Pages/layouts must be reimplemented per distribution.
+>
+> **Versioning**: AMS distribution is a complete RSGO build and follows the same version numbers. RSGO v0.XX → AMS Distribution v0.XX. Features in rsgo-generic v0.XX should ideally land in AMS v0.XX too; if deliberately deferred, mark it explicitly.
 
 **Benötigt AMS UI eine Entsprechung?**
 
-- [ ] **Ja** — neue Seite / Komponente muss in ConsistentUI reimplementiert werden
+- [ ] **Ja (same version)** — neue Seite / Komponente wird in ConsistentUI in AMS v0.XX implementiert
   - AMS UI Seite: `src/pages/<FeatureName>/<FeatureName>.ts` (Lit web component)
   - Betroffene Dateien (AMS Repo): ...
   - Abhängig von: rsgo-generic Implementierung (zur Orientierung)
-  - Zeitpunkt: <Gleichzeitig / Nach rsgo-generic / Separater Epic>
+- [ ] **Ja (deferred)** — AMS-Implementierung wird auf spätere Version verschoben
+  - Begründung: <Warum wird es verschoben?>
+  - Geplant für: AMS v0.XX
 - [ ] **Nein** — nur `@rsgo/core` betroffen (Logik/Hooks, kein UI) → keine AMS-Arbeit nötig
 - [ ] **Teilweise** — bestehende AMS-Seite muss erweitert werden (kein Neubau)
 
@@ -196,6 +200,6 @@ git commit -m "Plan v0.XX <Versions-Titel>"
 - [ ] Technische Analyse durchgeführt
 - [ ] Roadmap aktualisiert (neue oder bestehende Version)
 - [ ] Planungsdatei erstellt (`docs/Plans/PLAN-*.md`)
-- [ ] **AMS UI Counterpart entschieden** (Ja / Nein / Teilweise — mit Begründung im Plan)
+- [ ] **AMS UI Counterpart entschieden** (same version / deferred / Nein / Teilweise — mit Begründung und Zielversion im Plan)
 - [ ] Offene Punkte dokumentiert
 - [ ] Änderungen committed
