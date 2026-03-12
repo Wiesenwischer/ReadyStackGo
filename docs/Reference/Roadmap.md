@@ -292,6 +292,9 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Custom Distributions documentation and landing page highlight
   - DevStatus banner updated to "v1.0 Release in Vorbereitung / Coming Soon"
   - AMS distribution planning: skills, plan files, independent versioning concept
+- **v0.40** – Maintenance & Cleanup (2026-03-12)
+  - Delete obsolete spec files superseded by completed PLAN files
+  - Add spec cleanup step to plan-feature skill
 
 ---
 
