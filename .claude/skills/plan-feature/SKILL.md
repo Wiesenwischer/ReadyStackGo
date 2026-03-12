@@ -119,6 +119,8 @@ Erstelle eine Specification unter `docs/Plans/PLAN-<feature-name>.md`.
 > - `AMS v0.35.1` = AMS-only addition/fix, still on RSGO v0.35 core
 > - `AMS v0.36.0` = next AMS release based on RSGO v0.36
 >
+> **Note**: RSGO does not use patch releases pre-v1.0 — every fix becomes the next Minor version (v0.35 → v0.36). This keeps the `.P` slot unambiguous for AMS-only changes.
+>
 > Features in rsgo-generic v0.XX should ideally land in AMS v0.XX.0; if deliberately deferred, mark it explicitly with target AMS version.
 
 **Benötigt AMS UI eine Entsprechung?**
