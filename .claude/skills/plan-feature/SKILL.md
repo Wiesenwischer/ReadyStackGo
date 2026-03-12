@@ -183,10 +183,21 @@ Zeige dem User eine Zusammenfassung:
 - docs/Plans/PLAN-<name>.md (Planungsdatei erstellt)
 ```
 
-## Schritt 6: Committen
+## Schritt 6: Spec-Datei aufräumen
+
+Falls das Feature auf einer bestehenden Spec-Datei in `docs/specs/` basiert:
+
+```bash
+git rm docs/specs/<ordner>/<datei>.md
+```
+
+Der PLAN enthält alle relevanten Implementierungsdetails — die Spec ist danach redundant und kann gelöscht werden. Specs ohne zugehörigen PLAN (z.B. noch nicht geplante Features) bleiben erhalten.
+
+## Schritt 7: Committen
 
 ```bash
 git add docs/Reference/Roadmap.md docs/Plans/PLAN-<name>.md
+git rm docs/specs/...  # falls Spec gelöscht
 git commit -m "Plan v0.XX <Versions-Titel>"
 ```
 
@@ -205,4 +216,5 @@ git commit -m "Plan v0.XX <Versions-Titel>"
 - [ ] Planungsdatei erstellt (`docs/Plans/PLAN-*.md`)
 - [ ] **AMS UI Counterpart entschieden** — bei Ja: AMS PLAN file in `C:\proj\ReadyStackGo.Ams\docs\Plans\` erstellt
 - [ ] Offene Punkte dokumentiert
+- [ ] Zugehörige Spec-Datei in `docs/specs/` gelöscht (falls vorhanden)
 - [ ] Änderungen committed
