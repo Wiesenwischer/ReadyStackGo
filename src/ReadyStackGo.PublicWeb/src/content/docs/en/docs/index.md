@@ -18,3 +18,4 @@ Here you'll find detailed guides for using ReadyStackGo.
 - [Volume Management](/en/docs/volume-management/) - Manage Docker Volumes and clean up orphaned volumes
 - [Container Management](/en/docs/container-management/) - Monitor, control, and view logs for all Docker containers
 - [Remove Product](/en/docs/product-remove/) - Completely remove a product deployment with all stacks and containers
+- [Stop & Restart Containers](/en/docs/container-control/) - Stop, restart, or restore containers of a product deployment

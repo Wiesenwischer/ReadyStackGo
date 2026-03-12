@@ -67,6 +67,8 @@ export const translations = {
 		'features.productdeploy.desc': 'Deploye ganze Produkte mit allen Stacks in einem Vorgang — mit Shared Variables und koordiniertem Lifecycle.',
 		'features.redeploy.title': 'Rich Deployment Progress',
 		'features.redeploy.desc': 'Echtzeit-Einblick in jeden Deployment-Schritt — pro Stack, Service und Init-Container.',
+		'features.containercontrol.title': 'Product Container Control',
+		'features.containercontrol.desc': 'Container eines Produkts gezielt stoppen und neu starten — ohne das Deployment zu entfernen.',
 
 		// Feature Pages
 		'featurepage.multistack.subtitle': 'Definiere komplexe Anwendungen mit mehreren Docker Stacks und gemeinsamen Variablen in einem einzigen Manifest.',
@@ -162,6 +164,8 @@ export const translations = {
 		'features.productdeploy.desc': 'Deploy entire products with all stacks in one operation — with shared variables and coordinated lifecycle.',
 		'features.redeploy.title': 'Rich Deployment Progress',
 		'features.redeploy.desc': 'Real-time insight into every deployment step — per stack, service and init container.',
+		'features.containercontrol.title': 'Product Container Control',
+		'features.containercontrol.desc': 'Stop and restart product containers on demand — without removing the deployment.',
 
 		// Feature Pages
 		'featurepage.multistack.subtitle': 'Define complex applications with multiple Docker Stacks and shared variables in a single manifest.',
