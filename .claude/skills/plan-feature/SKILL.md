@@ -104,7 +104,32 @@ Erstelle eine Specification unter `docs/Plans/PLAN-<feature-name>.md`.
 - **Application**: <Commands, Queries, Services>
 - **Infrastructure**: <Repositories, External Services>
 - **API**: <Endpoints>
-- **WebUI**: <Pages, Components>
+- **WebUI (rsgo-generic)**: <Pages, Components>
+
+## AMS UI Counterpart
+
+> RSGO has two UI distributions with different design systems:
+> - **rsgo-generic**: React + Tailwind CSS (reference implementation, `packages/ui-generic`)
+> - **AMS UI**: ConsistentUI/Lit web components (separate repo `ReadyStackGo.Ams`)
+>
+> Shared logic lives in `@rsgo/core` (hooks, API calls, state). Pages/layouts must be reimplemented per distribution.
+>
+> **Versioning**: AMS distribution has independent version numbers (e.g. v1.x.y). Each AMS release declares which RSGO core version it bundles in its release notes and `package.json`.
+>
+> **Sync-Mechanismus**: RSGO PLAN files sind die Source of Truth. Jedes Feature mit AMS-Counterpart bekommt ein entsprechendes PLAN file im AMS Repo (`C:\proj\ReadyStackGo.Ams\docs\Plans\`). Vor jedem AMS-Release: alle RSGO PLANs auf offene AMS-Counterpart-Checkboxen prüfen.
+
+**Benötigt AMS UI eine Entsprechung?**
+
+- [ ] **Ja** — AMS-Counterpart wird als eigenes PLAN file im AMS Repo angelegt
+  - RSGO PLAN referenziert: `docs/Plans/PLAN-<feature>.md` (dieses File)
+  - AMS PLAN: `C:\proj\ReadyStackGo.Ams\docs\Plans\PLAN-<feature>.md` (neu erstellen)
+  - AMS PLAN enthält: ConsistentUI-spezifische Implementierungsschritte + Verweis auf dieses RSGO-PLAN
+  - Zeitpunkt: <Gleichzeitig mit RSGO / Im nächsten AMS-Release>
+- [ ] **Ja (deferred)** — AMS-Counterpart wird später geplant
+  - Begründung: <Warum wird es verschoben?>
+  - Erinnerung: Diese Checkbox bleibt offen bis AMS PLAN erstellt wurde
+- [ ] **Nein** — nur `@rsgo/core` betroffen (Logik/Hooks, kein UI) → keine AMS-Arbeit nötig
+- [ ] **Teilweise** — bestehende AMS-Seite muss erweitert werden; AMS PLAN mit Delta-Schritten anlegen
 
 ## Features / Schritte
 
@@ -178,5 +203,6 @@ git commit -m "Plan v0.XX <Versions-Titel>"
 - [ ] Technische Analyse durchgeführt
 - [ ] Roadmap aktualisiert (neue oder bestehende Version)
 - [ ] Planungsdatei erstellt (`docs/Plans/PLAN-*.md`)
+- [ ] **AMS UI Counterpart entschieden** — bei Ja: AMS PLAN file in `C:\proj\ReadyStackGo.Ams\docs\Plans\` erstellt
 - [ ] Offene Punkte dokumentiert
 - [ ] Änderungen committed
