@@ -298,6 +298,8 @@ Release version numbers are assigned when an Epic ships, not during planning.
 - **v0.41** – PublicWeb Polish (2026-03-12)
   - DevStatus banner updated from early-dev warning to v1.0 coming soon (brand blue, checkmarks)
   - Remove AMS Distribution example from distributions documentation
+- **v0.42** – Bugfix: Redeploy Premature Completion (2026-03-12)
+  - Fix redeploy showing success after first stack due to SuppressNotification: false sending DeploymentCompleted per stack
 
 ---
 
