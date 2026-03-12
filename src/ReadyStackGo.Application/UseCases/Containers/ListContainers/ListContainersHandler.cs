@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using MediatR;
 using ReadyStackGo.Application.Services;
+using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
 
@@ -9,15 +10,18 @@ namespace ReadyStackGo.Application.UseCases.Containers.ListContainers;
 public class ListContainersHandler : IRequestHandler<ListContainersQuery, ListContainersResult>
 {
     private readonly IDockerService _dockerService;
+    private readonly IDeploymentRepository _deploymentRepository;
     private readonly IHealthSnapshotRepository _healthSnapshotRepository;
     private readonly ILogger<ListContainersHandler> _logger;
 
     public ListContainersHandler(
         IDockerService dockerService,
+        IDeploymentRepository deploymentRepository,
         IHealthSnapshotRepository healthSnapshotRepository,
         ILogger<ListContainersHandler> logger)
     {
         _dockerService = dockerService;
+        _deploymentRepository = deploymentRepository;
         _healthSnapshotRepository = healthSnapshotRepository;
         _logger = logger;
     }
@@ -48,8 +52,18 @@ public class ListContainersHandler : IRequestHandler<ListContainersQuery, ListCo
         IEnumerable<HealthSnapshot> snapshots;
         try
         {
-            snapshots = _healthSnapshotRepository.GetLatestForEnvironment(
-                EnvironmentId.FromGuid(envGuid));
+            var envId = EnvironmentId.FromGuid(envGuid);
+            snapshots = _healthSnapshotRepository.GetLatestForEnvironment(envId);
+
+            // Filter to active deployments only — same as Health Dashboard.
+            // Without this filter, stale snapshots from removed deployments can
+            // overwrite healthy status with outdated unhealthy values.
+            var activeDeploymentIds = _deploymentRepository
+                .GetByEnvironment(envId)
+                .Where(d => d.Status != DeploymentStatus.Removed)
+                .Select(d => d.Id)
+                .ToHashSet();
+            snapshots = snapshots.Where(s => activeDeploymentIds.Contains(s.DeploymentId));
         }
         catch (Exception ex)
         {
