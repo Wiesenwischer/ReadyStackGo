@@ -6,7 +6,7 @@ import {
   type RemoveProductStackResult,
 } from '../api/deployments';
 import { useDeploymentHub } from '../realtime/useDeploymentHub';
-import type { DeploymentProgressUpdate } from '../realtime/useDeploymentHub';
+import type { DeploymentProgressUpdate, ConnectionState } from '../realtime/useDeploymentHub';
 
 export type RemoveProductState = 'loading' | 'confirm' | 'removing' | 'success' | 'error';
 export type StackRemoveStatus = 'pending' | 'removing' | 'removed' | 'failed';
@@ -19,7 +19,7 @@ export interface UseRemoveProductStoreReturn {
   stackStatuses: Record<string, StackRemoveStatus>;
   progressUpdate: DeploymentProgressUpdate | null;
   selectedStack: string | null;
-  connectionState: string;
+  connectionState: ConnectionState;
   totalServices: number;
   handleStackSelect: (stackName: string) => void;
   handleRemove: () => Promise<void>;

@@ -6,7 +6,7 @@ import {
   type DeployProductStackResult,
 } from '../api/deployments';
 import { useDeploymentHub } from '../realtime/useDeploymentHub';
-import type { DeploymentProgressUpdate, InitContainerLogEntry } from '../realtime/useDeploymentHub';
+import type { DeploymentProgressUpdate, InitContainerLogEntry, ConnectionState } from '../realtime/useDeploymentHub';
 
 export type RedeployProductState = 'loading' | 'confirm' | 'redeploying' | 'success' | 'error';
 export type StackRedeployStatus = 'pending' | 'removing' | 'deploying' | 'running' | 'failed';
@@ -21,7 +21,7 @@ export interface UseRedeployProductStoreReturn {
   perStackProgress: Record<string, DeploymentProgressUpdate | null>;
   perStackLogs: Record<string, Record<string, string[]>>;
   selectedStack: string | null;
-  connectionState: string;
+  connectionState: ConnectionState;
   handleStackSelect: (stackName: string) => void;
   handleRedeploy: () => Promise<void>;
 }
