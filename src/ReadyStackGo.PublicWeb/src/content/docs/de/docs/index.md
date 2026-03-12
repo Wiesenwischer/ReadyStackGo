@@ -14,4 +14,5 @@ Hier finden Sie detaillierte Anleitungen zur Nutzung von ReadyStackGo.
 - [CI/CD Integration](/de/docs/ci-cd-integration/) - Automatisierte Deployments über API Keys und Webhooks
 - [Self-Update](/de/docs/self-update/) - ReadyStackGo per Knopfdruck aktualisieren
 - [Product Deployment](/de/docs/product-deployment/) - Ganze Produkte mit allen Stacks in einem Vorgang deployen
+- [Product Redeploy](/de/docs/product-redeploy/) - Produkte mit Echtzeit-Fortschrittsanzeige pro Stack neu deployen
 - [Volume Management](/de/docs/volume-management/) - Docker Volumes verwalten und verwaiste Volumes bereinigen
