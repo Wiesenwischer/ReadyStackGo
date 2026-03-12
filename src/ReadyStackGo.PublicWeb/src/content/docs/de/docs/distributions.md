@@ -64,17 +64,6 @@ Jede Distribution kann einen eigenen Setup Wizard definieren. Über `ISetupWizar
 
 ---
 
-## Beispiel: AMS Distribution
-
-Die **AMS Distribution** ist ein reales Beispiel für eine Custom Distribution:
-
-- Basiert auf RSGO Core (`@rsgo/core`)
-- Verwendet [ConsistentUI](https://github.com/consistentui/web-components) als Design-System (Lit Web Components)
-- Stellt eine vollständig gebrandete Oberfläche im AMS Corporate Design bereit
-- Wird als eigenständiges Docker-Image gebaut und deployed
-
----
-
 ## Distribution erstellen
 
 Eine neue Distribution basiert auf dem RSGO-Monorepo und implementiert folgende Interfaces:
