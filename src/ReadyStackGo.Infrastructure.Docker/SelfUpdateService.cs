@@ -19,6 +19,7 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
     private const string HelperImage = "wiesenwischer/rsgo-updater";
     private const string HelperImageTag = "latest";
     private const string UpdateContainerSuffix = "-update";
+    private const int PullStallTimeoutSeconds = 180; // cancel if no pull progress for 3 minutes
 
     private readonly IConfiguration _configuration;
     private readonly ILogger<SelfUpdateService> _logger;
@@ -93,14 +94,9 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
 
             var pullTracker = new PullProgressTracker();
             var authConfig = GetAuthConfig();
-            await _client.Images.CreateImageAsync(
-                new ImagesCreateParameters
-                {
-                    FromImage = imageName,
-                    Tag = targetVersion
-                },
-                authConfig,
-                new Progress<JSONMessage>(msg =>
+            await PullImageWithStallDetectionAsync(
+                imageName, targetVersion, authConfig,
+                msg =>
                 {
                     if (!string.IsNullOrEmpty(msg.Status))
                         _logger.LogDebug("Pull progress: {Status}", msg.Status);
@@ -108,7 +104,7 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
                     pullTracker.Update(msg);
                     var percent = pullTracker.GetPercent();
                     SetProgress(new UpdateProgress("pulling", $"Downloading v{targetVersion}...", percent));
-                }));
+                });
 
             _logger.LogInformation("Successfully pulled {Image}", newImageTag);
 
@@ -167,6 +163,15 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
             // Monitor the helper container — if it exits with error, we're still alive
             // and should reset state + notify the user
             _ = Task.Run(() => MonitorHelperContainerAsync(helperResponse.ID, helperContainerName));
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogError("Image pull stalled for more than {Timeout}s during self-update to {TargetVersion}",
+                PullStallTimeoutSeconds, targetVersion);
+            SetProgress(new UpdateProgress("error",
+                $"Download stalled (no progress for {PullStallTimeoutSeconds / 60} min). Please try again.",
+                null));
+            _updateInProgress = false;
         }
         catch (DockerApiException ex)
         {
@@ -237,6 +242,54 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
                     null));
                 _updateInProgress = false;
             }
+        }
+    }
+
+    /// <summary>
+    /// Pulls a Docker image and cancels if no progress is received for PullStallTimeoutSeconds.
+    /// Throws OperationCanceledException if the download stalls.
+    /// </summary>
+    private async Task PullImageWithStallDetectionAsync(
+        string imageName, string tag, AuthConfig? authConfig, Action<JSONMessage> onProgress)
+    {
+        using var cts = new CancellationTokenSource();
+        long lastProgressTicks = DateTime.UtcNow.Ticks;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (!cts.Token.IsCancellationRequested)
+                {
+                    await Task.Delay(15_000, cts.Token);
+                    var elapsed = DateTime.UtcNow - new DateTime(Volatile.Read(ref lastProgressTicks));
+                    if (elapsed.TotalSeconds > PullStallTimeoutSeconds)
+                    {
+                        _logger.LogWarning("Image pull stalled — no progress for {Elapsed:F0}s", elapsed.TotalSeconds);
+                        cts.Cancel();
+                        break;
+                    }
+                }
+            }
+            catch (OperationCanceledException) { }
+        });
+
+        try
+        {
+            await _client.Images.CreateImageAsync(
+                new ImagesCreateParameters { FromImage = imageName, Tag = tag },
+                authConfig,
+                new Progress<JSONMessage>(msg =>
+                {
+                    Volatile.Write(ref lastProgressTicks, DateTime.UtcNow.Ticks);
+                    onProgress(msg);
+                }),
+                cts.Token);
+        }
+        finally
+        {
+            // Stop the stall detector once pull is done (success or failure)
+            cts.Cancel();
         }
     }
 

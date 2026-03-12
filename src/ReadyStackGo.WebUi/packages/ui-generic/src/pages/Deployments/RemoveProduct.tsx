@@ -6,12 +6,6 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useEnvironment } from '../../context/EnvironmentContext';
 
-// Format phase names for display (RemovingContainers -> Removing Containers)
-const formatPhase = (phase: string | undefined): string => {
-  if (!phase) return '';
-  return phase.replace(/([A-Z])/g, ' $1').trim();
-};
-
 export default function RemoveProduct() {
   const { productDeploymentId } = useParams<{ productDeploymentId: string }>();
   const { token } = useAuth();
@@ -128,103 +122,175 @@ export default function RemoveProduct() {
     const totalStacks = store.deployment?.stacks.length ?? 0;
     const removedStacks = Object.values(store.stackStatuses).filter(s => s === 'removed').length;
     const failedStacks = Object.values(store.stackStatuses).filter(s => s === 'failed').length;
-    const processedStacks = removedStacks + failedStacks;
+    const overallPercent = totalStacks > 0
+      ? Math.round(((removedStacks + failedStacks) / totalStacks) * 100)
+      : store.progressUpdate?.percentComplete ?? 0;
+
+    const selectedStatus = store.selectedStack ? (store.stackStatuses[store.selectedStack] || 'pending') : null;
 
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-white/[0.03]">
-          <div className="flex flex-col items-center py-8">
-            <div className="w-16 h-16 mb-6 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Removing Product...
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Removing {store.deployment?.productDisplayName} from {activeEnvironment?.name}
-            </p>
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                Removing Product...
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {store.deployment?.productDisplayName} — {removedStacks}/{totalStacks} stacks removed
+              </p>
+            </div>
+          </div>
 
-            <div className="w-full max-w-lg">
-              <div className="mb-6">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600 dark:text-gray-400">
-                    {formatPhase(store.progressUpdate?.phase) || 'Initializing'}
-                  </span>
-                  <span className="text-gray-600 dark:text-gray-400">
-                    {processedStacks}/{totalStacks} stacks
-                  </span>
-                </div>
-                <div className="h-3 bg-gray-200 rounded-full dark:bg-gray-700 overflow-hidden">
-                  <div
-                    className="h-full bg-red-600 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${totalStacks > 0 ? (processedStacks / totalStacks) * 100 : 0}%` }}
-                  />
-                </div>
-              </div>
+          {/* Overall Progress Bar */}
+          <div className="mb-6">
+            <div className="h-2 bg-gray-200 rounded-full dark:bg-gray-700 overflow-hidden">
+              <div
+                className="h-full bg-red-600 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${overallPercent}%` }}
+              />
+            </div>
+          </div>
 
-              <div className="text-center mb-6">
-                <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                  {store.progressUpdate?.message || 'Starting removal...'}
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                {store.deployment?.stacks
-                  .slice()
-                  .sort((a, b) => b.order - a.order)
-                  .map((stack) => {
-                    const status = store.stackStatuses[stack.stackName] || 'pending';
-                    return (
-                      <div
-                        key={stack.stackName}
-                        className={`flex items-center justify-between px-4 py-3 border-b last:border-b-0 border-gray-200 dark:border-gray-700 ${
-                          status === 'removing' ? 'bg-red-50 dark:bg-red-900/10' : ''
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          {status === 'pending' && (
-                            <div className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600" />
-                          )}
-                          {status === 'removing' && (
-                            <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                          )}
-                          {status === 'removed' && (
-                            <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                          {status === 'failed' && (
-                            <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          )}
-                          <span className={`text-sm font-medium ${
-                            status === 'removing' ? 'text-red-700 dark:text-red-300' :
-                            status === 'removed' ? 'text-gray-500 dark:text-gray-400 line-through' :
-                            status === 'failed' ? 'text-red-600 dark:text-red-400' :
-                            'text-gray-900 dark:text-white'
-                          }`}>
-                            {stack.stackDisplayName}
-                          </span>
-                        </div>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {stack.serviceCount} service{stack.serviceCount !== 1 ? 's' : ''}
+          {/* Split View: Stack List (left) + Detail Panel (right) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* LEFT: Stack Overview */}
+            <div className="lg:col-span-1">
+              <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                Stacks
+              </h3>
+              <div className="space-y-1">
+                {store.deployment?.stacks.slice().sort((a, b) => b.order - a.order).map((stack) => {
+                  const status = store.stackStatuses[stack.stackName] || 'pending';
+                  const isSelected = store.selectedStack === stack.stackName;
+                  return (
+                    <button
+                      key={stack.stackName}
+                      onClick={() => store.handleStackSelect(stack.stackName)}
+                      className={`w-full flex items-center justify-between p-3 rounded-lg text-left transition-colors ${
+                        isSelected
+                          ? 'bg-red-50 border-l-4 border-l-red-600 dark:bg-red-900/20'
+                          : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {status === 'pending' && (
+                          <span className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600 flex-shrink-0" />
+                        )}
+                        {status === 'removing' && (
+                          <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                        )}
+                        {status === 'removed' && (
+                          <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                        {status === 'failed' && (
+                          <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        )}
+                        <span className={`text-sm ${
+                          status === 'removing' ? 'font-medium text-red-600 dark:text-red-400' :
+                          status === 'removed' ? 'text-gray-400 dark:text-gray-500 line-through' :
+                          status === 'failed' ? 'text-red-700 dark:text-red-400' :
+                          'text-gray-600 dark:text-gray-400'
+                        }`}>
+                          {stack.stackDisplayName}
                         </span>
                       </div>
-                    );
-                  })}
+                      <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
+                        status === 'pending' ? 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' :
+                        status === 'removing' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
+                        status === 'removed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                        'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                      }`}>
+                        {status === 'pending' ? 'Pending' :
+                         status === 'removing' ? 'Removing' :
+                         status === 'removed' ? 'Removed' : 'Failed'}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
+            </div>
 
-              <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                <span className={`w-2 h-2 rounded-full ${
-                  store.connectionState === 'connected' ? 'bg-green-500' :
-                  store.connectionState === 'connecting' ? 'bg-yellow-500' :
-                  store.connectionState === 'reconnecting' ? 'bg-yellow-500' :
-                  'bg-red-500'
-                }`} />
-                {store.connectionState === 'connected' ? 'Live updates' :
-                 store.connectionState === 'connecting' ? 'Connecting...' :
-                 store.connectionState === 'reconnecting' ? 'Reconnecting...' :
-                 'Updates unavailable'}
-              </div>
+            {/* RIGHT: Detail Panel */}
+            <div className="lg:col-span-2">
+              {!store.selectedStack && (
+                <div className="flex flex-col items-center justify-center h-full py-12 text-gray-400 dark:text-gray-500">
+                  <svg className="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  <p className="text-sm">Waiting for removal to start...</p>
+                </div>
+              )}
+
+              {store.selectedStack && selectedStatus === 'pending' && (
+                <div className="flex flex-col items-center justify-center h-full py-12 text-gray-400 dark:text-gray-500">
+                  <span className="w-12 h-12 rounded-full border-2 border-gray-300 dark:border-gray-600 mb-3" />
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{store.selectedStack}</p>
+                  <p className="text-sm">Waiting to remove...</p>
+                </div>
+              )}
+
+              {store.selectedStack && selectedStatus === 'removing' && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
+                    {store.selectedStack}
+                    <span className="ml-2 text-xs font-normal text-red-600 dark:text-red-400">Removing</span>
+                  </h3>
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-red-50 dark:bg-red-900/10">
+                    <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-red-700 dark:text-red-300">
+                        Stopping and removing containers...
+                      </p>
+                      {store.progressUpdate?.message && (
+                        <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                          {store.progressUpdate.message}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {store.selectedStack && selectedStatus === 'removed' && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
+                    {store.selectedStack}
+                    <span className="ml-2 text-xs font-normal text-green-600 dark:text-green-400">Removed</span>
+                  </h3>
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 dark:bg-green-900/10">
+                    <svg className="w-6 h-6 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      Stack removed successfully
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {store.selectedStack && selectedStatus === 'failed' && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
+                    {store.selectedStack}
+                    <span className="ml-2 text-xs font-normal text-red-600 dark:text-red-400">Failed</span>
+                  </h3>
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-red-50 dark:bg-red-900/10">
+                    <svg className="w-6 h-6 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <p className="text-sm text-red-700 dark:text-red-300">
+                      Stack removal failed
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

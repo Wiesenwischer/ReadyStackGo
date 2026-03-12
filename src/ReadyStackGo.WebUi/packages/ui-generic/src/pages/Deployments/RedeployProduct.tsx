@@ -5,6 +5,7 @@ import {
 } from '@rsgo/core';
 import { useAuth } from '../../context/AuthContext';
 import { useEnvironment } from '../../context/EnvironmentContext';
+import { DeploymentProgressPanel } from '../../components/deployments/DeploymentProgressPanel';
 
 export default function RedeployProduct() {
   const { productDeploymentId } = useParams<{ productDeploymentId: string }>();
@@ -77,7 +78,6 @@ export default function RedeployProduct() {
               {store.deployment?.productDisplayName} — {successCount} stack{successCount !== 1 ? 's' : ''} redeployed successfully
             </p>
 
-            {/* Stack Results Summary */}
             {displayResults.length > 0 && (
               <div className="w-full max-w-lg mb-6">
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -120,109 +120,208 @@ export default function RedeployProduct() {
 
   // --- Redeploying state ---
   if (store.state === 'redeploying') {
-    const totalStacks = store.deployment?.totalStacks ?? 0;
-    const completedRedeployStacks = Object.values(store.stackStatuses).filter(s => s === 'running').length;
-    const failedRedeployStacks = Object.values(store.stackStatuses).filter(s => s === 'failed').length;
-    const processedStacks = completedRedeployStacks + failedRedeployStacks;
+    const totalStacks = store.deployment?.stacks.length ?? 0;
+    const completedStacks = Object.values(store.stackStatuses).filter(s => s === 'running').length;
+    const failedStacks = Object.values(store.stackStatuses).filter(s => s === 'failed').length;
+    const overallPercent = totalStacks > 0
+      ? Math.round(((completedStacks + failedStacks) / totalStacks) * 100)
+      : store.progressUpdate?.percentComplete ?? 0;
+
+    const selectedStatus = store.selectedStack ? (store.stackStatuses[store.selectedStack] || 'pending') : null;
+    const selectedProgress = store.selectedStack ? (store.perStackProgress[store.selectedStack] || null) : null;
+    const selectedLogs = store.selectedStack ? (store.perStackLogs[store.selectedStack] || {}) : {};
 
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-white/[0.03]">
-          <div className="flex flex-col items-center py-8">
-            <div className="w-16 h-16 mb-6 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Redeploying Stacks...
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Redeploying {store.deployment?.productDisplayName} in {activeEnvironment?.name}
-            </p>
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                Redeploying Product...
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {store.deployment?.productDisplayName} — {completedStacks}/{totalStacks} stacks completed
+              </p>
+            </div>
+          </div>
 
-            <div className="w-full max-w-lg">
-              {/* Overall Progress */}
-              <div className="mb-6">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600 dark:text-gray-400">
-                    {store.progressUpdate?.message || 'Initializing redeploy...'}
-                  </span>
-                  <span className="text-gray-600 dark:text-gray-400">
-                    {processedStacks}/{totalStacks} stacks
-                  </span>
-                </div>
-                <div className="h-3 bg-gray-200 rounded-full dark:bg-gray-700 overflow-hidden">
-                  <div
-                    className="h-full bg-blue-500 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${totalStacks > 0 ? (processedStacks / totalStacks) * 100 : 0}%` }}
-                  />
-                </div>
-              </div>
+          {/* Overall Progress Bar */}
+          <div className="mb-6">
+            <div className="h-2 bg-gray-200 rounded-full dark:bg-gray-700 overflow-hidden">
+              <div
+                className="h-full bg-blue-500 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${overallPercent}%` }}
+              />
+            </div>
+          </div>
 
-              {/* Per-Stack Status List */}
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                {store.deployment?.stacks
-                  .slice()
-                  .sort((a, b) => a.order - b.order)
-                  .map((stack) => {
-                    const status = store.stackStatuses[stack.stackName] || 'pending';
-                    return (
-                      <div
-                        key={stack.stackName}
-                        className={`flex items-center justify-between px-4 py-3 border-b last:border-b-0 border-gray-200 dark:border-gray-700 ${
-                          status === 'removing' ? 'bg-orange-50 dark:bg-orange-900/10' :
-                          status === 'deploying' ? 'bg-blue-50 dark:bg-blue-900/10' : ''
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          {/* Status Icon */}
-                          {status === 'pending' && (
-                            <div className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600" />
-                          )}
-                          {status === 'removing' && (
-                            <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-                          )}
-                          {status === 'deploying' && (
-                            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                          )}
-                          {status === 'running' && (
-                            <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                          {status === 'failed' && (
-                            <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          )}
-                          <span className={`text-sm font-medium ${
-                            status === 'removing' ? 'text-orange-700 dark:text-orange-300' :
-                            status === 'deploying' ? 'text-blue-700 dark:text-blue-300' :
-                            status === 'running' ? 'text-green-700 dark:text-green-400' :
-                            status === 'failed' ? 'text-red-600 dark:text-red-400' :
-                            'text-gray-900 dark:text-white'
-                          }`}>
-                            {stack.stackDisplayName}
-                          </span>
-                        </div>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {stack.serviceCount} service{stack.serviceCount !== 1 ? 's' : ''}
+          {/* Split View: Stack List (left) + Detail Panel (right) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* LEFT: Stack Overview */}
+            <div className="lg:col-span-1">
+              <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                Stacks
+              </h3>
+              <div className="space-y-1">
+                {store.deployment?.stacks.slice().sort((a, b) => a.order - b.order).map((stack) => {
+                  const status = store.stackStatuses[stack.stackName] || 'pending';
+                  const isSelected = store.selectedStack === stack.stackName;
+                  return (
+                    <button
+                      key={stack.stackName}
+                      onClick={() => store.handleStackSelect(stack.stackName)}
+                      className={`w-full flex items-center justify-between p-3 rounded-lg text-left transition-colors ${
+                        isSelected
+                          ? 'bg-blue-50 border-l-4 border-l-blue-500 dark:bg-blue-900/20'
+                          : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {status === 'pending' && (
+                          <span className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600 flex-shrink-0" />
+                        )}
+                        {status === 'removing' && (
+                          <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                        )}
+                        {status === 'deploying' && (
+                          <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                        )}
+                        {status === 'running' && (
+                          <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                        {status === 'failed' && (
+                          <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        )}
+                        <span className={`text-sm ${
+                          status === 'removing' ? 'font-medium text-orange-600 dark:text-orange-400' :
+                          status === 'deploying' ? 'font-medium text-blue-600 dark:text-blue-400' :
+                          status === 'running' ? 'text-green-700 dark:text-green-400' :
+                          status === 'failed' ? 'text-red-700 dark:text-red-400' :
+                          'text-gray-600 dark:text-gray-400'
+                        }`}>
+                          {stack.stackDisplayName}
                         </span>
                       </div>
-                    );
-                  })}
+                      <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
+                        status === 'pending' ? 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' :
+                        status === 'removing' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' :
+                        status === 'deploying' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
+                        status === 'running' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                        'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                      }`}>
+                        {status === 'pending' ? 'Pending' :
+                         status === 'removing' ? 'Removing' :
+                         status === 'deploying' ? 'Deploying' :
+                         status === 'running' ? 'Running' : 'Failed'}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
+            </div>
 
-              {/* Connection Status */}
-              <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                <span className={`w-2 h-2 rounded-full ${
-                  store.connectionState === 'connected' ? 'bg-green-500' :
-                  store.connectionState === 'connecting' ? 'bg-yellow-500' :
-                  store.connectionState === 'reconnecting' ? 'bg-yellow-500' :
-                  'bg-red-500'
-                }`} />
-                {store.connectionState === 'connected' ? 'Live updates' :
-                 store.connectionState === 'connecting' ? 'Connecting...' :
-                 store.connectionState === 'reconnecting' ? 'Reconnecting...' :
-                 'Updates unavailable'}
-              </div>
+            {/* RIGHT: Detail Panel */}
+            <div className="lg:col-span-2">
+              {!store.selectedStack && (
+                <div className="flex flex-col items-center justify-center h-full py-12 text-gray-400 dark:text-gray-500">
+                  <svg className="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  <p className="text-sm">Waiting for redeploy to start...</p>
+                </div>
+              )}
+
+              {store.selectedStack && selectedStatus === 'pending' && (
+                <div className="flex flex-col items-center justify-center h-full py-12 text-gray-400 dark:text-gray-500">
+                  <span className="w-12 h-12 rounded-full border-2 border-gray-300 dark:border-gray-600 mb-3" />
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{store.selectedStack}</p>
+                  <p className="text-sm">Waiting to redeploy...</p>
+                </div>
+              )}
+
+              {store.selectedStack && selectedStatus === 'removing' && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
+                    {store.selectedStack}
+                    <span className="ml-2 text-xs font-normal text-orange-600 dark:text-orange-400">Removing</span>
+                  </h3>
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-orange-50 dark:bg-orange-900/10">
+                    <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                    <p className="text-sm text-orange-700 dark:text-orange-300">
+                      Removing existing stack before redeploy...
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {store.selectedStack && selectedStatus === 'deploying' && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
+                    {store.selectedStack}
+                    <span className="ml-2 text-xs font-normal text-blue-600 dark:text-blue-400">Deploying</span>
+                  </h3>
+                  <DeploymentProgressPanel
+                    progressUpdate={selectedProgress}
+                    initContainerLogs={selectedLogs}
+                    connectionState={store.connectionState}
+                    defaultMessage={`Deploying ${store.selectedStack}...`}
+                  />
+                </div>
+              )}
+
+              {store.selectedStack && selectedStatus === 'running' && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
+                    {store.selectedStack}
+                    <span className="ml-2 text-xs font-normal text-green-600 dark:text-green-400">Redeployed</span>
+                  </h3>
+                  <div className="flex items-center gap-3 mb-4 p-4 rounded-lg bg-green-50 dark:bg-green-900/10">
+                    <svg className="w-6 h-6 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      Stack redeployed successfully
+                    </p>
+                  </div>
+                  {selectedProgress && (
+                    <DeploymentProgressPanel
+                      progressUpdate={selectedProgress}
+                      initContainerLogs={selectedLogs}
+                      connectionState={store.connectionState}
+                    />
+                  )}
+                </div>
+              )}
+
+              {store.selectedStack && selectedStatus === 'failed' && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
+                    {store.selectedStack}
+                    <span className="ml-2 text-xs font-normal text-red-600 dark:text-red-400">Failed</span>
+                  </h3>
+                  <div className="flex items-center gap-3 mb-4 p-4 rounded-lg bg-red-50 dark:bg-red-900/10">
+                    <svg className="w-6 h-6 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <p className="text-sm text-red-700 dark:text-red-300">
+                      Stack redeploy failed
+                    </p>
+                  </div>
+                  {selectedProgress && (
+                    <DeploymentProgressPanel
+                      progressUpdate={selectedProgress}
+                      initContainerLogs={selectedLogs}
+                      connectionState={store.connectionState}
+                    />
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -278,7 +377,6 @@ export default function RedeployProduct() {
               </p>
             )}
 
-            {/* Per-Stack Results */}
             {errorDisplayResults.length > 0 && (
               <div className="w-full max-w-lg mb-6">
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -343,7 +441,6 @@ export default function RedeployProduct() {
 
   return (
     <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
-      {/* Breadcrumb */}
       <div className="mb-6">
         <Link
           to={`/product-deployments/${store.deployment?.productDeploymentId}`}
@@ -356,10 +453,8 @@ export default function RedeployProduct() {
         </Link>
       </div>
 
-      {/* Confirmation Card */}
       <div className="rounded-2xl border border-blue-200 bg-white p-8 dark:border-blue-800 dark:bg-white/[0.03]">
         <div className="flex flex-col items-center py-4">
-          {/* Redeploy Icon */}
           <div className="flex items-center justify-center w-16 h-16 mb-6 bg-blue-100 rounded-full dark:bg-blue-900/30">
             <svg className="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -377,7 +472,6 @@ export default function RedeployProduct() {
             using the same version and configuration.
           </p>
 
-          {/* Deployment Info */}
           <div className="w-full max-w-lg mb-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
             <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Product Details</h3>
             <div className="space-y-2 text-sm mb-4">
@@ -399,7 +493,6 @@ export default function RedeployProduct() {
               </div>
             </div>
 
-            {/* Stacks to Redeploy */}
             <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">
               Stacks to redeploy
             </h4>
@@ -422,7 +515,6 @@ export default function RedeployProduct() {
             </div>
           </div>
 
-          {/* Error Display */}
           {store.error && (
             <div className="w-full max-w-lg mb-6 p-4 text-sm text-red-800 bg-red-100 rounded-lg dark:bg-red-900/30 dark:text-red-400">
               <p className="font-medium mb-1">Error</p>
@@ -430,7 +522,6 @@ export default function RedeployProduct() {
             </div>
           )}
 
-          {/* Action Buttons */}
           <div className="flex gap-4">
             <Link
               to={`/product-deployments/${store.deployment?.productDeploymentId}`}
