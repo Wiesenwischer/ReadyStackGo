@@ -290,11 +290,13 @@ Release version numbers are assigned when an Epic ships, not during planning.
 
 Epics are listed in priority order. Top = next.
 
-### Epic: Inline Documentation
-- Bundle PublicWeb (Astro/Starlight) into Docker image, served at `/docs/`
-- Astro `base` path support via `ASTRO_BASE` env var (Cloudflare build unaffected)
-- Dockerfile `publicweb-build` stage
-- Sidebar "Documentation" link navigating to `/docs/`
+### Epic: Documentation Link
+- Sidebar "Documentation" link opening online docs (readystackgo.pages.dev) in new tab
+
+### Epic: Third-Party Licenses UI
+- Settings > Licenses page listing all bundled npm and .NET packages with license types and links
+- License JSON files (npm-webui, npm-publicweb, dotnet) bundled into Docker image via Dockerfile
+- Search and filter by license type, grouped by category
 
 ### Epic: OCI Stack Bundles
 
