@@ -19,3 +19,4 @@ Here you'll find detailed guides for using ReadyStackGo.
 - [Container Management](/en/docs/container-management/) - Monitor, control, and view logs for all Docker containers
 - [Remove Product](/en/docs/product-remove/) - Completely remove a product deployment with all stacks and containers
 - [Stop & Restart Containers](/en/docs/container-control/) - Stop, restart, or restore containers of a product deployment
+- [Custom Distributions](/en/docs/distributions/) - Run RSGO with your own corporate design — build a branded deployment platform for your company
