@@ -311,6 +311,15 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Sidebar "Documentation" link opening online docs in new tab
   - Fix CI license generation workflow (migrate from deprecated dotnet-project-licenses to nuget-license)
 
+- **v0.46** – Health Chart v2: Per-Service Visibility & Visual Redesign (2026-03-13)
+  - Replace percentage-based step line chart with categorical status band visualization
+  - Per-service swim lane timeline showing individual service health over time
+  - Uptime donut chart with percentage distribution by status
+  - Maintenance mode shown in blue, excluded from uptime calculation
+  - Enriched HealthTransitionDto with per-service data and operation mode
+  - Bilingual health monitoring documentation (DE/EN) with E2E-generated screenshots
+  - AMS UI impact check step added to implement-feature skill
+
 ---
 
 ## Planned
