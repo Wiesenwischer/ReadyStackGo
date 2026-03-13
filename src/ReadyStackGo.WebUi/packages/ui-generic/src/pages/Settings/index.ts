@@ -4,3 +4,4 @@ export * from "./Registries";
 export * from "./Tls";
 export * from "./CiCd";
 export * from "./System";
+export * from "./Licenses";

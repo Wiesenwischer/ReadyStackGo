@@ -71,6 +71,9 @@ WORKDIR /app
 # Copy published application
 COPY --from=backend-build /app/publish .
 
+# Bundle third-party license files as static assets
+COPY licenses/ ./wwwroot/licenses/
+
 # Create directories for config, data (SQLite), and stacks mount points
 RUN mkdir -p /app/config /app/data /app/stacks
 
