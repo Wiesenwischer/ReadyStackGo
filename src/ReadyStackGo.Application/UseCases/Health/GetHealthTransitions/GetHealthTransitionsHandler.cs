@@ -44,9 +44,15 @@ public class GetHealthTransitionsHandler
         var transitionDtos = transitions.Select(snapshot => new HealthTransitionDto
         {
             OverallStatus = snapshot.Overall.Name,
+            OperationMode = snapshot.OperationMode.Name,
             HealthyServices = snapshot.Self.HealthyCount,
             TotalServices = snapshot.Self.TotalCount,
             CapturedAtUtc = snapshot.CapturedAtUtc,
+            Services = snapshot.Self.Services.Select(s => new ServiceTransitionDto
+            {
+                Name = s.Name,
+                Status = s.Status.Name,
+            }).ToList(),
         }).ToList();
 
         return GetHealthTransitionsResponse.Ok(transitionDtos);

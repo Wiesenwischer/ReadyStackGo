@@ -255,14 +255,25 @@ public class GetHealthHistoryResponse
 }
 
 /// <summary>
-/// Lightweight DTO for health status transitions (only fields needed for step chart).
+/// Lightweight DTO for per-service status at a transition point.
+/// </summary>
+public class ServiceTransitionDto
+{
+    public required string Name { get; init; }
+    public required string Status { get; init; }
+}
+
+/// <summary>
+/// Lightweight DTO for health status transitions (only fields needed for health timeline).
 /// </summary>
 public class HealthTransitionDto
 {
     public required string OverallStatus { get; init; }
+    public required string OperationMode { get; init; }
     public required int HealthyServices { get; init; }
     public required int TotalServices { get; init; }
     public required DateTime CapturedAtUtc { get; init; }
+    public required List<ServiceTransitionDto> Services { get; init; }
 }
 
 /// <summary>
