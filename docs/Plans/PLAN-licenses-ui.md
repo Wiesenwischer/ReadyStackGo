@@ -30,17 +30,17 @@ Nutzer und Betreiber sollen die lizenzierten Drittanbieter-Pakete (npm + .NET) d
 
 Reihenfolge basierend auf Abhängigkeiten:
 
-- [ ] **Feature 1: License-JSONs in Docker-Image bundeln** — In Dockerfile nach dem `COPY --from=frontend-build` Schritt die JSON-Dateien aus `licenses/` nach `wwwroot/licenses/` kopieren
+- [x] **Feature 1: License-JSONs in Docker-Image bundeln** — In Dockerfile nach dem `COPY --from=frontend-build` Schritt die JSON-Dateien aus `licenses/` nach `wwwroot/licenses/` kopieren
   - Betroffene Dateien: `Dockerfile`
   - Hinweis: `dotnet-licenses.json` muss ggf. per CI-Workflow generiert werden bevor es im Build vorhanden ist
   - Abhängig von: -
 
-- [ ] **Feature 2: Licenses-Seite** — Neue React-Seite `Settings/Licenses/Licenses.tsx`; fetcht die drei JSON-Dateien von `/licenses/*.json`; zeigt alle Pakete mit Name, Version, Lizenztyp, Repository-Link; Suchfeld + Lizenztyp-Filter; Badge mit Paket-Anzahl pro Kategorie (npm WebUI / npm PublicWeb / .NET)
+- [x] **Feature 2: Licenses-Seite** — Neue React-Seite `Settings/Licenses/Licenses.tsx`; fetcht die drei JSON-Dateien von `/licenses/*.json`; zeigt alle Pakete mit Name, Version, Lizenztyp, Repository-Link; Suchfeld + Lizenztyp-Filter; Badge mit Paket-Anzahl pro Kategorie (npm WebUI / npm PublicWeb / .NET)
   - Betroffene Dateien: `src/ReadyStackGo.WebUi/packages/ui-generic/src/pages/Settings/Licenses/Licenses.tsx` (neu), `Settings/index.ts` (export)
   - Pattern-Vorlage: `Settings/System/SystemInfo.tsx` für Seiten-Layout
   - Abhängig von: Feature 1
 
-- [ ] **Feature 3: Settings-Integration** — Card in `SettingsIndex.tsx` (Icon: DocsIcon oder ähnliches); Route `/settings/licenses` in `App.tsx`; Import in `apps/rsgo-generic/src/App.tsx`
+- [x] **Feature 3: Settings-Integration** — Card in `SettingsIndex.tsx` (Icon: DocsIcon oder ähnliches); Route `/settings/licenses` in `App.tsx`; Import in `apps/rsgo-generic/src/App.tsx`
   - Betroffene Dateien: `SettingsIndex.tsx`, `apps/rsgo-generic/src/App.tsx`
   - Abhängig von: Feature 2
 
@@ -52,8 +52,8 @@ Reihenfolge basierend auf Abhängigkeiten:
 
 ## Offene Punkte
 
-- [ ] Prüfen ob `dotnet-licenses.json` aktuell im Repo vorhanden ist; ggf. CI-Workflow manuell triggern
-- [ ] Entscheiden ob fehlende JSON-Datei (z.B. dotnet) silently ignoriert wird oder einen Fehler zeigt
+- [x] Prüfen ob `dotnet-licenses.json` aktuell im Repo vorhanden ist — Ja, lokal generiert und committed
+- [x] Entscheiden ob fehlende JSON-Datei (z.B. dotnet) silently ignoriert wird oder einen Fehler zeigt — Silently ignoriert (graceful degradation)
 
 ## Entscheidungen
 

@@ -304,20 +304,18 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Fix container list showing stale unhealthy status from removed deployments by filtering to active deployments only
 - **v0.44** – Bugfix: Self-Update Progress Jumping (2026-03-13)
   - Fix progress bar jumping back and forth during self-update by enforcing monotonic progress percentage
+- **v0.45** – Third-Party Licenses UI, Documentation Link & CI Fix (2026-03-13)
+  - Settings > Licenses page listing all bundled npm and .NET packages with license types and links
+  - License JSON files (npm-webui, npm-publicweb, dotnet) bundled into Docker image via Dockerfile
+  - Search and filter by license type, category badges with package counts
+  - Sidebar "Documentation" link opening online docs in new tab
+  - Fix CI license generation workflow (migrate from deprecated dotnet-project-licenses to nuget-license)
 
 ---
 
 ## Planned
 
 Epics are listed in priority order. Top = next.
-
-### Epic: Documentation Link
-- Sidebar "Documentation" link opening online docs (readystackgo.pages.dev) in new tab
-
-### Epic: Third-Party Licenses UI
-- Settings > Licenses page listing all bundled npm and .NET packages with license types and links
-- License JSON files (npm-webui, npm-publicweb, dotnet) bundled into Docker image via Dockerfile
-- Search and filter by license type, grouped by category
 
 ### Epic: OCI Stack Bundles
 
