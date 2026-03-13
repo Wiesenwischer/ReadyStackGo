@@ -85,6 +85,35 @@ public class HealthSnapshotRepository : IHealthSnapshotRepository
             .ToList();
     }
 
+    public IEnumerable<HealthSnapshot> GetTransitions(DeploymentId deploymentId)
+    {
+        var id = deploymentId.Value.ToString().ToUpperInvariant();
+
+        // Use LAG() window function to find rows where OverallStatus changed.
+        // Also include first snapshot (PrevStatus IS NULL) and latest (RowDesc = 1).
+        return _context.HealthSnapshots
+            .FromSqlRaw(
+                """
+                WITH ranked AS (
+                    SELECT "Id",
+                           "OverallStatus",
+                           LAG("OverallStatus") OVER (ORDER BY "CapturedAtUtc") AS "PrevStatus",
+                           ROW_NUMBER() OVER (ORDER BY "CapturedAtUtc" DESC) AS "RowDesc"
+                    FROM "HealthSnapshots"
+                    WHERE UPPER("DeploymentId") = {0}
+                )
+                SELECT h.*
+                FROM "HealthSnapshots" h
+                INNER JOIN ranked r ON h."Id" = r."Id"
+                WHERE r."PrevStatus" IS NULL
+                   OR r."OverallStatus" != r."PrevStatus"
+                   OR r."RowDesc" = 1
+                ORDER BY h."CapturedAtUtc" ASC
+                """,
+                id)
+            .ToList();
+    }
+
     public int RemoveOlderThan(TimeSpan age)
     {
         var cutoff = DateTime.UtcNow - age;

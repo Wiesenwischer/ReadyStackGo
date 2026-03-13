@@ -131,6 +131,19 @@ interface HistoryResponse {
   history: StackHealthSummaryDto[];
 }
 
+export interface HealthTransitionDto {
+  overallStatus: string;
+  healthyServices: number;
+  totalServices: number;
+  capturedAtUtc: string;
+}
+
+interface TransitionsResponse {
+  success: boolean;
+  message?: string;
+  transitions: HealthTransitionDto[];
+}
+
 // API functions
 export async function getStackHealth(
   environmentId: string,
@@ -198,6 +211,17 @@ export async function getHealthHistory(
     throw new Error(response.message || 'Failed to get health history');
   }
   return response.history;
+}
+
+export async function getHealthTransitions(
+  deploymentId: string
+): Promise<HealthTransitionDto[]> {
+  const url = `/api/health/deployments/${deploymentId}/transitions`;
+  const response = await apiGet<TransitionsResponse>(url);
+  if (!response.success) {
+    throw new Error(response.message || 'Failed to get health transitions');
+  }
+  return response.transitions;
 }
 
 // UI Presentation helpers - maps status/mode to visual presentation

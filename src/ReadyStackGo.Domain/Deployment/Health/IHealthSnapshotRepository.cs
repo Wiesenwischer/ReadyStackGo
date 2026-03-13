@@ -39,6 +39,12 @@ public interface IHealthSnapshotRepository
     IEnumerable<HealthSnapshot> GetHistory(DeploymentId deploymentId, int limit = 10);
 
     /// <summary>
+    /// Gets only the snapshots where overall health status changed (transitions),
+    /// plus the first and latest snapshot. Ordered oldest first.
+    /// </summary>
+    IEnumerable<HealthSnapshot> GetTransitions(DeploymentId deploymentId);
+
+    /// <summary>
     /// Removes all snapshots for a specific deployment.
     /// Called when a deployment is removed to avoid stale health data.
     /// </summary>

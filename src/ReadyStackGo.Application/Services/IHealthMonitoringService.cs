@@ -53,6 +53,13 @@ public interface IHealthMonitoringService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets health status transitions for a deployment (only snapshots where status changed).
+    /// </summary>
+    Task<IEnumerable<HealthSnapshot>> GetHealthTransitionsAsync(
+        DeploymentId deploymentId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Updates the operation mode for a deployment.
     /// </summary>
     Task UpdateOperationModeAsync(
