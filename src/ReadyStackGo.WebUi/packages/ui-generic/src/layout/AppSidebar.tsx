@@ -12,6 +12,7 @@ import {
   PulseIcon,
   SettingsIcon,
   StorageIcon,
+  DocsIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { useEnvironment } from "../context/EnvironmentContext";
@@ -21,6 +22,7 @@ type NavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
+  href?: string;
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
   requiresEnvironment?: boolean;
 };
@@ -76,6 +78,11 @@ const configItems: NavItem[] = [
     icon: <SettingsIcon />,
     name: "Settings",
     path: "/settings",
+  },
+  {
+    icon: <DocsIcon />,
+    name: "Documentation",
+    href: "https://readystackgo.pages.dev/en/docs",
   },
 ];
 
@@ -201,6 +208,25 @@ const AppSidebar: React.FC = () => {
                 </div>
               )}
             </button>
+          ) : nav.href ? (
+            <a
+              href={nav.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="menu-item group menu-item-inactive"
+            >
+              <span className="menu-item-icon-size menu-item-icon-inactive">
+                {nav.icon}
+              </span>
+              {(isExpanded || isHovered || isMobileOpen) && (
+                <>
+                  <span className="menu-item-text">{nav.name}</span>
+                  <svg className="ml-auto w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </>
+              )}
+            </a>
           ) : (
             nav.path && (
               <Link
