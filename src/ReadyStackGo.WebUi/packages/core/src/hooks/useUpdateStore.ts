@@ -77,7 +77,7 @@ export function useUpdateStore(targetVersion: string): UseUpdateStoreReturn {
     switch (progress.phase) {
       case 'pulling':
         setPhase('pulling');
-        setPullPercent(progress.progressPercent ?? 0);
+        setPullPercent(prev => Math.max(prev, progress.progressPercent ?? 0));
         break;
       case 'creating':
         setPhase('creating');
