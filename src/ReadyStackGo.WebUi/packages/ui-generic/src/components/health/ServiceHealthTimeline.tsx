@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import type { HealthTransitionDto } from '@rsgo/core';
 
 interface ServiceSegment {
@@ -109,6 +109,13 @@ export default function ServiceHealthTimeline({
   const timelines = buildServiceTimelines(transitions);
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(300);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      setContainerWidth(containerRef.current.clientWidth);
+    }
+  }, [timelines]);
 
   const handleMouseEnter = useCallback(
     (e: React.MouseEvent, serviceName: string, segment: ServiceSegment) => {
@@ -177,7 +184,7 @@ export default function ServiceHealthTimeline({
         <div
           className="absolute z-50 rounded-lg border border-gray-200 bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-800 pointer-events-none text-xs"
           style={{
-            left: Math.min(tooltip.x, (containerRef.current?.clientWidth ?? 300) - 200),
+            left: Math.min(tooltip.x, containerWidth - 200),
             top: tooltip.y - 60,
           }}
         >
