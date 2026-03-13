@@ -190,7 +190,42 @@ Für jedes Feature müssen **drei Test-Ebenen** abgedeckt werden:
   docker compose up -d
   ```
 
-## Schritt 8: Verifizierung
+## Schritt 8: AMS UI Impact-Check
+
+**WICHTIG: Jedes Feature das `@rsgo/core` Types, Hooks oder API-Endpunkte ändert, muss auf AMS UI Auswirkungen geprüft werden!**
+
+Das AMS UI (`C:\proj\ReadyStackGo.Ams`) ist ein separates privates Repo das `@rsgo/core` via File-Link konsumiert und eigene UI-Komponenten (React + AMS Component Library) hat.
+
+### Prüfschritte:
+
+1. **Betroffene `@rsgo/core` Exports identifizieren:**
+   - Welche Types/Interfaces wurden geändert oder erweitert? (z.B. `HealthTransitionDto`)
+   - Welche Hooks wurden geändert? (z.B. `useHealthTransitionsStore`)
+   - Welche API-Funktionen wurden geändert? (z.B. `getHealthTransitions`)
+
+2. **AMS UI durchsuchen nach Nutzung dieser Exports:**
+   ```bash
+   cd C:\proj\ReadyStackGo.Ams
+   grep -r "HealthTransitionDto\|useHealthTransitionsStore\|getHealthTransitions" packages/
+   ```
+
+3. **Falls AMS UI betroffen ist:**
+   - Entsprechende AMS-Komponenten identifizieren (z.B. `packages/ui-ams/src/components/health/`)
+   - AMS-Anpassungen als **separaten Task** dokumentieren
+   - Den User fragen ob die AMS-Anpassung jetzt oder als Follow-up erfolgen soll
+
+4. **Falls AMS UI NICHT betroffen ist:**
+   - Im PR dokumentieren: "AMS UI: nicht betroffen (keine Nutzung von [geänderte Exports])"
+
+### Typische Bereiche mit AMS UI Overlap:
+- Health-Komponenten (`packages/ui-ams/src/components/health/`)
+- Dashboard-Widgets (`packages/ui-ams/src/components/dashboard/`)
+- Deployment-Detail-Seiten (`packages/ui-ams/src/pages/`)
+- Hooks (`packages/ui-ams/src/hooks/`)
+
+**Diesen Schritt NIEMALS überspringen!** Vergessene AMS-Anpassungen führen zu veralteten oder inkompatiblen UI-Varianten.
+
+## Schritt 9: Verifizierung
 
 **ALLE Tests müssen grün sein bevor ein PR erstellt wird!**
 
@@ -212,7 +247,7 @@ Für jedes Feature müssen **drei Test-Ebenen** abgedeckt werden:
    ```
    Anwendung auf http://localhost:8080 prüfen.
 
-## Schritt 9: Feature-PR erstellen
+## Schritt 10: Feature-PR erstellen
 
 1. Alle Änderungen committen (kurze, prägnante Commit-Messages, KEIN Footer)
 2. Branch pushen
@@ -224,16 +259,16 @@ Für jedes Feature müssen **drei Test-Ebenen** abgedeckt werden:
 5. CI-Checks abwarten
 6. PR mergen und Feature Branch löschen
 
-## Schritt 10: Planungsdatei aktualisieren
+## Schritt 11: Planungsdatei aktualisieren
 
 Nach jedem abgeschlossenen Feature die Planungsdatei aktualisieren:
 - Feature als `[x]` markieren
 - Eventuelle Erkenntnisse oder Abweichungen dokumentieren
 - Übersprungene Features als `[-]` markieren mit Begründung
 
-**Wiederhole Schritte 5-10 für jedes Feature der Phase.**
+**Wiederhole Schritte 5-11 für jedes Feature der Phase.**
 
-## Schritt 11: Dokumentation & Website (pro Phase)
+## Schritt 13: Dokumentation & Website (pro Phase)
 
 Wenn **alle Features einer Phase** implementiert sind, folgende Schritte durchführen:
 
@@ -253,7 +288,7 @@ Wenn **alle Features einer Phase** implementiert sind, folgende Schritte durchf�
 - Feature von "Planned" nach "Released" verschieben in `docs/Reference/Roadmap.md`
 - Release-Datum hinzufügen
 
-## Schritt 12: Phase abschließen
+## Schritt 14: Phase abschließen
 
 Wenn alle Features, Docs und Website-Updates fertig sind:
 
