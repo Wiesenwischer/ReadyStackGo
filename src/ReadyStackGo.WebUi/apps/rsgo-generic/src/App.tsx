@@ -46,6 +46,7 @@ import {
   ResetToSelfSigned,
   CiCdList,
   SystemInfo,
+  Licenses,
 } from "@rsgo/ui-generic/pages/Settings";
 import SetupEnvironment from "@rsgo/ui-generic/pages/Environments/SetupEnvironment";
 import SetupOrganization from "@rsgo/ui-generic/pages/Settings/Organization/SetupOrganization";
@@ -326,6 +327,7 @@ export default function App() {
                 <Route path="/settings/tls/selfsigned" element={<ResetToSelfSigned />} />
                 <Route path="/settings/cicd" element={<CiCdList />} />
                 <Route path="/settings/system" element={<SystemInfo />} />
+                <Route path="/settings/licenses" element={<Licenses />} />
               </Route>
               {/* 404 catch-all route */}
               <Route path="*" element={<NotFound />} />
