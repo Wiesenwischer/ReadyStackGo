@@ -131,11 +131,18 @@ interface HistoryResponse {
   history: StackHealthSummaryDto[];
 }
 
+export interface ServiceTransitionDto {
+  name: string;
+  status: string;
+}
+
 export interface HealthTransitionDto {
   overallStatus: string;
+  operationMode: string;
   healthyServices: number;
   totalServices: number;
   capturedAtUtc: string;
+  services: ServiceTransitionDto[];
 }
 
 interface TransitionsResponse {
