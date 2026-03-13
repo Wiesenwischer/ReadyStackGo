@@ -40,6 +40,9 @@ jobs:
       - name: Install npm license tool
         run: npm install -g license-checker
 
+      - name: Restore .NET packages
+        run: dotnet restore src/ReadyStackGo.Api/ReadyStackGo.Api.csproj
+
       - name: Generate .NET licenses
         run: |
           mkdir -p licenses
