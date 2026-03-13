@@ -253,3 +253,30 @@ public class GetHealthHistoryResponse
     public static GetHealthHistoryResponse Failure(string message) =>
         new() { Success = false, Message = message };
 }
+
+/// <summary>
+/// Lightweight DTO for health status transitions (only fields needed for step chart).
+/// </summary>
+public class HealthTransitionDto
+{
+    public required string OverallStatus { get; init; }
+    public required int HealthyServices { get; init; }
+    public required int TotalServices { get; init; }
+    public required DateTime CapturedAtUtc { get; init; }
+}
+
+/// <summary>
+/// Response for getting health transitions.
+/// </summary>
+public class GetHealthTransitionsResponse
+{
+    public bool Success { get; set; }
+    public string? Message { get; set; }
+    public List<HealthTransitionDto> Transitions { get; set; } = new();
+
+    public static GetHealthTransitionsResponse Ok(List<HealthTransitionDto> transitions) =>
+        new() { Success = true, Transitions = transitions };
+
+    public static GetHealthTransitionsResponse Failure(string message) =>
+        new() { Success = false, Message = message };
+}

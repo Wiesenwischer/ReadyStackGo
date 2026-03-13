@@ -127,6 +127,14 @@ public class HealthMonitoringService : IHealthMonitoringService
         return Task.FromResult(history);
     }
 
+    public Task<IEnumerable<HealthSnapshot>> GetHealthTransitionsAsync(
+        DeploymentId deploymentId,
+        CancellationToken cancellationToken = default)
+    {
+        var transitions = _healthSnapshotRepository.GetTransitions(deploymentId);
+        return Task.FromResult(transitions);
+    }
+
     public Task UpdateOperationModeAsync(
         DeploymentId deploymentId,
         OperationMode newMode,
