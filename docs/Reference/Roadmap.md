@@ -302,6 +302,8 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Fix redeploy showing success after first stack due to SuppressNotification: false sending DeploymentCompleted per stack
 - **v0.43** – Bugfix: Container List Stale Health (2026-03-13)
   - Fix container list showing stale unhealthy status from removed deployments by filtering to active deployments only
+- **v0.44** – Bugfix: Self-Update Progress Jumping (2026-03-13)
+  - Fix progress bar jumping back and forth during self-update by enforcing monotonic progress percentage
 
 ---
 
