@@ -311,7 +311,11 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Sidebar "Documentation" link opening online docs in new tab
   - Fix CI license generation workflow (migrate from deprecated dotnet-project-licenses to nuget-license)
 
-- **v0.46** – Health Chart v2: Per-Service Visibility & Visual Redesign (2026-03-13)
+- **v0.46** – Health History Transition Chart (2026-03-13)
+  - Replace snapshot-based health history with status transition step chart
+  - GetHealthTransitions endpoint using LAG() window function to detect status changes
+  - Recharts stepAfter line chart showing health transitions over time
+- **v0.47** – Health Chart v2: Per-Service Visibility & Visual Redesign (2026-03-13)
   - Replace percentage-based step line chart with categorical status band visualization
   - Per-service swim lane timeline showing individual service health over time
   - Uptime donut chart with percentage distribution by status
