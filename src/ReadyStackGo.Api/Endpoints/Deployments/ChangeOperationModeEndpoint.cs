@@ -37,7 +37,8 @@ public class ChangeOperationModeEndpoint : Endpoint<ChangeOperationModeRequest, 
             deploymentId,
             req.Mode,
             req.Reason,
-            req.TargetVersion);
+            req.TargetVersion,
+            req.Source ?? "Manual");
 
         var response = await _mediator.Send(command, ct);
 
@@ -80,4 +81,11 @@ public class ChangeOperationModeRequest
     /// Target version (required when entering Migrating mode).
     /// </summary>
     public string? TargetVersion { get; set; }
+
+    /// <summary>
+    /// Source of the mode change: "Manual" (default) or "Observer".
+    /// Manual is used for UI and API/Hook-triggered changes.
+    /// Observer is used by the automatic maintenance observer service.
+    /// </summary>
+    public string? Source { get; set; }
 }
