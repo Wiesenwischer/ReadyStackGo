@@ -159,6 +159,7 @@ export interface ProductDeploymentSummaryDto {
   canRedeploy: boolean;
   canStop: boolean;
   canRestart: boolean;
+  operationMode: string;
 }
 
 export interface ListProductDeploymentsResponse {
@@ -509,9 +510,20 @@ export interface GetProductDeploymentResponse {
   canRedeploy: boolean;
   canStop: boolean;
   canRestart: boolean;
+  canEnterMaintenance: boolean;
+  canExitMaintenance: boolean;
+  operationMode: string;
+  maintenanceTrigger?: MaintenanceTriggerDto;
   durationSeconds?: number;
   stacks: ProductStackDeploymentDto[];
   sharedVariables: Record<string, string>;
+}
+
+export interface MaintenanceTriggerDto {
+  source: string;
+  reason?: string;
+  triggeredAtUtc: string;
+  triggeredBy?: string;
 }
 
 /**

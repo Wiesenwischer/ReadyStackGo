@@ -3,6 +3,7 @@ using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
+using ReadyStackGo.Domain.Deployment.Observers;
 using ReadyStackGo.Domain.Deployment.RuntimeConfig;
 
 namespace ReadyStackGo.UnitTests.Domain.Deployment;
@@ -910,11 +911,13 @@ public class DeploymentTests
         deployment.ClearDomainEvents();
 
         // Act
-        deployment.EnterMaintenance("Planned maintenance");
+        deployment.EnterMaintenance(MaintenanceTrigger.Manual("Planned maintenance"));
 
         // Assert
         deployment.OperationMode.Should().Be(OperationMode.Maintenance);
         deployment.Status.Should().Be(DeploymentStatus.Running);
+        deployment.MaintenanceTrigger.Should().NotBeNull();
+        deployment.MaintenanceTrigger!.IsManual.Should().BeTrue();
         deployment.DomainEvents.Should().ContainSingle(e => e is OperationModeChanged);
     }
 
@@ -925,7 +928,7 @@ public class DeploymentTests
         var deployment = CreateTestDeployment();
 
         // Act
-        var act = () => deployment.EnterMaintenance("Reason");
+        var act = () => deployment.EnterMaintenance(MaintenanceTrigger.Manual("Reason"));
 
         // Assert
         act.Should().Throw<ArgumentException>()
@@ -939,10 +942,10 @@ public class DeploymentTests
         var deployment = CreateTestDeployment();
         AddTestServicesToDeployment(deployment);
         deployment.MarkAsRunning();
-        deployment.EnterMaintenance("First");
+        deployment.EnterMaintenance(MaintenanceTrigger.Manual("First"));
 
         // Act
-        var act = () => deployment.EnterMaintenance("Second");
+        var act = () => deployment.EnterMaintenance(MaintenanceTrigger.Manual("Second"));
 
         // Assert
         act.Should().Throw<ArgumentException>()
@@ -956,14 +959,15 @@ public class DeploymentTests
         var deployment = CreateTestDeployment();
         AddTestServicesToDeployment(deployment);
         deployment.MarkAsRunning();
-        deployment.EnterMaintenance("Reason");
+        deployment.EnterMaintenance(MaintenanceTrigger.Manual("Reason"));
         deployment.ClearDomainEvents();
 
         // Act
-        deployment.ExitMaintenance();
+        deployment.ExitMaintenance(MaintenanceTriggerSource.Manual);
 
         // Assert
         deployment.OperationMode.Should().Be(OperationMode.Normal);
+        deployment.MaintenanceTrigger.Should().BeNull();
         deployment.Status.Should().Be(DeploymentStatus.Running);
         deployment.DomainEvents.Should().ContainSingle(e => e is OperationModeChanged);
     }
@@ -977,7 +981,7 @@ public class DeploymentTests
         deployment.MarkAsRunning();
 
         // Act
-        var act = () => deployment.ExitMaintenance();
+        var act = () => deployment.ExitMaintenance(MaintenanceTriggerSource.Manual);
 
         // Assert
         act.Should().Throw<ArgumentException>()

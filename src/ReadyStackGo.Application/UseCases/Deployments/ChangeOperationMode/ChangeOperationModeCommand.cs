@@ -9,7 +9,8 @@ public record ChangeOperationModeCommand(
     string DeploymentId,
     string NewMode,
     string? Reason = null,
-    string? TargetVersion = null) : IRequest<ChangeOperationModeResponse>;
+    string? TargetVersion = null,
+    string Source = "Manual") : IRequest<ChangeOperationModeResponse>;
 
 /// <summary>
 /// Response from changing operation mode.

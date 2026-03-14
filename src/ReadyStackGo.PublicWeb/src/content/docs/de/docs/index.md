@@ -21,3 +21,4 @@ Hier finden Sie detaillierte Anleitungen zur Nutzung von ReadyStackGo.
 - [Container stoppen & neustarten](/de/docs/container-control/) - Container eines Produkts stoppen, neustarten oder wiederherstellen
 - [Custom Distributions](/de/docs/distributions/) - RSGO mit eigenem Corporate Design betreiben — gebrandete Deployment-Plattform für Unternehmen
 - [Health Monitoring](/de/docs/health-monitoring/) - Echtzeit-Überwachung aller Deployments mit Status-Dashboard und Health History Timeline
+- [Maintenance Mode](/de/docs/maintenance-mode/) - Produkte in den Wartungsmodus versetzen und kontrolliert wieder freigeben

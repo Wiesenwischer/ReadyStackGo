@@ -60,6 +60,18 @@ public class GetProductDeploymentHandler : IRequestHandler<GetProductDeploymentQ
             CanRedeploy = pd.CanRedeploy,
             CanStop = pd.CanStop,
             CanRestart = pd.CanRestart,
+            CanEnterMaintenance = pd.CanEnterMaintenance,
+            CanExitMaintenance = pd.CanExitMaintenance,
+            OperationMode = pd.OperationMode.Name,
+            MaintenanceTrigger = pd.MaintenanceTrigger != null
+                ? new MaintenanceTriggerDto
+                {
+                    Source = pd.MaintenanceTrigger.Source.ToString(),
+                    Reason = pd.MaintenanceTrigger.Reason,
+                    TriggeredAtUtc = pd.MaintenanceTrigger.TriggeredAtUtc,
+                    TriggeredBy = pd.MaintenanceTrigger.TriggeredBy
+                }
+                : null,
             DurationSeconds = pd.GetDuration()?.TotalSeconds,
             SharedVariables = new Dictionary<string, string>(pd.SharedVariables),
             Stacks = pd.GetStacksInDeployOrder().Select(s => new ProductStackDeploymentDto

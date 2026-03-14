@@ -324,6 +324,15 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Bilingual health monitoring documentation (DE/EN) with E2E-generated screenshots
   - AMS UI impact check step added to implement-feature skill
 
+- **v0.48** – Maintenance Mode Redesign (2026-03-14)
+  - MaintenanceTrigger value object with ownership rules (Manual/Observer sources)
+  - Trigger-based exit blocking: observer can't exit manual maintenance and vice versa
+  - Product-level maintenance: OperationMode, MaintenanceTrigger on ProductDeployment aggregate
+  - Observer service refactored to iterate ProductDeployments (one check per product, not N per stack)
+  - Product operation mode API endpoint with 409 Conflict for ownership-blocked transitions
+  - Product detail page: enter/exit maintenance buttons, operation mode badge, trigger info panel
+  - 23 new handler unit tests, 22 domain unit tests, 11 value object unit tests
+
 ---
 
 ## Planned
