@@ -411,3 +411,55 @@ export async function exitMaintenanceMode(
 ): Promise<ChangeOperationModeResponse> {
   return changeOperationMode(environmentId, deploymentId, { mode: 'Normal' });
 }
+
+// Product-Level Operation Mode API
+
+export interface ChangeProductOperationModeRequest {
+  mode: 'Normal' | 'Maintenance';
+  reason?: string;
+  source?: string;
+}
+
+export interface ChangeProductOperationModeResponse {
+  success: boolean;
+  message?: string;
+  productDeploymentId?: string;
+  previousMode?: string;
+  newMode?: string;
+  triggerSource?: string;
+}
+
+/**
+ * Change the operation mode of a product deployment.
+ */
+export async function changeProductOperationMode(
+  environmentId: string,
+  productDeploymentId: string,
+  request: ChangeProductOperationModeRequest
+): Promise<ChangeProductOperationModeResponse> {
+  return apiPut<ChangeProductOperationModeResponse>(
+    `/api/environments/${environmentId}/product-deployments/${productDeploymentId}/operation-mode`,
+    request
+  );
+}
+
+/**
+ * Enter maintenance mode for a product deployment (stops all child stacks).
+ */
+export async function enterProductMaintenanceMode(
+  environmentId: string,
+  productDeploymentId: string,
+  reason?: string
+): Promise<ChangeProductOperationModeResponse> {
+  return changeProductOperationMode(environmentId, productDeploymentId, { mode: 'Maintenance', reason });
+}
+
+/**
+ * Exit maintenance mode for a product deployment (starts all child stacks).
+ */
+export async function exitProductMaintenanceMode(
+  environmentId: string,
+  productDeploymentId: string
+): Promise<ChangeProductOperationModeResponse> {
+  return changeProductOperationMode(environmentId, productDeploymentId, { mode: 'Normal' });
+}

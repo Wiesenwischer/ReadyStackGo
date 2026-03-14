@@ -3,6 +3,10 @@ import {
   getProductDeployment,
   type GetProductDeploymentResponse,
 } from '../api/deployments';
+import {
+  enterProductMaintenanceMode,
+  exitProductMaintenanceMode,
+} from '../api/health';
 
 export type ProductDeploymentDetailState = 'loading' | 'loaded' | 'error';
 
@@ -15,6 +19,12 @@ export interface UseProductDeploymentDetailStoreReturn {
   formatDate: (dateString: string) => string;
   formatDuration: (seconds?: number) => string;
   formatStackDuration: (startedAt?: string, completedAt?: string) => string;
+  // Maintenance mode
+  modeActionLoading: boolean;
+  modeActionError: string | null;
+  handleEnterMaintenance: (reason?: string) => Promise<void>;
+  handleExitMaintenance: () => Promise<void>;
+  clearModeActionError: () => void;
 }
 
 export function useProductDeploymentDetailStore(
@@ -26,29 +36,31 @@ export function useProductDeploymentDetailStore(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showVariables, setShowVariables] = useState(false);
+  const [modeActionLoading, setModeActionLoading] = useState(false);
+  const [modeActionError, setModeActionError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadDeployment = useCallback(async () => {
     if (!environmentId || !productDeploymentId) {
       setError(!environmentId ? 'No active environment' : 'No deployment ID provided');
       setLoading(false);
       return;
     }
 
-    const loadDeployment = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getProductDeployment(environmentId, productDeploymentId);
-        setDeployment(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load product deployment');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadDeployment();
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getProductDeployment(environmentId, productDeploymentId);
+      setDeployment(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load product deployment');
+    } finally {
+      setLoading(false);
+    }
   }, [environmentId, productDeploymentId]);
+
+  useEffect(() => {
+    loadDeployment();
+  }, [loadDeployment]);
 
   const toggleVariables = useCallback(() => {
     setShowVariables(prev => !prev);
@@ -74,6 +86,46 @@ export function useProductDeploymentDetailStore(
     return formatDuration(seconds);
   }, [formatDuration]);
 
+  const handleEnterMaintenance = useCallback(async (reason?: string) => {
+    if (!environmentId || !productDeploymentId) return;
+    setModeActionLoading(true);
+    setModeActionError(null);
+    try {
+      const response = await enterProductMaintenanceMode(environmentId, productDeploymentId, reason);
+      if (!response.success) {
+        setModeActionError(response.message || 'Failed to enter maintenance mode');
+        return;
+      }
+      await loadDeployment();
+    } catch (err) {
+      setModeActionError(err instanceof Error ? err.message : 'Failed to enter maintenance mode');
+    } finally {
+      setModeActionLoading(false);
+    }
+  }, [environmentId, productDeploymentId, loadDeployment]);
+
+  const handleExitMaintenance = useCallback(async () => {
+    if (!environmentId || !productDeploymentId) return;
+    setModeActionLoading(true);
+    setModeActionError(null);
+    try {
+      const response = await exitProductMaintenanceMode(environmentId, productDeploymentId);
+      if (!response.success) {
+        setModeActionError(response.message || 'Failed to exit maintenance mode');
+        return;
+      }
+      await loadDeployment();
+    } catch (err) {
+      setModeActionError(err instanceof Error ? err.message : 'Failed to exit maintenance mode');
+    } finally {
+      setModeActionLoading(false);
+    }
+  }, [environmentId, productDeploymentId, loadDeployment]);
+
+  const clearModeActionError = useCallback(() => {
+    setModeActionError(null);
+  }, []);
+
   const state: ProductDeploymentDetailState = loading ? 'loading' : error ? 'error' : 'loaded';
 
   return {
@@ -85,5 +137,10 @@ export function useProductDeploymentDetailStore(
     formatDate,
     formatDuration,
     formatStackDuration,
+    modeActionLoading,
+    modeActionError,
+    handleEnterMaintenance,
+    handleExitMaintenance,
+    clearModeActionError,
   };
 }

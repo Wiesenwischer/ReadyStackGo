@@ -1,6 +1,7 @@
 import { useParams, Link } from "react-router";
 import {
   useProductDeploymentDetailStore,
+  getOperationModePresentation,
   type ProductStackDeploymentDto,
 } from '@rsgo/core';
 import { useAuth } from "../../context/AuthContext";
@@ -94,6 +95,9 @@ export default function ProductDeploymentDetail() {
 
   const deployment = store.deployment;
   const status = getProductStatusPresentation(deployment.status);
+  const modePresentation = deployment.operationMode !== 'Normal'
+    ? getOperationModePresentation(deployment.operationMode)
+    : null;
   const variableEntries = Object.entries(deployment.sharedVariables ?? {});
 
   return (
@@ -124,6 +128,11 @@ export default function ProductDeploymentDetail() {
             <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${status.bgColor} ${status.textColor}`}>
               {status.label}
             </span>
+            {modePresentation && (
+              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${modePresentation.bgColor} ${modePresentation.textColor}`}>
+                {modePresentation.label}
+              </span>
+            )}
           </div>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
             <span className="font-mono text-xs">{deployment.deploymentName}</span>
@@ -138,6 +147,33 @@ export default function ProductDeploymentDetail() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Maintenance Mode Controls */}
+          {deployment.canEnterMaintenance && (
+            <button
+              onClick={() => store.handleEnterMaintenance()}
+              disabled={store.modeActionLoading}
+              className="inline-flex items-center justify-center gap-2 rounded bg-yellow-100 px-3 py-1.5 text-sm font-medium text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:hover:bg-yellow-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              {store.modeActionLoading ? 'Entering...' : 'Enter Maintenance'}
+            </button>
+          )}
+          {deployment.canExitMaintenance && (
+            <button
+              onClick={store.handleExitMaintenance}
+              disabled={store.modeActionLoading}
+              className="inline-flex items-center justify-center gap-2 rounded bg-green-100 px-3 py-1.5 text-sm font-medium text-green-800 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {store.modeActionLoading ? 'Exiting...' : 'Exit Maintenance'}
+            </button>
+          )}
           <Link
             to={`/catalog/${encodeURIComponent(deployment.productGroupId)}`}
             className="inline-flex items-center justify-center rounded bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
@@ -195,6 +231,54 @@ export default function ProductDeploymentDetail() {
         </div>
       </div>
 
+      {/* Mode Action Error */}
+      {store.modeActionError && (
+        <div className="mb-6 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-red-800 dark:text-red-200">{store.modeActionError}</p>
+            </div>
+            <div className="ml-auto pl-3">
+              <button
+                onClick={store.clearModeActionError}
+                className="inline-flex rounded-md p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50"
+              >
+                <span className="sr-only">Dismiss</span>
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Maintenance Info */}
+      {deployment.operationMode === 'Maintenance' && deployment.maintenanceTrigger && (
+        <div className="mb-6 rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-900/20">
+          <div className="flex items-center gap-2 text-sm text-yellow-800 dark:text-yellow-300">
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span className="font-medium">Maintenance Mode</span>
+            <span className="text-yellow-600 dark:text-yellow-400">
+              ({deployment.maintenanceTrigger.source === 'Observer' ? 'Observer' : 'Manual'})
+            </span>
+            {deployment.maintenanceTrigger.reason && (
+              <span className="text-yellow-700 dark:text-yellow-400">
+                &mdash; {deployment.maintenanceTrigger.reason}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Error Alert */}
       {deployment.errorMessage && (
         <div className="mb-6 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
@@ -204,11 +288,21 @@ export default function ProductDeploymentDetail() {
       )}
 
       {/* Overview Cards */}
-      <div className="mb-6 grid gap-4 md:grid-cols-4">
+      <div className="mb-6 grid gap-4 md:grid-cols-5">
         <OverviewCard label="Status">
           <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${status.bgColor} ${status.textColor}`}>
             {status.label}
           </span>
+        </OverviewCard>
+        <OverviewCard label="Operation Mode">
+          {(() => {
+            const mp = getOperationModePresentation(deployment.operationMode);
+            return (
+              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${mp.bgColor} ${mp.textColor}`}>
+                {mp.label}
+              </span>
+            );
+          })()}
         </OverviewCard>
         <OverviewCard label="Deployed">
           <span className="text-sm text-gray-900 dark:text-white">{store.formatDate(deployment.createdAt)}</span>

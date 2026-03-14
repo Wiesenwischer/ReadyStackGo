@@ -54,7 +54,8 @@ public class ListProductDeploymentsHandler
                 CanRemove = pd.CanRemove,
                 CanRedeploy = pd.CanRedeploy,
                 CanStop = pd.CanStop,
-                CanRestart = pd.CanRestart
+                CanRestart = pd.CanRestart,
+                OperationMode = pd.OperationMode.Name
             }).ToList()
         };
 

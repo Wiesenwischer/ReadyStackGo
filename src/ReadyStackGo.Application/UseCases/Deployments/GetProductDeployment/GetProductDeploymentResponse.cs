@@ -29,6 +29,10 @@ public class GetProductDeploymentResponse
     public bool CanRedeploy { get; set; }
     public bool CanStop { get; set; }
     public bool CanRestart { get; set; }
+    public bool CanEnterMaintenance { get; set; }
+    public bool CanExitMaintenance { get; set; }
+    public required string OperationMode { get; set; }
+    public MaintenanceTriggerDto? MaintenanceTrigger { get; set; }
     public double? DurationSeconds { get; set; }
     public List<ProductStackDeploymentDto> Stacks { get; set; } = new();
     public Dictionary<string, string> SharedVariables { get; set; } = new();
@@ -51,4 +55,15 @@ public class ProductStackDeploymentDto
     public int Order { get; set; }
     public int ServiceCount { get; set; }
     public bool IsNewInUpgrade { get; set; }
+}
+
+/// <summary>
+/// DTO for the maintenance trigger information.
+/// </summary>
+public class MaintenanceTriggerDto
+{
+    public required string Source { get; set; }
+    public string? Reason { get; set; }
+    public DateTime TriggeredAtUtc { get; set; }
+    public string? TriggeredBy { get; set; }
 }

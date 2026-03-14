@@ -33,4 +33,5 @@ public class ProductDeploymentSummaryDto
     public bool CanRedeploy { get; set; }
     public bool CanStop { get; set; }
     public bool CanRestart { get; set; }
+    public required string OperationMode { get; set; }
 }
