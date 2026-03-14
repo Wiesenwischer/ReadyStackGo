@@ -111,15 +111,18 @@ public sealed class OperationModeChanged : DomainEvent
     public DeploymentId DeploymentId { get; }
     public OperationMode NewMode { get; }
     public string? Reason { get; }
+    public Observers.MaintenanceTrigger? Trigger { get; }
 
     public OperationModeChanged(
         DeploymentId deploymentId,
         OperationMode newMode,
-        string? reason = null)
+        string? reason = null,
+        Observers.MaintenanceTrigger? trigger = null)
     {
         DeploymentId = deploymentId;
         NewMode = newMode;
         Reason = reason;
+        Trigger = trigger;
     }
 }
 

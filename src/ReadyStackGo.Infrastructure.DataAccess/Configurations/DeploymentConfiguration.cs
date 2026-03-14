@@ -102,6 +102,18 @@ public class DeploymentConfiguration : IEntityTypeConfiguration<Deployment>
                 v => string.IsNullOrEmpty(v) ? null : JsonSerializer.Deserialize<MaintenanceObserverConfig>(v, observerConfigOptions))
             .HasColumnName("MaintenanceObserverConfigJson");
 
+        // Configure MaintenanceTrigger as JSON column
+        var triggerOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+        };
+        builder.Property(d => d.MaintenanceTrigger)
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, triggerOptions),
+                v => string.IsNullOrEmpty(v) ? null : DeserializeMaintenanceTrigger(v, triggerOptions))
+            .HasColumnName("MaintenanceTriggerJson");
+
         // Configure InitContainerResults as JSON column
         builder.Property(d => d.InitContainerResults)
             .HasConversion(
@@ -177,5 +189,29 @@ public class DeploymentConfiguration : IEntityTypeConfiguration<Deployment>
         builder.HasIndex(d => d.EnvironmentId);
 
         builder.HasIndex(d => d.Status);
+    }
+
+    private static MaintenanceTrigger? DeserializeMaintenanceTrigger(string json, JsonSerializerOptions options)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        var source = root.TryGetProperty("source", out var sourceProp)
+            ? Enum.Parse<MaintenanceTriggerSource>(sourceProp.GetString()!, ignoreCase: true)
+            : MaintenanceTriggerSource.Manual;
+
+        var reason = root.TryGetProperty("reason", out var reasonProp) && reasonProp.ValueKind != JsonValueKind.Null
+            ? reasonProp.GetString()
+            : null;
+
+        var triggeredAtUtc = root.TryGetProperty("triggeredAtUtc", out var atProp)
+            ? atProp.GetDateTime()
+            : DateTime.UtcNow;
+
+        var triggeredBy = root.TryGetProperty("triggeredBy", out var byProp) && byProp.ValueKind != JsonValueKind.Null
+            ? byProp.GetString()
+            : null;
+
+        return MaintenanceTrigger.Create(source, reason, triggeredAtUtc, triggeredBy);
     }
 }

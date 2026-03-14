@@ -46,6 +46,9 @@ public class Deployment : AggregateRoot<DeploymentId>
     // Maintenance observer configuration (from product definition at deploy time)
     public MaintenanceObserverConfig? MaintenanceObserverConfig { get; private set; }
 
+    // Tracks who triggered the current maintenance mode (null when in Normal mode)
+    public MaintenanceTrigger? MaintenanceTrigger { get; private set; }
+
     // Health check configurations for services (from stack definition at deploy time)
     private readonly List<RuntimeConfig.ServiceHealthCheckConfig> _healthCheckConfigs = new();
     public IReadOnlyCollection<RuntimeConfig.ServiceHealthCheckConfig> HealthCheckConfigs => _healthCheckConfigs.AsReadOnly();
@@ -291,6 +294,7 @@ public class Deployment : AggregateRoot<DeploymentId>
 
         Status = DeploymentStatus.Running;
         OperationMode = OperationMode.Normal;
+        MaintenanceTrigger = null;
         CurrentPhase = DeploymentPhase.Completed;
         ProgressPercentage = 100;
         CompletedAt = SystemClock.UtcNow;
@@ -393,31 +397,55 @@ public class Deployment : AggregateRoot<DeploymentId>
 
     /// <summary>
     /// Puts the deployment into maintenance mode.
-    /// Only valid when deployment is Running.
+    /// Only valid when deployment is Running and currently in Normal mode.
+    /// Both Manual and Observer sources can always activate maintenance.
     /// </summary>
-    public void EnterMaintenance(string? reason = null)
+    public void EnterMaintenance(MaintenanceTrigger trigger)
     {
+        SelfAssertArgumentNotNull(trigger, "Maintenance trigger is required.");
         SelfAssertArgumentTrue(Status == DeploymentStatus.Running,
             "Can only enter maintenance on a running deployment.");
         SelfAssertArgumentTrue(OperationMode == OperationMode.Normal,
             "Deployment is already in maintenance mode.");
 
         OperationMode = OperationMode.Maintenance;
-        AddDomainEvent(new OperationModeChanged(Id, OperationMode.Maintenance, reason));
+        MaintenanceTrigger = trigger;
+        AddDomainEvent(new OperationModeChanged(Id, OperationMode.Maintenance, trigger.Reason, trigger));
     }
 
     /// <summary>
     /// Exits maintenance mode and returns to normal operation.
+    /// Ownership rule: only the source that activated maintenance can deactivate it.
+    /// - Manual trigger: only Manual can exit
+    /// - Observer trigger: only Observer can exit
     /// </summary>
-    public void ExitMaintenance()
+    public void ExitMaintenance(MaintenanceTriggerSource source)
     {
         SelfAssertArgumentTrue(Status == DeploymentStatus.Running,
             "Can only exit maintenance on a running deployment.");
         SelfAssertArgumentTrue(OperationMode == OperationMode.Maintenance,
             "Deployment is not in maintenance mode.");
 
+        // Enforce ownership: only the source that activated can deactivate
+        if (MaintenanceTrigger != null)
+        {
+            if (MaintenanceTrigger.IsManual && source == MaintenanceTriggerSource.Observer)
+            {
+                throw new InvalidOperationException(
+                    "Cannot exit maintenance mode: maintenance was manually activated and can only be exited manually.");
+            }
+
+            if (MaintenanceTrigger.IsObserver && source == MaintenanceTriggerSource.Manual)
+            {
+                throw new InvalidOperationException(
+                    "Cannot exit maintenance mode: maintenance was activated by observer and cannot be exited while the external source reports maintenance.");
+            }
+        }
+
+        var previousTrigger = MaintenanceTrigger;
         OperationMode = OperationMode.Normal;
-        AddDomainEvent(new OperationModeChanged(Id, OperationMode.Normal, "Exited maintenance mode"));
+        MaintenanceTrigger = null;
+        AddDomainEvent(new OperationModeChanged(Id, OperationMode.Normal, "Exited maintenance mode", previousTrigger));
     }
 
     #endregion
