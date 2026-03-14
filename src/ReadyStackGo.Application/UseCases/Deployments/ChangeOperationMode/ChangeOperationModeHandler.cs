@@ -6,6 +6,7 @@ using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Health;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Health;
+using ReadyStackGo.Domain.Deployment.Observers;
 
 /// <summary>
 /// Handler for changing the operation mode of a deployment.
@@ -77,7 +78,10 @@ public class ChangeOperationModeHandler : IRequestHandler<ChangeOperationModeCom
         // Execute the appropriate transition
         try
         {
-            ExecuteModeTransition(deployment, targetMode, request.Reason);
+            var source = string.Equals(request.Source, "Observer", StringComparison.OrdinalIgnoreCase)
+                ? MaintenanceTriggerSource.Observer
+                : MaintenanceTriggerSource.Manual;
+            ExecuteModeTransition(deployment, targetMode, request.Reason, source);
         }
         catch (ArgumentException ex)
         {
@@ -241,16 +245,20 @@ public class ChangeOperationModeHandler : IRequestHandler<ChangeOperationModeCom
     private static void ExecuteModeTransition(
         Deployment deployment,
         OperationMode targetMode,
-        string? reason)
+        string? reason,
+        MaintenanceTriggerSource source)
     {
         // Only two transitions are valid: Normal <-> Maintenance
         if (targetMode == OperationMode.Maintenance)
         {
-            deployment.EnterMaintenance(reason);
+            var trigger = source == MaintenanceTriggerSource.Observer
+                ? MaintenanceTrigger.Observer(reason)
+                : MaintenanceTrigger.Manual(reason);
+            deployment.EnterMaintenance(trigger);
         }
         else if (targetMode == OperationMode.Normal)
         {
-            deployment.ExitMaintenance();
+            deployment.ExitMaintenance(source);
         }
         else
         {
