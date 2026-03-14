@@ -83,7 +83,7 @@ public class ChangeOperationModeHandler : IRequestHandler<ChangeOperationModeCom
                 : MaintenanceTriggerSource.Manual;
             ExecuteModeTransition(deployment, targetMode, request.Reason, source);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
             _logger.LogWarning(ex, "Failed to change operation mode for deployment {DeploymentId}", request.DeploymentId);
             return ChangeOperationModeResponse.Fail(ex.Message);

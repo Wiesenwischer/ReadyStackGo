@@ -208,12 +208,11 @@ public class MaintenanceObserverService : IMaintenanceObserverService
                 "Maintenance observer triggered maintenance mode for {StackName} (observed: {Value})",
                 deployment.StackName, result.ObservedValue);
 
-            // Use ChangeOperationModeCommand to properly enter maintenance mode
-            // This triggers the same business logic as the UI button
             var command = new ChangeOperationModeCommand(
                 deployment.Id.Value.ToString(),
                 OperationMode.Maintenance.Name,
-                Reason: $"Triggered by maintenance observer (observed: {result.ObservedValue})");
+                Reason: $"Triggered by maintenance observer (observed: {result.ObservedValue})",
+                Source: "Observer");
 
             var response = await _mediator.Send(command, cancellationToken);
             if (!response.Success)
@@ -225,15 +224,25 @@ public class MaintenanceObserverService : IMaintenanceObserverService
         }
         else if (!shouldBeMaintenance && currentMode == OperationMode.Maintenance)
         {
+            // Observer can only exit maintenance it activated itself.
+            // If trigger is Manual, skip (manual has priority).
+            if (deployment.MaintenanceTrigger?.IsManual == true)
+            {
+                _logger.LogDebug(
+                    "Observer skipping exit for {StackName}: maintenance was manually activated",
+                    deployment.StackName);
+                return;
+            }
+
             _logger.LogInformation(
                 "Maintenance observer cleared maintenance mode for {StackName} (observed: {Value})",
                 deployment.StackName, result.ObservedValue);
 
-            // Use ChangeOperationModeCommand to properly exit maintenance mode
             var command = new ChangeOperationModeCommand(
                 deployment.Id.Value.ToString(),
                 OperationMode.Normal.Name,
-                Reason: $"Cleared by maintenance observer (observed: {result.ObservedValue})");
+                Reason: $"Cleared by maintenance observer (observed: {result.ObservedValue})",
+                Source: "Observer");
 
             var response = await _mediator.Send(command, cancellationToken);
             if (!response.Success)
