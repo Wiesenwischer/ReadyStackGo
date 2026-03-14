@@ -70,8 +70,8 @@ Zwei architektonische Schwächen des Maintenance Mode beheben:
   - Backend: operationMode, canEnterMaintenance, canExitMaintenance, maintenanceTrigger in response DTOs
   - Frontend: @rsgo/core API functions, store hook with maintenance actions, UI controls on ProductDeploymentDetail
   - AMS UI: not affected (new store fields unused)
-- [-] **Feature 9: E2E Tests Phase 3** — Skipped (requires running Docker environment with deployed product)
-- [-] **Dokumentation & Website** — Skipped (will be done in docs phase)
+- [x] **Feature 9: E2E Tests Phase 3** — 5 Playwright tests with screenshots
+- [x] **Dokumentation & Website** — Bilingual docs (DE/EN) on PublicWeb with 5 screenshots
 - [ ] **Phase abschließen** – Integration PR gegen main
 
 ## Offene Punkte
