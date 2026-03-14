@@ -72,7 +72,7 @@ Zwei architektonische Schwächen des Maintenance Mode beheben:
   - AMS UI: not affected (new store fields unused)
 - [x] **Feature 9: E2E Tests Phase 3** — 5 Playwright tests with screenshots
 - [x] **Dokumentation & Website** — Bilingual docs (DE/EN) on PublicWeb with 5 screenshots
-- [ ] **Phase abschließen** – Integration PR gegen main
+- [x] **Phase abschließen** – Integration PR #269 gegen main, released as v0.48.0
 
 ## Offene Punkte
 
