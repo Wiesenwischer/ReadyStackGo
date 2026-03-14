@@ -3,6 +3,8 @@ namespace ReadyStackGo.Domain.Deployment.ProductDeployments;
 using System.Text.RegularExpressions;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.Health;
+using ReadyStackGo.Domain.Deployment.Observers;
 using ReadyStackGo.Domain.SharedKernel;
 
 /// <summary>
@@ -63,6 +65,11 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     public string? PreviousVersion { get; private set; }
     public DateTime? LastUpgradedAt { get; private set; }
     public int UpgradeCount { get; private set; }
+
+    // ── Maintenance / Operation Mode ───────────────────────────────
+    public OperationMode OperationMode { get; private set; } = OperationMode.Normal;
+    public MaintenanceTrigger? MaintenanceTrigger { get; private set; }
+    public MaintenanceObserverConfig? MaintenanceObserverConfig { get; private set; }
 
     // ── Phase History ────────────────────────────────────────────────
     private readonly List<ProductDeploymentPhaseRecord> _phaseHistory = new();
@@ -659,6 +666,88 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
 
         return false;
     }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Maintenance / Operation Mode
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Sets the maintenance observer configuration for this product deployment.
+    /// Called during deployment when observer config is available from the product definition.
+    /// </summary>
+    public void SetMaintenanceObserverConfig(MaintenanceObserverConfig? config)
+    {
+        MaintenanceObserverConfig = config;
+    }
+
+    /// <summary>
+    /// Puts the product deployment into maintenance mode.
+    /// Only valid when the product is operational (Running or PartiallyRunning).
+    /// Both Manual and Observer sources can always activate maintenance.
+    /// </summary>
+    public void EnterMaintenance(MaintenanceTrigger trigger)
+    {
+        SelfAssertArgumentNotNull(trigger, "Maintenance trigger is required.");
+        SelfAssertStateTrue(IsOperational,
+            $"Can only enter maintenance when product is operational. Current status: {Status}.");
+        SelfAssertStateTrue(OperationMode == OperationMode.Normal,
+            "Product deployment is already in maintenance mode.");
+
+        OperationMode = OperationMode.Maintenance;
+        MaintenanceTrigger = trigger;
+
+        RecordPhase($"Entered maintenance mode ({trigger.Source}: {trigger.Reason ?? "no reason"})");
+        AddDomainEvent(new ProductMaintenanceModeChanged(
+            Id, OperationMode.Maintenance, trigger));
+    }
+
+    /// <summary>
+    /// Exits maintenance mode and returns to normal operation.
+    /// Ownership rule: only the source that activated maintenance can deactivate it.
+    /// - Manual trigger: only Manual can exit
+    /// - Observer trigger: only Observer can exit
+    /// </summary>
+    public void ExitMaintenance(MaintenanceTriggerSource source)
+    {
+        SelfAssertStateTrue(IsOperational,
+            $"Can only exit maintenance when product is operational. Current status: {Status}.");
+        SelfAssertStateTrue(OperationMode == OperationMode.Maintenance,
+            "Product deployment is not in maintenance mode.");
+
+        // Enforce ownership: only the source that activated can deactivate
+        if (MaintenanceTrigger != null)
+        {
+            if (MaintenanceTrigger.IsManual && source == MaintenanceTriggerSource.Observer)
+            {
+                throw new InvalidOperationException(
+                    "Cannot exit maintenance mode: maintenance was manually activated and can only be exited manually.");
+            }
+
+            if (MaintenanceTrigger.IsObserver && source == MaintenanceTriggerSource.Manual)
+            {
+                throw new InvalidOperationException(
+                    "Cannot exit maintenance mode: maintenance was activated by observer and cannot be exited while the external source reports maintenance.");
+            }
+        }
+
+        var previousTrigger = MaintenanceTrigger;
+        OperationMode = OperationMode.Normal;
+        MaintenanceTrigger = null;
+
+        RecordPhase($"Exited maintenance mode (by {source})");
+        AddDomainEvent(new ProductMaintenanceModeChanged(
+            Id, OperationMode.Normal, previousTrigger));
+    }
+
+    /// <summary>
+    /// Whether maintenance mode can be entered (product is operational and in Normal mode).
+    /// </summary>
+    public bool CanEnterMaintenance => IsOperational && OperationMode == OperationMode.Normal;
+
+    /// <summary>
+    /// Whether maintenance mode can be exited (product is operational and in Maintenance mode).
+    /// </summary>
+    public bool CanExitMaintenance => IsOperational && OperationMode == OperationMode.Maintenance;
 
     // ═══════════════════════════════════════════════════════════════════
     // Query Methods
