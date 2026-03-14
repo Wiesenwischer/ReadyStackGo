@@ -1,11 +1,14 @@
 namespace ReadyStackGo.Infrastructure.DataAccess.Configurations;
 
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.Health;
+using ReadyStackGo.Domain.Deployment.Observers;
 using ReadyStackGo.Domain.Deployment.ProductDeployments;
 
 /// <summary>
@@ -84,6 +87,37 @@ public class ProductDeploymentConfiguration : IEntityTypeConfiguration<ProductDe
 
         builder.Property(d => d.Version)
             .IsConcurrencyToken();
+
+        // Configure OperationMode
+        builder.Property(d => d.OperationMode)
+            .HasConversion(
+                mode => mode.Value,
+                value => OperationMode.FromValue(value))
+            .IsRequired();
+
+        // Configure MaintenanceTrigger as JSON column
+        var triggerOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+        };
+        builder.Property(d => d.MaintenanceTrigger)
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, triggerOptions),
+                v => string.IsNullOrEmpty(v) ? null : DeserializeMaintenanceTrigger(v))
+            .HasColumnName("MaintenanceTriggerJson");
+
+        // Configure MaintenanceObserverConfig as JSON column
+        var observerConfigOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Converters = { new MaintenanceObserverConfigJsonConverter() }
+        };
+        builder.Property(d => d.MaintenanceObserverConfig)
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, observerConfigOptions),
+                v => string.IsNullOrEmpty(v) ? null : JsonSerializer.Deserialize<MaintenanceObserverConfig>(v, observerConfigOptions))
+            .HasColumnName("MaintenanceObserverConfigJson");
 
         // Configure SharedVariables as JSON column
         builder.Property(d => d.SharedVariables)
@@ -165,5 +199,29 @@ public class ProductDeploymentConfiguration : IEntityTypeConfiguration<ProductDe
         builder.HasIndex(d => d.EnvironmentId);
         builder.HasIndex(d => d.ProductGroupId);
         builder.HasIndex(d => d.Status);
+    }
+
+    private static MaintenanceTrigger? DeserializeMaintenanceTrigger(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        var source = root.TryGetProperty("source", out var sourceProp)
+            ? Enum.Parse<MaintenanceTriggerSource>(sourceProp.GetString()!, ignoreCase: true)
+            : MaintenanceTriggerSource.Manual;
+
+        var reason = root.TryGetProperty("reason", out var reasonProp) && reasonProp.ValueKind != JsonValueKind.Null
+            ? reasonProp.GetString()
+            : null;
+
+        var triggeredAtUtc = root.TryGetProperty("triggeredAtUtc", out var atProp)
+            ? atProp.GetDateTime()
+            : DateTime.UtcNow;
+
+        var triggeredBy = root.TryGetProperty("triggeredBy", out var byProp) && byProp.ValueKind != JsonValueKind.Null
+            ? byProp.GetString()
+            : null;
+
+        return MaintenanceTrigger.Create(source, reason, triggeredAtUtc, triggeredBy);
     }
 }

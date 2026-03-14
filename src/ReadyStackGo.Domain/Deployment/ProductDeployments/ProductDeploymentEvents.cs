@@ -2,6 +2,8 @@ namespace ReadyStackGo.Domain.Deployment.ProductDeployments;
 
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.Deployment.Health;
+using ReadyStackGo.Domain.Deployment.Observers;
 using ReadyStackGo.Domain.SharedKernel;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -215,6 +217,26 @@ public sealed class ProductDeploymentRemoved : DomainEvent
     {
         ProductDeploymentId = productDeploymentId;
         ProductName = productName;
+    }
+}
+
+/// <summary>
+/// Raised when the operation mode of a product deployment changes (Normal ↔ Maintenance).
+/// </summary>
+public sealed class ProductMaintenanceModeChanged : DomainEvent
+{
+    public ProductDeploymentId ProductDeploymentId { get; }
+    public OperationMode NewMode { get; }
+    public MaintenanceTrigger? Trigger { get; }
+
+    public ProductMaintenanceModeChanged(
+        ProductDeploymentId productDeploymentId,
+        OperationMode newMode,
+        MaintenanceTrigger? trigger = null)
+    {
+        ProductDeploymentId = productDeploymentId;
+        NewMode = newMode;
+        Trigger = trigger;
     }
 }
 
