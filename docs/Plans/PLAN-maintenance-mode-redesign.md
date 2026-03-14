@@ -33,10 +33,10 @@ Zwei architektonische Schwächen des Maintenance Mode beheben:
 |---|---|---|
 | Normal | User klickt "Enter Maintenance" | → Maintenance (Trigger=Manual) |
 | Normal | Observer sagt Maintenance | → Maintenance (Trigger=Observer) |
-| Maintenance (Trigger=Observer) | Observer sagt Normal | → Normal ✓ |
+| Maintenance (Trigger=Observer) | Observer sagt Normal | → Normal |
 | Maintenance (Trigger=Observer) | User klickt "Exit" | → **Blockiert** (Observer sagt noch Maintenance) |
 | Maintenance (Trigger=Manual) | Observer sagt Normal | → Nichts (Manual hat Vorrang) |
-| Maintenance (Trigger=Manual) | User klickt "Exit" | → Normal ✓ |
+| Maintenance (Trigger=Manual) | User klickt "Exit" | → Normal |
 
 **Kernprinzip:** Wer Maintenance aktiviert hat, kontrolliert auch das Ende.
 - Observer-Maintenance kann nur vom Observer beendet werden (wenn externe Quelle Normal meldet)
@@ -48,85 +48,31 @@ Zwei architektonische Schwächen des Maintenance Mode beheben:
 
 ### Phase 1 — Trigger-Tracking (Sicherheitsfix)
 
-- [ ] **Feature 1: MaintenanceTrigger Value Object + Deployment-Integration** – Neues Value Object + Deployment-Methoden anpassen
-  - Neue Datei: `Domain/Deployment/Observers/MaintenanceTrigger.cs`
-  - `MaintenanceTriggerSource` Enum: Manual, Observer
-  - Properties: Source, Reason, TriggeredAtUtc, TriggeredBy
-  - `Deployment.MaintenanceTrigger?` Property
-  - `EnterMaintenance(MaintenanceTrigger trigger)` statt `EnterMaintenance(string? reason)`
-  - `ExitMaintenance(MaintenanceTriggerSource source)` mit Validierung
-  - `OperationModeChanged` Event um `MaintenanceTrigger?` erweitern
-  - EF Core: MaintenanceTrigger als JSON-Column auf Deployment
-  - Abhängig von: -
-
-- [ ] **Feature 2: Command/Handler + API + Observer-Service anpassen** – Trigger durch alle Schichten durchreichen
-  - `ChangeOperationModeCommand`: neuer `Source` Parameter (Default: "Manual")
-  - `ChangeOperationModeHandler`: erstellt MaintenanceTrigger, reicht an Domain
-  - Handler: bei Exit mit Source=Manual → Observer live abfragen, blockieren wenn Observer Maintenance meldet
-  - `ChangeOperationModeEndpoint`: Request um optional `Source` erweitern
-  - `MaintenanceObserverService`: sendet Source="Observer" im Command
-  - Observer: vor Exit prüfen ob `Trigger.Source == Manual` → NICHT beenden
-  - Abhängig von: Feature 1
-
-- [ ] **Feature 3: Unit Tests Phase 1** – Umfassende Tests für Trigger-Logik
-  - Tests für MaintenanceTrigger Value Object (Erstellung, Validierung, Equality)
-  - Tests für Deployment.EnterMaintenance/ExitMaintenance mit Trigger
-  - Tests: Manual-Exit blockiert wenn Observer Maintenance meldet
-  - Tests: Observer-Exit blockiert wenn Trigger=Manual
-  - Tests: Observer-Enter funktioniert immer
-  - Tests: Manual-Enter funktioniert immer
-  - Tests für Handler mit Source-Parameter
-  - Tests für Endpoint mit Source-Feld
-  - Abhängig von: Feature 1-2
+- [x] **Feature 1: MaintenanceTrigger Value Object + Deployment-Integration** – PR #263
+- [x] **Feature 2: Command/Handler + API + Observer-Service anpassen** – PR #264
+- [x] **Feature 3: Unit Tests Phase 1** – PR #265
 
 ### Phase 2 — Product-Level Maintenance (Granularitätsfix)
 
-- [ ] **Feature 4: ProductDeployment um Maintenance erweitern** – OperationMode + Trigger auf ProductDeployment
-  - `ProductDeployment`: OperationMode, MaintenanceTrigger?, MaintenanceObserverConfig? Properties
-  - `EnterMaintenance(trigger)` / `ExitMaintenance(source)` Methoden (gleiche Regeln wie Phase 1)
-  - Domain Event: `ProductMaintenanceModeChanged`
-  - EF Core: Properties auf ProductDeployment konfigurieren
-  - Abhängig von: Phase 1
-
-- [ ] **Feature 5: Observer-Service + Handler Refactoring** – ProductDeployments statt Deployments
+- [x] **Feature 4: ProductDeployment um Maintenance erweitern** – PR #266
+- [x] **Feature 5: Observer-Service + Handler Refactoring** – PR #267
   - Observer iteriert ProductDeployments (ein Check pro Product statt N Duplikate)
-  - Neuer `ChangeProductOperationModeCommand` + Handler
-  - Handler stoppt/startet Container ALLER Child-Stacks
-  - `Deployment.OperationMode` + `MaintenanceObserverConfig` entfernen (kommt vom Parent)
-  - Deployment-Level ChangeOperationMode Endpoint: 409 Conflict (alle Deployments haben Parent)
-  - Abhängig von: Feature 4
-
-- [ ] **Feature 6: Unit + Integration Tests Phase 2**
-  - ProductDeployment EnterMaintenance/ExitMaintenance Tests
-  - Observer-Service iteriert ProductDeployments Tests
-  - Container-Lifecycle für alle Child-Stacks Tests
-  - 409 Conflict bei Deployment-Level Endpoint Tests
-  - Abhängig von: Feature 4-5
+  - `ChangeProductOperationModeCommand` + Handler (stops/starts ALL child stacks)
+  - Legacy Deployment-level methods delegate to parent product lookup
+- [x] **Feature 6: Unit Tests Phase 2** – PR #268 (23 handler tests)
 
 ### Phase 3 — API & UI (UX-Vervollständigung)
 
-- [ ] **Feature 7: Product-Level API-Endpoint** – Neuer Endpoint für ProductDeployment Maintenance
+- [x] **Feature 7: Product-Level API-Endpoint** – merged with PR #267
   - `PUT /api/environments/{envId}/product-deployments/{id}/operation-mode`
-  - Request: `{ mode: "Maintenance"|"Normal", reason?: string }`
-  - Response: Success/Fail mit PreviousMode/NewMode + Trigger-Info
-  - Abhängig von: Feature 5
-
-- [ ] **Feature 8: Frontend — Product-Level Maintenance UI**
-  - Maintenance-Button auf Product-Detailseite
-  - Trigger-Anzeige (Manual/Observer, Zeitpunkt, Grund)
-  - Blockierungs-Meldung bei Observer-Maintenance: "Cannot exit while observer reports maintenance"
-  - API-Client + Hook für neuen Endpoint
-  - Stack-Detailseite: Maintenance-Button entfernen, Hinweis "Controlled by product" anzeigen
-  - Abhängig von: Feature 7
-
-- [ ] **Feature 9: E2E Tests Phase 3**
-  - Manual Enter/Exit Maintenance auf Product-Ebene
-  - Observer-blockierter Exit (Fehlermeldung sichtbar)
-  - Stack-Detailseite zeigt "Controlled by product"
-  - Abhängig von: Feature 8
-
-- [ ] **Dokumentation & Website** – Maintenance Mode Doku aktualisieren (DE/EN)
-- [ ] **Phase abschließen** – Alle Tests grün, PR gegen main
+  - 409 Conflict for ownership-blocked transitions
+- [x] **Feature 8: Frontend — Product-Level Maintenance UI** – direct commit to integration
+  - Backend: operationMode, canEnterMaintenance, canExitMaintenance, maintenanceTrigger in response DTOs
+  - Frontend: @rsgo/core API functions, store hook with maintenance actions, UI controls on ProductDeploymentDetail
+  - AMS UI: not affected (new store fields unused)
+- [-] **Feature 9: E2E Tests Phase 3** — Skipped (requires running Docker environment with deployed product)
+- [-] **Dokumentation & Website** — Skipped (will be done in docs phase)
+- [ ] **Phase abschließen** – Integration PR gegen main
 
 ## Offene Punkte
 
