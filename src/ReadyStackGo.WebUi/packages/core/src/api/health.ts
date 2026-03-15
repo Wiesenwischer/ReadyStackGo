@@ -358,60 +358,6 @@ export function calculateHealthPercentage(healthy: number, total: number): numbe
   return Math.round((healthy / total) * 100);
 }
 
-// Operation Mode API
-
-export interface ChangeOperationModeRequest {
-  mode: OperationModeName;
-  reason?: string;
-  targetVersion?: string;
-}
-
-export interface ChangeOperationModeResponse {
-  success: boolean;
-  message?: string;
-  deploymentId?: string;
-  previousMode?: string;
-  newMode?: string;
-}
-
-/**
- * Change the operation mode of a deployment.
- * @param environmentId The environment ID
- * @param deploymentId The deployment ID
- * @param request The mode change request
- */
-export async function changeOperationMode(
-  environmentId: string,
-  deploymentId: string,
-  request: ChangeOperationModeRequest
-): Promise<ChangeOperationModeResponse> {
-  return apiPut<ChangeOperationModeResponse>(
-    `/api/environments/${environmentId}/deployments/${deploymentId}/operation-mode`,
-    request
-  );
-}
-
-/**
- * Enter maintenance mode for a deployment.
- */
-export async function enterMaintenanceMode(
-  environmentId: string,
-  deploymentId: string,
-  reason?: string
-): Promise<ChangeOperationModeResponse> {
-  return changeOperationMode(environmentId, deploymentId, { mode: 'Maintenance', reason });
-}
-
-/**
- * Exit maintenance mode and return to normal operation.
- */
-export async function exitMaintenanceMode(
-  environmentId: string,
-  deploymentId: string
-): Promise<ChangeOperationModeResponse> {
-  return changeOperationMode(environmentId, deploymentId, { mode: 'Normal' });
-}
-
 // Product-Level Operation Mode API
 
 export interface ChangeProductOperationModeRequest {
