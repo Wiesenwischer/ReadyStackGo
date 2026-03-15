@@ -11,24 +11,28 @@ using ReadyStackGo.Domain.Deployment.ProductDeployments;
 
 /// <summary>
 /// Handler for changing the operation mode of a product deployment.
-/// Entering maintenance stops containers of ALL child stacks.
-/// Exiting maintenance starts containers of ALL child stacks.
+/// Entering maintenance stops containers of ALL child stacks and propagates
+/// the maintenance mode to each child Deployment aggregate.
+/// Exiting maintenance starts containers and resets child Deployments to Normal mode.
 /// </summary>
 public class ChangeProductOperationModeHandler
     : IRequestHandler<ChangeProductOperationModeCommand, ChangeProductOperationModeResponse>
 {
     private readonly IProductDeploymentRepository _productDeploymentRepository;
+    private readonly IDeploymentRepository _deploymentRepository;
     private readonly IDockerService _dockerService;
     private readonly IHealthNotificationService _healthNotificationService;
     private readonly ILogger<ChangeProductOperationModeHandler> _logger;
 
     public ChangeProductOperationModeHandler(
         IProductDeploymentRepository productDeploymentRepository,
+        IDeploymentRepository deploymentRepository,
         IDockerService dockerService,
         IHealthNotificationService healthNotificationService,
         ILogger<ChangeProductOperationModeHandler> logger)
     {
         _productDeploymentRepository = productDeploymentRepository;
+        _deploymentRepository = deploymentRepository;
         _dockerService = dockerService;
         _healthNotificationService = healthNotificationService;
         _logger = logger;
@@ -76,11 +80,13 @@ public class ChangeProductOperationModeHandler
             ? MaintenanceTriggerSource.Observer
             : MaintenanceTriggerSource.Manual;
 
+        MaintenanceTrigger? trigger = null;
+
         try
         {
             if (targetMode == OperationMode.Maintenance)
             {
-                var trigger = source == MaintenanceTriggerSource.Observer
+                trigger = source == MaintenanceTriggerSource.Observer
                     ? MaintenanceTrigger.Observer(request.Reason)
                     : MaintenanceTrigger.Manual(request.Reason);
                 productDeployment.EnterMaintenance(trigger);
@@ -107,9 +113,9 @@ public class ChangeProductOperationModeHandler
             "Changed operation mode for product deployment {ProductDeploymentId} ({ProductName}) from {PreviousMode} to {NewMode}",
             request.ProductDeploymentId, productDeployment.ProductName, previousMode.Name, targetMode.Name);
 
-        // Handle container lifecycle for ALL child stacks
+        // Handle container lifecycle and propagate operation mode to ALL child stacks
         await HandleContainerLifecycleAsync(
-            productDeployment, previousMode, targetMode, cancellationToken);
+            productDeployment, previousMode, targetMode, trigger, source, cancellationToken);
 
         return ChangeProductOperationModeResponse.Ok(
             request.ProductDeploymentId, previousMode.Name, targetMode.Name, source.ToString());
@@ -119,6 +125,8 @@ public class ChangeProductOperationModeHandler
         ProductDeployment productDeployment,
         OperationMode previousMode,
         OperationMode targetMode,
+        MaintenanceTrigger? trigger,
+        MaintenanceTriggerSource source,
         CancellationToken cancellationToken)
     {
         var environmentId = productDeployment.EnvironmentId.Value.ToString();
@@ -129,6 +137,9 @@ public class ChangeProductOperationModeHandler
 
             try
             {
+                // Propagate operation mode to child Deployment aggregate
+                PropagateOperationModeToChildDeployment(stack, targetMode, trigger, source);
+
                 if (targetMode == OperationMode.Maintenance)
                 {
                     _logger.LogInformation(
@@ -154,6 +165,44 @@ public class ChangeProductOperationModeHandler
                     "Failed to manage containers for stack {StackName} during product mode transition",
                     stack.StackName);
             }
+        }
+
+        _deploymentRepository.SaveChanges();
+    }
+
+    private void PropagateOperationModeToChildDeployment(
+        ProductStackDeployment stack,
+        OperationMode targetMode,
+        MaintenanceTrigger? trigger,
+        MaintenanceTriggerSource source)
+    {
+        if (stack.DeploymentId == null) return;
+
+        var deployment = _deploymentRepository.Get(stack.DeploymentId);
+        if (deployment == null)
+        {
+            _logger.LogWarning(
+                "Child deployment {DeploymentId} not found for stack {StackName}, skipping operation mode propagation",
+                stack.DeploymentId, stack.StackName);
+            return;
+        }
+
+        try
+        {
+            if (targetMode == OperationMode.Maintenance && deployment.OperationMode == OperationMode.Normal)
+            {
+                deployment.EnterMaintenance(trigger!);
+            }
+            else if (targetMode == OperationMode.Normal && deployment.OperationMode == OperationMode.Maintenance)
+            {
+                deployment.ExitMaintenance(source);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to propagate operation mode to child deployment {DeploymentId} for stack {StackName}",
+                stack.DeploymentId, stack.StackName);
         }
     }
 }

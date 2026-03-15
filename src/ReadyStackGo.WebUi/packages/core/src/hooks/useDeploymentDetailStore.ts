@@ -12,8 +12,6 @@ import {
   getHealthStatusPresentation,
   getOperationModePresentation,
   getStackHealth,
-  enterMaintenanceMode,
-  exitMaintenanceMode,
   type StackHealthDto,
   type StatusPresentation,
 } from '../api/health';
@@ -25,8 +23,6 @@ export interface UseDeploymentDetailStoreReturn {
   health: StackHealthDto | null;
   loading: boolean;
   error: string | null;
-  modeActionLoading: boolean;
-  modeActionError: string | null;
   rollbackInfo: RollbackInfoResponse | null;
   upgradeInfo: CheckUpgradeResponse | null;
   markFailedLoading: boolean;
@@ -38,10 +34,7 @@ export interface UseDeploymentDetailStoreReturn {
   modePresentation: StatusPresentation | null;
 
   // Actions
-  handleEnterMaintenance: () => Promise<void>;
-  handleExitMaintenance: () => Promise<void>;
   handleMarkAsFailed: () => Promise<void>;
-  clearModeActionError: () => void;
 
   // Helpers
   formatDate: (dateString?: string) => string;
@@ -56,8 +49,6 @@ export function useDeploymentDetailStore(
   const [health, setHealth] = useState<StackHealthDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [modeActionLoading, setModeActionLoading] = useState(false);
-  const [modeActionError, setModeActionError] = useState<string | null>(null);
 
   // Rollback state
   const [rollbackInfo, setRollbackInfo] = useState<RollbackInfoResponse | null>(null);
@@ -164,56 +155,6 @@ export function useDeploymentDetailStore(
     return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }, []);
 
-  const handleEnterMaintenance = useCallback(async () => {
-    if (!deployment?.deploymentId || !environmentId) return;
-    try {
-      setModeActionLoading(true);
-      setModeActionError(null);
-      const response = await enterMaintenanceMode(environmentId, deployment.deploymentId);
-      if (!response.success) {
-        setModeActionError(response.message || 'Failed to enter maintenance mode');
-      } else {
-        // Refresh health data from server
-        try {
-          const healthData = await getStackHealth(environmentId, deployment.deploymentId, true);
-          setHealth(healthData);
-        } catch {
-          // Optimistic fallback
-          setHealth(prev => prev ? { ...prev, operationMode: 'Maintenance' } : prev);
-        }
-      }
-    } catch (err) {
-      setModeActionError(err instanceof Error ? err.message : 'Failed to enter maintenance mode');
-    } finally {
-      setModeActionLoading(false);
-    }
-  }, [deployment?.deploymentId, environmentId]);
-
-  const handleExitMaintenance = useCallback(async () => {
-    if (!deployment?.deploymentId || !environmentId) return;
-    try {
-      setModeActionLoading(true);
-      setModeActionError(null);
-      const response = await exitMaintenanceMode(environmentId, deployment.deploymentId);
-      if (!response.success) {
-        setModeActionError(response.message || 'Failed to exit maintenance mode');
-      } else {
-        // Refresh health data from server
-        try {
-          const healthData = await getStackHealth(environmentId, deployment.deploymentId, true);
-          setHealth(healthData);
-        } catch {
-          // Optimistic fallback
-          setHealth(prev => prev ? { ...prev, operationMode: 'Normal' } : prev);
-        }
-      }
-    } catch (err) {
-      setModeActionError(err instanceof Error ? err.message : 'Failed to exit maintenance mode');
-    } finally {
-      setModeActionLoading(false);
-    }
-  }, [deployment?.deploymentId, environmentId]);
-
   const handleMarkAsFailed = useCallback(async () => {
     if (!deployment?.deploymentId || !environmentId) return;
     try {
@@ -249,8 +190,6 @@ export function useDeploymentDetailStore(
     }
   }, [deployment?.deploymentId, environmentId, stackName]);
 
-  const clearModeActionError = useCallback(() => setModeActionError(null), []);
-
   // Computed values
   const statusPresentation = health
     ? getHealthStatusPresentation(health.overallStatus)
@@ -265,8 +204,6 @@ export function useDeploymentDetailStore(
     health,
     loading,
     error,
-    modeActionLoading,
-    modeActionError,
     rollbackInfo,
     upgradeInfo,
     markFailedLoading,
@@ -274,10 +211,7 @@ export function useDeploymentDetailStore(
     connectionState,
     statusPresentation,
     modePresentation,
-    handleEnterMaintenance,
-    handleExitMaintenance,
     handleMarkAsFailed,
-    clearModeActionError,
     formatDate,
   };
 }

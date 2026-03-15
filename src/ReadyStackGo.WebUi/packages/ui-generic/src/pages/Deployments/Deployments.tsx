@@ -193,7 +193,9 @@ interface ProductDeploymentRowProps {
 }
 
 function ProductDeploymentRow({ deployment, formatDate }: ProductDeploymentRowProps) {
-  const status = getProductStatusPresentation(deployment.status);
+  // When in maintenance mode, show "Stopped" instead of the lifecycle status
+  const effectiveStatus = deployment.operationMode === 'Maintenance' ? 'Stopped' : deployment.status;
+  const status = getProductStatusPresentation(effectiveStatus);
 
   return (
     <div className="px-4 py-4 md:px-6 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -210,6 +212,14 @@ function ProductDeploymentRow({ deployment, formatDate }: ProductDeploymentRowPr
             <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${status.bgColor} ${status.textColor}`}>
               {status.label}
             </span>
+            {deployment.operationMode !== 'Normal' && (() => {
+              const mp = getOperationModePresentation(deployment.operationMode);
+              return (
+                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${mp.bgColor} ${mp.textColor}`}>
+                  {mp.label}
+                </span>
+              );
+            })()}
           </div>
           <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
             <span className="font-mono text-xs">{deployment.deploymentName}</span>

@@ -332,6 +332,19 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Product operation mode API endpoint with 409 Conflict for ownership-blocked transitions
   - Product detail page: enter/exit maintenance buttons, operation mode badge, trigger info panel
   - 23 new handler unit tests, 22 domain unit tests, 11 value object unit tests
+  - Fix: Maintenance mode propagation to child stacks (OperationMode + status badge override)
+  - Dedicated Enter/Exit Maintenance pages with confirmation flow
+  - Remove stack-level maintenance API (product-level only)
+  - Reduce sidebar logo spacing
+
+- **v0.49** – SSH Tunnel Environment (2026-03-15)
+  - Polymorphic ConnectionConfig (JSON Column, DockerSocketConfig + SshTunnelConfig subtypes)
+  - SSH Credential Storage (AES-encrypted private keys/passwords)
+  - SshTunnelManager (SSH.NET, local port forwarding, tunnel pool, auto-reconnect)
+  - DockerService SSH-Routing (transparent tunnel for all Docker operations)
+  - SSH Environment API + UI (type selector, dynamic form, test connection)
+  - Bilingual documentation (DE/EN) with E2E test screenshots
+  - Landing page highlight feature tile
 
 ---
 
@@ -339,12 +352,6 @@ Release version numbers are assigned when an Epic ships, not during planning.
 
 Epics are listed in priority order. Top = next.
 
-### Epic: Remote Environments — SSH Tunnel
-- Polymorphic ConnectionConfig (JSON Column, DockerSocketConfig + SshTunnelConfig subtypes)
-- SSH Credential Storage (AES-encrypted private keys/passwords)
-- SshTunnelManager (SSH.NET, local port forwarding, tunnel pool, auto-reconnect)
-- DockerService SSH-Routing (transparent tunnel for all Docker operations)
-- SSH Environment API + UI (type selector, dynamic form, test connection)
 
 ### Epic: OCI Stack Bundles
 
