@@ -130,7 +130,7 @@ Docker-Hosts auf entfernten Servern als Deployment-Ziele nutzen — über SSH-Tu
   - Environment Creation mit SshTunnel Type
 
 - [x] **Dokumentation & Website** — Bilingual Docs (DE/EN) mit Screenshots
-- [ ] **Phase abschließen** – Integration PR gegen main
+- [x] **Phase abschließen** – Integration PR gegen main
 
 ---
 
