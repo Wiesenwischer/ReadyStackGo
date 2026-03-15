@@ -345,6 +345,7 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - SSH Environment API + UI (type selector, dynamic form, test connection)
   - Bilingual documentation (DE/EN) with E2E test screenshots
   - Landing page highlight feature tile
+  - Environment Type Selector: split Add Environment into type selection + type-specific sub-pages
 
 ---
 
