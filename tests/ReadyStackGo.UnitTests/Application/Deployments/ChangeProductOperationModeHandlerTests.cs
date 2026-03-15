@@ -16,6 +16,7 @@ namespace ReadyStackGo.UnitTests.Application.Deployments;
 public class ChangeProductOperationModeHandlerTests
 {
     private readonly Mock<IProductDeploymentRepository> _repositoryMock;
+    private readonly Mock<IDeploymentRepository> _deploymentRepositoryMock;
     private readonly Mock<IDockerService> _dockerServiceMock;
     private readonly Mock<IHealthNotificationService> _healthNotificationMock;
     private readonly Mock<ILogger<ChangeProductOperationModeHandler>> _loggerMock;
@@ -26,12 +27,14 @@ public class ChangeProductOperationModeHandlerTests
     public ChangeProductOperationModeHandlerTests()
     {
         _repositoryMock = new Mock<IProductDeploymentRepository>();
+        _deploymentRepositoryMock = new Mock<IDeploymentRepository>();
         _dockerServiceMock = new Mock<IDockerService>();
         _healthNotificationMock = new Mock<IHealthNotificationService>();
         _loggerMock = new Mock<ILogger<ChangeProductOperationModeHandler>>();
 
         _handler = new ChangeProductOperationModeHandler(
             _repositoryMock.Object,
+            _deploymentRepositoryMock.Object,
             _dockerServiceMock.Object,
             _healthNotificationMock.Object,
             _loggerMock.Object);
@@ -491,6 +494,129 @@ public class ChangeProductOperationModeHandlerTests
         _dockerServiceMock.Verify(d => d.StopStackContainersAsync(
             It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    #endregion
+
+    #region Maintenance Propagation to Child Deployments
+
+    [Fact]
+    public async Task Handle_EnterMaintenance_PropagatesMaintenanceToChildDeployments()
+    {
+        var deployment = CreateRunningDeployment(2);
+        SetupDeploymentFound(deployment);
+
+        // Create child Deployment entities for each stack
+        var childDeployments = SetupChildDeployments(deployment);
+
+        await _handler.Handle(
+            CreateCommand(deployment, mode: "Maintenance", reason: "Scheduled window"),
+            CancellationToken.None);
+
+        // Each child deployment should be in maintenance mode
+        foreach (var child in childDeployments)
+        {
+            child.OperationMode.Should().Be(OperationMode.Maintenance);
+            child.MaintenanceTrigger.Should().NotBeNull();
+            child.MaintenanceTrigger!.IsManual.Should().BeTrue();
+            child.MaintenanceTrigger.Reason.Should().Be("Scheduled window");
+        }
+    }
+
+    [Fact]
+    public async Task Handle_ExitMaintenance_PropagatesNormalToChildDeployments()
+    {
+        var deployment = CreateRunningDeployment(2);
+        deployment.EnterMaintenance(MaintenanceTrigger.Manual("Test"));
+        SetupDeploymentFound(deployment);
+
+        // Create child Deployment entities that are also in maintenance
+        var childDeployments = SetupChildDeployments(deployment);
+        foreach (var child in childDeployments)
+        {
+            child.EnterMaintenance(MaintenanceTrigger.Manual("Test"));
+        }
+
+        _dockerServiceMock
+            .Setup(d => d.StartStackContainersAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string> { "c1" });
+
+        await _handler.Handle(
+            CreateCommand(deployment, mode: "Normal", source: "Manual"),
+            CancellationToken.None);
+
+        // Each child deployment should be back to Normal
+        foreach (var child in childDeployments)
+        {
+            child.OperationMode.Should().Be(OperationMode.Normal);
+            child.MaintenanceTrigger.Should().BeNull();
+        }
+    }
+
+    [Fact]
+    public async Task Handle_EnterMaintenance_SavesChildDeploymentChanges()
+    {
+        var deployment = CreateRunningDeployment(1);
+        SetupDeploymentFound(deployment);
+        SetupChildDeployments(deployment);
+
+        await _handler.Handle(
+            CreateCommand(deployment, mode: "Maintenance"), CancellationToken.None);
+
+        _deploymentRepositoryMock.Verify(r => r.SaveChanges(), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_EnterMaintenance_SkipsMissingChildDeployments()
+    {
+        var deployment = CreateRunningDeployment(2);
+        SetupDeploymentFound(deployment);
+
+        // Only set up the first child, leave the second as null
+        var stacks = deployment.Stacks.ToList();
+        var firstChild = CreateRunningChildDeployment(stacks[0].DeploymentId!);
+        _deploymentRepositoryMock
+            .Setup(r => r.Get(stacks[0].DeploymentId!))
+            .Returns(firstChild);
+        _deploymentRepositoryMock
+            .Setup(r => r.Get(stacks[1].DeploymentId!))
+            .Returns((Deployment?)null);
+
+        var result = await _handler.Handle(
+            CreateCommand(deployment, mode: "Maintenance"), CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        firstChild.OperationMode.Should().Be(OperationMode.Maintenance);
+    }
+
+    private List<Deployment> SetupChildDeployments(ProductDeployment productDeployment)
+    {
+        var childDeployments = new List<Deployment>();
+        foreach (var stack in productDeployment.Stacks)
+        {
+            if (stack.DeploymentId == null) continue;
+
+            var child = CreateRunningChildDeployment(stack.DeploymentId);
+            _deploymentRepositoryMock
+                .Setup(r => r.Get(stack.DeploymentId))
+                .Returns(child);
+            childDeployments.Add(child);
+        }
+        return childDeployments;
+    }
+
+    private static Deployment CreateRunningChildDeployment(DeploymentId deploymentId)
+    {
+        var deployment = Deployment.StartInstallation(
+            deploymentId,
+            new EnvironmentId(Guid.Parse(TestEnvironmentId)),
+            "source:stack:1.0",
+            "test-stack",
+            "test-project",
+            UserId.Create());
+        deployment.MarkAsRunning();
+        return deployment;
     }
 
     #endregion
