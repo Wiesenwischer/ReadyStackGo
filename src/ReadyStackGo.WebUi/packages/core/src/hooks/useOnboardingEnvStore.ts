@@ -37,6 +37,7 @@ export function useOnboardingEnvStore(): UseOnboardingEnvStoreReturn {
     try {
       const response = await createEnvironment({
         name: name.trim(),
+        type: 'DockerSocket',
         socketPath: socketPath.trim(),
       });
       if (response.success) {

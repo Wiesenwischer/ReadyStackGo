@@ -1,0 +1,207 @@
+using FluentAssertions;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Moq;
+using ReadyStackGo.Infrastructure.Services;
+
+namespace ReadyStackGo.UnitTests.Infrastructure;
+
+public class CredentialEncryptionServiceTests
+{
+    private CredentialEncryptionService CreateService(string? encryptionKey = null)
+    {
+        var configData = new Dictionary<string, string?>();
+        if (encryptionKey != null)
+        {
+            configData["RSGO_ENCRYPTION_KEY"] = encryptionKey;
+        }
+
+        // Use a temp data directory for auto-generated key
+        var tempDir = Path.Combine(Path.GetTempPath(), $"rsgo-test-{Guid.NewGuid()}");
+        configData["DataDirectory"] = tempDir;
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(configData)
+            .Build();
+
+        var logger = Mock.Of<ILogger<CredentialEncryptionService>>();
+        return new CredentialEncryptionService(configuration, logger);
+    }
+
+    [Fact]
+    public void Encrypt_Decrypt_Roundtrip_ReturnsOriginalText()
+    {
+        // Arrange
+        var service = CreateService("test-master-key");
+        var plaintext = "my-secret-ssh-key-content";
+
+        // Act
+        var encrypted = service.Encrypt(plaintext);
+        var decrypted = service.Decrypt(encrypted);
+
+        // Assert
+        decrypted.Should().Be(plaintext);
+    }
+
+    [Fact]
+    public void Encrypt_ProducesDifferentCiphertextEachTime()
+    {
+        // Arrange (due to random IV)
+        var service = CreateService("test-key");
+        var plaintext = "same-input";
+
+        // Act
+        var encrypted1 = service.Encrypt(plaintext);
+        var encrypted2 = service.Encrypt(plaintext);
+
+        // Assert
+        encrypted1.Should().NotBe(encrypted2);
+    }
+
+    [Fact]
+    public void Encrypt_ReturnsBase64String()
+    {
+        // Arrange
+        var service = CreateService("test-key");
+
+        // Act
+        var encrypted = service.Encrypt("test");
+
+        // Assert
+        var act = () => Convert.FromBase64String(encrypted);
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Encrypt_WithEmptyString_ThrowsArgumentException()
+    {
+        // Arrange
+        var service = CreateService("test-key");
+
+        // Act
+        var act = () => service.Encrypt("");
+
+        // Assert
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void Encrypt_WithNullString_ThrowsArgumentException()
+    {
+        // Arrange
+        var service = CreateService("test-key");
+
+        // Act
+        var act = () => service.Encrypt(null!);
+
+        // Assert
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void Decrypt_WithEmptyString_ThrowsArgumentException()
+    {
+        // Arrange
+        var service = CreateService("test-key");
+
+        // Act
+        var act = () => service.Decrypt("");
+
+        // Assert
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void Decrypt_WithInvalidBase64_ThrowsFormatException()
+    {
+        // Arrange
+        var service = CreateService("test-key");
+
+        // Act
+        var act = () => service.Decrypt("not-valid-base64!!!");
+
+        // Assert
+        act.Should().Throw<FormatException>();
+    }
+
+    [Fact]
+    public void Decrypt_WithWrongKey_ThrowsOrReturnsGarbage()
+    {
+        // Arrange
+        var service1 = CreateService("key-one");
+        var service2 = CreateService("key-two");
+        var encrypted = service1.Encrypt("secret");
+
+        // Act — decrypting with a different key should fail
+        var act = () => service2.Decrypt(encrypted);
+
+        // Assert
+        act.Should().Throw<Exception>();
+    }
+
+    [Fact]
+    public void Encrypt_Decrypt_LargePrivateKey_Works()
+    {
+        // Arrange
+        var service = CreateService("test-key");
+        var privateKey = @"-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACBBOKGxl7GEGHzfL1H2F3W8UVvYcTJwq0MhqOPQT0Z9YAAAAJhBxQ5RQc
+UOUQAAAAtzc2gtZWQyNTUxOQAAACBBOKGxl7GEGHzfL1H2F3W8UVvYcTJwq0MhqOPQT0
+Z9YAAAAECwlvHXZqE8JcL2gR+RxVBD5WcXQIQBG5WFNaFO+/ZZ0E4obGXsYQYfN8vUfYX
+dbxRW9hxMnCrQyGo49BPRn1gAAAADnRlc3RAZXhhbXBsZS5jb20BAgMEBQ==
+-----END OPENSSH PRIVATE KEY-----";
+
+        // Act
+        var encrypted = service.Encrypt(privateKey);
+        var decrypted = service.Decrypt(encrypted);
+
+        // Assert
+        decrypted.Should().Be(privateKey);
+    }
+
+    [Fact]
+    public void SameKey_ProducesConsistentResults()
+    {
+        // Arrange — two service instances with same key
+        var service1 = CreateService("same-key");
+        var service2 = CreateService("same-key");
+        var plaintext = "consistent-test";
+
+        // Act
+        var encrypted = service1.Encrypt(plaintext);
+        var decrypted = service2.Decrypt(encrypted);
+
+        // Assert
+        decrypted.Should().Be(plaintext);
+    }
+
+    [Fact]
+    public void AutoGeneratedKey_PersistsAcrossInstances()
+    {
+        // Arrange — use same data directory
+        var tempDir = Path.Combine(Path.GetTempPath(), $"rsgo-test-{Guid.NewGuid()}");
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["DataDirectory"] = tempDir })
+            .Build();
+        var logger = Mock.Of<ILogger<CredentialEncryptionService>>();
+
+        try
+        {
+            var service1 = new CredentialEncryptionService(config, logger);
+            var encrypted = service1.Encrypt("auto-key-test");
+
+            // Create second instance with same data dir (should load same key)
+            var service2 = new CredentialEncryptionService(config, logger);
+            var decrypted = service2.Decrypt(encrypted);
+
+            // Assert
+            decrypted.Should().Be("auto-key-test");
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, true);
+        }
+    }
+}

@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using ReadyStackGo.Application.Services;
 using ReadyStackGo.Domain.Deployment.Environments;
 
 namespace ReadyStackGo.Application.UseCases.Environments.UpdateEnvironment;
@@ -7,13 +8,16 @@ namespace ReadyStackGo.Application.UseCases.Environments.UpdateEnvironment;
 public class UpdateEnvironmentHandler : IRequestHandler<UpdateEnvironmentCommand, UpdateEnvironmentResponse>
 {
     private readonly IEnvironmentRepository _environmentRepository;
+    private readonly ICredentialEncryptionService _credentialEncryptionService;
     private readonly ILogger<UpdateEnvironmentHandler> _logger;
 
     public UpdateEnvironmentHandler(
         IEnvironmentRepository environmentRepository,
+        ICredentialEncryptionService credentialEncryptionService,
         ILogger<UpdateEnvironmentHandler> logger)
     {
         _environmentRepository = environmentRepository;
+        _credentialEncryptionService = credentialEncryptionService;
         _logger = logger;
     }
 
@@ -56,7 +60,42 @@ public class UpdateEnvironmentHandler : IRequestHandler<UpdateEnvironmentCommand
 
             // Update via domain methods
             environment.UpdateName(request.Name);
-            environment.UpdateConnectionConfig(ConnectionConfig.DockerSocket(request.SocketPath));
+
+            if (request.Type == "SshTunnel")
+            {
+                if (string.IsNullOrWhiteSpace(request.SshHost))
+                    throw new ArgumentException("SSH host is required for SSH tunnel environments.");
+                if (string.IsNullOrWhiteSpace(request.SshUsername))
+                    throw new ArgumentException("SSH username is required for SSH tunnel environments.");
+
+                var authMethod = request.SshAuthMethod?.ToLowerInvariant() switch
+                {
+                    "password" => SshAuthMethod.Password,
+                    _ => SshAuthMethod.PrivateKey
+                };
+
+                var sshConfig = SshTunnelConfig.Create(
+                    request.SshHost,
+                    request.SshPort ?? 22,
+                    request.SshUsername,
+                    authMethod,
+                    request.RemoteSocketPath ?? "/var/run/docker.sock");
+
+                environment.UpdateConnectionConfig(sshConfig);
+
+                // Only update credential if a new secret was provided
+                if (!string.IsNullOrWhiteSpace(request.SshSecret))
+                {
+                    var encryptedSecret = _credentialEncryptionService.Encrypt(request.SshSecret);
+                    var sshCredential = SshCredential.Create(encryptedSecret, authMethod);
+                    environment.UpdateSshCredential(sshCredential);
+                }
+            }
+            else
+            {
+                environment.UpdateConnectionConfig(
+                    DockerSocketConfig.Create(request.SocketPath ?? "/var/run/docker.sock"));
+            }
 
             _environmentRepository.Update(environment);
             _environmentRepository.SaveChanges();

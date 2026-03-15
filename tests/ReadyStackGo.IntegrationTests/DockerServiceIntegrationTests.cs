@@ -86,7 +86,10 @@ public class DockerServiceIntegrationTests : IAsyncLifetime, IClassFixture<Docke
         // Create empty configuration for tests
         var configuration = new ConfigurationBuilder().Build();
 
-        _dockerService = new DockerService(environmentRepository, configuration, logger);
+        var sshTunnelManager = Substitute.For<ISshTunnelManager>();
+        var credentialEncryptionService = Substitute.For<ICredentialEncryptionService>();
+
+        _dockerService = new DockerService(environmentRepository, configuration, logger, sshTunnelManager, credentialEncryptionService);
     }
 
     public async Task DisposeAsync()

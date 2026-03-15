@@ -1,6 +1,19 @@
 using MediatR;
-using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.UseCases.Environments;
 
 namespace ReadyStackGo.Application.UseCases.Environments.UpdateEnvironment;
 
-public record UpdateEnvironmentCommand(string EnvironmentId, string Name, string SocketPath) : IRequest<UpdateEnvironmentResponse>;
+public record UpdateEnvironmentCommand(
+    string EnvironmentId,
+    string Name,
+    string Type,
+    // DockerSocket fields
+    string? SocketPath,
+    // SSH Tunnel fields
+    string? SshHost,
+    int? SshPort,
+    string? SshUsername,
+    string? SshAuthMethod,
+    string? SshSecret,
+    string? RemoteSocketPath
+) : IRequest<UpdateEnvironmentResponse>;

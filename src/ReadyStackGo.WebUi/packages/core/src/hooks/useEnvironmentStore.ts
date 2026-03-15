@@ -5,8 +5,11 @@ import {
   createEnvironment,
   deleteEnvironment,
   setDefaultEnvironment,
+  testConnection,
   type EnvironmentResponse,
   type CreateEnvironmentRequest,
+  type TestConnectionRequest,
+  type TestConnectionResponseDto,
 } from '../api/environments';
 import { getWizardStatus } from '../api/wizard';
 
@@ -23,6 +26,7 @@ export interface UseEnvironmentStoreReturn {
   getById: (id: string) => Promise<EnvironmentResponse | null>;
   create: (request: CreateEnvironmentRequest) => Promise<boolean>;
   remove: (id: string) => Promise<boolean>;
+  testConn: (request: TestConnectionRequest) => Promise<TestConnectionResponseDto | null>;
 }
 
 export function useEnvironmentStore(): UseEnvironmentStoreReturn {
@@ -138,6 +142,19 @@ export function useEnvironmentStore(): UseEnvironmentStoreReturn {
 
   const clearError = useCallback(() => setError(null), []);
 
+  const testConn = useCallback(async (request: TestConnectionRequest): Promise<TestConnectionResponseDto | null> => {
+    try {
+      setActionLoading('testing');
+      setError(null);
+      return await testConnection(request);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Connection test failed');
+      return null;
+    } finally {
+      setActionLoading(null);
+    }
+  }, []);
+
   return {
     environments,
     loading,
@@ -151,5 +168,6 @@ export function useEnvironmentStore(): UseEnvironmentStoreReturn {
     getById,
     create,
     remove,
+    testConn,
   };
 }

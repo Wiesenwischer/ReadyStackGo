@@ -12,6 +12,7 @@ public class Environment : AggregateRoot<EnvironmentId>
     public string? Description { get; private set; }
     public EnvironmentType Type { get; private set; }
     public ConnectionConfig ConnectionConfig { get; private set; } = null!;
+    public SshCredential? SshCredential { get; private set; }
     public bool IsDefault { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime? UpdatedAt { get; private set; }
@@ -55,7 +56,7 @@ public class Environment : AggregateRoot<EnvironmentId>
         string? description,
         string socketPath)
     {
-        var connectionConfig = ConnectionConfig.DockerSocket(socketPath);
+        var connectionConfig = DockerSocketConfig.Create(socketPath);
         return new Environment(id, organizationId, name, description, EnvironmentType.DockerSocket, connectionConfig);
     }
 
@@ -68,8 +69,26 @@ public class Environment : AggregateRoot<EnvironmentId>
         string name,
         string? description = null)
     {
-        var connectionConfig = ConnectionConfig.DefaultDockerSocket();
+        var connectionConfig = DockerSocketConfig.DefaultForOs();
         return new Environment(id, organizationId, name, description, EnvironmentType.DockerSocket, connectionConfig);
+    }
+
+    /// <summary>
+    /// Creates a new SSH Tunnel environment.
+    /// </summary>
+    public static Environment CreateSshTunnel(
+        EnvironmentId id,
+        OrganizationId organizationId,
+        string name,
+        string? description,
+        SshTunnelConfig sshConfig,
+        SshCredential sshCredential)
+    {
+        ArgumentNullException.ThrowIfNull(sshConfig, nameof(sshConfig));
+        ArgumentNullException.ThrowIfNull(sshCredential, nameof(sshCredential));
+        var env = new Environment(id, organizationId, name, description, EnvironmentType.SshTunnel, sshConfig);
+        env.SshCredential = sshCredential;
+        return env;
     }
 
     /// <summary>
@@ -110,6 +129,19 @@ public class Environment : AggregateRoot<EnvironmentId>
         SelfAssertArgumentNotNull(config, "ConnectionConfig is required.");
 
         ConnectionConfig = config;
+        UpdatedAt = SystemClock.UtcNow;
+    }
+
+    /// <summary>
+    /// Updates the SSH credential. Only valid for SSH tunnel environments.
+    /// </summary>
+    public void UpdateSshCredential(SshCredential credential)
+    {
+        SelfAssertArgumentNotNull(credential, "SSH credential is required.");
+        if (Type != EnvironmentType.SshTunnel)
+            throw new InvalidOperationException("SSH credentials can only be set on SSH tunnel environments.");
+
+        SshCredential = credential;
         UpdatedAt = SystemClock.UtcNow;
     }
 
