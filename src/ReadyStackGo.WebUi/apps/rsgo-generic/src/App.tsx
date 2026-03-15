@@ -23,6 +23,8 @@ import RetryProduct from "@rsgo/ui-generic/pages/Deployments/RetryProduct";
 import RedeployProduct from "@rsgo/ui-generic/pages/Deployments/RedeployProduct";
 import StopProduct from "@rsgo/ui-generic/pages/Deployments/StopProduct";
 import RestartProduct from "@rsgo/ui-generic/pages/Deployments/RestartProduct";
+import EnterMaintenanceProduct from "@rsgo/ui-generic/pages/Deployments/EnterMaintenanceProduct";
+import ExitMaintenanceProduct from "@rsgo/ui-generic/pages/Deployments/ExitMaintenanceProduct";
 import ProductDeploymentDetail from "@rsgo/ui-generic/pages/Deployments/ProductDeploymentDetail";
 import Environments from "@rsgo/ui-generic/pages/Environments/Environments";
 import AddEnvironment from "@rsgo/ui-generic/pages/Environments/AddEnvironment";
@@ -290,6 +292,22 @@ export default function App() {
                   element={
                     <EnvironmentGuard>
                       <RestartProduct />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/enter-maintenance/:productDeploymentId"
+                  element={
+                    <EnvironmentGuard>
+                      <EnterMaintenanceProduct />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/exit-maintenance/:productDeploymentId"
+                  element={
+                    <EnvironmentGuard>
+                      <ExitMaintenanceProduct />
                     </EnvironmentGuard>
                   }
                 />
