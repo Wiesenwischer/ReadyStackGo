@@ -6,6 +6,9 @@ using EnvironmentType = ReadyStackGo.Domain.Deployment.Environments.EnvironmentT
 using EnvironmentCreated = ReadyStackGo.Domain.Deployment.Environments.EnvironmentCreated;
 using ConnectionConfig = ReadyStackGo.Domain.Deployment.Environments.ConnectionConfig;
 using DockerSocketConfig = ReadyStackGo.Domain.Deployment.Environments.DockerSocketConfig;
+using SshTunnelConfig = ReadyStackGo.Domain.Deployment.Environments.SshTunnelConfig;
+using SshCredential = ReadyStackGo.Domain.Deployment.Environments.SshCredential;
+using SshAuthMethod = ReadyStackGo.Domain.Deployment.Environments.SshAuthMethod;
 
 namespace ReadyStackGo.UnitTests.Domain.EnvironmentTests;
 
@@ -428,6 +431,122 @@ public class EnvironmentTests
 
     #endregion
 
+    #region SSH Tunnel Creation Tests
+
+    [Fact]
+    public void CreateSshTunnel_WithValidData_CreatesEnvironment()
+    {
+        // Arrange
+        var envId = EnvironmentId.NewId();
+        var orgId = OrganizationId.NewId();
+        var sshConfig = SshTunnelConfig.Create("192.168.1.100", 22, "root", SshAuthMethod.PrivateKey);
+        var sshCredential = SshCredential.Create("encrypted-key", SshAuthMethod.PrivateKey);
+
+        // Act
+        var env = Environment.CreateSshTunnel(envId, orgId, "Remote Server", "SSH tunnel environment", sshConfig, sshCredential);
+
+        // Assert
+        env.Id.Should().Be(envId);
+        env.OrganizationId.Should().Be(orgId);
+        env.Name.Should().Be("Remote Server");
+        env.Type.Should().Be(EnvironmentType.SshTunnel);
+        env.ConnectionConfig.Should().Be(sshConfig);
+        env.SshCredential.Should().Be(sshCredential);
+        env.IsDefault.Should().BeFalse();
+        env.DomainEvents.Should().ContainSingle(e => e is EnvironmentCreated);
+    }
+
+    [Fact]
+    public void CreateSshTunnel_WithNullConfig_ThrowsArgumentNullException()
+    {
+        // Act
+        var act = () => Environment.CreateSshTunnel(
+            EnvironmentId.NewId(), OrganizationId.NewId(),
+            "Test", null, null!, SshCredential.Create("secret", SshAuthMethod.PrivateKey));
+
+        // Assert
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void CreateSshTunnel_WithNullCredential_ThrowsArgumentNullException()
+    {
+        // Act
+        var act = () => Environment.CreateSshTunnel(
+            EnvironmentId.NewId(), OrganizationId.NewId(),
+            "Test", null,
+            SshTunnelConfig.Create("host", 22, "root", SshAuthMethod.PrivateKey),
+            null!);
+
+        // Assert
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void CreateSshTunnel_ConnectionConfig_IsSshTunnelConfig()
+    {
+        // Arrange
+        var sshConfig = SshTunnelConfig.Create("host", 22, "root", SshAuthMethod.PrivateKey);
+        var env = Environment.CreateSshTunnel(
+            EnvironmentId.NewId(), OrganizationId.NewId(),
+            "Test", null, sshConfig,
+            SshCredential.Create("secret", SshAuthMethod.PrivateKey));
+
+        // Assert
+        env.ConnectionConfig.Should().BeOfType<SshTunnelConfig>();
+        var config = (SshTunnelConfig)env.ConnectionConfig;
+        config.Host.Should().Be("host");
+    }
+
+    #endregion
+
+    #region UpdateSshCredential Tests
+
+    [Fact]
+    public void UpdateSshCredential_OnSshTunnelEnv_UpdatesCredential()
+    {
+        // Arrange
+        var env = CreateTestSshTunnelEnvironment();
+        var newCredential = SshCredential.Create("new-encrypted-key", SshAuthMethod.Password);
+
+        // Act
+        env.UpdateSshCredential(newCredential);
+
+        // Assert
+        env.SshCredential.Should().Be(newCredential);
+        env.UpdatedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void UpdateSshCredential_OnDockerSocketEnv_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        var env = CreateTestEnvironment();
+        var credential = SshCredential.Create("secret", SshAuthMethod.PrivateKey);
+
+        // Act
+        var act = () => env.UpdateSshCredential(credential);
+
+        // Assert
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*SSH*tunnel*");
+    }
+
+    [Fact]
+    public void UpdateSshCredential_WithNull_ThrowsArgumentException()
+    {
+        // Arrange
+        var env = CreateTestSshTunnelEnvironment();
+
+        // Act
+        var act = () => env.UpdateSshCredential(null!);
+
+        // Assert
+        act.Should().Throw<ArgumentException>();
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static Environment CreateTestEnvironment()
@@ -438,6 +557,17 @@ public class EnvironmentTests
             "Development",
             "Development Docker environment",
             "/var/run/docker.sock");
+    }
+
+    private static Environment CreateTestSshTunnelEnvironment()
+    {
+        return Environment.CreateSshTunnel(
+            EnvironmentId.NewId(),
+            OrganizationId.NewId(),
+            "Remote Dev",
+            "SSH tunnel to dev server",
+            SshTunnelConfig.Create("192.168.1.100", 22, "root", SshAuthMethod.PrivateKey),
+            SshCredential.Create("encrypted-key", SshAuthMethod.PrivateKey));
     }
 
     #endregion
