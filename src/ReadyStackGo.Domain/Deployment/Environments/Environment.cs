@@ -55,7 +55,7 @@ public class Environment : AggregateRoot<EnvironmentId>
         string? description,
         string socketPath)
     {
-        var connectionConfig = ConnectionConfig.DockerSocket(socketPath);
+        var connectionConfig = DockerSocketConfig.Create(socketPath);
         return new Environment(id, organizationId, name, description, EnvironmentType.DockerSocket, connectionConfig);
     }
 
@@ -68,8 +68,22 @@ public class Environment : AggregateRoot<EnvironmentId>
         string name,
         string? description = null)
     {
-        var connectionConfig = ConnectionConfig.DefaultDockerSocket();
+        var connectionConfig = DockerSocketConfig.DefaultForOs();
         return new Environment(id, organizationId, name, description, EnvironmentType.DockerSocket, connectionConfig);
+    }
+
+    /// <summary>
+    /// Creates a new SSH Tunnel environment.
+    /// </summary>
+    public static Environment CreateSshTunnel(
+        EnvironmentId id,
+        OrganizationId organizationId,
+        string name,
+        string? description,
+        SshTunnelConfig sshConfig)
+    {
+        ArgumentNullException.ThrowIfNull(sshConfig, nameof(sshConfig));
+        return new Environment(id, organizationId, name, description, EnvironmentType.SshTunnel, sshConfig);
     }
 
     /// <summary>

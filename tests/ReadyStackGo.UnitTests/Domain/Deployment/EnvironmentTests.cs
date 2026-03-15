@@ -5,6 +5,7 @@ using EnvironmentId = ReadyStackGo.Domain.Deployment.Environments.EnvironmentId;
 using EnvironmentType = ReadyStackGo.Domain.Deployment.Environments.EnvironmentType;
 using EnvironmentCreated = ReadyStackGo.Domain.Deployment.Environments.EnvironmentCreated;
 using ConnectionConfig = ReadyStackGo.Domain.Deployment.Environments.ConnectionConfig;
+using DockerSocketConfig = ReadyStackGo.Domain.Deployment.Environments.DockerSocketConfig;
 
 namespace ReadyStackGo.UnitTests.Domain.EnvironmentTests;
 
@@ -37,7 +38,7 @@ public class EnvironmentTests
         env.Name.Should().Be("Production");
         env.Description.Should().Be("Production Docker environment");
         env.Type.Should().Be(EnvironmentType.DockerSocket);
-        env.ConnectionConfig.SocketPath.Should().Be(socketPath);
+        ((DockerSocketConfig)env.ConnectionConfig).SocketPath.Should().Be(socketPath);
         env.IsDefault.Should().BeFalse();
         env.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
         env.DomainEvents.Should().ContainSingle(e => e is EnvironmentCreated);
@@ -58,7 +59,7 @@ public class EnvironmentTests
         env.OrganizationId.Should().Be(orgId);
         env.Name.Should().Be("Default");
         env.Type.Should().Be(EnvironmentType.DockerSocket);
-        env.ConnectionConfig.SocketPath.Should().NotBeNullOrEmpty();
+        ((DockerSocketConfig)env.ConnectionConfig).SocketPath.Should().NotBeNullOrEmpty();
         env.DomainEvents.Should().ContainSingle(e => e is EnvironmentCreated);
     }
 
@@ -196,13 +197,13 @@ public class EnvironmentTests
     {
         // Arrange
         var env = CreateTestEnvironment();
-        var newConfig = ConnectionConfig.DockerSocket("/new/docker.sock");
+        var newConfig = DockerSocketConfig.Create("/new/docker.sock");
 
         // Act
         env.UpdateConnectionConfig(newConfig);
 
         // Assert
-        env.ConnectionConfig.SocketPath.Should().Be("/new/docker.sock");
+        ((DockerSocketConfig)env.ConnectionConfig).SocketPath.Should().Be("/new/docker.sock");
         env.UpdatedAt.Should().NotBeNull();
     }
 
@@ -338,7 +339,7 @@ public class EnvironmentTests
     public void ConnectionConfig_DockerSocket_CreatesWithPath()
     {
         // Act
-        var config = ConnectionConfig.DockerSocket("/var/run/docker.sock");
+        var config = DockerSocketConfig.Create("/var/run/docker.sock");
 
         // Assert
         config.SocketPath.Should().Be("/var/run/docker.sock");
@@ -348,7 +349,7 @@ public class EnvironmentTests
     public void ConnectionConfig_DockerSocket_EmptyPath_ThrowsException()
     {
         // Act
-        var act = () => ConnectionConfig.DockerSocket("");
+        var act = () => DockerSocketConfig.Create("");
 
         // Assert
         act.Should().Throw<ArgumentException>();
@@ -358,7 +359,7 @@ public class EnvironmentTests
     public void ConnectionConfig_DefaultDockerSocket_CreatesWithOsSpecificPath()
     {
         // Act
-        var config = ConnectionConfig.DefaultDockerSocket();
+        var config = DockerSocketConfig.DefaultForOs();
 
         // Assert
         config.SocketPath.Should().NotBeNullOrEmpty();
@@ -376,8 +377,8 @@ public class EnvironmentTests
     public void ConnectionConfig_Equality_WorksCorrectly()
     {
         // Arrange
-        var config1 = ConnectionConfig.DockerSocket("/var/run/docker.sock");
-        var config2 = ConnectionConfig.DockerSocket("/var/run/docker.sock");
+        var config1 = DockerSocketConfig.Create("/var/run/docker.sock");
+        var config2 = DockerSocketConfig.Create("/var/run/docker.sock");
 
         // Assert
         config1.Should().Be(config2);
@@ -387,8 +388,8 @@ public class EnvironmentTests
     public void ConnectionConfig_DifferentPath_NotEqual()
     {
         // Arrange
-        var config1 = ConnectionConfig.DockerSocket("/var/run/docker.sock");
-        var config2 = ConnectionConfig.DockerSocket("/other/docker.sock");
+        var config1 = DockerSocketConfig.Create("/var/run/docker.sock");
+        var config2 = DockerSocketConfig.Create("/other/docker.sock");
 
         // Assert
         config1.Should().NotBe(config2);
@@ -398,7 +399,7 @@ public class EnvironmentTests
     public void ConnectionConfig_ToString_ReturnsPath()
     {
         // Arrange
-        var config = ConnectionConfig.DockerSocket("/var/run/docker.sock");
+        var config = DockerSocketConfig.Create("/var/run/docker.sock");
 
         // Act
         var result = config.ToString();

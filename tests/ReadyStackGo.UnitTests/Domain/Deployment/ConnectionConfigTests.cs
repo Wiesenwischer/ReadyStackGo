@@ -14,27 +14,27 @@ public class ConnectionConfigTests
     public void DockerSocket_WithValidPath_CreatesConnectionConfig()
     {
         // Act
-        var config = ConnectionConfig.DockerSocket("unix:///var/run/docker.sock");
+        var config = DockerSocketConfig.Create("unix:///var/run/docker.sock");
 
         // Assert
-        config.SocketPath.Should().Be("unix:///var/run/docker.sock");
+        config.GetDockerHost().Should().Be("unix:///var/run/docker.sock");
     }
 
     [Fact]
     public void DockerSocket_WithWindowsPath_CreatesConnectionConfig()
     {
         // Act
-        var config = ConnectionConfig.DockerSocket("npipe://./pipe/docker_engine");
+        var config = DockerSocketConfig.Create("npipe://./pipe/docker_engine");
 
         // Assert
-        config.SocketPath.Should().Be("npipe://./pipe/docker_engine");
+        config.GetDockerHost().Should().Be("npipe://./pipe/docker_engine");
     }
 
     [Fact]
     public void DockerSocket_WithEmptyPath_ThrowsArgumentException()
     {
         // Act
-        var act = () => ConnectionConfig.DockerSocket("");
+        var act = () => DockerSocketConfig.Create("");
 
         // Assert
         act.Should().Throw<ArgumentException>()
@@ -45,7 +45,7 @@ public class ConnectionConfigTests
     public void DockerSocket_WithNullPath_ThrowsArgumentException()
     {
         // Act
-        var act = () => ConnectionConfig.DockerSocket(null!);
+        var act = () => DockerSocketConfig.Create(null!);
 
         // Assert
         act.Should().Throw<ArgumentException>();
@@ -59,16 +59,16 @@ public class ConnectionConfigTests
     public void DefaultDockerSocket_ReturnsOsAppropriateSocket()
     {
         // Act
-        var config = ConnectionConfig.DefaultDockerSocket();
+        var config = DockerSocketConfig.DefaultForOs();
 
         // Assert
         if (OperatingSystem.IsWindows())
         {
-            config.SocketPath.Should().Be("npipe://./pipe/docker_engine");
+            config.GetDockerHost().Should().Be("npipe://./pipe/docker_engine");
         }
         else
         {
-            config.SocketPath.Should().Be("unix:///var/run/docker.sock");
+            config.GetDockerHost().Should().Be("unix:///var/run/docker.sock");
         }
     }
 
@@ -76,10 +76,10 @@ public class ConnectionConfigTests
     public void DefaultDockerSocket_SocketPathIsNotEmpty()
     {
         // Act
-        var config = ConnectionConfig.DefaultDockerSocket();
+        var config = DockerSocketConfig.DefaultForOs();
 
         // Assert
-        config.SocketPath.Should().NotBeNullOrEmpty();
+        config.GetDockerHost().Should().NotBeNullOrEmpty();
     }
 
     #endregion
@@ -90,8 +90,8 @@ public class ConnectionConfigTests
     public void Equals_SameSocketPath_ReturnsTrue()
     {
         // Arrange
-        var c1 = ConnectionConfig.DockerSocket("unix:///var/run/docker.sock");
-        var c2 = ConnectionConfig.DockerSocket("unix:///var/run/docker.sock");
+        var c1 = DockerSocketConfig.Create("unix:///var/run/docker.sock");
+        var c2 = DockerSocketConfig.Create("unix:///var/run/docker.sock");
 
         // Assert
         c1.Should().Be(c2);
@@ -101,8 +101,8 @@ public class ConnectionConfigTests
     public void Equals_DifferentSocketPath_ReturnsFalse()
     {
         // Arrange
-        var c1 = ConnectionConfig.DockerSocket("unix:///var/run/docker.sock");
-        var c2 = ConnectionConfig.DockerSocket("unix:///custom/docker.sock");
+        var c1 = DockerSocketConfig.Create("unix:///var/run/docker.sock");
+        var c2 = DockerSocketConfig.Create("unix:///custom/docker.sock");
 
         // Assert
         c1.Should().NotBe(c2);
@@ -112,8 +112,8 @@ public class ConnectionConfigTests
     public void GetHashCode_SameSocketPath_ReturnsSameHashCode()
     {
         // Arrange
-        var c1 = ConnectionConfig.DockerSocket("unix:///var/run/docker.sock");
-        var c2 = ConnectionConfig.DockerSocket("unix:///var/run/docker.sock");
+        var c1 = DockerSocketConfig.Create("unix:///var/run/docker.sock");
+        var c2 = DockerSocketConfig.Create("unix:///var/run/docker.sock");
 
         // Assert
         c1.GetHashCode().Should().Be(c2.GetHashCode());
@@ -127,7 +127,7 @@ public class ConnectionConfigTests
     public void ToString_ReturnsSocketPath()
     {
         // Arrange
-        var config = ConnectionConfig.DockerSocket("unix:///var/run/docker.sock");
+        var config = DockerSocketConfig.Create("unix:///var/run/docker.sock");
 
         // Act
         var result = config.ToString();

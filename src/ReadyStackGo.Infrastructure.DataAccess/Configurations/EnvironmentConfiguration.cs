@@ -1,5 +1,6 @@
 namespace ReadyStackGo.Infrastructure.DataAccess.Configurations;
 
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using ReadyStackGo.Domain.Deployment;
@@ -38,13 +39,18 @@ public class EnvironmentConfiguration : IEntityTypeConfiguration<Environment>
         builder.Property(e => e.Type)
             .IsRequired();
 
-        builder.OwnsOne(e => e.ConnectionConfig, cc =>
+        // ConnectionConfig as JSON column (polymorphic)
+        var connectionConfigOptions = new JsonSerializerOptions
         {
-            cc.Property(c => c.SocketPath)
-                .HasColumnName("SocketPath")
-                .HasMaxLength(500)
-                .IsRequired();
-        });
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Converters = { new ConnectionConfigJsonConverter() }
+        };
+        builder.Property(e => e.ConnectionConfig)
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, connectionConfigOptions),
+                v => JsonSerializer.Deserialize<ConnectionConfig>(v, connectionConfigOptions)!)
+            .HasColumnName("ConnectionConfigJson")
+            .IsRequired();
 
         builder.Property(e => e.IsDefault)
             .IsRequired();

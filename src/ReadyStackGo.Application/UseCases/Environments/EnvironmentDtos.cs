@@ -27,7 +27,7 @@ public static class EnvironmentMapper
             Id = environment.Id.ToString(),
             Name = environment.Name,
             Type = environment.Type.ToString(),
-            ConnectionString = environment.ConnectionConfig.SocketPath,
+            ConnectionString = environment.ConnectionConfig.GetDockerHost(),
             IsDefault = environment.IsDefault,
             CreatedAt = environment.CreatedAt
         };

@@ -1026,7 +1026,7 @@ public class DockerService : IDockerService, IDisposable
             throw new InvalidOperationException($"Environment '{environmentId}' not found.");
         }
 
-        var connectionString = environment.ConnectionConfig.SocketPath;
+        var connectionString = environment.ConnectionConfig.GetDockerHost();
         var uri = ParseDockerUri(connectionString);
 
         _logger.LogDebug("Creating Docker client for environment {EnvironmentId} with URI {Uri}", environmentId, uri);

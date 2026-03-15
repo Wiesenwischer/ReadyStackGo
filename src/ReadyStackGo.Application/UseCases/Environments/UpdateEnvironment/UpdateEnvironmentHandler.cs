@@ -56,7 +56,7 @@ public class UpdateEnvironmentHandler : IRequestHandler<UpdateEnvironmentCommand
 
             // Update via domain methods
             environment.UpdateName(request.Name);
-            environment.UpdateConnectionConfig(ConnectionConfig.DockerSocket(request.SocketPath));
+            environment.UpdateConnectionConfig(DockerSocketConfig.Create(request.SocketPath));
 
             _environmentRepository.Update(environment);
             _environmentRepository.SaveChanges();
