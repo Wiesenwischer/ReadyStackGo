@@ -12,6 +12,7 @@ public class Environment : AggregateRoot<EnvironmentId>
     public string? Description { get; private set; }
     public EnvironmentType Type { get; private set; }
     public ConnectionConfig ConnectionConfig { get; private set; } = null!;
+    public SshCredential? SshCredential { get; private set; }
     public bool IsDefault { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime? UpdatedAt { get; private set; }
@@ -80,10 +81,14 @@ public class Environment : AggregateRoot<EnvironmentId>
         OrganizationId organizationId,
         string name,
         string? description,
-        SshTunnelConfig sshConfig)
+        SshTunnelConfig sshConfig,
+        SshCredential sshCredential)
     {
         ArgumentNullException.ThrowIfNull(sshConfig, nameof(sshConfig));
-        return new Environment(id, organizationId, name, description, EnvironmentType.SshTunnel, sshConfig);
+        ArgumentNullException.ThrowIfNull(sshCredential, nameof(sshCredential));
+        var env = new Environment(id, organizationId, name, description, EnvironmentType.SshTunnel, sshConfig);
+        env.SshCredential = sshCredential;
+        return env;
     }
 
     /// <summary>
@@ -124,6 +129,19 @@ public class Environment : AggregateRoot<EnvironmentId>
         SelfAssertArgumentNotNull(config, "ConnectionConfig is required.");
 
         ConnectionConfig = config;
+        UpdatedAt = SystemClock.UtcNow;
+    }
+
+    /// <summary>
+    /// Updates the SSH credential. Only valid for SSH tunnel environments.
+    /// </summary>
+    public void UpdateSshCredential(SshCredential credential)
+    {
+        SelfAssertArgumentNotNull(credential, "SSH credential is required.");
+        if (Type != EnvironmentType.SshTunnel)
+            throw new InvalidOperationException("SSH credentials can only be set on SSH tunnel environments.");
+
+        SshCredential = credential;
         UpdatedAt = SystemClock.UtcNow;
     }
 

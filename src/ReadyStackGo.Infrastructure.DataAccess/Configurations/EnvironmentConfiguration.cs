@@ -52,6 +52,17 @@ public class EnvironmentConfiguration : IEntityTypeConfiguration<Environment>
             .HasColumnName("ConnectionConfigJson")
             .IsRequired();
 
+        // SshCredential as JSON column (nullable, only for SSH tunnel environments)
+        var sshCredentialOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+        builder.Property(e => e.SshCredential)
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, sshCredentialOptions),
+                v => string.IsNullOrEmpty(v) ? null : JsonSerializer.Deserialize<SshCredential>(v, sshCredentialOptions))
+            .HasColumnName("SshCredentialJson");
+
         builder.Property(e => e.IsDefault)
             .IsRequired();
 
