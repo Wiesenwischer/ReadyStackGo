@@ -129,7 +129,7 @@ Docker-Hosts auf entfernten Servern als Deployment-Ziele nutzen — über SSH-Tu
   - DockerService SSH-Routing (Environment Type → Tunnel → Docker Client)
   - Environment Creation mit SshTunnel Type
 
-- [ ] **Dokumentation & Website** — Bilingual Docs (DE/EN) mit Screenshots
+- [x] **Dokumentation & Website** — Bilingual Docs (DE/EN) mit Screenshots
 - [ ] **Phase abschließen** – Integration PR gegen main
 
 ---
