@@ -114,8 +114,9 @@ public static class DependencyInjection
             ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
         });
 
-        // Credential Encryption Service (v0.49 — SSH Tunnel)
+        // SSH Tunnel services (v0.49)
         services.AddSingleton<ICredentialEncryptionService, CredentialEncryptionService>();
+        services.AddSingleton<Docker.ISshTunnelManager, Docker.SshTunnelManager>();
 
         // Version Check Service (v0.16)
         services.AddMemoryCache();
