@@ -26,7 +26,8 @@ public class SetEnvironmentEndpoint : Endpoint<SetEnvironmentRequest, SetEnviron
     public override async Task HandleAsync(SetEnvironmentRequest req, CancellationToken ct)
     {
         var result = await _mediator.Send(
-            new CreateEnvironmentCommand(req.Name, req.SocketPath),
+            new CreateEnvironmentCommand(req.Name, "DockerSocket", req.SocketPath,
+                null, null, null, null, null, null),
             ct);
 
         if (!result.Success)

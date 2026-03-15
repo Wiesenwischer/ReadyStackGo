@@ -29,7 +29,16 @@ public class CreateEnvironmentEndpoint : Endpoint<CreateEnvironmentRequest, Crea
     public override async Task HandleAsync(CreateEnvironmentRequest req, CancellationToken ct)
     {
         var response = await _mediator.Send(
-            new CreateEnvironmentCommand(req.Name, req.SocketPath), ct);
+            new CreateEnvironmentCommand(
+                req.Name,
+                req.Type,
+                req.SocketPath,
+                req.SshHost,
+                req.SshPort,
+                req.SshUsername,
+                req.SshAuthMethod,
+                req.SshSecret,
+                req.RemoteSocketPath), ct);
 
         if (!response.Success)
         {
