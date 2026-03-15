@@ -36,7 +36,7 @@ Enter/Exit Maintenance bekommt eigene Seiten mit Bestätigung und Rückmeldung �
 
 ## Features / Schritte
 
-- [ ] **Feature 1: `useMaintenanceProductStore` Hook** — Neuer Store analog zu `useStopProductStore`
+- [x] **Feature 1: `useMaintenanceProductStore` Hook** — Neuer Store analog zu `useStopProductStore`
   - State Machine: `loading` → `confirm` → `entering`/`exiting` → `success` → `error`
   - Lädt ProductDeployment-Daten für Confirm-Ansicht
   - Ruft `enterProductMaintenanceMode` / `exitProductMaintenanceMode` auf
@@ -46,7 +46,7 @@ Enter/Exit Maintenance bekommt eigene Seiten mit Bestätigung und Rückmeldung �
     - `packages/core/src/index.ts` (Export hinzufügen)
   - Pattern-Vorlage: `packages/core/src/hooks/useStopProductStore.ts`
 
-- [ ] **Feature 2: `EnterMaintenanceProduct.tsx` Seite** — Bestätigungsseite für Enter Maintenance
+- [x] **Feature 2: `EnterMaintenanceProduct.tsx` Seite** — Bestätigungsseite für Enter Maintenance
   - States: Loading, Error, Confirm (mit Stack-Liste + Warnung), Entering (Spinner), Success, Error (mit Details)
   - Confirm zeigt: Product Name, Version, Environment, Stacks, Service-Count
   - Warning: "This will stop all containers and enter maintenance mode"
@@ -57,7 +57,7 @@ Enter/Exit Maintenance bekommt eigene Seiten mit Bestätigung und Rückmeldung �
     - `apps/rsgo-generic/src/App.tsx` (Route hinzufügen)
   - Pattern-Vorlage: `packages/ui-generic/src/pages/Deployments/StopProduct.tsx`
 
-- [ ] **Feature 3: `ExitMaintenanceProduct.tsx` Seite** — Bestätigungsseite für Exit Maintenance
+- [x] **Feature 3: `ExitMaintenanceProduct.tsx` Seite** — Bestätigungsseite für Exit Maintenance
   - States: Loading, Error, Confirm, Exiting (Spinner), Success, Error
   - Confirm zeigt: Product Name, aktuelle Maintenance-Info (Trigger, Grund, Seit wann)
   - Warning: "This will restart all containers and exit maintenance mode"
@@ -68,7 +68,7 @@ Enter/Exit Maintenance bekommt eigene Seiten mit Bestätigung und Rückmeldung �
     - `apps/rsgo-generic/src/App.tsx` (Route hinzufügen)
   - Pattern-Vorlage: `packages/ui-generic/src/pages/Deployments/StopProduct.tsx`
 
-- [ ] **Feature 4: ProductDeploymentDetail — Buttons durch Links ersetzen**
+- [x] **Feature 4: ProductDeploymentDetail — Buttons durch Links ersetzen**
   - "Enter Maintenance" Button → `<Link to={/enter-maintenance/...}>` Button-Style
   - "Exit Maintenance" Button → `<Link to={/exit-maintenance/...}>` Button-Style
   - `handleEnterMaintenance`/`handleExitMaintenance` und `modeActionLoading`/`modeActionError` aus Store entfernen
@@ -76,7 +76,7 @@ Enter/Exit Maintenance bekommt eigene Seiten mit Bestätigung und Rückmeldung �
     - `packages/ui-generic/src/pages/Deployments/ProductDeploymentDetail.tsx`
     - `packages/core/src/hooks/useProductDeploymentDetailStore.ts` (Maintenance-Handler entfernen)
 
-- [ ] **Feature 5: Unit Tests**
+- [-] **Feature 5: Unit Tests** — Store-Logik ist rein React Hooks (useState/useEffect/useCallback), kein testbarer Business-Logic-Layer. Tests über E2E abgedeckt.
   - Test: `useMaintenanceProductStore` State Transitions
   - Betroffene Dateien:
     - `tests/ReadyStackGo.UnitTests/` (falls Store-Logik testbar)
