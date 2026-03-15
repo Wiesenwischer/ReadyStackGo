@@ -1,7 +1,7 @@
 ---
 name: plan-feature
 description: Plan a new feature, add it to the roadmap, and create a specification document
-disable-model-invocation: true
+disable-model-invocation: false
 argument-hint: "<feature description or idea>"
 ---
 
