@@ -332,12 +332,19 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Product operation mode API endpoint with 409 Conflict for ownership-blocked transitions
   - Product detail page: enter/exit maintenance buttons, operation mode badge, trigger info panel
   - 23 new handler unit tests, 22 domain unit tests, 11 value object unit tests
+  - Fix: Maintenance mode propagation to child stacks (OperationMode + status badge override)
 
 ---
 
 ## Planned
 
 Epics are listed in priority order. Top = next.
+
+### Epic: Maintenance Mode Pages
+- Dedicated Enter/Exit Maintenance pages with confirmation and feedback (analog to StopProduct)
+- `useMaintenanceProductStore` hook with state machine (loading → confirm → entering/exiting → success/error)
+- Stack list preview and result summary on confirmation/success pages
+- Replace inline buttons on ProductDeploymentDetail with page navigation links
 
 ### Epic: OCI Stack Bundles
 
