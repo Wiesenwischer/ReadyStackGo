@@ -94,7 +94,9 @@ export default function ProductDeploymentDetail() {
   }
 
   const deployment = store.deployment;
-  const status = getProductStatusPresentation(deployment.status);
+  // When in maintenance mode, show "Stopped" instead of the lifecycle status (e.g. "Running")
+  const effectiveStatus = deployment.operationMode === 'Maintenance' ? 'Stopped' : deployment.status;
+  const status = getProductStatusPresentation(effectiveStatus);
   const modePresentation = deployment.operationMode !== 'Normal'
     ? getOperationModePresentation(deployment.operationMode)
     : null;
