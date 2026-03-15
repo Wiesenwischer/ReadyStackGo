@@ -339,6 +339,13 @@ Release version numbers are assigned when an Epic ships, not during planning.
 
 Epics are listed in priority order. Top = next.
 
+### Epic: Remote Environments — SSH Tunnel
+- Polymorphic ConnectionConfig (JSON Column, DockerSocketConfig + SshTunnelConfig subtypes)
+- SSH Credential Storage (AES-encrypted private keys/passwords)
+- SshTunnelManager (SSH.NET, local port forwarding, tunnel pool, auto-reconnect)
+- DockerService SSH-Routing (transparent tunnel for all Docker operations)
+- SSH Environment API + UI (type selector, dynamic form, test connection)
+
 ### Epic: OCI Stack Bundles
 
 **Phase 1 — Format + Source**

@@ -1,3 +1,4 @@
+using ReadyStackGo.Domain.Deployment.Environments;
 using DomainEnvironment = ReadyStackGo.Domain.Deployment.Environments.Environment;
 
 namespace ReadyStackGo.Application.UseCases.Environments;
@@ -13,6 +14,13 @@ public class EnvironmentResponse
     public required string ConnectionString { get; set; }
     public bool IsDefault { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    // SSH-specific fields (only set for SshTunnel type)
+    public string? SshHost { get; set; }
+    public int? SshPort { get; set; }
+    public string? SshUsername { get; set; }
+    public string? SshAuthMethod { get; set; }
+    public string? RemoteSocketPath { get; set; }
 }
 
 /// <summary>
@@ -22,15 +30,26 @@ public static class EnvironmentMapper
 {
     public static EnvironmentResponse ToResponse(DomainEnvironment environment)
     {
-        return new EnvironmentResponse
+        var response = new EnvironmentResponse
         {
             Id = environment.Id.ToString(),
             Name = environment.Name,
             Type = environment.Type.ToString(),
-            ConnectionString = environment.ConnectionConfig.SocketPath,
+            ConnectionString = environment.ConnectionConfig.GetDockerHost(),
             IsDefault = environment.IsDefault,
             CreatedAt = environment.CreatedAt
         };
+
+        if (environment.ConnectionConfig is SshTunnelConfig sshConfig)
+        {
+            response.SshHost = sshConfig.Host;
+            response.SshPort = sshConfig.Port;
+            response.SshUsername = sshConfig.Username;
+            response.SshAuthMethod = sshConfig.AuthMethod.ToString();
+            response.RemoteSocketPath = sshConfig.RemoteSocketPath;
+        }
+
+        return response;
     }
 }
 
@@ -40,7 +59,22 @@ public static class EnvironmentMapper
 public class CreateEnvironmentRequest
 {
     public required string Name { get; set; }
-    public required string SocketPath { get; set; }
+
+    /// <summary>
+    /// Environment type: "DockerSocket" (default) or "SshTunnel"
+    /// </summary>
+    public string Type { get; set; } = "DockerSocket";
+
+    // DockerSocket fields
+    public string? SocketPath { get; set; }
+
+    // SSH Tunnel fields
+    public string? SshHost { get; set; }
+    public int? SshPort { get; set; }
+    public string? SshUsername { get; set; }
+    public string? SshAuthMethod { get; set; }
+    public string? SshSecret { get; set; }
+    public string? RemoteSocketPath { get; set; }
 
     // RBAC scope fields
     public string? OrganizationId { get; set; }
@@ -62,7 +96,22 @@ public class CreateEnvironmentResponse
 public class UpdateEnvironmentRequest
 {
     public required string Name { get; set; }
-    public required string SocketPath { get; set; }
+
+    /// <summary>
+    /// Environment type: "DockerSocket" or "SshTunnel"
+    /// </summary>
+    public string Type { get; set; } = "DockerSocket";
+
+    // DockerSocket fields
+    public string? SocketPath { get; set; }
+
+    // SSH Tunnel fields
+    public string? SshHost { get; set; }
+    public int? SshPort { get; set; }
+    public string? SshUsername { get; set; }
+    public string? SshAuthMethod { get; set; }
+    public string? SshSecret { get; set; }
+    public string? RemoteSocketPath { get; set; }
 
     // RBAC scope fields
     public string? OrganizationId { get; set; }

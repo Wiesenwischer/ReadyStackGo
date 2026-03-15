@@ -15,6 +15,7 @@ export default function SetupEnvironment() {
   const store = useEnvironmentStore();
   const [formData, setFormData] = useState<CreateEnvironmentRequest>({
     name: "Local Docker",
+    type: "DockerSocket",
     socketPath: "",
   });
   const [defaultSocketPath, setDefaultSocketPath] = useState<string>("");
