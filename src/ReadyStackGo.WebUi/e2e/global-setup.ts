@@ -10,7 +10,7 @@ const BASE_URL = 'http://localhost:8080';
 
 /**
  * Global setup for Playwright E2E tests.
- * Builds and starts the Docker container, then completes the setup wizard.
+ * Builds and starts the Docker container, then completes the setup wizard via API.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function globalSetup(_config: FullConfig) {

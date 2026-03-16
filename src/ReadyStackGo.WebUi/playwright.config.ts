@@ -5,19 +5,25 @@ const isCI = !!process.env.CI;
 
 /**
  * Playwright E2E Test Configuration für ReadyStackGo
+ *
  * Tests run against the Docker container on port 8080.
  * Container lifecycle is managed via global-setup/teardown.
- * Siehe https://playwright.dev/docs/test-configuration
+ *
+ * Note: onboarding.spec.ts is excluded from the default run because it requires
+ * a fresh container (no admin created). Run it separately:
+ *   docker compose down -v && docker compose up -d
+ *   npx playwright test onboarding --config=playwright.container.config.ts
  */
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: ['**/onboarding.spec.ts'],
   globalSetup: './e2e/global-setup.ts',
   globalTeardown: './e2e/global-teardown.ts',
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,
   workers: isCI ? 1 : undefined,
-  reporter: 'html',
+  reporter: isCI ? 'html' : 'list',
   timeout: 60 * 1000,
   expect: {
     timeout: 10 * 1000,
