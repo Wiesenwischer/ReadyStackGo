@@ -26,9 +26,7 @@ jobs:
           echo "version=$MILESTONE_TITLE" >> $GITHUB_OUTPUT
           echo "Milestone closed: ${{ github.event.milestone.title }} → Release: $MILESTONE_TITLE"
 
-      - name: Create release from milestone
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push tag to trigger Docker build
         run: |
           VERSION="${{ steps.version.outputs.version }}"
 
@@ -36,8 +34,20 @@ jobs:
           EXISTING=$(gh release view "$VERSION" --json isDraft --jq .isDraft 2>/dev/null || echo "")
           if [ "$EXISTING" = "true" ]; then
             echo "Deleting existing draft release $VERSION"
-            gh release delete "$VERSION" --yes
+            gh release delete "$VERSION" --yes --cleanup-tag
           fi
+
+          # Create and push the tag FIRST — this triggers the Docker Build workflow
+          git tag -f "$VERSION"
+          git push origin "refs/tags/$VERSION" --force
+
+          echo "Tag $VERSION pushed — Docker Build workflow triggered"
+
+      - name: Create release from milestone
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
 
           # Generate release notes from milestone issues
           BODY=$(gh api repos/${{ github.repository }}/issues \
@@ -47,21 +57,13 @@ jobs:
             -f per_page=100 \
             --jq '.[] | "- " + .title + " (#" + (.number | tostring) + ")"')
 
-          # Create and publish the release
+          # Create release on the existing tag (does NOT re-push the tag)
           gh release create "$VERSION" \
             --title "$VERSION – ${{ github.event.milestone.description }}" \
             --notes "## What's Changed in $VERSION"$'\n\n'"$BODY" \
             --latest
 
           echo "Release $VERSION created and published"
-
-      - name: Push tag to trigger Docker build
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          git fetch --tags
-
-          # Force push the tag to ensure the push event triggers Docker workflow
-          git push origin "refs/tags/$VERSION" --force
 
       - name: Summary
         run: |
