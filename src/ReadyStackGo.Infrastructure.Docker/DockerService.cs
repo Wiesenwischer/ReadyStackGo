@@ -22,6 +22,8 @@ public class DockerService : IDockerService, IDisposable
     private readonly IConfiguration _configuration;
     private readonly ILogger<DockerService> _logger;
     private readonly IRegistryCredentialProvider? _registryCredentialProvider;
+    private readonly ISshTunnelManager _sshTunnelManager;
+    private readonly ICredentialEncryptionService _credentialEncryptionService;
     private readonly ConcurrentDictionary<string, DockerClient> _clientCache = new();
     private bool _disposed;
 
@@ -29,11 +31,15 @@ public class DockerService : IDockerService, IDisposable
         IEnvironmentRepository environmentRepository,
         IConfiguration configuration,
         ILogger<DockerService> logger,
+        ISshTunnelManager sshTunnelManager,
+        ICredentialEncryptionService credentialEncryptionService,
         IRegistryCredentialProvider? registryCredentialProvider = null)
     {
         _environmentRepository = environmentRepository;
         _configuration = configuration;
         _logger = logger;
+        _sshTunnelManager = sshTunnelManager;
+        _credentialEncryptionService = credentialEncryptionService;
         _registryCredentialProvider = registryCredentialProvider;
     }
 
@@ -1004,12 +1010,12 @@ public class DockerService : IDockerService, IDisposable
 
     // ── Private helpers ──────────────────────────────────────────────────
 
-    private Task<DockerClient> GetDockerClientAsync(string environmentId)
+    private async Task<DockerClient> GetDockerClientAsync(string environmentId)
     {
         // Check cache first
         if (_clientCache.TryGetValue(environmentId, out var cachedClient))
         {
-            return Task.FromResult(cachedClient);
+            return cachedClient;
         }
 
         // Parse environment ID
@@ -1026,17 +1032,38 @@ public class DockerService : IDockerService, IDisposable
             throw new InvalidOperationException($"Environment '{environmentId}' not found.");
         }
 
-        var connectionString = environment.ConnectionConfig.SocketPath;
-        var uri = ParseDockerUri(connectionString);
+        Uri uri;
 
-        _logger.LogDebug("Creating Docker client for environment {EnvironmentId} with URI {Uri}", environmentId, uri);
+        if (environment.Type == EnvironmentType.SshTunnel
+            && environment.ConnectionConfig is SshTunnelConfig sshConfig
+            && environment.SshCredential != null)
+        {
+            // Route through SSH tunnel
+            var decryptedSecret = _credentialEncryptionService.Decrypt(environment.SshCredential.EncryptedSecret);
+            uri = await _sshTunnelManager.GetOrCreateTunnelAsync(
+                environmentId,
+                sshConfig.Host,
+                sshConfig.Port,
+                sshConfig.Username,
+                decryptedSecret,
+                sshConfig.AuthMethod,
+                sshConfig.RemoteSocketPath);
+
+            _logger.LogDebug("Using SSH tunnel for environment {EnvironmentId}: {Uri}", environmentId, uri);
+        }
+        else
+        {
+            var connectionString = environment.ConnectionConfig.GetDockerHost();
+            uri = ParseDockerUri(connectionString);
+            _logger.LogDebug("Creating Docker client for environment {EnvironmentId} with URI {Uri}", environmentId, uri);
+        }
 
         var client = new DockerClientConfiguration(uri).CreateClient();
 
         // Cache the client
         _clientCache[environmentId] = client;
 
-        return Task.FromResult(client);
+        return client;
     }
 
     private static Uri ParseDockerUri(string connectionString)
@@ -1120,9 +1147,10 @@ public class DockerService : IDockerService, IDisposable
     {
         if (_disposed) return;
 
-        foreach (var client in _clientCache.Values)
+        foreach (var (envId, client) in _clientCache)
         {
             client.Dispose();
+            _sshTunnelManager.CloseTunnel(envId);
         }
         _clientCache.Clear();
 

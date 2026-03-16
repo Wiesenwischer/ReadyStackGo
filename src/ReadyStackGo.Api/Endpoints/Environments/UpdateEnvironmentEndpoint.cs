@@ -30,7 +30,17 @@ public class UpdateEnvironmentEndpoint : Endpoint<UpdateEnvironmentRequest, Upda
     {
         var environmentId = Route<string>("id")!;
         var response = await _mediator.Send(
-            new UpdateEnvironmentCommand(environmentId, req.Name, req.SocketPath), ct);
+            new UpdateEnvironmentCommand(
+                environmentId,
+                req.Name,
+                req.Type,
+                req.SocketPath,
+                req.SshHost,
+                req.SshPort,
+                req.SshUsername,
+                req.SshAuthMethod,
+                req.SshSecret,
+                req.RemoteSocketPath), ct);
 
         if (!response.Success)
         {

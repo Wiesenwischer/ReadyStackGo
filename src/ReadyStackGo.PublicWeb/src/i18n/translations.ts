@@ -71,6 +71,8 @@ export const translations = {
 		'features.containercontrol.desc': 'Container eines Produkts gezielt stoppen und neu starten — ohne das Deployment zu entfernen.',
 		'features.distributions.title': 'Custom Distributions',
 		'features.distributions.desc': 'Betreibe RSGO mit deinem eigenen Corporate Design — Unternehmen können eine vollständig gebrandete Deployment-Plattform auf Basis von RSGO aufbauen.',
+		'features.sshtunnel.title': 'SSH Tunnel Environments',
+		'features.sshtunnel.desc': 'Remote Docker-Hosts über SSH-Tunnel anbinden — kein exponierter Port, kein Agent, nur SSH-Zugang nötig.',
 
 		// Feature Pages
 		'featurepage.multistack.subtitle': 'Definiere komplexe Anwendungen mit mehreren Docker Stacks und gemeinsamen Variablen in einem einzigen Manifest.',
@@ -170,6 +172,8 @@ export const translations = {
 		'features.containercontrol.desc': 'Stop and restart product containers on demand — without removing the deployment.',
 		'features.distributions.title': 'Custom Distributions',
 		'features.distributions.desc': 'Run RSGO with your own corporate design — companies can build a fully branded deployment platform on top of RSGO.',
+		'features.sshtunnel.title': 'SSH Tunnel Environments',
+		'features.sshtunnel.desc': 'Connect remote Docker hosts via SSH tunnel — no exposed port, no agent, just SSH access needed.',
 
 		// Feature Pages
 		'featurepage.multistack.subtitle': 'Define complex applications with multiple Docker Stacks and shared variables in a single manifest.',

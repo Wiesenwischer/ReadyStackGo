@@ -11,12 +11,17 @@ public enum EnvironmentType
     DockerSocket = 0,
 
     /// <summary>
-    /// Remote Docker API connection (future).
+    /// Remote Docker API connection via TCP/TLS (future).
     /// </summary>
-    DockerApi = 1,
+    DockerTcp = 1,
 
     /// <summary>
     /// Remote Docker agent connection (future).
     /// </summary>
-    DockerAgent = 2
+    DockerAgent = 2,
+
+    /// <summary>
+    /// Remote Docker connection via SSH tunnel.
+    /// </summary>
+    SshTunnel = 3
 }

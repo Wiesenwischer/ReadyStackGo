@@ -333,6 +333,19 @@ Release version numbers are assigned when an Epic ships, not during planning.
   - Product detail page: enter/exit maintenance buttons, operation mode badge, trigger info panel
   - 23 new handler unit tests, 22 domain unit tests, 11 value object unit tests
   - Fix: Maintenance mode propagation to child stacks (OperationMode + status badge override)
+  - Dedicated Enter/Exit Maintenance pages with confirmation flow
+  - Remove stack-level maintenance API (product-level only)
+  - Reduce sidebar logo spacing
+
+- **v0.49** – SSH Tunnel Environment (2026-03-15)
+  - Polymorphic ConnectionConfig (JSON Column, DockerSocketConfig + SshTunnelConfig subtypes)
+  - SSH Credential Storage (AES-encrypted private keys/passwords)
+  - SshTunnelManager (SSH.NET, local port forwarding, tunnel pool, auto-reconnect)
+  - DockerService SSH-Routing (transparent tunnel for all Docker operations)
+  - SSH Environment API + UI (type selector, dynamic form, test connection)
+  - Bilingual documentation (DE/EN) with E2E test screenshots
+  - Landing page highlight feature tile
+  - Environment Type Selector: split Add Environment into type selection + type-specific sub-pages
 
 ---
 
@@ -340,11 +353,6 @@ Release version numbers are assigned when an Epic ships, not during planning.
 
 Epics are listed in priority order. Top = next.
 
-### Epic: Maintenance Mode Pages
-- Dedicated Enter/Exit Maintenance pages with confirmation and feedback (analog to StopProduct)
-- `useMaintenanceProductStore` hook with state machine (loading → confirm → entering/exiting → success/error)
-- Stack list preview and result summary on confirmation/success pages
-- Replace inline buttons on ProductDeploymentDetail with page navigation links
 
 ### Epic: OCI Stack Bundles
 

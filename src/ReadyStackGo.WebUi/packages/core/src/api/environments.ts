@@ -8,11 +8,28 @@ export interface EnvironmentResponse {
   connectionString: string;
   isDefault: boolean;
   createdAt: string;
+  // SSH-specific fields (only set for SshTunnel type)
+  sshHost?: string;
+  sshPort?: number;
+  sshUsername?: string;
+  sshAuthMethod?: string;
+  remoteSocketPath?: string;
 }
+
+export type EnvironmentType = 'DockerSocket' | 'SshTunnel';
 
 export interface CreateEnvironmentRequest {
   name: string;
-  socketPath: string;
+  type: EnvironmentType;
+  // DockerSocket fields
+  socketPath?: string;
+  // SSH Tunnel fields
+  sshHost?: string;
+  sshPort?: number;
+  sshUsername?: string;
+  sshAuthMethod?: string;
+  sshSecret?: string;
+  remoteSocketPath?: string;
 }
 
 export interface CreateEnvironmentResponse {
@@ -23,13 +40,37 @@ export interface CreateEnvironmentResponse {
 
 export interface UpdateEnvironmentRequest {
   name: string;
-  socketPath: string;
+  type: EnvironmentType;
+  socketPath?: string;
+  sshHost?: string;
+  sshPort?: number;
+  sshUsername?: string;
+  sshAuthMethod?: string;
+  sshSecret?: string;
+  remoteSocketPath?: string;
 }
 
 export interface UpdateEnvironmentResponse {
   success: boolean;
   message?: string;
   environment?: EnvironmentResponse;
+}
+
+export interface TestConnectionRequest {
+  type: EnvironmentType;
+  dockerHost?: string;
+  sshHost?: string;
+  sshPort?: number;
+  sshUsername?: string;
+  sshAuthMethod?: string;
+  sshSecret?: string;
+  remoteSocketPath?: string;
+}
+
+export interface TestConnectionResponseDto {
+  success: boolean;
+  message: string;
+  dockerVersion?: string;
 }
 
 export interface DeleteEnvironmentResponse {
@@ -70,6 +111,10 @@ export async function deleteEnvironment(id: string): Promise<DeleteEnvironmentRe
 
 export async function setDefaultEnvironment(id: string): Promise<SetDefaultEnvironmentResponse> {
   return apiPost<SetDefaultEnvironmentResponse>(`/api/environments/${id}/default`, {});
+}
+
+export async function testConnection(request: TestConnectionRequest): Promise<TestConnectionResponseDto> {
+  return apiPost<TestConnectionResponseDto>('/api/environments/test-connection', request);
 }
 
 // Environment Variables

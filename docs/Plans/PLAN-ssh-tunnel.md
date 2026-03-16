@@ -62,7 +62,7 @@ Docker-Hosts auf entfernten Servern als Deployment-Ziele nutzen — über SSH-Tu
 
 ## Features
 
-- [ ] **Feature 1: ConnectionConfig polymorph machen**
+- [x] **Feature 1: ConnectionConfig polymorph machen**
   - `ConnectionConfig` von einzelnem `SocketPath` zu polymorphem Value Object erweitern
   - Neuer Subtyp: `SshTunnelConfig` (Host, Port, Username, AuthMethod, RemoteSocketPath)
   - Bestehender Subtyp: `DockerSocketConfig` (SocketPath — Wrapper um bestehende Daten)
@@ -76,7 +76,7 @@ Docker-Hosts auf entfernten Servern als Deployment-Ziele nutzen — über SSH-Tu
     - `src/ReadyStackGo.Domain/Deployment/Environments/Environment.cs`
     - `src/ReadyStackGo.Infrastructure.DataAccess/Configurations/EnvironmentConfiguration.cs`
 
-- [ ] **Feature 2: SSH Credential Storage**
+- [x] **Feature 2: SSH Credential Storage**
   - Value Object: `SshCredential` mit AuthMethod (PrivateKey / Password), verschlüsseltem Secret
   - `CredentialEncryptionService`: AES-Verschlüsselung für SSH Keys/Passwords (reversibel, da Controller den Key für jeden Tunnel-Aufbau braucht)
   - Master Key aus Environment Variable `RSGO_ENCRYPTION_KEY` oder auto-generiert in Config
@@ -85,7 +85,7 @@ Docker-Hosts auf entfernten Servern als Deployment-Ziele nutzen — über SSH-Tu
     - `src/ReadyStackGo.Domain/Deployment/Environments/SshCredential.cs` (neu)
     - `src/ReadyStackGo.Infrastructure/Services/CredentialEncryptionService.cs` (neu)
 
-- [ ] **Feature 3: SshTunnelManager**
+- [x] **Feature 3: SshTunnelManager**
   - NuGet Package: `SSH.NET`
   - Service: `SshTunnelManager` — baut SSH-Tunnel auf, verwaltet Lifecycle
   - Local Port Forwarding: `localhost:random-port` → `remote:RemoteSocketPath`
@@ -96,7 +96,7 @@ Docker-Hosts auf entfernten Servern als Deployment-Ziele nutzen — über SSH-Tu
     - `src/ReadyStackGo.Infrastructure/Services/SshTunnelManager.cs` (neu)
     - `src/ReadyStackGo.Infrastructure/Services/ISshTunnelManager.cs` (neu)
 
-- [ ] **Feature 4: DockerService SSH-Routing**
+- [x] **Feature 4: DockerService SSH-Routing**
   - `DockerService.GetDockerClientAsync()` erweitern: Wenn EnvironmentType == SshTunnel → Tunnel via SshTunnelManager aufbauen → DockerClient auf `tcp://localhost:tunnel-port`
   - Test Connection: Tunnel aufbauen → Docker System Info → Tunnel abbauen
   - Health Collector: Funktioniert transparent — Docker-Operationen gehen durch den Tunnel
@@ -104,7 +104,7 @@ Docker-Hosts auf entfernten Servern als Deployment-Ziele nutzen — über SSH-Tu
     - `src/ReadyStackGo.Infrastructure.Docker/DockerService.cs`
     - `src/ReadyStackGo.Application/UseCases/Environments/TestConnection/TestConnectionHandler.cs`
 
-- [ ] **Feature 5: SSH Environment API + UI**
+- [x] **Feature 5: SSH Environment API + UI**
   - `CreateEnvironmentCommand` erweitern: Type-Discriminator + SSH-spezifische Felder
   - Neuer Environment-Typ "SSH Tunnel" im AddEnvironment Type-Selector
   - Dynamisches Formular: SSH Host, Port (Default 22), Username, Auth Method (Key/Password), Private Key Textarea oder File Upload, Remote Socket Path (Default `/var/run/docker.sock`)
@@ -121,7 +121,7 @@ Docker-Hosts auf entfernten Servern als Deployment-Ziele nutzen — über SSH-Tu
     - `src/ReadyStackGo.WebUi/packages/ui-generic/src/pages/Environments/AddEnvironment.tsx`
     - `src/ReadyStackGo.WebUi/packages/ui-generic/src/pages/Environments/Environments.tsx`
 
-- [ ] **Feature 6: Unit Tests**
+- [x] **Feature 6: Unit Tests**
   - ConnectionConfig Polymorphismus (Serialisierung, Equality, Validation, Migration)
   - SshTunnelConfig Validation (Host required, Port 1–65535, Auth method required)
   - CredentialEncryptionService (AES Encrypt/Decrypt roundtrip, key rotation)
@@ -129,8 +129,8 @@ Docker-Hosts auf entfernten Servern als Deployment-Ziele nutzen — über SSH-Tu
   - DockerService SSH-Routing (Environment Type → Tunnel → Docker Client)
   - Environment Creation mit SshTunnel Type
 
-- [ ] **Dokumentation & Website** — Bilingual Docs (DE/EN) mit Screenshots
-- [ ] **Phase abschließen** – Integration PR gegen main
+- [x] **Dokumentation & Website** — Bilingual Docs (DE/EN) mit Screenshots
+- [x] **Phase abschließen** – Integration PR gegen main
 
 ---
 
