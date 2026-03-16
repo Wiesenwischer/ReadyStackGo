@@ -1,3 +1,4 @@
+<!-- GitHub Epic: #284 -->
 # Phase: Remote Agent Environment (Phase 3–4 — Remote Environments)
 
 ## Ziel

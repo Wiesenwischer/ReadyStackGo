@@ -40,12 +40,16 @@ main
 
 ## Schritt 1: Kontext erfassen
 
-1. Lies die **Roadmap** (`docs/Reference/Roadmap.md`) und identifiziere das nächste geplante Feature unter "Planned".
-   - Falls `$ARGUMENTS` angegeben wurde, suche dieses spezifische Feature.
-   - Falls `$ARGUMENTS` leer ist, nimm das **nächste geplante Feature** (niedrigste Version unter "Planned").
+1. **GitHub Project Board** lesen um das nächste Feature zu identifizieren:
+   ```bash
+   gh project item-list 6 --owner Wiesenwischer --format json --limit 50
+   ```
+   - Falls `$ARGUMENTS` angegeben wurde, suche dieses spezifische Feature in den Issues.
+   - Falls `$ARGUMENTS` leer ist, nimm das Feature mit der **höchsten Priorität** (niedrigste Priority-Nummer) im Status "Planned".
+   - Alternativ: `gh issue list --label epic --state open --json number,title,milestone`
 2. Lies die **Projektrichtlinien** (`CLAUDE.md`) für Branch-Konventionen, Commit-Regeln und Test-Anforderungen.
 3. **Prüfe ob bereits eine Specification/Plan-Datei existiert** in `docs/Plans/`:
-   - Suche nach `PLAN-*.md` Dateien die zur Phase/Feature passen (z.B. `PLAN-cicd-integration.md` für CI/CD)
+   - Das Epic Issue enthält einen Link zur PLAN-Datei (z.B. "See [PLAN-xyz.md](docs/Plans/PLAN-xyz.md)")
    - **Falls vorhanden: Lies die Spec VOLLSTÄNDIG** – sie enthält Architektur-Entscheidungen, Feature-Aufteilung, betroffene Dateien, Abhängigkeiten und Test-Anforderungen
    - Die Spec ist die **primäre Quelle** für den Implementierungsplan. Erstelle keinen neuen Plan wenn eine Spec existiert – nutze sie als Basis
    - Falls keine Spec existiert: Erstelle eine neue Planungsdatei in Schritt 2
@@ -253,8 +257,10 @@ Das AMS UI (`C:\proj\ReadyStackGo.Ams`) ist ein separates privates Repo das `@rs
 2. Branch pushen
 3. PR erstellen **gegen den Integration Branch** (nicht gegen main!):
    ```bash
-   gh pr create --base integration/<phase-name> --title "..." --body "..."
+   gh pr create --base integration/<phase-name> --title "..." --body "..." --milestone "<Milestone>"
    ```
+   - Falls das Feature ein eigenes GitHub Issue hat: `Closes #NNN` im PR Body verwenden
+   - Das verknüpft den PR mit dem Issue und schließt es automatisch beim Merge
 4. **KEIN Footer** in PR-Beschreibungen
 5. CI-Checks abwarten
 6. PR mergen und Feature Branch löschen
@@ -284,8 +290,8 @@ Wenn **alle Features einer Phase** implementiert sind, folgende Schritte durchf�
   - Deutsche Docs: `de/`
   - Englische Docs: `en/`
 
-### Roadmap aktualisieren
-- Feature von "Planned" nach "Released" verschieben in `docs/Reference/Roadmap.md`
+### Release History aktualisieren
+- Feature in `docs/Reference/Release-History.md` unter der entsprechenden Version eintragen
 - Release-Datum hinzufügen
 
 ## Schritt 14: Phase abschließen
@@ -295,7 +301,13 @@ Wenn alle Features, Docs und Website-Updates fertig sind:
 1. **Alle Tests nochmal ausführen** (Unit, Integration, E2E) – alles muss grün sein
 2. **PR vom Integration Branch gegen main erstellen:**
    ```bash
-   gh pr create --base main --title "v0.XX – <Phase-Titel>" --body "..."
+   gh pr create --base main --title "<Phase-Titel>" --body "..." --milestone "<Milestone>"
    ```
+   - `Closes #NNN` im Body für das Epic Issue → schließt das Epic automatisch
 3. CI-Checks abwarten
 4. PR mergen und Integration Branch löschen
+5. **Milestone schließen** wenn alle zugeordneten Issues erledigt sind:
+   ```bash
+   gh api repos/Wiesenwischer/ReadyStackGo/milestones/<NUMBER> --method PATCH -f state=closed
+   ```
+   → Löst den `milestone-release` Workflow aus → Release wird automatisch veröffentlicht

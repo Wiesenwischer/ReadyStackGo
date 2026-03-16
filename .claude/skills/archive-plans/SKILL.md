@@ -34,16 +34,20 @@ Zeige dem User eine Tabelle:
 | PLAN-def.md | Offen | 0/5 | Bleibt |
 ```
 
-## Schritt 3: Abgleich mit Roadmap
+## Schritt 3: Abgleich mit GitHub Issues
 
 Für jeden "Vollständig"-Plan:
-1. Lies `docs/Reference/Roadmap.md`
-2. Prüfe ob die zugehörige Version unter "Released" steht (mit Datum)
-3. Falls die Version noch unter "Planned" steht → **Warnung**: Plan ist als erledigt markiert, aber Version ist noch nicht released
+1. Prüfe den `<!-- GitHub Epic: #NNN -->` Kommentar in der PLAN-Datei
+2. Prüfe ob das referenzierte GitHub Issue geschlossen ist:
+   ```bash
+   gh issue view NNN --json state --jq .state
+   ```
+3. Falls das Issue noch offen ist → **Warnung**: Plan ist als erledigt markiert, aber Issue ist noch offen
+4. Falls kein Issue referenziert ist: Prüfe `docs/Reference/Release-History.md` ob das Feature dort gelistet ist
 
 ## Schritt 4: Archivieren
 
-Für alle Plans die vollständig UND in der Roadmap als released markiert sind:
+Für alle Plans die vollständig UND deren GitHub Issue geschlossen ist (oder in Release-History gelistet):
 
 ```bash
 git mv docs/Plans/PLAN-<name>.md docs/Plans/completed/PLAN-<name>.md
@@ -51,7 +55,7 @@ git mv docs/Plans/PLAN-<name>.md docs/Plans/completed/PLAN-<name>.md
 
 **Nicht archivieren wenn:**
 - Noch offene Checkboxen vorhanden
-- Version steht nicht unter "Released" in der Roadmap
+- GitHub Issue ist noch offen
 - User lehnt die Archivierung ab
 
 ## Schritt 5: Commit
@@ -72,4 +76,4 @@ git commit -m "Archive completed plans: <liste der verschobenen Plans>"
 Zeige dem User:
 - Wie viele Plans archiviert wurden
 - Wie viele Plans noch offen/in Arbeit sind
-- Ob es Diskrepanzen gibt (erledigt aber nicht released, oder released aber Plan nicht erledigt)
+- Ob es Diskrepanzen gibt (Plan erledigt aber Issue offen, oder Issue geschlossen aber Plan nicht erledigt)
