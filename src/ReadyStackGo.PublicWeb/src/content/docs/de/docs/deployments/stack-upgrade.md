@@ -235,6 +235,6 @@ Wenn das Upgrade den Point of No Return passiert hat (Container wurden gestartet
 
 ## Weiterführende Dokumentation
 
-- [Stack Deployment](/de/docs/stack-deployment/)
+- [Stack Deployment](/de/docs/deployments/stack-deployment/)
 - [RSGo Manifest Format](/de/reference/manifest-format/)
 - [Variable Types](/de/reference/variable-types/)

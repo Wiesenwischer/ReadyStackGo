@@ -235,6 +235,6 @@ If the upgrade passed the Point of No Return (containers started), the snapshot 
 
 ## Further Documentation
 
-- [Stack Deployment](/en/docs/stack-deployment/)
+- [Stack Deployment](/en/docs/deployments/stack-deployment/)
 - [RSGo Manifest Format](/en/reference/manifest-format/)
 - [Variable Types](/en/reference/variable-types/)

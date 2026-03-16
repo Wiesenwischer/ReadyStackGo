@@ -106,7 +106,7 @@ Running Product Deployments can be stopped and restarted from the detail page. W
 
 On the Product Deployment detail page, operational deployments (status `Running` or `PartiallyRunning`) display the **Stop Containers** and **Restart Containers** links. For stopped deployments (status `Stopped`), only **Restart Containers** is available.
 
-![Stop and Restart links on the Product Deployment detail page](/images/docs/container-control-01-buttons.png)
+![Stop and Restart links on the Product Deployment detail page](/images/docs/monitoring/container-control-01-buttons.png)
 
 ---
 
@@ -114,15 +114,15 @@ On the Product Deployment detail page, operational deployments (status `Running`
 
 Click **Stop Containers** to navigate to the confirmation page. All stacks that will be stopped are listed.
 
-![Confirmation page for Stop Containers](/images/docs/container-control-02-stop-confirm.png)
+![Confirmation page for Stop Containers](/images/docs/monitoring/container-control-02-stop-confirm.png)
 
 After confirmation, the operation is executed. A loading indicator shows progress.
 
-![Loading indicator during stop operation](/images/docs/container-control-03-stop-loading.png)
+![Loading indicator during stop operation](/images/docs/monitoring/container-control-03-stop-loading.png)
 
 The result is displayed as a feedback page — green for success, red for errors.
 
-![Result of the stop operation](/images/docs/container-control-04-stop-result.png)
+![Result of the stop operation](/images/docs/monitoring/container-control-04-stop-result.png)
 
 ---
 
@@ -130,7 +130,7 @@ The result is displayed as a feedback page — green for success, red for errors
 
 After successfully stopping, the Product Deployment transitions to `Stopped` status. On the detail page, both the product and all stacks display an orange **Stopped** badge.
 
-![Product Deployment in Stopped status with orange badges](/images/docs/container-control-05-stopped-status.png)
+![Product Deployment in Stopped status with orange badges](/images/docs/monitoring/container-control-05-stopped-status.png)
 
 In Stopped status, the following actions are available:
 - **Restart Containers** — start containers again, transitions back to `Running`
@@ -147,11 +147,11 @@ A stopped deployment retains all configurations and stack assignments. The conta
 
 Click **Restart Containers** to sequentially stop and then start all containers. This works for both running and stopped deployments.
 
-![Confirmation page for Restart Containers](/images/docs/container-control-06-restart-confirm.png)
+![Confirmation page for Restart Containers](/images/docs/monitoring/container-control-06-restart-confirm.png)
 
 After completion, the result page shows the status. When restarting from Stopped status, the deployment transitions back to `Running` (or `PartiallyRunning` on partial success).
 
-![Result of the restart operation](/images/docs/container-control-07-restart-result.png)
+![Result of the restart operation](/images/docs/monitoring/container-control-07-restart-result.png)
 
 :::note[Sequential Restart]
 During restart, stacks are processed sequentially: first a stack is stopped, then started, before moving to the next stack. If stopping a stack fails, the start for that stack is skipped.

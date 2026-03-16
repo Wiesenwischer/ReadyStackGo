@@ -27,7 +27,7 @@ When a new version is available, a banner automatically appears in the left side
 - **Update now** — Opens the update page and starts the update
 - **See what's new** — Opens the release notes on GitHub
 
-![Sidebar with update banner](/images/docs/self-update-01-update-banner.png)
+![Sidebar with update banner](/images/docs/system/self-update-01-update-banner.png)
 
 :::tip[Dismissing the Banner]
 You can close the banner with the **X** button. It will only reappear when an even newer version becomes available.
@@ -39,7 +39,7 @@ You can close the banner with the **X** button. It will only reappear when an ev
 
 Click **Update now**. A dedicated update page opens showing the progress. The page displays the current and target version along with a spinner:
 
-![Update in progress](/images/docs/self-update-02-updating.png)
+![Update in progress](/images/docs/system/self-update-02-updating.png)
 
 Behind the scenes, the following happens:
 
@@ -67,7 +67,7 @@ You don't need to do anything — just wait for the redirect to happen.
 
 If the update fails (e.g., because the image cannot be downloaded), the update page displays an error message with the option to retry:
 
-![Update error](/images/docs/self-update-03-error.png)
+![Update error](/images/docs/system/self-update-03-error.png)
 
 Common error causes:
 

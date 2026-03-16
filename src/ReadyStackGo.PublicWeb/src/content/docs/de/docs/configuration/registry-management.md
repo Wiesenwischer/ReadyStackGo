@@ -215,5 +215,5 @@ environment:
 
 ## Weiterführende Links
 
-- [Stack Deployment](/de/docs/stack-deployment/) - Stacks deployen
+- [Stack Deployment](/de/docs/deployments/stack-deployment/) - Stacks deployen
 - [Installation](/de/getting-started/installation/) - ReadyStackGo installieren

@@ -27,7 +27,7 @@ Wenn eine neue Version verfügbar ist, erscheint automatisch ein Banner in der l
 - **Update now** — Öffnet die Update-Seite und startet das Update
 - **See what's new** — Öffnet die Release Notes auf GitHub
 
-![Sidebar mit Update-Banner](/images/docs/self-update-01-update-banner.png)
+![Sidebar mit Update-Banner](/images/docs/system/self-update-01-update-banner.png)
 
 :::tip[Banner ausblenden]
 Sie können das Banner mit dem **X**-Button schließen. Es wird erst wieder angezeigt, wenn eine noch neuere Version verfügbar ist.
@@ -39,7 +39,7 @@ Sie können das Banner mit dem **X**-Button schließen. Es wird erst wieder ange
 
 Klicken Sie auf **Update now**. Es öffnet sich eine dedizierte Update-Seite mit Fortschrittsanzeige. Die Seite zeigt die aktuelle und die Zielversion sowie einen Spinner:
 
-![Update wird durchgeführt](/images/docs/self-update-02-updating.png)
+![Update wird durchgeführt](/images/docs/system/self-update-02-updating.png)
 
 Im Hintergrund passiert Folgendes:
 
@@ -67,7 +67,7 @@ Sie müssen nichts weiter tun — warten Sie einfach, bis die Weiterleitung erfo
 
 Falls das Update fehlschlägt (z.B. weil das Image nicht heruntergeladen werden kann), zeigt die Update-Seite eine Fehlermeldung mit der Möglichkeit zum erneuten Versuch:
 
-![Fehler beim Update](/images/docs/self-update-03-error.png)
+![Fehler beim Update](/images/docs/system/self-update-03-error.png)
 
 Mögliche Fehlerursachen:
 
