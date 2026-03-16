@@ -205,7 +205,10 @@ public class SshTunnelManager : ISshTunnelManager
             _ => throw new ArgumentException($"Unsupported SSH auth method: {authMethod}")
         };
 
-        return new ConnectionInfo(host, port, username, auth);
+        return new ConnectionInfo(host, port, username, auth)
+        {
+            Timeout = TimeSpan.FromSeconds(10),
+        };
     }
 
     private static PrivateKeyAuthenticationMethod CreatePrivateKeyAuth(string username, string privateKeyContent)
