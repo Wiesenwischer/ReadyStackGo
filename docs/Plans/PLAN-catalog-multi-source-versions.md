@@ -54,7 +54,7 @@ Stack Catalog:
 
 ## Features / Schritte
 
-- [ ] **Feature 1: Cache — Source-scoped Product Retrieval** – `GetAllProducts()` gibt latest per (SourceId, GroupId) zurück
+- [x] **Feature 1: Cache — Source-scoped Product Retrieval** – `GetAllProducts()` gibt latest per (SourceId, GroupId) zurück
   - Betroffene Dateien:
     - `src/ReadyStackGo.Infrastructure/Caching/InMemoryProductCache.cs`
     - `src/ReadyStackGo.Application/Services/IProductCache.cs`
@@ -62,7 +62,7 @@ Stack Catalog:
   - `GetAllProducts()` Logik ändern: Gruppierung nach `(SourceId, GroupId)` statt nur `GroupId`
   - Abhängig von: -
 
-- [ ] **Feature 2: API — Verfügbare Versionen in Product Response** – Version-Liste pro Source mitliefern
+- [x] **Feature 2: API — Verfügbare Versionen in Product Response** – Version-Liste pro Source mitliefern
   - Betroffene Dateien:
     - `src/ReadyStackGo.Application/UseCases/Stacks/ListProducts/ListProductsHandler.cs`
     - `src/ReadyStackGo.Application/UseCases/Stacks/ListProducts/ListProductsQuery.cs` (DTOs)
@@ -71,7 +71,7 @@ Stack Catalog:
   - Pattern: `GetProductVersionsBySource(sourceId, groupId)` aufrufen
   - Abhängig von: Feature 1
 
-- [ ] **Feature 3: Frontend — Stack Catalog Source-separiert** – Produkte pro Source anzeigen
+- [x] **Feature 3: Frontend — Stack Catalog Source-separiert** – Produkte pro Source anzeigen
   - Betroffene Dateien:
     - `src/ReadyStackGo.WebUi/packages/ui-generic/src/pages/Catalog/StackCatalog.tsx`
     - `src/ReadyStackGo.WebUi/packages/core/src/hooks/useCatalogStore.ts`
@@ -79,7 +79,7 @@ Stack Catalog:
   - Gleiches Produkt aus 2 Sources = 2 Cards
   - Abhängig von: Feature 2
 
-- [ ] **Feature 4: Frontend — Version-Picker im ProductDetail** – Version auswählen und Detail-Seite aktualisieren
+- [x] **Feature 4: Frontend — Version-Picker im ProductDetail** – Version auswählen und Detail-Seite aktualisieren
   - Betroffene Dateien:
     - `src/ReadyStackGo.WebUi/packages/ui-generic/src/pages/Catalog/ProductDetail.tsx`
     - `src/ReadyStackGo.WebUi/packages/core/src/hooks/useProductDetailStore.ts`
@@ -88,7 +88,7 @@ Stack Catalog:
   - Deploy-Button nutzt gewählte Version
   - Abhängig von: Feature 2
 
-- [ ] **Feature 5: Tests** – Unit Tests für Cache-Änderungen
+- [x] **Feature 5: Tests** – Unit Tests für Cache-Änderungen
   - Betroffene Dateien:
     - `tests/ReadyStackGo.UnitTests/Infrastructure/Caching/InMemoryProductCacheTests.cs` (erweitern oder neu)
   - Testfälle:
@@ -97,7 +97,7 @@ Stack Catalog:
     - GetProductVersionsBySource filtert korrekt nach SourceId
   - Abhängig von: Feature 1
 
-- [ ] **Phase abschließen** – Alle Tests grün, PR gegen main
+- [x] **Phase abschließen** – Alle Tests grün, PR gegen main
 
 ## Test-Strategie
 

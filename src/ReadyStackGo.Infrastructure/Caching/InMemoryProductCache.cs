@@ -20,14 +20,15 @@ public class InMemoryProductCache : IProductCache
     public int StackCount => GetAllProducts().Sum(p => p.Stacks.Count);
 
     /// <summary>
-    /// Get all cached products (returns latest version of each product group for backward compatibility)
+    /// Get all cached products (returns latest version per source and product group).
+    /// Products from different sources are always returned separately, even if they share a GroupId.
     /// </summary>
     public IEnumerable<ProductDefinition> GetAllProducts()
     {
         return _productGroups.Values
-            .Select(group => GetLatestVersion(group))
-            .Where(p => p != null)
-            .Cast<ProductDefinition>()
+            .SelectMany(group => group.Values)
+            .GroupBy(p => (p.SourceId, p.GroupId))
+            .Select(g => g.OrderByDescending(p => p.ProductVersion, new SemVerComparer()).First())
             .ToList();
     }
 
@@ -100,6 +101,22 @@ public class InMemoryProductCache : IProductCache
         if (_productGroups.TryGetValue(groupId, out var versions))
         {
             return versions.Values
+                .OrderByDescending(p => p.ProductVersion, new SemVerComparer())
+                .ToList();
+        }
+        return Enumerable.Empty<ProductDefinition>();
+    }
+
+    /// <summary>
+    /// Get all versions of a product from a specific source.
+    /// Returns versions sorted by version number (newest first).
+    /// </summary>
+    public IEnumerable<ProductDefinition> GetProductVersionsBySource(string sourceId, string groupId)
+    {
+        if (_productGroups.TryGetValue(groupId, out var versions))
+        {
+            return versions.Values
+                .Where(p => p.SourceId == sourceId)
                 .OrderByDescending(p => p.ProductVersion, new SemVerComparer())
                 .ToList();
         }

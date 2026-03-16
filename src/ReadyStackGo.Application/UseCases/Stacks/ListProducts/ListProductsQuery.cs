@@ -66,7 +66,25 @@ public record ProductItem(
     /// <summary>
     /// Last sync timestamp
     /// </summary>
-    DateTime LastSyncedAt
+    DateTime LastSyncedAt,
+
+    /// <summary>
+    /// Product group identifier for versioning
+    /// </summary>
+    string GroupId,
+
+    /// <summary>
+    /// All available versions of this product from the same source
+    /// </summary>
+    List<ProductVersionItem> AvailableVersions
+);
+
+/// <summary>
+/// A version of a product available in the same source.
+/// </summary>
+public record ProductVersionItem(
+    string Version,
+    string ProductId
 );
 
 /// <summary>
