@@ -21,7 +21,7 @@ Mit **Remove Product** wird ein Product Deployment inklusive aller Stacks und Co
 
 Navigiere zur Deployments-Seite um eine Übersicht aller deployten Products zu erhalten.
 
-![Deployments-Übersicht](/images/docs/product-remove-01-deployments.png)
+![Deployments-Übersicht](/images/docs/deployments/product-remove-01-deployments.png)
 
 ---
 
@@ -29,7 +29,7 @@ Navigiere zur Deployments-Seite um eine Übersicht aller deployten Products zu e
 
 Öffne die Detailseite eines Product Deployments. Der **Remove**-Link ist in der Aktionsleiste sichtbar, wenn das Produkt im Status Running, Stopped oder PartiallyRunning ist.
 
-![Product Deployment Detail mit Remove-Button](/images/docs/product-remove-02-detail.png)
+![Product Deployment Detail mit Remove-Button](/images/docs/deployments/product-remove-02-detail.png)
 
 :::caution[Irreversibler Vorgang]
 Das Entfernen eines Produkts löscht alle zugehörigen Docker-Container und Deployment-Einträge. Volumes werden **nicht** automatisch gelöscht — Docker-Volumes bleiben erhalten und können separat bereinigt werden.
@@ -47,7 +47,7 @@ Nach Klick auf **Remove** öffnet sich der Bestätigungsscreen mit:
 - **Cancel** — Zurück zum Catalog ohne Aktion
 - **Remove All Stacks** — Startet den Entfernungsvorgang
 
-![Remove Product Bestätigungsscreen](/images/docs/product-remove-03-confirm.png)
+![Remove Product Bestätigungsscreen](/images/docs/deployments/product-remove-03-confirm.png)
 
 Stacks werden in **umgekehrter Reihenfolge** entfernt — der zuletzt deployete Stack wird zuerst entfernt. Das gewährleistet eine sichere Auflösung von Abhängigkeiten.
 
@@ -57,7 +57,7 @@ Stacks werden in **umgekehrter Reihenfolge** entfernt — der zuletzt deployete 
 
 Nach Klick auf **Remove All Stacks** wechselt die Ansicht in den Fortschrittsmodus:
 
-![Remove Product Fortschrittsanzeige](/images/docs/product-remove-04-progress.png)
+![Remove Product Fortschrittsanzeige](/images/docs/deployments/product-remove-04-progress.png)
 
 **Linkes Panel — Stack-Liste:**
 Jeder Stack zeigt seinen aktuellen Status:
@@ -84,7 +84,7 @@ Die **rote Progress-Bar** am oberen Rand zeigt den Gesamtfortschritt (X/Y Stacks
 
 Nach Abschluss des Vorgangs erscheint der Ergebnis-Screen:
 
-![Remove Product Ergebnis](/images/docs/product-remove-05-success.png)
+![Remove Product Ergebnis](/images/docs/deployments/product-remove-05-success.png)
 
 **Erfolgreich entfernt:**
 - Grünes Erfolgs-Icon
@@ -147,5 +147,5 @@ Die `sessionId` wird vom Client generiert und dient zur Zuordnung von Echtzeit-F
 | Produkt bereits entfernt | 404-Fehler beim Laden → Fehler-Screen mit Meldung |
 
 :::tip[Volumes bleiben erhalten]
-Docker-Volumes werden beim Entfernen eines Produkts **nicht** automatisch gelöscht. Verwende die [Volume Management](/de/docs/volume-management/)-Seite um verwaiste Volumes nach dem Entfernen zu bereinigen.
+Docker-Volumes werden beim Entfernen eines Produkts **nicht** automatisch gelöscht. Verwende die [Volume Management](/de/docs/monitoring/volume-management/)-Seite um verwaiste Volumes nach dem Entfernen zu bereinigen.
 :::

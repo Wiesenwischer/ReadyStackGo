@@ -482,4 +482,4 @@ When HTTP is enabled, requests to HTTP are automatically redirected to HTTPS - e
 ## Related Links
 
 - [Installation](/en/getting-started/installation/) - Install ReadyStackGo
-- [Stack Deployment](/en/docs/stack-deployment/) - Deploy stacks
+- [Stack Deployment](/en/docs/deployments/stack-deployment/) - Deploy stacks

@@ -114,5 +114,5 @@ Volume management is also available via REST API:
 
 ## Related Links
 
-- [Stack Deployment](/en/docs/stack-deployment/) - Deploy stacks
-- [CI/CD Integration](/en/docs/ci-cd-integration/) - Automated deployments
+- [Stack Deployment](/en/docs/deployments/stack-deployment/) - Deploy stacks
+- [CI/CD Integration](/en/docs/configuration/ci-cd-integration/) - Automated deployments

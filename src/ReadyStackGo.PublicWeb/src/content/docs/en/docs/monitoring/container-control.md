@@ -20,7 +20,7 @@ description: Stop, restart, or restore containers of a product deployment — wi
 
 Open the detail page of a running product deployment. When the status is **Running** or **PartiallyRunning**, the **Stop Containers** and **Restart Containers** links are visible.
 
-![Product deployment detail with Stop/Restart buttons](/images/docs/container-control-01-buttons.png)
+![Product deployment detail with Stop/Restart buttons](/images/docs/monitoring/container-control-01-buttons.png)
 
 ---
 
@@ -33,7 +33,7 @@ Clicking **Stop Containers** opens the confirmation screen:
 - **Cancel** — returns to the deployment detail page
 - **Stop All Containers** — starts the stop operation
 
-![Stop containers confirmation screen](/images/docs/container-control-02-stop-confirm.png)
+![Stop containers confirmation screen](/images/docs/monitoring/container-control-02-stop-confirm.png)
 
 :::note[No data loss]
 Stopping only halts the containers. The deployment and all configuration are retained. Containers can be started again at any time via **Restart Containers**.
@@ -45,7 +45,7 @@ Stopping only halts the containers. The deployment and all configuration are ret
 
 While stopping, the page shows a progress spinner.
 
-![Container stop in progress](/images/docs/container-control-03-stop-loading.png)
+![Container stop in progress](/images/docs/monitoring/container-control-03-stop-loading.png)
 
 ---
 
@@ -53,7 +53,7 @@ While stopping, the page shows a progress spinner.
 
 When complete, the result screen shows the status of each stack.
 
-![Container stop result](/images/docs/container-control-04-stop-result.png)
+![Container stop result](/images/docs/monitoring/container-control-04-stop-result.png)
 
 **Successfully stopped:**
 - Heading: "Containers Stopped Successfully!"
@@ -69,7 +69,7 @@ When complete, the result screen shows the status of each stack.
 
 After stopping, the deployment detail page shows **Stopped** status.
 
-![Product deployment in Stopped status](/images/docs/container-control-05-stopped-status.png)
+![Product deployment in Stopped status](/images/docs/monitoring/container-control-05-stopped-status.png)
 
 From here the product can be started again via **Restart Containers**.
 
@@ -85,7 +85,7 @@ Via **Restart Containers** (on the deployment detail page or directly at `/resta
 - **Stacks to restart**
 - **Restart All Containers** — restarts the containers
 
-![Restart containers confirmation screen](/images/docs/container-control-06-restart-confirm.png)
+![Restart containers confirmation screen](/images/docs/monitoring/container-control-06-restart-confirm.png)
 
 ---
 
@@ -93,7 +93,7 @@ Via **Restart Containers** (on the deployment detail page or directly at `/resta
 
 After the restart the page shows the result.
 
-![Container restart result](/images/docs/container-control-07-restart-result.png)
+![Container restart result](/images/docs/monitoring/container-control-07-restart-result.png)
 
 **Successfully restarted:** Heading "Containers Restarted Successfully!" — the product is back in **Running** status.
 
@@ -106,7 +106,7 @@ After the restart the page shows the result.
 | Maintenance window | **Stop** → maintenance → **Restart** |
 | Containers are unresponsive | **Restart Containers** |
 | Free up resources | **Stop Containers** |
-| Permanently remove product | [Remove Product](/en/docs/product-remove/) |
+| Permanently remove product | [Remove Product](/en/docs/deployments/product-remove/) |
 
 ---
 

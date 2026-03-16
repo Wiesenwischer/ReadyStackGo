@@ -24,7 +24,7 @@ SSH tunnel is the simplest way to connect remote Docker hosts. Every Linux serve
 
 Navigate to **Environments** in the main menu. Here you can see all configured Docker environments.
 
-![Environments list](/images/docs/ssh-tunnel-01-environments-list.png)
+![Environments list](/images/docs/environments/ssh-tunnel-01-environments-list.png)
 
 ---
 
@@ -35,7 +35,7 @@ Click **Add Environment**. On the creation page you'll see the **Connection Type
 - **Local Docker Socket** – Direct access to the local Docker socket
 - **SSH Tunnel** – Connection to a remote Docker host via SSH
 
-![Type selector on the Add Environment page](/images/docs/ssh-tunnel-02-type-selector.png)
+![Type selector on the Add Environment page](/images/docs/environments/ssh-tunnel-02-type-selector.png)
 
 Click **SSH Tunnel** to open the SSH form.
 
@@ -45,7 +45,7 @@ Click **SSH Tunnel** to open the SSH form.
 
 The form displays the SSH-specific fields:
 
-![SSH Tunnel form](/images/docs/ssh-tunnel-03-ssh-form.png)
+![SSH Tunnel form](/images/docs/environments/ssh-tunnel-03-ssh-form.png)
 
 | Field | Required | Description |
 |-------|----------|-------------|
@@ -67,7 +67,7 @@ Choose your preferred authentication method:
 
 **Password**: Enter the SSH password.
 
-![Password authentication](/images/docs/ssh-tunnel-04-password-auth.png)
+![Password authentication](/images/docs/environments/ssh-tunnel-04-password-auth.png)
 
 :::caution[Security]
 SSH credentials are stored encrypted with **AES-256-CBC** in the database. The master key can be set via the environment variable `RSGO_ENCRYPTION_KEY`. Without this variable, a key is automatically generated and stored in `/data/.encryption-key`.
@@ -79,7 +79,7 @@ SSH credentials are stored encrypted with **AES-256-CBC** in the database. The m
 
 Fill in all fields and click **Test Connection** to verify the SSH connection and Docker access.
 
-![Filled SSH form](/images/docs/ssh-tunnel-05-filled-form.png)
+![Filled SSH form](/images/docs/environments/ssh-tunnel-05-filled-form.png)
 
 The test:
 1. Establishes an SSH connection
@@ -87,7 +87,7 @@ The test:
 3. Retrieves Docker System Info
 4. Displays Docker version and success/failure
 
-![Test Connection button](/images/docs/ssh-tunnel-06-test-connection.png)
+![Test Connection button](/images/docs/environments/ssh-tunnel-06-test-connection.png)
 
 ---
 

@@ -61,7 +61,30 @@ export default defineConfig({
 				{
 					label: 'Dokumentation',
 					translations: { en: 'Documentation' },
-					autogenerate: { directory: 'docs' },
+					items: [
+						{ label: 'Übersicht', slug: 'docs', translations: { en: 'Overview' } },
+						{
+							label: 'Deployments',
+							autogenerate: { directory: 'docs/deployments' },
+						},
+						{
+							label: 'Environments',
+							autogenerate: { directory: 'docs/environments' },
+						},
+						{
+							label: 'Monitoring & Operations',
+							autogenerate: { directory: 'docs/monitoring' },
+						},
+						{
+							label: 'Konfiguration',
+							translations: { en: 'Configuration' },
+							autogenerate: { directory: 'docs/configuration' },
+						},
+						{
+							label: 'System',
+							autogenerate: { directory: 'docs/system' },
+						},
+					],
 				},
 				{
 					label: 'Referenz',

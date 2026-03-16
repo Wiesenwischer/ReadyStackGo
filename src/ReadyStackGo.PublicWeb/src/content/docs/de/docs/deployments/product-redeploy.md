@@ -16,7 +16,7 @@ Ein Redeploy startet alle Stacks eines Produkts neu — mit einem frischen Image
 
 :::note[Redeploy vs. Upgrade]
 Ein Redeploy verwendet die **gleiche Version** — es werden keine neuen Variablen aus dem Manifest gelesen.
-Für einen Versionswechsel verwenden Sie die [Upgrade-Funktion](/de/docs/stack-upgrade/).
+Für einen Versionswechsel verwenden Sie die [Upgrade-Funktion](/de/docs/deployments/stack-upgrade/).
 :::
 
 ---
@@ -27,7 +27,7 @@ Für einen Versionswechsel verwenden Sie die [Upgrade-Funktion](/de/docs/stack-u
 
 Öffnen Sie die **Deployments**-Seite und wählen Sie das gewünschte Produkt aus der Liste. Auf der Detailseite des Produkt-Deployments finden Sie den **Redeploy**-Button für Produkte im Status *Running*.
 
-![Deployments-Seite mit Produkt-Deployment](/images/docs/product-redeploy-01-deployments.png)
+![Deployments-Seite mit Produkt-Deployment](/images/docs/deployments/product-redeploy-01-deployments.png)
 
 ---
 
@@ -35,7 +35,7 @@ Für einen Versionswechsel verwenden Sie die [Upgrade-Funktion](/de/docs/stack-u
 
 Nach dem Klick auf *Redeploy* erscheint der Bestätigungsbildschirm mit allen relevanten Informationen:
 
-![Redeploy-Bestätigung mit Produktdetails und Stack-Liste](/images/docs/product-redeploy-03-confirm.png)
+![Redeploy-Bestätigung mit Produktdetails und Stack-Liste](/images/docs/deployments/product-redeploy-03-confirm.png)
 
 Der Bestätigungsbildschirm zeigt:
 
@@ -57,7 +57,7 @@ Stellen Sie sicher, dass die Registry erreichbar ist und die Images verfügbar s
 
 Sobald das Redeploy startet, wechselt die Ansicht zur **Split-View-Fortschrittsanzeige**:
 
-![Redeploy-Fortschritt mit Split-View und pro-Stack Details](/images/docs/product-redeploy-04-progress.png)
+![Redeploy-Fortschritt mit Split-View und pro-Stack Details](/images/docs/deployments/product-redeploy-04-progress.png)
 
 #### Linke Spalte — Stack-Übersicht
 
@@ -102,7 +102,7 @@ Das System wählt den aktuell aktiven Stack automatisch aus — Sie können jede
 
 Nach erfolgreichem Redeploy erscheint der Erfolgsbildschirm mit einer Übersicht aller neu deployton Stacks:
 
-![Redeploy erfolgreich abgeschlossen](/images/docs/product-redeploy-05-success.png)
+![Redeploy erfolgreich abgeschlossen](/images/docs/deployments/product-redeploy-05-success.png)
 
 Von hier aus können Sie:
 
@@ -165,6 +165,6 @@ Die `sessionId` ist optional, aber für die Echtzeit-Fortschrittsanzeige in der 
 
 ## Weiterführende Dokumentation
 
-- [Product Deployment](/de/docs/product-deployment/) — Produkte erstmalig deployen
-- [Stack Upgrade](/de/docs/stack-upgrade/) — Stacks auf neue Versionen aktualisieren
-- [Stack Deployment](/de/docs/stack-deployment/) — Einzelne Stacks deployen
+- [Product Deployment](/de/docs/deployments/product-deployment/) — Produkte erstmalig deployen
+- [Stack Upgrade](/de/docs/deployments/stack-upgrade/) — Stacks auf neue Versionen aktualisieren
+- [Stack Deployment](/de/docs/deployments/stack-deployment/) — Einzelne Stacks deployen

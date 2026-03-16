@@ -7,11 +7,11 @@ const __dirname = path.dirname(__filename);
 const SCREENSHOT_DIR = path.join(__dirname, '..', '..', 'ReadyStackGo.PublicWeb', 'public', 'images', 'docs');
 
 /**
- * E2E Tests for SSH Tunnel Environment feature.
- * Tests the environment creation flow with SSH Tunnel type selector and form.
+ * E2E Tests for Environment Type Selector and SSH Tunnel Environment.
+ * Tests the two-step environment creation flow: type selection → type-specific form.
  */
 
-test.describe('SSH Tunnel Environments', () => {
+test.describe('Environment Type Selector & SSH Tunnel', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/login');
     await page.fill('input[type="text"]', 'admin');
@@ -20,14 +20,12 @@ test.describe('SSH Tunnel Environments', () => {
     await page.waitForURL(/\/(dashboard)?$/, { timeout: 10000 });
   });
 
-  test('should show environments list with type badge', async ({ page }) => {
+  test('should show environments list', async ({ page }) => {
     await page.goto('/environments');
     await page.waitForLoadState('networkidle');
 
-    // Environments list should be visible
     await expect(page.getByRole('heading', { name: 'Environments', exact: true })).toBeVisible();
 
-    // Screenshot: Environments list page
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'ssh-tunnel-01-environments-list.png'),
       fullPage: false
@@ -40,40 +38,66 @@ test.describe('SSH Tunnel Environments', () => {
 
     // Page header
     await expect(page.getByRole('heading', { name: 'Add Environment' })).toBeVisible();
+    await expect(page.getByText('Choose how to connect to a Docker daemon')).toBeVisible();
 
-    // Type selector buttons should be visible
+    // Type options should be visible
     await expect(page.getByText('Local Docker Socket')).toBeVisible();
     await expect(page.getByText('SSH Tunnel')).toBeVisible();
 
-    // Docker Socket should be selected by default
-    await expect(page.getByText('Docker Socket Path')).toBeVisible();
+    // Continue button should be disabled (no selection yet)
+    await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled();
 
-    // Screenshot: Add Environment with type selector (default: Docker Socket)
+    // Screenshot: Type selector page
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'ssh-tunnel-02-type-selector.png'),
       fullPage: false
     });
   });
 
-  test('should switch to SSH Tunnel form when SSH Tunnel type is selected', async ({ page }) => {
+  test('should navigate to Docker Socket form when selected', async ({ page }) => {
     await page.goto('/environments/add');
     await page.waitForLoadState('networkidle');
 
-    // Click SSH Tunnel type
+    // Select Docker Socket
+    await page.getByText('Local Docker Socket').click();
+
+    // Continue button should be enabled
+    await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled();
+
+    // Click Continue
+    await page.getByRole('button', { name: 'Continue' }).click();
+
+    // Should navigate to Docker Socket form
+    await page.waitForURL('/environments/add/docker-socket');
+
+    // Form fields should be visible
+    await expect(page.getByRole('heading', { name: 'Local Docker Socket' })).toBeVisible();
+    await expect(page.getByText('Environment Name')).toBeVisible();
+    await expect(page.getByText('Docker Socket Path')).toBeVisible();
+
+    // Back button should go to type selector
+    await expect(page.getByRole('link', { name: 'Back' })).toBeVisible();
+  });
+
+  test('should navigate to SSH Tunnel form when selected', async ({ page }) => {
+    await page.goto('/environments/add');
+    await page.waitForLoadState('networkidle');
+
+    // Select SSH Tunnel
     await page.getByText('SSH Tunnel').click();
+    await page.getByRole('button', { name: 'Continue' }).click();
+
+    // Should navigate to SSH Tunnel form
+    await page.waitForURL('/environments/add/ssh-tunnel');
 
     // SSH-specific fields should be visible
+    await expect(page.getByRole('heading', { name: 'SSH Tunnel Environment' })).toBeVisible();
     await expect(page.getByText('SSH Host')).toBeVisible();
     await expect(page.getByText('SSH Port')).toBeVisible();
     await expect(page.getByText('SSH Username')).toBeVisible();
     await expect(page.getByText('Authentication Method')).toBeVisible();
-    await expect(page.getByText('Private Key', { exact: true })).toBeVisible();
-    await expect(page.getByText('Remote Docker Socket Path')).toBeVisible();
 
-    // Docker Socket Path field (exact label) should NOT be visible
-    await expect(page.getByText('Docker Socket Path', { exact: true })).not.toBeVisible();
-
-    // Screenshot: SSH Tunnel form fields
+    // Screenshot: SSH Tunnel form
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'ssh-tunnel-03-ssh-form.png'),
       fullPage: false
@@ -81,10 +105,8 @@ test.describe('SSH Tunnel Environments', () => {
   });
 
   test('should show Private Key textarea by default', async ({ page }) => {
-    await page.goto('/environments/add');
+    await page.goto('/environments/add/ssh-tunnel');
     await page.waitForLoadState('networkidle');
-
-    await page.getByText('SSH Tunnel').click();
 
     // Private Key radio should be selected by default
     const privateKeyRadio = page.locator('input[type="radio"][value="PrivateKey"]');
@@ -93,16 +115,12 @@ test.describe('SSH Tunnel Environments', () => {
     // Textarea for private key should be visible
     const textarea = page.locator('textarea');
     await expect(textarea).toBeVisible();
-
-    // Placeholder should mention PEM format
     await expect(textarea).toHaveAttribute('placeholder', /BEGIN.*PRIVATE KEY/);
   });
 
   test('should switch to password field when Password auth is selected', async ({ page }) => {
-    await page.goto('/environments/add');
+    await page.goto('/environments/add/ssh-tunnel');
     await page.waitForLoadState('networkidle');
-
-    await page.getByText('SSH Tunnel').click();
 
     // Select Password authentication
     await page.getByText('Password', { exact: true }).click();
@@ -122,14 +140,11 @@ test.describe('SSH Tunnel Environments', () => {
   });
 
   test('should fill SSH Tunnel form with sample data', async ({ page }) => {
-    await page.goto('/environments/add');
+    await page.goto('/environments/add/ssh-tunnel');
     await page.waitForLoadState('networkidle');
 
     // Fill environment name
     await page.locator('input[type="text"]').first().fill('Production Server');
-
-    // Select SSH Tunnel type
-    await page.getByText('SSH Tunnel').click();
 
     // Fill SSH fields
     await page.locator('input[placeholder="192.168.1.100"]').fill('10.0.1.50');
@@ -150,13 +165,10 @@ test.describe('SSH Tunnel Environments', () => {
     });
   });
 
-  test('should have Test Connection button', async ({ page }) => {
-    await page.goto('/environments/add');
+  test('should have Test Connection button on SSH form', async ({ page }) => {
+    await page.goto('/environments/add/ssh-tunnel');
     await page.waitForLoadState('networkidle');
 
-    await page.getByText('SSH Tunnel').click();
-
-    // Test Connection button should be visible
     const testButton = page.getByRole('button', { name: 'Test Connection' });
     await expect(testButton).toBeVisible();
 
@@ -167,26 +179,20 @@ test.describe('SSH Tunnel Environments', () => {
     });
   });
 
-  test('should switch back to Docker Socket form', async ({ page }) => {
-    await page.goto('/environments/add');
+  test('should navigate back from SSH form to type selector', async ({ page }) => {
+    await page.goto('/environments/add/ssh-tunnel');
     await page.waitForLoadState('networkidle');
 
-    // Switch to SSH Tunnel
-    await page.getByText('SSH Tunnel').click();
-    await expect(page.getByText('SSH Host')).toBeVisible();
+    // Click Back
+    await page.getByRole('link', { name: 'Back' }).click();
 
-    // Switch back to Docker Socket
-    await page.getByText('Local Docker Socket').click();
-
-    // Docker Socket field should reappear
-    await expect(page.getByText('Docker Socket Path')).toBeVisible();
-
-    // SSH fields should be gone
-    await expect(page.getByText('SSH Host')).not.toBeVisible();
+    // Should be back on type selector
+    await page.waitForURL('/environments/add');
+    await expect(page.getByText('Choose how to connect to a Docker daemon')).toBeVisible();
   });
 
   test('should create a Docker Socket environment successfully', async ({ page }) => {
-    await page.goto('/environments/add');
+    await page.goto('/environments/add/docker-socket');
     await page.waitForLoadState('networkidle');
 
     // Fill name with unique value
@@ -196,7 +202,7 @@ test.describe('SSH Tunnel Environments', () => {
     // Wait for socket path to be auto-filled
     await page.waitForTimeout(1000);
 
-    // Submit (Docker Socket is default)
+    // Submit
     await page.getByRole('button', { name: 'Create Environment' }).click();
 
     // Should redirect to environments list

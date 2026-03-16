@@ -482,4 +482,4 @@ Wenn HTTP aktiviert ist, werden Anfragen auf HTTP automatisch zu HTTPS weitergel
 ## Weiterführende Links
 
 - [Installation](/de/getting-started/installation/) - ReadyStackGo installieren
-- [Stack Deployment](/de/docs/stack-deployment/) - Stacks deployen
+- [Stack Deployment](/de/docs/deployments/stack-deployment/) - Stacks deployen

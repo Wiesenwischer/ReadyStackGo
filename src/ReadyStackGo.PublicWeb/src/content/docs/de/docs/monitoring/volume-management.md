@@ -114,5 +114,5 @@ Die Volume-Verwaltung ist auch per REST API verfügbar:
 
 ## Weiterführende Links
 
-- [Stack Deployment](/de/docs/stack-deployment/) - Stacks deployen
-- [CI/CD Integration](/de/docs/ci-cd-integration/) - Automatisierte Deployments
+- [Stack Deployment](/de/docs/deployments/stack-deployment/) - Stacks deployen
+- [CI/CD Integration](/de/docs/configuration/ci-cd-integration/) - Automatisierte Deployments

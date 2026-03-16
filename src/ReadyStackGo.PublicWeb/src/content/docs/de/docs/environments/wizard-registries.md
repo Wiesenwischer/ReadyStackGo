@@ -4,7 +4,7 @@ description: Container Registry Erkennung und Verifizierung im Setup-Wizard
 ---
 
 :::caution[Veraltete Seite]
-Diese Dokumentation beschreibt den Container-Registry-Schritt des **alten Multi-Step Setup-Wizards**. Seit Version 0.26 besteht der Setup-Wizard nur noch aus der Admin-Account-Erstellung. Container Registries werden jetzt über **Settings → Container Registries** verwaltet. Siehe [Registry Management](/de/docs/registry-management/).
+Diese Dokumentation beschreibt den Container-Registry-Schritt des **alten Multi-Step Setup-Wizards**. Seit Version 0.26 besteht der Setup-Wizard nur noch aus der Admin-Account-Erstellung. Container Registries werden jetzt über **Settings → Container Registries** verwaltet. Siehe [Registry Management](/de/docs/configuration/registry-management/).
 :::
 
 Im früheren Multi-Step Setup-Wizard erkannte ReadyStackGo automatisch, welche Container Registries die gewählten Stacks benötigen, und prüfte den Zugriff auf jede Registry.
@@ -112,6 +112,6 @@ Die Zugriffsprüfung benötigt eine Netzwerkverbindung vom ReadyStackGo-Containe
 
 ## Weiterführende Links
 
-- [Registry Management](/de/docs/registry-management/) — Registries über die Settings-Seite verwalten
-- [Stack Sources](/de/docs/stack-sources/) — Stack Sources konfigurieren
-- [Stack Deployment](/de/docs/stack-deployment/) — Stacks deployen
+- [Registry Management](/de/docs/configuration/registry-management/) — Registries über die Settings-Seite verwalten
+- [Stack Sources](/de/docs/configuration/stack-sources/) — Stack Sources konfigurieren
+- [Stack Deployment](/de/docs/deployments/stack-deployment/) — Stacks deployen

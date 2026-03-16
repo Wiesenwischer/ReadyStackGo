@@ -16,7 +16,7 @@ A redeploy restarts all stacks of a product — with a fresh image pull using th
 
 :::note[Redeploy vs. Upgrade]
 A redeploy uses the **same version** — no new variables are read from the manifest.
-For a version change, use the [Upgrade feature](/en/docs/stack-upgrade/) instead.
+For a version change, use the [Upgrade feature](/en/docs/deployments/stack-upgrade/) instead.
 :::
 
 ---
@@ -27,7 +27,7 @@ For a version change, use the [Upgrade feature](/en/docs/stack-upgrade/) instead
 
 Navigate to the **Deployments** page and select your product. On the product deployment detail page, you'll find the **Redeploy** button for products in *Running* status.
 
-![Deployments page with product deployment](/images/docs/product-redeploy-01-deployments.png)
+![Deployments page with product deployment](/images/docs/deployments/product-redeploy-01-deployments.png)
 
 ---
 
@@ -35,7 +35,7 @@ Navigate to the **Deployments** page and select your product. On the product dep
 
 After clicking *Redeploy*, the confirmation screen shows all relevant information:
 
-![Redeploy confirmation with product details and stack list](/images/docs/product-redeploy-03-confirm.png)
+![Redeploy confirmation with product details and stack list](/images/docs/deployments/product-redeploy-03-confirm.png)
 
 The confirmation screen displays:
 
@@ -57,7 +57,7 @@ Make sure the registry is reachable and the images are available.
 
 Once the redeploy starts, the view switches to the **split-view progress display**:
 
-![Redeploy in progress with split-view and per-stack details](/images/docs/product-redeploy-04-progress.png)
+![Redeploy in progress with split-view and per-stack details](/images/docs/deployments/product-redeploy-04-progress.png)
 
 #### Left Column — Stack Overview
 
@@ -102,7 +102,7 @@ The system automatically selects the currently active stack — you can switch m
 
 After a successful redeploy, the success screen shows an overview of all redeployed stacks:
 
-![Redeploy completed successfully](/images/docs/product-redeploy-05-success.png)
+![Redeploy completed successfully](/images/docs/deployments/product-redeploy-05-success.png)
 
 From here you can:
 
@@ -165,6 +165,6 @@ The `sessionId` is optional but recommended for real-time progress tracking in t
 
 ## Further Documentation
 
-- [Product Deployment](/en/docs/product-deployment/) — Deploy products for the first time
-- [Stack Upgrade](/en/docs/stack-upgrade/) — Upgrade stacks to new versions
-- [Stack Deployment](/en/docs/stack-deployment/) — Deploy individual stacks
+- [Product Deployment](/en/docs/deployments/product-deployment/) — Deploy products for the first time
+- [Stack Upgrade](/en/docs/deployments/stack-upgrade/) — Upgrade stacks to new versions
+- [Stack Deployment](/en/docs/deployments/stack-deployment/) — Deploy individual stacks

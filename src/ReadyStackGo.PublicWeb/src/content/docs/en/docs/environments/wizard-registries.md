@@ -4,7 +4,7 @@ description: Container registry detection and verification in the Setup Wizard
 ---
 
 :::caution[Outdated Page]
-This documentation describes the container registry step from the **old multi-step Setup Wizard**. Since version 0.26, the setup wizard only handles admin account creation. Container registries are now managed via **Settings → Container Registries**. See [Registry Management](/en/docs/registry-management/).
+This documentation describes the container registry step from the **old multi-step Setup Wizard**. Since version 0.26, the setup wizard only handles admin account creation. Container registries are now managed via **Settings → Container Registries**. See [Registry Management](/en/docs/configuration/registry-management/).
 :::
 
 In the previous multi-step Setup Wizard, ReadyStackGo automatically detected which container registries your selected stacks required and verified access to each registry.
@@ -112,6 +112,6 @@ Access verification requires a network connection from the ReadyStackGo containe
 
 ## Related Links
 
-- [Registry Management](/en/docs/registry-management/) — Manage registries via the Settings page
-- [Stack Sources](/en/docs/stack-sources/) — Configure Stack Sources
-- [Stack Deployment](/en/docs/stack-deployment/) — Deploy stacks
+- [Registry Management](/en/docs/configuration/registry-management/) — Manage registries via the Settings page
+- [Stack Sources](/en/docs/configuration/stack-sources/) — Configure Stack Sources
+- [Stack Deployment](/en/docs/deployments/stack-deployment/) — Deploy stacks

@@ -24,7 +24,7 @@ SSH-Tunnel ist der einfachste Weg, Remote-Docker-Hosts anzubinden. Jeder Linux-S
 
 Navigieren Sie zu **Environments** im Hauptmenü. Hier sehen Sie alle konfigurierten Docker-Environments.
 
-![Environments-Liste](/images/docs/ssh-tunnel-01-environments-list.png)
+![Environments-Liste](/images/docs/environments/ssh-tunnel-01-environments-list.png)
 
 ---
 
@@ -35,7 +35,7 @@ Klicken Sie auf **Add Environment**. Auf der Erstellungsseite sehen Sie den **Co
 - **Local Docker Socket** – Direkter Zugriff auf den lokalen Docker-Socket
 - **SSH Tunnel** – Verbindung zu einem entfernten Docker-Host über SSH
 
-![Typ-Selektor auf der Add Environment Seite](/images/docs/ssh-tunnel-02-type-selector.png)
+![Typ-Selektor auf der Add Environment Seite](/images/docs/environments/ssh-tunnel-02-type-selector.png)
 
 Klicken Sie auf **SSH Tunnel**, um das SSH-Formular zu öffnen.
 
@@ -45,7 +45,7 @@ Klicken Sie auf **SSH Tunnel**, um das SSH-Formular zu öffnen.
 
 Das Formular zeigt die SSH-spezifischen Felder:
 
-![SSH Tunnel Formular](/images/docs/ssh-tunnel-03-ssh-form.png)
+![SSH Tunnel Formular](/images/docs/environments/ssh-tunnel-03-ssh-form.png)
 
 | Feld | Pflicht | Beschreibung |
 |------|---------|-------------|
@@ -67,7 +67,7 @@ Wählen Sie die gewünschte Authentifizierungsmethode:
 
 **Password**: Geben Sie das SSH-Passwort ein.
 
-![Passwort-Authentifizierung](/images/docs/ssh-tunnel-04-password-auth.png)
+![Passwort-Authentifizierung](/images/docs/environments/ssh-tunnel-04-password-auth.png)
 
 :::caution[Sicherheit]
 SSH-Zugangsdaten werden mit **AES-256-CBC** verschlüsselt in der Datenbank gespeichert. Der Master Key kann über die Umgebungsvariable `RSGO_ENCRYPTION_KEY` gesetzt werden. Ohne diese Variable wird automatisch ein Key generiert und in `/data/.encryption-key` gespeichert.
@@ -79,7 +79,7 @@ SSH-Zugangsdaten werden mit **AES-256-CBC** verschlüsselt in der Datenbank gesp
 
 Füllen Sie alle Felder aus und klicken Sie auf **Test Connection**, um die SSH-Verbindung und den Docker-Zugriff zu prüfen.
 
-![Ausgefülltes SSH-Formular](/images/docs/ssh-tunnel-05-filled-form.png)
+![Ausgefülltes SSH-Formular](/images/docs/environments/ssh-tunnel-05-filled-form.png)
 
 Der Test:
 1. Baut eine SSH-Verbindung auf
@@ -87,7 +87,7 @@ Der Test:
 3. Ruft Docker System Info ab
 4. Zeigt Docker-Version und Erfolg/Fehler an
 
-![Test Connection Button](/images/docs/ssh-tunnel-06-test-connection.png)
+![Test Connection Button](/images/docs/environments/ssh-tunnel-06-test-connection.png)
 
 ---
 

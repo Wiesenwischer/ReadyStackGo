@@ -232,5 +232,5 @@ services:
 ## Nächste Schritte
 
 - Lerne mehr über [Stack Templates](/docs/templates/)
-- Konfiguriere [Stack Sources](/docs/stack-sources/) für Git-Integration
+- Konfiguriere [Stack Sources](/docs/configuration/stack-sources/) für Git-Integration
 - Richte [Backups](/docs/backups/) ein

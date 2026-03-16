@@ -20,7 +20,7 @@ description: Container eines Product Deployments gezielt stoppen, neustarten ode
 
 Öffne die Detailseite eines laufenden Product Deployments. Im Status **Running** oder **PartiallyRunning** sind die Links **Stop Containers** und **Restart Containers** sichtbar.
 
-![Product Deployment Detail mit Stop/Restart-Buttons](/images/docs/container-control-01-buttons.png)
+![Product Deployment Detail mit Stop/Restart-Buttons](/images/docs/monitoring/container-control-01-buttons.png)
 
 ---
 
@@ -33,7 +33,7 @@ Ein Klick auf **Stop Containers** öffnet den Bestätigungsscreen:
 - **Cancel** — zurück zur Deployment-Detailseite
 - **Stop All Containers** — startet den Stop-Vorgang
 
-![Stop Containers Bestätigungsscreen](/images/docs/container-control-02-stop-confirm.png)
+![Stop Containers Bestätigungsscreen](/images/docs/monitoring/container-control-02-stop-confirm.png)
 
 :::note[Kein Datenverlust]
 Beim Stoppen werden nur die Container angehalten. Das Deployment und alle Konfigurationen bleiben erhalten. Container können jederzeit über **Restart Containers** wieder gestartet werden.
@@ -45,7 +45,7 @@ Beim Stoppen werden nur die Container angehalten. Das Deployment und alle Konfig
 
 Während des Stoppens zeigt die Seite einen Fortschritts-Spinner.
 
-![Container Stop in progress](/images/docs/container-control-03-stop-loading.png)
+![Container Stop in progress](/images/docs/monitoring/container-control-03-stop-loading.png)
 
 ---
 
@@ -53,7 +53,7 @@ Während des Stoppens zeigt die Seite einen Fortschritts-Spinner.
 
 Nach Abschluss erscheint das Ergebnis mit dem Status jedes Stacks.
 
-![Container Stop Ergebnis](/images/docs/container-control-04-stop-result.png)
+![Container Stop Ergebnis](/images/docs/monitoring/container-control-04-stop-result.png)
 
 **Erfolgreich gestoppt:**
 - Heading: „Containers Stopped Successfully!"
@@ -69,7 +69,7 @@ Nach Abschluss erscheint das Ergebnis mit dem Status jedes Stacks.
 
 Nach dem Stoppen zeigt die Deployment-Detailseite den Status **Stopped**.
 
-![Product Deployment im Stopped-Status](/images/docs/container-control-05-stopped-status.png)
+![Product Deployment im Stopped-Status](/images/docs/monitoring/container-control-05-stopped-status.png)
 
 Von hier aus kann das Produkt über **Restart Containers** wieder gestartet werden.
 
@@ -85,7 +85,7 @@ Von hier aus kann das Produkt über **Restart Containers** wieder gestartet werd
 - **Stacks to restart**
 - **Restart All Containers** — startet die Container neu
 
-![Restart Containers Bestätigungsscreen](/images/docs/container-control-06-restart-confirm.png)
+![Restart Containers Bestätigungsscreen](/images/docs/monitoring/container-control-06-restart-confirm.png)
 
 ---
 
@@ -93,7 +93,7 @@ Von hier aus kann das Produkt über **Restart Containers** wieder gestartet werd
 
 Nach dem Neustart zeigt die Seite das Ergebnis.
 
-![Container Restart Ergebnis](/images/docs/container-control-07-restart-result.png)
+![Container Restart Ergebnis](/images/docs/monitoring/container-control-07-restart-result.png)
 
 **Erfolgreich neugestartet:** Heading „Containers Restarted Successfully!" — das Produkt ist wieder im Status **Running**.
 
@@ -106,7 +106,7 @@ Nach dem Neustart zeigt die Seite das Ergebnis.
 | Wartungsfenster | **Stop** → Wartung → **Restart** |
 | Container hängen | **Restart Containers** |
 | Ressourcen freigeben | **Stop Containers** |
-| Produkt dauerhaft entfernen | [Remove Product](/de/docs/product-remove/) |
+| Produkt dauerhaft entfernen | [Remove Product](/de/docs/deployments/product-remove/) |
 
 ---
 

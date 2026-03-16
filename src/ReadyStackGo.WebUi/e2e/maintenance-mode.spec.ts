@@ -14,7 +14,7 @@ const BASE_URL = 'http://localhost:8080';
 
 /**
  * E2E Tests for Product Maintenance Mode
- * Tests the enter/exit maintenance flow on the product deployment detail page.
+ * Tests the enter/exit maintenance flow with dedicated confirmation pages.
  * Requires: A deployed product (e2e-platform) — run product-deployment tests first.
  */
 
@@ -99,7 +99,7 @@ test.describe.serial('Product Maintenance Mode', () => {
     await login(page);
   });
 
-  test('should show product deployment detail with Normal operation mode', async ({ page }) => {
+  test('should show product deployment detail with Enter Maintenance link', async ({ page }) => {
     test.skip(!productDeploymentId, 'No product deployment found');
 
     await page.goto(`/product-deployments/${productDeploymentId}`);
@@ -109,19 +109,12 @@ test.describe.serial('Product Maintenance Mode', () => {
     // Should show product name
     await expect(page.getByText('E2E Platform').first()).toBeVisible({ timeout: 10_000 });
 
-    // Should show Normal operation mode in overview card
+    // Should show Normal operation mode
     await expect(page.getByText('Operation Mode')).toBeVisible();
     await expect(page.getByText('Normal').first()).toBeVisible();
 
-    // Should show Enter Maintenance button
-    await expect(
-      page.getByRole('button', { name: /enter maintenance/i })
-    ).toBeVisible();
-
-    // Should NOT show Exit Maintenance button
-    await expect(
-      page.getByRole('button', { name: /exit maintenance/i })
-    ).not.toBeVisible();
+    // Should show Enter Maintenance link (now a Link, not a button)
+    await expect(page.getByRole('link', { name: /enter maintenance/i })).toBeVisible();
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'maintenance-01-normal-mode.png'),
@@ -129,37 +122,29 @@ test.describe.serial('Product Maintenance Mode', () => {
     });
   });
 
-  test('should enter maintenance mode', async ({ page }) => {
+  test('should navigate to Enter Maintenance confirmation page', async ({ page }) => {
     test.skip(!productDeploymentId, 'No product deployment found');
 
     await page.goto(`/product-deployments/${productDeploymentId}`);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
 
-    // Click Enter Maintenance
-    const enterBtn = page.getByRole('button', { name: /enter maintenance/i });
-    await expect(enterBtn).toBeVisible({ timeout: 10_000 });
-    await enterBtn.click();
+    // Click Enter Maintenance link
+    await page.getByRole('link', { name: /enter maintenance/i }).click();
 
-    // Wait for mode change to reflect
-    await page.waitForTimeout(3000);
+    // Should navigate to confirmation page
+    await page.waitForURL(`/enter-maintenance/${productDeploymentId}`);
 
-    // Should now show Maintenance badge
-    await expect(page.getByText('Maintenance').first()).toBeVisible({ timeout: 10_000 });
+    // Confirmation page should show
+    await expect(page.getByRole('heading', { name: 'Enter Maintenance Mode' })).toBeVisible();
+    await expect(page.getByText('Are you sure')).toBeVisible();
 
-    // Should show maintenance info panel
-    await expect(page.getByText('Maintenance Mode').first()).toBeVisible();
-    await expect(page.getByText('(Manual)').first()).toBeVisible();
+    // Should show affected stacks
+    await expect(page.getByText('Stacks affected')).toBeVisible();
 
-    // Should show Exit Maintenance button
-    await expect(
-      page.getByRole('button', { name: /exit maintenance/i })
-    ).toBeVisible();
-
-    // Enter Maintenance button should be gone
-    await expect(
-      page.getByRole('button', { name: /enter maintenance/i })
-    ).not.toBeVisible();
+    // Should have Cancel and Confirm buttons
+    await expect(page.getByRole('link', { name: 'Cancel' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Enter Maintenance Mode' })).toBeVisible();
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'maintenance-02-in-maintenance.png'),
@@ -167,139 +152,75 @@ test.describe.serial('Product Maintenance Mode', () => {
     });
   });
 
-  test('should show maintenance status in overview cards', async ({ page }) => {
+  test('should enter maintenance mode via confirmation page', async ({ page }) => {
     test.skip(!productDeploymentId, 'No product deployment found');
 
-    // Ensure we're in maintenance mode
-    if (environmentId && productDeploymentId) {
-      try {
-        execSync(
-          `curl -sf -X PUT ${BASE_URL}/api/environments/${environmentId}/product-deployments/${productDeploymentId}/operation-mode ` +
-          `-H "Authorization: Bearer ${authToken}" ` +
-          `-H "Content-Type: application/json" ` +
-          `-d "{\\"mode\\":\\"Maintenance\\",\\"reason\\":\\"Scheduled database migration\\"}"`,
-          { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
-        );
-      } catch {
-        // May already be in maintenance
-      }
-    }
-
-    await page.goto(`/product-deployments/${productDeploymentId}`);
+    await page.goto(`/enter-maintenance/${productDeploymentId}`);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
 
-    // Overview card should show Maintenance
-    await expect(page.getByText('Operation Mode')).toBeVisible();
+    // Click Enter Maintenance Mode button
+    await page.getByRole('button', { name: 'Enter Maintenance Mode' }).click();
 
-    // Maintenance info panel should show reason
-    const reasonText = page.getByText('Scheduled database migration');
-    const hasReason = await reasonText.isVisible().catch(() => false);
-    if (hasReason) {
-      console.log('✓ Maintenance reason displayed');
-    }
+    // Should show success page
+    await expect(page.getByText('Maintenance Mode Activated')).toBeVisible({ timeout: 15_000 });
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'maintenance-03-overview-cards.png'),
       fullPage: false
     });
+
+    // Navigate to deployment detail to verify
+    await page.getByRole('link', { name: 'View Deployment' }).click();
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
+
+    // Should show Maintenance badge and Stopped status
+    await expect(page.getByText('Maintenance').first()).toBeVisible();
+    await expect(page.getByText('Stopped').first()).toBeVisible();
   });
 
-  test('should exit maintenance mode', async ({ page }) => {
+  test('should show stacks as Stopped during maintenance', async ({ page }) => {
     test.skip(!productDeploymentId, 'No product deployment found');
-
-    // Ensure we're in maintenance (manual trigger) first
-    if (environmentId && productDeploymentId) {
-      try {
-        execSync(
-          `curl -sf -X PUT ${BASE_URL}/api/environments/${environmentId}/product-deployments/${productDeploymentId}/operation-mode ` +
-          `-H "Authorization: Bearer ${authToken}" ` +
-          `-H "Content-Type: application/json" ` +
-          `-d "{\\"mode\\":\\"Maintenance\\"}"`,
-          { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
-        );
-      } catch {
-        // May already be in maintenance
-      }
-    }
 
     await page.goto(`/product-deployments/${productDeploymentId}`);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
 
-    // Click Exit Maintenance
-    const exitBtn = page.getByRole('button', { name: /exit maintenance/i });
-    await expect(exitBtn).toBeVisible({ timeout: 10_000 });
-    await exitBtn.click();
-
-    // Wait for mode change to reflect
-    await page.waitForTimeout(3000);
-
-    // Should be back to Normal
-    await expect(page.getByText('Normal').first()).toBeVisible({ timeout: 10_000 });
-
-    // Enter Maintenance button should be back
-    await expect(
-      page.getByRole('button', { name: /enter maintenance/i })
-    ).toBeVisible();
-
-    // Maintenance info panel should be gone
-    await expect(page.getByText('Maintenance Mode')).not.toBeVisible();
-
-    await page.screenshot({
-      path: path.join(SCREENSHOT_DIR, 'maintenance-04-exited.png'),
-      fullPage: false
-    });
-  });
-
-  test('should show stacks table during maintenance', async ({ page }) => {
-    test.skip(!productDeploymentId, 'No product deployment found');
-
-    // Enter maintenance for screenshot
-    if (environmentId && productDeploymentId) {
-      try {
-        execSync(
-          `curl -sf -X PUT ${BASE_URL}/api/environments/${environmentId}/product-deployments/${productDeploymentId}/operation-mode ` +
-          `-H "Authorization: Bearer ${authToken}" ` +
-          `-H "Content-Type: application/json" ` +
-          `-d "{\\"mode\\":\\"Maintenance\\",\\"reason\\":\\"Server hardware maintenance\\"}"`,
-          { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
-        );
-      } catch {
-        // May already be in maintenance
-      }
-    }
-
-    await page.goto(`/product-deployments/${productDeploymentId}`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
-
-    // Should show stacks section
+    // Stacks should show Stopped status (not Running)
     await expect(page.getByText(/Stacks \(/)).toBeVisible();
-
-    // Both stacks should be listed
-    await expect(page.getByText('Frontend').first()).toBeVisible();
-    await expect(page.getByText('Backend').first()).toBeVisible();
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'maintenance-05-stacks-during.png'),
       fullPage: false
     });
+  });
 
-    // Clean up: exit maintenance
-    if (environmentId && productDeploymentId) {
-      try {
-        execSync(
-          `curl -sf -X PUT ${BASE_URL}/api/environments/${environmentId}/product-deployments/${productDeploymentId}/operation-mode ` +
-          `-H "Authorization: Bearer ${authToken}" ` +
-          `-H "Content-Type: application/json" ` +
-          `-d "{\\"mode\\":\\"Normal\\"}"`,
-          { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
-        );
-      } catch {
-        // Ignore
-      }
-    }
+  test('should navigate to Exit Maintenance confirmation page', async ({ page }) => {
+    test.skip(!productDeploymentId, 'No product deployment found');
+
+    await page.goto(`/product-deployments/${productDeploymentId}`);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
+
+    // Click Exit Maintenance link
+    await page.getByRole('link', { name: /exit maintenance/i }).click();
+
+    // Should navigate to exit confirmation page
+    await page.waitForURL(`/exit-maintenance/${productDeploymentId}`);
+
+    await expect(page.getByRole('heading', { name: 'Exit Maintenance Mode' })).toBeVisible();
+    await expect(page.getByText('Stacks to restart')).toBeVisible();
+
+    // Click Exit Maintenance Mode button
+    await page.getByRole('button', { name: 'Exit Maintenance Mode' }).click();
+
+    // Should show success
+    await expect(page.getByText('Maintenance Mode Deactivated')).toBeVisible({ timeout: 15_000 });
+
+    await page.screenshot({
+      path: path.join(SCREENSHOT_DIR, 'maintenance-04-exited.png'),
+      fullPage: false
+    });
   });
 
   async function ensureE2ePlatformDeployed() {
@@ -360,7 +281,6 @@ test.describe.serial('Product Maintenance Mode', () => {
         return;
       }
 
-      // Build stackConfigs from product stacks (required by deploy API)
       const stackConfigs = product.stacks.map((s: { id: string }) => ({
         stackId: s.id,
         variables: {}
