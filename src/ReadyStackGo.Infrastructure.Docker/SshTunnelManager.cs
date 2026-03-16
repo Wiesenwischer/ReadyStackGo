@@ -102,7 +102,8 @@ public class SshTunnelManager : ISshTunnelManager
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "SSH tunnel test connection failed for {Host}:{Port}", host, port);
-            return new SshTestResult(false, $"SSH connection failed: {ex.Message}");
+            var message = ex.InnerException?.Message ?? ex.Message;
+            return new SshTestResult(false, $"SSH connection failed: {message}");
         }
         finally
         {
