@@ -1147,10 +1147,12 @@ public class DockerService : IDockerService, IDisposable
     {
         if (_disposed) return;
 
-        foreach (var (envId, client) in _clientCache)
+        foreach (var (_, client) in _clientCache)
         {
             client.Dispose();
-            _sshTunnelManager.CloseTunnel(envId);
+            // Do NOT close SSH tunnels here — DockerService is scoped (per-request),
+            // but SshTunnelManager is a singleton. Tunnels are shared across requests
+            // and managed by SshTunnelManager's own lifecycle.
         }
         _clientCache.Clear();
 
