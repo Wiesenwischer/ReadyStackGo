@@ -92,7 +92,11 @@ public class SshTunnelManager : ISshTunnelManager
             entry = CreateTunnel(host, port, username, privateKeyOrPassword, authMethod, remoteSocketPath);
 
             using var dockerClient = new DockerClientConfiguration(entry.LocalUri).CreateClient();
-            var systemInfo = await dockerClient.System.GetSystemInfoAsync(cancellationToken);
+
+            // Use a timeout for the Docker API call — the tunnel might connect but Docker might not respond
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(15));
+            var systemInfo = await dockerClient.System.GetSystemInfoAsync(cts.Token);
 
             return new SshTestResult(
                 true,
