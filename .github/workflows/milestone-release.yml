@@ -19,8 +19,12 @@ jobs:
         id: version
         run: |
           MILESTONE_TITLE="${{ github.event.milestone.title }}"
+          # Normalize to 3-part SemVer: v0.51 → v0.51.0
+          if [[ "$MILESTONE_TITLE" =~ ^v[0-9]+\.[0-9]+$ ]]; then
+            MILESTONE_TITLE="${MILESTONE_TITLE}.0"
+          fi
           echo "version=$MILESTONE_TITLE" >> $GITHUB_OUTPUT
-          echo "Milestone closed: $MILESTONE_TITLE"
+          echo "Milestone closed: ${{ github.event.milestone.title }} → Release: $MILESTONE_TITLE"
 
       - name: Create release from milestone
         env:
