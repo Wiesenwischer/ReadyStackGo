@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useEnvironmentStore, type CreateEnvironmentRequest } from '@rsgo/core';
+import { useEnvironment } from "../../context/EnvironmentContext";
 
 export default function AddDockerSocketEnvironment() {
   const navigate = useNavigate();
   const store = useEnvironmentStore();
+  const { refreshEnvironments } = useEnvironment();
   const [formData, setFormData] = useState<CreateEnvironmentRequest>({
     name: "",
     type: "DockerSocket",
@@ -38,6 +40,7 @@ export default function AddDockerSocketEnvironment() {
     store.clearError();
     const success = await store.create(formData);
     if (success) {
+      await refreshEnvironments();
       navigate("/environments");
     }
   };

@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useEnvironmentStore, type CreateEnvironmentRequest } from '@rsgo/core';
+import { useEnvironment } from "../../context/EnvironmentContext";
 
 export default function AddSshTunnelEnvironment() {
   const navigate = useNavigate();
   const store = useEnvironmentStore();
+  const { refreshEnvironments } = useEnvironment();
   const [formData, setFormData] = useState<CreateEnvironmentRequest>({
     name: "",
     type: "SshTunnel",
@@ -39,6 +41,7 @@ export default function AddSshTunnelEnvironment() {
     store.clearError();
     const success = await store.create(formData);
     if (success) {
+      await refreshEnvironments();
       navigate("/environments");
     }
   };

@@ -10,21 +10,16 @@ using Renci.SshNet;
 
 /// <summary>
 /// Manages SSH tunnels for remote Docker environments.
-/// Uses SSH local port forwarding to tunnel TCP connections through SSH
-/// to the remote Docker daemon.
+/// Uses a local TCP listener combined with SSH exec channels running
+/// "socat STDIO UNIX-CONNECT:{socketPath}" to bridge each TCP connection
+/// directly to the remote Docker Unix socket through SSH.
 ///
-/// For Unix socket access on the remote, the tunnel runs a socat bridge:
-///   socat TCP-LISTEN:{port},fork,reuseaddr UNIX-CONNECT:{socketPath}
-/// Then SSH forwards the local port to the remote TCP port.
+/// This avoids SSH.NET's ForwardedPortLocal which is unreliable in Docker containers.
 /// </summary>
 public class SshTunnelManager : ISshTunnelManager
 {
     private readonly ConcurrentDictionary<string, SshTunnelEntry> _tunnels = new();
     private readonly ILogger<SshTunnelManager> _logger;
-
-    // Remote bridge port range — used to create a TCP bridge to the Docker Unix socket
-    private const int RemoteBridgePortStart = 32768;
-    private const int RemoteBridgePortEnd = 60999;
 
     public SshTunnelManager(ILogger<SshTunnelManager> logger)
     {
@@ -137,62 +132,29 @@ public class SshTunnelManager : ISshTunnelManager
 
         client.Connect();
 
-        // Find an available remote port for the socat bridge
-        var remoteBridgePort = FindAvailableRemotePort(client);
-
-        // Start socat on the remote to bridge TCP → Unix socket
-        // Run in background, will be killed when SSH connection closes
-        var socatCmd = $"socat TCP-LISTEN:{remoteBridgePort},fork,reuseaddr,bind=127.0.0.1 UNIX-CONNECT:{remoteSocketPath} &";
-        var socatResult = client.RunCommand(socatCmd);
-        _logger.LogInformation("socat command exit: {ExitStatus}, output: '{Result}', error: '{Error}'",
-            socatResult.ExitStatus, socatResult.Result?.Trim(), socatResult.Error?.Trim());
-        if (socatResult.ExitStatus != 0)
+        // Verify socat is available on the remote host
+        var checkResult = client.RunCommand("which socat 2>/dev/null");
+        if (checkResult.ExitStatus != 0 || string.IsNullOrWhiteSpace(checkResult.Result))
         {
-            _logger.LogWarning("socat not available or failed on remote ({ExitStatus}): {Error}",
-                socatResult.ExitStatus, socatResult.Error?.Trim());
+            client.Disconnect();
+            client.Dispose();
+            throw new InvalidOperationException(
+                $"socat is not installed on the remote host ({host}). " +
+                "Install it with: apt-get install socat (Debian/Ubuntu) or yum install socat (RHEL/CentOS).");
         }
 
-        // Small delay to let socat start
-        Thread.Sleep(200);
+        // Start a local TCP listener — Docker.DotNet will connect here
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var localPort = ((IPEndPoint)listener.LocalEndpoint).Port;
 
-        // Set up local port forwarding: localhost:localPort → remote:127.0.0.1:remoteBridgePort
-        var localPort = GetAvailablePort();
-        var forwardedPort = new ForwardedPortLocal(
-            IPAddress.Loopback.ToString(),
-            (uint)localPort,
-            "127.0.0.1",
-            (uint)remoteBridgePort);
-
-        client.AddForwardedPort(forwardedPort);
-        forwardedPort.Exception += (_, e) =>
-            _logger.LogError(e.Exception, "SSH forwarded port exception on localhost:{LocalPort}", localPort);
-        forwardedPort.Start();
-
-        if (!forwardedPort.IsStarted)
-        {
-            _logger.LogError("SSH forwarded port failed to start on localhost:{LocalPort}", localPort);
-        }
+        var entry = new SshTunnelEntry(client, listener, localPort, remoteSocketPath, _logger);
 
         _logger.LogInformation(
-            "SSH tunnel created: localhost:{LocalPort} → remote:127.0.0.1:{RemotePort} → {RemoteSocket} via {Host}:{SshPort} (IsStarted={IsStarted})",
-            localPort, remoteBridgePort, remoteSocketPath, host, port, forwardedPort.IsStarted);
+            "SSH tunnel created: localhost:{LocalPort} → socat STDIO → {RemoteSocket} via {Host}:{SshPort}",
+            localPort, remoteSocketPath, host, port);
 
-        return new SshTunnelEntry(client, forwardedPort, localPort, remoteBridgePort);
-    }
-
-    private static int FindAvailableRemotePort(SshClient client)
-    {
-        // Pick a random port in the ephemeral range and verify it's not in use
-        var random = new Random();
-        for (var i = 0; i < 10; i++)
-        {
-            var candidate = random.Next(RemoteBridgePortStart, RemoteBridgePortEnd);
-            var checkResult = client.RunCommand($"ss -tlnH sport = :{candidate} 2>/dev/null | head -1");
-            if (string.IsNullOrWhiteSpace(checkResult.Result))
-                return candidate;
-        }
-        // Fallback: just use a random port and hope for the best
-        return random.Next(RemoteBridgePortStart, RemoteBridgePortEnd);
+        return entry;
     }
 
     private static ConnectionInfo CreateConnectionInfo(
@@ -222,15 +184,6 @@ public class SshTunnelManager : ISshTunnelManager
         return new PrivateKeyAuthenticationMethod(username, keyFile);
     }
 
-    private static int GetAvailablePort()
-    {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var localPort = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return localPort;
-    }
-
     public void Dispose()
     {
         foreach (var entry in _tunnels.Values)
@@ -247,32 +200,138 @@ public class SshTunnelManager : ISshTunnelManager
         _tunnels.Clear();
     }
 
+    /// <summary>
+    /// Represents an active SSH tunnel with a local TCP listener.
+    /// Each accepted TCP connection spawns an SSH exec channel running
+    /// "socat STDIO UNIX-CONNECT:{socketPath}" for bidirectional streaming.
+    /// </summary>
     private sealed class SshTunnelEntry : IDisposable
     {
         private readonly SshClient _client;
-        private readonly ForwardedPortLocal _forwardedPort;
-        private readonly int _remoteBridgePort;
+        private readonly TcpListener _listener;
+        private readonly string _remoteSocketPath;
+        private readonly ILogger _logger;
+        private readonly CancellationTokenSource _cts = new();
+        private readonly Task _acceptLoop;
 
         public int LocalPort { get; }
         public Uri LocalUri => new($"tcp://localhost:{LocalPort}");
-        public bool IsActive => _client.IsConnected && _forwardedPort.IsStarted;
+        public bool IsActive => _client.IsConnected && !_cts.IsCancellationRequested;
 
-        public SshTunnelEntry(SshClient client, ForwardedPortLocal forwardedPort, int localPort, int remoteBridgePort)
+        public SshTunnelEntry(
+            SshClient client,
+            TcpListener listener,
+            int localPort,
+            string remoteSocketPath,
+            ILogger logger)
         {
             _client = client;
-            _forwardedPort = forwardedPort;
-            _remoteBridgePort = remoteBridgePort;
+            _listener = listener;
+            _remoteSocketPath = remoteSocketPath;
+            _logger = logger;
             LocalPort = localPort;
+
+            // Start accepting connections in the background
+            _acceptLoop = Task.Run(() => AcceptConnectionsAsync(_cts.Token));
+        }
+
+        private async Task AcceptConnectionsAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    var tcpClient = await _listener.AcceptTcpClientAsync(cancellationToken);
+                    // Handle each connection independently — don't await
+                    _ = Task.Run(() => HandleConnectionAsync(tcpClient, cancellationToken), cancellationToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Normal shutdown
+            }
+            catch (ObjectDisposedException)
+            {
+                // Listener was stopped
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "SSH tunnel accept loop failed on localhost:{LocalPort}", LocalPort);
+            }
+        }
+
+        private async Task HandleConnectionAsync(TcpClient tcpClient, CancellationToken cancellationToken)
+        {
+            using var _ = tcpClient;
+            try
+            {
+                if (!_client.IsConnected)
+                {
+                    _logger.LogWarning("SSH client disconnected, cannot handle connection on localhost:{LocalPort}", LocalPort);
+                    return;
+                }
+
+                using var command = _client.CreateCommand($"socat STDIO UNIX-CONNECT:{_remoteSocketPath}");
+                var asyncResult = command.BeginExecute();
+
+                using var sshInput = command.CreateInputStream();
+                var sshOutput = command.OutputStream;
+                var networkStream = tcpClient.GetStream();
+
+                // Bidirectional pipe: TCP ↔ SSH exec channel
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+                var toSsh = CopyStreamAsync(networkStream, sshInput, linkedCts.Token);
+                var fromSsh = CopyStreamAsync(sshOutput, networkStream, linkedCts.Token);
+
+                // When either direction finishes, cancel the other
+                await Task.WhenAny(toSsh, fromSsh);
+                await linkedCts.CancelAsync();
+
+                // Wait for both to finish (they should complete quickly after cancellation)
+                await Task.WhenAll(
+                    toSsh.ContinueWith(_ => { }, TaskScheduler.Default),
+                    fromSsh.ContinueWith(_ => { }, TaskScheduler.Default));
+
+                command.EndExecute(asyncResult);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex, "SSH tunnel connection ended on localhost:{LocalPort}", LocalPort);
+            }
+        }
+
+        private static async Task CopyStreamAsync(Stream source, Stream destination, CancellationToken cancellationToken)
+        {
+            var buffer = new byte[8192];
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                int bytesRead;
+                try
+                {
+                    bytesRead = await source.ReadAsync(buffer, cancellationToken);
+                }
+                catch (Exception) when (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+
+                if (bytesRead == 0)
+                    break;
+
+                await destination.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
+                await destination.FlushAsync(cancellationToken);
+            }
         }
 
         public void Dispose()
         {
-            try { _forwardedPort.Stop(); } catch { /* ignore */ }
-            try { _forwardedPort.Dispose(); } catch { /* ignore */ }
-            // Kill the socat process on the remote
-            try { _client.RunCommand($"kill $(lsof -t -i :{_remoteBridgePort}) 2>/dev/null"); } catch { /* ignore */ }
+            _cts.Cancel();
+            try { _listener.Stop(); } catch { /* ignore */ }
+            try { _acceptLoop.Wait(TimeSpan.FromSeconds(2)); } catch { /* ignore */ }
             try { _client.Disconnect(); } catch { /* ignore */ }
             try { _client.Dispose(); } catch { /* ignore */ }
+            _cts.Dispose();
         }
     }
 }
