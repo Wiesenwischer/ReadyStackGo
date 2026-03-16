@@ -40,7 +40,7 @@ Deployment-Fehlermeldungen von rohen Text-Blöcken zu strukturierten, lesbaren F
 
 ## Features / Schritte
 
-- [ ] **Feature 1: DeploymentError Komponente** — Wiederverwendbare Fehler-Komponente
+- [x] **Feature 1: DeploymentError Komponente** — Wiederverwendbare Fehler-Komponente
   - Aufbau: Fehler-Icon + Zusammenfassung (1 Zeile) + klappbare Details
   - Zusammenfassung: Erste sinnvolle Zeile aus der Error Message extrahieren (vor "---", vor "at ", vor Stack Trace)
   - Details: Vollständiger Error Text in `<pre>` Block mit Scroll, mono Font
@@ -48,24 +48,24 @@ Deployment-Fehlermeldungen von rohen Text-Blöcken zu strukturierten, lesbaren F
   - Betroffene Dateien:
     - `packages/ui-generic/src/components/ui/DeploymentError.tsx` (neu)
 
-- [ ] **Feature 2: Product Deployment Error** — Strukturierte Fehleranzeige auf Product-Detail
+- [x] **Feature 2: Product Deployment Error** — Strukturierte Fehleranzeige auf Product-Detail
   - Ersetze raw `errorMessage` Block durch `DeploymentError` Komponente
   - Zeige pro fehlgeschlagenem Stack eine eigene Error-Zeile mit Stack-Name
   - Betroffene Dateien:
     - `packages/ui-generic/src/pages/Deployments/ProductDeploymentDetail.tsx`
 
-- [ ] **Feature 3: Stack Error in Stacks-Tabelle** — Kompakte Fehleranzeige pro Stack
+- [x] **Feature 3: Stack Error in Stacks-Tabelle** — Kompakte Fehleranzeige pro Stack
   - Stack-Name + kurze Error-Zusammenfassung + "Show Details" Link
   - Details klappen sich aus (inline Accordion)
   - Betroffene Dateien:
     - `packages/ui-generic/src/pages/Deployments/ProductDeploymentDetail.tsx` (StackRow)
 
-- [ ] **Feature 4: Deployments-Liste** — Fehler in der Übersicht
+- [x] **Feature 4: Deployments-Liste** — Fehler in der Übersicht
   - Kompakte Error-Zusammenfassung statt rohem Text
   - Betroffene Dateien:
     - `packages/ui-generic/src/pages/Deployments/Deployments.tsx`
 
-- [ ] **Feature 5: Error Message Parsing Utility** — Helper zum Extrahieren der Zusammenfassung
+- [x] **Feature 5: Error Message Parsing Utility** — Helper zum Extrahieren der Zusammenfassung
   - `parseErrorMessage(raw: string): { summary: string; details: string }`
   - Extrahiert erste sinnvolle Zeile als Summary
   - Erkennt Patterns: "Init container 'X' failed", "Failed to pull image", "Service 'X' failed to start"
@@ -74,7 +74,7 @@ Deployment-Fehlermeldungen von rohen Text-Blöcken zu strukturierten, lesbaren F
     - `packages/core/src/utils/errorParser.ts` (neu)
   - Pattern-Vorlage: Keins (neu)
 
-- [ ] **Phase abschließen** — Tests grün, PR gegen main
+- [x] **Phase abschließen** — Tests grün, PR gegen main
 
 ## Test-Strategie
 - **Unit Tests**: `errorParser.ts` — verschiedene Error-Formate parsen (Init Container, Image Pull, Generic)
