@@ -19,55 +19,46 @@ jobs:
         id: version
         run: |
           MILESTONE_TITLE="${{ github.event.milestone.title }}"
+          # Normalize to 3-part SemVer: v0.51 → v0.51.0
+          if [[ "$MILESTONE_TITLE" =~ ^v[0-9]+\.[0-9]+$ ]]; then
+            MILESTONE_TITLE="${MILESTONE_TITLE}.0"
+          fi
           echo "version=$MILESTONE_TITLE" >> $GITHUB_OUTPUT
-          echo "Milestone closed: $MILESTONE_TITLE"
+          echo "Milestone closed: ${{ github.event.milestone.title }} → Release: $MILESTONE_TITLE"
 
-      - name: Find and publish draft release
+      - name: Create release from milestone
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
 
-          # Find the latest draft release
-          DRAFT_RELEASE=$(gh release list --limit 10 --json tagName,isDraft --jq '.[] | select(.isDraft == true) | .tagName' | head -1)
-
-          if [ -z "$DRAFT_RELEASE" ]; then
-            echo "No draft release found. Creating release from milestone."
-
-            # Generate release notes from milestone issues
-            BODY=$(gh api repos/${{ github.repository }}/issues \
-              --method GET \
-              -f milestone=${{ github.event.milestone.number }} \
-              -f state=closed \
-              -f per_page=100 \
-              --jq '.[] | "- " + .title + " (#" + (.number | tostring) + ")"')
-
-            gh release create "$VERSION" \
-              --title "$VERSION" \
-              --notes "## What's Changed in $VERSION"$'\n\n'"$BODY" \
-              --latest
-          else
-            echo "Publishing draft release: $DRAFT_RELEASE as $VERSION"
-
-            # Rename and publish the draft release
-            gh release edit "$DRAFT_RELEASE" \
-              --tag "$VERSION" \
-              --title "$VERSION" \
-              --draft=false \
-              --latest
+          # Delete any existing draft release with this tag (from Release Drafter)
+          EXISTING=$(gh release view "$VERSION" --json isDraft --jq .isDraft 2>/dev/null || echo "")
+          if [ "$EXISTING" = "true" ]; then
+            echo "Deleting existing draft release $VERSION"
+            gh release delete "$VERSION" --yes
           fi
+
+          # Generate release notes from milestone issues
+          BODY=$(gh api repos/${{ github.repository }}/issues \
+            --method GET \
+            -f milestone=${{ github.event.milestone.number }} \
+            -f state=closed \
+            -f per_page=100 \
+            --jq '.[] | "- " + .title + " (#" + (.number | tostring) + ")"')
+
+          # Create and publish the release
+          gh release create "$VERSION" \
+            --title "$VERSION – ${{ github.event.milestone.description }}" \
+            --notes "## What's Changed in $VERSION"$'\n\n'"$BODY" \
+            --latest
+
+          echo "Release $VERSION created and published"
 
       - name: Push tag to trigger Docker build
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-
-          # Check if tag already exists as a pushed tag
-          if git rev-parse "refs/tags/$VERSION" >/dev/null 2>&1; then
-            echo "Tag $VERSION already exists locally"
-          else
-            # Fetch the tag created by the release
-            git fetch --tags
-          fi
+          git fetch --tags
 
           # Force push the tag to ensure the push event triggers Docker workflow
           git push origin "refs/tags/$VERSION" --force
