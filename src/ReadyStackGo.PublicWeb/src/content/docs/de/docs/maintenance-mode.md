@@ -3,23 +3,24 @@ title: Maintenance Mode
 description: Produkte in den Wartungsmodus versetzen und kontrolliert wieder freigeben
 ---
 
-Der **Maintenance Mode** ermöglicht es, ein Product Deployment gezielt in den Wartungsmodus zu versetzen. Dabei werden alle Container gestoppt, sodass Wartungsarbeiten wie Datenbank-Migrationen, Hardware-Updates oder geplante Downtimes sicher durchgeführt werden können. Das Trigger-System stellt sicher, dass manuell aktivierter Maintenance nicht versehentlich durch den Observer aufgehoben wird.
+Der **Maintenance Mode** ermöglicht es, ein Product Deployment gezielt in den Wartungsmodus zu versetzen. Dabei werden alle Container gestoppt und alle Child-Stacks erhalten den Operation Mode „Maintenance". So können Wartungsarbeiten wie Datenbank-Migrationen, Hardware-Updates oder geplante Downtimes sicher durchgeführt werden. Das Trigger-System stellt sicher, dass manuell aktivierter Maintenance nicht versehentlich durch den Observer aufgehoben wird.
 
 ## Übersicht
 
 | Aspekt | Normal Mode | Maintenance Mode |
 |--------|-------------|-----------------|
-| **Container** | Laufen normal | Werden gestoppt |
+| **Product Status** | Running | Stopped |
+| **Stack Status** | Running | Stopped |
+| **Operation Mode** | Normal | Maintenance (propagiert auf alle Stacks) |
 | **Trigger** | — | Manual oder Observer |
 | **Beenden** | — | Nur durch den Trigger, der Maintenance aktiviert hat |
-| **Observer** | Kann Maintenance aktivieren | Kann manuellen Maintenance nicht aufheben |
 
 ### Trigger-Ownership
 
 Das zentrale Prinzip: **Wer Maintenance aktiviert hat, kontrolliert auch das Ende.**
 
 - **Manual Trigger**: Maintenance wurde vom Benutzer über die UI oder API aktiviert. Nur der Benutzer kann Maintenance wieder beenden — der Observer hat keinen Einfluss.
-- **Observer Trigger**: Maintenance wurde automatisch durch den Maintenance Observer aktiviert (z.B. externe Health-Check-Quelle meldet Wartung). Nur wenn der Observer wieder Normal meldet, wird Maintenance aufgehoben.
+- **Observer Trigger**: Maintenance wurde automatisch durch den Maintenance Observer aktiviert. Nur wenn der Observer wieder Normal meldet, wird Maintenance aufgehoben.
 
 ---
 
@@ -27,59 +28,63 @@ Das zentrale Prinzip: **Wer Maintenance aktiviert hat, kontrolliert auch das End
 
 ### Schritt 1: Product Deployment öffnen
 
-Navigieren Sie zur **Product Deployment Detail**-Seite. Im Normalzustand sehen Sie den **Operation Mode: Normal** in den Overview Cards und den Button **Enter Maintenance** in der Aktionsleiste.
+Navigieren Sie zur **Product Deployment Detail**-Seite. Im Normalzustand sehen Sie den **Operation Mode: Normal** in den Overview Cards und den Link **Enter Maintenance** in der Aktionsleiste.
 
-![Product Deployment im Normal Mode mit Enter Maintenance Button](/images/docs/maintenance-01-normal-mode.png)
+![Product Deployment im Normal Mode mit Enter Maintenance Link](/images/docs/maintenance-01-normal-mode.png)
 
 ---
 
-### Schritt 2: Maintenance Mode aktivieren
+### Schritt 2: Bestätigungsseite prüfen
 
-Klicken Sie auf den Button **Enter Maintenance**. ReadyStackGo versetzt das Produkt in den Maintenance Mode und stoppt alle Container der zugehörigen Stacks.
+Klicken Sie auf **Enter Maintenance**. Sie werden zur Bestätigungsseite weitergeleitet, die Folgendes anzeigt:
 
-Nach der Aktivierung ändert sich die Ansicht:
+- Produktname und Version
+- Das Environment
+- Alle betroffenen Stacks mit Service-Anzahl
+- Eine Warnung, dass alle Container gestoppt werden
 
-- Ein **Maintenance Badge** erscheint neben dem Status
-- Das **Maintenance Info-Panel** zeigt den Trigger-Typ (Manual) an
-- Der **Operation Mode** wechselt auf „Maintenance"
-- Der Button wechselt zu **Exit Maintenance**
+Prüfen Sie die betroffenen Stacks, bevor Sie bestätigen.
 
-![Product Deployment im Maintenance Mode mit Info-Panel](/images/docs/maintenance-02-in-maintenance.png)
+![Enter Maintenance Bestätigungsseite mit Stack-Vorschau](/images/docs/maintenance-02-in-maintenance.png)
+
+---
+
+### Schritt 3: Bestätigen und aktivieren
+
+Klicken Sie auf **Enter Maintenance Mode** um zu bestätigen. ReadyStackGo:
+
+1. Setzt den Product Operation Mode auf Maintenance
+2. Propagiert Maintenance auf alle Child-Stacks
+3. Stoppt alle Container
+
+Nach erfolgreicher Aktivierung sehen Sie eine Erfolgsseite mit dem Mode-Übergang (Normal → Maintenance).
+
+![Maintenance erfolgreich aktiviert](/images/docs/maintenance-03-overview-cards.png)
 
 :::tip[Maintenance Reason]
-Beim Aktivieren über die API kann optional ein Grund angegeben werden (z.B. „Scheduled database migration"). Dieser wird im Info-Panel angezeigt.
+Beim Aktivieren über die API kann optional ein Grund angegeben werden (z.B. „Scheduled database migration"). Dieser wird im Maintenance Info-Panel auf der Deployment-Detailseite angezeigt.
 :::
-
----
-
-### Schritt 3: Status prüfen
-
-Die Overview Cards zeigen den aktuellen Zustand auf einen Blick. Während Maintenance ist der **Operation Mode** auf „Maintenance" gesetzt und das Info-Panel zeigt Details zum aktiven Maintenance.
-
-![Overview Cards während Maintenance Mode](/images/docs/maintenance-03-overview-cards.png)
 
 ---
 
 ### Schritt 4: Stacks während Maintenance
 
-Auch im Maintenance Mode bleibt die **Stacks-Tabelle** sichtbar. Sie zeigt alle zum Produkt gehörenden Stacks mit ihrem jeweiligen Status an.
+Auf der Product Deployment Detail-Seite zeigen alle Stacks den Status **Stopped** während Maintenance. Der Product Status zeigt ebenfalls **Stopped** mit einem **Maintenance** Badge.
 
-![Stacks-Tabelle während Maintenance mit Reason](/images/docs/maintenance-05-stacks-during.png)
+![Stacks zeigen Stopped-Status während Maintenance](/images/docs/maintenance-05-stacks-during.png)
 
 ---
 
 ### Schritt 5: Maintenance Mode beenden
 
-Klicken Sie auf **Exit Maintenance**, um den Normalbetrieb wiederherzustellen. ReadyStackGo startet alle Container der zugehörigen Stacks neu.
+Klicken Sie auf **Exit Maintenance** um zur Bestätigungsseite zu navigieren. Diese zeigt die aktuelle Maintenance-Info (Trigger-Quelle, Grund, Dauer) und die Stacks, die neu gestartet werden.
 
-- Der **Operation Mode** wechselt zurück auf „Normal"
-- Das **Maintenance Info-Panel** verschwindet
-- Der Button wechselt zurück zu **Enter Maintenance**
+Klicken Sie auf **Exit Maintenance Mode** um zu bestätigen. ReadyStackGo startet alle Container neu und versetzt das Produkt zurück in den Normalbetrieb.
 
-![Product Deployment nach Beenden des Maintenance Mode](/images/docs/maintenance-04-exited.png)
+![Maintenance erfolgreich deaktiviert](/images/docs/maintenance-04-exited.png)
 
 :::caution[Observer-Maintenance]
-Wenn Maintenance durch den Observer aktiviert wurde, kann es **nicht** manuell über die UI beendet werden. Der Exit-Button ist in diesem Fall nicht sichtbar. Maintenance wird erst aufgehoben, wenn die externe Quelle wieder Normal meldet.
+Wenn Maintenance durch den Observer aktiviert wurde, kann es **nicht** manuell über die UI beendet werden. Der Exit-Link ist in diesem Fall nicht sichtbar. Maintenance wird erst aufgehoben, wenn die externe Quelle wieder Normal meldet.
 :::
 
 ---

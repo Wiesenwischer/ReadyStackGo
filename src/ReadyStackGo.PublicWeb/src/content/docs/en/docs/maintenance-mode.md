@@ -3,23 +3,24 @@ title: Maintenance Mode
 description: Put products into maintenance mode and release them in a controlled manner
 ---
 
-**Maintenance Mode** allows you to put a Product Deployment into a dedicated maintenance state. All containers are stopped, enabling safe execution of maintenance tasks such as database migrations, hardware updates, or planned downtimes. The trigger system ensures that manually activated maintenance cannot be accidentally overridden by the observer.
+**Maintenance Mode** allows you to put a Product Deployment into a dedicated maintenance state. All containers are stopped, and all child stacks are set to Maintenance operation mode. This enables safe execution of maintenance tasks such as database migrations, hardware updates, or planned downtimes. The trigger system ensures that manually activated maintenance cannot be accidentally overridden by the observer.
 
 ## Overview
 
 | Aspect | Normal Mode | Maintenance Mode |
 |--------|-------------|-----------------|
-| **Containers** | Running normally | Stopped |
+| **Product Status** | Running | Stopped |
+| **Stack Status** | Running | Stopped |
+| **Operation Mode** | Normal | Maintenance (propagated to all stacks) |
 | **Trigger** | — | Manual or Observer |
 | **Exit** | — | Only by the trigger that activated maintenance |
-| **Observer** | Can activate maintenance | Cannot override manual maintenance |
 
 ### Trigger Ownership
 
 The core principle: **Whoever activated maintenance also controls when it ends.**
 
 - **Manual Trigger**: Maintenance was activated by a user via the UI or API. Only the user can end maintenance — the observer has no effect.
-- **Observer Trigger**: Maintenance was automatically activated by the Maintenance Observer (e.g., an external health check source reports maintenance). Maintenance is only lifted when the observer reports Normal again.
+- **Observer Trigger**: Maintenance was automatically activated by the Maintenance Observer. Maintenance is only lifted when the observer reports Normal again.
 
 ---
 
@@ -27,59 +28,63 @@ The core principle: **Whoever activated maintenance also controls when it ends.*
 
 ### Step 1: Open Product Deployment
 
-Navigate to the **Product Deployment Detail** page. In normal state, you'll see **Operation Mode: Normal** in the overview cards and the **Enter Maintenance** button in the action bar.
+Navigate to the **Product Deployment Detail** page. In normal state, you'll see **Operation Mode: Normal** in the overview cards and the **Enter Maintenance** link in the action bar.
 
-![Product deployment in Normal mode with Enter Maintenance button](/images/docs/maintenance-01-normal-mode.png)
+![Product deployment in Normal mode with Enter Maintenance link](/images/docs/maintenance-01-normal-mode.png)
 
 ---
 
-### Step 2: Activate Maintenance Mode
+### Step 2: Review Confirmation Page
 
-Click the **Enter Maintenance** button. ReadyStackGo puts the product into maintenance mode and stops all containers of the associated stacks.
+Click **Enter Maintenance**. You'll be taken to a dedicated confirmation page that shows:
 
-After activation, the view changes:
+- The product name and version
+- The environment
+- All affected stacks and their service counts
+- A warning that all containers will be stopped
 
-- A **Maintenance badge** appears next to the status
-- The **Maintenance info panel** shows the trigger type (Manual)
-- The **Operation Mode** switches to "Maintenance"
-- The button changes to **Exit Maintenance**
+Review the affected stacks before confirming.
 
-![Product deployment in Maintenance Mode with info panel](/images/docs/maintenance-02-in-maintenance.png)
+![Enter Maintenance confirmation page with stack preview](/images/docs/maintenance-02-in-maintenance.png)
+
+---
+
+### Step 3: Confirm and Activate
+
+Click **Enter Maintenance Mode** to confirm. ReadyStackGo:
+
+1. Sets the product operation mode to Maintenance
+2. Propagates Maintenance mode to all child stacks
+3. Stops all containers
+
+After successful activation, you'll see a success page with the mode transition (Normal → Maintenance).
+
+![Maintenance activated successfully](/images/docs/maintenance-03-overview-cards.png)
 
 :::tip[Maintenance Reason]
-When activating via the API, you can optionally provide a reason (e.g., "Scheduled database migration"). This is displayed in the info panel.
+When activating via the API, you can optionally provide a reason (e.g., "Scheduled database migration"). This is displayed in the maintenance info panel on the deployment detail page.
 :::
-
----
-
-### Step 3: Check Status
-
-The overview cards show the current state at a glance. During maintenance, the **Operation Mode** is set to "Maintenance" and the info panel displays details about the active maintenance.
-
-![Overview cards during Maintenance Mode](/images/docs/maintenance-03-overview-cards.png)
 
 ---
 
 ### Step 4: Stacks During Maintenance
 
-The **Stacks table** remains visible even during maintenance mode. It shows all stacks belonging to the product along with their respective status.
+On the Product Deployment Detail page, all stacks show **Stopped** status during maintenance. The product status also shows **Stopped** with a **Maintenance** badge.
 
-![Stacks table during maintenance with reason](/images/docs/maintenance-05-stacks-during.png)
+![Stacks showing Stopped status during maintenance](/images/docs/maintenance-05-stacks-during.png)
 
 ---
 
 ### Step 5: Exit Maintenance Mode
 
-Click **Exit Maintenance** to restore normal operation. ReadyStackGo restarts all containers of the associated stacks.
+Click **Exit Maintenance** to navigate to the exit confirmation page. It shows the current maintenance info (trigger source, reason, duration) and the stacks that will be restarted.
 
-- The **Operation Mode** switches back to "Normal"
-- The **Maintenance info panel** disappears
-- The button changes back to **Enter Maintenance**
+Click **Exit Maintenance Mode** to confirm. ReadyStackGo restarts all containers and returns the product to Normal operation.
 
-![Product deployment after exiting Maintenance Mode](/images/docs/maintenance-04-exited.png)
+![Maintenance deactivated successfully](/images/docs/maintenance-04-exited.png)
 
 :::caution[Observer Maintenance]
-If maintenance was activated by the observer, it **cannot** be ended manually via the UI. The exit button is not visible in this case. Maintenance is only lifted when the external source reports Normal again.
+If maintenance was activated by the observer, it **cannot** be ended manually via the UI. The exit link is not visible in this case. Maintenance is only lifted when the external source reports Normal again.
 :::
 
 ---
