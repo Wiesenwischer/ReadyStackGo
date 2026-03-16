@@ -42,7 +42,7 @@ Add Environment von einer einzelnen Seite mit Inline-Typ-Selektor auf einen Zwei
 
 ## Features / Schritte
 
-- [ ] **Feature 1: AddEnvironment aufteilen — Type Selector Seite**
+- [x] **Feature 1: AddEnvironment aufteilen — Type Selector Seite**
   - Bestehende `AddEnvironment.tsx` wird zur Typ-Auswahl-Seite (analog `AddStackSourceSelect.tsx`)
   - Nutzt `TypeSelector` Komponente mit zwei Optionen:
     - Local Docker Socket: Icon, "Direct connection via Unix socket"
@@ -52,7 +52,7 @@ Add Environment von einer einzelnen Seite mit Inline-Typ-Selektor auf einen Zwei
     - `packages/ui-generic/src/pages/Environments/AddEnvironment.tsx` (Rewrite → Typ-Selector)
   - Pattern-Vorlage: `packages/ui-generic/src/pages/Settings/StackSources/AddStackSourceSelect.tsx`
 
-- [ ] **Feature 2: AddDockerSocketEnvironment Seite**
+- [x] **Feature 2: AddDockerSocketEnvironment Seite**
   - Neue Seite für Docker Socket Konfiguration
   - Felder: Environment Name, Docker Socket Path
   - Test Connection Button
@@ -61,7 +61,7 @@ Add Environment von einer einzelnen Seite mit Inline-Typ-Selektor auf einen Zwei
     - `packages/ui-generic/src/pages/Environments/AddDockerSocketEnvironment.tsx` (neu)
     - `apps/rsgo-generic/src/App.tsx` (Route hinzufügen)
 
-- [ ] **Feature 3: AddSshTunnelEnvironment Seite**
+- [x] **Feature 3: AddSshTunnelEnvironment Seite**
   - Neue Seite für SSH Tunnel Konfiguration
   - Felder: Environment Name, SSH Host, Port, Username, Auth Method (Key/Password), Secret, Remote Socket Path
   - Test Connection Button
@@ -70,7 +70,7 @@ Add Environment von einer einzelnen Seite mit Inline-Typ-Selektor auf einen Zwei
     - `packages/ui-generic/src/pages/Environments/AddSshTunnelEnvironment.tsx` (neu)
     - `apps/rsgo-generic/src/App.tsx` (Route hinzufügen)
 
-- [ ] **Feature 4: Routes und Imports aktualisieren**
+- [x] **Feature 4: Routes und Imports aktualisieren**
   - `/environments/add` → Type Selector
   - `/environments/add/docker-socket` → Docker Socket Form
   - `/environments/add/ssh-tunnel` → SSH Tunnel Form
@@ -78,7 +78,7 @@ Add Environment von einer einzelnen Seite mit Inline-Typ-Selektor auf einen Zwei
   - Betroffene Dateien:
     - `apps/rsgo-generic/src/App.tsx`
 
-- [ ] **Phase abschließen** — Tests grün, PR gegen main
+- [x] **Phase abschließen** — Tests grün, PR gegen main
 
 ## Test-Strategie
 - **E2E Tests**: Type Selector Navigation, Docker Socket Creation, SSH Tunnel Form, Cancel/Back Navigation
