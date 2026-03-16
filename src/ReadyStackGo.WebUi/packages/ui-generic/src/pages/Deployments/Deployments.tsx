@@ -9,6 +9,7 @@ import {
 } from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
 import { useAuth } from "../../context/AuthContext";
+import { DeploymentError } from "../../components/ui/DeploymentError";
 
 export default function Deployments() {
   const { activeEnvironment } = useEnvironment();
@@ -235,9 +236,9 @@ function ProductDeploymentRow({ deployment, formatDate }: ProductDeploymentRowPr
             <span>Deployed {formatDate(deployment.createdAt)}</span>
           </div>
           {deployment.errorMessage && (
-            <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-              {deployment.errorMessage}
-            </p>
+            <div className="mt-1">
+              <DeploymentError error={deployment.errorMessage} compact />
+            </div>
           )}
         </div>
 

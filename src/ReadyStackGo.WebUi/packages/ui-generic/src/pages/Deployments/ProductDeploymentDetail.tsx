@@ -6,6 +6,7 @@ import {
 } from '@rsgo/core';
 import { useAuth } from "../../context/AuthContext";
 import { useEnvironment } from "../../context/EnvironmentContext";
+import { DeploymentError } from "../../components/ui/DeploymentError";
 
 function getProductStatusPresentation(status: string) {
   switch (status) {
@@ -255,9 +256,8 @@ export default function ProductDeploymentDetail() {
 
       {/* Error Alert */}
       {deployment.errorMessage && (
-        <div className="mb-6 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
-          <p className="text-sm font-medium text-red-800 dark:text-red-200">Deployment Error</p>
-          <p className="mt-1 text-sm text-red-700 dark:text-red-300">{deployment.errorMessage}</p>
+        <div className="mb-6">
+          <DeploymentError error={deployment.errorMessage} />
         </div>
       )}
 
@@ -422,7 +422,9 @@ function StackRow({ stack, parentOperationMode, formatDate, formatStackDuration 
           )}
         </div>
         {stack.errorMessage && (
-          <p className="mt-1 ml-9 text-xs text-red-600 dark:text-red-400">{stack.errorMessage}</p>
+          <div className="mt-1 ml-9">
+            <DeploymentError error={stack.errorMessage} compact />
+          </div>
         )}
       </div>
       {canDrillDown && (
