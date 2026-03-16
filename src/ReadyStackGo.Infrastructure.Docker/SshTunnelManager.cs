@@ -102,7 +102,8 @@ public class SshTunnelManager : ISshTunnelManager
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "SSH tunnel test connection failed for {Host}:{Port}", host, port);
-            return new SshTestResult(false, $"SSH connection failed: {ex.Message}");
+            var message = ex.InnerException?.Message ?? ex.Message;
+            return new SshTestResult(false, $"SSH connection failed: {message}");
         }
         finally
         {
@@ -120,6 +121,16 @@ public class SshTunnelManager : ISshTunnelManager
     {
         var connectionInfo = CreateConnectionInfo(host, port, username, privateKeyOrPassword, authMethod);
         var client = new SshClient(connectionInfo);
+
+        // Auto-accept host keys (RSGO manages its own trust, no known_hosts file)
+        client.HostKeyReceived += (_, e) =>
+        {
+            _logger.LogDebug("SSH host key received: {FingerPrint} ({KeyLength} bit {HostKeyName})",
+                BitConverter.ToString(e.FingerPrint).Replace("-", ":"),
+                e.KeyLength, e.HostKeyName);
+            e.CanTrust = true;
+        };
+
         client.Connect();
 
         // Find an available remote port for the socat bridge
