@@ -1,0 +1,63 @@
+name: Milestone Release
+
+on:
+  milestone:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get milestone version
+        id: version
+        run: |
+          MILESTONE_TITLE="${{ github.event.milestone.title }}"
+          echo "version=$MILESTONE_TITLE" >> $GITHUB_OUTPUT
+          echo "Milestone closed: $MILESTONE_TITLE"
+
+      - name: Find and publish draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Find the latest draft release
+          DRAFT_RELEASE=$(gh release list --limit 10 --json tagName,isDraft --jq '.[] | select(.isDraft == true) | .tagName' | head -1)
+
+          if [ -z "$DRAFT_RELEASE" ]; then
+            echo "No draft release found. Creating release from milestone."
+
+            # Generate release notes from milestone issues
+            BODY=$(gh api repos/${{ github.repository }}/issues \
+              --method GET \
+              -f milestone=${{ github.event.milestone.number }} \
+              -f state=closed \
+              -f per_page=100 \
+              --jq '.[] | "- " + .title + " (#" + (.number | tostring) + ")"')
+
+            gh release create "$VERSION" \
+              --title "$VERSION" \
+              --notes "## What's Changed in $VERSION"$'\n\n'"$BODY" \
+              --latest
+          else
+            echo "Publishing draft release: $DRAFT_RELEASE as $VERSION"
+
+            # Rename and publish the draft release
+            gh release edit "$DRAFT_RELEASE" \
+              --tag "$VERSION" \
+              --title "$VERSION" \
+              --draft=false \
+              --latest
+          fi
+
+      - name: Summary
+        run: |
+          echo "### Release Published" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Milestone:** ${{ github.event.milestone.title }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Issues closed:** ${{ github.event.milestone.closed_issues }}" >> $GITHUB_STEP_SUMMARY

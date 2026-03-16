@@ -1,7 +1,7 @@
 ---
 name: plan-feature
 description: Plan a new feature, add it to the roadmap, and create a specification document
-disable-model-invocation: true
+disable-model-invocation: false
 argument-hint: "<feature description or idea>"
 ---
 
@@ -16,8 +16,8 @@ Plane ein neues Feature für ReadyStackGo, ordne es in die Roadmap ein und erste
 ## Übersicht
 
 Dieser Skill führt durch den gesamten Planungsprozess:
-1. Bestehende Roadmap und Architektur analysieren
-2. Feature in die Roadmap einordnen (neue oder bestehende Version)
+1. GitHub Project Board und bestehende Issues analysieren
+2. Feature als GitHub Issue erstellen und einem Milestone zuordnen
 3. Planungsdatei (Specification) erstellen
 4. Dokumentation committen
 
@@ -25,14 +25,22 @@ Dieser Skill führt durch den gesamten Planungsprozess:
 
 ## Schritt 1: Kontext erfassen
 
-1. Lies die **Roadmap** (`docs/Reference/Roadmap.md`):
-   - Welche Version ist die letzte released?
-   - Welche Versionen sind geplant und was steht in ihnen?
-   - Wo passt das neue Feature logisch hin?
-2. Lies die **Projektrichtlinien** (`CLAUDE.md`) für Konventionen.
-3. Prüfe ob bereits eine **Planungsdatei** für eine verwandte Phase existiert (`docs/Plans/PLAN-*.md`).
-4. Prüfe ob das Feature oder etwas Ähnliches bereits in der Roadmap steht (planned oder released).
-5. Falls `$ARGUMENTS` leer ist, frage den User welches Feature geplant werden soll.
+1. **GitHub Project Board** lesen um den aktuellen Planungsstand zu verstehen:
+   ```bash
+   gh project item-list 6 --owner Wiesenwischer --format json --limit 50
+   ```
+2. **Milestones** prüfen — welche Versionen gibt es, wie weit sind sie?
+   ```bash
+   gh api repos/Wiesenwischer/ReadyStackGo/milestones --jq '.[] | "\(.title) — \(.open_issues) open, \(.closed_issues) closed"'
+   ```
+3. **Bestehende Epic Issues** prüfen:
+   ```bash
+   gh issue list --label epic --state open --json number,title,milestone
+   ```
+4. Lies die **Projektrichtlinien** (`CLAUDE.md`) für Konventionen.
+5. Prüfe ob bereits eine **Planungsdatei** für eine verwandte Phase existiert (`docs/Plans/PLAN-*.md`).
+6. Prüfe die **Release History** (`docs/Reference/Release-History.md`) für bereits implementierte Features.
+7. Falls `$ARGUMENTS` leer ist, frage den User welches Feature geplant werden soll.
 
 ## Schritt 2: Feature-Scope definieren
 
@@ -45,7 +53,7 @@ Analysiere das Feature und kläre mit dem User:
 
 ### 2b: Scope klären mit AskUserQuestion
 Frage den User nach:
-- **Priorität**: Soll das Feature in die nächste geplante Version oder als eigenständige Version?
+- **Milestone**: In welchen Milestone soll das Feature? (z.B. v0.50, v1.0)
 - **Scope**: Was genau soll das Feature umfassen? Was explizit nicht?
 - **Abhängigkeiten**: Gibt es Voraussetzungen die zuerst erledigt werden müssen?
 
@@ -56,39 +64,49 @@ Frage den User nach:
 - Braucht es neue UI-Seiten oder nur Erweiterungen?
 - Welche Tests sind nötig? (Unit, Integration, E2E)
 
-## Schritt 3: In die Roadmap einordnen
+## Schritt 3: GitHub Issue erstellen
 
-### Option A: Neues Feature passt in eine existierende geplante Version
-- Feature als Bullet Point in die bestehende Version einfügen
-- Ggf. Versionstitel anpassen wenn sich der Scope ändert
+### Epic Issue erstellen:
+```bash
+gh issue create \
+  --title "<Feature-Titel>" \
+  --label "epic,feature" \
+  --milestone "<Milestone z.B. v0.50>" \
+  --body "$(cat <<'EOF'
+## Goal
+<Kurzbeschreibung>
 
-### Option B: Neues Feature wird eine eigene Version
-- Nächste freie Versionsnummer verwenden (nach der letzten geplanten Version)
-- Titel für die Version wählen (kurz und aussagekräftig)
-- Feature-Bullet-Points hinzufügen
+## Specification
+See [PLAN-<name>.md](docs/Plans/PLAN-<name>.md)
 
-### Option C: Feature wird in eine existierende Version eingeschoben
-- Wenn das Feature Priorität hat und vor anderen geplanten Versionen kommen soll
-- Bestehende geplante Versionen entsprechend umnummerieren
-
-### Roadmap-Format (Planned Section):
-```markdown
-### v0.XX – <Versions-Titel>
-- <Feature/Bullet 1>
-- <Feature/Bullet 2>
-- <Sub-Feature oder Detail>
+## Tasks
+- [ ] Feature 1: ...
+- [ ] Feature 2: ...
+- [ ] Documentation & Website
+EOF
+)"
 ```
 
-**Frage den User** mit `AskUserQuestion` welche Option gewählt werden soll, falls nicht eindeutig.
+### Zum Project Board hinzufügen:
+```bash
+gh project item-add 6 --owner Wiesenwischer --url <ISSUE_URL>
+```
 
 ## Schritt 4: Planungsdatei erstellen
 
 Erstelle eine Specification unter `docs/Plans/PLAN-<feature-name>.md`.
 
+**WICHTIG:** Füge am Anfang der Datei einen Kommentar mit der Issue-Nummer ein:
+```markdown
+<!-- GitHub Epic: #NNN -->
+# Phase: <Phasen-Titel>
+```
+
 ### Format:
 
 ```markdown
-# Phase: <Phasen-Titel> (v0.XX)
+<!-- GitHub Epic: #NNN -->
+# Phase: <Phasen-Titel>
 
 ## Ziel
 <Was soll diese Phase erreichen? 2-3 Sätze.>
@@ -114,22 +132,14 @@ Erstelle eine Specification unter `docs/Plans/PLAN-<feature-name>.md`.
 >
 > Shared logic lives in `@rsgo/core` (hooks, API calls, state). Pages/layouts must be reimplemented per distribution.
 >
-> **Versioning**: AMS distribution has independent version numbers (e.g. v1.x.y). Each AMS release declares which RSGO core version it bundles in its release notes and `package.json`.
->
-> **Sync-Mechanismus**: RSGO PLAN files sind die Source of Truth. Jedes Feature mit AMS-Counterpart bekommt ein entsprechendes PLAN file im AMS Repo (`C:\proj\ReadyStackGo.Ams\docs\Plans\`). Vor jedem AMS-Release: alle RSGO PLANs auf offene AMS-Counterpart-Checkboxen prüfen.
+> **Sync-Mechanismus**: RSGO PLAN files sind die Source of Truth. Jedes Feature mit AMS-Counterpart bekommt ein entsprechendes PLAN file im AMS Repo (`C:\proj\ReadyStackGo.Ams\docs\Plans\`).
 
 **Benötigt AMS UI eine Entsprechung?**
 
 - [ ] **Ja** — AMS-Counterpart wird als eigenes PLAN file im AMS Repo angelegt
-  - RSGO PLAN referenziert: `docs/Plans/PLAN-<feature>.md` (dieses File)
-  - AMS PLAN: `C:\proj\ReadyStackGo.Ams\docs\Plans\PLAN-<feature>.md` (neu erstellen)
-  - AMS PLAN enthält: ConsistentUI-spezifische Implementierungsschritte + Verweis auf dieses RSGO-PLAN
-  - Zeitpunkt: <Gleichzeitig mit RSGO / Im nächsten AMS-Release>
 - [ ] **Ja (deferred)** — AMS-Counterpart wird später geplant
-  - Begründung: <Warum wird es verschoben?>
-  - Erinnerung: Diese Checkbox bleibt offen bis AMS PLAN erstellt wurde
 - [ ] **Nein** — nur `@rsgo/core` betroffen (Logik/Hooks, kein UI) → keine AMS-Arbeit nötig
-- [ ] **Teilweise** — bestehende AMS-Seite muss erweitert werden; AMS PLAN mit Delta-Schritten anlegen
+- [ ] **Teilweise** — bestehende AMS-Seite muss erweitert werden
 
 ## Features / Schritte
 
@@ -141,7 +151,6 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Abhängig von: -
 - [ ] **Feature 2: <Name>** – <Kurzbeschreibung>
   - Betroffene Dateien: ...
-  - Pattern-Vorlage: ...
   - Abhängig von: Feature 1
 - [ ] **Dokumentation & Website** – Wiki, Public Website (DE/EN), Roadmap
 - [ ] **Phase abschließen** – Alle Tests grün, PR gegen main
@@ -160,11 +169,6 @@ Reihenfolge basierend auf Abhängigkeiten:
 | <Thema> | A, B, C | - | <Noch offen / Begründung> |
 ```
 
-### Namenskonventionen:
-- Dateiname: `PLAN-<kebab-case-name>.md` (z.B. `PLAN-docker-volumes.md`)
-- Phase-Titel: Kurz und beschreibend (z.B. "Docker Volumes Management")
-- Feature-Namen: Imperativ (z.B. "Docker Volumes View implementieren")
-
 ## Schritt 5: Zusammenfassung und Bestätigung
 
 Zeige dem User eine Zusammenfassung:
@@ -173,14 +177,15 @@ Zeige dem User eine Zusammenfassung:
 ## Zusammenfassung
 
 **Feature**: <Feature-Beschreibung>
-**Version**: v0.XX – <Versions-Titel>
-**Einordnung**: <Neu / In bestehende Version eingefügt / Eingeschoben>
+**Milestone**: <z.B. v0.50>
+**GitHub Issue**: #NNN
 **Planungsdatei**: docs/Plans/PLAN-<name>.md
 **Geschätzter Umfang**: <Anzahl Features/Schritte>
 
-### Geänderte Dateien:
-- docs/Reference/Roadmap.md (Roadmap aktualisiert)
+### Geänderte/Erstellte Dateien:
 - docs/Plans/PLAN-<name>.md (Planungsdatei erstellt)
+- GitHub Issue #NNN (Epic erstellt)
+- GitHub Project Board (Issue hinzugefügt)
 ```
 
 ## Schritt 6: Spec-Datei aufräumen
@@ -191,14 +196,12 @@ Falls das Feature auf einer bestehenden Spec-Datei in `docs/specs/` basiert:
 git rm docs/specs/<ordner>/<datei>.md
 ```
 
-Der PLAN enthält alle relevanten Implementierungsdetails — die Spec ist danach redundant und kann gelöscht werden. Specs ohne zugehörigen PLAN (z.B. noch nicht geplante Features) bleiben erhalten.
-
 ## Schritt 7: Committen
 
 ```bash
-git add docs/Reference/Roadmap.md docs/Plans/PLAN-<name>.md
+git add docs/Plans/PLAN-<name>.md
 git rm docs/specs/...  # falls Spec gelöscht
-git commit -m "Plan v0.XX <Versions-Titel>"
+git commit -m "Plan <Feature-Titel>"
 ```
 
 **Commit-Regeln** (siehe CLAUDE.md):
@@ -209,12 +212,12 @@ git commit -m "Plan v0.XX <Versions-Titel>"
 
 ## Checkliste
 
-- [ ] Roadmap gelesen und verstanden
+- [ ] GitHub Project Board und Milestones gelesen
 - [ ] Feature-Scope mit User geklärt
 - [ ] Technische Analyse durchgeführt
-- [ ] Roadmap aktualisiert (neue oder bestehende Version)
-- [ ] Planungsdatei erstellt (`docs/Plans/PLAN-*.md`)
+- [ ] GitHub Epic Issue erstellt mit Milestone
+- [ ] Issue zum Project Board hinzugefügt
+- [ ] Planungsdatei erstellt (`docs/Plans/PLAN-*.md`) mit `<!-- GitHub Epic: #NNN -->`
 - [ ] **AMS UI Counterpart entschieden** — bei Ja: AMS PLAN file in `C:\proj\ReadyStackGo.Ams\docs\Plans\` erstellt
 - [ ] Offene Punkte dokumentiert
-- [ ] Zugehörige Spec-Datei in `docs/specs/` gelöscht (falls vorhanden)
 - [ ] Änderungen committed
