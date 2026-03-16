@@ -1,5 +1,6 @@
 namespace ReadyStackGo.Domain.Deployment.Environments;
 
+using System.Text.Json.Serialization;
 using ReadyStackGo.Domain.SharedKernel;
 
 /// <summary>
@@ -24,6 +25,7 @@ public sealed class SshCredential : ValueObject
         EncryptedSecret = string.Empty;
     }
 
+    [JsonConstructor]
     private SshCredential(string encryptedSecret, SshAuthMethod authMethod)
     {
         SelfAssertArgumentNotEmpty(encryptedSecret, "Encrypted secret is required.");
