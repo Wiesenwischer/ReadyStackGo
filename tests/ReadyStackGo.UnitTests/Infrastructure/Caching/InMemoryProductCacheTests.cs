@@ -442,4 +442,111 @@ public class InMemoryProductCacheTests
     }
 
     #endregion
+
+    #region Source-Scoped Product Retrieval
+
+    [Fact]
+    public void GetAllProducts_SameProductFromTwoSources_ReturnsBoth()
+    {
+        // Arrange - Same product name and explicit GroupId, but different sources
+        var sourceA = CreateProduct("source-a", "ams.project", "1.0.0", "com.ams.project");
+        var sourceB = CreateProduct("source-b", "ams.project", "2.0.0", "com.ams.project");
+
+        _cache.Set(sourceA);
+        _cache.Set(sourceB);
+
+        // Act
+        var products = _cache.GetAllProducts().ToList();
+
+        // Assert - Should return both, one per source
+        products.Should().HaveCount(2);
+        products.Select(p => p.SourceId).Should().BeEquivalentTo(["source-a", "source-b"]);
+    }
+
+    [Fact]
+    public void GetAllProducts_SameSourceMultipleVersions_ReturnsLatestOnly()
+    {
+        // Arrange - Same source, same product, multiple versions
+        _cache.Set(CreateProduct("source-a", "ams.project", "1.0.0", "com.ams.project"));
+        _cache.Set(CreateProduct("source-a", "ams.project", "2.0.0", "com.ams.project"));
+        _cache.Set(CreateProduct("source-a", "ams.project", "3.0.0", "com.ams.project"));
+
+        // Act
+        var products = _cache.GetAllProducts().ToList();
+
+        // Assert - Should return only latest
+        products.Should().HaveCount(1);
+        products[0].ProductVersion.Should().Be("3.0.0");
+    }
+
+    [Fact]
+    public void GetAllProducts_MixedScenario_ReturnsLatestPerSourceAndGroup()
+    {
+        // Arrange
+        // Source A has v1.0 and v2.0 of product X
+        _cache.Set(CreateProduct("source-a", "ProductX", "1.0.0", "com.example.x"));
+        _cache.Set(CreateProduct("source-a", "ProductX", "2.0.0", "com.example.x"));
+        // Source B has v3.0 of same product X
+        _cache.Set(CreateProduct("source-b", "ProductX", "3.0.0", "com.example.x"));
+        // Source A also has product Y
+        _cache.Set(CreateProduct("source-a", "ProductY", "1.0.0"));
+
+        // Act
+        var products = _cache.GetAllProducts().ToList();
+
+        // Assert - 3 entries: source-a:ProductX (v2.0), source-b:ProductX (v3.0), source-a:ProductY (v1.0)
+        products.Should().HaveCount(3);
+        products.Should().Contain(p => p.SourceId == "source-a" && p.Name == "ProductX" && p.ProductVersion == "2.0.0");
+        products.Should().Contain(p => p.SourceId == "source-b" && p.Name == "ProductX" && p.ProductVersion == "3.0.0");
+        products.Should().Contain(p => p.SourceId == "source-a" && p.Name == "ProductY" && p.ProductVersion == "1.0.0");
+    }
+
+    [Fact]
+    public void GetProductVersionsBySource_ReturnsOnlyVersionsFromSpecificSource()
+    {
+        // Arrange
+        _cache.Set(CreateProduct("source-a", "ProductX", "1.0.0", "com.example.x"));
+        _cache.Set(CreateProduct("source-a", "ProductX", "2.0.0", "com.example.x"));
+        _cache.Set(CreateProduct("source-b", "ProductX", "3.0.0", "com.example.x"));
+
+        // Act
+        var versionsA = _cache.GetProductVersionsBySource("source-a", "com.example.x").ToList();
+        var versionsB = _cache.GetProductVersionsBySource("source-b", "com.example.x").ToList();
+
+        // Assert
+        versionsA.Should().HaveCount(2);
+        versionsA[0].ProductVersion.Should().Be("2.0.0"); // newest first
+        versionsA[1].ProductVersion.Should().Be("1.0.0");
+
+        versionsB.Should().HaveCount(1);
+        versionsB[0].ProductVersion.Should().Be("3.0.0");
+    }
+
+    [Fact]
+    public void GetProductVersionsBySource_NonExistentSource_ReturnsEmpty()
+    {
+        // Arrange
+        _cache.Set(CreateProduct("source-a", "ProductX", "1.0.0", "com.example.x"));
+
+        // Act
+        var versions = _cache.GetProductVersionsBySource("nonexistent", "com.example.x").ToList();
+
+        // Assert
+        versions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void GetProductVersionsBySource_NonExistentGroup_ReturnsEmpty()
+    {
+        // Arrange
+        _cache.Set(CreateProduct("source-a", "ProductX", "1.0.0"));
+
+        // Act
+        var versions = _cache.GetProductVersionsBySource("source-a", "nonexistent").ToList();
+
+        // Assert
+        versions.Should().BeEmpty();
+    }
+
+    #endregion
 }

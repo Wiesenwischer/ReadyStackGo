@@ -7,10 +7,12 @@ namespace ReadyStackGo.Application.UseCases.Stacks.ListProducts;
 public class ListProductsHandler : IRequestHandler<ListProductsQuery, ListProductsResult>
 {
     private readonly IProductSourceService _productSourceService;
+    private readonly IProductCache _productCache;
 
-    public ListProductsHandler(IProductSourceService productSourceService)
+    public ListProductsHandler(IProductSourceService productSourceService, IProductCache productCache)
     {
         _productSourceService = productSourceService;
+        _productCache = productCache;
     }
 
     public async Task<ListProductsResult> Handle(ListProductsQuery request, CancellationToken cancellationToken)
@@ -51,7 +53,11 @@ public class ListProductsHandler : IRequestHandler<ListProductsQuery, ListProduc
                     v.Options?.Select(o => new SelectOptionItem(o.Value, o.Label, o.Description)).ToList()
                 )).ToList()
             )).ToList(),
-            LastSyncedAt: p.LastSyncedAt
+            LastSyncedAt: p.LastSyncedAt,
+            GroupId: p.GroupId,
+            AvailableVersions: _productCache.GetProductVersionsBySource(p.SourceId, p.GroupId)
+                .Select(v => new ProductVersionItem(v.ProductVersion ?? "latest", v.Id))
+                .ToList()
         )).ToList();
 
         return new ListProductsResult(productItems);

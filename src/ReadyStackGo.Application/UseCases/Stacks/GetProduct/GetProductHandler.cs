@@ -33,9 +33,10 @@ public class GetProductHandler : IRequestHandler<GetProductQuery, GetProductResu
         var sources = await _productSourceService.GetSourcesAsync(cancellationToken);
         var sourceNames = sources.ToDictionary(s => s.Id.Value, s => s.Name);
 
-        // Get all versions for this product
+        // Get all versions for this product from the same source
         var allVersions = await _productSourceService.GetProductVersionsAsync(product.GroupId, cancellationToken);
         var availableVersions = allVersions
+            .Where(v => v.SourceId == product.SourceId)
             .Select(v => new ProductVersionInfo(
                 Version: v.ProductVersion ?? "unknown",
                 ProductId: v.Id,
