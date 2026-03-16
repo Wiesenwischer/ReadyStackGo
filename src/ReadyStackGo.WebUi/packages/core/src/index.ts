@@ -99,3 +99,4 @@ export * from './services/EnvironmentService';
 
 // Utils
 export * from './utils/timeAgo';
+export * from './utils/errorParser';
