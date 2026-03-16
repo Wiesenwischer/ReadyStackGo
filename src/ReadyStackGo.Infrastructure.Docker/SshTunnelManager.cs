@@ -121,6 +121,16 @@ public class SshTunnelManager : ISshTunnelManager
     {
         var connectionInfo = CreateConnectionInfo(host, port, username, privateKeyOrPassword, authMethod);
         var client = new SshClient(connectionInfo);
+
+        // Auto-accept host keys (RSGO manages its own trust, no known_hosts file)
+        client.HostKeyReceived += (_, e) =>
+        {
+            _logger.LogDebug("SSH host key received: {FingerPrint} ({KeyLength} bit {HostKeyName})",
+                BitConverter.ToString(e.FingerPrint).Replace("-", ":"),
+                e.KeyLength, e.HostKeyName);
+            e.CanTrust = true;
+        };
+
         client.Connect();
 
         // Find an available remote port for the socat bridge
