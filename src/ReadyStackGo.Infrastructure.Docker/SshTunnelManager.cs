@@ -140,10 +140,12 @@ public class SshTunnelManager : ISshTunnelManager
         // Run in background, will be killed when SSH connection closes
         var socatCmd = $"socat TCP-LISTEN:{remoteBridgePort},fork,reuseaddr,bind=127.0.0.1 UNIX-CONNECT:{remoteSocketPath} &";
         var socatResult = client.RunCommand(socatCmd);
+        _logger.LogInformation("socat command exit: {ExitStatus}, output: '{Result}', error: '{Error}'",
+            socatResult.ExitStatus, socatResult.Result?.Trim(), socatResult.Error?.Trim());
         if (socatResult.ExitStatus != 0)
         {
-            // socat might not be installed — try docker proxy or direct approach
-            _logger.LogWarning("socat not available on remote ({ExitStatus}), trying direct Docker TCP check", socatResult.ExitStatus);
+            _logger.LogWarning("socat not available or failed on remote ({ExitStatus}): {Error}",
+                socatResult.ExitStatus, socatResult.Error?.Trim());
         }
 
         // Small delay to let socat start
@@ -158,11 +160,18 @@ public class SshTunnelManager : ISshTunnelManager
             (uint)remoteBridgePort);
 
         client.AddForwardedPort(forwardedPort);
+        forwardedPort.Exception += (_, e) =>
+            _logger.LogError(e.Exception, "SSH forwarded port exception on localhost:{LocalPort}", localPort);
         forwardedPort.Start();
 
-        _logger.LogDebug(
-            "SSH tunnel created: localhost:{LocalPort} → remote:127.0.0.1:{RemotePort} → {RemoteSocket} via {Host}:{SshPort}",
-            localPort, remoteBridgePort, remoteSocketPath, host, port);
+        if (!forwardedPort.IsStarted)
+        {
+            _logger.LogError("SSH forwarded port failed to start on localhost:{LocalPort}", localPort);
+        }
+
+        _logger.LogInformation(
+            "SSH tunnel created: localhost:{LocalPort} → remote:127.0.0.1:{RemotePort} → {RemoteSocket} via {Host}:{SshPort} (IsStarted={IsStarted})",
+            localPort, remoteBridgePort, remoteSocketPath, host, port, forwardedPort.IsStarted);
 
         return new SshTunnelEntry(client, forwardedPort, localPort, remoteBridgePort);
     }
