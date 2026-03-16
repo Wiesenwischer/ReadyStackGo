@@ -28,6 +28,8 @@ import ExitMaintenanceProduct from "@rsgo/ui-generic/pages/Deployments/ExitMaint
 import ProductDeploymentDetail from "@rsgo/ui-generic/pages/Deployments/ProductDeploymentDetail";
 import Environments from "@rsgo/ui-generic/pages/Environments/Environments";
 import AddEnvironment from "@rsgo/ui-generic/pages/Environments/AddEnvironment";
+import AddDockerSocketEnvironment from "@rsgo/ui-generic/pages/Environments/AddDockerSocketEnvironment";
+import AddSshTunnelEnvironment from "@rsgo/ui-generic/pages/Environments/AddSshTunnelEnvironment";
 import DeleteEnvironment from "@rsgo/ui-generic/pages/Environments/DeleteEnvironment";
 import {
   SettingsIndex,
@@ -324,6 +326,8 @@ export default function App() {
                 {/* Environments page - doesn't require active environment */}
                 <Route path="/environments" element={<Environments />} />
                 <Route path="/environments/add" element={<AddEnvironment />} />
+                <Route path="/environments/add/docker-socket" element={<AddDockerSocketEnvironment />} />
+                <Route path="/environments/add/ssh-tunnel" element={<AddSshTunnelEnvironment />} />
                 <Route path="/environments/:id/delete" element={<DeleteEnvironment />} />
                 {/* Settings pages - don't require active environment */}
                 <Route path="/settings" element={<SettingsIndex />} />
