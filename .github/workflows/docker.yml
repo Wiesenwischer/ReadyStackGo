@@ -3,6 +3,11 @@ name: Docker Build and Push
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag to build (e.g., v0.53.1)'
+        required: true
 
 env:
   DOCKERHUB_IMAGE: wiesenwischer/readystackgo
@@ -16,6 +21,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -75,12 +82,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Extract version from tag
         id: version
         run: |
           # Extract version from tag (e.g., v0.11.0 -> 0.11.0)
-          VERSION=${GITHUB_REF#refs/tags/v}
+          # Support both push-tag and workflow_dispatch triggers
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            VERSION="${{ github.event.inputs.tag }}"
+            VERSION="${VERSION#v}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
           MAJOR=$(echo $VERSION | cut -d. -f1)
           MINOR=$(echo $VERSION | cut -d. -f2)
           echo "semVer=$VERSION" >> $GITHUB_OUTPUT
