@@ -326,7 +326,7 @@ export default function ProductDeploymentDetail() {
           {deployment.stacks
             .sort((a, b) => a.order - b.order)
             .map((stack) => (
-              <StackRow key={stack.stackId} stack={stack} formatDate={store.formatDate} formatStackDuration={store.formatStackDuration} />
+              <StackRow key={stack.stackId} stack={stack} parentOperationMode={deployment.operationMode} formatDate={store.formatDate} formatStackDuration={store.formatStackDuration} />
             ))}
         </div>
       </div>
@@ -381,8 +381,9 @@ function OverviewCard({ label, children }: { label: string; children: React.Reac
   );
 }
 
-function StackRow({ stack, formatDate, formatStackDuration }: { stack: ProductStackDeploymentDto; formatDate: (s: string) => string; formatStackDuration: (s?: string, e?: string) => string }) {
-  const status = getStackStatusPresentation(stack.status);
+function StackRow({ stack, parentOperationMode, formatDate, formatStackDuration }: { stack: ProductStackDeploymentDto; parentOperationMode: string; formatDate: (s: string) => string; formatStackDuration: (s?: string, e?: string) => string }) {
+  const effectiveStackStatus = parentOperationMode === 'Maintenance' ? 'Stopped' : stack.status;
+  const status = getStackStatusPresentation(effectiveStackStatus);
   const displayName = stack.stackDisplayName || stack.stackName;
   const canDrillDown = stack.deploymentStackName;
 
