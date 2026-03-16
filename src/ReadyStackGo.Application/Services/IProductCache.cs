@@ -31,6 +31,12 @@ public interface IProductCache
     IEnumerable<ProductDefinition> GetProductVersions(string groupId);
 
     /// <summary>
+    /// Get all versions of a product from a specific source.
+    /// Returns versions sorted by version number (newest first).
+    /// </summary>
+    IEnumerable<ProductDefinition> GetProductVersionsBySource(string sourceId, string groupId);
+
+    /// <summary>
     /// Get a specific version of a product.
     /// </summary>
     ProductDefinition? GetProductVersion(string groupId, string version);

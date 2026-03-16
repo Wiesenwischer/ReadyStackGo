@@ -92,16 +92,26 @@ export default function ProductDetail() {
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                 {product.name}
               </h1>
-              {product.version && (
+              {product.version && product.availableVersions && product.availableVersions.length > 1 ? (
+                <select
+                  value={product.id}
+                  onChange={(e) => navigate(`/catalog/${encodeURIComponent(e.target.value)}`)}
+                  className="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 border-none cursor-pointer hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                >
+                  {product.availableVersions.map((v) => (
+                    <option key={v.productId} value={v.productId}>
+                      v{v.version}
+                    </option>
+                  ))}
+                </select>
+              ) : product.version ? (
                 <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
                   v{product.version}
-                  {product.availableVersions && product.availableVersions.length > 1 && (
-                    <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
-                      ({product.availableVersions.length} versions)
-                    </span>
-                  )}
                 </span>
-              )}
+              ) : null}
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {product.sourceName}
+              </span>
             </div>
 
             {product.description && (
