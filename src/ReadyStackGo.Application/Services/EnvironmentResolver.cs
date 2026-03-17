@@ -3,39 +3,49 @@ using ReadyStackGo.Domain.Deployment.Environments;
 namespace ReadyStackGo.Application.Services;
 
 /// <summary>
-/// Resolves an environment identifier that can be either a GUID or a name.
+/// Resolves an environment from separate ID and name fields.
+/// Priority: environmentId (GUID) > environmentName (name lookup) > fallback claim.
 /// Used by hook endpoints to allow CI/CD pipelines to reference environments by name.
 /// </summary>
 public static class EnvironmentResolver
 {
     /// <summary>
-    /// Resolves an environment ID or name to an EnvironmentId.
-    /// If the value is a valid GUID, it is used directly.
-    /// Otherwise, a case-insensitive name lookup is performed.
+    /// Resolves an environment from separate ID and name fields.
+    /// Priority: environmentId > environmentName.
     /// </summary>
+    /// <param name="environmentId">Optional GUID identifier.</param>
+    /// <param name="environmentName">Optional environment name for case-insensitive lookup.</param>
+    /// <param name="environmentRepository">Repository for name-based lookups.</param>
     /// <returns>The resolved EnvironmentId, or an error message.</returns>
     public static (EnvironmentId? Id, string? Error) Resolve(
-        string? idOrName,
+        string? environmentId,
+        string? environmentName,
         IEnvironmentRepository environmentRepository)
     {
-        if (string.IsNullOrWhiteSpace(idOrName))
+        // 1. Try environmentId as GUID
+        if (!string.IsNullOrWhiteSpace(environmentId))
         {
-            return (null, "EnvironmentId is required. Provide a GUID or environment name.");
+            if (Guid.TryParse(environmentId, out var envGuid))
+            {
+                return (new EnvironmentId(envGuid), null);
+            }
+
+            return (null, $"Invalid EnvironmentId format: '{environmentId}'. Must be a valid GUID.");
         }
 
-        // Try as GUID first
-        if (Guid.TryParse(idOrName, out var envGuid))
+        // 2. Try environmentName lookup
+        if (!string.IsNullOrWhiteSpace(environmentName))
         {
-            return (new EnvironmentId(envGuid), null);
+            var match = environmentRepository.FindByName(environmentName);
+            if (match == null)
+            {
+                return (null, $"Environment with name '{environmentName}' not found.");
+            }
+
+            return (match.Id, null);
         }
 
-        // Fall back to case-insensitive name lookup
-        var match = environmentRepository.FindByName(idOrName);
-        if (match == null)
-        {
-            return (null, $"Environment '{idOrName}' not found. Provide a valid GUID or environment name.");
-        }
-
-        return (match.Id, null);
+        // 3. Neither provided
+        return (null, "Either EnvironmentId (GUID) or EnvironmentName is required.");
     }
 }

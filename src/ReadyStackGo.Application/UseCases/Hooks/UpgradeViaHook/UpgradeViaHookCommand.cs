@@ -13,6 +13,7 @@ public record UpgradeViaHookRequest
     public required string StackName { get; init; }
     public required string TargetVersion { get; init; }
     public string? EnvironmentId { get; init; }
+    public string? EnvironmentName { get; init; }
     public Dictionary<string, string>? Variables { get; init; }
 }
 
@@ -32,6 +33,7 @@ public record UpgradeViaHookCommand(
     string StackName,
     string TargetVersion,
     string EnvironmentId,
+    string? EnvironmentName = null,
     Dictionary<string, string>? Variables = null
 ) : IRequest<UpgradeViaHookResponse>;
 
@@ -60,7 +62,7 @@ public class UpgradeViaHookHandler : IRequestHandler<UpgradeViaHookCommand, Upgr
     public async Task<UpgradeViaHookResponse> Handle(UpgradeViaHookCommand request, CancellationToken cancellationToken)
     {
         // 1. Resolve environment (GUID or name)
-        var (resolvedEnvId, envError) = EnvironmentResolver.Resolve(request.EnvironmentId, _environmentRepository);
+        var (resolvedEnvId, envError) = EnvironmentResolver.Resolve(request.EnvironmentId, request.EnvironmentName, _environmentRepository);
         if (resolvedEnvId == null)
         {
             return UpgradeViaHookResponse.Failed(envError!);

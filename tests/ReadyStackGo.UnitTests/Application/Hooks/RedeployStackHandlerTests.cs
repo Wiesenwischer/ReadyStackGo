@@ -250,7 +250,7 @@ public class RedeployStackHandlerTests
             CancellationToken.None);
 
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("not found");
+        result.Message.Should().Contain("Invalid EnvironmentId format");
     }
 
     [Fact]
@@ -385,7 +385,7 @@ public class RedeployStackHandlerTests
         SetupSuccessfulDeploy();
 
         await _handler.Handle(
-            new RedeployStackCommand(TestStackName, TestEnvironmentId, null),
+            new RedeployStackCommand(TestStackName, TestEnvironmentId, Variables: null),
             CancellationToken.None);
 
         _mediatorMock.Verify(m => m.Send(
@@ -414,7 +414,7 @@ public class RedeployStackHandlerTests
         SetupSuccessfulDeploy();
 
         await _handler.Handle(
-            new RedeployStackCommand(TestStackName, TestEnvironmentId, webhookVars),
+            new RedeployStackCommand(TestStackName, TestEnvironmentId, Variables: webhookVars),
             CancellationToken.None);
 
         _mediatorMock.Verify(m => m.Send(
@@ -442,7 +442,7 @@ public class RedeployStackHandlerTests
         SetupSuccessfulDeploy();
 
         await _handler.Handle(
-            new RedeployStackCommand(TestStackName, TestEnvironmentId, webhookVars),
+            new RedeployStackCommand(TestStackName, TestEnvironmentId, Variables: webhookVars),
             CancellationToken.None);
 
         _mediatorMock.Verify(m => m.Send(
@@ -466,7 +466,7 @@ public class RedeployStackHandlerTests
         SetupSuccessfulDeploy();
 
         await _handler.Handle(
-            new RedeployStackCommand(TestStackName, TestEnvironmentId, webhookVars),
+            new RedeployStackCommand(TestStackName, TestEnvironmentId, Variables: webhookVars),
             CancellationToken.None);
 
         _mediatorMock.Verify(m => m.Send(
@@ -488,7 +488,7 @@ public class RedeployStackHandlerTests
         SetupSuccessfulDeploy();
 
         await _handler.Handle(
-            new RedeployStackCommand(TestStackName, TestEnvironmentId, webhookVars),
+            new RedeployStackCommand(TestStackName, TestEnvironmentId, Variables: webhookVars),
             CancellationToken.None);
 
         _mediatorMock.Verify(m => m.Send(
@@ -567,7 +567,7 @@ public class RedeployStackHandlerTests
         var variables = new Dictionary<string, string> { ["BUILD_NUM"] = "42" };
 
         await _handler.Handle(
-            new RedeployStackCommand(null, TestEnvironmentId, variables, ProductId: "test.product"),
+            new RedeployStackCommand(null, TestEnvironmentId, Variables: variables, ProductId: "test.product"),
             CancellationToken.None);
 
         _mediatorMock.Verify(m => m.Send(
@@ -619,7 +619,7 @@ public class RedeployStackHandlerTests
             CancellationToken.None);
 
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("not found");
+        result.Message.Should().Contain("Invalid EnvironmentId format");
     }
 
     [Fact]

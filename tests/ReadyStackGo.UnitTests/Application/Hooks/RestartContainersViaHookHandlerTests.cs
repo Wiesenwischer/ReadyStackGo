@@ -138,7 +138,7 @@ public class RestartContainersViaHookHandlerTests
             CancellationToken.None);
 
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("not found");
+        result.Message.Should().Contain("Invalid EnvironmentId format");
     }
 
     [Fact]

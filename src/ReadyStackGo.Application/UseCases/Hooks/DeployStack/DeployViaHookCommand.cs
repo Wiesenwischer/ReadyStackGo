@@ -14,6 +14,7 @@ public record DeployViaHookRequest
     public string? StackId { get; init; }
     public required string StackName { get; init; }
     public string? EnvironmentId { get; init; }
+    public string? EnvironmentName { get; init; }
     public string? ProductId { get; init; }
     public string? Version { get; init; }
     public string? StackDefinitionName { get; init; }
@@ -38,6 +39,7 @@ public record DeployViaHookCommand(
     string StackName,
     string EnvironmentId,
     Dictionary<string, string> Variables,
+    string? EnvironmentName = null,
     string? ProductId = null,
     string? Version = null,
     string? StackDefinitionName = null
@@ -81,7 +83,7 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
             return DeployViaHookResponse.Failed("StackName is required.");
         }
 
-        var (resolvedEnvId, envError) = EnvironmentResolver.Resolve(request.EnvironmentId, _environmentRepository);
+        var (resolvedEnvId, envError) = EnvironmentResolver.Resolve(request.EnvironmentId, request.EnvironmentName, _environmentRepository);
         if (resolvedEnvId == null)
         {
             return DeployViaHookResponse.Failed(envError!);
