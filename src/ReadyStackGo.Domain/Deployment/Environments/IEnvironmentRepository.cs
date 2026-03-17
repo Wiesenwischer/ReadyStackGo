@@ -41,6 +41,12 @@ public interface IEnvironmentRepository
     Environment? GetDefault(OrganizationId organizationId);
 
     /// <summary>
+    /// Finds an environment by name across all organizations.
+    /// Returns null if no environment with the given name exists.
+    /// </summary>
+    Environment? FindByName(string name);
+
+    /// <summary>
     /// Removes an environment.
     /// </summary>
     void Remove(Environment environment);

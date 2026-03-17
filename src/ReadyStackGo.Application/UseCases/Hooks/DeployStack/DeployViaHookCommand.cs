@@ -48,6 +48,7 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
     private readonly IDeploymentRepository _deploymentRepository;
     private readonly IProductDeploymentRepository _productDeploymentRepository;
     private readonly IProductSourceService _productSourceService;
+    private readonly IEnvironmentRepository _environmentRepository;
     private readonly IMediator _mediator;
     private readonly ILogger<DeployViaHookHandler> _logger;
 
@@ -55,12 +56,14 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
         IDeploymentRepository deploymentRepository,
         IProductDeploymentRepository productDeploymentRepository,
         IProductSourceService productSourceService,
+        IEnvironmentRepository environmentRepository,
         IMediator mediator,
         ILogger<DeployViaHookHandler> logger)
     {
         _deploymentRepository = deploymentRepository;
         _productDeploymentRepository = productDeploymentRepository;
         _productSourceService = productSourceService;
+        _environmentRepository = environmentRepository;
         _mediator = mediator;
         _logger = logger;
     }
@@ -78,9 +81,10 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
             return DeployViaHookResponse.Failed("StackName is required.");
         }
 
-        if (!Guid.TryParse(request.EnvironmentId, out var envGuid))
+        var (resolvedEnvId, envError) = EnvironmentResolver.Resolve(request.EnvironmentId, _environmentRepository);
+        if (resolvedEnvId == null)
         {
-            return DeployViaHookResponse.Failed("Invalid environment ID format.");
+            return DeployViaHookResponse.Failed(envError!);
         }
 
         // 1b. Resolve StackId from ProductId if not directly provided
@@ -102,7 +106,7 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
             resolvedStackDefinitionName = resolveResult.StackDefinitionName;
         }
 
-        var environmentId = new EnvironmentId(envGuid);
+        var environmentId = resolvedEnvId;
 
         // 1c. If deploying via ProductId, check if stack belongs to an active ProductDeployment
         // and resolve the actual deployment stack name (e.g., "Analytics" → "ams-project-analytics")
@@ -175,8 +179,9 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
         }
 
         // 3. Delegate to DeployStackCommand
+        var envIdString = resolvedEnvId.Value.ToString();
         var deployResult = await _mediator.Send(new DeployStackCommand(
-            request.EnvironmentId,
+            envIdString,
             stackId,
             deployStackName,
             variables,

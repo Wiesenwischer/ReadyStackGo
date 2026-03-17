@@ -39,30 +39,34 @@ public class UpgradeViaHookHandler : IRequestHandler<UpgradeViaHookCommand, Upgr
 {
     private readonly IDeploymentRepository _deploymentRepository;
     private readonly IProductSourceService _productSourceService;
+    private readonly IEnvironmentRepository _environmentRepository;
     private readonly IMediator _mediator;
     private readonly ILogger<UpgradeViaHookHandler> _logger;
 
     public UpgradeViaHookHandler(
         IDeploymentRepository deploymentRepository,
         IProductSourceService productSourceService,
+        IEnvironmentRepository environmentRepository,
         IMediator mediator,
         ILogger<UpgradeViaHookHandler> logger)
     {
         _deploymentRepository = deploymentRepository;
         _productSourceService = productSourceService;
+        _environmentRepository = environmentRepository;
         _mediator = mediator;
         _logger = logger;
     }
 
     public async Task<UpgradeViaHookResponse> Handle(UpgradeViaHookCommand request, CancellationToken cancellationToken)
     {
-        // 1. Parse environment ID
-        if (!Guid.TryParse(request.EnvironmentId, out var envGuid))
+        // 1. Resolve environment (GUID or name)
+        var (resolvedEnvId, envError) = EnvironmentResolver.Resolve(request.EnvironmentId, _environmentRepository);
+        if (resolvedEnvId == null)
         {
-            return UpgradeViaHookResponse.Failed("Invalid environment ID format.");
+            return UpgradeViaHookResponse.Failed(envError!);
         }
 
-        var environmentId = new EnvironmentId(envGuid);
+        var environmentId = resolvedEnvId;
 
         // 2. Find deployment by stack name + environment
         var deployment = _deploymentRepository.GetByStackName(environmentId, request.StackName);
