@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 using ReadyStackGo.Application.UseCases.Deployments.RedeployProduct;
 using ReadyStackGo.Domain.Deployment.Deployments;
@@ -42,30 +43,34 @@ public class RedeployStackHandler : IRequestHandler<RedeployStackCommand, Redepl
 {
     private readonly IDeploymentRepository _deploymentRepository;
     private readonly IProductDeploymentRepository _productDeploymentRepository;
+    private readonly IEnvironmentRepository _environmentRepository;
     private readonly IMediator _mediator;
     private readonly ILogger<RedeployStackHandler> _logger;
 
     public RedeployStackHandler(
         IDeploymentRepository deploymentRepository,
         IProductDeploymentRepository productDeploymentRepository,
+        IEnvironmentRepository environmentRepository,
         IMediator mediator,
         ILogger<RedeployStackHandler> logger)
     {
         _deploymentRepository = deploymentRepository;
         _productDeploymentRepository = productDeploymentRepository;
+        _environmentRepository = environmentRepository;
         _mediator = mediator;
         _logger = logger;
     }
 
     public async Task<RedeployStackResponse> Handle(RedeployStackCommand request, CancellationToken cancellationToken)
     {
-        // 1. Parse environment ID
-        if (!Guid.TryParse(request.EnvironmentId, out var envGuid))
+        // 1. Resolve environment (GUID or name)
+        var (resolvedEnvId, envError) = EnvironmentResolver.Resolve(request.EnvironmentId, _environmentRepository);
+        if (resolvedEnvId == null)
         {
-            return RedeployStackResponse.Failed("Invalid environment ID format.");
+            return RedeployStackResponse.Failed(envError!);
         }
 
-        var environmentId = new EnvironmentId(envGuid);
+        var environmentId = resolvedEnvId;
 
         // 2. Route: Product redeploy or standalone stack redeploy?
         if (!string.IsNullOrWhiteSpace(request.ProductId))

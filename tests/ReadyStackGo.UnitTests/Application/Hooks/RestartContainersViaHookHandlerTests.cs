@@ -27,6 +27,7 @@ public class RestartContainersViaHookHandlerTests
         _loggerMock = new Mock<ILogger<RestartContainersViaHookHandler>>();
         _handler = new RestartContainersViaHookHandler(
             _productDeploymentRepoMock.Object,
+            Mock.Of<IEnvironmentRepository>(),
             _mediatorMock.Object,
             _loggerMock.Object);
     }
@@ -137,7 +138,7 @@ public class RestartContainersViaHookHandlerTests
             CancellationToken.None);
 
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("Invalid EnvironmentId");
+        result.Message.Should().Contain("not found");
     }
 
     [Fact]
