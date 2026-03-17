@@ -18,6 +18,12 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
     private const string DefaultImage = "wiesenwischer/readystackgo";
     private const string HelperImage = "wiesenwischer/rsgo-updater";
     private const string HelperImageTag = "latest";
+
+    /// <summary>
+    /// Network shared between RSGO and all deployed containers.
+    /// Must match DeploymentEngine.ManagementNetwork.
+    /// </summary>
+    private const string ManagementNetwork = "rsgo-net";
     private const string UpdateContainerSuffix = "-update";
     private const int PullStallTimeoutSeconds = 180; // cancel if no pull progress for 3 minutes
 
@@ -351,29 +357,50 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
 
     /// <summary>
     /// Connects the new container to any additional networks beyond the primary one.
+    /// Always ensures the management network (rsgo-net) is included, even if the
+    /// old container had lost it — prevents a self-perpetuating network disconnect.
     /// </summary>
     private async Task ConnectAdditionalNetworks(
         ContainerInspectResponse inspection, string newContainerId)
     {
-        if (inspection.NetworkSettings?.Networks == null)
-            return;
-
         var primaryNetwork = inspection.HostConfig.NetworkMode ?? "bridge";
 
-        foreach (var (networkName, endpoint) in inspection.NetworkSettings.Networks)
-        {
-            if (networkName == primaryNetwork)
-                continue;
+        // Collect networks from old container + ensure management network
+        var networksToConnect = new Dictionary<string, EndpointSettings?>();
 
+        if (inspection.NetworkSettings?.Networks != null)
+        {
+            foreach (var (networkName, endpoint) in inspection.NetworkSettings.Networks)
+            {
+                if (networkName != primaryNetwork)
+                {
+                    networksToConnect[networkName] = endpoint;
+                }
+            }
+        }
+
+        // Always include the management network for health check DNS resolution
+        if (!networksToConnect.ContainsKey(ManagementNetwork) && primaryNetwork != ManagementNetwork)
+        {
+            networksToConnect[ManagementNetwork] = null;
+            _logger.LogInformation(
+                "Old container was not on {Network} — adding it to ensure health check connectivity",
+                ManagementNetwork);
+        }
+
+        // Ensure the management network exists
+        await EnsureNetworkExistsAsync(ManagementNetwork);
+
+        foreach (var (networkName, endpoint) in networksToConnect)
+        {
             try
             {
                 await _client.Networks.ConnectNetworkAsync(networkName, new NetworkConnectParameters
                 {
                     Container = newContainerId,
-                    EndpointConfig = new EndpointSettings
-                    {
-                        Aliases = endpoint.Aliases
-                    }
+                    EndpointConfig = endpoint != null
+                        ? new EndpointSettings { Aliases = endpoint.Aliases }
+                        : new EndpointSettings()
                 });
 
                 _logger.LogDebug("Connected update container to network {Network}", networkName);
@@ -382,6 +409,26 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
             {
                 _logger.LogWarning(ex, "Failed to connect update container to network {Network}", networkName);
             }
+        }
+    }
+
+    /// <summary>
+    /// Ensures a Docker network exists, creating it if necessary.
+    /// </summary>
+    private async Task EnsureNetworkExistsAsync(string networkName)
+    {
+        try
+        {
+            await _client.Networks.InspectNetworkAsync(networkName);
+        }
+        catch (DockerNetworkNotFoundException)
+        {
+            _logger.LogInformation("Creating Docker network {Network}", networkName);
+            await _client.Networks.CreateNetworkAsync(new NetworksCreateParameters
+            {
+                Name = networkName,
+                Driver = "bridge"
+            });
         }
     }
 
