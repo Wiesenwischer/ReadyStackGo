@@ -18,7 +18,7 @@ public class CredentialEncryptionServiceTests
 
         // Use a temp data directory for auto-generated key
         var tempDir = Path.Combine(Path.GetTempPath(), $"rsgo-test-{Guid.NewGuid()}");
-        configData["DataDirectory"] = tempDir;
+        configData["DataPath"] = tempDir;
 
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(configData)
