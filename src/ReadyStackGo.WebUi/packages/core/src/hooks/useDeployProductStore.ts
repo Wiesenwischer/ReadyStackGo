@@ -145,12 +145,16 @@ export function useDeployProductStore(
       if (update.phase === 'ProductDeploy' && update.currentService) {
         const stackName = update.currentService;
 
-        // Mark previous deploying stack as running
+        // Determine previous stack's result from completedStacks count
+        // Backend sends completedStacks (as completedServices) BEFORE deploying the current stack.
+        // If completedStacks increased past the previous stack's index, it succeeded.
         const prevStack = currentDeployingStackRef.current;
         if (prevStack && prevStack !== stackName) {
+          const prevStackIndex = product?.stacks.findIndex(s => s.name === prevStack) ?? -1;
+          const prevSucceeded = prevStackIndex >= 0 && update.completedServices > prevStackIndex;
           setStackStatuses(prev => ({
             ...prev,
-            [prevStack]: 'running'
+            [prevStack]: prevSucceeded ? 'running' : 'failed'
           }));
         }
 
