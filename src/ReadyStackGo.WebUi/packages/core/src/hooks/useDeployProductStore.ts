@@ -130,6 +130,7 @@ export function useDeployProductStore(
   const [selectedStack, setSelectedStack] = useState<string | null>(null);
   const currentDeployingStackRef = useRef<string | null>(null);
   const userSelectedStackRef = useRef(false);
+  const productStacksRef = useRef<ProductStack[]>([]);
 
   // Results after deployment completes
   const [stackResults, setStackResults] = useState<DeployProductStackResult[]>([]);
@@ -150,7 +151,7 @@ export function useDeployProductStore(
         // If completedStacks increased past the previous stack's index, it succeeded.
         const prevStack = currentDeployingStackRef.current;
         if (prevStack && prevStack !== stackName) {
-          const prevStackIndex = product?.stacks.findIndex(s => s.name === prevStack) ?? -1;
+          const prevStackIndex = productStacksRef.current.findIndex(s => s.name === prevStack);
           const prevSucceeded = prevStackIndex >= 0 && update.completedServices > prevStackIndex;
           setStackStatuses(prev => ({
             ...prev,
@@ -227,6 +228,7 @@ export function useDeployProductStore(
 
         const productData = await getProduct(productSourceId);
         setProduct(productData);
+        productStacksRef.current = productData.stacks;
 
         // Compute shared variables
         const shared = computeSharedVariables(productData.stacks);
