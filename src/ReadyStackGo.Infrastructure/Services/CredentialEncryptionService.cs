@@ -29,7 +29,7 @@ public class CredentialEncryptionService : ICredentialEncryptionService
         else
         {
             // Auto-generate a key and persist it in a file next to the database
-            var dataDir = configuration["DataDirectory"] ?? "/data";
+            var dataDir = configuration["DataPath"] ?? "/app/data";
             var keyFilePath = Path.Combine(dataDir, ".encryption-key");
 
             if (File.Exists(keyFilePath))
