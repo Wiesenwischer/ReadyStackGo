@@ -12,6 +12,7 @@ public record RestartContainersViaHookRequest
     public required string ProductId { get; init; }
     public string? StackDefinitionName { get; init; }
     public string? EnvironmentId { get; init; }
+    public string? EnvironmentName { get; init; }
 }
 
 public record RestartContainersViaHookResponse
@@ -29,7 +30,8 @@ public record RestartContainersViaHookResponse
 public record RestartContainersViaHookCommand(
     string ProductId,
     string? StackDefinitionName,
-    string EnvironmentId
+    string EnvironmentId,
+    string? EnvironmentName = null
 ) : IRequest<RestartContainersViaHookResponse>;
 
 public class RestartContainersViaHookHandler : IRequestHandler<RestartContainersViaHookCommand, RestartContainersViaHookResponse>
@@ -59,7 +61,7 @@ public class RestartContainersViaHookHandler : IRequestHandler<RestartContainers
             return RestartContainersViaHookResponse.Failed("ProductId is required.");
         }
 
-        var (resolvedEnvId, envError) = EnvironmentResolver.Resolve(request.EnvironmentId, _environmentRepository);
+        var (resolvedEnvId, envError) = EnvironmentResolver.Resolve(request.EnvironmentId, request.EnvironmentName, _environmentRepository);
         if (resolvedEnvId == null)
         {
             return RestartContainersViaHookResponse.Failed(envError!);

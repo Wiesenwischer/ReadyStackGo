@@ -38,7 +38,7 @@ public class UpgradeEndpoint : Endpoint<UpgradeViaHookRequest, UpgradeViaHookRes
         }
 
         var response = await _mediator.Send(
-            new UpgradeViaHookCommand(req.StackName, req.TargetVersion, environmentId!, req.Variables), ct);
+            new UpgradeViaHookCommand(req.StackName, req.TargetVersion, environmentId!, req.EnvironmentName, req.Variables), ct);
 
         if (!response.Success)
         {

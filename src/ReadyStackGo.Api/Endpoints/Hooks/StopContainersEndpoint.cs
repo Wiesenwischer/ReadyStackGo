@@ -38,7 +38,7 @@ public class StopContainersEndpoint : Endpoint<StopContainersViaHookRequest, Sto
         }
 
         var response = await _mediator.Send(
-            new StopContainersViaHookCommand(req.ProductId, req.StackDefinitionName, environmentId!), ct);
+            new StopContainersViaHookCommand(req.ProductId, req.StackDefinitionName, environmentId!, req.EnvironmentName), ct);
 
         if (!response.Success)
         {

@@ -13,6 +13,7 @@ public record RedeployStackRequest
 {
     public string? StackName { get; init; }
     public string? EnvironmentId { get; init; }
+    public string? EnvironmentName { get; init; }
     public string? ProductId { get; init; }
     public string? StackDefinitionName { get; init; }
     public Dictionary<string, string>? Variables { get; init; }
@@ -34,6 +35,7 @@ public record RedeployStackResponse
 public record RedeployStackCommand(
     string? StackName,
     string EnvironmentId,
+    string? EnvironmentName = null,
     Dictionary<string, string>? Variables = null,
     string? ProductId = null,
     string? StackDefinitionName = null
@@ -64,7 +66,7 @@ public class RedeployStackHandler : IRequestHandler<RedeployStackCommand, Redepl
     public async Task<RedeployStackResponse> Handle(RedeployStackCommand request, CancellationToken cancellationToken)
     {
         // 1. Resolve environment (GUID or name)
-        var (resolvedEnvId, envError) = EnvironmentResolver.Resolve(request.EnvironmentId, _environmentRepository);
+        var (resolvedEnvId, envError) = EnvironmentResolver.Resolve(request.EnvironmentId, request.EnvironmentName, _environmentRepository);
         if (resolvedEnvId == null)
         {
             return RedeployStackResponse.Failed(envError!);

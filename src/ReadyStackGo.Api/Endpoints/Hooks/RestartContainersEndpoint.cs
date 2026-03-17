@@ -38,7 +38,7 @@ public class RestartContainersEndpoint : Endpoint<RestartContainersViaHookReques
         }
 
         var response = await _mediator.Send(
-            new RestartContainersViaHookCommand(req.ProductId, req.StackDefinitionName, environmentId!), ct);
+            new RestartContainersViaHookCommand(req.ProductId, req.StackDefinitionName, environmentId!, req.EnvironmentName), ct);
 
         if (!response.Success)
         {

@@ -44,7 +44,7 @@ public class RedeployEndpoint : Endpoint<RedeployStackRequest, RedeployStackResp
         }
 
         var response = await _mediator.Send(
-            new RedeployStackCommand(req.StackName, environmentId!, req.Variables, req.ProductId, req.StackDefinitionName), ct);
+            new RedeployStackCommand(req.StackName, environmentId!, req.EnvironmentName, req.Variables, req.ProductId, req.StackDefinitionName), ct);
 
         if (!response.Success)
         {

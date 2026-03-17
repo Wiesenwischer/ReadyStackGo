@@ -123,7 +123,7 @@ public class UpgradeViaHookHandlerTests
         var variables = new Dictionary<string, string> { ["NEW_VAR"] = "value" };
 
         await _handler.Handle(
-            new UpgradeViaHookCommand(TestStackName, "2.0.0", TestEnvironmentId, variables),
+            new UpgradeViaHookCommand(TestStackName, "2.0.0", TestEnvironmentId, Variables: variables),
             CancellationToken.None);
 
         _mediatorMock.Verify(m => m.Send(
@@ -268,7 +268,7 @@ public class UpgradeViaHookHandlerTests
             CancellationToken.None);
 
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("not found");
+        result.Message.Should().Contain("Invalid EnvironmentId format");
     }
 
     #endregion

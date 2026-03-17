@@ -58,7 +58,7 @@ public class UpgradeEndpointIntegrationTests : AuthenticatedTestBase
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var body = await response.Content.ReadAsStringAsync();
-        body.Should().Contain("not found");
+        body.Should().Contain("Invalid EnvironmentId format");
     }
 
     [Fact]

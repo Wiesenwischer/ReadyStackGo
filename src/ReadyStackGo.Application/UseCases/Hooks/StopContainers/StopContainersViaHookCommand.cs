@@ -12,6 +12,7 @@ public record StopContainersViaHookRequest
     public required string ProductId { get; init; }
     public string? StackDefinitionName { get; init; }
     public string? EnvironmentId { get; init; }
+    public string? EnvironmentName { get; init; }
 }
 
 public record StopContainersViaHookResponse
@@ -29,7 +30,8 @@ public record StopContainersViaHookResponse
 public record StopContainersViaHookCommand(
     string ProductId,
     string? StackDefinitionName,
-    string EnvironmentId
+    string EnvironmentId,
+    string? EnvironmentName = null
 ) : IRequest<StopContainersViaHookResponse>;
 
 public class StopContainersViaHookHandler : IRequestHandler<StopContainersViaHookCommand, StopContainersViaHookResponse>
@@ -59,7 +61,7 @@ public class StopContainersViaHookHandler : IRequestHandler<StopContainersViaHoo
             return StopContainersViaHookResponse.Failed("ProductId is required.");
         }
 
-        var (resolvedEnvId, envError) = EnvironmentResolver.Resolve(request.EnvironmentId, _environmentRepository);
+        var (resolvedEnvId, envError) = EnvironmentResolver.Resolve(request.EnvironmentId, request.EnvironmentName, _environmentRepository);
         if (resolvedEnvId == null)
         {
             return StopContainersViaHookResponse.Failed(envError!);
