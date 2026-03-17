@@ -51,6 +51,12 @@ public class EnvironmentRepository : IEnvironmentRepository
             .ToList();
     }
 
+    public Environment? FindByName(string name)
+    {
+        return _context.Environments
+            .FirstOrDefault(e => EF.Functions.Collate(e.Name, "NOCASE") == name);
+    }
+
     public Environment? GetDefault(OrganizationId organizationId)
     {
         return _context.Environments

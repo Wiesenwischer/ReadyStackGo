@@ -34,6 +34,7 @@ public class RedeployStackHandlerTests
         _handler = new RedeployStackHandler(
             _deploymentRepoMock.Object,
             _productDeploymentRepoMock.Object,
+            Mock.Of<IEnvironmentRepository>(),
             _mediatorMock.Object,
             _loggerMock.Object);
     }
@@ -249,7 +250,7 @@ public class RedeployStackHandlerTests
             CancellationToken.None);
 
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("Invalid environment ID");
+        result.Message.Should().Contain("not found");
     }
 
     [Fact]
@@ -260,7 +261,7 @@ public class RedeployStackHandlerTests
             CancellationToken.None);
 
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("Invalid environment ID");
+        result.Message.Should().Contain("required");
     }
 
     [Fact]
@@ -618,7 +619,7 @@ public class RedeployStackHandlerTests
             CancellationToken.None);
 
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("Invalid environment ID");
+        result.Message.Should().Contain("not found");
     }
 
     [Fact]

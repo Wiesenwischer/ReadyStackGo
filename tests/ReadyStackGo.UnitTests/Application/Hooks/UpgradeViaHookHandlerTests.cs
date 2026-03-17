@@ -34,6 +34,7 @@ public class UpgradeViaHookHandlerTests
         _handler = new UpgradeViaHookHandler(
             _deploymentRepoMock.Object,
             _productSourceMock.Object,
+            Mock.Of<IEnvironmentRepository>(),
             _mediatorMock.Object,
             _loggerMock.Object);
     }
@@ -267,7 +268,7 @@ public class UpgradeViaHookHandlerTests
             CancellationToken.None);
 
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("Invalid environment ID");
+        result.Message.Should().Contain("not found");
     }
 
     #endregion

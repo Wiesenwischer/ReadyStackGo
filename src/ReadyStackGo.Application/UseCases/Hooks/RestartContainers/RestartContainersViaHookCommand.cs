@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Deployments.RestartProductContainers;
+using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.ProductDeployments;
 
 namespace ReadyStackGo.Application.UseCases.Hooks.RestartContainers;
@@ -33,15 +35,18 @@ public record RestartContainersViaHookCommand(
 public class RestartContainersViaHookHandler : IRequestHandler<RestartContainersViaHookCommand, RestartContainersViaHookResponse>
 {
     private readonly IProductDeploymentRepository _productDeploymentRepository;
+    private readonly IEnvironmentRepository _environmentRepository;
     private readonly IMediator _mediator;
     private readonly ILogger<RestartContainersViaHookHandler> _logger;
 
     public RestartContainersViaHookHandler(
         IProductDeploymentRepository productDeploymentRepository,
+        IEnvironmentRepository environmentRepository,
         IMediator mediator,
         ILogger<RestartContainersViaHookHandler> logger)
     {
         _productDeploymentRepository = productDeploymentRepository;
+        _environmentRepository = environmentRepository;
         _mediator = mediator;
         _logger = logger;
     }
@@ -54,14 +59,15 @@ public class RestartContainersViaHookHandler : IRequestHandler<RestartContainers
             return RestartContainersViaHookResponse.Failed("ProductId is required.");
         }
 
-        if (!Guid.TryParse(request.EnvironmentId, out var envGuid))
+        var (resolvedEnvId, envError) = EnvironmentResolver.Resolve(request.EnvironmentId, _environmentRepository);
+        if (resolvedEnvId == null)
         {
-            return RestartContainersViaHookResponse.Failed("Invalid EnvironmentId format.");
+            return RestartContainersViaHookResponse.Failed(envError!);
         }
 
         // Resolve active product deployment
         var productDeployment = _productDeploymentRepository.GetActiveByProductGroupId(
-            new Domain.Deployment.Environments.EnvironmentId(envGuid), request.ProductId);
+            resolvedEnvId, request.ProductId);
 
         if (productDeployment == null)
         {

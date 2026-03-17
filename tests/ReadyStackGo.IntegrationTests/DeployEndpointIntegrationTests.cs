@@ -65,7 +65,7 @@ public class DeployEndpointIntegrationTests : AuthenticatedTestBase
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var body = await response.Content.ReadAsStringAsync();
-        body.Should().Contain("Invalid environment ID");
+        body.Should().Contain("not found");
     }
 
     [Fact]
