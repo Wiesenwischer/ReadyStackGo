@@ -33,6 +33,9 @@ public class HealthCollectorBackgroundService : BackgroundService
         // Initial delay to let the application start up
         await Task.Delay(TimeSpan.FromSeconds(_options.InitialDelaySeconds), stoppingToken);
 
+        // Ensure this container is connected to the management network
+        await EnsureManagementNetworkAsync();
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -76,6 +79,81 @@ public class HealthCollectorBackgroundService : BackgroundService
         await healthCollector.CollectAllHealthAsync(stoppingToken);
 
         _logger.LogDebug("Health collection cycle completed");
+    }
+
+    /// <summary>
+    /// Ensures this container is connected to the rsgo-net management network.
+    /// Repairs the connection if it was lost (e.g., after a self-update that didn't preserve it).
+    /// </summary>
+    private async Task EnsureManagementNetworkAsync()
+    {
+        const string managementNetwork = "rsgo-net";
+
+        // Only relevant when running inside Docker
+        var hostname = Environment.GetEnvironmentVariable("HOSTNAME");
+        if (string.IsNullOrEmpty(hostname))
+        {
+            _logger.LogDebug("Not running in Docker, skipping management network check");
+            return;
+        }
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var dockerService = scope.ServiceProvider.GetRequiredService<ISelfUpdateService>();
+
+            // ISelfUpdateService has access to the local Docker client
+            // Use it to check and connect our container to rsgo-net
+            var docker = GetLocalDockerClient();
+
+            // Check if rsgo-net exists
+            try
+            {
+                await docker.Networks.InspectNetworkAsync(managementNetwork);
+            }
+            catch (Docker.DotNet.DockerNetworkNotFoundException)
+            {
+                _logger.LogInformation("Creating management network {Network}", managementNetwork);
+                await docker.Networks.CreateNetworkAsync(new Docker.DotNet.Models.NetworksCreateParameters
+                {
+                    Name = managementNetwork,
+                    Driver = "bridge"
+                });
+            }
+
+            // Check if this container is already on the network
+            var inspection = await docker.Containers.InspectContainerAsync(hostname);
+            if (inspection.NetworkSettings?.Networks?.ContainsKey(managementNetwork) == true)
+            {
+                _logger.LogDebug("Container is already connected to {Network}", managementNetwork);
+                docker.Dispose();
+                return;
+            }
+
+            // Connect this container to rsgo-net
+            await docker.Networks.ConnectNetworkAsync(managementNetwork, new Docker.DotNet.Models.NetworkConnectParameters
+            {
+                Container = hostname
+            });
+
+            _logger.LogWarning(
+                "Container was not on {Network} — connected automatically. Health checks should now work correctly",
+                managementNetwork);
+
+            docker.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to ensure management network connectivity. Health checks may not work for HTTP-checked services");
+        }
+    }
+
+    private static Docker.DotNet.DockerClient GetLocalDockerClient()
+    {
+        var socketUri = OperatingSystem.IsWindows()
+            ? new Uri("npipe://./pipe/docker_engine")
+            : new Uri("unix:///var/run/docker.sock");
+        return new Docker.DotNet.DockerClientConfiguration(socketUri).CreateClient();
     }
 
     private void CleanupOldSnapshots()
