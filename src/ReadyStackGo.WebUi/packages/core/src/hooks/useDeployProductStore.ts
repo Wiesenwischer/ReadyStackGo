@@ -130,6 +130,7 @@ export function useDeployProductStore(
   const [selectedStack, setSelectedStack] = useState<string | null>(null);
   const currentDeployingStackRef = useRef<string | null>(null);
   const userSelectedStackRef = useRef(false);
+  const productStacksRef = useRef<ProductStack[]>([]);
 
   // Results after deployment completes
   const [stackResults, setStackResults] = useState<DeployProductStackResult[]>([]);
@@ -145,12 +146,16 @@ export function useDeployProductStore(
       if (update.phase === 'ProductDeploy' && update.currentService) {
         const stackName = update.currentService;
 
-        // Mark previous deploying stack as running
+        // Determine previous stack's result from completedStacks count
+        // Backend sends completedStacks (as completedServices) BEFORE deploying the current stack.
+        // If completedStacks increased past the previous stack's index, it succeeded.
         const prevStack = currentDeployingStackRef.current;
         if (prevStack && prevStack !== stackName) {
+          const prevStackIndex = productStacksRef.current.findIndex(s => s.name === prevStack);
+          const prevSucceeded = prevStackIndex >= 0 && update.completedServices > prevStackIndex;
           setStackStatuses(prev => ({
             ...prev,
-            [prevStack]: 'running'
+            [prevStack]: prevSucceeded ? 'running' : 'failed'
           }));
         }
 
@@ -223,6 +228,7 @@ export function useDeployProductStore(
 
         const productData = await getProduct(productSourceId);
         setProduct(productData);
+        productStacksRef.current = productData.stacks;
 
         // Compute shared variables
         const shared = computeSharedVariables(productData.stacks);
