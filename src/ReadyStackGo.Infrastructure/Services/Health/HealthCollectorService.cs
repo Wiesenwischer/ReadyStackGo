@@ -74,8 +74,12 @@ public class HealthCollectorService : IHealthCollectorService
 
             try
             {
-                // Map health check configs from deployment to application layer format
-                var serviceHealthConfigs = MapHealthCheckConfigs(deployment.HealthCheckConfigs);
+                // Map health check configs from deployment to application layer format.
+                // For SSH tunnel environments, skip HTTP health checks — RSGO cannot resolve
+                // container hostnames on the remote Docker network. Use Docker-native status only.
+                var serviceHealthConfigs = environment.Type == EnvironmentType.SshTunnel
+                    ? null
+                    : MapHealthCheckConfigs(deployment.HealthCheckConfigs);
 
                 var snapshot = await _healthMonitoringService.CaptureHealthSnapshotAsync(
                     environment.OrganizationId,
