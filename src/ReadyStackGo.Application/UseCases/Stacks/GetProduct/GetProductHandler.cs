@@ -77,7 +77,8 @@ public class GetProductHandler : IRequestHandler<GetProductQuery, GetProductResu
                     v.PatternError,
                     v.Min,
                     v.Max,
-                    v.Options?.Select(o => new SelectOptionDetails(o.Value, o.Label ?? o.Value, o.Description)).ToList()
+                    v.Options?.Select(o => new SelectOptionDetails(o.Value, o.Label ?? o.Value, o.Description)).ToList(),
+                    v.DefaultTransient
                 )).ToList()
             )).ToList(),
             LastSyncedAt: product.LastSyncedAt,

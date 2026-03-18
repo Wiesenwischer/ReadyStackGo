@@ -13,15 +13,44 @@ export interface VariableInputProps {
   onChange: (value: string) => void;
   error?: string;
   disabled?: boolean;
+  /** Whether this variable will be saved (persisted). undefined = no checkbox shown. */
+  saveValue?: boolean;
+  /** Callback when user toggles the save checkbox. */
+  onSaveValueChange?: (save: boolean) => void;
 }
 
 /**
  * Factory component that renders the appropriate input based on variable type.
  */
 export default function VariableInput(props: VariableInputProps) {
-  const { variable } = props;
+  const { variable, saveValue, onSaveValueChange } = props;
   const type = variable.type || 'String';
+  const inputElement = renderInput(props, type);
 
+  if (onSaveValueChange === undefined) {
+    return inputElement;
+  }
+
+  return (
+    <div>
+      {inputElement}
+      <label className="mt-1.5 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={saveValue ?? true}
+          onChange={(e) => onSaveValueChange(e.target.checked)}
+          className="rounded border-gray-300 text-brand-600 focus:ring-brand-500 h-3.5 w-3.5"
+        />
+        Save value
+        {!saveValue && (
+          <span className="text-amber-600 dark:text-amber-400">— will not be stored, must be re-entered on redeploy</span>
+        )}
+      </label>
+    </div>
+  );
+}
+
+function renderInput(props: VariableInputProps, type: string) {
   switch (type) {
     case 'Number':
       return <NumberInput {...props} />;

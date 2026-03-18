@@ -76,4 +76,11 @@ public class DeployStackRequest
     /// Used for display in Container Management instead of the composite project name.
     /// </summary>
     public string? StackDefinitionName { get; set; }
+
+    /// <summary>
+    /// Variable names that should NOT be persisted in the deployment entity.
+    /// These variables are passed to Docker but not stored for redeployment.
+    /// User-controlled via "Save value" checkbox in the UI.
+    /// </summary>
+    public HashSet<string>? ExcludeFromStorage { get; set; }
 }

@@ -451,6 +451,11 @@ public class DeployComposeRequest
     /// If provided, clients can subscribe before calling this endpoint to receive all progress updates.
     /// </summary>
     public string? SessionId { get; set; }
+
+    /// <summary>
+    /// Variable names that should NOT be persisted in the deployment entity.
+    /// </summary>
+    public HashSet<string>? ExcludeFromStorage { get; set; }
 }
 
 /// <summary>

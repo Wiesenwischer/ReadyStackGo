@@ -50,7 +50,8 @@ public class ListProductsHandler : IRequestHandler<ListProductsQuery, ListProduc
                     v.PatternError,
                     v.Min,
                     v.Max,
-                    v.Options?.Select(o => new SelectOptionItem(o.Value, o.Label, o.Description)).ToList()
+                    v.Options?.Select(o => new SelectOptionItem(o.Value, o.Label, o.Description)).ToList(),
+                    v.DefaultTransient
                 )).ToList()
             )).ToList(),
             LastSyncedAt: p.LastSyncedAt,
