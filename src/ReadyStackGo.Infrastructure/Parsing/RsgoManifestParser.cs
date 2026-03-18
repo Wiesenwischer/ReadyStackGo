@@ -496,7 +496,8 @@ public class RsgoManifestParser : IRsgoManifestParser
             placeholder: def.Placeholder,
             group: def.Group,
             order: def.Order,
-            isRequired: def.Required
+            isRequired: def.Required,
+            defaultTransient: def.DefaultTransient ?? false
         );
     }
 

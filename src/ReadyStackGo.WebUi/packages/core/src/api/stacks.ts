@@ -46,6 +46,7 @@ export interface StackVariable {
   placeholder?: string;
   group?: string;
   order?: number;
+  defaultTransient?: boolean;
 }
 
 export interface Stack {

@@ -232,10 +232,16 @@ public class DeploymentService : IDeploymentService
 
             deployment.SetStackVersion(plan.StackVersion);
 
-            // Store deployment variables for later use (e.g., maintenance observer)
+            // Store deployment variables for later use (e.g., maintenance observer).
+            // Variables in ExcludeFromStorage are passed to Docker but not persisted —
+            // the user chose not to save them (e.g., sensitive one-time credentials).
             if (request.Variables != null && request.Variables.Count > 0)
             {
-                deployment.SetVariables(request.Variables);
+                var varsToStore = FilterExcludedVariables(request.Variables, request.ExcludeFromStorage);
+                if (varsToStore.Count > 0)
+                {
+                    deployment.SetVariables(varsToStore);
+                }
             }
 
             // Record init container results (with log output)
@@ -891,7 +897,9 @@ public class DeploymentService : IDeploymentService
 
                 if (request.Variables != null && request.Variables.Count > 0)
                 {
-                    deployment.SetVariables(request.Variables);
+                    var varsToStore = FilterExcludedVariables(request.Variables, request.ExcludeFromStorage);
+                    if (varsToStore.Count > 0)
+                        deployment.SetVariables(varsToStore);
                 }
                 if (request.MaintenanceObserver != null)
                 {
@@ -943,7 +951,9 @@ public class DeploymentService : IDeploymentService
 
                 if (request.Variables != null && request.Variables.Count > 0)
                 {
-                    deployment.SetVariables(request.Variables);
+                    var varsToStore = FilterExcludedVariables(request.Variables, request.ExcludeFromStorage);
+                    if (varsToStore.Count > 0)
+                        deployment.SetVariables(varsToStore);
                 }
                 if (request.MaintenanceObserver != null)
                 {
@@ -1250,5 +1260,21 @@ public class DeploymentService : IDeploymentService
                 LogOutput = r.LogOutput
             }).ToList()
         };
+    }
+
+    /// <summary>
+    /// Filters out variables that the user chose not to persist.
+    /// Returns the original dictionary if no exclusions are specified.
+    /// </summary>
+    private static Dictionary<string, string> FilterExcludedVariables(
+        Dictionary<string, string> variables,
+        HashSet<string>? excludeFromStorage)
+    {
+        if (excludeFromStorage is not { Count: > 0 })
+            return variables;
+
+        return variables
+            .Where(kvp => !excludeFromStorage.Contains(kvp.Key))
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
     }
 }

@@ -34,7 +34,8 @@ public record StackVariableItem(
     string? PatternError,
     double? Min,
     double? Max,
-    List<SelectOptionItem>? Options
+    List<SelectOptionItem>? Options,
+    bool DefaultTransient = false
 );
 
 public record SelectOptionItem(

@@ -40,7 +40,8 @@ public class ListStacksHandler : IRequestHandler<ListStacksQuery, ListStacksResu
                 v.PatternError,
                 v.Min,
                 v.Max,
-                v.Options?.Select(o => new SelectOptionItem(o.Value, o.Label, o.Description)).ToList()
+                v.Options?.Select(o => new SelectOptionItem(o.Value, o.Label, o.Description)).ToList(),
+                v.DefaultTransient
             )).ToList(),
             s.LastSyncedAt,
             s.Version

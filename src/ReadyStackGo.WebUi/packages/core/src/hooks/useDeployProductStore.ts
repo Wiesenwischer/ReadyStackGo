@@ -79,6 +79,7 @@ export interface UseDeployProductStoreReturn {
   selectedStack: string | null;
   stackResults: DeployProductStackResult[];
   connectionState: ConnectionState;
+  excludeFromStorage: Set<string>;
 
   // Actions
   setContinueOnError: (value: boolean) => void;
@@ -90,6 +91,7 @@ export interface UseDeployProductStoreReturn {
   handleEnvFileContent: (content: string) => void;
   handleResetToDefaults: () => void;
   handleDeploy: () => Promise<void>;
+  setVariableSave: (varName: string, save: boolean) => void;
 
   // Computed / helpers
   backUrl: string;
@@ -114,6 +116,9 @@ export function useDeployProductStore(
 
   // Accordion: which stacks are expanded
   const [expandedStacks, setExpandedStacks] = useState<Set<string>>(new Set());
+
+  // Track which variables the user chose NOT to save
+  const [excludeFromStorage, setExcludeFromStorage] = useState<Set<string>>(new Set());
 
   // Computed shared variables
   const [sharedVars, setSharedVars] = useState<StackVariable[]>([]);
@@ -229,6 +234,17 @@ export function useDeployProductStore(
         const productData = await getProduct(productSourceId);
         setProduct(productData);
         productStacksRef.current = productData.stacks;
+
+        // Initialize excludeFromStorage from defaultTransient hints
+        const defaultExcluded = new Set<string>();
+        for (const stack of productData.stacks) {
+          for (const v of stack.variables) {
+            if (v.defaultTransient) {
+              defaultExcluded.add(v.name);
+            }
+          }
+        }
+        setExcludeFromStorage(defaultExcluded);
 
         // Compute shared variables
         const shared = computeSharedVariables(productData.stacks);
@@ -456,6 +472,7 @@ export function useDeployProductStore(
         sharedVariables: sharedVariableValues,
         sessionId,
         continueOnError,
+        excludeFromStorage: excludeFromStorage.size > 0 ? [...excludeFromStorage] : undefined,
       });
 
       setStackResults(response.stackResults || []);
@@ -522,6 +539,7 @@ export function useDeployProductStore(
     selectedStack,
     stackResults,
     connectionState,
+    excludeFromStorage,
     setContinueOnError,
     setDeploymentName,
     setSharedVariableValue,
@@ -531,6 +549,17 @@ export function useDeployProductStore(
     handleEnvFileContent,
     handleResetToDefaults,
     handleDeploy,
+    setVariableSave: (varName: string, save: boolean) => {
+      setExcludeFromStorage(prev => {
+        const next = new Set(prev);
+        if (save) {
+          next.delete(varName);
+        } else {
+          next.add(varName);
+        }
+        return next;
+      });
+    },
     backUrl,
     toKebabCase,
     getStackSpecificVariables,
