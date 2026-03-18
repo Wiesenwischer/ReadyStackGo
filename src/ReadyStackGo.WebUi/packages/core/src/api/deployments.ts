@@ -418,6 +418,8 @@ export interface DeployProductRequest {
   sessionId?: string;
   /** Whether to continue deploying remaining stacks if one fails (default: true) */
   continueOnError?: boolean;
+  /** Variable names the user chose NOT to persist (transient/sensitive values) */
+  excludeFromStorage?: string[];
 }
 
 /**

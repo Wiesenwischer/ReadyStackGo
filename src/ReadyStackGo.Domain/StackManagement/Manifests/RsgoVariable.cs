@@ -70,4 +70,11 @@ public class RsgoVariable
     /// Display order within group.
     /// </summary>
     public int Order { get; set; } = 0;
+
+    /// <summary>
+    /// Whether the "Save value" checkbox should be unchecked by default in the UI.
+    /// When true, the user must explicitly opt-in to saving this variable.
+    /// Useful for sensitive values like admin passwords or setup credentials.
+    /// </summary>
+    public bool? DefaultTransient { get; set; }
 }

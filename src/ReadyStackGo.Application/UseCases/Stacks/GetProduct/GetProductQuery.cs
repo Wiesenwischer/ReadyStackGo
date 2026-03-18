@@ -165,7 +165,8 @@ public record StackVariableDetails(
     string? PatternError,
     double? Min,
     double? Max,
-    List<SelectOptionDetails>? Options
+    List<SelectOptionDetails>? Options,
+    bool DefaultTransient = false
 );
 
 /// <summary>

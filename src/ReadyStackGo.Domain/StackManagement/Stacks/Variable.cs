@@ -78,6 +78,12 @@ public record Variable
     /// </summary>
     public int Order { get; }
 
+    /// <summary>
+    /// Whether the "Save value" checkbox should default to unchecked in the UI.
+    /// The user always has the final decision — this is just the default state.
+    /// </summary>
+    public bool DefaultTransient { get; }
+
     public Variable(string name, string? defaultValue = null, string? description = null)
         : this(name, defaultValue, description, VariableType.String) { }
 
@@ -95,7 +101,8 @@ public record Variable
         string? placeholder = null,
         string? group = null,
         int order = 0,
-        bool? isRequired = null)
+        bool? isRequired = null,
+        bool defaultTransient = false)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Variable name cannot be empty.", nameof(name));
@@ -114,6 +121,7 @@ public record Variable
         Placeholder = placeholder;
         Group = group;
         Order = order;
+        DefaultTransient = defaultTransient;
     }
 
     /// <summary>
@@ -124,7 +132,7 @@ public record Variable
         return new Variable(
             Name, defaultValue, Description, Type, Label,
             Pattern, PatternError, Options, Min, Max,
-            Placeholder, Group, Order, IsRequired);
+            Placeholder, Group, Order, IsRequired, DefaultTransient);
     }
 
     /// <summary>
