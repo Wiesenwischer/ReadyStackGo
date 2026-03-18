@@ -119,6 +119,7 @@ export function useDeployProductStore(
 
   // Track which variables the user chose NOT to save
   const [excludeFromStorage, setExcludeFromStorage] = useState<Set<string>>(new Set());
+  const excludeFromStorageRef = useRef<Set<string>>(new Set());
 
   // Computed shared variables
   const [sharedVars, setSharedVars] = useState<StackVariable[]>([]);
@@ -245,6 +246,7 @@ export function useDeployProductStore(
           }
         }
         setExcludeFromStorage(defaultExcluded);
+        excludeFromStorageRef.current = defaultExcluded;
 
         // Compute shared variables
         const shared = computeSharedVariables(productData.stacks);
@@ -472,7 +474,7 @@ export function useDeployProductStore(
         sharedVariables: sharedVariableValues,
         sessionId,
         continueOnError,
-        excludeFromStorage: excludeFromStorage.size > 0 ? [...excludeFromStorage] : undefined,
+        excludeFromStorage: excludeFromStorageRef.current.size > 0 ? [...excludeFromStorageRef.current] : undefined,
       });
 
       setStackResults(response.stackResults || []);
@@ -557,6 +559,7 @@ export function useDeployProductStore(
         } else {
           next.add(varName);
         }
+        excludeFromStorageRef.current = next;
         return next;
       });
     },
