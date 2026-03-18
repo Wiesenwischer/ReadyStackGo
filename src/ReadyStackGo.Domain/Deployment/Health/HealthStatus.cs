@@ -13,6 +13,7 @@ public sealed class HealthStatus : ValueObject
     public static readonly HealthStatus Unhealthy = new(2, "Unhealthy", "Component is not operational", Severity.Critical);
     public static readonly HealthStatus Unknown = new(3, "Unknown", "Health status could not be determined", Severity.Info);
     public static readonly HealthStatus NotFound = new(4, "NotFound", "No containers found for the service", Severity.Critical);
+    public static readonly HealthStatus Running = new(5, "Running", "Container is running but no health check is configured", Severity.None);
 
     private static readonly Dictionary<int, HealthStatus> _byValue = new()
     {
@@ -20,7 +21,8 @@ public sealed class HealthStatus : ValueObject
         { Degraded.Value, Degraded },
         { Unhealthy.Value, Unhealthy },
         { Unknown.Value, Unknown },
-        { NotFound.Value, NotFound }
+        { NotFound.Value, NotFound },
+        { Running.Value, Running }
     };
 
     private static readonly Dictionary<string, HealthStatus> _byName = new(StringComparer.OrdinalIgnoreCase)
@@ -29,7 +31,8 @@ public sealed class HealthStatus : ValueObject
         { Degraded.Name, Degraded },
         { Unhealthy.Name, Unhealthy },
         { Unknown.Name, Unknown },
-        { NotFound.Name, NotFound }
+        { NotFound.Name, NotFound },
+        { Running.Name, Running }
     };
 
     /// <summary>
@@ -66,7 +69,7 @@ public sealed class HealthStatus : ValueObject
     /// <summary>
     /// Indicates if the status represents an operational state.
     /// </summary>
-    public bool IsOperational => this == Healthy || this == Degraded;
+    public bool IsOperational => this == Healthy || this == Degraded || this == Running;
 
     /// <summary>
     /// Indicates if the status requires attention.
@@ -133,6 +136,7 @@ public sealed class HealthStatus : ValueObject
         yield return Unhealthy;
         yield return Unknown;
         yield return NotFound;
+        yield return Running;
     }
 
     protected override IEnumerable<object?> GetEqualityComponents()
