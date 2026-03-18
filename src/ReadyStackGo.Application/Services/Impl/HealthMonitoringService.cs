@@ -246,8 +246,9 @@ public class HealthMonitoringService : IHealthMonitoringService
             reason = DetermineHealthReason(container, healthStatus);
         }
 
-        // Only fetch RestartCount for unhealthy containers
-        if (healthStatus != HealthStatus.Healthy && !string.IsNullOrEmpty(container.Id))
+        // Only fetch RestartCount for non-healthy containers (not for Healthy or Running)
+        if (healthStatus != HealthStatus.Healthy && healthStatus != HealthStatus.Running
+            && !string.IsNullOrEmpty(container.Id))
         {
             restartCount = await _dockerService.GetContainerRestartCountAsync(
                 environmentId, container.Id, cancellationToken);
@@ -423,16 +424,28 @@ public class HealthMonitoringService : IHealthMonitoringService
     }
 
     /// <summary>
-    /// Determines the health status based on Docker container state.
-    /// Docker's native HEALTHCHECK is ignored because it depends on tools (curl/wget)
-    /// that may not be available in the container image, leading to false "unhealthy" reports.
-    /// RSGO performs its own HTTP health checks via configured health endpoints instead.
+    /// Determines the health status based on Docker container state and HEALTHCHECK.
+    /// If a Docker HEALTHCHECK is defined, its result is authoritative.
+    /// If no HEALTHCHECK is defined, falls back to container state (running = no health info available).
     /// </summary>
     private static HealthStatus DetermineHealthStatusFromDocker(ContainerDto container)
     {
+        // Use Docker HEALTHCHECK status if available
+        if (!string.IsNullOrEmpty(container.HealthStatus) && container.HealthStatus != "none")
+        {
+            return container.HealthStatus.ToLowerInvariant() switch
+            {
+                "healthy" => HealthStatus.Healthy,
+                "unhealthy" => HealthStatus.Unhealthy,
+                "starting" => HealthStatus.Degraded,
+                _ => HealthStatus.Unknown
+            };
+        }
+
+        // No HEALTHCHECK defined — container is running but health is unverified
         return container.State.ToLowerInvariant() switch
         {
-            "running" => HealthStatus.Healthy,
+            "running" => HealthStatus.Running,
             "restarting" => HealthStatus.Degraded,
             "paused" => HealthStatus.Degraded,
             "exited" => HealthStatus.Unhealthy,

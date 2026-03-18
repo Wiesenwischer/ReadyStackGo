@@ -216,12 +216,12 @@ public class HealthMonitoringServiceTests
     [Fact]
     public async Task CaptureHealthSnapshot_MixedContainers_OnlyFetchesRestartCountForUnhealthy()
     {
-        // Arrange - Docker HEALTHCHECK is ignored; only container state matters for fallback
+        // Arrange - Docker HEALTHCHECK is respected; running without healthcheck = Running
         var containers = new[]
         {
-            CreateContainer("c1", "web", "running", "none"),          // Healthy (running) - no fetch
-            CreateContainer("c2", "api", "running", "unhealthy"),     // Healthy (running, HEALTHCHECK ignored) - no fetch
-            CreateContainer("c3", "worker", "running", "none"),       // Healthy (running) - no fetch
+            CreateContainer("c1", "web", "running", "none"),          // Running (no HEALTHCHECK) - no fetch
+            CreateContainer("c2", "api", "running", "unhealthy"),     // Unhealthy (Docker HEALTHCHECK) - fetch
+            CreateContainer("c3", "worker", "running", "healthy"),    // Healthy (Docker HEALTHCHECK) - no fetch
             CreateContainer("c4", "db", "exited", "none"),            // Unhealthy (exited) - fetch
             CreateContainer("c5", "cache", "restarting", "none")      // Degraded (restarting) - fetch
         };
@@ -230,6 +230,9 @@ public class HealthMonitoringServiceTests
             .Setup(d => d.ListContainersAsync(_envId.Value.ToString(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(containers);
 
+        _dockerServiceMock
+            .Setup(d => d.GetContainerRestartCountAsync(_envId.Value.ToString(), "c2", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(2);
         _dockerServiceMock
             .Setup(d => d.GetContainerRestartCountAsync(_envId.Value.ToString(), "c4", It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
@@ -245,40 +248,66 @@ public class HealthMonitoringServiceTests
         var snapshot = await _service.CaptureHealthSnapshotAsync(
             _orgId, _envId, _deploymentId, "test-stack", "1.0.0", serviceHealthConfigs: null);
 
-        // Assert - Only 2 calls for truly unhealthy/degraded containers (exited + restarting)
+        // Assert - 3 calls: c2 (Docker HEALTHCHECK unhealthy), c4 (exited), c5 (restarting)
         _dockerServiceMock.Verify(
             d => d.GetContainerRestartCountAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Exactly(2),
-            "RestartCount should only be fetched for 2 non-healthy containers (exited + restarting)");
+            Times.Exactly(3));
 
-        // Verify running containers (regardless of Docker HEALTHCHECK) don't trigger fetch
+        // Running and Healthy containers don't trigger fetch
         _dockerServiceMock.Verify(
             d => d.GetContainerRestartCountAsync(_envId.Value.ToString(), "c1", It.IsAny<CancellationToken>()),
-            Times.Never);
-        _dockerServiceMock.Verify(
-            d => d.GetContainerRestartCountAsync(_envId.Value.ToString(), "c2", It.IsAny<CancellationToken>()),
             Times.Never);
         _dockerServiceMock.Verify(
             d => d.GetContainerRestartCountAsync(_envId.Value.ToString(), "c3", It.IsAny<CancellationToken>()),
             Times.Never);
 
-        // Check RestartCount values
-        snapshot.Self.Services.Single(s => s.Name == "web").RestartCount.Should().BeNull();
-        snapshot.Self.Services.Single(s => s.Name == "api").RestartCount.Should().BeNull();
-        snapshot.Self.Services.Single(s => s.Name == "worker").RestartCount.Should().BeNull();
+        // Check statuses
+        snapshot.Self.Services.Single(s => s.Name == "web").Status.Should().Be(HealthStatus.Running);
+        snapshot.Self.Services.Single(s => s.Name == "api").Status.Should().Be(HealthStatus.Unhealthy);
+        snapshot.Self.Services.Single(s => s.Name == "worker").Status.Should().Be(HealthStatus.Healthy);
         snapshot.Self.Services.Single(s => s.Name == "db").RestartCount.Should().Be(1);
         snapshot.Self.Services.Single(s => s.Name == "cache").RestartCount.Should().Be(7);
     }
 
     [Fact]
-    public async Task CaptureHealthSnapshot_RunningContainerWithDockerHealthCheck_IgnoresDockerHealthStatus()
+    public async Task CaptureHealthSnapshot_RunningContainerWithDockerHealthCheck_UsesDockerHealthStatus()
     {
-        // Arrange - Docker HEALTHCHECK "starting"/"unhealthy" is ignored for running containers.
-        // RSGO uses its own HTTP health checks instead. Running state = Healthy.
+        // Arrange - Docker HEALTHCHECK status is used when available
         var containers = new[]
         {
-            CreateContainer("c1", "web", "running", "starting"),
-            CreateContainer("c2", "api", "running", "unhealthy")
+            CreateContainer("c1", "web", "running", "healthy"),
+            CreateContainer("c2", "api", "running", "unhealthy"),
+            CreateContainer("c3", "worker", "running", "starting")
+        };
+
+        _dockerServiceMock
+            .Setup(d => d.ListContainersAsync(_envId.Value.ToString(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(containers);
+        _dockerServiceMock
+            .Setup(d => d.GetContainerRestartCountAsync(_envId.Value.ToString(), "c2", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+
+        _deploymentRepoMock
+            .Setup(r => r.Get(_deploymentId))
+            .Returns((Deployment?)null);
+
+        // Act
+        var snapshot = await _service.CaptureHealthSnapshotAsync(
+            _orgId, _envId, _deploymentId, "test-stack", "1.0.0", serviceHealthConfigs: null);
+
+        // Assert - Docker HEALTHCHECK status is respected
+        snapshot.Self.Services.Single(s => s.Name == "web").Status.Should().Be(HealthStatus.Healthy);
+        snapshot.Self.Services.Single(s => s.Name == "api").Status.Should().Be(HealthStatus.Unhealthy);
+        snapshot.Self.Services.Single(s => s.Name == "worker").Status.Should().Be(HealthStatus.Degraded);
+    }
+
+    [Fact]
+    public async Task CaptureHealthSnapshot_RunningContainerWithoutHealthCheck_ReturnsRunning()
+    {
+        // Arrange - No Docker HEALTHCHECK defined (healthStatus = "none")
+        var containers = new[]
+        {
+            CreateContainer("c1", "web", "running", healthStatus: "none"),
         };
 
         _dockerServiceMock
@@ -293,14 +322,8 @@ public class HealthMonitoringServiceTests
         var snapshot = await _service.CaptureHealthSnapshotAsync(
             _orgId, _envId, _deploymentId, "test-stack", "1.0.0", serviceHealthConfigs: null);
 
-        // Assert - Both containers are Healthy because they are running
-        _dockerServiceMock.Verify(
-            d => d.GetContainerRestartCountAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Never,
-            "RestartCount should NOT be fetched for running containers (Docker HEALTHCHECK ignored)");
-
-        snapshot.Self.Services.Single(s => s.Name == "web").Status.Should().Be(HealthStatus.Healthy);
-        snapshot.Self.Services.Single(s => s.Name == "api").Status.Should().Be(HealthStatus.Healthy);
+        // Assert - Running without health check = Running (not Healthy)
+        snapshot.Self.Services.Single(s => s.Name == "web").Status.Should().Be(HealthStatus.Running);
     }
 
     #endregion

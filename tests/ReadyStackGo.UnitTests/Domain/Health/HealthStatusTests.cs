@@ -12,16 +12,17 @@ public class HealthStatusTests
     #region Static Instances
 
     [Fact]
-    public void HealthStatus_HasFiveDefinedStatuses()
+    public void HealthStatus_HasSixDefinedStatuses()
     {
         var allStatuses = HealthStatus.GetAll().ToList();
 
-        allStatuses.Should().HaveCount(5);
+        allStatuses.Should().HaveCount(6);
         allStatuses.Should().Contain(HealthStatus.Healthy);
         allStatuses.Should().Contain(HealthStatus.Degraded);
         allStatuses.Should().Contain(HealthStatus.Unhealthy);
         allStatuses.Should().Contain(HealthStatus.Unknown);
         allStatuses.Should().Contain(HealthStatus.NotFound);
+        allStatuses.Should().Contain(HealthStatus.Running);
     }
 
     [Fact]
