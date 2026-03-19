@@ -532,6 +532,8 @@ export default function DeployProduct() {
                           variable={v}
                           value={store.sharedVariableValues[v.name] || ''}
                           onChange={(newValue) => store.setSharedVariableValue(v.name, newValue)}
+                          saveValue={!store.excludeFromStorage.has(v.name)}
+                          onSaveValueChange={(save) => store.setVariableSave(v.name, save)}
                         />
                       ))}
                     </div>
@@ -620,6 +622,8 @@ export default function DeployProduct() {
                                         onChange={(newValue) =>
                                           store.setPerStackVariableValue(stack.id, v.name, newValue)
                                         }
+                                        saveValue={!store.excludeFromStorage.has(v.name)}
+                                        onSaveValueChange={(save) => store.setVariableSave(v.name, save)}
                                       />
                                     ))}
                                   </div>
