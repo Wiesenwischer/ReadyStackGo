@@ -207,7 +207,9 @@ public class InMemoryProductCache : IProductCache
     public void Set(ProductDefinition product)
     {
         var groupId = product.GroupId;
-        var versionKey = product.ProductVersion ?? "latest";
+        // Include SourceId in the version key so products from different sources
+        // with the same GroupId and version don't overwrite each other
+        var versionKey = $"{product.SourceId}:{product.ProductVersion ?? "latest"}";
 
         var versions = _productGroups.GetOrAdd(groupId, _ => new ConcurrentDictionary<string, ProductDefinition>());
         versions[versionKey] = product;
@@ -235,7 +237,7 @@ public class InMemoryProductCache : IProductCache
             var toRemove = versions.Values.FirstOrDefault(p => p.Id == productId);
             if (toRemove != null)
             {
-                var versionKey = toRemove.ProductVersion ?? "latest";
+                var versionKey = $"{toRemove.SourceId}:{toRemove.ProductVersion ?? "latest"}";
                 versions.TryRemove(versionKey, out _);
 
                 // If no versions left, remove the group
@@ -315,7 +317,7 @@ public class InMemoryProductCache : IProductCache
         var newKeys = new HashSet<(string groupId, string versionKey)>();
         foreach (var product in productList)
         {
-            newKeys.Add((product.GroupId, product.ProductVersion ?? "latest"));
+            newKeys.Add((product.GroupId, $"{product.SourceId}:{product.ProductVersion ?? "latest"}"));
         }
 
         // 3. Remove old entries from this source that are NOT in the new set
