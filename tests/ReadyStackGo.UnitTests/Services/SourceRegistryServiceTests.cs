@@ -105,7 +105,7 @@ public class SourceRegistryServiceTests
         var entry = service.GetAll().First(e => e.Id == "rsgo-ams-project-stacks");
 
         entry.Name.Should().Be("ams.project Stacks");
-        entry.GitUrl.Should().Contain("github.com/Wiesenwischer/rsgo-ams-project-stacks");
+        entry.GitUrl.Should().Contain("github.com/Wiesenwischer/rsgo-ams-project");
         entry.GitBranch.Should().Be("main");
         entry.Category.Should().Be("vendor");
         entry.Featured.Should().BeFalse();
