@@ -474,6 +474,7 @@ public class HealthMonitoringService : IHealthMonitoringService
 
         return container.State.ToLowerInvariant() switch
         {
+            "running" => "Container is running",
             "restarting" => "Container is restarting",
             "paused" => "Container is paused",
             "exited" => $"Container exited (status: {container.Status})",
