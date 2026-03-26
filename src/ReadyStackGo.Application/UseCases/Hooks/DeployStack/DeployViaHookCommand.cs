@@ -145,17 +145,18 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
 
         if (existing != null)
         {
-            // Stack already deployed — redeploy if running, error otherwise
-            if (existing.Status != DeploymentStatus.Running)
+            // Stack already deployed — redeploy if running, failed, or stuck in upgrading
+            // Installing and Removed are truly non-redeployable states
+            if (existing.Status == DeploymentStatus.Installing || existing.Status == DeploymentStatus.Removed)
             {
                 return DeployViaHookResponse.Failed(
-                    $"Stack '{request.StackName}' exists but is not running (status: {existing.Status}). " +
-                    "Only running deployments can be redeployed.");
+                    $"Stack '{request.StackName}' exists but cannot be redeployed (status: {existing.Status}). " +
+                    "Only running or failed deployments can be redeployed.");
             }
 
             var (existingStackId, _, storedVariables) = existing.GetRedeploymentData();
             stackId = existingStackId;
-            action = "redeployed";
+            action = existing.Status == DeploymentStatus.Running ? "redeployed" : "retried";
 
             // Merge variables: stored deployment values as base, webhook values as overrides
             variables = new Dictionary<string, string>(storedVariables);
@@ -165,8 +166,8 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
             }
 
             _logger.LogInformation(
-                "Stack '{StackName}' already running in environment {EnvironmentId}, triggering redeploy with {VarCount} variables ({OverrideCount} overrides from webhook)",
-                deployStackName, request.EnvironmentId, variables.Count, request.Variables.Count);
+                "Stack '{StackName}' (status: {Status}) in environment {EnvironmentId}, triggering {Action} with {VarCount} variables ({OverrideCount} overrides from webhook)",
+                deployStackName, existing.Status, request.EnvironmentId, action, variables.Count, request.Variables.Count);
         }
         else
         {

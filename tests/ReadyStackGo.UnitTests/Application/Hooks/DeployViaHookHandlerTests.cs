@@ -354,22 +354,77 @@ public class DeployViaHookHandlerTests
 
     #endregion
 
-    #region Existing Non-Running Deployment
+    #region Existing Failed Deployment (redeployable)
 
     [Fact]
-    public async Task Handle_FailedDeployment_ReturnsError()
+    public async Task Handle_FailedDeployment_AllowsRedeploy()
     {
         var deployment = CreateFailedDeployment();
         SetupDeploymentLookup(deployment);
+        SetupSuccessfulDeploy();
 
         var result = await _handler.Handle(
             new DeployViaHookCommand(TestStackId, TestStackName, TestEnvironmentId, new()),
             CancellationToken.None);
 
-        result.Success.Should().BeFalse();
-        result.Message.Should().Contain("Only running deployments");
-        result.Message.Should().Contain("Failed");
+        result.Success.Should().BeTrue();
+        result.Action.Should().Be("retried");
     }
+
+    [Fact]
+    public async Task Handle_FailedDeployment_DelegatesToDeployCommand()
+    {
+        var deployment = CreateFailedDeployment();
+        SetupDeploymentLookup(deployment);
+        SetupSuccessfulDeploy();
+
+        await _handler.Handle(
+            new DeployViaHookCommand(TestStackId, TestStackName, TestEnvironmentId, new()),
+            CancellationToken.None);
+
+        _mediatorMock.Verify(m => m.Send(
+            It.IsAny<DeployStackCommand>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
+    #region Existing Upgrading Deployment (stuck, redeployable)
+
+    [Fact]
+    public async Task Handle_UpgradingDeployment_AllowsRedeploy()
+    {
+        var deployment = CreateUpgradingDeployment();
+        SetupDeploymentLookup(deployment);
+        SetupSuccessfulDeploy();
+
+        var result = await _handler.Handle(
+            new DeployViaHookCommand(TestStackId, TestStackName, TestEnvironmentId, new()),
+            CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        result.Action.Should().Be("retried");
+    }
+
+    [Fact]
+    public async Task Handle_UpgradingDeployment_DelegatesToDeployCommand()
+    {
+        var deployment = CreateUpgradingDeployment();
+        SetupDeploymentLookup(deployment);
+        SetupSuccessfulDeploy();
+
+        await _handler.Handle(
+            new DeployViaHookCommand(TestStackId, TestStackName, TestEnvironmentId, new()),
+            CancellationToken.None);
+
+        _mediatorMock.Verify(m => m.Send(
+            It.IsAny<DeployStackCommand>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
+    #region Non-Redeployable Statuses
 
     [Fact]
     public async Task Handle_InstallingDeployment_ReturnsError()
@@ -382,7 +437,7 @@ public class DeployViaHookHandlerTests
             CancellationToken.None);
 
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("Only running deployments");
+        result.Message.Should().Contain("cannot be redeployed");
         result.Message.Should().Contain("Installing");
     }
 
@@ -397,14 +452,14 @@ public class DeployViaHookHandlerTests
             CancellationToken.None);
 
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("Only running deployments");
+        result.Message.Should().Contain("cannot be redeployed");
         result.Message.Should().Contain("Removed");
     }
 
     [Fact]
-    public async Task Handle_NonRunningDeployment_DoesNotDelegateToDeployCommand()
+    public async Task Handle_InstallingDeployment_DoesNotDelegateToDeployCommand()
     {
-        var deployment = CreateFailedDeployment();
+        var deployment = CreateInstallingDeployment();
         SetupDeploymentLookup(deployment);
 
         await _handler.Handle(
@@ -1058,6 +1113,17 @@ public class DeployViaHookHandlerTests
         var deployment = Deployment.StartInstallation(
             DeploymentId.Create(), envId, TestStackId, TestStackName, $"rsgo-{TestStackName}", UserId.Create());
         deployment.MarkAsFailed("Something went wrong");
+        return deployment;
+    }
+
+    private static Deployment CreateUpgradingDeployment()
+    {
+        var envId = new EnvironmentId(Guid.Parse(TestEnvironmentId));
+        var deployment = Deployment.StartInstallation(
+            DeploymentId.Create(), envId, TestStackId, TestStackName, $"rsgo-{TestStackName}", UserId.Create());
+        deployment.SetStackVersion("1.0.0");
+        deployment.MarkAsRunning();
+        deployment.StartUpgradeProcess("2.0.0");
         return deployment;
     }
 

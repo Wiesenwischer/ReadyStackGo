@@ -803,10 +803,11 @@ public class DeploymentService : IDeploymentService
             existingDeployment = _deploymentRepository.GetByStackName(
                 new EnvironmentId(envGuid), request.StackName);
 
-            // Check if this is an upgrade (existing running deployment) or a retry after failure
+            // Check if this is an upgrade (existing running/failed/stuck deployment)
             isUpgrade = existingDeployment != null &&
                 (existingDeployment.Status == Domain.Deployment.Deployments.DeploymentStatus.Running ||
-                 existingDeployment.Status == Domain.Deployment.Deployments.DeploymentStatus.Failed) &&
+                 existingDeployment.Status == Domain.Deployment.Deployments.DeploymentStatus.Failed ||
+                 existingDeployment.Status == Domain.Deployment.Deployments.DeploymentStatus.Upgrading) &&
                 !string.IsNullOrEmpty(existingDeployment.StackVersion);
 
             string? previousVersion = null;
@@ -825,6 +826,15 @@ public class DeploymentService : IDeploymentService
                 }
                 else if (existingDeployment.Status == Domain.Deployment.Deployments.DeploymentStatus.Failed)
                 {
+                    existingDeployment.StartRollbackProcess(plan.StackVersion ?? "unknown");
+                }
+                else if (existingDeployment.Status == Domain.Deployment.Deployments.DeploymentStatus.Upgrading)
+                {
+                    // Stuck in Upgrading from a previous failed attempt — recover by marking
+                    // as failed first, then starting a new rollback/retry
+                    _logger.LogWarning("Deployment {DeploymentId} stuck in Upgrading status, recovering",
+                        existingDeployment.Id);
+                    existingDeployment.MarkAsFailed("Previous upgrade was interrupted");
                     existingDeployment.StartRollbackProcess(plan.StackVersion ?? "unknown");
                 }
                 _deploymentRepository.SaveChanges();
