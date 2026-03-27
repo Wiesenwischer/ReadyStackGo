@@ -45,7 +45,7 @@ main
    gh project item-list 6 --owner Wiesenwischer --format json --limit 50
    ```
    - Falls `$ARGUMENTS` angegeben wurde, suche dieses spezifische Feature in den Issues.
-   - Falls `$ARGUMENTS` leer ist, nimm das Feature mit der **höchsten Priorität** (niedrigste Priority-Nummer) im Status "Planned".
+   - Falls `$ARGUMENTS` leer ist, nimm das Feature mit der **höchsten Priorität** (niedrigste Priority-Nummer) im Status "Todo".
    - Alternativ: `gh issue list --label epic --state open --json number,title,milestone`
 2. Lies die **Projektrichtlinien** (`CLAUDE.md`) für Branch-Konventionen, Commit-Regeln und Test-Anforderungen.
 3. **Prüfe ob bereits eine Specification/Plan-Datei existiert** in `docs/Plans/`:
@@ -54,6 +54,17 @@ main
    - Die Spec ist die **primäre Quelle** für den Implementierungsplan. Erstelle keinen neuen Plan wenn eine Spec existiert – nutze sie als Basis
    - Falls keine Spec existiert: Erstelle eine neue Planungsdatei in Schritt 2
 4. Lies relevante **bestehende Implementierungen** um Patterns und Architektur zu verstehen (die Spec referenziert Pattern-Vorbilder mit Dateipfaden).
+
+5. **PFLICHT — Board-Status auf "In Progress" setzen** (SOFORT, BEVOR irgendetwas anderes passiert):
+   ```bash
+   PROJECT="PVT_kwHOAKdwzc4BR2Bg"
+   STATUS_FIELD="PVTSSF_lAHOAKdwzc4BR2Bgzg_jRfE"
+   IN_PROGRESS_ID="9e4cff0c"
+
+   ITEM_ID=$(gh project item-list 6 --owner Wiesenwischer --format json --limit 200 --jq ".items[] | select(.content.number == <ISSUE_NUMBER>) | .id")
+   gh project item-edit --project-id $PROJECT --id "$ITEM_ID" --field-id $STATUS_FIELD --single-select-option-id $IN_PROGRESS_ID
+   ```
+   **Wenn dieser Schritt vergessen wird, ist das ein Fehler. Immer zuerst ausführen.**
 
 ## Schritt 2: Phasen-Planung & Implementierungsplan erstellen
 
@@ -265,6 +276,40 @@ Das AMS UI (`C:\proj\ReadyStackGo.Ams`) ist ein separates privates Repo das `@rs
 5. CI-Checks abwarten
 6. PR mergen und Feature Branch löschen
 
+### Board-Status auf "Review" setzen (PFLICHT)
+
+Nach PR-Erstellung das Issue auf **Review** setzen — **NICHT auf Done**.
+Der User reviewed und testet den PR. Erst nach seiner Bestätigung wird auf Done gesetzt.
+
+```bash
+PROJECT="PVT_kwHOAKdwzc4BR2Bg"
+STATUS_FIELD="PVTSSF_lAHOAKdwzc4BR2Bgzg_jRfE"
+REVIEW_ID="f25a5d7c"
+
+ITEM_ID=$(gh project item-list 6 --owner Wiesenwischer --format json --limit 200 --jq ".items[] | select(.content.number == <ISSUE_NUMBER>) | .id")
+gh project item-edit --project-id $PROJECT --id "$ITEM_ID" --field-id $STATUS_FIELD --single-select-option-id $REVIEW_ID
+```
+
+**WICHTIG: Setze Issues NIEMALS selbst auf "Done".** Done wird nur gesetzt wenn:
+1. Der User den PR reviewed und getestet hat
+2. Der User explizit bestätigt ("merge", "sieht gut aus", "passt")
+3. Dann: PR mergen + Board auf Done setzen
+
+```bash
+# Erst NACH User-Bestätigung:
+DONE_ID="c631b3e2"
+gh project item-edit --project-id $PROJECT --id "$ITEM_ID" --field-id $STATUS_FIELD --single-select-option-id $DONE_ID
+```
+
+### Board Status IDs (ReadyStackGo Roadmap):
+| Status | ID |
+|---|---|
+| Backlog | `56c4cbb9` |
+| Todo | `af3283ef` |
+| In Progress | `9e4cff0c` |
+| Review | `f25a5d7c` |
+| Done | `c631b3e2` |
+
 ## Schritt 11: Planungsdatei aktualisieren
 
 Nach jedem abgeschlossenen Feature die Planungsdatei aktualisieren:
@@ -311,3 +356,22 @@ Wenn alle Features, Docs und Website-Updates fertig sind:
    gh api repos/Wiesenwischer/ReadyStackGo/milestones/<NUMBER> --method PATCH -f state=closed
    ```
    → Löst den `milestone-release` Workflow aus → Release wird automatisch veröffentlicht
+
+---
+
+## Checkliste
+
+- [ ] **Spec/Plan VOLLSTÄNDIG gelesen** (jeder Punkt geprüft)
+- [ ] CLAUDE.md gelesen
+- [ ] Bestehende Patterns verstanden
+- [ ] **Board-Status auf "In Progress" gesetzt** (PFLICHT — sofort bei Beginn)
+- [ ] Feature-Branch erstellt
+- [ ] Feature implementiert
+- [ ] **ALLE Feature-Schritte aus Plan umgesetzt**
+- [ ] Tests geschrieben (Unit + Integration + E2E)
+- [ ] Build + Tests erfolgreich
+- [ ] AMS UI Impact-Check durchgeführt
+- [ ] PR erstellt mit `Closes #NNN`
+- [ ] Planungsdatei aktualisiert (implementierte Schritte abhaken)
+- [ ] **Board-Status auf "Review"** (NICHT Done — User muss erst testen/bestätigen)
+- [ ] **Done wird NUR nach User-Bestätigung gesetzt** (merge, "passt", "sieht gut aus")

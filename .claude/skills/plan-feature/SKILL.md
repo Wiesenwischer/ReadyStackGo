@@ -17,9 +17,13 @@ Plane ein neues Feature für ReadyStackGo, ordne es in die Roadmap ein und erste
 
 Dieser Skill führt durch den gesamten Planungsprozess:
 1. GitHub Project Board und bestehende Issues analysieren
-2. Feature als GitHub Issue erstellen und einem Milestone zuordnen
-3. Planungsdatei (Specification) erstellen
-4. Dokumentation committen
+2. Feature-Scope mit dem User klären
+3. Milestone sicherstellen oder erstellen (PFLICHT)
+4. GitHub Issue erstellen, Board-Status setzen (PFLICHT)
+5. Planungsdatei (Specification) erstellen
+6. Zusammenfassung und Bestätigung
+7. Spec verschieben (wenn vollständig geplant)
+8. Dokumentation committen
 
 ---
 
@@ -64,14 +68,36 @@ Frage den User nach:
 - Braucht es neue UI-Seiten oder nur Erweiterungen?
 - Welche Tests sind nötig? (Unit, Integration, E2E)
 
-## Schritt 3: GitHub Issue erstellen
+## Schritt 3: Milestone sicherstellen (PFLICHT)
+
+**Jedes Feature MUSS einem Milestone zugeordnet sein.** Ohne Milestone wird kein Issue erstellt.
+
+1. **Prüfe ob ein passender Milestone existiert:**
+   ```bash
+   gh api repos/Wiesenwischer/ReadyStackGo/milestones --jq '.[] | "\(.number) | \(.title)"'
+   ```
+
+2. **Falls kein passender Milestone existiert → neuen erstellen:**
+   ```bash
+   gh api repos/Wiesenwischer/ReadyStackGo/milestones \
+     -f title="<Milestone-Titel>" \
+     -f description="<Kurzbeschreibung>" \
+     -f state=open
+   ```
+
+3. **Milestone-Zuordnung klären:**
+   - Frage den User ob der Milestone korrekt ist, falls nicht eindeutig
+
+## Schritt 4: GitHub Issue erstellen (PFLICHT)
+
+**Jeder Plan MUSS ein zugehöriges GitHub Issue haben.** Ein Plan ohne Issue existiert nicht in der Roadmap.
 
 ### Epic Issue erstellen:
 ```bash
 gh issue create \
   --title "<Feature-Titel>" \
   --label "epic,feature" \
-  --milestone "<Milestone z.B. v0.50>" \
+  --milestone "<Milestone z.B. v0.58>" \
   --body "$(cat <<'EOF'
 ## Goal
 <Kurzbeschreibung>
@@ -87,12 +113,40 @@ EOF
 )"
 ```
 
-### Zum Project Board hinzufügen:
+### Zum Project Board hinzufügen und Status setzen (PFLICHT):
 ```bash
+# Issue zum Board hinzufügen
 gh project item-add 6 --owner Wiesenwischer --url <ISSUE_URL>
+
+# Board Item-ID finden
+ITEM_ID=$(gh project item-list 6 --owner Wiesenwischer --format json --limit 200 --jq ".items[] | select(.content.number == <ISSUE_NUMBER>) | .id")
+
+# Status setzen (Backlog oder Todo je nach Priorität)
+PROJECT="PVT_kwHOAKdwzc4BR2Bg"
+STATUS_FIELD="PVTSSF_lAHOAKdwzc4BR2Bgzg_jRfE"
+BACKLOG_ID="56c4cbb9"
+TODO_ID="af3283ef"
+
+gh project item-edit --project-id $PROJECT --id "$ITEM_ID" --field-id $STATUS_FIELD --single-select-option-id $BACKLOG_ID
 ```
 
-## Schritt 4: Planungsdatei erstellen
+### Board Status IDs (ReadyStackGo Roadmap):
+| Status | ID |
+|---|---|
+| Backlog | `56c4cbb9` |
+| Todo | `af3283ef` |
+| In Progress | `9e4cff0c` |
+| Review | `f25a5d7c` |
+| Done | `c631b3e2` |
+
+### Verifikation (PFLICHT):
+Nach dem Erstellen MUSS geprüft werden:
+- [ ] Issue hat Milestone zugeordnet
+- [ ] Issue hat Labels `epic` + `feature`
+- [ ] Issue ist auf dem Project Board sichtbar
+- [ ] Issue hat korrekten Board-Status (Backlog/Todo)
+
+## Schritt 5: Planungsdatei erstellen
 
 Erstelle eine Specification unter `docs/Plans/PLAN-<feature-name>.md`.
 
@@ -169,7 +223,7 @@ Reihenfolge basierend auf Abhängigkeiten:
 | <Thema> | A, B, C | - | <Noch offen / Begründung> |
 ```
 
-## Schritt 5: Zusammenfassung und Bestätigung
+## Schritt 6: Zusammenfassung und Bestätigung
 
 Zeige dem User eine Zusammenfassung:
 
@@ -188,7 +242,7 @@ Zeige dem User eine Zusammenfassung:
 - GitHub Project Board (Issue hinzugefügt)
 ```
 
-## Schritt 6: Spec-Datei aufräumen
+## Schritt 7: Spec-Datei aufräumen
 
 Falls das Feature auf einer bestehenden Spec-Datei in `docs/specs/` basiert:
 
@@ -196,7 +250,7 @@ Falls das Feature auf einer bestehenden Spec-Datei in `docs/specs/` basiert:
 git rm docs/specs/<ordner>/<datei>.md
 ```
 
-## Schritt 7: Committen
+## Schritt 8: Committen
 
 ```bash
 git add docs/Plans/PLAN-<name>.md
@@ -215,9 +269,12 @@ git commit -m "Plan <Feature-Titel>"
 - [ ] GitHub Project Board und Milestones gelesen
 - [ ] Feature-Scope mit User geklärt
 - [ ] Technische Analyse durchgeführt
-- [ ] GitHub Epic Issue erstellt mit Milestone
-- [ ] Issue zum Project Board hinzugefügt
+- [ ] **Milestone existiert oder wurde erstellt** (PFLICHT — kein Issue ohne Milestone)
+- [ ] **GitHub Epic Issue erstellt** mit Milestone + Labels `epic,feature` (PFLICHT)
+- [ ] **Issue zum Project Board hinzugefügt** mit korrektem Status (PFLICHT)
 - [ ] Planungsdatei erstellt (`docs/Plans/PLAN-*.md`) mit `<!-- GitHub Epic: #NNN -->`
+- [ ] **Plan referenziert Issue-Nummer, Issue referenziert Plan-Datei** (bidirektionale Verlinkung)
 - [ ] **AMS UI Counterpart entschieden** — bei Ja: AMS PLAN file in `C:\proj\ReadyStackGo.Ams\docs\Plans\` erstellt
 - [ ] Offene Punkte dokumentiert
 - [ ] Änderungen committed
+- [ ] **Verifikation**: Issue auf GitHub sichtbar mit Milestone, Labels, Board-Status
