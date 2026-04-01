@@ -42,11 +42,12 @@ public class PortConflictRule : IDeploymentPrecheckRule
         {
             foreach (var portMapping in service.Ports)
             {
-                if (string.IsNullOrEmpty(portMapping.HostPort) || portMapping.HostPort == "0")
+                var resolvedHostPort = VariableSubstitution.Resolve(portMapping.HostPort, context.Variables);
+                if (string.IsNullOrEmpty(resolvedHostPort) || resolvedHostPort == "0")
                     continue; // Random port assignment — no conflict possible
 
                 // Handle port ranges (e.g., "8080-8090")
-                var hostPorts = ExpandPortRange(portMapping.HostPort);
+                var hostPorts = ExpandPortRange(resolvedHostPort);
 
                 foreach (var hostPort in hostPorts)
                 {

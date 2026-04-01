@@ -16,15 +16,16 @@ public class VolumeStatusRule : IDeploymentPrecheckRule
         var namedVolumes = context.StackDefinition.Services
             .SelectMany(s => s.Volumes)
             .Where(v => v.Type == "volume" && !string.IsNullOrEmpty(v.Source))
-            .Select(v => v.Source)
+            .Select(v => VariableSubstitution.Resolve(v.Source, context.Variables))
             .Distinct()
             .ToList();
 
         // Also include top-level volume definitions
         foreach (var volumeDef in context.StackDefinition.Volumes)
         {
-            if (!namedVolumes.Contains(volumeDef.Name))
-                namedVolumes.Add(volumeDef.Name);
+            var resolvedName = VariableSubstitution.Resolve(volumeDef.Name, context.Variables);
+            if (!namedVolumes.Contains(resolvedName))
+                namedVolumes.Add(resolvedName);
         }
 
         if (namedVolumes.Count == 0)

@@ -30,7 +30,8 @@ public class ImageAvailabilityRule : IDeploymentPrecheckRule
 
         foreach (var service in context.StackDefinition.Services)
         {
-            var (image, tag) = ParseImageReference(service.Image);
+            var resolvedImage = VariableSubstitution.Resolve(service.Image, context.Variables);
+            var (image, tag) = ParseImageReference(resolvedImage);
 
             try
             {
@@ -42,7 +43,7 @@ public class ImageAvailabilityRule : IDeploymentPrecheckRule
                     items.Add(new PrecheckItem(
                         "ImageAvailability",
                         PrecheckSeverity.OK,
-                        $"Image available: {service.Image}",
+                        $"Image available: {resolvedImage}",
                         "Image exists locally",
                         service.Name));
                     continue;
@@ -59,7 +60,7 @@ public class ImageAvailabilityRule : IDeploymentPrecheckRule
                         items.Add(new PrecheckItem(
                             "ImageAvailability",
                             PrecheckSeverity.OK,
-                            $"Image pullable: {service.Image}",
+                            $"Image pullable: {resolvedImage}",
                             "Image not local but available from registry (public access)",
                             service.Name));
                         break;
@@ -68,7 +69,7 @@ public class ImageAvailabilityRule : IDeploymentPrecheckRule
                         items.Add(new PrecheckItem(
                             "ImageAvailability",
                             PrecheckSeverity.Error,
-                            $"Image requires authentication: {service.Image}",
+                            $"Image requires authentication: {resolvedImage}",
                             $"Image not found locally and registry '{host}' requires authentication",
                             service.Name));
                         break;
@@ -77,7 +78,7 @@ public class ImageAvailabilityRule : IDeploymentPrecheckRule
                         items.Add(new PrecheckItem(
                             "ImageAvailability",
                             PrecheckSeverity.Warning,
-                            $"Image availability unknown: {service.Image}",
+                            $"Image availability unknown: {resolvedImage}",
                             $"Image not found locally and registry '{host}' could not be reached. Pull may fail.",
                             service.Name));
                         break;
@@ -85,11 +86,11 @@ public class ImageAvailabilityRule : IDeploymentPrecheckRule
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to check image availability for {Image}", service.Image);
+                _logger.LogWarning(ex, "Failed to check image availability for {Image}", resolvedImage);
                 items.Add(new PrecheckItem(
                     "ImageAvailability",
                     PrecheckSeverity.Warning,
-                    $"Image check failed: {service.Image}",
+                    $"Image check failed: {resolvedImage}",
                     $"Could not verify image availability: {ex.Message}",
                     service.Name));
             }

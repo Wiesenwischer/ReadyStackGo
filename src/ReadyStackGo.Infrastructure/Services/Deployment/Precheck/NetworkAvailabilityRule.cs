@@ -40,7 +40,8 @@ public class NetworkAvailabilityRule : IDeploymentPrecheckRule
             if (network.External)
             {
                 // External networks must already exist
-                var networkName = network.ExternalName ?? network.Name;
+                var networkName = VariableSubstitution.Resolve(
+                    network.ExternalName ?? network.Name, context.Variables);
                 try
                 {
                     // Try to ensure network exists (this is a no-op if it exists, creates if not)

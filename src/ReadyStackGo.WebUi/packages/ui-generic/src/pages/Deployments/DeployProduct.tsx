@@ -1,62 +1,19 @@
-import { useRef, useEffect } from 'react';
-import { useParams, Link } from 'react-router';
-import { useDeployProductStore, useProductPrecheck } from '@rsgo/core';
-import type { ProductPrecheckStackConfig } from '@rsgo/core';
+import { useRef } from 'react';
+import { useParams, Link, useNavigate } from 'react-router';
+import { useDeployProductStore } from '@rsgo/core';
 import { useAuth } from '../../context/AuthContext';
 import { useEnvironment } from '../../context/EnvironmentContext';
 import VariableInput, { groupVariables } from '../../components/variables/VariableInput';
 import { DeploymentProgressPanel } from '../../components/deployments/DeploymentProgressPanel';
-import { ProductPrecheckPanel } from '../../components/deployments/ProductPrecheckPanel';
 
 export default function DeployProduct() {
   const { productId } = useParams<{ productId: string }>();
   const { token } = useAuth();
   const { activeEnvironment } = useEnvironment();
   const envFileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
 
   const store = useDeployProductStore(token, activeEnvironment?.id, productId);
-  const precheck = useProductPrecheck();
-
-  // Auto-run precheck when entering configure state
-  const hasAutoChecked = useRef(false);
-  useEffect(() => {
-    if (
-      store.state === 'configure' &&
-      store.product &&
-      activeEnvironment?.id &&
-      store.deploymentName.trim() &&
-      !hasAutoChecked.current
-    ) {
-      hasAutoChecked.current = true;
-      const stackConfigs: ProductPrecheckStackConfig[] = store.product.stacks.map(stack => ({
-        stackId: stack.id,
-        variables: store.perStackVariableValues[stack.id] || {},
-      }));
-      precheck.runProductPrecheckCheck(
-        activeEnvironment.id,
-        store.product.id,
-        store.deploymentName,
-        stackConfigs,
-        store.sharedVariableValues
-      );
-    }
-  }, [store.state, store.product, activeEnvironment?.id, store.deploymentName]);
-
-  const handleRecheck = () => {
-    if (activeEnvironment?.id && store.product) {
-      const stackConfigs: ProductPrecheckStackConfig[] = store.product.stacks.map(stack => ({
-        stackId: stack.id,
-        variables: store.perStackVariableValues[stack.id] || {},
-      }));
-      precheck.runProductPrecheckCheck(
-        activeEnvironment.id,
-        store.product.id,
-        store.deploymentName,
-        stackConfigs,
-        store.sharedVariableValues
-      );
-    }
-  };
 
   // Handle .env file import (FileReader stays in the page, parsing in the store)
   const handleEnvFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -712,31 +669,6 @@ export default function DeployProduct() {
             </div>
           </div>
 
-          {/* Precheck Panel (below stack configuration) */}
-          {precheck.precheckState === 'checking' && (
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-              <div className="flex items-center gap-3">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand-600"></div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">Running deployment precheck for all stacks...</span>
-              </div>
-            </div>
-          )}
-
-          {precheck.precheckState === 'error' && (
-            <div className="rounded-md bg-yellow-50 p-4 dark:bg-yellow-900/20">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                Precheck failed: {precheck.precheckError}. You can still deploy.
-              </p>
-            </div>
-          )}
-
-          {precheck.precheckResult && (
-            <ProductPrecheckPanel
-              result={precheck.precheckResult}
-              isLoading={precheck.precheckState === 'checking'}
-              onRecheck={handleRecheck}
-            />
-          )}
         </div>
 
         {/* Sidebar */}
@@ -775,10 +707,38 @@ export default function DeployProduct() {
               </>
             )}
 
+            {/* Run Precheck Button */}
+            {store.product && (
+              <button
+                onClick={() => {
+                  const stackConfigs = store.product!.stacks.map(stack => ({
+                    stackId: stack.id,
+                    variables: store.perStackVariableValues[stack.id] || {},
+                  }));
+                  navigate(`/deploy-product/${productId}/precheck`, {
+                    state: {
+                      environmentId: activeEnvironment?.id,
+                      productId: store.product!.id,
+                      deploymentName: store.deploymentName,
+                      stackConfigs,
+                      sharedVariables: store.sharedVariableValues,
+                    }
+                  });
+                }}
+                disabled={!activeEnvironment}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-gray-100 px-6 py-3 text-center font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 mb-3"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                Run Precheck
+              </button>
+            )}
+
             {/* Deploy Button */}
             <button
               onClick={store.handleDeploy}
-              disabled={!activeEnvironment || !store.product || (precheck.precheckResult?.hasErrors === true)}
+              disabled={!activeEnvironment || !store.product}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
