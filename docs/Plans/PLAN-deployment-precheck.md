@@ -72,7 +72,7 @@ Hooks: POST /api/hooks/deploy → DeployViaHookHandler → DeploymentEngine
 
 Reihenfolge basierend auf Abhängigkeiten:
 
-- [ ] **Feature 1: Domain Model** — Value Objects für Precheck-Ergebnisse
+- [x] **Feature 1: Domain Model** — Value Objects für Precheck-Ergebnisse
   - Neue Dateien:
     - `Domain/Deployment/Precheck/PrecheckSeverity.cs` (Enum: OK, Warning, Error)
     - `Domain/Deployment/Precheck/PrecheckItem.cs` (Record: Rule, Severity, Title, Detail?, ServiceName?)
@@ -80,7 +80,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Pattern-Vorlage: `DeploymentPrerequisiteResult` (ähnliche Struktur mit IsValid + Fehler-Liste)
   - Abhängig von: -
 
-- [ ] **Feature 2: Rule Interface + Implementierungen** — 6 Precheck-Regeln
+- [x] **Feature 2: Rule Interface + Implementierungen** — 6 Precheck-Regeln
   - Neue Dateien (Application Layer):
     - `Application/UseCases/Deployments/Precheck/IDeploymentPrecheckRule.cs` (Interface)
     - `Application/UseCases/Deployments/Precheck/PrecheckContext.cs` (Context-DTO)
@@ -95,7 +95,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Pattern-Vorlage: Strategy Pattern wie bestehende Service-Registrierungen
   - Abhängig von: Feature 1
 
-- [ ] **Feature 3: MediatR Query Handler** — Orchestrierung aller Rules
+- [x] **Feature 3: MediatR Query Handler** — Orchestrierung aller Rules
   - Neue Dateien:
     - `Application/UseCases/Deployments/Precheck/RunDeploymentPrecheckQuery.cs` (Query + Handler)
   - Handler sammelt PrecheckContext, führt alle Rules parallel aus, aggregiert zu PrecheckResult
@@ -103,7 +103,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Pattern-Vorlage: `DeployStackHandler` (MediatR-Handler mit Repository/Service-Zugriff)
   - Abhängig von: Feature 2
 
-- [ ] **Feature 4: API Endpoint** — Precheck-Endpoint für UI
+- [x] **Feature 4: API Endpoint** — Precheck-Endpoint für UI
   - Neue Dateien:
     - `Api/Endpoints/Deployments/PrecheckEndpoint.cs` (`POST /api/environments/{envId}/stacks/{stackId}/precheck`)
   - Request: `{ variables: { key: value } }`
@@ -112,7 +112,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Pattern-Vorlage: `DeployStackEndpoint.cs`
   - Abhängig von: Feature 3
 
-- [ ] **Feature 5: Hooks API Integration** — Automatischer Precheck + Dry-Run
+- [x] **Feature 5: Hooks API Integration** — Automatischer Precheck + Dry-Run
   - Bestehende Datei erweitern:
     - `Api/Endpoints/Hooks/DeployEndpoint.cs` — `dryRun: bool` Parameter hinzufügen
     - `Application/UseCases/Hooks/DeployViaHook/DeployViaHookCommand.cs` — DryRun Property
@@ -122,7 +122,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - `dryRun: false` (default) → Precheck automatisch ausführen, bei Errors 422 mit PrecheckResult zurückgeben, bei OK/Warnings normal deployen
   - Abhängig von: Feature 3
 
-- [ ] **Feature 6: UI — PrecheckPanel + DeployStack Flow** — Frontend-Integration
+- [x] **Feature 6: UI — PrecheckPanel + DeployStack Flow** — Frontend-Integration
   - Neue Dateien (rsgo-core):
     - `packages/core/src/api/precheck.ts` — API-Client für Precheck-Endpoint
     - `packages/core/src/hooks/usePrecheck.ts` — React Hook für Precheck-State
@@ -137,7 +137,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - OK-Items collapsed, Errors/Warnings expanded
   - Abhängig von: Feature 4
 
-- [ ] **Feature 7: Tests** — Unit, Integration, E2E
+- [x] **Feature 7: Tests** — Unit, Integration, E2E
   - Unit Tests:
     - `PrecheckResult` Aggregation (HasErrors, HasWarnings, CanDeploy, Summary)
     - Jede Rule einzeln mit allen Szenarien (OK, Warning, Error, Edge Cases)

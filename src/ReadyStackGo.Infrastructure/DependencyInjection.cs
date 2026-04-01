@@ -5,6 +5,7 @@ using ReadyStackGo.Application.Services.Impl;
 using ReadyStackGo.Domain.Deployment.Observers;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.IdentityAccess.Users;
+using ReadyStackGo.Application.UseCases.Deployments.Precheck;
 using ReadyStackGo.Infrastructure.Caching;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.DataAccess;
@@ -13,6 +14,7 @@ using ReadyStackGo.Infrastructure.Parsing;
 using ReadyStackGo.Infrastructure.Security;
 using ReadyStackGo.Infrastructure.Services;
 using ReadyStackGo.Infrastructure.Services.Deployment;
+using ReadyStackGo.Infrastructure.Services.Deployment.Precheck;
 using ReadyStackGo.Infrastructure.Services.Health;
 using ReadyStackGo.Infrastructure.Services.StackSources;
 using ReadyStackGo.Infrastructure.Tls;
@@ -84,6 +86,12 @@ public static class DependencyInjection
         {
             ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
         });
+
+        // Deployment Precheck Rules (v0.59)
+        services.AddScoped<IDeploymentPrecheckRule, ImageAvailabilityRule>();
+        services.AddScoped<IDeploymentPrecheckRule, PortConflictRule>();
+        services.AddScoped<IDeploymentPrecheckRule, NetworkAvailabilityRule>();
+        services.AddScoped<IDeploymentPrecheckRule, VolumeStatusRule>();
 
         // Health Monitoring (v0.11)
         services.AddScoped<IHealthMonitoringService, HealthMonitoringService>();
