@@ -153,7 +153,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - Warning Case: Existierendes Volume → Warnung → Deploy trotzdem möglich
   - Abhängig von: Feature 4, Feature 5, Feature 6
 
-- [ ] **Feature 8: Product Precheck Backend** — Neuer Endpoint + MediatR Query für Produkt-Precheck
+- [x] **Feature 8: Product Precheck Backend** — Neuer Endpoint + MediatR Query für Produkt-Precheck
   - Neue Dateien:
     - `Application/UseCases/Deployments/Precheck/RunProductPrecheckQuery.cs` (Query + Handler)
     - `Api/Endpoints/Deployments/ProductPrecheckEndpoint.cs` (`POST /api/environments/{envId}/product-deployments/precheck`)
@@ -170,7 +170,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Pattern-Vorlage: `DeployProductEndpoint.cs` (Request-Struktur), `PrecheckEndpoint.cs` (Response-Mapping)
   - Abhängig von: Feature 3, Feature 4
 
-- [ ] **Feature 9: Product Precheck UI** — useProductPrecheck Hook + DeployProduct.tsx Integration
+- [x] **Feature 9: Product Precheck UI** — useProductPrecheck Hook + DeployProduct.tsx Integration
   - Neue Dateien (rsgo-core):
     - `packages/core/src/api/precheck.ts` — Erweitern um `runProductPrecheck()` API-Client
     - `packages/core/src/hooks/useProductPrecheck.ts` — React Hook für Product-Precheck-State
@@ -189,7 +189,7 @@ Reihenfolge basierend auf Abhängigkeiten:
     - Deploy-Button disabled solange ein Stack Errors hat
   - Abhängig von: Feature 8
 
-- [ ] **Feature 10: Product Precheck Tests** — Unit, Integration, E2E
+- [x] **Feature 10: Product Precheck Tests** — Unit, Integration, E2E
   - Unit Tests:
     - `ProductPrecheckResult` Aggregation (canDeploy nur wenn alle Stacks canDeploy)
     - `RunProductPrecheckHandler`: parallele Ausführung, Variable-Merging, Error-Aggregation
