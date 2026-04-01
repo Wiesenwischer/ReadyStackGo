@@ -67,6 +67,8 @@ Hooks: POST /api/hooks/deploy → DeployViaHookHandler → DeploymentEngine
 | Precheck Timeout | 10s, 30s, 60s | **30s** | Registry-Checks können langsam sein, aber >30s deutet auf echtes Problem hin |
 | Precheck Caching | Kein Cache, 30s Cache | **Kein Cache** | Infrastruktur-Status kann sich schnell ändern, Cache wäre irreführend |
 | Rule-Interface Location | Domain, Application | **Application** | Rules brauchen Zugriff auf Services (IDockerService, IRegistryAccessChecker) |
+| Product Precheck API | Frontend-Aggregation, Backend-Endpoint, Beides | **Backend-Endpoint** | Saubere API, wiederverwendbar für Hooks, Backend kann Docker-Kontext einmal laden und für alle Stacks nutzen |
+| Product Precheck Orchestrierung | Sequentiell, Parallel | **Parallel via MediatR** | Handler dispatcht RunDeploymentPrecheckQuery pro Stack parallel, aggregiert Ergebnisse |
 
 ## Features / Schritte
 
@@ -151,6 +153,56 @@ Reihenfolge basierend auf Abhängigkeiten:
     - Warning Case: Existierendes Volume → Warnung → Deploy trotzdem möglich
   - Abhängig von: Feature 4, Feature 5, Feature 6
 
+- [ ] **Feature 8: Product Precheck Backend** — Neuer Endpoint + MediatR Query für Produkt-Precheck
+  - Neue Dateien:
+    - `Application/UseCases/Deployments/Precheck/RunProductPrecheckQuery.cs` (Query + Handler)
+    - `Api/Endpoints/Deployments/ProductPrecheckEndpoint.cs` (`POST /api/environments/{envId}/product-deployments/precheck`)
+  - Request: `{ productId, deploymentName, stackConfigs: [{ stackId, variables }], sharedVariables }`
+  - Response: `{ canDeploy, hasErrors, hasWarnings, summary, stacks: [{ stackId, stackName, canDeploy, hasErrors, hasWarnings, summary, checks: [...] }] }`
+  - Handler:
+    - Produkt laden, SharedVariables mit PerStack-Variables mergen (pro Stack)
+    - Pro Stack den bestehenden `RunDeploymentPrecheckQuery` via MediatR dispatchen (parallel)
+    - Ergebnisse aggregieren zu `ProductPrecheckResult` (canDeploy = alle Stacks canDeploy)
+    - Stack-Name-Ableitung: `deploymentName-stackName` (gleiche Logik wie `DeployProductHandler`)
+  - Neue Domain-Klasse:
+    - `Domain/Deployment/Precheck/ProductPrecheckResult.cs` (Value Object: Stacks-Liste + Aggregation)
+  - Permission: `Deployments.Create` (wie DeployProduct)
+  - Pattern-Vorlage: `DeployProductEndpoint.cs` (Request-Struktur), `PrecheckEndpoint.cs` (Response-Mapping)
+  - Abhängig von: Feature 3, Feature 4
+
+- [ ] **Feature 9: Product Precheck UI** — useProductPrecheck Hook + DeployProduct.tsx Integration
+  - Neue Dateien (rsgo-core):
+    - `packages/core/src/api/precheck.ts` — Erweitern um `runProductPrecheck()` API-Client
+    - `packages/core/src/hooks/useProductPrecheck.ts` — React Hook für Product-Precheck-State
+  - Neue Dateien (ui-generic):
+    - `packages/ui-generic/src/components/deployments/ProductPrecheckPanel.tsx` — Ergebnis-Anzeige pro Stack gruppiert
+  - Bestehende Dateien erweitern:
+    - `packages/ui-generic/src/pages/Deployments/DeployProduct.tsx` — Precheck-Integration:
+      - "Run Precheck" Button in der Sidebar (über dem Deploy-Button)
+      - Auto-Run Precheck beim Betreten des Configure-States (Hybrid wie DeployStack)
+      - ProductPrecheckPanel zwischen Stack-Configuration und Sidebar
+      - Deploy-Button disabled wenn `hasErrors === true`
+  - Verhalten:
+    - Hybrid-Trigger: Auto-Run beim Laden + Re-Check Button
+    - Ergebnis-Anzeige: Accordion pro Stack mit PrecheckItems, Summary-Banner oben
+    - Bei Errors in einem Stack: Stack-Accordion automatisch aufklappen
+    - Deploy-Button disabled solange ein Stack Errors hat
+  - Abhängig von: Feature 8
+
+- [ ] **Feature 10: Product Precheck Tests** — Unit, Integration, E2E
+  - Unit Tests:
+    - `ProductPrecheckResult` Aggregation (canDeploy nur wenn alle Stacks canDeploy)
+    - `RunProductPrecheckHandler`: parallele Ausführung, Variable-Merging, Error-Aggregation
+    - Edge Cases: Produkt nicht gefunden, leere Stack-Liste, einzelner Stack mit Error
+  - Integration Tests:
+    - Product Precheck API Endpoint Roundtrip
+    - Variable-Merging (shared + per-stack korrekt zusammengeführt)
+  - E2E Tests:
+    - Happy Path: Produkt mit allen Checks OK → Deploy möglich
+    - Error Case: Ein Stack hat Port-Konflikt → Deploy-Button disabled, betroffener Stack markiert
+    - Partial Warning: Ein Stack mit Warning → Deploy trotzdem möglich
+  - Abhängig von: Feature 8, Feature 9
+
 - [ ] **Dokumentation & Website** — Wiki, Public Website (DE/EN), Roadmap
 - [ ] **Phase abschließen** — Alle Tests grün, PR gegen main
 
@@ -164,8 +216,10 @@ Reihenfolge basierend auf Abhängigkeiten:
   - `NetworkAvailabilityRule`: rsgo-net existiert, rsgo-net fehlt, Custom-Network gehört anderem Stack
   - `VolumeStatusRule`: Neues Volume, existierendes Volume (Upgrade vs. Fresh Install)
   - `ExistingDeploymentRule`: Kein bestehendes, Running (Upgrade), Installing/Upgrading (Blocked), Failed (Retry)
-- **Integration Tests**: Handler + API Endpoint mit Mock-Docker-Service, Hooks dryRun
-- **E2E Tests**: Voller UI-Flow mit Precheck-Panel, Error/Warning-Szenarien
+  - `ProductPrecheckResult`: canDeploy Aggregation (nur true wenn alle Stacks canDeploy)
+  - `RunProductPrecheckHandler`: parallele Stack-Prechecks, SharedVariable-Merging, Fehler-Aggregation, Produkt nicht gefunden
+- **Integration Tests**: Handler + API Endpoint mit Mock-Docker-Service, Hooks dryRun, Product Precheck Endpoint
+- **E2E Tests**: Voller UI-Flow mit Precheck-Panel (Stack + Product), Error/Warning-Szenarien
 
 ## Offene Punkte
 
