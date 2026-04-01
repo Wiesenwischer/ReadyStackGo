@@ -34,7 +34,7 @@ Zeige dem User eine Tabelle:
 | PLAN-def.md | Offen | 0/5 | Bleibt |
 ```
 
-## Schritt 3: Abgleich mit GitHub Issues
+## Schritt 3: Abgleich mit GitHub Issues und Board-Status
 
 Für jeden "Vollständig"-Plan:
 1. Prüfe den `<!-- GitHub Epic: #NNN -->` Kommentar in der PLAN-Datei
@@ -42,15 +42,30 @@ Für jeden "Vollständig"-Plan:
    ```bash
    gh issue view NNN --json state --jq .state
    ```
-3. Falls das Issue noch offen ist → **Warnung**: Plan ist als erledigt markiert, aber Issue ist noch offen
-4. Falls kein Issue referenziert ist: Prüfe `docs/Reference/Release-History.md` ob das Feature dort gelistet ist
+3. Prüfe den Board-Status des Issues:
+   ```bash
+   gh project item-list 6 --owner Wiesenwischer --format json --limit 200 --jq ".items[] | select(.content.number == NNN) | .status"
+   ```
+4. Falls das Issue noch offen ist → **Warnung**: Plan ist als erledigt markiert, aber Issue ist noch offen
+5. Falls das Issue offen ist aber alle Plan-Items erledigt → Frage den User ob das Issue geschlossen werden soll
+6. Falls kein Issue referenziert ist: Prüfe `docs/Reference/Release-History.md` ob das Feature dort gelistet ist
 
-## Schritt 4: Archivieren
+## Schritt 4: Archivieren und Board-Status synchronisieren
 
 Für alle Plans die vollständig UND deren GitHub Issue geschlossen ist (oder in Release-History gelistet):
 
 ```bash
 git mv docs/Plans/PLAN-<name>.md docs/Plans/completed/PLAN-<name>.md
+```
+
+### Board-Status auf Done setzen (falls noch nicht):
+```bash
+PROJECT="PVT_kwHOAKdwzc4BR2Bg"
+STATUS_FIELD="PVTSSF_lAHOAKdwzc4BR2Bgzg_jRfE"
+DONE_ID="c631b3e2"
+
+ITEM_ID=$(gh project item-list 6 --owner Wiesenwischer --format json --limit 200 --jq ".items[] | select(.content.number == <ISSUE_NUMBER>) | .id")
+gh project item-edit --project-id $PROJECT --id "$ITEM_ID" --field-id $STATUS_FIELD --single-select-option-id $DONE_ID
 ```
 
 **Nicht archivieren wenn:**
