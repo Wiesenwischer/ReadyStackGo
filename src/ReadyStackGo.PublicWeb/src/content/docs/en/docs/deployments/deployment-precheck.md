@@ -1,9 +1,9 @@
 ---
 title: Deployment Precheck
-description: Automatic infrastructure validation before deployment – images, ports, networks and more
+description: Infrastructure validation before deployment – images, ports, networks and more
 ---
 
-Before deploying a stack, ReadyStackGo automatically runs a **Deployment Precheck**. This validates all prerequisites to detect problems before containers are removed or recreated.
+Before deploying a stack, you can run a **Deployment Precheck** to validate all prerequisites and detect problems before containers are removed or recreated. The precheck is not automatic — it is triggered manually via the **Run Precheck** button.
 
 ## Overview
 
@@ -30,21 +30,33 @@ Open the **Stack Catalog** and select a product. Click **View Details** to see t
 
 ### Step 2: Configure the Stack
 
-On the deploy page, configure the **Stack Name** and **Environment Variables**. The precheck starts automatically once a valid stack name is entered.
+On the deploy page, configure the **Stack Name** and **Environment Variables**. In the right sidebar, you'll find the **Run Precheck** button.
 
 ![Deploy page with stack configuration](/images/docs/precheck-02-configure.png)
 
 ---
 
-### Step 3: Review Precheck Results
+### Step 3: Run the Precheck
 
-The **Deployment Precheck** panel appears below the configuration and shows the results of all checks:
+Click the **Run Precheck** button in the sidebar. You'll be navigated to a dedicated precheck page where the infrastructure checks start automatically.
+
+![Sidebar with Run Precheck button](/images/docs/precheck-03-run-button.png)
+
+:::tip[Precheck is Optional]
+The precheck is a recommendation, not a requirement. You can deploy without running a precheck — the **Deploy** button is always enabled.
+:::
+
+---
+
+### Step 4: Review Precheck Results
+
+The **Precheck Results Page** shows the outcome of all checks:
 
 - ✓ **Green** – Check passed
 - ⚠ **Yellow** – Warning (deployment possible, but review the note)
-- ✗ **Red** – Error (deployment blocked)
+- ✗ **Red** – Error (should be fixed before deployment)
 
-![Precheck panel with results – all checks passed](/images/docs/precheck-03-results.png)
+![Precheck results page with check outcomes](/images/docs/precheck-04-results.png)
 
 :::tip[Service Badges]
 For service-specific checks (e.g. Image Availability), the affected service name is shown as a badge. This helps you quickly identify which service is causing the issue.
@@ -52,23 +64,29 @@ For service-specific checks (e.g. Image Availability), the affected service name
 
 ---
 
-### Step 4: Run Re-Check
+### Step 5: Re-Check or Return to Configure
 
-Use the **Re-Check** button to re-run all checks at any time – for example, after changing a variable or pulling a missing Docker image.
+Use the **Re-Check** button to re-run all checks — for example, after pulling a missing Docker image. Click **Back to Configure** to return to the deploy page.
 
-![Precheck panel with Re-Check button](/images/docs/precheck-04-recheck-button.png)
+![Precheck page with Re-Check button](/images/docs/precheck-05-recheck.png)
 
 ---
 
-### Step 5: Start Deployment
+### Step 6: Start Deployment
 
-When all checks pass (no errors), the **Deploy** button is enabled. If there are errors, the button is disabled and you must fix the issues first.
+Back on the deploy page, you can start the deployment at any time. The **Deploy** button is always enabled, regardless of the precheck result.
 
-![Deploy button enabled after successful precheck](/images/docs/precheck-05-deploy-button.png)
+![Deploy button enabled without precheck requirement](/images/docs/precheck-06-deploy-enabled.png)
 
-:::caution[Errors Block Deployment]
-When the precheck reports errors, the deployment cannot be started. Fix the reported issues and click **Re-Check** to re-run the checks.
-:::
+---
+
+## Product Deployment Precheck
+
+For a **Product Deployment** (multiple stacks at once), the precheck runs checks for **all stacks in parallel**. Results are grouped by stack:
+
+- Stacks with errors or warnings are automatically expanded
+- Stacks without issues are collapsed
+- The summary shows the overall status across all stacks
 
 ---
 
@@ -76,7 +94,7 @@ When the precheck reports errors, the deployment cannot be started. Fix the repo
 
 ### Variable Validation
 
-Checks whether all variables marked as **Required** have a value and whether values match defined patterns. Each missing or invalid variable is reported as a separate error.
+Checks whether all variables marked as **Required** have a value and whether values match defined patterns. Variables like `${FRONTEND_PORT}` are resolved before validation.
 
 ### Existing Deployment
 
@@ -91,11 +109,11 @@ Detects whether a deployment with the same stack name already exists:
 
 ### Image Availability
 
-Checks for each service whether the Docker image is available locally or can be pulled remotely. For private registries, authentication is also validated.
+Checks for each service whether the Docker image is available locally or can be pulled remotely. Image names with variables (e.g. `${REGISTRY}/app:${TAG}`) are resolved before checking.
 
 ### Port Conflicts
 
-Detects whether host ports are already in use by running containers. Containers belonging to the same stack (upgrade scenario) are excluded.
+Detects whether host ports are already in use by running containers. Port definitions with variables (e.g. `${WEB_PORT}:80`) are correctly resolved. Containers belonging to the same stack (upgrade scenario) are excluded.
 
 ### Network Availability
 

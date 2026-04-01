@@ -1,9 +1,9 @@
 ---
 title: Deployment Precheck
-description: Automatische Infrastruktur-Prüfungen vor dem Deployment – Images, Ports, Netzwerke und mehr
+description: Infrastruktur-Prüfungen vor dem Deployment – Images, Ports, Netzwerke und mehr
 ---
 
-Bevor ein Stack deployed wird, führt ReadyStackGo automatisch einen **Deployment Precheck** durch. Dabei werden alle Voraussetzungen geprüft, um Probleme zu erkennen, bevor Container entfernt oder neu erstellt werden.
+Vor jedem Deployment können Sie einen **Deployment Precheck** ausführen. Dabei werden alle Voraussetzungen geprüft, um Probleme zu erkennen, bevor Container entfernt oder neu erstellt werden. Der Precheck wird nicht automatisch ausgeführt, sondern manuell über den **Run Precheck** Button gestartet.
 
 ## Übersicht
 
@@ -30,21 +30,33 @@ Bevor ein Stack deployed wird, führt ReadyStackGo automatisch einen **Deploymen
 
 ### Schritt 2: Stack konfigurieren
 
-Auf der Deploy-Seite konfigurieren Sie **Stack Name** und **Environment Variables**. Der Precheck startet automatisch, sobald ein gültiger Stack-Name eingegeben wurde.
+Auf der Deploy-Seite konfigurieren Sie **Stack Name** und **Environment Variables**. In der rechten Sidebar finden Sie den **Run Precheck** Button.
 
 ![Deploy-Seite mit Stack-Konfiguration](/images/docs/precheck-02-configure.png)
 
 ---
 
-### Schritt 3: Precheck-Ergebnisse prüfen
+### Schritt 3: Precheck starten
 
-Das **Deployment Precheck** Panel erscheint unterhalb der Konfiguration und zeigt die Ergebnisse aller Prüfungen:
+Klicken Sie auf den **Run Precheck** Button in der Sidebar. Sie werden auf eine eigene Precheck-Seite weitergeleitet, auf der die Infrastruktur-Prüfungen automatisch gestartet werden.
+
+![Sidebar mit Run Precheck Button](/images/docs/precheck-03-run-button.png)
+
+:::tip[Precheck ist optional]
+Der Precheck ist eine Empfehlung, kein Pflichtschritt. Sie können auch ohne Precheck deployen – der **Deploy** Button ist immer aktiv.
+:::
+
+---
+
+### Schritt 4: Ergebnisse prüfen
+
+Die **Precheck-Ergebnisseite** zeigt die Ergebnisse aller Prüfungen:
 
 - ✓ **Grün** – Prüfung bestanden
 - ⚠ **Gelb** – Warnung (Deployment möglich, aber Hinweis beachten)
-- ✗ **Rot** – Fehler (Deployment blockiert)
+- ✗ **Rot** – Fehler (sollte vor dem Deployment behoben werden)
 
-![Precheck-Panel mit Ergebnissen – alle Prüfungen bestanden](/images/docs/precheck-03-results.png)
+![Precheck-Ergebnisseite mit Check-Ergebnissen](/images/docs/precheck-04-results.png)
 
 :::tip[Service-Badges]
 Bei service-spezifischen Prüfungen (z.B. Image Availability) wird der betroffene Service-Name als Badge angezeigt. So erkennen Sie sofort, welcher Service das Problem verursacht.
@@ -52,23 +64,29 @@ Bei service-spezifischen Prüfungen (z.B. Image Availability) wird der betroffen
 
 ---
 
-### Schritt 4: Re-Check ausführen
+### Schritt 5: Re-Check oder zurück zur Konfiguration
 
-Über den **Re-Check** Button können Sie die Prüfungen jederzeit erneut ausführen – z.B. nachdem Sie eine Variable geändert oder ein fehlendes Docker-Image gepullt haben.
+Über den **Re-Check** Button können Sie die Prüfungen erneut ausführen – z.B. nachdem Sie ein fehlendes Docker-Image gepullt haben. Über **Back to Configure** gelangen Sie zurück zur Deploy-Seite.
 
-![Precheck-Panel mit Re-Check Button](/images/docs/precheck-04-recheck-button.png)
+![Precheck-Seite mit Re-Check Button](/images/docs/precheck-05-recheck.png)
 
 ---
 
-### Schritt 5: Deploy starten
+### Schritt 6: Deploy starten
 
-Wenn alle Prüfungen bestanden sind (keine Fehler), ist der **Deploy**-Button aktiv. Bei Fehlern wird der Button deaktiviert und Sie müssen die Probleme zuerst beheben.
+Zurück auf der Deploy-Seite können Sie das Deployment jederzeit starten. Der **Deploy** Button ist unabhängig vom Precheck-Ergebnis immer aktiv.
 
-![Deploy-Button aktiviert nach erfolgreichem Precheck](/images/docs/precheck-05-deploy-button.png)
+![Deploy-Button aktiv ohne Precheck-Pflicht](/images/docs/precheck-06-deploy-enabled.png)
 
-:::caution[Fehler blockieren das Deployment]
-Wenn der Precheck Fehler meldet, kann das Deployment nicht gestartet werden. Beheben Sie die gemeldeten Probleme und klicken Sie auf **Re-Check**, um die Prüfungen erneut auszuführen.
-:::
+---
+
+## Produkt-Deployment Precheck
+
+Bei einem **Produkt-Deployment** (mehrere Stacks gleichzeitig) führt der Precheck die Prüfungen für **alle Stacks parallel** durch. Die Ergebnisse werden pro Stack gruppiert angezeigt:
+
+- Stacks mit Fehlern oder Warnungen werden automatisch aufgeklappt
+- Stacks ohne Probleme sind eingeklappt
+- Die Zusammenfassung zeigt den Gesamtstatus über alle Stacks
 
 ---
 
@@ -76,7 +94,7 @@ Wenn der Precheck Fehler meldet, kann das Deployment nicht gestartet werden. Beh
 
 ### Variable Validation
 
-Prüft, ob alle als **Required** markierten Variablen einen Wert haben und ob die Werte den definierten Patterns entsprechen. Jede fehlende oder ungültige Variable wird einzeln als Fehler gemeldet.
+Prüft, ob alle als **Required** markierten Variablen einen Wert haben und ob die Werte den definierten Patterns entsprechen. Variablen wie `${FRONTEND_PORT}` werden dabei korrekt aufgelöst.
 
 ### Existing Deployment
 
@@ -91,11 +109,11 @@ Erkennt, ob bereits ein Deployment mit demselben Stack-Namen existiert:
 
 ### Image Availability
 
-Prüft für jeden Service, ob das Docker-Image lokal vorhanden ist oder remote gezogen werden kann. Bei privaten Registries wird auch die Authentifizierung geprüft.
+Prüft für jeden Service, ob das Docker-Image lokal vorhanden ist oder remote gezogen werden kann. Image-Namen mit Variablen (z.B. `${REGISTRY}/app:${TAG}`) werden vor der Prüfung aufgelöst.
 
 ### Port Conflicts
 
-Erkennt, ob Host-Ports bereits von laufenden Containern belegt werden. Container, die zum selben Stack gehören (Upgrade-Szenario), werden dabei ausgeschlossen.
+Erkennt, ob Host-Ports bereits von laufenden Containern belegt werden. Port-Definitionen mit Variablen (z.B. `${WEB_PORT}:80`) werden korrekt aufgelöst. Container, die zum selben Stack gehören (Upgrade-Szenario), werden ausgeschlossen.
 
 ### Network Availability
 

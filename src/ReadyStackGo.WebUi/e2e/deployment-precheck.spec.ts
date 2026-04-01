@@ -9,30 +9,25 @@ const SCREENSHOT_DIR = path.join(__dirname, '..', '..', 'ReadyStackGo.PublicWeb'
 
 /**
  * E2E Tests for Deployment Precheck
- * Tests the precheck workflow during stack deployment and captures screenshots for documentation.
+ * Tests the precheck workflow: button in sidebar → separate precheck page with results.
  *
  * Requires: At least one stack source with products in the catalog (e.g. RSGO Embedded Stacks).
  */
 
-/** Navigate from catalog to the deploy page of a stack and wait for precheck */
+/** Navigate from catalog to the deploy page of a stack */
 async function navigateToDeployPage(page: import('@playwright/test').Page) {
-  // Go to catalog and find a product
   await page.goto('/catalog');
   await page.waitForLoadState('networkidle');
 
-  // Click "View Details" on a product to open product detail
   const viewDetailsLink = page.getByRole('link', { name: 'View Details' });
   await expect(viewDetailsLink.first()).toBeVisible({ timeout: 10000 });
   await viewDetailsLink.last().click();
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1000);
 
-  // Find the deploy link and extract its href for direct navigation
-  // (client-side Link navigation can be unreliable in E2E)
+  // Find deploy link and navigate directly
   const deployHref = await page.locator('a[href^="/deploy/"]').first().getAttribute('href');
   expect(deployHref).toBeTruthy();
-
-  // Navigate directly to the deploy page
   await page.goto(deployHref!);
   await page.waitForLoadState('networkidle');
 }
@@ -42,177 +37,165 @@ test.describe('Deployment Precheck', () => {
     await login(page);
   });
 
-  test('should navigate from catalog to deploy page and show precheck', async ({ page }) => {
+  test('should show Run Precheck button on deploy page', async ({ page }) => {
     // Navigate to catalog
     await page.goto('/catalog');
     await page.waitForLoadState('networkidle');
 
-    // Screenshot: Catalog page with available products
+    // Screenshot: Catalog page
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'precheck-01-catalog.png'),
       fullPage: false,
     });
 
-    // Click View Details on a product
-    const viewDetailsLink = page.getByRole('link', { name: 'View Details' });
-    await expect(viewDetailsLink.first()).toBeVisible({ timeout: 10000 });
-    await viewDetailsLink.last().click();
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
-
-    // Get the deploy link href and navigate directly
-    const deployHref = await page.locator('a[href^="/deploy/"]').first().getAttribute('href');
-    expect(deployHref).toBeTruthy();
-    await page.goto(deployHref!);
-    await page.waitForLoadState('networkidle');
+    await navigateToDeployPage(page);
 
     // Should show Stack Configuration
     await expect(page.getByText('Stack Configuration')).toBeVisible({ timeout: 10000 });
 
-    // Screenshot: Deploy Stack configuration page
+    // Screenshot: Deploy page with configuration
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'precheck-02-configure.png'),
       fullPage: false,
     });
 
-    // The precheck should auto-run when entering configure state
+    // Precheck should NOT auto-run — no precheck panel visible
     const precheckHeading = page.getByRole('heading', { name: 'Deployment Precheck' });
-    const precheckLoading = page.getByText('Running deployment precheck...');
+    await expect(precheckHeading).not.toBeVisible();
 
-    await expect(precheckHeading.or(precheckLoading)).toBeVisible({ timeout: 15000 });
+    // Run Precheck button should be visible in sidebar
+    const precheckButton = page.getByRole('button', { name: 'Run Precheck' });
+    await expect(precheckButton).toBeVisible();
 
-    // If still loading, wait for completion
-    if (await precheckLoading.isVisible().catch(() => false)) {
-      await expect(precheckHeading).toBeVisible({ timeout: 30000 });
-    }
-
-    // Scroll precheck panel into view for screenshot
-    await precheckHeading.scrollIntoViewIfNeeded();
+    // Scroll sidebar into view for screenshot
+    await precheckButton.scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
 
-    // Screenshot: Precheck panel with results
+    // Screenshot: Sidebar with Run Precheck button
     await page.screenshot({
-      path: path.join(SCREENSHOT_DIR, 'precheck-03-results.png'),
+      path: path.join(SCREENSHOT_DIR, 'precheck-03-run-button.png'),
       fullPage: false,
     });
   });
 
-  test('should show check items with severity icons', async ({ page }) => {
+  test('should navigate to precheck page and show results', async ({ page }) => {
     await navigateToDeployPage(page);
 
+    // Wait for configuration to load
+    await expect(page.getByText('Stack Configuration')).toBeVisible({ timeout: 10000 });
+
+    // Click Run Precheck button
+    const precheckButton = page.getByRole('button', { name: 'Run Precheck' });
+    await expect(precheckButton).toBeVisible();
+    await precheckButton.click();
+
+    // Should navigate to precheck page
+    await page.waitForURL(/\/precheck$/, { timeout: 10000 });
+
     // Wait for precheck to complete
+    const precheckHeading = page.getByRole('heading', { name: 'Deployment Precheck' });
+    const loadingText = page.getByText('Running Deployment Precheck');
+
+    // Either loading or results should be visible
+    await expect(precheckHeading.or(loadingText)).toBeVisible({ timeout: 15000 });
+
+    // Wait for results if still loading
+    if (await loadingText.isVisible().catch(() => false)) {
+      await expect(precheckHeading).toBeVisible({ timeout: 30000 });
+    }
+
+    // Screenshot: Precheck results page
+    await page.screenshot({
+      path: path.join(SCREENSHOT_DIR, 'precheck-04-results.png'),
+      fullPage: false,
+    });
+
+    // Check items should be displayed
+    const checkItems = page.locator('[class*="bg-green-50"], [class*="bg-yellow-50"], [class*="bg-red-50"]');
+    const itemCount = await checkItems.count();
+    expect(itemCount).toBeGreaterThan(0);
+  });
+
+  test('should allow re-check on precheck page', async ({ page }) => {
+    await navigateToDeployPage(page);
+    await expect(page.getByText('Stack Configuration')).toBeVisible({ timeout: 10000 });
+
+    // Navigate to precheck page
+    await page.getByRole('button', { name: 'Run Precheck' }).click();
+    await page.waitForURL(/\/precheck$/, { timeout: 10000 });
+
+    // Wait for results
     const precheckHeading = page.getByRole('heading', { name: 'Deployment Precheck' });
     await expect(precheckHeading).toBeVisible({ timeout: 30000 });
     await page.waitForTimeout(1000);
 
-    // Verify check items are displayed with severity-colored backgrounds
-    const checkItems = page.locator('[class*="bg-green-50"], [class*="bg-yellow-50"], [class*="bg-red-50"]');
-    const itemCount = await checkItems.count();
-    expect(itemCount).toBeGreaterThan(0);
-  });
-
-  test('should allow re-check via button', async ({ page }) => {
-    await navigateToDeployPage(page);
-
-    // Wait for precheck to complete
-    const precheckHeading = page.getByRole('heading', { name: 'Deployment Precheck' });
-    await expect(precheckHeading).toBeVisible({ timeout: 30000 });
-
-    // Find and click the Re-Check button
+    // Re-Check button should be visible
     const recheckButton = page.getByText('Re-Check');
     await expect(recheckButton).toBeVisible();
 
-    // Scroll precheck panel into view
-    await precheckHeading.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(500);
-
-    // Screenshot: Precheck panel with Re-Check button
+    // Screenshot: Precheck page with Re-Check button
     await page.screenshot({
-      path: path.join(SCREENSHOT_DIR, 'precheck-04-recheck-button.png'),
+      path: path.join(SCREENSHOT_DIR, 'precheck-05-recheck.png'),
       fullPage: false,
     });
 
+    // Click Re-Check
     await recheckButton.click();
-
-    // Wait for re-check to complete
-    await expect(precheckHeading).toBeVisible({ timeout: 30000 });
     await page.waitForTimeout(2000);
 
-    // Check items should still be present after re-check
-    const checkItems = page.locator('[class*="bg-green-50"], [class*="bg-yellow-50"], [class*="bg-red-50"]');
-    const itemCount = await checkItems.count();
-    expect(itemCount).toBeGreaterThan(0);
+    // Results should still be present after re-check
+    await expect(precheckHeading).toBeVisible({ timeout: 30000 });
   });
 
-  test('should control deploy button based on precheck result', async ({ page }) => {
+  test('should have back to configure link', async ({ page }) => {
     await navigateToDeployPage(page);
+    await expect(page.getByText('Stack Configuration')).toBeVisible({ timeout: 10000 });
 
-    // Wait for precheck to complete
-    const precheckHeading = page.getByRole('heading', { name: 'Deployment Precheck' });
-    await expect(precheckHeading).toBeVisible({ timeout: 30000 });
+    // Navigate to precheck page
+    await page.getByRole('button', { name: 'Run Precheck' }).click();
+    await page.waitForURL(/\/precheck$/, { timeout: 10000 });
 
-    // Check the deploy button state
-    const deploySubmitButton = page.getByRole('button', { name: /Deploy to/i });
-    await expect(deploySubmitButton).toBeVisible();
+    // Wait for results
+    await expect(page.getByRole('heading', { name: 'Deployment Precheck' })).toBeVisible({ timeout: 30000 });
 
-    // If precheck has errors (red summary), deploy button should be disabled
-    const hasErrors = await page.locator('[class*="bg-red-50"][class*="border-red"]').first().isVisible().catch(() => false);
+    // Back to Configure link should be visible
+    const backLink = page.getByRole('link', { name: 'Back to Configure' });
+    await expect(backLink).toBeVisible();
 
-    if (hasErrors) {
-      await expect(deploySubmitButton).toBeDisabled();
-    } else {
-      await expect(deploySubmitButton).toBeEnabled();
-    }
+    // Click back — should return to deploy page
+    await backLink.click();
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.getByText('Stack Configuration')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should allow deploy without running precheck', async ({ page }) => {
+    await navigateToDeployPage(page);
+    await expect(page.getByText('Stack Configuration')).toBeVisible({ timeout: 10000 });
+
+    // Deploy button should be enabled even without precheck
+    const deployButton = page.getByRole('button', { name: /Deploy to/i });
+    await expect(deployButton).toBeVisible();
+    await expect(deployButton).toBeEnabled();
 
     // Scroll deploy button into view
-    await deploySubmitButton.scrollIntoViewIfNeeded();
+    await deployButton.scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
 
-    // Screenshot: Deploy button state
+    // Screenshot: Deploy button enabled without precheck
     await page.screenshot({
-      path: path.join(SCREENSHOT_DIR, 'precheck-05-deploy-button.png'),
+      path: path.join(SCREENSHOT_DIR, 'precheck-06-deploy-enabled.png'),
       fullPage: false,
     });
   });
 
-  test('should show precheck loading state on re-check', async ({ page }) => {
-    await navigateToDeployPage(page);
-
-    // Wait for initial precheck to complete
-    const precheckHeading = page.getByRole('heading', { name: 'Deployment Precheck' });
-    await expect(precheckHeading).toBeVisible({ timeout: 30000 });
-
-    // Click re-check and capture loading state
-    const recheckButton = page.getByText('Re-Check');
-    await recheckButton.click();
-
-    // Brief wait to capture the spinner
-    await page.waitForTimeout(200);
-
-    // Scroll precheck panel into view
-    await precheckHeading.scrollIntoViewIfNeeded();
-
-    // Screenshot: Loading/checking state with spinner
-    await page.screenshot({
-      path: path.join(SCREENSHOT_DIR, 'precheck-06-loading.png'),
-      fullPage: false,
-    });
-
-    // Wait for completion
-    await page.waitForTimeout(5000);
-    await expect(precheckHeading).toBeVisible();
-  });
-
-  test('should not show precheck for custom deploy', async ({ page }) => {
+  test('should not show precheck button for custom deploy', async ({ page }) => {
     await page.goto('/deploy/custom');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(3000);
 
-    // Precheck should NOT be visible for custom deployments
-    const precheckHeading = page.getByRole('heading', { name: 'Deployment Precheck' });
-    const precheckLoading = page.getByText('Running deployment precheck...');
-
-    await expect(precheckHeading).not.toBeVisible();
-    await expect(precheckLoading).not.toBeVisible();
+    // Run Precheck button should NOT be visible for custom deployments
+    const precheckButton = page.getByRole('button', { name: 'Run Precheck' });
+    await expect(precheckButton).not.toBeVisible();
   });
 });
