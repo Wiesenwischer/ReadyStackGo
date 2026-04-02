@@ -4,8 +4,10 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
+using ReadyStackGo.Application.UseCases.Deployments.Precheck;
 using ReadyStackGo.Application.UseCases.Hooks.DeployStack;
 using ReadyStackGo.Domain.Deployment;
+using ReadyStackGo.Domain.Deployment.Precheck;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.ProductDeployments;
@@ -33,6 +35,10 @@ public class DeployViaHookHandlerTests
         _productSourceMock = new Mock<IProductSourceService>();
         _mediatorMock = new Mock<IMediator>();
         _loggerMock = new Mock<ILogger<DeployViaHookHandler>>();
+        // Default: precheck always passes (returns empty OK result)
+        _mediatorMock.Setup(m => m.Send(It.IsAny<RunDeploymentPrecheckQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(PrecheckResult.Empty);
+
         _handler = new DeployViaHookHandler(
             _deploymentRepoMock.Object,
             _productDeploymentRepoMock.Object,

@@ -73,6 +73,8 @@ export const translations = {
 		'features.distributions.desc': 'Betreibe RSGO mit deinem eigenen Corporate Design — Unternehmen können eine vollständig gebrandete Deployment-Plattform auf Basis von RSGO aufbauen.',
 		'features.sshtunnel.title': 'SSH Tunnel Environments',
 		'features.sshtunnel.desc': 'Remote Docker-Hosts über SSH-Tunnel anbinden — kein exponierter Port, kein Agent, nur SSH-Zugang nötig.',
+		'features.precheck.title': 'Deployment Precheck',
+		'features.precheck.desc': 'Prüft alle Voraussetzungen für ein erfolgreiches Deployment — Images, Ports, Netzwerke und Variablen.',
 
 		// Feature Pages
 		'featurepage.multistack.subtitle': 'Definiere komplexe Anwendungen mit mehreren Docker Stacks und gemeinsamen Variablen in einem einzigen Manifest.',
@@ -174,6 +176,8 @@ export const translations = {
 		'features.distributions.desc': 'Run RSGO with your own corporate design — companies can build a fully branded deployment platform on top of RSGO.',
 		'features.sshtunnel.title': 'SSH Tunnel Environments',
 		'features.sshtunnel.desc': 'Connect remote Docker hosts via SSH tunnel — no exposed port, no agent, just SSH access needed.',
+		'features.precheck.title': 'Deployment Precheck',
+		'features.precheck.desc': 'Validates all prerequisites for a successful deployment — images, ports, networks and variables.',
 
 		// Feature Pages
 		'featurepage.multistack.subtitle': 'Define complex applications with multiple Docker Stacks and shared variables in a single manifest.',

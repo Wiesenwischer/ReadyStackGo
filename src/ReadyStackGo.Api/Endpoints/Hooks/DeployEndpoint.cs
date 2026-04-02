@@ -39,11 +39,13 @@ public class DeployEndpoint : Endpoint<DeployViaHookRequest, DeployViaHookRespon
 
         var response = await _mediator.Send(
             new DeployViaHookCommand(req.StackId, req.StackName, environmentId!, req.Variables,
-                req.EnvironmentName, req.ProductId, req.Version, req.StackDefinitionName), ct);
+                req.EnvironmentName, req.ProductId, req.Version, req.StackDefinitionName, req.DryRun), ct);
 
         if (!response.Success)
         {
-            HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+            HttpContext.Response.StatusCode = response.Action == "precheck-failed"
+                ? StatusCodes.Status422UnprocessableEntity
+                : StatusCodes.Status400BadRequest;
         }
 
         Response = response;

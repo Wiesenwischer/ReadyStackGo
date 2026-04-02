@@ -16,7 +16,9 @@ import ContainerLogs from "@rsgo/ui-generic/pages/Monitoring/ContainerLogs";
 import StackCatalog from "@rsgo/ui-generic/pages/Catalog/StackCatalog";
 import ProductDetail from "@rsgo/ui-generic/pages/Catalog/ProductDetail";
 import DeployStack from "@rsgo/ui-generic/pages/Deployments/DeployStack";
+import StackPrecheckPage from "@rsgo/ui-generic/pages/Deployments/StackPrecheckPage";
 import DeployProduct from "@rsgo/ui-generic/pages/Deployments/DeployProduct";
+import ProductPrecheckPage from "@rsgo/ui-generic/pages/Deployments/ProductPrecheckPage";
 import UpgradeProduct from "@rsgo/ui-generic/pages/Deployments/UpgradeProduct";
 import RemoveProduct from "@rsgo/ui-generic/pages/Deployments/RemoveProduct";
 import RetryProduct from "@rsgo/ui-generic/pages/Deployments/RetryProduct";
@@ -242,10 +244,26 @@ export default function App() {
                   }
                 />
                 <Route
+                  path="/deploy/:stackId/precheck"
+                  element={
+                    <EnvironmentGuard>
+                      <StackPrecheckPage />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
                   path="/deploy-product/:productId"
                   element={
                     <EnvironmentGuard>
                       <DeployProduct />
+                    </EnvironmentGuard>
+                  }
+                />
+                <Route
+                  path="/deploy-product/:productId/precheck"
+                  element={
+                    <EnvironmentGuard>
+                      <ProductPrecheckPage />
                     </EnvironmentGuard>
                   }
                 />

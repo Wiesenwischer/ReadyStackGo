@@ -20,6 +20,7 @@ export * from './api/system';
 export * from './api/user';
 export * from './api/volumes';
 export * from './api/wizard';
+export * from './api/precheck';
 
 // Realtime (SignalR hubs)
 // ConnectionState is defined identically in all three authenticated hubs — export once
@@ -55,6 +56,8 @@ export { useApiKeyStore, type UseApiKeyStoreReturn } from './hooks/useApiKeyStor
 export { useRemoveStackStore, type UseRemoveStackStoreReturn, type RemoveState } from './hooks/useRemoveStackStore';
 export { useRollbackStore, type UseRollbackStoreReturn, type RollbackState } from './hooks/useRollbackStore';
 export { useDeployStackStore, type UseDeployStackStoreReturn, type DeployState } from './hooks/useDeployStackStore';
+export { usePrecheck, type UsePrecheckReturn, type PrecheckState } from './hooks/usePrecheck';
+export { useProductPrecheck, type UseProductPrecheckReturn, type ProductPrecheckState } from './hooks/useProductPrecheck';
 export { useUpgradeStackStore, type UseUpgradeStackStoreReturn, type UpgradeState } from './hooks/useUpgradeStackStore';
 export { useRemoveProductStore, type UseRemoveProductStoreReturn, type RemoveProductState } from './hooks/useRemoveProductStore';
 export { useRetryProductStore, type UseRetryProductStoreReturn, type RetryProductState } from './hooks/useRetryProductStore';

@@ -19,6 +19,12 @@ public record DeployViaHookRequest
     public string? Version { get; init; }
     public string? StackDefinitionName { get; init; }
     public Dictionary<string, string> Variables { get; init; } = new();
+
+    /// <summary>
+    /// When true, only runs the deployment precheck without actually deploying.
+    /// Returns the precheck result instead of starting a deployment.
+    /// </summary>
+    public bool DryRun { get; init; }
 }
 
 public record DeployViaHookResponse
@@ -30,8 +36,31 @@ public record DeployViaHookResponse
     public string? StackVersion { get; init; }
     public string? Action { get; init; }
 
+    /// <summary>
+    /// Precheck result (populated when dryRun=true or when precheck found errors).
+    /// </summary>
+    public PrecheckResultDto? Precheck { get; init; }
+
     public static DeployViaHookResponse Failed(string message) =>
         new() { Success = false, Message = message };
+}
+
+public record PrecheckResultDto
+{
+    public bool CanDeploy { get; init; }
+    public bool HasErrors { get; init; }
+    public bool HasWarnings { get; init; }
+    public string Summary { get; init; } = string.Empty;
+    public IReadOnlyList<PrecheckCheckItemDto> Checks { get; init; } = [];
+}
+
+public record PrecheckCheckItemDto
+{
+    public string Rule { get; init; } = string.Empty;
+    public string Severity { get; init; } = string.Empty;
+    public string Title { get; init; } = string.Empty;
+    public string? Detail { get; init; }
+    public string? ServiceName { get; init; }
 }
 
 public record DeployViaHookCommand(
@@ -42,7 +71,8 @@ public record DeployViaHookCommand(
     string? EnvironmentName = null,
     string? ProductId = null,
     string? Version = null,
-    string? StackDefinitionName = null
+    string? StackDefinitionName = null,
+    bool DryRun = false
 ) : IRequest<DeployViaHookResponse>;
 
 public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, DeployViaHookResponse>
@@ -181,8 +211,47 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
                 deployStackName, resolvedStackId, request.EnvironmentId);
         }
 
-        // 3. Delegate to DeployStackCommand
+        // 3. Run precheck before deploy
         var envIdString = resolvedEnvId.Value.ToString();
+        var precheckResult = await _mediator.Send(new Deployments.Precheck.RunDeploymentPrecheckQuery(
+            envIdString,
+            stackId,
+            deployStackName,
+            variables), cancellationToken);
+
+        var precheckDto = MapPrecheckResult(precheckResult);
+
+        // DryRun: return precheck result without deploying
+        if (request.DryRun)
+        {
+            return new DeployViaHookResponse
+            {
+                Success = precheckResult.CanDeploy,
+                Message = precheckResult.Summary,
+                StackName = request.StackName,
+                Action = "precheck",
+                Precheck = precheckDto
+            };
+        }
+
+        // If precheck has errors, abort deployment
+        if (precheckResult.HasErrors)
+        {
+            _logger.LogWarning(
+                "Precheck failed for stack '{StackName}': {Summary}",
+                deployStackName, precheckResult.Summary);
+
+            return new DeployViaHookResponse
+            {
+                Success = false,
+                Message = $"Deployment precheck failed: {precheckResult.Summary}",
+                StackName = request.StackName,
+                Action = "precheck-failed",
+                Precheck = precheckDto
+            };
+        }
+
+        // 4. Delegate to DeployStackCommand
         var deployResult = await _mediator.Send(new DeployStackCommand(
             envIdString,
             stackId,
@@ -213,6 +282,23 @@ public class DeployViaHookHandler : IRequestHandler<DeployViaHookCommand, Deploy
             Action = action
         };
     }
+
+    private static PrecheckResultDto MapPrecheckResult(Domain.Deployment.Precheck.PrecheckResult result) =>
+        new()
+        {
+            CanDeploy = result.CanDeploy,
+            HasErrors = result.HasErrors,
+            HasWarnings = result.HasWarnings,
+            Summary = result.Summary,
+            Checks = result.Checks.Select(c => new PrecheckCheckItemDto
+            {
+                Rule = c.Rule,
+                Severity = c.Severity.ToString().ToLowerInvariant(),
+                Title = c.Title,
+                Detail = c.Detail,
+                ServiceName = c.ServiceName
+            }).ToList()
+        };
 
     private record StackIdResolutionResult(bool Success, string? StackId, string? StackDefinitionName, string? Error);
 
