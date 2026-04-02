@@ -55,7 +55,7 @@ export { useTlsStore, type UseTlsStoreReturn, type ConfigureLetsEncryptResult } 
 export { useApiKeyStore, type UseApiKeyStoreReturn } from './hooks/useApiKeyStore';
 export { useRemoveStackStore, type UseRemoveStackStoreReturn, type RemoveState } from './hooks/useRemoveStackStore';
 export { useRollbackStore, type UseRollbackStoreReturn, type RollbackState } from './hooks/useRollbackStore';
-export { useDeployStackStore, type UseDeployStackStoreReturn, type DeployState } from './hooks/useDeployStackStore';
+export { useDeployStackStore, type UseDeployStackStoreReturn, type DeployState, type DeployStackRestoreState } from './hooks/useDeployStackStore';
 export { usePrecheck, type UsePrecheckReturn, type PrecheckState } from './hooks/usePrecheck';
 export { useProductPrecheck, type UseProductPrecheckReturn, type ProductPrecheckState } from './hooks/useProductPrecheck';
 export { useUpgradeStackStore, type UseUpgradeStackStoreReturn, type UpgradeState } from './hooks/useUpgradeStackStore';
@@ -68,7 +68,7 @@ export { useStopProductStore, type UseStopProductStoreReturn, type StopProductSt
 export { useMaintenanceProductStore, type UseMaintenanceProductStoreReturn, type MaintenanceProductState, type MaintenanceAction } from './hooks/useMaintenanceProductStore';
 export { useProductDeploymentDetailStore, type UseProductDeploymentDetailStoreReturn, type ProductDeploymentDetailState } from './hooks/useProductDeploymentDetailStore';
 export { useDeploymentDetailStore, type UseDeploymentDetailStoreReturn } from './hooks/useDeploymentDetailStore';
-export { useDeployProductStore, type UseDeployProductStoreReturn, type DeployProductState } from './hooks/useDeployProductStore';
+export { useDeployProductStore, type UseDeployProductStoreReturn, type DeployProductState, type DeployProductRestoreState } from './hooks/useDeployProductStore';
 export { useUpgradeProductStore, type UseUpgradeProductStoreReturn, type UpgradeProductState } from './hooks/useUpgradeProductStore';
 export { useHealthDashboardStore, type UseHealthDashboardStoreReturn, type StatusFilter, type ProductGroup } from './hooks/useHealthDashboardStore';
 export { useContainerStore, type UseContainerStoreReturn, type ViewMode, type OrphanConfirm, type StackGroup, type ProductGrouping } from './hooks/useContainerStore';

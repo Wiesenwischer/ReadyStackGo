@@ -72,22 +72,27 @@ public class RunProductPrecheckHandler : IRequestHandler<RunProductPrecheckQuery
                     "At least one stack configuration is required for product precheck")]))]);
         }
 
-        // 3. Run precheck for each stack in parallel
-        var stackTasks = request.StackConfigs.Select(async stackConfig =>
+        // 3. Run precheck for each stack sequentially
+        // Sequential execution is required because the MediatR handlers use EF Core's
+        // DbContext which is not thread-safe. Docker API calls within each stack
+        // precheck still run in parallel.
+        var stackResults = new List<ProductPrecheckStackResult>();
+        foreach (var stackConfig in request.StackConfigs)
         {
             var stackDef = product.Stacks.FirstOrDefault(s =>
                 s.Id.Value.Equals(stackConfig.StackId, StringComparison.OrdinalIgnoreCase));
 
             if (stackDef == null)
             {
-                return new ProductPrecheckStackResult(
+                stackResults.Add(new ProductPrecheckStackResult(
                     stackConfig.StackId,
                     stackConfig.StackId,
                     new PrecheckResult([new PrecheckItem(
                         "StackDefinition",
                         PrecheckSeverity.Error,
                         "Stack not found",
-                        $"Stack '{stackConfig.StackId}' not found in product '{product.Name}'")]));
+                        $"Stack '{stackConfig.StackId}' not found in product '{product.Name}'")])));
+                continue;
             }
 
             // Merge variables: defaults → shared → per-stack
@@ -105,34 +110,32 @@ public class RunProductPrecheckHandler : IRequestHandler<RunProductPrecheckQuery
                         mergedVariables),
                     cancellationToken);
 
-                return new ProductPrecheckStackResult(stackConfig.StackId, stackDef.Name, result);
+                stackResults.Add(new ProductPrecheckStackResult(stackConfig.StackId, stackDef.Name, result));
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Precheck failed for stack '{StackName}' in product '{ProductName}'",
                     stackDef.Name, product.Name);
 
-                return new ProductPrecheckStackResult(
+                stackResults.Add(new ProductPrecheckStackResult(
                     stackConfig.StackId,
                     stackDef.Name,
                     new PrecheckResult([new PrecheckItem(
                         "PrecheckExecution",
                         PrecheckSeverity.Warning,
                         "Precheck failed",
-                        $"Could not complete precheck: {ex.Message}")]));
+                        $"Could not complete precheck: {ex.Message}")])));
             }
-        });
-
-        var stackResults = await Task.WhenAll(stackTasks);
+        }
 
         _logger.LogInformation(
             "Product precheck completed for '{ProductName}': {StackCount} stacks, {ErrorCount} error(s), {WarningCount} warning(s)",
             product.Name,
-            stackResults.Length,
+            stackResults.Count,
             stackResults.Sum(s => s.Result.ErrorCount),
             stackResults.Sum(s => s.Result.WarningCount));
 
-        return new ProductPrecheckResult(stackResults.ToList());
+        return new ProductPrecheckResult(stackResults);
     }
 
     private static Dictionary<string, string> MergeVariables(

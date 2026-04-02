@@ -62,10 +62,16 @@ export interface UseDeployStackStoreReturn {
   backUrl: string;
 }
 
+export interface DeployStackRestoreState {
+  restoreVariables?: Record<string, string>;
+  restoreStackName?: string;
+}
+
 export function useDeployStackStore(
   token: string | null,
   environmentId: string | undefined,
   stackIdParam: string | undefined,
+  restoreState?: DeployStackRestoreState | null,
 ): UseDeployStackStoreReturn {
   const isCustomDeploy = stackIdParam === 'custom';
 
@@ -168,7 +174,23 @@ export function useDeployStackStore(
           }
         }
 
-        setVariableValues(initialValues);
+        // Restore variable values from precheck back-navigation if available
+        if (restoreState?.restoreVariables) {
+          const restored = { ...initialValues };
+          for (const key of Object.keys(restoreState.restoreVariables)) {
+            if (Object.prototype.hasOwnProperty.call(restored, key)) {
+              restored[key] = restoreState.restoreVariables[key];
+            }
+          }
+          setVariableValues(restored);
+        } else {
+          setVariableValues(initialValues);
+        }
+
+        if (restoreState?.restoreStackName) {
+          setStackName(restoreState.restoreStackName);
+        }
+
         setState('configure');
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load stack');
@@ -177,6 +199,7 @@ export function useDeployStackStore(
     };
 
     loadStack();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stackIdParam, isCustomDeploy, environmentId]);
 
   // Handle version change

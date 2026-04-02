@@ -1,6 +1,7 @@
 import { useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router';
+import { useParams, Link, useNavigate, useLocation } from 'react-router';
 import { useDeployProductStore } from '@rsgo/core';
+import type { DeployProductRestoreState } from '@rsgo/core';
 import { useAuth } from '../../context/AuthContext';
 import { useEnvironment } from '../../context/EnvironmentContext';
 import VariableInput, { groupVariables } from '../../components/variables/VariableInput';
@@ -12,8 +13,10 @@ export default function DeployProduct() {
   const { activeEnvironment } = useEnvironment();
   const envFileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const store = useDeployProductStore(token, activeEnvironment?.id, productId);
+  const restoreState = location.state as DeployProductRestoreState | null;
+  const store = useDeployProductStore(token, activeEnvironment?.id, productId, restoreState);
 
   // Handle .env file import (FileReader stays in the page, parsing in the store)
   const handleEnvFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
