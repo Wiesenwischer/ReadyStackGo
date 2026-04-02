@@ -13,6 +13,7 @@ public class ImageAvailabilityRuleTests
 {
     private readonly Mock<IDockerService> _dockerServiceMock = new();
     private readonly Mock<IRegistryAccessChecker> _registryCheckerMock = new();
+    private readonly Mock<IRegistryCredentialProvider> _credentialProviderMock = new();
     private readonly ImageAvailabilityRule _sut;
 
     public ImageAvailabilityRuleTests()
@@ -20,6 +21,7 @@ public class ImageAvailabilityRuleTests
         _sut = new ImageAvailabilityRule(
             _dockerServiceMock.Object,
             _registryCheckerMock.Object,
+            _credentialProviderMock.Object,
             Mock.Of<ILogger<ImageAvailabilityRule>>());
     }
 
@@ -131,6 +133,73 @@ public class ImageAvailabilityRuleTests
 
         result.Should().HaveCount(2);
         result.Should().OnlyContain(c => c.Severity == PrecheckSeverity.OK);
+    }
+
+    #endregion
+
+    #region Authenticated Registry Access
+
+    [Fact]
+    public async Task Execute_ImageNotLocal_WithCredentials_UsesAuthenticatedCheck()
+    {
+        var context = CreateContext([new ServiceTemplate { Name = "api", Image = "registry-1.docker.io/org/app:1.0" }]);
+        _dockerServiceMock.Setup(d => d.ImageExistsAsync(It.IsAny<string>(), "registry-1.docker.io/org/app", "1.0", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _credentialProviderMock.Setup(c => c.GetCredentialsForImage("registry-1.docker.io/org/app:1.0"))
+            .Returns(new RegistryCredentials("registry-1.docker.io", "user", "pass"));
+        _registryCheckerMock.Setup(r => r.CheckAccessAsync(
+                "registry-1.docker.io", "org", "app", "user", "pass", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(RegistryAccessLevel.Public);
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.Should().ContainSingle().Which.Severity.Should().Be(PrecheckSeverity.OK);
+        result[0].Detail.Should().Contain("authenticated");
+        _registryCheckerMock.Verify(r => r.CheckAccessAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+            "user", "pass", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Execute_ImageNotLocal_WithCredentials_Rejected_ReturnsError()
+    {
+        var context = CreateContext([new ServiceTemplate { Name = "api", Image = "registry-1.docker.io/org/app:1.0" }]);
+        _dockerServiceMock.Setup(d => d.ImageExistsAsync(It.IsAny<string>(), "registry-1.docker.io/org/app", "1.0", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _credentialProviderMock.Setup(c => c.GetCredentialsForImage("registry-1.docker.io/org/app:1.0"))
+            .Returns(new RegistryCredentials("registry-1.docker.io", "user", "wrongpass"));
+        _registryCheckerMock.Setup(r => r.CheckAccessAsync(
+                "registry-1.docker.io", "org", "app", "user", "wrongpass", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(RegistryAccessLevel.AuthRequired);
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.Should().ContainSingle().Which.Severity.Should().Be(PrecheckSeverity.Error);
+        result[0].Detail.Should().Contain("credentials");
+        result[0].Detail.Should().Contain("rejected");
+    }
+
+    [Fact]
+    public async Task Execute_ImageNotLocal_NoCredentials_FallsBackToAnonymous()
+    {
+        var context = CreateContext([new ServiceTemplate { Name = "web", Image = "nginx:latest" }]);
+        _dockerServiceMock.Setup(d => d.ImageExistsAsync(It.IsAny<string>(), "nginx", "latest", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _credentialProviderMock.Setup(c => c.GetCredentialsForImage("nginx:latest"))
+            .Returns((RegistryCredentials?)null);
+        _registryCheckerMock.Setup(r => r.CheckAccessAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(RegistryAccessLevel.Public);
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.Should().ContainSingle().Which.Severity.Should().Be(PrecheckSeverity.OK);
+        result[0].Detail.Should().Contain("public access");
+        _registryCheckerMock.Verify(r => r.CheckAccessAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        _registryCheckerMock.Verify(r => r.CheckAccessAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     #endregion

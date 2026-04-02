@@ -12,15 +12,18 @@ public class ImageAvailabilityRule : IDeploymentPrecheckRule
 {
     private readonly IDockerService _dockerService;
     private readonly IRegistryAccessChecker _registryAccessChecker;
+    private readonly IRegistryCredentialProvider _credentialProvider;
     private readonly ILogger<ImageAvailabilityRule> _logger;
 
     public ImageAvailabilityRule(
         IDockerService dockerService,
         IRegistryAccessChecker registryAccessChecker,
+        IRegistryCredentialProvider credentialProvider,
         ILogger<ImageAvailabilityRule> logger)
     {
         _dockerService = dockerService;
         _registryAccessChecker = registryAccessChecker;
+        _credentialProvider = credentialProvider;
         _logger = logger;
     }
 
@@ -49,10 +52,22 @@ public class ImageAvailabilityRule : IDeploymentPrecheckRule
                     continue;
                 }
 
-                // Image not local — check registry
+                // Image not local — check registry (with credentials if configured)
                 var (host, namespacePath, repository) = ParseRegistryComponents(image);
-                var accessLevel = await _registryAccessChecker.CheckAccessAsync(
-                    host, namespacePath, repository, cancellationToken);
+                var credentials = _credentialProvider.GetCredentialsForImage(resolvedImage);
+
+                RegistryAccessLevel accessLevel;
+                if (credentials != null)
+                {
+                    _logger.LogDebug("Using configured credentials for {Image} (registry: {Host})", resolvedImage, credentials.ServerAddress);
+                    accessLevel = await _registryAccessChecker.CheckAccessAsync(
+                        host, namespacePath, repository, credentials.Username, credentials.Password, cancellationToken);
+                }
+                else
+                {
+                    accessLevel = await _registryAccessChecker.CheckAccessAsync(
+                        host, namespacePath, repository, cancellationToken);
+                }
 
                 switch (accessLevel)
                 {
@@ -61,7 +76,9 @@ public class ImageAvailabilityRule : IDeploymentPrecheckRule
                             "ImageAvailability",
                             PrecheckSeverity.OK,
                             $"Image pullable: {resolvedImage}",
-                            "Image not local but available from registry (public access)",
+                            credentials != null
+                                ? "Image not local but available from registry (authenticated)"
+                                : "Image not local but available from registry (public access)",
                             service.Name));
                         break;
 
@@ -69,8 +86,12 @@ public class ImageAvailabilityRule : IDeploymentPrecheckRule
                         items.Add(new PrecheckItem(
                             "ImageAvailability",
                             PrecheckSeverity.Error,
-                            $"Image requires authentication: {resolvedImage}",
-                            $"Image not found locally and registry '{host}' requires authentication",
+                            credentials != null
+                                ? $"Image not accessible: {resolvedImage}"
+                                : $"Image requires authentication: {resolvedImage}",
+                            credentials != null
+                                ? $"Image not found locally and configured credentials for '{host}' were rejected"
+                                : $"Image not found locally and registry '{host}' requires authentication",
                             service.Name));
                         break;
 
