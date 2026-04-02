@@ -1,6 +1,7 @@
 import { useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router';
+import { useParams, Link, useNavigate, useLocation } from 'react-router';
 import { useDeployStackStore } from '@rsgo/core';
+import type { DeployStackRestoreState } from '@rsgo/core';
 import { useAuth } from '../../context/AuthContext';
 import { useEnvironment } from '../../context/EnvironmentContext';
 import VariableInput, { groupVariables } from '../../components/variables/VariableInput';
@@ -12,8 +13,10 @@ export default function DeployStack() {
   const { activeEnvironment } = useEnvironment();
   const envFileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const store = useDeployStackStore(token, activeEnvironment?.id, stackId);
+  const restoreState = location.state as DeployStackRestoreState | null;
+  const store = useDeployStackStore(token, activeEnvironment?.id, stackId, restoreState);
 
   // Handle .env file import (file reading is UI concern, parsing delegated to store)
   const handleEnvFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {

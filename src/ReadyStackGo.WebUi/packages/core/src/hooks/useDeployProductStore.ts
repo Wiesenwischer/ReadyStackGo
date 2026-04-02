@@ -99,10 +99,17 @@ export interface UseDeployProductStoreReturn {
   getStackSpecificVariables: (stack: ProductStack, sharedNames: Set<string>) => StackVariable[];
 }
 
+export interface DeployProductRestoreState {
+  restoreDeploymentName?: string;
+  restoreSharedVariables?: Record<string, string>;
+  restoreStackConfigs?: Array<{ stackId: string; variables: Record<string, string> }>;
+}
+
 export function useDeployProductStore(
   token: string | null,
   environmentId: string | undefined,
   productSourceId: string | undefined,
+  restoreState?: DeployProductRestoreState | null,
 ): UseDeployProductStoreReturn {
   const [state, setState] = useState<DeployProductState>('loading');
   const [product, setProduct] = useState<Product | null>(null);
@@ -303,9 +310,29 @@ export function useDeployProductStore(
           }
         }
 
+        // Restore values from precheck back-navigation if available
+        if (restoreState?.restoreSharedVariables) {
+          for (const key of Object.keys(restoreState.restoreSharedVariables)) {
+            if (Object.prototype.hasOwnProperty.call(sharedInit, key)) {
+              sharedInit[key] = restoreState.restoreSharedVariables[key];
+            }
+          }
+        }
+        if (restoreState?.restoreStackConfigs) {
+          for (const sc of restoreState.restoreStackConfigs) {
+            if (perStackInit[sc.stackId]) {
+              for (const key of Object.keys(sc.variables)) {
+                if (Object.prototype.hasOwnProperty.call(perStackInit[sc.stackId], key)) {
+                  perStackInit[sc.stackId][key] = sc.variables[key];
+                }
+              }
+            }
+          }
+        }
+
         setSharedVariableValues(sharedInit);
         setPerStackVariableValues(perStackInit);
-        setDeploymentName(toKebabCase(productData.name));
+        setDeploymentName(restoreState?.restoreDeploymentName || toKebabCase(productData.name));
         setExpandedStacks(expandInit);
 
         setState('configure');
@@ -316,6 +343,7 @@ export function useDeployProductStore(
     };
 
     loadProduct();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productSourceId, environmentId]);
 
   const toggleStackExpanded = useCallback((stackId: string) => {
