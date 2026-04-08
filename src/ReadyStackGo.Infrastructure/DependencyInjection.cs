@@ -65,7 +65,8 @@ public static class DependencyInjection
 
         // Product source services
         services.AddSingleton<IProductCache, InMemoryProductCache>();
-        services.AddSingleton<IProductSourceProvider, LocalDirectoryProductSourceProvider>();
+        services.AddSingleton<LocalDirectoryProductSourceProvider>();
+        services.AddSingleton<IProductSourceProvider>(sp => sp.GetRequiredService<LocalDirectoryProductSourceProvider>());
         services.AddSingleton<IProductSourceProvider, GitRepositoryProductSourceProvider>();
         services.AddSingleton<OciRegistryClient>();
         services.AddSingleton<IProductSourceProvider, OciRegistryProductSourceProvider>();
