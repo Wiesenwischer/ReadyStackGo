@@ -23,3 +23,4 @@ Hier finden Sie detaillierte Anleitungen zur Nutzung von ReadyStackGo.
 - [Health Monitoring](/de/docs/monitoring/health-monitoring/) - Echtzeit-Überwachung aller Deployments mit Status-Dashboard und Health History Timeline
 - [Maintenance Mode](/de/docs/monitoring/maintenance-mode/) - Produkte in den Wartungsmodus versetzen und kontrolliert wieder freigeben
 - [Deployment Precheck](/de/docs/deployments/deployment-precheck/) - Automatische Infrastruktur-Prüfungen vor dem Deployment
+- [OCI Stack Bundles](/de/docs/configuration/oci-stack-bundles/) - Stacks aus Docker/OCI Registries laden mit Lock Files und CI/CD Integration

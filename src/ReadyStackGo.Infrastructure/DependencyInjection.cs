@@ -65,8 +65,11 @@ public static class DependencyInjection
 
         // Product source services
         services.AddSingleton<IProductCache, InMemoryProductCache>();
-        services.AddSingleton<IProductSourceProvider, LocalDirectoryProductSourceProvider>();
+        services.AddSingleton<LocalDirectoryProductSourceProvider>();
+        services.AddSingleton<IProductSourceProvider>(sp => sp.GetRequiredService<LocalDirectoryProductSourceProvider>());
         services.AddSingleton<IProductSourceProvider, GitRepositoryProductSourceProvider>();
+        services.AddSingleton<OciRegistryClient>();
+        services.AddSingleton<IProductSourceProvider, OciRegistryProductSourceProvider>();
         services.AddScoped<IProductSourceService, DatabaseProductSourceService>();
 
         // Source Registry (v0.24)
@@ -81,6 +84,17 @@ public static class DependencyInjection
         {
             client.Timeout = TimeSpan.FromSeconds(5);
             client.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-RegistryCheck");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        });
+
+        // OCI Registry Client for stack bundles (v0.58)
+        services.AddHttpClient("OciRegistry", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-OciClient");
         })
         .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
         {

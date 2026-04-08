@@ -17,6 +17,7 @@ internal class StackSourceConfig
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(LocalDirectorySourceEntry), "local-directory")]
 [JsonDerivedType(typeof(GitRepositorySourceEntry), "git-repository")]
+[JsonDerivedType(typeof(OciRegistrySourceEntry), "oci-registry")]
 internal abstract class StackSourceEntry
 {
     public required string Id { get; set; }
@@ -43,4 +44,16 @@ internal class GitRepositorySourceEntry : StackSourceEntry
     public string Branch { get; set; } = "main";
     public string? Path { get; set; }
     public string FilePattern { get; set; } = "*.yml;*.yaml";
+}
+
+/// <summary>
+/// Configuration entry for an OCI registry stack source.
+/// </summary>
+internal class OciRegistrySourceEntry : StackSourceEntry
+{
+    public required string RegistryUrl { get; set; }
+    public required string Repository { get; set; }
+    public string TagPattern { get; set; } = "*";
+    public string? Username { get; set; }
+    public string? Password { get; set; }
 }

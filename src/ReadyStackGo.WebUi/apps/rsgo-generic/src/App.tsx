@@ -39,6 +39,7 @@ import {
   AddStackSourceSelect,
   AddLocalSource,
   AddGitSource,
+  AddOciRegistrySource,
   AddFromCatalog,
   DeleteStackSource,
   RegistriesList,
@@ -354,6 +355,7 @@ export default function App() {
                 <Route path="/settings/stack-sources/add" element={<AddStackSourceSelect />} />
                 <Route path="/settings/stack-sources/add/local" element={<AddLocalSource />} />
                 <Route path="/settings/stack-sources/add/git" element={<AddGitSource />} />
+                <Route path="/settings/stack-sources/add/oci-registry" element={<AddOciRegistrySource />} />
                 <Route path="/settings/stack-sources/add/catalog" element={<AddFromCatalog />} />
                 <Route path="/settings/stack-sources/:id/delete" element={<DeleteStackSource />} />
                 <Route path="/settings/registries" element={<RegistriesList />} />

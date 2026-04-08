@@ -37,7 +37,7 @@ export interface StackSourceDetailDto {
 export interface CreateStackSourceRequest {
   id: string;
   name: string;
-  type: 'LocalDirectory' | 'GitRepository';
+  type: 'LocalDirectory' | 'GitRepository' | 'OciRegistry';
   // For LocalDirectory
   path?: string;
   filePattern?: string;
@@ -47,6 +47,44 @@ export interface CreateStackSourceRequest {
   gitUsername?: string;
   gitPassword?: string;
   sslVerify?: boolean;
+  // For OciRegistry
+  registryUrl?: string;
+  repository?: string;
+  registryUsername?: string;
+  registryPassword?: string;
+  tagPattern?: string;
+}
+
+/**
+ * Request for testing OCI registry connection.
+ */
+export interface TestOciConnectionRequest {
+  registryUrl: string;
+  repository: string;
+  username?: string;
+  password?: string;
+}
+
+/**
+ * Response from OCI registry connection test.
+ */
+export interface TestOciConnectionResponse {
+  success: boolean;
+  message?: string;
+  tagCount: number;
+  sampleTags?: string[];
+}
+
+/**
+ * Test OCI registry connection by listing tags.
+ */
+export async function testOciConnection(token: string, request: TestOciConnectionRequest): Promise<TestOciConnectionResponse> {
+  const response = await fetch('/api/stack-sources/test-oci-connection', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(request),
+  });
+  return response.json();
 }
 
 /**

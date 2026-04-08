@@ -51,14 +51,14 @@ Das Stack Source System ist über `IProductSourceProvider` erweiterbar:
 
 Reihenfolge basierend auf Abhängigkeiten:
 
-- [ ] **Feature 1: Domain — OciRegistry StackSourceType** – Enum-Erweiterung + StackSource Properties + Factory Method
+- [x] **Feature 1: Domain — OciRegistry StackSourceType** – Enum-Erweiterung + StackSource Properties + Factory Method
   - Betroffene Dateien:
     - `src/ReadyStackGo.Domain/StackManagement/Sources/StackSourceType.cs` — neuer Enum-Wert `OciRegistry`
     - `src/ReadyStackGo.Domain/StackManagement/Sources/StackSource.cs` — neue Properties: `RegistryUrl`, `Repository`, `RegistryUsername`, `RegistryPassword` (encrypted), `TagPattern`; Factory Method `CreateOciRegistry()`; `UpdateRegistryCredentials()` Methode
   - Pattern-Vorlage: `StackSource.CreateGitRepository()` (Zeile 69-95)
   - Abhängig von: -
 
-- [ ] **Feature 2: Infrastructure — OCI Registry Client** – HTTP Client für Docker Registry v2 API
+- [x] **Feature 2: Infrastructure — OCI Registry Client** – HTTP Client für Docker Registry v2 API
   - Betroffene Dateien:
     - `src/ReadyStackGo.Infrastructure/Services/StackSources/OciRegistryClient.cs` (neu)
   - Funktionalität:
@@ -70,7 +70,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Pattern-Vorlage: `RegistryAccessChecker` (Token-Flow in Zeile 118-186)
   - Abhängig von: -
 
-- [ ] **Feature 3: Infrastructure — OciRegistryProductSourceProvider** – Sync-Logik
+- [x] **Feature 3: Infrastructure — OciRegistryProductSourceProvider** – Sync-Logik
   - Betroffene Dateien:
     - `src/ReadyStackGo.Infrastructure/Services/StackSources/OciRegistryProductSourceProvider.cs` (neu)
     - `src/ReadyStackGo.Infrastructure/DependencyInjection.cs` — DI Registration
@@ -88,14 +88,14 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Pattern-Vorlage: `GitRepositoryProductSourceProvider` (Clone → Parse Delegation)
   - Abhängig von: Feature 1, Feature 2
 
-- [ ] **Feature 4: Configuration — OciRegistrySourceEntry** – JSON-Persistierung
+- [x] **Feature 4: Configuration — OciRegistrySourceEntry** – JSON-Persistierung
   - Betroffene Dateien:
     - `src/ReadyStackGo.Infrastructure/Configuration/StackSourceConfig.cs` — neue `OciRegistrySourceEntry` Klasse + `[JsonDerivedType(typeof(OciRegistrySourceEntry), "oci-registry")]`
     - `src/ReadyStackGo.Infrastructure/Services/StackSources/DatabaseProductSourceService.cs` (oder `ProductSourceService.cs`) — Mapping StackSource ↔ OciRegistrySourceEntry
   - Pattern-Vorlage: `GitRepositorySourceEntry` (Zeile 40-46)
   - Abhängig von: Feature 1
 
-- [ ] **Feature 5: Application — CreateStackSource Handler Extension** – OciRegistry Case
+- [x] **Feature 5: Application — CreateStackSource Handler Extension** – OciRegistry Case
   - Betroffene Dateien:
     - `src/ReadyStackGo.Application/UseCases/StackSources/CreateStackSource/CreateStackSourceCommand.cs` — neue Request-Properties: `RegistryUrl`, `Repository`, `RegistryUsername`, `RegistryPassword`, `TagPattern`
     - `src/ReadyStackGo.Application/UseCases/StackSources/CreateStackSource/CreateStackSourceHandler.cs` — neuer Case `"ociregistry"` / `"oci-registry"`
@@ -107,13 +107,13 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Pattern-Vorlage: `CreateStackSourceHandler` Git-Case (Zeile 57-81)
   - Abhängig von: Feature 1
 
-- [ ] **Feature 6: API — Endpoint Support** – OciRegistry-Felder in Create/Update
+- [x] **Feature 6: API — Endpoint Support** – OciRegistry-Felder in Create/Update
   - Betroffene Dateien:
     - `src/ReadyStackGo.Api/Endpoints/StackSources/CreateSourceEndpoint.cs`
     - `src/ReadyStackGo.Api/Endpoints/StackSources/UpdateSourceEndpoint.cs` (falls vorhanden)
   - Abhängig von: Feature 5
 
-- [ ] **Feature 7: WebUI — AddOciRegistrySource Page** – Formular für OCI Registry
+- [x] **Feature 7: WebUI — AddOciRegistrySource Page** – Formular für OCI Registry
   - Betroffene Dateien:
     - `src/ReadyStackGo.WebUi/packages/ui-generic/src/pages/Settings/StackSources/AddOciRegistrySource.tsx` (neu)
     - `src/ReadyStackGo.WebUi/packages/ui-generic/src/pages/Settings/StackSources/AddStackSourceSelect.tsx` — neue Option "OCI Registry"
@@ -131,7 +131,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Pattern-Vorlage: `AddGitSource.tsx`
   - Abhängig von: Feature 5, Feature 6
 
-- [ ] **Feature 8: Unit Tests Phase 1**
+- [x] **Feature 8: Unit Tests Phase 1**
   - Tests für:
     - `StackSource.CreateOciRegistry()` — Validierung, Properties
     - `OciRegistryClient` — Tag-Listing, Manifest-Parsing, Token-Auth (mit Mock-HTTP)
@@ -151,7 +151,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Alternativ: Standard Docker Image mit Dateien unter `/rsgo/` + OCI Labels
   - Abhängig von: Phase 1
 
-- [ ] **Feature 10: Lock File Model** – Domain-Modell für deterministische Deployments
+- [x] **Feature 10: Lock File Model** – Domain-Modell für deterministische Deployments
   - Betroffene Dateien:
     - `src/ReadyStackGo.Domain/StackManagement/Stacks/OciLockFile.cs` (neu) — Value Object
   - Struktur:
@@ -162,7 +162,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Parsing: JSON deserialization aus Layer-Inhalt
   - Abhängig von: Feature 9
 
-- [ ] **Feature 11: Lock-file Based Deployment** – Image@Digest statt Image:Tag
+- [x] **Feature 11: Lock-file Based Deployment** – Image@Digest statt Image:Tag
   - Betroffene Dateien:
     - Deployment-Engine (`IDeploymentEngine` / `DeploymentEngine`) — Image-Ref-Resolution erweitern
     - `ProductDefinition` oder `StackDefinition` — optionale LockFile-Referenz
@@ -172,13 +172,13 @@ Reihenfolge basierend auf Abhängigkeiten:
     3. Fallback auf Tag wenn kein Lock-Eintrag gefunden
   - Abhängig von: Feature 10
 
-- [ ] **Feature 12: CI/CD Tooling & Documentation**
+- [x] **Feature 12: CI/CD Tooling & Documentation**
   - Dockerfile-Template für OCI Stack Bundle erstellen
   - Beispiel-Pipeline (GitHub Actions) dokumentieren
   - ORAS CLI Beispiele für Push/Pull
   - Abhängig von: Feature 9
 
-- [ ] **Feature 13: Unit Tests Phase 2**
+- [x] **Feature 13: Unit Tests Phase 2**
   - Tests für: Lock File Parsing, Digest-basiertes Deployment, Bundle-Extraktion
   - Edge Cases: Fehlende lock.json, unbekannte Digests, Format-Versionen
   - Abhängig von: Feature 9-12
@@ -205,10 +205,10 @@ Reihenfolge basierend auf Abhängigkeiten:
 
 ## Offene Punkte
 
-- [ ] Soll `TagPattern` Glob-Syntax (`ams-*`) oder Regex unterstützen?
+- [x] Soll `TagPattern` Glob-Syntax (`ams-*`) oder Regex unterstützen? → **Glob** (konsistent mit FilePattern)
 - [ ] Soll Phase 2 custom OCI Media Types verwenden oder Standard Docker Images mit `/rsgo/`-Pfad?
-- [ ] Soll der Registry Client Pagination für Tag-Listen unterstützen (>100 Tags)?
-- [ ] Braucht es einen separaten "Credentials Test" Endpoint oder reicht der initiale Sync als Validierung?
+- [x] Soll der Registry Client Pagination für Tag-Listen unterstützen (>100 Tags)? → **Ja, von Anfang an**
+- [x] Braucht es einen separaten "Credentials Test" Endpoint? → **Ja, Test Connection Endpoint**
 
 ## Entscheidungen
 

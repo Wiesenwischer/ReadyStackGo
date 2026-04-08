@@ -840,10 +840,15 @@ public class DeploymentEngine : IDeploymentEngine
         // Init containers use "no" restart policy (run once, fail fast), regular services use "unless-stopped"
         var restartPolicy = step.Lifecycle == ServiceLifecycle.Init ? "no" : "unless-stopped";
 
+        // Use digest for deterministic deployments (OCI lock file), fall back to tag
+        var imageRef = !string.IsNullOrEmpty(step.ImageDigest)
+            ? $"{imageName}@{step.ImageDigest}"
+            : $"{imageName}:{imageTag}";
+
         var request = new CreateContainerRequest
         {
             Name = step.ContainerName,
-            Image = $"{imageName}:{imageTag}",
+            Image = imageRef,
             EnvironmentVariables = step.EnvVars,
             Ports = step.Ports,
             Volumes = step.Volumes,

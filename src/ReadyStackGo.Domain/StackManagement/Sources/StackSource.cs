@@ -5,7 +5,7 @@ using ReadyStackGo.Domain.SharedKernel;
 
 /// <summary>
 /// Aggregate root representing a source of stack definitions.
-/// Stack sources can be local directories or Git repositories.
+/// Stack sources can be local directories, Git repositories, or OCI container registries.
 /// </summary>
 public class StackSource : AggregateRoot<StackSourceId>
 {
@@ -23,6 +23,13 @@ public class StackSource : AggregateRoot<StackSourceId>
     public string? GitUsername { get; private set; }
     public string? GitPassword { get; private set; }  // Encrypted
     public bool GitSslVerify { get; private set; } = true;
+
+    // OCI Registry configuration
+    public string? RegistryUrl { get; private set; }
+    public string? Repository { get; private set; }
+    public string? RegistryUsername { get; private set; }
+    public string? RegistryPassword { get; private set; }  // Encrypted
+    public string? TagPattern { get; private set; }
 
     // For EF Core
     protected StackSource() { }
@@ -95,6 +102,35 @@ public class StackSource : AggregateRoot<StackSourceId>
     }
 
     /// <summary>
+    /// Creates a new OCI registry stack source.
+    /// </summary>
+    public static StackSource CreateOciRegistry(
+        StackSourceId id,
+        string name,
+        string registryUrl,
+        string repository,
+        string? tagPattern = "*",
+        string? username = null,
+        string? password = null)
+    {
+        if (string.IsNullOrWhiteSpace(registryUrl))
+            throw new ArgumentException("Registry URL is required for OCI registry source.", nameof(registryUrl));
+        if (string.IsNullOrWhiteSpace(repository))
+            throw new ArgumentException("Repository is required for OCI registry source.", nameof(repository));
+
+        var source = new StackSource(id, name, StackSourceType.OciRegistry)
+        {
+            RegistryUrl = registryUrl,
+            Repository = repository,
+            TagPattern = tagPattern ?? "*",
+            RegistryUsername = username,
+            RegistryPassword = password
+        };
+
+        return source;
+    }
+
+    /// <summary>
     /// Updates the Git credentials.
     /// </summary>
     public void UpdateGitCredentials(string? username, string? password)
@@ -104,6 +140,18 @@ public class StackSource : AggregateRoot<StackSourceId>
 
         GitUsername = username;
         GitPassword = password;
+    }
+
+    /// <summary>
+    /// Updates the OCI registry credentials.
+    /// </summary>
+    public void UpdateRegistryCredentials(string? username, string? password)
+    {
+        if (Type != StackSourceType.OciRegistry)
+            throw new InvalidOperationException("Registry credentials can only be set for OCI registry sources.");
+
+        RegistryUsername = username;
+        RegistryPassword = password;
     }
 
     /// <summary>

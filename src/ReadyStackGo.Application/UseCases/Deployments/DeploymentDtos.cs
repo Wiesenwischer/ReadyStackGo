@@ -79,6 +79,12 @@ public class DeploymentStep
     /// HTTP/TCP health checks are handled by the RSGO monitoring service.
     /// </summary>
     public ServiceHealthCheck? HealthCheck { get; set; }
+
+    /// <summary>
+    /// Optional image digest from an OCI lock file.
+    /// When set, the deployment uses image@digest instead of image:tag for deterministic deployments.
+    /// </summary>
+    public string? ImageDigest { get; set; }
 }
 
 /// <summary>
