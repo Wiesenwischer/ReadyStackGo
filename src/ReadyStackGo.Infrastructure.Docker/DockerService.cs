@@ -236,6 +236,23 @@ public class DockerService : IDockerService, IDisposable
             NetworkingConfig = networkingConfig
         };
 
+        // Set Docker HEALTHCHECK if configured (from manifest/compose)
+        if (request.HealthCheck != null)
+        {
+            var hcConfig = new global::Docker.DotNet.Models.HealthConfig
+            {
+                Test = request.HealthCheck.Test,
+                Retries = (long)(request.HealthCheck.Retries ?? 0)
+            };
+            if (request.HealthCheck.Interval.HasValue)
+                hcConfig.Interval = request.HealthCheck.Interval.Value;
+            if (request.HealthCheck.Timeout.HasValue)
+                hcConfig.Timeout = request.HealthCheck.Timeout.Value;
+            if (request.HealthCheck.StartPeriod.HasValue)
+                hcConfig.StartPeriod = request.HealthCheck.StartPeriod.Value.Ticks * 100;
+            createParams.Healthcheck = hcConfig;
+        }
+
         var response = await client.Containers.CreateContainerAsync(createParams, cancellationToken);
 
         // Connect to additional networks with aliases

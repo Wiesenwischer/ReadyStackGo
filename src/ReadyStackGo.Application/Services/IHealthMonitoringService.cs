@@ -159,9 +159,20 @@ public record ServiceHealthCheckConfig
         new() { Type = "none" };
 
     /// <summary>
+    /// Creates a config for TCP port connectivity checks.
+    /// </summary>
+    public static ServiceHealthCheckConfig Tcp(int? port = null, int timeoutSeconds = 5) =>
+        new() { Type = "tcp", Port = port, TimeoutSeconds = timeoutSeconds };
+
+    /// <summary>
     /// Returns true if this is an HTTP health check.
     /// </summary>
     public bool IsHttp => Type.Equals("http", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Returns true if this is a TCP health check.
+    /// </summary>
+    public bool IsTcp => Type.Equals("tcp", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Returns true if health checks are disabled.

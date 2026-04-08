@@ -65,7 +65,7 @@ Monitoring: HealthMonitoringService
 
 Reihenfolge basierend auf Abhängigkeiten:
 
-- [ ] **Feature 1: TCP Health Checker** – `ITcpHealthChecker` Service mit async Socket-Probing
+- [x] **Feature 1: TCP Health Checker** – `ITcpHealthChecker` Service mit async Socket-Probing
   - Neue Dateien:
     - `Application/Services/ITcpHealthChecker.cs` (Interface)
     - `Infrastructure/Services/Health/TcpHealthChecker.cs` (Implementation)
@@ -75,27 +75,27 @@ Reihenfolge basierend auf Abhängigkeiten:
   - DI-Registrierung in `Infrastructure/DependencyInjection.cs`
   - Abhängig von: –
 
-- [ ] **Feature 2: HealthMonitoringService TCP-Branch** – TCP-Probing in Monitoring einbauen
-  - Datei: `Application/Services/Impl/HealthMonitoringService.cs`
-  - Neben dem bestehenden `if (healthConfig?.IsHttp == true)` einen `else if (healthConfig?.IsTcp == true)` Block
-  - Port-Auflösung: `healthConfig.Port` oder erster exponierter Port des Service
-  - Host-Auflösung: Container-IP aus Docker Inspect (wie bei HTTP)
+- [x] **Feature 2: Health Check Strategy Pattern** – Refactoring der if/else-Kette zu Strategy Pattern
+  - `IHealthCheckStrategy` Interface mit `SupportedType` und `CheckHealthAsync`
+  - `IHealthCheckStrategyFactory` mit Dictionary-basierter Auflösung
+  - Strategien: `HttpHealthCheckStrategy`, `TcpHealthCheckStrategy`, `DockerHealthCheckStrategy`
+  - `HealthMonitoringService` nutzt Factory statt if/else-Kette
   - Abhängig von: Feature 1
 
-- [ ] **Feature 3: CreateContainerRequest Health Config** – Health-Check-Felder zum Request-Model hinzufügen
+- [x] **Feature 3: CreateContainerRequest Health Config** – Health-Check-Felder zum Request-Model hinzufügen
   - Datei: `Application/Services/IDockerService.cs` → `CreateContainerRequest`
   - Neues Property: `HealthCheckConfig? HealthCheck` (oder `RsgoHealthCheck?`)
   - Felder: Test (command list), Interval, Timeout, Retries, StartPeriod
   - Abhängig von: –
 
-- [ ] **Feature 4: Docker HEALTHCHECK Passthrough** – HEALTHCHECK bei Container-Erstellung setzen
+- [x] **Feature 4: Docker HEALTHCHECK Passthrough** – HEALTHCHECK bei Container-Erstellung setzen
   - Datei: `Infrastructure.Docker/DockerService.cs` → `CreateAndStartContainerAsync`
   - Mapping: `CreateContainerRequest.HealthCheck` → `Docker.DotNet.Models.HealthConfig`
   - `HealthConfig.Test`, `.Interval`, `.Timeout`, `.Retries`, `.StartPeriod`
   - TimeSpan-Strings (z.B. "30s") zu Nanosekunden konvertieren (Docker API Format)
   - Abhängig von: Feature 3
 
-- [ ] **Feature 5: DeploymentEngine Healthcheck-Verdrahtung** – Healthcheck-Daten durch Pipeline leiten
+- [x] **Feature 5: DeploymentEngine Healthcheck-Verdrahtung** – Healthcheck-Daten durch Pipeline leiten
   - Dateien:
     - `Infrastructure/Services/Deployment/DeploymentEngine.cs` → Container-Erstellung
     - `Infrastructure/Services/Deployment/DeploymentStep.cs` (oder äquivalent) → Healthcheck-Feld
@@ -103,7 +103,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Nur Docker-Typ HEALTHCHECK weiterleiten (HTTP/TCP werden vom Monitoring-Service gehandelt)
   - Abhängig von: Feature 3, Feature 4
 
-- [ ] **Feature 6: Tests** – Umfassende Testabdeckung
+- [x] **Feature 6: Tests** – Umfassende Testabdeckung
   - Unit Tests:
     - `TcpHealthCheckerTests` — Verbindungserfolg, Timeout, Fehler, Port-Validierung
     - `HealthMonitoringService` TCP-Branch — Mock `ITcpHealthChecker`
@@ -124,9 +124,9 @@ Reihenfolge basierend auf Abhängigkeiten:
 
 ## Offene Punkte
 
-- [ ] Soll der TCP Health Checker bei SSH-Tunnel-Environments übersprungen werden (wie HTTP)?
-- [ ] Default TCP Timeout: 5 Sekunden wie HTTP oder kürzer (z.B. 3s)?
-- [ ] Soll bei `type: docker` + fehlendem HEALTHCHECK im Image eine Warnung geloggt werden?
+- [x] Soll der TCP Health Checker bei SSH-Tunnel-Environments übersprungen werden (wie HTTP)? → **Ja, überspringen** (konsistent mit HTTP)
+- [x] Default TCP Timeout: 5 Sekunden wie HTTP oder kürzer (z.B. 3s)? → **5 Sekunden** (konsistent)
+- [x] Soll bei `type: docker` + fehlendem HEALTHCHECK im Image eine Warnung geloggt werden? → **Nein** (zu noisy)
 
 ## Entscheidungen
 
