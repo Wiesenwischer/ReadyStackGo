@@ -75,11 +75,11 @@ Reihenfolge basierend auf Abhängigkeiten:
   - DI-Registrierung in `Infrastructure/DependencyInjection.cs`
   - Abhängig von: –
 
-- [x] **Feature 2: HealthMonitoringService TCP-Branch** – TCP-Probing in Monitoring einbauen
-  - Datei: `Application/Services/Impl/HealthMonitoringService.cs`
-  - Neben dem bestehenden `if (healthConfig?.IsHttp == true)` einen `else if (healthConfig?.IsTcp == true)` Block
-  - Port-Auflösung: `healthConfig.Port` oder erster exponierter Port des Service
-  - Host-Auflösung: Container-IP aus Docker Inspect (wie bei HTTP)
+- [x] **Feature 2: Health Check Strategy Pattern** – Refactoring der if/else-Kette zu Strategy Pattern
+  - `IHealthCheckStrategy` Interface mit `SupportedType` und `CheckHealthAsync`
+  - `IHealthCheckStrategyFactory` mit Dictionary-basierter Auflösung
+  - Strategien: `HttpHealthCheckStrategy`, `TcpHealthCheckStrategy`, `DockerHealthCheckStrategy`
+  - `HealthMonitoringService` nutzt Factory statt if/else-Kette
   - Abhängig von: Feature 1
 
 - [x] **Feature 3: CreateContainerRequest Health Config** – Health-Check-Felder zum Request-Model hinzufügen

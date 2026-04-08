@@ -112,7 +112,7 @@ public static class DependencyInjection
             ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
         });
 
-        // HTTP Health Checker for ASP.NET Core /hc endpoints
+        // Health check infrastructure services
         services.AddHttpClient<IHttpHealthChecker, HttpHealthChecker>(client =>
         {
             client.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-HealthChecker");
@@ -121,9 +121,13 @@ public static class DependencyInjection
         {
             ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
         });
-
-        // TCP Health Checker for port connectivity checks (e.g., Redis, PostgreSQL)
         services.AddSingleton<ITcpHealthChecker, TcpHealthChecker>();
+
+        // Health check strategies (resolved by type via factory)
+        services.AddSingleton<IHealthCheckStrategy, DockerHealthCheckStrategy>();
+        services.AddScoped<IHealthCheckStrategy, HttpHealthCheckStrategy>();
+        services.AddSingleton<IHealthCheckStrategy, TcpHealthCheckStrategy>();
+        services.AddSingleton<IHealthCheckStrategyFactory, HealthCheckStrategyFactory>();
 
         // SSH Tunnel services (v0.49)
         services.AddSingleton<ICredentialEncryptionService, CredentialEncryptionService>();

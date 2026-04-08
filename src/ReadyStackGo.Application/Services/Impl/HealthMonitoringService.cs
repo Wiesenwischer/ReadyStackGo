@@ -18,23 +18,20 @@ public class HealthMonitoringService : IHealthMonitoringService
     private readonly IDockerService _dockerService;
     private readonly IDeploymentRepository _deploymentRepository;
     private readonly IHealthSnapshotRepository _healthSnapshotRepository;
-    private readonly IHttpHealthChecker? _httpHealthChecker;
-    private readonly ITcpHealthChecker? _tcpHealthChecker;
+    private readonly IHealthCheckStrategyFactory _strategyFactory;
     private readonly ILogger<HealthMonitoringService> _logger;
 
     public HealthMonitoringService(
         IDockerService dockerService,
         IDeploymentRepository deploymentRepository,
         IHealthSnapshotRepository healthSnapshotRepository,
-        ILogger<HealthMonitoringService> logger,
-        IHttpHealthChecker? httpHealthChecker = null,
-        ITcpHealthChecker? tcpHealthChecker = null)
+        IHealthCheckStrategyFactory strategyFactory,
+        ILogger<HealthMonitoringService> logger)
     {
         _dockerService = dockerService;
         _deploymentRepository = deploymentRepository;
         _healthSnapshotRepository = healthSnapshotRepository;
-        _httpHealthChecker = httpHealthChecker;
-        _tcpHealthChecker = tcpHealthChecker;
+        _strategyFactory = strategyFactory;
         _logger = logger;
     }
 
@@ -211,7 +208,7 @@ public class HealthMonitoringService : IHealthMonitoringService
 
     /// <summary>
     /// Collects health for a single service/container.
-    /// Uses HTTP health check if configured, otherwise falls back to Docker status.
+    /// Delegates to the appropriate health check strategy based on config type.
     /// </summary>
     private async Task<ServiceHealth> CollectServiceHealthAsync(
         ContainerDto container,
@@ -220,46 +217,23 @@ public class HealthMonitoringService : IHealthMonitoringService
         string environmentId,
         CancellationToken cancellationToken)
     {
-        HealthStatus healthStatus;
-        string? reason = null;
-        int? restartCount = null;
-        IReadOnlyList<HealthCheckEntry>? healthCheckEntries = null;
-        int? responseTimeMs = null;
+        HealthCheckStrategyResult result;
 
-        // Check if container is running first - if not, HTTP check doesn't make sense
+        // Non-running containers always use Docker status — active probing doesn't make sense
         if (container.State.ToLowerInvariant() != "running")
         {
-            healthStatus = DetermineHealthStatusFromDocker(container);
-            reason = DetermineHealthReason(container, healthStatus);
+            result = DockerHealthCheckStrategy.FromDocker(container);
         }
-        // Use HTTP health check if configured and available
-        else if (healthConfig?.IsHttp == true && _httpHealthChecker != null)
-        {
-            var httpResult = await PerformHttpHealthCheckAsync(
-                container, serviceName, healthConfig, cancellationToken);
-            healthStatus = httpResult.Status;
-            reason = httpResult.Reason;
-            healthCheckEntries = httpResult.Entries;
-            responseTimeMs = httpResult.ResponseTimeMs;
-        }
-        // Use TCP health check if configured and available
-        else if (healthConfig?.IsTcp == true && _tcpHealthChecker != null)
-        {
-            var tcpResult = await PerformTcpHealthCheckAsync(
-                container, serviceName, healthConfig, cancellationToken);
-            healthStatus = tcpResult.IsHealthy ? HealthStatus.Healthy : HealthStatus.Unhealthy;
-            reason = tcpResult.Error;
-            responseTimeMs = tcpResult.ResponseTimeMs;
-        }
-        // Fall back to Docker status
         else
         {
-            healthStatus = DetermineHealthStatusFromDocker(container);
-            reason = DetermineHealthReason(container, healthStatus);
+            var strategy = _strategyFactory.GetStrategy(healthConfig?.Type ?? "docker");
+            result = await strategy.CheckHealthAsync(container, serviceName,
+                healthConfig ?? ServiceHealthCheckConfig.Docker(), cancellationToken);
         }
 
         // Only fetch RestartCount for non-healthy containers (not for Healthy or Running)
-        if (healthStatus != HealthStatus.Healthy && healthStatus != HealthStatus.Running
+        int? restartCount = null;
+        if (result.Status != HealthStatus.Healthy && result.Status != HealthStatus.Running
             && !string.IsNullOrEmpty(container.Id))
         {
             restartCount = await _dockerService.GetContainerRestartCountAsync(
@@ -268,164 +242,13 @@ public class HealthMonitoringService : IHealthMonitoringService
 
         return ServiceHealth.Create(
             serviceName,
-            healthStatus,
+            result.Status,
             container.Id,
             container.Name.TrimStart('/'),
-            reason,
+            result.Reason,
             restartCount,
-            healthCheckEntries,
-            responseTimeMs);
-    }
-
-    /// <summary>
-    /// Performs HTTP health check for a container.
-    /// Returns status, reason, health check entries, and response time.
-    /// </summary>
-    private async Task<HttpHealthCheckPipelineResult> PerformHttpHealthCheckAsync(
-        ContainerDto container,
-        string serviceName,
-        ServiceHealthCheckConfig config,
-        CancellationToken cancellationToken)
-    {
-        // Determine container address (use container name as Docker DNS resolves it)
-        var containerAddress = container.Name.TrimStart('/');
-
-        // Determine port (use config or first exposed port)
-        var port = config.Port ?? GetFirstExposedPort(container);
-        if (port == null)
-        {
-            _logger.LogWarning(
-                "No port configured for HTTP health check on service {ServiceName}, falling back to Docker status",
-                serviceName);
-            return new HttpHealthCheckPipelineResult(
-                DetermineHealthStatusFromDocker(container), "No port for HTTP health check");
-        }
-
-        var httpConfig = new HttpHealthCheckConfig
-        {
-            Path = config.Path,
-            Port = port.Value,
-            Timeout = TimeSpan.FromSeconds(config.TimeoutSeconds),
-            HealthyStatusCodes = config.ExpectedStatusCodes,
-            UseHttps = config.UseHttps
-        };
-
-        try
-        {
-            var result = await _httpHealthChecker!.CheckHealthAsync(
-                containerAddress, httpConfig, cancellationToken);
-
-            // Map entries from infrastructure result to domain value objects
-            var entries = result.Entries?.Select(e => HealthCheckEntry.Create(
-                e.Name,
-                MapEntryStatus(e.Status),
-                e.Description,
-                e.DurationMs,
-                e.Data,
-                e.Tags as IReadOnlyList<string>,
-                e.Exception
-            )).ToList() as IReadOnlyList<HealthCheckEntry>;
-
-            if (result.IsHealthy)
-            {
-                return new HttpHealthCheckPipelineResult(
-                    HealthStatus.Healthy, null, entries, result.ResponseTimeMs);
-            }
-            else
-            {
-                // Map reported status to HealthStatus
-                var status = result.ReportedStatus?.ToLowerInvariant() switch
-                {
-                    "healthy" => HealthStatus.Healthy,
-                    "degraded" => HealthStatus.Degraded,
-                    "unhealthy" => HealthStatus.Unhealthy,
-                    _ => HealthStatus.Unhealthy
-                };
-
-                var reason = result.Error ?? $"HTTP health check: {result.ReportedStatus}";
-                if (result.ResponseTimeMs.HasValue)
-                {
-                    reason += $" ({result.ResponseTimeMs}ms)";
-                }
-
-                return new HttpHealthCheckPipelineResult(
-                    status, reason, entries, result.ResponseTimeMs);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "HTTP health check failed for {ServiceName}", serviceName);
-            return new HttpHealthCheckPipelineResult(
-                HealthStatus.Unhealthy, $"HTTP health check error: {ex.Message}");
-        }
-    }
-
-    private static HealthStatus MapEntryStatus(string statusString)
-    {
-        return statusString.ToLowerInvariant() switch
-        {
-            "healthy" => HealthStatus.Healthy,
-            "degraded" => HealthStatus.Degraded,
-            "unhealthy" => HealthStatus.Unhealthy,
-            _ => HealthStatus.Unknown
-        };
-    }
-
-    private record HttpHealthCheckPipelineResult(
-        HealthStatus Status,
-        string? Reason,
-        IReadOnlyList<HealthCheckEntry>? Entries = null,
-        int? ResponseTimeMs = null);
-
-    /// <summary>
-    /// Performs TCP health check for a container.
-    /// Attempts a TCP connection to the configured port.
-    /// </summary>
-    private async Task<TcpHealthCheckResult> PerformTcpHealthCheckAsync(
-        ContainerDto container,
-        string serviceName,
-        ServiceHealthCheckConfig config,
-        CancellationToken cancellationToken)
-    {
-        var containerAddress = container.Name.TrimStart('/');
-        var port = config.Port ?? GetFirstExposedPort(container);
-
-        if (port == null)
-        {
-            _logger.LogWarning(
-                "No port configured for TCP health check on service {ServiceName}, falling back to Docker status",
-                serviceName);
-            return TcpHealthCheckResult.Unhealthy("No port for TCP health check");
-        }
-
-        var tcpConfig = new TcpHealthCheckConfig
-        {
-            Port = port.Value,
-            Timeout = TimeSpan.FromSeconds(config.TimeoutSeconds)
-        };
-
-        try
-        {
-            return await _tcpHealthChecker!.CheckHealthAsync(containerAddress, tcpConfig, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "TCP health check failed for {ServiceName}", serviceName);
-            return TcpHealthCheckResult.Unhealthy($"TCP health check error: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Gets the first exposed port from a container.
-    /// </summary>
-    private static int? GetFirstExposedPort(ContainerDto container)
-    {
-        var firstPort = container.Ports?.FirstOrDefault();
-        if (firstPort != null && firstPort.PrivatePort > 0)
-        {
-            return firstPort.PrivatePort;
-        }
-        return null;
+            result.Entries,
+            result.ResponseTimeMs);
     }
 
     /// <summary>
@@ -441,20 +264,12 @@ public class HealthMonitoringService : IHealthMonitoringService
     /// </summary>
     private static bool BelongsToStack(ContainerDto container, string stackName)
     {
-        // Check by ReadyStackGo stack label (primary)
         if (container.Labels.TryGetValue("rsgo.stack", out var rsgoStack))
-        {
             return string.Equals(rsgoStack, stackName, StringComparison.OrdinalIgnoreCase);
-        }
 
-        // Check by Docker Compose project label (for compose-deployed stacks)
         if (container.Labels.TryGetValue("com.docker.compose.project", out var project))
-        {
             return string.Equals(project, stackName, StringComparison.OrdinalIgnoreCase);
-        }
 
-        // No label-based matching available - do NOT fall back to name prefix matching
-        // as this causes false positives with similarly named stacks
         return false;
     }
 
@@ -463,75 +278,10 @@ public class HealthMonitoringService : IHealthMonitoringService
     /// </summary>
     private static string ExtractServiceName(ContainerDto container)
     {
-        // Try to get service name from Docker Compose label
         if (container.Labels.TryGetValue("com.docker.compose.service", out var service))
-        {
             return service;
-        }
 
-        // Fall back to container name
         return container.Name.TrimStart('/');
-    }
-
-    /// <summary>
-    /// Determines the health status based on Docker container state and HEALTHCHECK.
-    /// If a Docker HEALTHCHECK is defined, its result is authoritative.
-    /// If no HEALTHCHECK is defined, falls back to container state (running = no health info available).
-    /// </summary>
-    private static HealthStatus DetermineHealthStatusFromDocker(ContainerDto container)
-    {
-        // Use Docker HEALTHCHECK status if available
-        if (!string.IsNullOrEmpty(container.HealthStatus) && container.HealthStatus != "none")
-        {
-            return container.HealthStatus.ToLowerInvariant() switch
-            {
-                "healthy" => HealthStatus.Healthy,
-                "unhealthy" => HealthStatus.Unhealthy,
-                "starting" => HealthStatus.Degraded,
-                _ => HealthStatus.Unknown
-            };
-        }
-
-        // No HEALTHCHECK defined — container is running but health is unverified
-        return container.State.ToLowerInvariant() switch
-        {
-            "running" => HealthStatus.Running,
-            "restarting" => HealthStatus.Degraded,
-            "paused" => HealthStatus.Degraded,
-            "exited" => HealthStatus.Unhealthy,
-            "dead" => HealthStatus.Unhealthy,
-            "created" => HealthStatus.Unknown,
-            _ => HealthStatus.Unknown
-        };
-    }
-
-    /// <summary>
-    /// Determines the reason for the current health status.
-    /// </summary>
-    private static string? DetermineHealthReason(ContainerDto container, HealthStatus status)
-    {
-        if (status == HealthStatus.Healthy)
-            return null;
-
-        if (!string.IsNullOrEmpty(container.HealthStatus) && container.HealthStatus != "none")
-        {
-            if (container.HealthStatus.Equals("unhealthy", StringComparison.OrdinalIgnoreCase))
-                return $"Health check failing (streak: {container.FailingStreak})";
-
-            if (container.HealthStatus.Equals("starting", StringComparison.OrdinalIgnoreCase))
-                return "Container starting, health check pending";
-        }
-
-        return container.State.ToLowerInvariant() switch
-        {
-            "running" => "Container is running",
-            "restarting" => "Container is restarting",
-            "paused" => "Container is paused",
-            "exited" => $"Container exited (status: {container.Status})",
-            "dead" => "Container is dead",
-            "created" => "Container created but not started",
-            _ => $"Unknown state: {container.State}"
-        };
     }
 
     /// <summary>

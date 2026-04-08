@@ -34,10 +34,14 @@ public class HealthMonitoringServiceTests
         _healthSnapshotRepoMock = new Mock<IHealthSnapshotRepository>();
         _loggerMock = new Mock<ILogger<HealthMonitoringService>>();
 
+        var strategyFactory = new HealthCheckStrategyFactory(
+            new IHealthCheckStrategy[] { new DockerHealthCheckStrategy() });
+
         _service = new HealthMonitoringService(
             _dockerServiceMock.Object,
             _deploymentRepoMock.Object,
             _healthSnapshotRepoMock.Object,
+            strategyFactory,
             _loggerMock.Object);
     }
 
