@@ -225,6 +225,44 @@ public class CreateContainerRequest
     /// Restart policy (e.g., "no", "always", "unless-stopped", "on-failure").
     /// </summary>
     public string RestartPolicy { get; set; } = "unless-stopped";
+
+    /// <summary>
+    /// Docker HEALTHCHECK to set on the container (optional).
+    /// Only used for Docker-type health checks with explicit test commands.
+    /// </summary>
+    public DockerHealthCheck? HealthCheck { get; set; }
+}
+
+/// <summary>
+/// Docker HEALTHCHECK configuration to be set on a container at creation time.
+/// Maps to Docker.DotNet.Models.HealthConfig.
+/// </summary>
+public class DockerHealthCheck
+{
+    /// <summary>
+    /// Health check test command (e.g., ["CMD-SHELL", "curl -f http://localhost/ || exit 1"]).
+    /// </summary>
+    public required IList<string> Test { get; set; }
+
+    /// <summary>
+    /// Interval between health checks.
+    /// </summary>
+    public TimeSpan? Interval { get; set; }
+
+    /// <summary>
+    /// Timeout for each health check.
+    /// </summary>
+    public TimeSpan? Timeout { get; set; }
+
+    /// <summary>
+    /// Number of retries before marking container as unhealthy.
+    /// </summary>
+    public int? Retries { get; set; }
+
+    /// <summary>
+    /// Grace period before health checks start (for container startup).
+    /// </summary>
+    public TimeSpan? StartPeriod { get; set; }
 }
 
 /// <summary>

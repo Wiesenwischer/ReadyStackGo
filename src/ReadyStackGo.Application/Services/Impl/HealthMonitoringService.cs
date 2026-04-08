@@ -19,6 +19,7 @@ public class HealthMonitoringService : IHealthMonitoringService
     private readonly IDeploymentRepository _deploymentRepository;
     private readonly IHealthSnapshotRepository _healthSnapshotRepository;
     private readonly IHttpHealthChecker? _httpHealthChecker;
+    private readonly ITcpHealthChecker? _tcpHealthChecker;
     private readonly ILogger<HealthMonitoringService> _logger;
 
     public HealthMonitoringService(
@@ -26,12 +27,14 @@ public class HealthMonitoringService : IHealthMonitoringService
         IDeploymentRepository deploymentRepository,
         IHealthSnapshotRepository healthSnapshotRepository,
         ILogger<HealthMonitoringService> logger,
-        IHttpHealthChecker? httpHealthChecker = null)
+        IHttpHealthChecker? httpHealthChecker = null,
+        ITcpHealthChecker? tcpHealthChecker = null)
     {
         _dockerService = dockerService;
         _deploymentRepository = deploymentRepository;
         _healthSnapshotRepository = healthSnapshotRepository;
         _httpHealthChecker = httpHealthChecker;
+        _tcpHealthChecker = tcpHealthChecker;
         _logger = logger;
     }
 
@@ -239,6 +242,15 @@ public class HealthMonitoringService : IHealthMonitoringService
             healthCheckEntries = httpResult.Entries;
             responseTimeMs = httpResult.ResponseTimeMs;
         }
+        // Use TCP health check if configured and available
+        else if (healthConfig?.IsTcp == true && _tcpHealthChecker != null)
+        {
+            var tcpResult = await PerformTcpHealthCheckAsync(
+                container, serviceName, healthConfig, cancellationToken);
+            healthStatus = tcpResult.IsHealthy ? HealthStatus.Healthy : HealthStatus.Unhealthy;
+            reason = tcpResult.Error;
+            responseTimeMs = tcpResult.ResponseTimeMs;
+        }
         // Fall back to Docker status
         else
         {
@@ -364,6 +376,44 @@ public class HealthMonitoringService : IHealthMonitoringService
         string? Reason,
         IReadOnlyList<HealthCheckEntry>? Entries = null,
         int? ResponseTimeMs = null);
+
+    /// <summary>
+    /// Performs TCP health check for a container.
+    /// Attempts a TCP connection to the configured port.
+    /// </summary>
+    private async Task<TcpHealthCheckResult> PerformTcpHealthCheckAsync(
+        ContainerDto container,
+        string serviceName,
+        ServiceHealthCheckConfig config,
+        CancellationToken cancellationToken)
+    {
+        var containerAddress = container.Name.TrimStart('/');
+        var port = config.Port ?? GetFirstExposedPort(container);
+
+        if (port == null)
+        {
+            _logger.LogWarning(
+                "No port configured for TCP health check on service {ServiceName}, falling back to Docker status",
+                serviceName);
+            return TcpHealthCheckResult.Unhealthy("No port for TCP health check");
+        }
+
+        var tcpConfig = new TcpHealthCheckConfig
+        {
+            Port = port.Value,
+            Timeout = TimeSpan.FromSeconds(config.TimeoutSeconds)
+        };
+
+        try
+        {
+            return await _tcpHealthChecker!.CheckHealthAsync(containerAddress, tcpConfig, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "TCP health check failed for {ServiceName}", serviceName);
+            return TcpHealthCheckResult.Unhealthy($"TCP health check error: {ex.Message}");
+        }
+    }
 
     /// <summary>
     /// Gets the first exposed port from a container.

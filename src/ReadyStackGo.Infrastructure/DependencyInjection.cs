@@ -122,6 +122,9 @@ public static class DependencyInjection
             ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
         });
 
+        // TCP Health Checker for port connectivity checks (e.g., Redis, PostgreSQL)
+        services.AddSingleton<ITcpHealthChecker, TcpHealthChecker>();
+
         // SSH Tunnel services (v0.49)
         services.AddSingleton<ICredentialEncryptionService, CredentialEncryptionService>();
         services.AddSingleton<Docker.ISshTunnelManager, Docker.SshTunnelManager>();

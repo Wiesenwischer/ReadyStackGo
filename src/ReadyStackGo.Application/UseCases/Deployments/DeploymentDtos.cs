@@ -1,4 +1,5 @@
 using ReadyStackGo.Domain.StackManagement.Manifests;
+using ReadyStackGo.Domain.StackManagement.Stacks;
 
 namespace ReadyStackGo.Application.UseCases.Deployments;
 
@@ -72,6 +73,12 @@ public class DeploymentStep
     /// </summary>
     public ServiceLifecycle Lifecycle { get; set; } = ServiceLifecycle.Service;
 
+    /// <summary>
+    /// Health check configuration from the service template.
+    /// Docker-type health checks with Test commands are passed to the container at creation.
+    /// HTTP/TCP health checks are handled by the RSGO monitoring service.
+    /// </summary>
+    public ServiceHealthCheck? HealthCheck { get; set; }
 }
 
 /// <summary>
