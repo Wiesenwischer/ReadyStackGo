@@ -136,6 +136,15 @@ public class ProductSourceService : IProductSourceService
                 git.Path,
                 git.FilePattern),
 
+            OciRegistrySourceEntry oci => StackSource.CreateOciRegistry(
+                id,
+                oci.Name,
+                oci.RegistryUrl,
+                oci.Repository,
+                oci.TagPattern,
+                oci.Username,
+                oci.Password),
+
             _ => throw new NotSupportedException($"Unknown source entry type: {entry.GetType().Name}")
         };
     }
@@ -182,6 +191,19 @@ public class ProductSourceService : IProductSourceService
                 Branch = source.GitBranch ?? "main",
                 Path = source.Path,
                 FilePattern = source.FilePattern ?? "*.yml;*.yaml",
+                Enabled = source.Enabled,
+                LastSyncedAt = source.LastSyncedAt
+            },
+
+            StackSourceType.OciRegistry => new OciRegistrySourceEntry
+            {
+                Id = source.Id.Value,
+                Name = source.Name,
+                RegistryUrl = source.RegistryUrl!,
+                Repository = source.Repository!,
+                TagPattern = source.TagPattern ?? "*",
+                Username = source.RegistryUsername,
+                Password = source.RegistryPassword,
                 Enabled = source.Enabled,
                 LastSyncedAt = source.LastSyncedAt
             },

@@ -39,7 +39,12 @@ public class CreateSourceEndpoint : Endpoint<CreateSourceApiRequest, CreateSourc
             Branch = req.Branch,
             GitUsername = req.GitUsername,
             GitPassword = req.GitPassword,
-            SslVerify = req.SslVerify
+            SslVerify = req.SslVerify,
+            RegistryUrl = req.RegistryUrl,
+            Repository = req.Repository,
+            RegistryUsername = req.RegistryUsername,
+            RegistryPassword = req.RegistryPassword,
+            TagPattern = req.TagPattern
         });
 
         var result = await _mediator.Send(command, ct);
@@ -66,7 +71,7 @@ public class CreateSourceApiRequest
 {
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
-    public string Type { get; set; } = string.Empty;  // "LocalDirectory" or "GitRepository"
+    public string Type { get; set; } = string.Empty;  // "LocalDirectory", "GitRepository", or "OciRegistry"
 
     // For LocalDirectory
     public string? Path { get; set; }
@@ -78,6 +83,13 @@ public class CreateSourceApiRequest
     public string? GitUsername { get; set; }
     public string? GitPassword { get; set; }
     public bool? SslVerify { get; set; }
+
+    // For OciRegistry
+    public string? RegistryUrl { get; set; }
+    public string? Repository { get; set; }
+    public string? RegistryUsername { get; set; }
+    public string? RegistryPassword { get; set; }
+    public string? TagPattern { get; set; }
 }
 
 public class CreateSourceResponse
