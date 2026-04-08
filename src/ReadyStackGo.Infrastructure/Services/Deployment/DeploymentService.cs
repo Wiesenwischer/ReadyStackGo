@@ -1102,7 +1102,8 @@ public class DeploymentService : IDeploymentService
                 ContainerName = resolvedContainerName,
                 Order = order++,
                 DependsOn = service.DependsOn.ToList(),
-                Lifecycle = service.Lifecycle
+                Lifecycle = service.Lifecycle,
+                HealthCheck = service.HealthCheck
             };
 
             // Map ports - resolve ${VAR} placeholders in port mappings

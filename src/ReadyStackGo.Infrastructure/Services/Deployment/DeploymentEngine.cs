@@ -860,6 +860,22 @@ public class DeploymentEngine : IDeploymentEngine
             RestartPolicy = restartPolicy
         };
 
+        // Pass Docker HEALTHCHECK to container if configured.
+        // Only Docker-type health checks with Test commands are set on the container.
+        // HTTP/TCP types are handled by RSGO monitoring service, not the Docker daemon.
+        if (step.HealthCheck is { Test.Count: > 0 } hc &&
+            hc.Type.Equals("docker", StringComparison.OrdinalIgnoreCase))
+        {
+            request.HealthCheck = new DockerHealthCheck
+            {
+                Test = hc.Test.ToList(),
+                Interval = hc.Interval,
+                Timeout = hc.Timeout,
+                Retries = hc.Retries,
+                StartPeriod = hc.StartPeriod
+            };
+        }
+
         var containerId = await _dockerService.CreateAndStartContainerAsync(environmentId, request);
 
         _logger.LogInformation(
