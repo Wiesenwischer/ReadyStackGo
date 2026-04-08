@@ -13,5 +13,10 @@ public enum StackSourceType
     /// <summary>
     /// Stack definitions from a Git repository.
     /// </summary>
-    GitRepository
+    GitRepository,
+
+    /// <summary>
+    /// Stack definitions from an OCI container registry (Docker Hub, GHCR, Azure CR, etc.).
+    /// </summary>
+    OciRegistry
 }

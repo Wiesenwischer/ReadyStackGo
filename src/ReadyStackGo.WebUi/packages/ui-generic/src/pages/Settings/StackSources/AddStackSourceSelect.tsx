@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { TypeSelector, type TypeOption } from "../../../components/ui/TypeSelector";
 
-type SourceType = "local" | "git" | "catalog";
+type SourceType = "local" | "git" | "oci-registry" | "catalog";
 
 const sourceTypeOptions: TypeOption<SourceType>[] = [
   {
@@ -23,6 +23,16 @@ const sourceTypeOptions: TypeOption<SourceType>[] = [
       <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 7.894l-5.5 5.5a.75.75 0 01-1.06 0l-2.5-2.5a.75.75 0 011.06-1.06l1.97 1.97 4.97-4.97a.75.75 0 011.06 1.06z"/>
         <path fillRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zM5.5 12a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0z" clipRule="evenodd"/>
+      </svg>
+    ),
+  },
+  {
+    id: "oci-registry",
+    label: "OCI Registry",
+    description: "Pull stacks from a Docker/OCI container registry",
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
       </svg>
     ),
   },

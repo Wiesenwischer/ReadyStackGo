@@ -80,8 +80,30 @@ public class CreateStackSourceHandler : IRequestHandler<CreateStackSourceCommand
                         request.SslVerify ?? true);
                     break;
 
+                case "ociregistry":
+                case "oci-registry":
+                    if (string.IsNullOrWhiteSpace(request.RegistryUrl))
+                    {
+                        return new CreateStackSourceResult(false, "Registry URL is required for OCI registry source");
+                    }
+
+                    if (string.IsNullOrWhiteSpace(request.Repository))
+                    {
+                        return new CreateStackSourceResult(false, "Repository is required for OCI registry source");
+                    }
+
+                    source = StackSource.CreateOciRegistry(
+                        sourceId,
+                        request.Name,
+                        request.RegistryUrl,
+                        request.Repository,
+                        request.TagPattern ?? "*",
+                        request.RegistryUsername,
+                        request.RegistryPassword);
+                    break;
+
                 default:
-                    return new CreateStackSourceResult(false, $"Unknown source type: {request.Type}. Use 'LocalDirectory' or 'GitRepository'");
+                    return new CreateStackSourceResult(false, $"Unknown source type: {request.Type}. Use 'LocalDirectory', 'GitRepository', or 'OciRegistry'");
             }
 
             await _productSourceService.AddSourceAsync(source, cancellationToken);
