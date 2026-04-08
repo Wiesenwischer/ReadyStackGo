@@ -331,6 +331,19 @@ Complete release history for ReadyStackGo. For current planning, see the [GitHub
   - Dedicated Enter/Exit Maintenance pages with confirmation flow
   - Remove stack-level maintenance API (product-level only)
   - Reduce sidebar logo spacing
+- **v0.58** – OCI Stack Bundles (2026-04-08)
+  - OCI Registry Stack Source Type (Docker Hub, GHCR, Azure CR, etc.)
+  - Docker Registry v2 API Client with Bearer token auth and pagination
+  - Glob-based tag filtering and manifest digest caching
+  - OCI Lock File Model for deterministic image@digest deployments
+  - Test Connection endpoint for registry connectivity verification
+  - AddOciRegistrySource UI page with Test Connection button
+  - Bilingual documentation (DE/EN) with CI/CD publishing examples
+- **v0.60** – Complete Health Check Support (2026-04-08)
+  - TCP Health Checker (async TcpClient port probing for Redis, PostgreSQL, etc.)
+  - Health Check Strategy Pattern (IHealthCheckStrategy / IHealthCheckStrategyFactory)
+  - Docker HEALTHCHECK Passthrough (manifest → container creation with TimeSpan-to-nanoseconds)
+  - Deployment Precheck feature with E2E tests and documentation
 - **v0.49** – SSH Tunnel Environment (2026-03-15)
   - Polymorphic ConnectionConfig (JSON Column, DockerSocketConfig + SshTunnelConfig subtypes)
   - SSH Credential Storage (AES-encrypted private keys/passwords)
