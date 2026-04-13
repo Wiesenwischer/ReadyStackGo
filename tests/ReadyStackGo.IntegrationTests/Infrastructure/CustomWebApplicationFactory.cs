@@ -79,11 +79,13 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 options.UseSqlite(_connection);
             });
 
-            // Build service provider and ensure database is created
+            // Build service provider and apply migrations (consistent with Program.cs startup).
+            // Using Migrate() instead of EnsureCreated() ensures the test DB goes through the
+            // same migration pipeline as production, so new migrations are exercised by tests.
             var sp = services.BuildServiceProvider();
             using var scope = sp.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ReadyStackGoDbContext>();
-            db.Database.EnsureCreated();
+            db.Database.Migrate();
         });
 
         builder.UseEnvironment("Testing");
