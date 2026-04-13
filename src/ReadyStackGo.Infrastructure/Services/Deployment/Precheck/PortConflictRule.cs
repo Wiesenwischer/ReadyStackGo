@@ -13,14 +13,14 @@ public class PortConflictRule : IDeploymentPrecheckRule
         var items = new List<PrecheckItem>();
 
         // Collect all host ports currently in use (excluding containers belonging to this stack)
-        var ownContainerPrefix = $"{context.StackName}-";
         var usedPorts = new Dictionary<int, string>(); // port → container name
 
         foreach (var container in context.RunningContainers)
         {
-            // Skip containers belonging to this stack (upgrade scenario)
-            if (container.Name.StartsWith(ownContainerPrefix, StringComparison.OrdinalIgnoreCase) ||
-                container.Name.Equals(context.StackName, StringComparison.OrdinalIgnoreCase))
+            // Skip containers belonging to this stack (upgrade / redeploy scenario).
+            // Primary: rsgo.stack label (authoritative).
+            // Fallback: docker-compose project label for compose-deployed stacks.
+            if (BelongsToStack(container, context.StackName))
                 continue;
 
             // Skip non-running containers
@@ -31,7 +31,7 @@ public class PortConflictRule : IDeploymentPrecheckRule
             {
                 if (port.PublicPort > 0)
                 {
-                    usedPorts.TryAdd(port.PublicPort, container.Name);
+                    usedPorts.TryAdd(port.PublicPort, container.Name.TrimStart('/'));
                 }
             }
         }
@@ -75,6 +75,22 @@ public class PortConflictRule : IDeploymentPrecheckRule
         }
 
         return Task.FromResult<IReadOnlyList<PrecheckItem>>(items);
+    }
+
+    /// <summary>
+    /// Determines whether a container belongs to the given stack.
+    /// Primary match: rsgo.stack label (authoritative).
+    /// Fallback: docker-compose project label for compose-deployed stacks.
+    /// </summary>
+    internal static bool BelongsToStack(ReadyStackGo.Application.UseCases.Containers.ContainerDto container, string stackName)
+    {
+        if (container.Labels.TryGetValue("rsgo.stack", out var rsgoStack))
+            return string.Equals(rsgoStack, stackName, StringComparison.OrdinalIgnoreCase);
+
+        if (container.Labels.TryGetValue("com.docker.compose.project", out var composeProject))
+            return string.Equals(composeProject, stackName, StringComparison.OrdinalIgnoreCase);
+
+        return false;
     }
 
     internal static IEnumerable<int> ExpandPortRange(string hostPort)
