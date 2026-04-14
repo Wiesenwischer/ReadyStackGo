@@ -61,6 +61,22 @@ public class StackSourceConfiguration : IEntityTypeConfiguration<StackSource>
         builder.Property(s => s.GitSslVerify)
             .HasDefaultValue(true);
 
+        // OCI Registry fields (v0.61)
+        builder.Property(s => s.RegistryUrl)
+            .HasMaxLength(255);
+
+        builder.Property(s => s.Repository)
+            .HasMaxLength(500);
+
+        builder.Property(s => s.RegistryUsername)
+            .HasMaxLength(255);
+
+        builder.Property(s => s.RegistryPassword)
+            .HasMaxLength(1000);  // Encrypted value may be longer
+
+        builder.Property(s => s.TagPattern)
+            .HasMaxLength(200);
+
         // Indexes
         builder.HasIndex(s => s.Name).IsUnique();
         builder.HasIndex(s => s.Type);

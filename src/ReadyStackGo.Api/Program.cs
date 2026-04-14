@@ -140,8 +140,8 @@ public class Program
 
         var app = builder.Build();
 
-        // Initialize SQLite database
-        app.Services.EnsureDatabaseCreated();
+        // Apply EF Core migrations (handles fresh DBs, legacy DBs from EnsureCreated era, and upgrades)
+        app.Services.MigrateDatabase();
 
         // Run distribution-specific bootstrap (idempotent, safe on every startup)
         await RunBootstrapperAsync(app);
