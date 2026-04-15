@@ -17,6 +17,7 @@ namespace ReadyStackGo.UnitTests.Application.Deployments;
 public class RedeployProductHandlerTests
 {
     private readonly Mock<IProductDeploymentRepository> _repositoryMock;
+    private readonly Mock<IProductSourceService> _productSourceServiceMock;
     private readonly Mock<IMediator> _mediatorMock;
     private readonly Mock<IDeploymentService> _deploymentServiceMock;
     private readonly Mock<ILogger<RedeployProductHandler>> _loggerMock;
@@ -28,6 +29,7 @@ public class RedeployProductHandlerTests
     public RedeployProductHandlerTests()
     {
         _repositoryMock = new Mock<IProductDeploymentRepository>();
+        _productSourceServiceMock = new Mock<IProductSourceService>();
         _mediatorMock = new Mock<IMediator>();
         _deploymentServiceMock = new Mock<IDeploymentService>();
         _loggerMock = new Mock<ILogger<RedeployProductHandler>>();
@@ -45,6 +47,7 @@ public class RedeployProductHandlerTests
 
         _handler = new RedeployProductHandler(
             _repositoryMock.Object,
+            _productSourceServiceMock.Object,
             _mediatorMock.Object,
             _deploymentServiceMock.Object,
             _loggerMock.Object,
@@ -340,6 +343,135 @@ public class RedeployProductHandlerTests
         var result = await _handler.Handle(command, CancellationToken.None);
 
         result.SessionId.Should().StartWith("product-redeploy-");
+    }
+
+    #endregion
+
+    #region Maintenance Observer Refresh
+
+    [Fact]
+    public async Task Handle_ReResolvesMaintenanceObserverFromCatalog()
+    {
+        var pd = CreateRunningDeploymentWithSharedVars(new Dictionary<string, string>
+        {
+            ["DB_SERVER"] = "sqldev2017",
+            ["DB_NAME"] = "dev-amsproject"
+        });
+        SetupDeploymentFound(pd);
+
+        _productSourceServiceMock
+            .Setup(s => s.GetProductAsync(pd.ProductId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateCatalogProductWithObserver(pd.ProductId));
+
+        var command = CreateCommand(pd.Id.Value.ToString());
+        await _handler.Handle(command, CancellationToken.None);
+
+        pd.MaintenanceObserverConfig.Should().NotBeNull(
+            "redeploy must re-read maintenance observer from the catalog so stack.yaml edits take effect");
+        pd.MaintenanceObserverConfig!.Type.Value.Should().Be("sqlExtendedProperty");
+    }
+
+    [Fact]
+    public async Task Handle_ObserverRemovedFromCatalog_ClearsConfig()
+    {
+        var pd = CreateRunningDeploymentWithSharedVars(new Dictionary<string, string>());
+        // Pre-seed an existing observer — simulating the old catalog state.
+        pd.SetMaintenanceObserverConfig(global::ReadyStackGo.Domain.Deployment.Observers.MaintenanceObserverConfig.Create(
+            global::ReadyStackGo.Domain.Deployment.Observers.ObserverType.File,
+            TimeSpan.FromSeconds(30),
+            "1",
+            "0",
+            global::ReadyStackGo.Domain.Deployment.Observers.FileObserverSettings.ForExistence("/tmp/x")));
+        SetupDeploymentFound(pd);
+
+        // Catalog returns product without observer.
+        _productSourceServiceMock
+            .Setup(s => s.GetProductAsync(pd.ProductId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateCatalogProductWithoutObserver(pd.ProductId));
+
+        var command = CreateCommand(pd.Id.Value.ToString());
+        await _handler.Handle(command, CancellationToken.None);
+
+        pd.MaintenanceObserverConfig.Should().BeNull(
+            "observer removed from the catalog must also be removed from the ProductDeployment");
+    }
+
+    private static ProductDeployment CreateRunningDeploymentWithSharedVars(Dictionary<string, string> sharedVars)
+    {
+        var pd = ProductDeployment.InitiateDeployment(
+            ProductDeploymentId.NewId(), EnvironmentId.NewId(),
+            "stacks:testproduct", "stacks:testproduct:1.0.0",
+            "testproduct", "Test Product", "1.0.0",
+            UserId.NewId(), "test-deploy",
+            CreateStackConfigs(1),
+            sharedVars);
+
+        pd.StartStack("stack-0", DeploymentId.NewId());
+        pd.CompleteStack("stack-0");
+        return pd;
+    }
+
+    private static global::ReadyStackGo.Domain.StackManagement.Stacks.ProductDefinition CreateCatalogProductWithObserver(string productId)
+    {
+        var stack = new global::ReadyStackGo.Domain.StackManagement.Stacks.StackDefinition(
+            "stacks",
+            "stack-0",
+            new global::ReadyStackGo.Domain.StackManagement.Stacks.ProductId(productId),
+            services: new[]
+            {
+                new global::ReadyStackGo.Domain.StackManagement.Stacks.ServiceTemplate
+                {
+                    Name = "svc", Image = "test:latest"
+                }
+            },
+            variables: Array.Empty<global::ReadyStackGo.Domain.StackManagement.Stacks.Variable>(),
+            productName: "testproduct",
+            productDisplayName: "Test Product",
+            productVersion: "1.0.0");
+
+        return new global::ReadyStackGo.Domain.StackManagement.Stacks.ProductDefinition(
+            sourceId: "stacks",
+            name: "testproduct",
+            displayName: "Test Product",
+            stacks: new[] { stack },
+            productVersion: "1.0.0",
+            maintenanceObserver: new global::ReadyStackGo.Domain.StackManagement.Manifests.RsgoMaintenanceObserver
+            {
+                Type = "sqlExtendedProperty",
+                PropertyName = "ams-MaintenanceMode",
+                ConnectionString = "Server=${DB_SERVER};Database=${DB_NAME};",
+                MaintenanceValue = "1",
+                NormalValue = "0",
+                PollingInterval = "30s"
+            },
+            productId: productId);
+    }
+
+    private static global::ReadyStackGo.Domain.StackManagement.Stacks.ProductDefinition CreateCatalogProductWithoutObserver(string productId)
+    {
+        var stack = new global::ReadyStackGo.Domain.StackManagement.Stacks.StackDefinition(
+            "stacks",
+            "stack-0",
+            new global::ReadyStackGo.Domain.StackManagement.Stacks.ProductId(productId),
+            services: new[]
+            {
+                new global::ReadyStackGo.Domain.StackManagement.Stacks.ServiceTemplate
+                {
+                    Name = "svc", Image = "test:latest"
+                }
+            },
+            variables: Array.Empty<global::ReadyStackGo.Domain.StackManagement.Stacks.Variable>(),
+            productName: "testproduct",
+            productDisplayName: "Test Product",
+            productVersion: "1.0.0");
+
+        return new global::ReadyStackGo.Domain.StackManagement.Stacks.ProductDefinition(
+            sourceId: "stacks",
+            name: "testproduct",
+            displayName: "Test Product",
+            stacks: new[] { stack },
+            productVersion: "1.0.0",
+            productId: productId);
     }
 
     #endregion

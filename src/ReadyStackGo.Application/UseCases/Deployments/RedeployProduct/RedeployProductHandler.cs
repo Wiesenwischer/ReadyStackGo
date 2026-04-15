@@ -16,6 +16,7 @@ namespace ReadyStackGo.Application.UseCases.Deployments.RedeployProduct;
 public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, DeployProductResponse>
 {
     private readonly IProductDeploymentRepository _repository;
+    private readonly IProductSourceService _productSourceService;
     private readonly IMediator _mediator;
     private readonly IDeploymentService _deploymentService;
     private readonly IDeploymentNotificationService? _notificationService;
@@ -25,6 +26,7 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
 
     public RedeployProductHandler(
         IProductDeploymentRepository repository,
+        IProductSourceService productSourceService,
         IMediator mediator,
         IDeploymentService deploymentService,
         ILogger<RedeployProductHandler> logger,
@@ -33,6 +35,7 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
         TimeProvider? timeProvider = null)
     {
         _repository = repository;
+        _productSourceService = productSourceService;
         _mediator = mediator;
         _deploymentService = deploymentService;
         _logger = logger;
@@ -70,6 +73,34 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
         catch (InvalidOperationException ex)
         {
             return DeployProductResponse.Failed(ex.Message);
+        }
+
+        // Re-resolve the product-level maintenance observer from the current catalog.
+        // This is how stack.yaml edits to maintenance.observer take effect on redeploy.
+        if (!string.IsNullOrEmpty(productDeployment.ProductId))
+        {
+            var product = await _productSourceService.GetProductAsync(
+                productDeployment.ProductId, cancellationToken);
+            if (product != null)
+            {
+                var observerVariables = BuildObserverVariables(productDeployment, request.VariableOverrides);
+                var observerConfig = MaintenanceObserverConfigMapper.Map(
+                    product.MaintenanceObserver, observerVariables);
+                productDeployment.SetMaintenanceObserverConfig(observerConfig);
+
+                if (observerConfig != null)
+                {
+                    _logger.LogInformation(
+                        "Redeploy {ProductDeploymentId} refreshed maintenance observer type={ObserverType}",
+                        productDeployment.Id, observerConfig.Type.Value);
+                }
+                else if (product.MaintenanceObserver != null)
+                {
+                    _logger.LogWarning(
+                        "Product {ProductName} defines maintenanceObserver but it could not be mapped on redeploy (unresolved variables?) — observer disabled",
+                        productDeployment.ProductName);
+                }
+            }
         }
 
         _repository.Update(productDeployment);
@@ -259,6 +290,25 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
             SessionId = sessionId,
             StackResults = stackResults
         };
+    }
+
+    // Merge shared variables with redeploy overrides for observer placeholder resolution.
+    // Observer is product-level, so we only use shared values — not per-stack overrides.
+    private static Dictionary<string, string> BuildObserverVariables(
+        ProductDeployment productDeployment,
+        IReadOnlyDictionary<string, string>? overrides)
+    {
+        var merged = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kvp in productDeployment.SharedVariables)
+            merged[kvp.Key] = kvp.Value;
+
+        if (overrides != null)
+        {
+            foreach (var kvp in overrides)
+                merged[kvp.Key] = kvp.Value;
+        }
+
+        return merged;
     }
 
     private static void FinalizeProductStatus(ProductDeployment productDeployment)

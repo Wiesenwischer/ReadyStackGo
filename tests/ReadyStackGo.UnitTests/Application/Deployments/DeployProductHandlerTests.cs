@@ -864,4 +864,111 @@ public class DeployProductHandlerTests
     }
 
     #endregion
+
+    #region Maintenance Observer Wiring
+
+    [Fact]
+    public async Task Handle_ProductHasResolvableObserver_SetsConfigOnProductDeployment()
+    {
+        var product = CreateProductWithObserver(
+            new global::ReadyStackGo.Domain.StackManagement.Manifests.RsgoMaintenanceObserver
+            {
+                Type = "sqlExtendedProperty",
+                PropertyName = "ams-MaintenanceMode",
+                ConnectionString = "Server=${DB_SERVER};Database=${DB_NAME};",
+                MaintenanceValue = "1",
+                NormalValue = "0",
+                PollingInterval = "30s"
+            });
+
+        SetupProductFound(product);
+        SetupNoExistingDeployment();
+        SetupAllStacksSucceed();
+
+        ProductDeployment? captured = null;
+        _repositoryMock
+            .Setup(r => r.Add(It.IsAny<ProductDeployment>()))
+            .Callback<ProductDeployment>(pd => captured = pd);
+
+        var cmd = CreateCommand(product, new Dictionary<string, string>
+        {
+            ["DB_SERVER"] = "sqldev2017",
+            ["DB_NAME"] = "dev-amsproject"
+        });
+
+        await _handler.Handle(cmd, CancellationToken.None);
+
+        captured.Should().NotBeNull();
+        captured!.MaintenanceObserverConfig.Should().NotBeNull(
+            "the product-level observer must be wired onto the ProductDeployment or MaintenanceObserverService has nothing to poll");
+        captured.MaintenanceObserverConfig!.Type.Value.Should().Be("sqlExtendedProperty");
+        captured.MaintenanceObserverConfig.MaintenanceValue.Should().Be("1");
+    }
+
+    [Fact]
+    public async Task Handle_ObserverConnectionStringUnresolvable_LeavesConfigNull()
+    {
+        var product = CreateProductWithObserver(
+            new global::ReadyStackGo.Domain.StackManagement.Manifests.RsgoMaintenanceObserver
+            {
+                Type = "sqlExtendedProperty",
+                PropertyName = "ams-MaintenanceMode",
+                ConnectionString = "Server=${DB_SERVER};Database=${DB_NAME};",
+                MaintenanceValue = "1"
+            });
+
+        SetupProductFound(product);
+        SetupNoExistingDeployment();
+        SetupAllStacksSucceed();
+
+        ProductDeployment? captured = null;
+        _repositoryMock
+            .Setup(r => r.Add(It.IsAny<ProductDeployment>()))
+            .Callback<ProductDeployment>(pd => captured = pd);
+
+        // DB_NAME intentionally missing — mapper must refuse to produce a config.
+        var cmd = CreateCommand(product, new Dictionary<string, string>
+        {
+            ["DB_SERVER"] = "sqldev2017"
+        });
+
+        await _handler.Handle(cmd, CancellationToken.None);
+
+        captured.Should().NotBeNull();
+        captured!.MaintenanceObserverConfig.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Handle_ProductHasNoObserver_LeavesConfigNull()
+    {
+        var product = CreateTestProduct(1);
+        SetupProductFound(product);
+        SetupNoExistingDeployment();
+        SetupAllStacksSucceed();
+
+        ProductDeployment? captured = null;
+        _repositoryMock
+            .Setup(r => r.Add(It.IsAny<ProductDeployment>()))
+            .Callback<ProductDeployment>(pd => captured = pd);
+
+        await _handler.Handle(CreateCommand(product), CancellationToken.None);
+
+        captured.Should().NotBeNull();
+        captured!.MaintenanceObserverConfig.Should().BeNull();
+    }
+
+    private static ProductDefinition CreateProductWithObserver(
+        global::ReadyStackGo.Domain.StackManagement.Manifests.RsgoMaintenanceObserver observer)
+    {
+        var baseProduct = CreateTestProduct(1);
+        return new ProductDefinition(
+            sourceId: "stacks",
+            name: baseProduct.Name,
+            displayName: baseProduct.DisplayName,
+            stacks: baseProduct.Stacks,
+            productVersion: baseProduct.ProductVersion,
+            maintenanceObserver: observer);
+    }
+
+    #endregion
 }

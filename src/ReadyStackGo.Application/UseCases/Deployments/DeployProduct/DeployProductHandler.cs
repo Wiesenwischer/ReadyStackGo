@@ -117,6 +117,24 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
             request.SharedVariables,
             request.ContinueOnError);
 
+        // Resolve and attach the product-level maintenance observer config.
+        // Without this the MaintenanceObserverService has no config to poll.
+        var observerConfig = MaintenanceObserverConfigMapper.Map(
+            product.MaintenanceObserver, request.SharedVariables);
+        if (observerConfig != null)
+        {
+            productDeployment.SetMaintenanceObserverConfig(observerConfig);
+            _logger.LogInformation(
+                "Product deployment {ProductDeploymentId} wired maintenance observer type={ObserverType}",
+                productDeploymentId, observerConfig.Type.Value);
+        }
+        else if (product.MaintenanceObserver != null)
+        {
+            _logger.LogWarning(
+                "Product {ProductName} defines maintenanceObserver but it could not be mapped (unresolved variables?) — observer disabled",
+                product.Name);
+        }
+
         _repository.Add(productDeployment);
         _repository.SaveChanges();
 
