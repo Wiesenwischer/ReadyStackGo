@@ -2,8 +2,6 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Notifications;
 using ReadyStackGo.Application.Services;
-using ReadyStackGo.Domain.Deployment.Observers;
-using ReadyStackGo.Domain.StackManagement.Manifests;
 using ReadyStackGo.Domain.StackManagement.Stacks;
 using RuntimeConfig = ReadyStackGo.Domain.Deployment.RuntimeConfig;
 
@@ -52,9 +50,8 @@ public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStac
             : null;
 
         // Map MaintenanceObserver from StackManagement to Deployment domain model
-        var observerConfig = product?.MaintenanceObserver != null
-            ? MapToDeploymentObserverConfig(product.MaintenanceObserver, request.Variables)
-            : null;
+        var observerConfig = MaintenanceObserverConfigMapper.Map(
+            product?.MaintenanceObserver, request.Variables);
 
         // Extract health check configurations from services
         var healthCheckConfigs = ExtractHealthCheckConfigs(stackDefinition.Services);
@@ -193,148 +190,6 @@ public class DeployStackHandler : IRequestHandler<DeployStackCommand, DeployStac
                 ? $"{parts[0]}:{parts[1]}"
                 : stackId;
         }
-        return null;
-    }
-
-    /// <summary>
-    /// Maps RsgoMaintenanceObserver (StackManagement domain) to MaintenanceObserverConfig (Deployment domain).
-    /// This is the boundary mapping between bounded contexts.
-    /// </summary>
-    private static MaintenanceObserverConfig? MapToDeploymentObserverConfig(
-        RsgoMaintenanceObserver source,
-        Dictionary<string, string> deploymentVariables)
-    {
-        // Parse observer type
-        if (!ObserverType.TryFromValue(source.Type, out var observerType) || observerType == null)
-        {
-            return null;
-        }
-
-        // Parse polling interval
-        var pollingInterval = ParseTimeSpan(source.PollingInterval) ?? TimeSpan.FromSeconds(30);
-
-        // Create type-specific settings
-        IObserverSettings settings;
-
-        if (observerType == ObserverType.SqlExtendedProperty)
-        {
-            var connectionString = ResolveConnectionString(source, deploymentVariables);
-            if (string.IsNullOrEmpty(connectionString))
-                return null;
-
-            settings = SqlObserverSettings.ForExtendedProperty(
-                source.PropertyName ?? throw new InvalidOperationException("PropertyName required"),
-                connectionString);
-        }
-        else if (observerType == ObserverType.SqlQuery)
-        {
-            var connectionString = ResolveConnectionString(source, deploymentVariables);
-            if (string.IsNullOrEmpty(connectionString))
-                return null;
-
-            settings = SqlObserverSettings.ForQuery(
-                source.Query ?? throw new InvalidOperationException("Query required"),
-                connectionString);
-        }
-        else if (observerType == ObserverType.Http)
-        {
-            var timeout = ParseTimeSpan(source.Timeout) ?? TimeSpan.FromSeconds(10);
-            settings = HttpObserverSettings.Create(
-                source.Url ?? throw new InvalidOperationException("URL required"),
-                source.Method ?? "GET",
-                null, // Headers not in RsgoMaintenanceObserver
-                timeout,
-                source.JsonPath);
-        }
-        else if (observerType == ObserverType.File)
-        {
-            var mode = source.Mode?.ToLowerInvariant() == "content"
-                ? FileCheckMode.Content
-                : FileCheckMode.Exists;
-
-            settings = mode == FileCheckMode.Content
-                ? FileObserverSettings.ForContent(
-                    source.Path ?? throw new InvalidOperationException("Path required"),
-                    source.ContentPattern)
-                : FileObserverSettings.ForExistence(
-                    source.Path ?? throw new InvalidOperationException("Path required"));
-        }
-        else
-        {
-            return null;
-        }
-
-        return MaintenanceObserverConfig.Create(
-            observerType,
-            pollingInterval,
-            source.MaintenanceValue,
-            source.NormalValue,
-            settings);
-    }
-
-    /// <summary>
-    /// Resolves connection string from direct value or variable reference.
-    /// </summary>
-    private static string? ResolveConnectionString(
-        RsgoMaintenanceObserver source,
-        Dictionary<string, string> variables)
-    {
-        // Direct connection string - resolve variables if present
-        if (!string.IsNullOrEmpty(source.ConnectionString))
-        {
-            return ResolveVariables(source.ConnectionString, variables);
-        }
-
-        // Connection name - look up in deployment variables
-        if (!string.IsNullOrEmpty(source.ConnectionName) &&
-            variables.TryGetValue(source.ConnectionName, out var connectionString))
-        {
-            return connectionString;
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// Resolves ${VAR_NAME} placeholders in a template string.
-    /// </summary>
-    private static string? ResolveVariables(string template, Dictionary<string, string> variables)
-    {
-        if (string.IsNullOrEmpty(template))
-            return template;
-
-        var result = template;
-        foreach (var kvp in variables)
-        {
-            result = result.Replace($"${{{kvp.Key}}}", kvp.Value);
-        }
-
-        // Check if any unresolved placeholders remain
-        if (result.Contains("${"))
-            return null;
-
-        return result;
-    }
-
-    /// <summary>
-    /// Parses time span strings like "30s", "1m", "5m", "1h".
-    /// </summary>
-    private static TimeSpan? ParseTimeSpan(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-            return null;
-
-        value = value.Trim().ToLowerInvariant();
-
-        if (value.EndsWith('s') && int.TryParse(value[..^1], out var seconds))
-            return TimeSpan.FromSeconds(seconds);
-
-        if (value.EndsWith('m') && int.TryParse(value[..^1], out var minutes))
-            return TimeSpan.FromMinutes(minutes);
-
-        if (value.EndsWith('h') && int.TryParse(value[..^1], out var hours))
-            return TimeSpan.FromHours(hours);
-
         return null;
     }
 
