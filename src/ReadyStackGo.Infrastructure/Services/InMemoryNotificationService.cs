@@ -35,35 +35,20 @@ public class InMemoryNotificationService : INotificationService
         return Task.FromResult<IReadOnlyList<Notification>>(result);
     }
 
-    public Task<int> GetUnreadCountAsync(CancellationToken ct = default)
+    public Task<int> GetCountAsync(CancellationToken ct = default)
     {
-        var count = _notifications.Values.Count(n => !n.Read);
-        return Task.FromResult(count);
-    }
-
-    public Task MarkAsReadAsync(string id, CancellationToken ct = default)
-    {
-        if (_notifications.TryGetValue(id, out var notification))
-        {
-            notification.Read = true;
-        }
-
-        return Task.CompletedTask;
-    }
-
-    public Task MarkAllAsReadAsync(CancellationToken ct = default)
-    {
-        foreach (var notification in _notifications.Values)
-        {
-            notification.Read = true;
-        }
-
-        return Task.CompletedTask;
+        return Task.FromResult(_notifications.Count);
     }
 
     public Task DismissAsync(string id, CancellationToken ct = default)
     {
         _notifications.TryRemove(id, out _);
+        return Task.CompletedTask;
+    }
+
+    public Task DismissAllAsync(CancellationToken ct = default)
+    {
+        _notifications.Clear();
         return Task.CompletedTask;
     }
 

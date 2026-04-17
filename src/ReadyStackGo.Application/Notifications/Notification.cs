@@ -12,7 +12,6 @@ public class Notification
     public string Message { get; set; } = string.Empty;
     public NotificationSeverity Severity { get; set; } = NotificationSeverity.Info;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public bool Read { get; set; }
     public string? ActionUrl { get; set; }
     public string? ActionLabel { get; set; }
     public Dictionary<string, string> Metadata { get; set; } = new();

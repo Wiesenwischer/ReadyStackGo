@@ -221,6 +221,98 @@ public class HealthChangeTrackerTests
     }
 
     [Fact]
+    public async Task ResetBaseline_NextTransitionIsTreatedAsFirstSeen_NoNotification()
+    {
+        // Establish baseline
+        await _tracker.ProcessHealthUpdateAsync("dep-1", "web-app",
+            new List<ServiceHealthUpdate> { new("api", "Healthy") });
+
+        // Deployment enters Installing/Upgrading — reset baseline
+        await _tracker.ResetBaselineAsync("dep-1");
+
+        // Post-recovery first cycle: current="Starting", previous=null (cleared) → no notif
+        await _tracker.ProcessHealthUpdateAsync("dep-1", "web-app",
+            new List<ServiceHealthUpdate> { new("api", "Starting") });
+
+        _notificationService.Verify(
+            n => n.AddAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        // Genuine later transition — fires normally
+        await _tracker.ProcessHealthUpdateAsync("dep-1", "web-app",
+            new List<ServiceHealthUpdate> { new("api", "Unhealthy") });
+
+        _notificationService.Verify(
+            n => n.AddAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ResetBaseline_OnlyAffectsTargetDeployment()
+    {
+        // Establish baselines for two deployments
+        await _tracker.ProcessHealthUpdateAsync("dep-1", "web-app",
+            new List<ServiceHealthUpdate> { new("api", "Healthy") });
+        await _tracker.ProcessHealthUpdateAsync("dep-2", "backend",
+            new List<ServiceHealthUpdate> { new("api", "Healthy") });
+
+        // Reset only dep-1
+        await _tracker.ResetBaselineAsync("dep-1");
+
+        // dep-1 transition: treated as first-seen → no notif
+        await _tracker.ProcessHealthUpdateAsync("dep-1", "web-app",
+            new List<ServiceHealthUpdate> { new("api", "Unhealthy") });
+
+        // dep-2 transition: baseline intact → notif fires
+        await _tracker.ProcessHealthUpdateAsync("dep-2", "backend",
+            new List<ServiceHealthUpdate> { new("api", "Unhealthy") });
+
+        _notificationService.Verify(
+            n => n.AddAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ResetBaseline_UnknownDeployment_ShouldNotThrow()
+    {
+        var act = () => _tracker.ResetBaselineAsync("never-seen");
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task SuppressNotifications_SkipsNotification_ButKeepsBaselineForLaterTransitions()
+    {
+        // Baseline
+        await _tracker.ProcessHealthUpdateAsync("dep-1", "web-app",
+            new List<ServiceHealthUpdate> { new("api", "Healthy") });
+
+        // Status change with suppressNotifications=true — no notif, baseline advances to Starting
+        await _tracker.ProcessHealthUpdateAsync("dep-1", "web-app",
+            new List<ServiceHealthUpdate> { new("api", "Starting") },
+            suppressNotifications: true);
+
+        _notificationService.Verify(
+            n => n.AddAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        // Follow-up with same status as suppressed baseline — no transition, no notif
+        await _tracker.ProcessHealthUpdateAsync("dep-1", "web-app",
+            new List<ServiceHealthUpdate> { new("api", "Starting") });
+
+        _notificationService.Verify(
+            n => n.AddAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        // Real transition after suppression ends — fires normally
+        await _tracker.ProcessHealthUpdateAsync("dep-1", "web-app",
+            new List<ServiceHealthUpdate> { new("api", "Unhealthy") });
+
+        _notificationService.Verify(
+            n => n.AddAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task CooldownReadFromConfig()
     {
         // Very short cooldown

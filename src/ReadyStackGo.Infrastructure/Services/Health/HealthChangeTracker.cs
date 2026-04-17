@@ -33,6 +33,7 @@ public class HealthChangeTracker : IHealthChangeTracker
         string deploymentId,
         string stackName,
         IReadOnlyList<ServiceHealthUpdate> serviceStatuses,
+        bool suppressNotifications = false,
         CancellationToken ct = default)
     {
         var config = await _configStore.GetSystemConfigAsync();
@@ -48,6 +49,11 @@ public class HealthChangeTracker : IHealthChangeTracker
 
             // No previous status (first collection) or no change — skip
             if (previousStatus == null || string.Equals(previousStatus, currentStatus, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            // Deployment currently installing/upgrading — don't emit health-change noise;
+            // the final ProductDeploymentResult notification is the authoritative signal.
+            if (suppressNotifications)
                 continue;
 
             // Status changed — check cooldown
@@ -88,6 +94,24 @@ public class HealthChangeTracker : IHealthChangeTracker
                 _logger.LogDebug(ex, "Failed to create health change notification for {ServiceKey}", serviceKey);
             }
         }
+    }
+
+    public Task ResetBaselineAsync(string deploymentId, CancellationToken ct = default)
+    {
+        var prefix = $"{deploymentId}:";
+        var removed = 0;
+
+        foreach (var key in _previousStatuses.Keys.Where(k => k.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList())
+        {
+            if (_previousStatuses.TryRemove(key, out _))
+                removed++;
+            _cooldownTimestamps.TryRemove(key, out _);
+        }
+
+        if (removed > 0)
+            _logger.LogDebug("Reset health baseline for deployment {DeploymentId} ({Count} entries)", deploymentId, removed);
+
+        return Task.CompletedTask;
     }
 
     private bool IsOutsideCooldown(string serviceKey, int cooldownSeconds)
