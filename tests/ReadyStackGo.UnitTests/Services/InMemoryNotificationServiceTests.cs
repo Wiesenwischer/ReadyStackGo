@@ -12,7 +12,6 @@ public class InMemoryNotificationServiceTests
         NotificationType type = NotificationType.UpdateAvailable,
         NotificationSeverity severity = NotificationSeverity.Info,
         string? id = null,
-        bool read = false,
         Dictionary<string, string>? metadata = null)
     {
         return new Notification
@@ -23,7 +22,6 @@ public class InMemoryNotificationServiceTests
             Message = "Test message",
             Severity = severity,
             CreatedAt = DateTime.UtcNow,
-            Read = read,
             Metadata = metadata ?? new Dictionary<string, string>()
         };
     }
@@ -69,82 +67,24 @@ public class InMemoryNotificationServiceTests
     }
 
     [Fact]
-    public async Task GetUnreadCountAsync_ShouldCountOnlyUnread()
+    public async Task GetCountAsync_ShouldReturnTotal()
     {
         var sut = CreateService();
 
-        await sut.AddAsync(CreateNotification(read: false));
-        await sut.AddAsync(CreateNotification(read: false));
-        await sut.AddAsync(CreateNotification(read: true));
-
-        var count = await sut.GetUnreadCountAsync();
-        count.Should().Be(2);
-    }
-
-    [Fact]
-    public async Task GetUnreadCountAsync_EmptyStore_ShouldReturnZero()
-    {
-        var sut = CreateService();
-        var count = await sut.GetUnreadCountAsync();
-        count.Should().Be(0);
-    }
-
-    [Fact]
-    public async Task GetUnreadCountAsync_AllRead_ShouldReturnZero()
-    {
-        var sut = CreateService();
-        await sut.AddAsync(CreateNotification(read: true));
-        await sut.AddAsync(CreateNotification(read: true));
-
-        var count = await sut.GetUnreadCountAsync();
-        count.Should().Be(0);
-    }
-
-    [Fact]
-    public async Task MarkAsReadAsync_ShouldMarkSpecificNotification()
-    {
-        var sut = CreateService();
-        var n1 = CreateNotification(id: "n1");
-        var n2 = CreateNotification(id: "n2");
-
-        await sut.AddAsync(n1);
-        await sut.AddAsync(n2);
-
-        await sut.MarkAsReadAsync("n1");
-
-        var all = await sut.GetAllAsync();
-        all.Single(n => n.Id == "n1").Read.Should().BeTrue();
-        all.Single(n => n.Id == "n2").Read.Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task MarkAsReadAsync_NonExistentId_ShouldNotThrow()
-    {
-        var sut = CreateService();
-        var act = () => sut.MarkAsReadAsync("nonexistent");
-        await act.Should().NotThrowAsync();
-    }
-
-    [Fact]
-    public async Task MarkAllAsReadAsync_ShouldMarkAll()
-    {
-        var sut = CreateService();
         await sut.AddAsync(CreateNotification());
         await sut.AddAsync(CreateNotification());
         await sut.AddAsync(CreateNotification());
 
-        await sut.MarkAllAsReadAsync();
-
-        var count = await sut.GetUnreadCountAsync();
-        count.Should().Be(0);
+        var count = await sut.GetCountAsync();
+        count.Should().Be(3);
     }
 
     [Fact]
-    public async Task MarkAllAsReadAsync_EmptyStore_ShouldNotThrow()
+    public async Task GetCountAsync_EmptyStore_ShouldReturnZero()
     {
         var sut = CreateService();
-        var act = () => sut.MarkAllAsReadAsync();
-        await act.Should().NotThrowAsync();
+        var count = await sut.GetCountAsync();
+        count.Should().Be(0);
     }
 
     [Fact]
@@ -179,6 +119,29 @@ public class InMemoryNotificationServiceTests
 
         var all = await sut.GetAllAsync();
         all.Should().ContainSingle().Which.Id.Should().Be("keep");
+    }
+
+    [Fact]
+    public async Task DismissAllAsync_ShouldRemoveAll()
+    {
+        var sut = CreateService();
+        await sut.AddAsync(CreateNotification());
+        await sut.AddAsync(CreateNotification());
+        await sut.AddAsync(CreateNotification());
+
+        await sut.DismissAllAsync();
+
+        var all = await sut.GetAllAsync();
+        all.Should().BeEmpty();
+        (await sut.GetCountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task DismissAllAsync_EmptyStore_ShouldNotThrow()
+    {
+        var sut = CreateService();
+        var act = () => sut.DismissAllAsync();
+        await act.Should().NotThrowAsync();
     }
 
     [Fact]
@@ -251,7 +214,6 @@ public class InMemoryNotificationServiceTests
         var sut = CreateService();
         var max = InMemoryNotificationService.MaxNotifications;
 
-        // Add max + 5 notifications with incrementing timestamps
         for (int i = 0; i < max + 5; i++)
         {
             var n = CreateNotification(id: $"n-{i:D3}");
@@ -262,11 +224,9 @@ public class InMemoryNotificationServiceTests
         var all = await sut.GetAllAsync();
         all.Should().HaveCount(max);
 
-        // Oldest 5 should have been evicted
         all.Should().NotContain(n => n.Id == "n-000");
         all.Should().NotContain(n => n.Id == "n-004");
 
-        // Newest should still be present
         all.Should().Contain(n => n.Id == $"n-{max + 4:D3}");
     }
 
@@ -313,13 +273,13 @@ public class InMemoryNotificationServiceTests
             notification.CreatedAt = DateTime.UtcNow.AddMilliseconds(i);
             await sut.AddAsync(notification);
 
-            if (i % 3 == 0)
-                await sut.MarkAsReadAsync($"concurrent-{i}");
-
             if (i % 5 == 0)
                 await sut.DismissAsync($"concurrent-{i}");
 
-            await sut.GetUnreadCountAsync();
+            if (i == 50)
+                await sut.DismissAllAsync();
+
+            await sut.GetCountAsync();
             await sut.GetAllAsync();
         });
 

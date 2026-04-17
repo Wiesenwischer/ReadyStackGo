@@ -50,11 +50,10 @@ const NotificationDropdown = () => {
   const navigate = useNavigate();
   const {
     notifications,
-    unreadCount,
+    count,
     fetchNotifications,
-    markAsRead,
-    markAllAsRead,
     dismiss,
+    dismissAll,
   } = useNotifications();
 
   useEffect(() => {
@@ -79,8 +78,7 @@ const NotificationDropdown = () => {
     }
   };
 
-  const handleNotificationClick = async (id: string, actionUrl?: string) => {
-    await markAsRead(id);
+  const handleNotificationClick = (actionUrl?: string) => {
     if (actionUrl) {
       setIsOpen(false);
       navigate(actionUrl);
@@ -120,11 +118,11 @@ const NotificationDropdown = () => {
             fill="currentColor"
           />
         </svg>
-        {unreadCount > 0 && (
+        {count > 0 && (
           <span className="absolute top-0 right-0 z-1 flex h-5 w-5 items-center justify-center">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
             <span className="relative inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-              {unreadCount > 9 ? "9+" : unreadCount}
+              {count > 9 ? "9+" : count}
             </span>
           </span>
         )}
@@ -136,12 +134,12 @@ const NotificationDropdown = () => {
             <h5 className="text-sm font-semibold text-gray-900 dark:text-white">
               Notifications
             </h5>
-            {unreadCount > 0 && (
+            {count > 0 && (
               <button
-                onClick={markAllAsRead}
+                onClick={dismissAll}
                 className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
               >
-                Mark all as read
+                Dismiss all
               </button>
             )}
           </div>
@@ -172,34 +170,20 @@ const NotificationDropdown = () => {
                 return (
                   <div
                     key={notification.id}
-                    onClick={() =>
-                      handleNotificationClick(
-                        notification.id,
-                        notification.actionUrl
-                      )
-                    }
-                    className={`relative flex items-start gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800 last:border-b-0 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50 ${
-                      !notification.read
-                        ? "bg-brand-50 dark:bg-brand-500/10"
-                        : "bg-white dark:bg-gray-900"
+                    onClick={() => handleNotificationClick(notification.actionUrl)}
+                    className={`relative flex items-start gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800 last:border-b-0 bg-white dark:bg-gray-900 ${
+                      notification.actionUrl
+                        ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50"
+                        : ""
                     }`}
                   >
-                    {!notification.read && (
-                      <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-brand-500 rounded-r" />
-                    )}
                     <div
                       className={`mt-0.5 flex-shrink-0 rounded-full p-1.5 ${config.bg} ${config.color}`}
                     >
                       {config.icon}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p
-                        className={`text-sm leading-snug ${
-                          !notification.read
-                            ? "font-semibold text-gray-900 dark:text-white"
-                            : "font-medium text-gray-700 dark:text-gray-300"
-                        }`}
-                      >
+                      <p className="text-sm leading-snug font-medium text-gray-700 dark:text-gray-300">
                         {notification.title}
                       </p>
                       <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 line-clamp-2">

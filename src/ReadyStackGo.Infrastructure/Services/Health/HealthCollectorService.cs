@@ -55,9 +55,20 @@ public class HealthCollectorService : IHealthCollectorService
             return;
         }
 
-        var deployments = _deploymentRepository.GetByEnvironment(environmentId)
-            .Where(d => d.Status == DeploymentStatus.Running)
-            .ToList();
+        var allDeployments = _deploymentRepository.GetByEnvironment(environmentId).ToList();
+
+        // Non-Running deployments (Installing/Upgrading/Failed/Removed) skip health collection,
+        // but we reset the tracker baseline so the first cycle after they return to Running
+        // doesn't compare current status against a stale pre-upgrade baseline and fire
+        // spurious HealthChange notifications.
+        foreach (var nonRunning in allDeployments.Where(d => d.Status != DeploymentStatus.Running))
+        {
+            await _healthChangeTracker.ResetBaselineAsync(
+                nonRunning.Id.Value.ToString(),
+                cancellationToken);
+        }
+
+        var deployments = allDeployments.Where(d => d.Status == DeploymentStatus.Running).ToList();
 
         if (!deployments.Any())
         {
@@ -94,7 +105,9 @@ public class HealthCollectorService : IHealthCollectorService
                 EnrichWithProductInfo(dto, deployment.Id);
                 stackHealthDtos.Add(dto);
 
-                // Track health changes and create in-app notifications
+                // Track health changes and create in-app notifications.
+                // Suppress during install/upgrade so the per-product result is the
+                // sole signal the user sees for the deploy.
                 var serviceStatuses = dto.Self.Services
                     .Select(s => new ServiceHealthUpdate(s.Name, s.Status))
                     .ToList();
@@ -102,6 +115,7 @@ public class HealthCollectorService : IHealthCollectorService
                     deployment.Id.Value.ToString(),
                     deployment.StackName,
                     serviceStatuses,
+                    deployment.IsInProgress,
                     cancellationToken);
 
                 // Notify about individual deployment health change (SignalR real-time)
@@ -154,9 +168,11 @@ public class HealthCollectorService : IHealthCollectorService
             return;
         }
 
-        // Only collect health for running deployments
+        // Only collect health for running deployments. Reset the tracker baseline
+        // so the first post-recovery cycle doesn't fire stale transition notifications.
         if (deployment.Status != DeploymentStatus.Running)
         {
+            await _healthChangeTracker.ResetBaselineAsync(deploymentId.Value.ToString(), cancellationToken);
             _logger.LogDebug("Skipping health collection for deployment {DeploymentId} with status {Status}",
                 deploymentId, deployment.Status);
             return;
@@ -187,7 +203,9 @@ public class HealthCollectorService : IHealthCollectorService
             var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, deployment.EnvironmentId);
             EnrichWithProductInfo(dto, deploymentId);
 
-            // Track health changes and create in-app notifications
+            // Track health changes and create in-app notifications.
+            // Suppress during install/upgrade (defense in depth — the Running-only
+            // filter above already blocks this path, but keep the signal explicit).
             var serviceStatuses = dto.Self.Services
                 .Select(s => new ServiceHealthUpdate(s.Name, s.Status))
                 .ToList();
@@ -195,6 +213,7 @@ public class HealthCollectorService : IHealthCollectorService
                 deploymentId.Value.ToString(),
                 deployment.StackName,
                 serviceStatuses,
+                deployment.IsInProgress,
                 cancellationToken);
 
             // Notify about deployment health change (SignalR real-time)

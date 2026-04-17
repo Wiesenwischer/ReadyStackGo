@@ -5,25 +5,24 @@ const POLL_INTERVAL_MS = 60_000;
 
 export interface UseNotificationsReturn {
   notifications: Notification[];
-  unreadCount: number;
+  count: number;
   isLoading: boolean;
   fetchNotifications: () => Promise<void>;
-  markAsRead: (id: string) => Promise<void>;
-  markAllAsRead: () => Promise<void>;
   dismiss: (id: string) => Promise<void>;
+  dismissAll: () => Promise<void>;
 }
 
 export function useNotifications(): UseNotificationsReturn {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [count, setCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const mountedRef = useRef(true);
 
-  const fetchUnreadCount = useCallback(async () => {
+  const fetchCount = useCallback(async () => {
     try {
-      const response = await notificationsApi.getUnreadCount();
+      const response = await notificationsApi.getCount();
       if (mountedRef.current) {
-        setUnreadCount(response.count);
+        setCount(response.count);
       }
     } catch {
       // Silently ignore polling errors
@@ -36,7 +35,7 @@ export function useNotifications(): UseNotificationsReturn {
       const response = await notificationsApi.list();
       if (mountedRef.current) {
         setNotifications(response.notifications);
-        setUnreadCount(response.notifications.filter(n => !n.read).length);
+        setCount(response.notifications.length);
       }
     } catch {
       // Silently ignore
@@ -47,70 +46,48 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, []);
 
-  const markAsRead = useCallback(async (id: string) => {
-    try {
-      await notificationsApi.markAsRead(id);
-      if (mountedRef.current) {
-        setNotifications(prev =>
-          prev.map(n => n.id === id ? { ...n, read: true } : n)
-        );
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      }
-    } catch {
-      // Silently ignore
-    }
-  }, []);
-
-  const markAllAsRead = useCallback(async () => {
-    try {
-      await notificationsApi.markAllAsRead();
-      if (mountedRef.current) {
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-        setUnreadCount(0);
-      }
-    } catch {
-      // Silently ignore
-    }
-  }, []);
-
   const dismiss = useCallback(async (id: string) => {
     try {
       await notificationsApi.dismiss(id);
       if (mountedRef.current) {
-        setNotifications(prev => {
-          const removed = prev.find(n => n.id === id);
-          const next = prev.filter(n => n.id !== id);
-          if (removed && !removed.read) {
-            setUnreadCount(c => Math.max(0, c - 1));
-          }
-          return next;
-        });
+        setNotifications(prev => prev.filter(n => n.id !== id));
+        setCount(c => Math.max(0, c - 1));
       }
     } catch {
       // Silently ignore
     }
   }, []);
 
-  // Poll unread count every 60s
+  const dismissAll = useCallback(async () => {
+    try {
+      await notificationsApi.dismissAll();
+      if (mountedRef.current) {
+        setNotifications([]);
+        setCount(0);
+      }
+    } catch {
+      // Silently ignore
+    }
+  }, []);
+
   useEffect(() => {
     mountedRef.current = true;
-    fetchUnreadCount();
+    fetchCount();
 
-    const interval = setInterval(fetchUnreadCount, POLL_INTERVAL_MS);
+    const interval = setInterval(fetchCount, POLL_INTERVAL_MS);
 
     return () => {
       mountedRef.current = false;
       clearInterval(interval);
     };
-  }, [fetchUnreadCount]);
+  }, [fetchCount]);
 
   return {
     notifications,
-    unreadCount,
+    count,
     isLoading,
     fetchNotifications,
-    markAsRead,
-    markAllAsRead,
     dismiss,
+    dismissAll,
   };
 }
