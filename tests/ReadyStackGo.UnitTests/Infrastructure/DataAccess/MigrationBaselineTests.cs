@@ -135,6 +135,9 @@ public class MigrationBaselineTests
     {
         // Matches the InitialCreate baseline schema — includes the Version column
         // inherited from AggregateRoot for optimistic concurrency, but no OCI columns.
+        // Also creates the subset of other baseline tables/indexes that subsequent
+        // migrations may touch, so the legacy DB is a realistic stand-in for a real
+        // EnsureCreated()-era database (which would have all baseline tables).
         WithOpenConnection(connection, () =>
         {
             using var cmd = connection.CreateCommand();
@@ -155,6 +158,28 @@ public class MigrationBaselineTests
                     "GitSslVerify" INTEGER NOT NULL DEFAULT 1,
                     "Version" INTEGER NOT NULL DEFAULT 0
                 );
+
+                CREATE TABLE "HealthSnapshots" (
+                    "Id" TEXT NOT NULL PRIMARY KEY,
+                    "OrganizationId" TEXT NOT NULL,
+                    "EnvironmentId" TEXT NOT NULL,
+                    "DeploymentId" TEXT NOT NULL,
+                    "StackName" TEXT NOT NULL,
+                    "CapturedAtUtc" TEXT NOT NULL,
+                    "CurrentVersion" TEXT NULL,
+                    "TargetVersion" TEXT NULL,
+                    "OverallStatus" INTEGER NOT NULL,
+                    "OperationMode" INTEGER NOT NULL,
+                    "SelfHealthJson" TEXT NULL,
+                    "BusHealthJson" TEXT NULL,
+                    "InfraHealthJson" TEXT NULL,
+                    "Version" INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE INDEX "IX_HealthSnapshots_DeploymentId" ON "HealthSnapshots" ("DeploymentId");
+                CREATE INDEX "IX_HealthSnapshots_EnvironmentId" ON "HealthSnapshots" ("EnvironmentId");
+                CREATE INDEX "IX_HealthSnapshots_CapturedAtUtc" ON "HealthSnapshots" ("CapturedAtUtc");
+                CREATE INDEX "IX_HealthSnapshots_DeploymentId_CapturedAtUtc"
+                    ON "HealthSnapshots" ("DeploymentId", "CapturedAtUtc");
                 """;
             cmd.ExecuteNonQuery();
             return 0;

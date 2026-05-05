@@ -10,27 +10,29 @@ namespace ReadyStackGo.Infrastructure.DataAccess.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_HealthSnapshots_EnvironmentId",
-                table: "HealthSnapshots");
+            // Use IF EXISTS / IF NOT EXISTS so the migration is safe against
+            // legacy databases where the baseline schema may not have produced the
+            // exact same set of indexes that the InitialCreate migration declares.
+            migrationBuilder.Sql(
+                "DROP INDEX IF EXISTS \"IX_HealthSnapshots_EnvironmentId\";");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_HealthSnapshots_EnvironmentId_DeploymentId_CapturedAtUtc",
-                table: "HealthSnapshots",
-                columns: new[] { "EnvironmentId", "DeploymentId", "CapturedAtUtc" });
+            migrationBuilder.Sql(
+                "CREATE INDEX IF NOT EXISTS " +
+                "\"IX_HealthSnapshots_EnvironmentId_DeploymentId_CapturedAtUtc\" " +
+                "ON \"HealthSnapshots\" (\"EnvironmentId\", \"DeploymentId\", \"CapturedAtUtc\");");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_HealthSnapshots_EnvironmentId_DeploymentId_CapturedAtUtc",
-                table: "HealthSnapshots");
+            migrationBuilder.Sql(
+                "DROP INDEX IF EXISTS " +
+                "\"IX_HealthSnapshots_EnvironmentId_DeploymentId_CapturedAtUtc\";");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_HealthSnapshots_EnvironmentId",
-                table: "HealthSnapshots",
-                column: "EnvironmentId");
+            migrationBuilder.Sql(
+                "CREATE INDEX IF NOT EXISTS " +
+                "\"IX_HealthSnapshots_EnvironmentId\" " +
+                "ON \"HealthSnapshots\" (\"EnvironmentId\");");
         }
     }
 }
