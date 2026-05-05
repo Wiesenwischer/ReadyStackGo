@@ -213,7 +213,9 @@ public class HealthCollectorOptions
     /// <summary>
     /// Number of days to retain health snapshots.
     /// Snapshots older than this are automatically deleted.
-    /// Default: 30 days.
+    /// Default: 7 days. With a 30s collection interval this still produces ~20k snapshots
+    /// per deployment; longer retention is unnecessary because the UI history view
+    /// only requests the latest 50 snapshots per deployment.
     /// </summary>
-    public int RetentionDays { get; set; } = 30;
+    public int RetentionDays { get; set; } = 7;
 }
