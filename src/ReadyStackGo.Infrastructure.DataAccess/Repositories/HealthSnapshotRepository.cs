@@ -45,34 +45,34 @@ public class HealthSnapshotRepository : IHealthSnapshotRepository
     {
         // Use raw SQL to efficiently get the latest snapshot per deployment.
         // The EF GroupBy+First pattern causes client-side evaluation, loading ALL rows.
-        // Stale snapshots from removed deployments are cleaned up at the source
-        // (DeploymentService calls RemoveForDeployment when marking a deployment as removed).
-        var envId = environmentId.Value.ToString().ToUpperInvariant();
+        // Pass the Guid directly so EF Core uses its standard Guid-to-TEXT conversion;
+        // the resulting parameter binding allows the composite index
+        // IX_HealthSnapshots_EnvironmentId_DeploymentId_CapturedAtUtc to be used.
+        var envId = environmentId.Value;
 
         return _context.HealthSnapshots
-            .FromSqlRaw(
-                """
+            .FromSqlInterpolated(
+                $"""
                 SELECT h.*
                 FROM "HealthSnapshots" h
                 INNER JOIN (
                     SELECT "DeploymentId", MAX("CapturedAtUtc") AS "MaxDate"
                     FROM "HealthSnapshots"
-                    WHERE UPPER("EnvironmentId") = {0}
+                    WHERE "EnvironmentId" = {envId}
                     GROUP BY "DeploymentId"
                 ) latest ON h."DeploymentId" = latest."DeploymentId"
                     AND h."CapturedAtUtc" = latest."MaxDate"
-                WHERE UPPER(h."EnvironmentId") = {0}
-                """,
-                envId)
+                WHERE h."EnvironmentId" = {envId}
+                """)
             .ToList();
     }
 
     public void RemoveForDeployment(DeploymentId deploymentId)
     {
-        var id = deploymentId.Value.ToString().ToUpperInvariant();
+        var id = deploymentId.Value;
         _context.Database.ExecuteSql(
             $"""
-            DELETE FROM "HealthSnapshots" WHERE UPPER("DeploymentId") = {id}
+            DELETE FROM "HealthSnapshots" WHERE "DeploymentId" = {id}
             """);
     }
 
@@ -87,20 +87,20 @@ public class HealthSnapshotRepository : IHealthSnapshotRepository
 
     public IEnumerable<HealthSnapshot> GetTransitions(DeploymentId deploymentId)
     {
-        var id = deploymentId.Value.ToString().ToUpperInvariant();
+        var id = deploymentId.Value;
 
         // Use LAG() window function to find rows where OverallStatus changed.
         // Also include first snapshot (PrevStatus IS NULL) and latest (RowDesc = 1).
         return _context.HealthSnapshots
-            .FromSqlRaw(
-                """
+            .FromSqlInterpolated(
+                $"""
                 WITH ranked AS (
                     SELECT "Id",
                            "OverallStatus",
                            LAG("OverallStatus") OVER (ORDER BY "CapturedAtUtc") AS "PrevStatus",
                            ROW_NUMBER() OVER (ORDER BY "CapturedAtUtc" DESC) AS "RowDesc"
                     FROM "HealthSnapshots"
-                    WHERE UPPER("DeploymentId") = {0}
+                    WHERE "DeploymentId" = {id}
                 )
                 SELECT h.*
                 FROM "HealthSnapshots" h
@@ -109,8 +109,7 @@ public class HealthSnapshotRepository : IHealthSnapshotRepository
                    OR r."OverallStatus" != r."PrevStatus"
                    OR r."RowDesc" = 1
                 ORDER BY h."CapturedAtUtc" ASC
-                """,
-                id)
+                """)
             .ToList();
     }
 

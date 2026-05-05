@@ -109,9 +109,13 @@ public class HealthSnapshotConfiguration : IEntityTypeConfiguration<HealthSnapsh
 
         // Indexes for efficient querying
         builder.HasIndex(h => h.DeploymentId);
-        builder.HasIndex(h => h.EnvironmentId);
         builder.HasIndex(h => h.CapturedAtUtc);
         builder.HasIndex(h => new { h.DeploymentId, h.CapturedAtUtc });
+
+        // Composite index covering the "latest snapshot per deployment in environment"
+        // query in HealthSnapshotRepository.GetLatestForEnvironment. Replaces the
+        // single-column EnvironmentId index, which is now redundant.
+        builder.HasIndex(h => new { h.EnvironmentId, h.DeploymentId, h.CapturedAtUtc });
 
         // Ignore domain events (not persisted)
         builder.Ignore(h => h.DomainEvents);
