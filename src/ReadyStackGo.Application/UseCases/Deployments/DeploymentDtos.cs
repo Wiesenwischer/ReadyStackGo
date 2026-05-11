@@ -74,6 +74,12 @@ public class DeploymentStep
     public ServiceLifecycle Lifecycle { get; set; } = ServiceLifecycle.Service;
 
     /// <summary>
+    /// Optional per-service override of the init-container wait timeout (seconds).
+    /// When null, the engine falls back to its default (1800 s = 30 min).
+    /// </summary>
+    public int? InitTimeoutSeconds { get; set; }
+
+    /// <summary>
     /// Health check configuration from the service template.
     /// Docker-type health checks with Test commands are passed to the container at creation.
     /// HTTP/TCP health checks are handled by the RSGO monitoring service.

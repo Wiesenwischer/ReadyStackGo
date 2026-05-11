@@ -508,7 +508,8 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
             WorkingDir = service.WorkingDir,
             User = service.User,
             HealthCheck = service.HealthCheck != null ? ConvertToServiceHealthCheck(service.HealthCheck) : null,
-            Lifecycle = service.Lifecycle
+            Lifecycle = service.Lifecycle,
+            InitTimeoutSeconds = service.InitTimeoutSeconds
         };
     }
 

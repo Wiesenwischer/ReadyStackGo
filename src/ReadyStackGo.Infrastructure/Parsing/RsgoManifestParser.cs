@@ -621,7 +621,8 @@ public class RsgoManifestParser : IRsgoManifestParser
                     resolvedVariables),
                 Internal = service.Ports == null || service.Ports.Count == 0,
                 Order = order++,
-                Lifecycle = service.Lifecycle
+                Lifecycle = service.Lifecycle,
+                InitTimeoutSeconds = service.InitTimeoutSeconds
             };
 
             // Resolve networks

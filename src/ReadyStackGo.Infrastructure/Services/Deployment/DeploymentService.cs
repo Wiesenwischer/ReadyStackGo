@@ -1103,6 +1103,7 @@ public class DeploymentService : IDeploymentService
                 Order = order++,
                 DependsOn = service.DependsOn.ToList(),
                 Lifecycle = service.Lifecycle,
+                InitTimeoutSeconds = service.InitTimeoutSeconds,
                 HealthCheck = service.HealthCheck
             };
 
