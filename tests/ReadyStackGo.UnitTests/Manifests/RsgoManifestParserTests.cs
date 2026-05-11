@@ -1465,8 +1465,8 @@ services:
 
         var result = await _parser.ParseAsync(yaml);
 
-        result.Services["migrator"].InitTimeoutSeconds.Should().Be(3600);
-        result.Services["api"].InitTimeoutSeconds.Should().BeNull(
+        result.Services!["migrator"]!.InitTimeoutSeconds.Should().Be(3600);
+        result.Services!["api"]!.InitTimeoutSeconds.Should().BeNull(
             "non-init services do not read the timeout");
     }
 
@@ -1485,7 +1485,7 @@ services:
 
         var result = await _parser.ParseAsync(yaml);
 
-        result.Services["migrator"].InitTimeoutSeconds.Should().BeNull(
+        result.Services!["migrator"]!.InitTimeoutSeconds.Should().BeNull(
             "when omitted the engine falls back to its default");
     }
 
