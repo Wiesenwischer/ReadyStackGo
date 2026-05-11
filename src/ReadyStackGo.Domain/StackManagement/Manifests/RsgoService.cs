@@ -24,6 +24,18 @@ public class RsgoService
     public ServiceLifecycle Lifecycle { get; set; } = ServiceLifecycle.Service;
 
     /// <summary>
+    /// Optional per-service init-container wait timeout in seconds. Only used
+    /// when <see cref="Lifecycle"/> is <see cref="ServiceLifecycle.Init"/>.
+    /// Override when the init container does long-running data-migration work
+    /// (e.g. backfill scripts that touch every row of a large table) so RSGO
+    /// keeps waiting instead of returning a misleading "A task was canceled"
+    /// while the container is still making progress.
+    /// When null, the engine's <c>DefaultInitContainerTimeoutSeconds</c>
+    /// (currently 1800 = 30 min) applies.
+    /// </summary>
+    public int? InitTimeoutSeconds { get; set; }
+
+    /// <summary>
     /// Environment variables for this service.
     /// Values can reference variables using ${VAR_NAME} syntax.
     /// </summary>

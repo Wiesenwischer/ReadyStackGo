@@ -64,6 +64,14 @@ public record ServiceTemplate
     public Manifests.ServiceLifecycle Lifecycle { get; init; } = Manifests.ServiceLifecycle.Service;
 
     /// <summary>
+    /// Optional per-service init-container wait timeout in seconds. Only used
+    /// when <see cref="Lifecycle"/> is <see cref="Manifests.ServiceLifecycle.Init"/>.
+    /// When null, the deployment engine's <c>DefaultInitContainerTimeoutSeconds</c>
+    /// applies (currently 1800 = 30 min).
+    /// </summary>
+    public int? InitTimeoutSeconds { get; init; }
+
+    /// <summary>
     /// Command to run in the container.
     /// </summary>
     public string? Command { get; init; }

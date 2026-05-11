@@ -1444,4 +1444,50 @@ maintenance: {}
     }
 
     #endregion
+
+    #region Init container timeout
+
+    [Fact]
+    public async Task ParseAsync_WithInitTimeoutSeconds_ReadsServiceProperty()
+    {
+        var yaml = @"
+version: '1.0'
+metadata:
+  name: TimeoutStack
+services:
+  migrator:
+    image: amssolution/erpintegration.migrator:linux-latest-ci
+    lifecycle: init
+    initTimeoutSeconds: 3600
+  api:
+    image: amssolution/erpintegration.api:linux-latest-ci
+";
+
+        var result = await _parser.ParseAsync(yaml);
+
+        result.Services["migrator"].InitTimeoutSeconds.Should().Be(3600);
+        result.Services["api"].InitTimeoutSeconds.Should().BeNull(
+            "non-init services do not read the timeout");
+    }
+
+    [Fact]
+    public async Task ParseAsync_WithoutInitTimeoutSeconds_LeavesPropertyNull()
+    {
+        var yaml = @"
+version: '1.0'
+metadata:
+  name: DefaultStack
+services:
+  migrator:
+    image: amssolution/erpintegration.migrator:linux-latest-ci
+    lifecycle: init
+";
+
+        var result = await _parser.ParseAsync(yaml);
+
+        result.Services["migrator"].InitTimeoutSeconds.Should().BeNull(
+            "when omitted the engine falls back to its default");
+    }
+
+    #endregion
 }

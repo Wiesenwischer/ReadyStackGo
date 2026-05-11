@@ -27,6 +27,14 @@ public class DeploymentEngine : IDeploymentEngine
     /// </summary>
     private const string ManagementNetwork = "rsgo-net";
 
+    /// <summary>
+    /// Wait time the engine grants an init container to finish when the stack
+    /// fragment did not specify a per-service <c>initTimeoutSeconds</c>.
+    /// Set to 30 minutes so backfill-style data migrators (touch every row of
+    /// a large table to fire integration triggers) have a realistic window.
+    /// </summary>
+    public const int DefaultInitContainerTimeoutSeconds = 1800;
+
     private readonly IConfigStore _configStore;
     private readonly IDockerService _dockerService;
     private readonly IOrganizationRepository _organizationRepository;
@@ -935,9 +943,17 @@ public class DeploymentEngine : IDeploymentEngine
         try
         {
             // Wait for the container to complete
-            _logger.LogInformation("Waiting for init container {ContextName} to complete...", step.ContextName);
+            // Per-service override via DeploymentStep.InitTimeoutSeconds (set in the
+            // stack-fragment yaml as `initTimeoutSeconds: <N>`); falls back to a
+            // 30-minute default that is friendlier to long-running data backfill
+            // migrators than the previous 5-minute hard cap, which used to surface
+            // as a misleading "A task was canceled" while the container was still
+            // making progress.
+            var maxWaitSeconds = step.InitTimeoutSeconds ?? DefaultInitContainerTimeoutSeconds;
+            _logger.LogInformation(
+                "Waiting for init container {ContextName} to complete (timeout: {Timeout}s)...",
+                step.ContextName, maxWaitSeconds);
 
-            var maxWaitSeconds = 300; // 5 minutes timeout for init containers
             var pollIntervalMs = 500; // Check every 500ms
             var elapsed = 0;
 
