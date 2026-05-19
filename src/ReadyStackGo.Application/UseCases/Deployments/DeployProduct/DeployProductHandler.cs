@@ -57,8 +57,24 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
         {
             if (existing.IsInProgress)
             {
-                return DeployProductResponse.Failed(
-                    $"A deployment is already in progress for product '{product.Name}'.");
+                // Try to recover a stuck deployment whose orchestrator went away.
+                // Safe: TryAutoFinalizeStuckDeployment returns false while any child
+                // stack is still Pending or Deploying, so a live orchestrator is
+                // never raced.
+                if (existing.TryAutoFinalizeStuckDeployment(
+                        "Redeploy requested while previous deployment was still in-progress"))
+                {
+                    _repository.Update(existing);
+                    _repository.SaveChanges();
+                    _logger.LogWarning(
+                        "Recovered stuck ProductDeployment {ProductDeploymentId} ({ProductName}) — status moved to {Status} so the redeploy can proceed",
+                        existing.Id, existing.ProductName, existing.Status);
+                }
+                else
+                {
+                    return DeployProductResponse.Failed(
+                        $"A deployment is already in progress for product '{product.Name}'.");
+                }
             }
 
             if (existing.IsOperational)

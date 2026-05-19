@@ -71,6 +71,26 @@ public class ProductDeploymentHealthSyncService : BackgroundService
         foreach (var productDeployment in activeDeployments)
         {
             if (cancellationToken.IsCancellationRequested) break;
+
+            // Watchdog: try to recover stuck Deploying/Upgrading/Redeploying products
+            // whose orchestrator died. Safe because TryAutoFinalizeStuckDeployment only
+            // fires when no child stack is still Pending or Deploying.
+            if (productDeployment.Status is ProductDeploymentStatus.Deploying
+                                          or ProductDeploymentStatus.Upgrading
+                                          or ProductDeploymentStatus.Redeploying)
+            {
+                if (productDeployment.TryAutoFinalizeStuckDeployment(
+                        "Watchdog detected no active orchestrator and all stacks settled"))
+                {
+                    _logger.LogWarning(
+                        "Watchdog: Auto-finalized stuck ProductDeployment '{ProductName}' to {Status}",
+                        productDeployment.ProductName, productDeployment.Status);
+                    productRepo.Update(productDeployment);
+                    productRepo.SaveChanges();
+                }
+                continue;
+            }
+
             if (!productDeployment.IsOperational) continue;
 
             var changed = false;
