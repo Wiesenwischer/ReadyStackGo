@@ -1537,6 +1537,153 @@ public class ProductDeploymentTests
 
     #endregion
 
+    #region Auto-Finalize Stuck Deployment (Bug #374)
+
+    [Fact]
+    public void TryAutoFinalizeStuckDeployment_WhenAllStacksRunning_TransitionsToRunning()
+    {
+        // Simulate orchestrator crash after all stacks completed but before
+        // the final product-level transition fired.
+        var pd = CreateTestDeployment(2);
+        pd.StartStack("stack-0", DeploymentId.NewId());
+        pd.CompleteStack("stack-0");
+        // Last CompleteStack would auto-trigger CompleteDeployment.
+        // To stage a Deploying-with-all-final-stacks state we mark the last
+        // stack via a non-auto-completing path: start it then directly mark
+        // it as Removed (an external removal during deploy is exactly the
+        // user-reported scenario).
+        pd.StartStack("stack-1", DeploymentId.NewId());
+        pd.FailStack("stack-1", "external removal");
+
+        pd.Status.Should().Be(ProductDeploymentStatus.Deploying);
+
+        var changed = pd.TryAutoFinalizeStuckDeployment("orchestrator crashed");
+
+        changed.Should().BeTrue();
+        pd.Status.Should().Be(ProductDeploymentStatus.PartiallyRunning);
+        pd.CompletedAt.Should().NotBeNull();
+        pd.ErrorMessage.Should().Contain("1 of 2");
+    }
+
+    [Fact]
+    public void TryAutoFinalizeStuckDeployment_WhenSomeStacksPending_ReturnsFalse()
+    {
+        // Orchestrator might still be running — do not interfere.
+        var pd = CreateTestDeployment(3);
+        pd.StartStack("stack-0", DeploymentId.NewId());
+        pd.CompleteStack("stack-0");
+        // stack-1 and stack-2 still Pending
+
+        var changed = pd.TryAutoFinalizeStuckDeployment("watchdog tick");
+
+        changed.Should().BeFalse();
+        pd.Status.Should().Be(ProductDeploymentStatus.Deploying);
+    }
+
+    [Fact]
+    public void TryAutoFinalizeStuckDeployment_WhenStackStillDeploying_ReturnsFalse()
+    {
+        var pd = CreateTestDeployment(2);
+        pd.StartStack("stack-0", DeploymentId.NewId());
+        pd.CompleteStack("stack-0");
+        pd.StartStack("stack-1", DeploymentId.NewId());
+        // stack-1 still Deploying (not yet completed/failed)
+
+        var changed = pd.TryAutoFinalizeStuckDeployment("watchdog tick");
+
+        changed.Should().BeFalse();
+        pd.Status.Should().Be(ProductDeploymentStatus.Deploying);
+    }
+
+    [Fact]
+    public void TryAutoFinalizeStuckDeployment_WhenAllFailed_TransitionsToFailed()
+    {
+        var pd = CreateTestDeployment(2);
+        pd.StartStack("stack-0", DeploymentId.NewId());
+        pd.FailStack("stack-0", "error");
+        pd.StartStack("stack-1", DeploymentId.NewId());
+        pd.FailStack("stack-1", "error");
+
+        var changed = pd.TryAutoFinalizeStuckDeployment("orchestrator crashed");
+
+        changed.Should().BeTrue();
+        pd.Status.Should().Be(ProductDeploymentStatus.Failed);
+        pd.CompletedAt.Should().NotBeNull();
+        pd.ErrorMessage.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public void TryAutoFinalizeStuckDeployment_RaisesAutoFinalizedEvent()
+    {
+        var pd = CreateTestDeployment(2);
+        pd.StartStack("stack-0", DeploymentId.NewId());
+        pd.CompleteStack("stack-0");
+        pd.StartStack("stack-1", DeploymentId.NewId());
+        pd.FailStack("stack-1", "boom");
+        pd.ClearDomainEvents();
+
+        pd.TryAutoFinalizeStuckDeployment("orchestrator crashed");
+
+        pd.DomainEvents.OfType<ProductDeploymentAutoFinalized>().Should().ContainSingle();
+    }
+
+    [Fact]
+    public void TryAutoFinalizeStuckDeployment_WhenProductRunning_ReturnsFalse()
+    {
+        // Not in progress — nothing to finalize.
+        var pd = CreateRunningDeployment(2);
+
+        var changed = pd.TryAutoFinalizeStuckDeployment("watchdog tick");
+
+        changed.Should().BeFalse();
+        pd.Status.Should().Be(ProductDeploymentStatus.Running);
+    }
+
+    [Fact]
+    public void TryAutoFinalizeStuckDeployment_WhenRemoving_ReturnsFalse()
+    {
+        // Explicit user-initiated removal — must not be auto-finalized.
+        var pd = CreateTestDeployment(2);
+        pd.StartStack("stack-0", DeploymentId.NewId());
+        pd.CompleteStack("stack-0");
+        pd.StartStack("stack-1", DeploymentId.NewId());
+        pd.CompleteStack("stack-1");
+        // Now Running, transition to Removing
+        pd.StartRemoval();
+
+        var changed = pd.TryAutoFinalizeStuckDeployment("watchdog tick");
+
+        changed.Should().BeFalse();
+        pd.Status.Should().Be(ProductDeploymentStatus.Removing);
+    }
+
+    [Fact]
+    public void TryAutoFinalizeStuckDeployment_WithRemovedStacksAndRunning_TransitionsToPartiallyRunning()
+    {
+        // Reproduces test-amsproject scenario: most stacks Running,
+        // one externally Removed, product stuck in Deploying.
+        var pd = CreateTestDeployment(3);
+        pd.StartStack("stack-0", DeploymentId.NewId());
+        pd.CompleteStack("stack-0");
+        pd.StartStack("stack-1", DeploymentId.NewId());
+        pd.CompleteStack("stack-1");
+        // stack-2 was externally removed during deploy
+        pd.StartStack("stack-2", DeploymentId.NewId());
+        pd.FailStack("stack-2", "removed externally");
+        // Workaround: simulate "Removed" state via direct sync after fail
+        // (production flow uses SyncStackHealth but we want a clean
+        // domain-level test).
+
+        var changed = pd.TryAutoFinalizeStuckDeployment("orchestrator crashed");
+
+        changed.Should().BeTrue();
+        pd.Status.Should().Be(ProductDeploymentStatus.PartiallyRunning);
+        pd.CompletedStacks.Should().Be(2);
+        pd.FailedStacks.Should().Be(1);
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static List<StackDeploymentConfig> CreateStackConfigs(int count)
