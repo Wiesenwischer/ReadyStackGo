@@ -667,6 +667,75 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
         return false;
     }
 
+    /// <summary>
+    /// Recovery for stuck in-progress deployments (Deploying / Upgrading / Redeploying).
+    ///
+    /// When the orchestrating handler crashes mid-deploy (container restart, exception,
+    /// cancellation), the ProductDeployment aggregate has no way to leave the in-progress
+    /// state — only the orchestrator calls MarkAsPartiallyRunning / MarkAsFailed. This
+    /// method is the safety net: if all child stacks have reached a settled status
+    /// (no Pending and no Deploying remain), the deployment is finalized based on the
+    /// aggregate stack outcomes. Removing is left untouched because that is an explicit,
+    /// user-initiated lifecycle.
+    ///
+    /// Returns true if status changed.
+    /// </summary>
+    public bool TryAutoFinalizeStuckDeployment(string reason)
+    {
+        SelfAssertArgumentNotEmpty(reason, "Reason is required.");
+
+        if (Status is not (ProductDeploymentStatus.Deploying
+                        or ProductDeploymentStatus.Upgrading
+                        or ProductDeploymentStatus.Redeploying))
+        {
+            return false;
+        }
+
+        var hasUnsettledStacks = _stacks.Any(s =>
+            s.Status == StackDeploymentStatus.Pending ||
+            s.Status == StackDeploymentStatus.Deploying);
+        if (hasUnsettledStacks) return false;
+
+        var previousStatus = Status;
+        var runningCount = _stacks.Count(s => s.Status == StackDeploymentStatus.Running);
+        var failedCount = _stacks.Count(s => s.Status == StackDeploymentStatus.Failed);
+
+        ProductDeploymentStatus targetStatus;
+        string phaseMessage;
+        string errorForAggregate;
+
+        if (runningCount == _stacks.Count)
+        {
+            targetStatus = ProductDeploymentStatus.Running;
+            phaseMessage = $"Auto-finalized as Running: {reason}";
+            errorForAggregate = string.Empty;
+        }
+        else if (runningCount > 0)
+        {
+            targetStatus = ProductDeploymentStatus.PartiallyRunning;
+            phaseMessage = $"Auto-finalized as PartiallyRunning ({failedCount} of {TotalStacks} not running): {reason}";
+            errorForAggregate = $"{failedCount} of {TotalStacks} stacks not running. {reason}";
+        }
+        else
+        {
+            targetStatus = ProductDeploymentStatus.Failed;
+            phaseMessage = $"Auto-finalized as Failed: {reason}";
+            errorForAggregate = $"No stacks running. {reason}";
+        }
+
+        EnsureValidTransition(targetStatus);
+
+        Status = targetStatus;
+        CompletedAt = SystemClock.UtcNow;
+        ErrorMessage = string.IsNullOrEmpty(errorForAggregate) ? null : errorForAggregate;
+
+        RecordPhase(phaseMessage);
+        AddDomainEvent(new ProductDeploymentAutoFinalized(
+            Id, ProductName, previousStatus, targetStatus, reason, runningCount, failedCount));
+
+        return true;
+    }
+
     // ═══════════════════════════════════════════════════════════════════
     // Maintenance / Operation Mode
     // ═══════════════════════════════════════════════════════════════════

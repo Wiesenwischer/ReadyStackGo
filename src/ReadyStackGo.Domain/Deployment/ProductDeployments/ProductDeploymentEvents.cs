@@ -115,6 +115,40 @@ public sealed class ProductDeploymentFailed : DomainEvent
 }
 
 /// <summary>
+/// Raised when a stuck in-progress product deployment is automatically finalized
+/// by a recovery mechanism (event handler or watchdog) because its orchestrator
+/// went away while all stacks already reached a final state.
+/// </summary>
+public sealed class ProductDeploymentAutoFinalized : DomainEvent
+{
+    public ProductDeploymentId ProductDeploymentId { get; }
+    public string ProductName { get; }
+    public ProductDeploymentStatus PreviousStatus { get; }
+    public ProductDeploymentStatus NewStatus { get; }
+    public string Reason { get; }
+    public int RunningStacks { get; }
+    public int FailedStacks { get; }
+
+    public ProductDeploymentAutoFinalized(
+        ProductDeploymentId productDeploymentId,
+        string productName,
+        ProductDeploymentStatus previousStatus,
+        ProductDeploymentStatus newStatus,
+        string reason,
+        int runningStacks,
+        int failedStacks)
+    {
+        ProductDeploymentId = productDeploymentId;
+        ProductName = productName;
+        PreviousStatus = previousStatus;
+        NewStatus = newStatus;
+        Reason = reason;
+        RunningStacks = runningStacks;
+        FailedStacks = failedStacks;
+    }
+}
+
+/// <summary>
 /// Raised when a product upgrade is initiated.
 /// </summary>
 public sealed class ProductUpgradeInitiated : DomainEvent
