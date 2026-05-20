@@ -2,8 +2,8 @@ using System.Net;
 using FluentAssertions;
 using Lextm.SharpSnmpLib;
 using Lextm.SharpSnmpLib.Messaging;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using ReadyStackGo.Application.Snmp;
 using ReadyStackGo.Infrastructure.Snmp;
 
@@ -23,15 +23,15 @@ public class SnmpAgentTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         _port = GetFreeUdpPort();
-        var options = Options.Create(new SnmpAgentOptions
-        {
-            Enabled = true,
-            Port = _port,
-            ListenAddress = "127.0.0.1",
-            Community = "public",
-        });
+        var settings = new SnmpRuntimeSettings(
+            Enabled: true,
+            Port: _port,
+            ListenAddress: "127.0.0.1",
+            RootOid: "1.3.6.1.4.1.99999.1",
+            Community: "public",
+            V3Users: Array.Empty<SnmpRuntimeV3User>());
 
-        _agent = new SnmpAgent(options, new EmptyOidTree(), NullLogger<SnmpAgent>.Instance);
+        _agent = NewAgent(settings);
         await _agent.StartAsync(CancellationToken.None);
         _agent.IsRunning.Should().BeTrue();
     }
@@ -45,9 +45,8 @@ public class SnmpAgentTests : IAsyncLifetime
     [Fact]
     public async Task Disabled_DoesNotBindSocket()
     {
-        var disabledOptions = Options.Create(new SnmpAgentOptions { Enabled = false });
-        await using var idleAgent = new SnmpAgent(
-            disabledOptions, new EmptyOidTree(), NullLogger<SnmpAgent>.Instance);
+        var settings = NewSettings(enabled: false, port: GetFreeUdpPort());
+        await using var idleAgent = NewAgent(settings);
 
         await idleAgent.StartAsync(CancellationToken.None);
 
@@ -96,8 +95,6 @@ public class SnmpAgentTests : IAsyncLifetime
             timeout: 2000,
             WalkMode.WithinSubtree);
 
-        // EmptyOidTree never has a "next" OID, so the walk stops immediately with
-        // endOfMibView — no variables get collected.
         count.Should().Be(0);
         collected.Should().BeEmpty();
     }
@@ -107,8 +104,6 @@ public class SnmpAgentTests : IAsyncLifetime
     {
         var endpoint = new IPEndPoint(IPAddress.Loopback, _port);
 
-        // Mismatched community is silently dropped by the agent so the
-        // SharpSnmp client eventually times out.
         var act = () => Messenger.Get(
             VersionCode.V2,
             endpoint,
@@ -120,27 +115,32 @@ public class SnmpAgentTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Start_WhenAlreadyRunning_IsNoOp()
+    public async Task Reload_RebindsListener()
     {
-        // First StartAsync happened in InitializeAsync. Second one must not throw.
-        await _agent.StartAsync(CancellationToken.None);
+        var newPort = GetFreeUdpPort();
+        var scopeFactoryField = _agent.GetType()
+            .GetField("_scopeFactory", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        var scopeFactory = (FakeScopeFactory)scopeFactoryField.GetValue(_agent)!;
+
+        scopeFactory.Provider.Settings = NewSettings(enabled: true, port: newPort);
+        await _agent.ReloadAsync();
 
         _agent.IsRunning.Should().BeTrue();
-        _agent.BoundEndpoint!.Port.Should().Be(_port);
+        _agent.BoundEndpoint!.Port.Should().Be(newPort);
     }
 
     [Fact]
     public async Task Start_InvalidListenAddress_Throws()
     {
-        var options = Options.Create(new SnmpAgentOptions
-        {
-            Enabled = true,
-            Port = GetFreeUdpPort(),
-            ListenAddress = "not-an-ip",
-        });
+        var settings = new SnmpRuntimeSettings(
+            Enabled: true,
+            Port: GetFreeUdpPort(),
+            ListenAddress: "not-an-ip",
+            RootOid: "1.3.6.1.4.1.99999.1",
+            Community: string.Empty,
+            V3Users: Array.Empty<SnmpRuntimeV3User>());
 
-        await using var brokenAgent = new SnmpAgent(
-            options, new EmptyOidTree(), NullLogger<SnmpAgent>.Instance);
+        await using var brokenAgent = NewAgent(settings);
 
         var act = () => brokenAgent.StartAsync(CancellationToken.None);
 
@@ -148,9 +148,42 @@ public class SnmpAgentTests : IAsyncLifetime
             .WithMessage("*ListenAddress*");
     }
 
+    private static SnmpRuntimeSettings NewSettings(bool enabled, int port) =>
+        new(enabled, port, "127.0.0.1", "1.3.6.1.4.1.99999.1", "public", Array.Empty<SnmpRuntimeV3User>());
+
+    private static SnmpAgent NewAgent(SnmpRuntimeSettings settings)
+    {
+        var provider = new MutableProvider { Settings = settings };
+        var scopeFactory = new FakeScopeFactory(provider);
+        return new SnmpAgent(scopeFactory, new EmptyOidTree(), NullLogger<SnmpAgent>.Instance);
+    }
+
     private static int GetFreeUdpPort()
     {
         using var probe = new System.Net.Sockets.UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
         return ((IPEndPoint)probe.Client.LocalEndPoint!).Port;
+    }
+
+    private sealed class MutableProvider : ISnmpRuntimeSettingsProvider
+    {
+        public SnmpRuntimeSettings Settings { get; set; } = new(false, 0, "127.0.0.1", "1.3.6.1.4.1.99999.1", "", Array.Empty<SnmpRuntimeV3User>());
+        public SnmpRuntimeSettings Load() => Settings;
+    }
+
+    private sealed class FakeScopeFactory : IServiceScopeFactory
+    {
+        public MutableProvider Provider { get; }
+        public FakeScopeFactory(MutableProvider provider) => Provider = provider;
+        public IServiceScope CreateScope() => new FakeScope(Provider);
+    }
+
+    private sealed class FakeScope : IServiceScope, IServiceProvider
+    {
+        private readonly MutableProvider _provider;
+        public FakeScope(MutableProvider provider) => _provider = provider;
+        public IServiceProvider ServiceProvider => this;
+        public object? GetService(Type serviceType) =>
+            serviceType == typeof(ISnmpRuntimeSettingsProvider) ? _provider : null;
+        public void Dispose() { }
     }
 }
