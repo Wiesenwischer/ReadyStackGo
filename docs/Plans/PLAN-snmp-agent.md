@@ -24,59 +24,90 @@ Wir nutzen den Platzhalter-Root `1.3.6.1.4.1.99999.1` (`rsgoRoot`). Eine offizie
 
 Der Root macht den Tree leicht konfigurierbar — alle untergeordneten OIDs sind relativ zu einer per `appsettings.json` überschreibbaren `RootOid`-Konstante aufgebaut, sodass Customers mit eigener PEN sie auf ihre Wurzel mappen können.
 
-### OID-Tree (initial)
+### Listener-Port und Container-Hardening
+
+SNMP läuft traditionell auf UDP/161 — ein privilegierter Port (< 1024), der auf Linux-Hosts und in non-root-Containern (OpenShift restricted SCC, K8s `runAsNonRoot`, gehärtete RHEL-Pods) nicht ohne CAP_NET_BIND_SERVICE bindbar ist. Industry-Best-Practice ist deshalb: Container intern auf einem Non-Privileged-Port lauschen lassen, die Klassik-Portierung außen entscheidet der Operator.
+
+**RSGO-Default**: Container hört intern auf **UDP/1161**. Der Default-`docker-compose.yml` mappt `1161:1161/udp`. Damit ist der Container "rootless-ready" — er kann ohne Änderung als Non-Root-User laufen.
+
+Operator-Optionen sind dokumentiert:
+- Standard-Port von außen: `docker-compose.override.yml` mit `"161:1161/udp"` — der Docker-Daemon bindet host:161 (er hat root, das geht). Monitoring-Tools sprechen den klassischen Port an.
+- Firewall-Redirect: `iptables -t nat -A PREROUTING -p udp --dport 161 -j REDIRECT --to-port 1161`.
+- Kubernetes/OpenShift: Service mit `port: 161, targetPort: 1161`.
+
+### OID-Tree
+
+Environment ist eigener INDEX, damit Monitoring-Tools per `snmpwalk rsgoEnvironmentTable.<idx>` direkt eine Umgebung auswählen können. Die Numerierung ist gegenüber dem ersten Entwurf verschoben (Environment ist jetzt `.2`, Product `.3`, Stack `.4`, Service `.5`).
 
 ```
-rsgoRoot               1.3.6.1.4.1.99999.1
-├── rsgoSystem         .1
-│   ├── rsgoSystemVersion        .1.0  STRING       — RSGO version string ("v0.64.0")
-│   ├── rsgoSystemUptime         .2.0  TimeTicks    — Process uptime in 1/100 s
-│   ├── rsgoSystemEnvironmentCount  .3.0  Integer32 — Configured environments
-│   ├── rsgoSystemSourceCount    .4.0  Integer32   — Stack sources
-│   ├── rsgoSystemDbHealth       .5.0  Integer32   — 0 = down, 1 = up
-│   └── rsgoSystemBuildTimestamp .6.0  DateAndTime — Image build time
+rsgoRoot                    1.3.6.1.4.1.99999.1
+├── rsgoSystem              .1
+│   ├── rsgoSystemVersion           .1.0  STRING       — RSGO version string ("v0.64.0")
+│   ├── rsgoSystemUptime            .2.0  TimeTicks    — Process uptime in 1/100 s
+│   ├── rsgoSystemEnvironmentCount  .3.0  Integer32    — Configured environments
+│   ├── rsgoSystemSourceCount       .4.0  Integer32    — Stack sources
+│   ├── rsgoSystemDbHealth          .5.0  Integer32    — 0 = down, 1 = up
+│   └── rsgoSystemBuildTimestamp    .6.0  DateAndTime  — Image build time
 │
-├── rsgoProductTable   .2.1
-│   └── rsgoProductEntry         .1   INDEX = rsgoProductIndex
-│       ├── rsgoProductIndex            .1   Integer32 INDEX
-│       ├── rsgoProductId               .2   STRING
-│       ├── rsgoProductName             .3   STRING
-│       ├── rsgoProductVersion          .4   STRING
-│       ├── rsgoProductEnvironment      .5   STRING
-│       ├── rsgoProductStatus           .6   Integer32  — see PRODUCT-STATUS enum
-│       ├── rsgoProductStatusText       .7   STRING
-│       ├── rsgoProductOperationMode    .8   Integer32  — 0=Normal, 1=Maintenance
-│       ├── rsgoProductTotalStacks      .9   Integer32
-│       ├── rsgoProductRunningStacks    .10  Integer32
-│       ├── rsgoProductFailedStacks     .11  Integer32
-│       ├── rsgoProductLastDeployedAt   .12  DateAndTime
-│       └── rsgoProductErrorMessage     .13  STRING
+├── rsgoEnvironmentTable    .2.1
+│   └── rsgoEnvironmentEntry        .1    INDEX = rsgoEnvironmentIndex
+│       ├── rsgoEnvironmentIndex          .1  Integer32 INDEX
+│       ├── rsgoEnvironmentId             .2  STRING (UUID)
+│       ├── rsgoEnvironmentName           .3  STRING
+│       └── rsgoEnvironmentType           .4  Integer32  — 1=LocalDocker, 2=SshTunnel, 3=DockerTcp, 4=RemoteAgent
 │
-├── rsgoStackTable     .3.1
-│   └── rsgoStackEntry           .1   INDEX = rsgoProductIndex, rsgoStackIndex
-│       ├── rsgoStackIndex              .1  Integer32 INDEX
-│       ├── rsgoStackProductIndex       .2  Integer32 INDEX (FK to rsgoProductIndex)
-│       ├── rsgoStackName               .3  STRING
-│       ├── rsgoStackStatus             .4  Integer32  — see STACK-STATUS enum
-│       ├── rsgoStackStatusText         .5  STRING
-│       ├── rsgoStackServiceCount       .6  Integer32
-│       ├── rsgoStackOrder              .7  Integer32
-│       └── rsgoStackErrorMessage       .8  STRING
+├── rsgoProductTable        .3.1
+│   └── rsgoProductEntry            .1    INDEX = rsgoEnvironmentIndex, rsgoProductIndex
+│       ├── rsgoEnvironmentIndex          .1   Integer32 INDEX (FK)
+│       ├── rsgoProductIndex              .2   Integer32 INDEX
+│       ├── rsgoProductId                 .3   STRING
+│       ├── rsgoProductName               .4   STRING
+│       ├── rsgoProductVersion            .5   STRING
+│       ├── rsgoProductStatus             .6   Integer32  — see PRODUCT-STATUS enum
+│       ├── rsgoProductStatusText         .7   STRING
+│       ├── rsgoProductOperationMode      .8   Integer32  — 0=Normal, 1=Maintenance
+│       ├── rsgoProductTotalStacks        .9   Integer32
+│       ├── rsgoProductRunningStacks      .10  Integer32
+│       ├── rsgoProductFailedStacks       .11  Integer32
+│       ├── rsgoProductLastDeployedAt     .12  DateAndTime
+│       └── rsgoProductErrorMessage       .13  STRING
 │
-└── rsgoServiceTable   .4.1
-    └── rsgoServiceEntry         .1   INDEX = rsgoProductIndex, rsgoStackIndex, rsgoServiceIndex
-        ├── rsgoServiceIndex            .1  Integer32 INDEX
-        ├── rsgoServiceStackIndex       .2  Integer32 INDEX (FK)
-        ├── rsgoServiceProductIndex     .3  Integer32 INDEX (FK)
-        ├── rsgoServiceName             .4  STRING
-        ├── rsgoServiceContainerName    .5  STRING
-        ├── rsgoServiceRunning          .6  Integer32 — 0/1
-        ├── rsgoServiceHealthStatus     .7  Integer32 — 0=Unknown, 1=Healthy, 2=Unhealthy, 3=Starting
-        ├── rsgoServiceRestartCount     .8  Counter32
-        └── rsgoServiceLastHealthCheck  .9  DateAndTime
+├── rsgoStackTable          .4.1
+│   └── rsgoStackEntry              .1    INDEX = rsgoEnvironmentIndex, rsgoProductIndex, rsgoStackIndex
+│       ├── rsgoEnvironmentIndex          .1  Integer32 INDEX (FK)
+│       ├── rsgoProductIndex              .2  Integer32 INDEX (FK)
+│       ├── rsgoStackIndex                .3  Integer32 INDEX
+│       ├── rsgoStackName                 .4  STRING
+│       ├── rsgoStackStatus               .5  Integer32  — see STACK-STATUS enum
+│       ├── rsgoStackStatusText           .6  STRING
+│       ├── rsgoStackServiceCount         .7  Integer32
+│       ├── rsgoStackOrder                .8  Integer32
+│       └── rsgoStackErrorMessage         .9  STRING
+│
+└── rsgoServiceTable        .5.1
+    └── rsgoServiceEntry            .1    INDEX = rsgoEnvironmentIndex, rsgoProductIndex, rsgoStackIndex, rsgoServiceIndex
+        ├── rsgoEnvironmentIndex          .1  Integer32 INDEX (FK)
+        ├── rsgoProductIndex              .2  Integer32 INDEX (FK)
+        ├── rsgoStackIndex                .3  Integer32 INDEX (FK)
+        ├── rsgoServiceIndex              .4  Integer32 INDEX
+        ├── rsgoServiceName               .5  STRING
+        ├── rsgoServiceContainerName      .6  STRING
+        ├── rsgoServiceRunning            .7  Integer32 — 0/1
+        ├── rsgoServiceHealthStatus       .8  Integer32 — 0=Unknown, 1=Healthy, 2=Unhealthy, 3=Starting
+        ├── rsgoServiceRestartCount       .9  Counter32
+        └── rsgoServiceLastHealthCheck    .10 DateAndTime
 ```
 
-Enum-Mappings (`PRODUCT-STATUS`, `STACK-STATUS`, `HEALTH-STATUS`) liegen 1:1 auf den bestehenden Domain-Enums; die MIB-Datei dokumentiert die Werte als `INTEGER { running(1), partiallyRunning(2), failed(3), ... }`.
+Enum-Mappings (`PRODUCT-STATUS`, `STACK-STATUS`, `HEALTH-STATUS`, `ENVIRONMENT-TYPE`) liegen 1:1 auf den bestehenden Domain-Enums; die MIB-Datei dokumentiert die Werte als `INTEGER { running(1), partiallyRunning(2), failed(3), ... }`.
+
+### Snapshot-Caching
+
+Pro WALK können je nach Datenmenge 2000+ einzelne SNMP-Requests in wenigen Sekunden eintreffen — alle auf denselben konsistenten Tree-Stand bezogen. Wir bauen deshalb **alle 30 Sekunden** einen vollständigen Snapshot aus den Domain-Repositories und HealthSnapshots auf und bedienen Requests aus diesem Read-Model. Vorteile:
+- DB-Last wird auch bei mehreren parallel pollenden Monitoring-Tools auf einen zentralen Build alle 30 s reduziert.
+- Ein laufender WALK sieht garantiert einen in sich konsistenten Stand (kein "Stack 3 ist Running aber Service Count zeigt 0", was bei Inflight-Deploys passieren könnte).
+- 30 s ist mit allen üblichen Monitoring-Polling-Intervallen (≥ 30 s) kompatibel; bei kürzeren Polls fragt das Tool denselben Snapshot mehrfach ab — kein Problem.
+
+Trade-off dokumentieren: Bei schnellen Statuswechseln (Deploy gerade abgeschlossen) sieht das Monitoring bis zu 30 s lang noch den vorherigen Stand. Für klassisches Health-Polling akzeptabel; falls Customer-Feedback drängt, kann der TTL in einer Folge-Phase konfigurierbar gemacht werden.
 
 ### Betroffene Bounded Contexts
 
@@ -96,7 +127,7 @@ Enum-Mappings (`PRODUCT-STATUS`, `STACK-STATUS`, `HEALTH-STATUS`) liegen 1:1 auf
 
 Reihenfolge basierend auf Abhängigkeiten:
 
-- [ ] **Feature 1: SNMP Listener Backbone** — Lextm.SharpSnmpLib einbinden, `SnmpAgent`-Service in `Infrastructure`, hostet UDP-Listener auf konfigurierbarem Port (Default 161, im Container hochmappbar). Erst ohne echte OIDs — antwortet mit `noSuchObject` auf alles. End-to-End-Pfad damit erstmal stehend.
+- [ ] **Feature 1: SNMP Listener Backbone** — Lextm.SharpSnmpLib einbinden, `SnmpAgent`-Service in `Infrastructure`, hostet UDP-Listener auf konfigurierbarem Port (Default UDP/1161, non-privileged → rootless-tauglich; im Compose-File auf `1161:1161/udp` gemappt, optional vom Operator auf `161:1161/udp` re-mappbar). Erst ohne echte OIDs — antwortet mit `noSuchObject` auf alles. End-to-End-Pfad damit erstmal stehend.
   - Betroffene Dateien: neue `src/ReadyStackGo.Infrastructure/Snmp/SnmpAgent.cs`, `Snmp/IOidTree.cs`, `Snmp/OidTreeBuilder.cs` (stub). `src/ReadyStackGo.Api/BackgroundServices/SnmpAgentBackgroundService.cs`.
   - Pattern-Vorlage: [HealthCollectorBackgroundService.cs](../../src/ReadyStackGo.Api/BackgroundServices/HealthCollectorBackgroundService.cs) für DI-Scope + Cancellation-Handling.
   - Abhängig von: -
@@ -151,10 +182,7 @@ Reihenfolge basierend auf Abhängigkeiten:
 
 ## Offene Punkte
 
-- [ ] **Port-Mapping im Default-`docker-compose.yml`** — UDP/161 ist privileged. Default soll der Container intern auf 161 lauschen, im Compose-File auf z.B. `1161:161/udp` mappen, damit der Host-Port nicht root-only ist. Dokumentation muss das klar machen, weil Monitoring-Tools dann `:1161` ansprechen müssen oder per `iptables` weitergeleitet werden.
-- [ ] **Snapshot-Caching** — pro Walk Snapshot-Build vs. einmal pro X Sekunden cachen? Mit 200+ Stacks könnte ein Walk DB-lastig werden. Tendenz: 5s-Cache reicht für Monitoring (Polling-Intervalle sind typisch ≥ 30s).
-- [ ] **Mehrere Environments** — `rsgoProductEnvironment` ist ein Plain-String-Feld; tooling-freundlicher wäre eine zweite Indexspalte. Vorläufig String, Optimierung in Follow-up wenn Customer-Feedback es einfordert.
-- [ ] **MIB-Datei-Validierung in CI** — `smilint`-Verfügbarkeit auf dem CI-Runner prüfen; Fallback: Validierung in einem separaten Lint-Job, der nicht den Build blockt.
+Alle initial offenen Punkte sind in den Entscheidungs-Block weiter unten überführt. Neue offene Punkte entstehen erst bei der Umsetzung der Features.
 
 ## Entscheidungen
 
@@ -166,3 +194,7 @@ Reihenfolge basierend auf Abhängigkeiten:
 | OID-Root | PEN sofort / Experimentell+später PEN / per-Config | **Experimentell + per-Config** | Customer-Antwort. Wir nutzen `1.3.6.1.4.1.99999.1` als Default, machen die Wurzel aber konfigurierbar — Customers mit eigener PEN können sofort umstellen. PEN-Antrag läuft parallel. |
 | SNMP-Library | Lextm.SharpSnmpLib / SnmpSharpNet / eigene Impl | **Lextm.SharpSnmpLib** | MIT-lizenziert, aktiv gewartet, voller v1/v2c/v3-Support, Agent + Manager APIs vorhanden. |
 | Milestone | v0.63 / v0.64 (neu) / v1.0 | **v0.64 (neu)** | Customer-Antwort. v0.63 ist für Product Updates reserviert; v1.0 ist zu spät für ein Standalone-Feature. v0.64 wird der SNMP-Milestone, ggf. plus AMS-UI-Counterpart. |
+| Listener-Port intern | 161 (Standard) / 1161 (non-priv) / konfigurierbar | **1161 intern, 1161:1161 Default-Mapping** | Industry-Best-Practice analog nginx-rootless, postgres etc. Container kann rootless betrieben werden (RHEL/OpenShift-kompatibel). Operator kann via `docker-compose.override.yml` auf `161:1161` re-mappen wenn klassischer Port von außen gewünscht. |
+| Snapshot-Caching | Live / 5s / 30s / konfigurierbar | **30 Sekunden** | Maximaler Schutz für große Installationen (200+ Stacks). Polling-Tools mit Standard-Intervallen (≥ 30s) merken nichts. Trade-off (Latenz nach Statuswechseln) ist akzeptabel; Konfigurierbarkeit kann in einer Folge-Phase nachgezogen werden, wenn Customer-Feedback es einfordert. |
+| Environment-Adressierung | String-Spalte / eigener Index / beides | **Eigener `rsgoEnvironmentTable`-Index** | Erlaubt Monitoring-Tools sauberes `snmpwalk` pro Environment, ohne im Tool nachfiltern zu müssen. Multi-Env-Setups werden first-class statt nachträglich. Mehraufwand im OID-Tree (~30%) ist überschaubar und einmalig. |
+| MIB-Lint in CI | Blocking smilint / non-blocking / manuell | **Blocking smilint im Build-Step** | MIB-Fehler dürfen nie zum Customer durchkommen — kaputte Imports sind teuer im Support. smilint-Setup ist einmalig (apt-get). Bei MIB-Edits (selten) bleibt CI als Sicherheitsnetz. |
