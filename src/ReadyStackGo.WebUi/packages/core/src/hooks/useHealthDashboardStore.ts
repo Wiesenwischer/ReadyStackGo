@@ -17,6 +17,10 @@ export interface ProductGroup {
   healthyServices: number;
   totalServices: number;
   overallStatus: string;
+  /** Rolled-up operation mode across all stacks. 'Maintenance' if any stack
+   *  in the group reports Maintenance, otherwise the first non-Normal mode
+   *  encountered, otherwise 'Normal'. */
+  operationMode: string;
 }
 
 export interface UseHealthDashboardStoreReturn {
@@ -50,6 +54,18 @@ function aggregateProductStatus(stacks: StackHealthDto[]): string {
   if (statuses.some(s => s === 'degraded')) return 'Degraded';
   if (statuses.every(s => s === 'healthy')) return 'Healthy';
   return 'Unknown';
+}
+
+function aggregateProductOperationMode(stacks: StackHealthDto[]): string {
+  // OperationMode is set at the ProductDeployment level — when a product enters
+  // Maintenance, every child stack inherits Maintenance. If any stack reports
+  // a non-Normal mode the product header should surface that mode so admins
+  // don't read a planned maintenance as a real outage. Maintenance wins over
+  // other non-Normal modes for visibility.
+  const modes = stacks.map(s => (s.operationMode || 'Normal'));
+  if (modes.some(m => m.toLowerCase() === 'maintenance')) return 'Maintenance';
+  const firstNonNormal = modes.find(m => m.toLowerCase() !== 'normal');
+  return firstNonNormal ?? 'Normal';
 }
 
 export function useHealthDashboardStore(
@@ -168,6 +184,7 @@ export function useHealthDashboardStore(
             healthyServices: stack.healthyServices,
             totalServices: stack.totalServices,
             overallStatus: 'Healthy',
+            operationMode: 'Normal',
           });
         }
       } else {
@@ -178,6 +195,7 @@ export function useHealthDashboardStore(
     const productGroupList = Array.from(groups.values()).map(g => ({
       ...g,
       overallStatus: aggregateProductStatus(g.stacks),
+      operationMode: aggregateProductOperationMode(g.stacks),
     }));
 
     return {
