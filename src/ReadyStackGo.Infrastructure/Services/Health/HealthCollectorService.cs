@@ -107,15 +107,19 @@ public class HealthCollectorService : IHealthCollectorService
 
                 // Track health changes and create in-app notifications.
                 // Suppress during install/upgrade so the per-product result is the
-                // sole signal the user sees for the deploy.
+                // sole signal the user sees for the deploy. Also suppress while
+                // the parent product is in Maintenance — every service goes down
+                // by design and we don't want 40+ Service-Health-Changed
+                // notifications for one planned event (issue #391).
                 var serviceStatuses = dto.Self.Services
                     .Select(s => new ServiceHealthUpdate(s.Name, s.Status))
                     .ToList();
+                var suppress = deployment.IsInProgress || IsParentInMaintenance(deployment.Id);
                 await _healthChangeTracker.ProcessHealthUpdateAsync(
                     deployment.Id.Value.ToString(),
                     deployment.StackName,
                     serviceStatuses,
-                    deployment.IsInProgress,
+                    suppress,
                     cancellationToken);
 
                 // Notify about individual deployment health change (SignalR real-time)
@@ -312,5 +316,16 @@ public class HealthCollectorService : IHealthCollectorService
             dto.ProductDeploymentId = productDeployment.Id.Value.ToString();
             dto.ProductDisplayName = productDeployment.ProductDisplayName;
         }
+    }
+
+    /// <summary>
+    /// Returns true if the stack deployment belongs to a ProductDeployment that
+    /// is currently in Maintenance mode. Used to suppress per-service health
+    /// notifications during planned maintenance (issue #391).
+    /// </summary>
+    private bool IsParentInMaintenance(DeploymentId deploymentId)
+    {
+        var parent = _productDeploymentRepository.GetByStackDeploymentId(deploymentId);
+        return parent is not null && parent.OperationMode == ReadyStackGo.Domain.Deployment.Health.OperationMode.Maintenance;
     }
 }
