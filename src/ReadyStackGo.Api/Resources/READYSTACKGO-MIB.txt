@@ -1,0 +1,320 @@
+READYSTACKGO-MIB DEFINITIONS ::= BEGIN
+
+--
+-- ReadyStackGo SNMP MIB
+--
+-- This MIB defines the managed objects exposed by ReadyStackGo's built-in
+-- SNMP agent. It is intended for monitoring ProductDeployments, individual
+-- stacks, container/service health, and the RSGO server itself.
+--
+-- NOTE: The root OID below uses the temporary placeholder Private Enterprise
+-- Number 99999. RSGO has an IANA PEN application pending; once issued, the
+-- placeholder will be replaced with the assigned number. Operators who
+-- already collected data against the placeholder OIDs will need to update
+-- their monitoring configuration; the migration is documented in the v0.65
+-- release notes.
+--
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE,
+    Integer32, Counter32, TimeTicks
+        FROM SNMPv2-SMI
+    DateAndTime
+        FROM SNMPv2-TC;
+
+readyStackGoMIB MODULE-IDENTITY
+    LAST-UPDATED "202605200000Z"
+    ORGANIZATION "ReadyStackGo"
+    CONTACT-INFO
+        "Marcus Dammann
+         Email: dev@wiesenwischer.de
+         GitHub: https://github.com/Wiesenwischer/ReadyStackGo"
+    DESCRIPTION
+        "ReadyStackGo managed objects. Provides read access to the state of
+         ProductDeployments, the stacks they orchestrate, individual container
+         services, and the RSGO server."
+    ::= { 1 3 6 1 4 1 99999 1 }
+
+--
+-- Top-level structure
+--
+rsgoSystem            OBJECT IDENTIFIER ::= { readyStackGoMIB 1 }
+rsgoEnvironmentTable  OBJECT IDENTIFIER ::= { readyStackGoMIB 2 }
+rsgoProductTable      OBJECT IDENTIFIER ::= { readyStackGoMIB 3 }
+rsgoStackTable        OBJECT IDENTIFIER ::= { readyStackGoMIB 4 }
+rsgoServiceTable      OBJECT IDENTIFIER ::= { readyStackGoMIB 5 }
+
+--
+-- rsgoSystem — scalars
+--
+rsgoSystemVersion OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "RSGO version string."
+    ::= { rsgoSystem 1 }
+
+rsgoSystemUptime OBJECT-TYPE
+    SYNTAX      TimeTicks
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Time since the RSGO process started, in 1/100 s."
+    ::= { rsgoSystem 2 }
+
+rsgoSystemEnvironmentCount OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Number of configured environments."
+    ::= { rsgoSystem 3 }
+
+rsgoSystemSourceCount OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Number of configured stack sources."
+    ::= { rsgoSystem 4 }
+
+rsgoSystemDbHealth OBJECT-TYPE
+    SYNTAX      Integer32 { down(0), up(1) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Whether the RSGO database is reachable."
+    ::= { rsgoSystem 5 }
+
+rsgoSystemBuildTimestamp OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Image build timestamp."
+    ::= { rsgoSystem 6 }
+
+--
+-- rsgoEnvironmentTable
+--
+rsgoEnvironmentEntry OBJECT-TYPE
+    SYNTAX      RsgoEnvironmentEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "One configured environment."
+    INDEX       { rsgoEnvironmentIndex }
+    ::= { rsgoEnvironmentTable 1 }
+
+RsgoEnvironmentEntry ::= SEQUENCE {
+    rsgoEnvironmentIndex Integer32,
+    rsgoEnvironmentId    OCTET STRING,
+    rsgoEnvironmentName  OCTET STRING,
+    rsgoEnvironmentType  Integer32
+}
+
+rsgoEnvironmentIndex OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Stable hash of EnvironmentId."
+    ::= { rsgoEnvironmentEntry 1 }
+
+rsgoEnvironmentId OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Environment GUID."
+    ::= { rsgoEnvironmentEntry 2 }
+
+rsgoEnvironmentName OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Human-readable environment name."
+    ::= { rsgoEnvironmentEntry 3 }
+
+rsgoEnvironmentType OBJECT-TYPE
+    SYNTAX      Integer32 { dockerSocket(0), dockerTcp(1), dockerAgent(2), sshTunnel(3) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Connection type to the docker host."
+    ::= { rsgoEnvironmentEntry 4 }
+
+--
+-- rsgoProductTable
+--
+rsgoProductEntry OBJECT-TYPE
+    SYNTAX      RsgoProductEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "One product deployment."
+    INDEX       { rsgoProductEnvIndex, rsgoProductIndex }
+    ::= { rsgoProductTable 1 }
+
+RsgoProductEntry ::= SEQUENCE {
+    rsgoProductEnvIndex        Integer32,
+    rsgoProductIndex           Integer32,
+    rsgoProductId              OCTET STRING,
+    rsgoProductName            OCTET STRING,
+    rsgoProductVersion         OCTET STRING,
+    rsgoProductStatus          Integer32,
+    rsgoProductStatusText      OCTET STRING,
+    rsgoProductOperationMode   Integer32,
+    rsgoProductTotalStacks     Integer32,
+    rsgoProductRunningStacks   Integer32,
+    rsgoProductFailedStacks    Integer32,
+    rsgoProductLastDeployedAt  DateAndTime,
+    rsgoProductErrorMessage    OCTET STRING
+}
+
+rsgoProductEnvIndex OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Environment index (FK to rsgoEnvironmentIndex)."
+    ::= { rsgoProductEntry 1 }
+
+rsgoProductIndex OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Stable hash of ProductGroupId."
+    ::= { rsgoProductEntry 2 }
+
+rsgoProductId OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    ::= { rsgoProductEntry 3 }
+
+rsgoProductName OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    ::= { rsgoProductEntry 4 }
+
+rsgoProductVersion OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    ::= { rsgoProductEntry 5 }
+
+rsgoProductStatus OBJECT-TYPE
+    SYNTAX      Integer32 {
+                    deploying(0), running(1), partiallyRunning(2),
+                    upgrading(3), failed(4), removing(5),
+                    removed(6), stopped(7), redeploying(8) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    ::= { rsgoProductEntry 6 }
+
+rsgoProductStatusText OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    ::= { rsgoProductEntry 7 }
+
+rsgoProductOperationMode OBJECT-TYPE
+    SYNTAX      Integer32 { normal(0), maintenance(1) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    ::= { rsgoProductEntry 8 }
+
+rsgoProductTotalStacks OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    ::= { rsgoProductEntry 9 }
+
+rsgoProductRunningStacks OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    ::= { rsgoProductEntry 10 }
+
+rsgoProductFailedStacks OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    ::= { rsgoProductEntry 11 }
+
+rsgoProductLastDeployedAt OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    ::= { rsgoProductEntry 12 }
+
+rsgoProductErrorMessage OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    ::= { rsgoProductEntry 13 }
+
+--
+-- rsgoStackTable
+--
+rsgoStackEntry OBJECT-TYPE
+    SYNTAX      RsgoStackEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "One stack within a product deployment."
+    INDEX       { rsgoStackEnvIndex, rsgoStackProdIndex, rsgoStackIndex }
+    ::= { rsgoStackTable 1 }
+
+RsgoStackEntry ::= SEQUENCE {
+    rsgoStackEnvIndex      Integer32,
+    rsgoStackProdIndex     Integer32,
+    rsgoStackIndex         Integer32,
+    rsgoStackName          OCTET STRING,
+    rsgoStackStatus        Integer32,
+    rsgoStackStatusText    OCTET STRING,
+    rsgoStackServiceCount  Integer32,
+    rsgoStackOrder         Integer32,
+    rsgoStackErrorMessage  OCTET STRING
+}
+
+rsgoStackEnvIndex      OBJECT-TYPE SYNTAX Integer32 MAX-ACCESS not-accessible STATUS current ::= { rsgoStackEntry 1 }
+rsgoStackProdIndex     OBJECT-TYPE SYNTAX Integer32 MAX-ACCESS not-accessible STATUS current ::= { rsgoStackEntry 2 }
+rsgoStackIndex         OBJECT-TYPE SYNTAX Integer32 MAX-ACCESS not-accessible STATUS current ::= { rsgoStackEntry 3 }
+rsgoStackName          OBJECT-TYPE SYNTAX OCTET STRING MAX-ACCESS read-only STATUS current ::= { rsgoStackEntry 4 }
+rsgoStackStatus        OBJECT-TYPE
+    SYNTAX Integer32 { pending(0), deploying(1), running(2), failed(3), removed(4), stopped(5) }
+    MAX-ACCESS read-only STATUS current ::= { rsgoStackEntry 5 }
+rsgoStackStatusText    OBJECT-TYPE SYNTAX OCTET STRING MAX-ACCESS read-only STATUS current ::= { rsgoStackEntry 6 }
+rsgoStackServiceCount  OBJECT-TYPE SYNTAX Integer32 MAX-ACCESS read-only STATUS current ::= { rsgoStackEntry 7 }
+rsgoStackOrder         OBJECT-TYPE SYNTAX Integer32 MAX-ACCESS read-only STATUS current ::= { rsgoStackEntry 8 }
+rsgoStackErrorMessage  OBJECT-TYPE SYNTAX OCTET STRING MAX-ACCESS read-only STATUS current ::= { rsgoStackEntry 9 }
+
+--
+-- rsgoServiceTable
+--
+rsgoServiceEntry OBJECT-TYPE
+    SYNTAX      RsgoServiceEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "One container/service inside a stack."
+    INDEX       { rsgoServiceEnvIndex, rsgoServiceProdIndex, rsgoServiceStackIndex, rsgoServiceIndex }
+    ::= { rsgoServiceTable 1 }
+
+RsgoServiceEntry ::= SEQUENCE {
+    rsgoServiceEnvIndex       Integer32,
+    rsgoServiceProdIndex      Integer32,
+    rsgoServiceStackIndex     Integer32,
+    rsgoServiceIndex          Integer32,
+    rsgoServiceName           OCTET STRING,
+    rsgoServiceContainerName  OCTET STRING,
+    rsgoServiceRunning        Integer32,
+    rsgoServiceHealthStatus   Integer32,
+    rsgoServiceRestartCount   Counter32,
+    rsgoServiceLastHealthCheck DateAndTime
+}
+
+rsgoServiceEnvIndex        OBJECT-TYPE SYNTAX Integer32 MAX-ACCESS not-accessible STATUS current ::= { rsgoServiceEntry 1 }
+rsgoServiceProdIndex       OBJECT-TYPE SYNTAX Integer32 MAX-ACCESS not-accessible STATUS current ::= { rsgoServiceEntry 2 }
+rsgoServiceStackIndex      OBJECT-TYPE SYNTAX Integer32 MAX-ACCESS not-accessible STATUS current ::= { rsgoServiceEntry 3 }
+rsgoServiceIndex           OBJECT-TYPE SYNTAX Integer32 MAX-ACCESS not-accessible STATUS current ::= { rsgoServiceEntry 4 }
+rsgoServiceName            OBJECT-TYPE SYNTAX OCTET STRING MAX-ACCESS read-only STATUS current ::= { rsgoServiceEntry 5 }
+rsgoServiceContainerName   OBJECT-TYPE SYNTAX OCTET STRING MAX-ACCESS read-only STATUS current ::= { rsgoServiceEntry 6 }
+rsgoServiceRunning         OBJECT-TYPE SYNTAX Integer32 { no(0), yes(1) } MAX-ACCESS read-only STATUS current ::= { rsgoServiceEntry 7 }
+rsgoServiceHealthStatus    OBJECT-TYPE
+    SYNTAX Integer32 { unknown(0), healthy(1), unhealthy(2), starting(3) }
+    MAX-ACCESS read-only STATUS current ::= { rsgoServiceEntry 8 }
+rsgoServiceRestartCount    OBJECT-TYPE SYNTAX Counter32 MAX-ACCESS read-only STATUS current ::= { rsgoServiceEntry 9 }
+rsgoServiceLastHealthCheck OBJECT-TYPE SYNTAX DateAndTime MAX-ACCESS read-only STATUS current ::= { rsgoServiceEntry 10 }
+
+END

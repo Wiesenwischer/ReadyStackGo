@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Authentication;
 using ReadyStackGo.Infrastructure;
 using ReadyStackGo.Infrastructure.DataAccess;
 using ReadyStackGo.Infrastructure.Security.Authentication;
+using ReadyStackGo.Application.Snmp;
 using ReadyStackGo.Infrastructure.Snmp;
 
 namespace ReadyStackGo.Api;

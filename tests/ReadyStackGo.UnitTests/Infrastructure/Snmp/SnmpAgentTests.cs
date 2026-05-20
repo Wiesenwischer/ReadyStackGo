@@ -4,6 +4,7 @@ using Lextm.SharpSnmpLib;
 using Lextm.SharpSnmpLib.Messaging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using ReadyStackGo.Application.Snmp;
 using ReadyStackGo.Infrastructure.Snmp;
 
 namespace ReadyStackGo.UnitTests.Infrastructure.Snmp;
@@ -27,6 +28,7 @@ public class SnmpAgentTests : IAsyncLifetime
             Enabled = true,
             Port = _port,
             ListenAddress = "127.0.0.1",
+            Community = "public",
         });
 
         _agent = new SnmpAgent(options, new EmptyOidTree(), NullLogger<SnmpAgent>.Instance);
@@ -98,6 +100,23 @@ public class SnmpAgentTests : IAsyncLifetime
         // endOfMibView — no variables get collected.
         count.Should().Be(0);
         collected.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Get_WithWrongCommunity_TimesOut()
+    {
+        var endpoint = new IPEndPoint(IPAddress.Loopback, _port);
+
+        // Mismatched community is silently dropped by the agent so the
+        // SharpSnmp client eventually times out.
+        var act = () => Messenger.Get(
+            VersionCode.V2,
+            endpoint,
+            new OctetString("wrong-community"),
+            new List<Variable> { new(new ObjectIdentifier("1.3.6.1.4.1.99999.1.1.1.0")) },
+            timeout: 500);
+
+        act.Should().Throw<Lextm.SharpSnmpLib.Messaging.TimeoutException>();
     }
 
     [Fact]
