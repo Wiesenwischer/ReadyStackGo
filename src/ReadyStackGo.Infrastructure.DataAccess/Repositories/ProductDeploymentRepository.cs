@@ -43,7 +43,8 @@ public class ProductDeploymentRepository : IProductDeploymentRepository
     {
         return _context.ProductDeployments
             .Where(d => d.EnvironmentId == environmentId && d.ProductGroupId == productGroupId)
-            .Where(d => d.Status != ProductDeploymentStatus.Removed)
+            .Where(d => d.Status != ProductDeploymentStatus.Removed
+                     && d.Status != ProductDeploymentStatus.Superseded)
             .OrderByDescending(d => d.CreatedAt)
             .FirstOrDefault();
     }
@@ -51,7 +52,8 @@ public class ProductDeploymentRepository : IProductDeploymentRepository
     public ProductDeployment? GetByStackDeploymentId(DeploymentId deploymentId)
     {
         return _context.ProductDeployments
-            .Where(d => d.Status != ProductDeploymentStatus.Removed)
+            .Where(d => d.Status != ProductDeploymentStatus.Removed
+                     && d.Status != ProductDeploymentStatus.Superseded)
             .AsEnumerable()
             .FirstOrDefault(d => d.Stacks.Any(s => s.DeploymentId == deploymentId));
     }

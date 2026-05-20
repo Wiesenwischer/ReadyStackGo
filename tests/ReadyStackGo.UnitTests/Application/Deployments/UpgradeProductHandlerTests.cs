@@ -317,6 +317,32 @@ public class UpgradeProductHandlerTests
     }
 
     [Fact]
+    public async Task Handle_MarksExistingProductDeploymentAsSuperseded()
+    {
+        var currentProduct = CreateTestProduct(2, version: "1.0.0");
+        var targetProduct = CreateTestProduct(2, version: "2.0.0");
+        var existing = CreateExistingDeployment(currentProduct);
+        var existingId = existing.Id;
+
+        SetupExistingDeployment(existing);
+        SetupTargetProductFound(targetProduct);
+        SetupAllStacksSucceed();
+
+        var updatedAggregates = new List<ProductDeployment>();
+        _repositoryMock
+            .Setup(r => r.Update(It.IsAny<ProductDeployment>()))
+            .Callback<ProductDeployment>(pd => updatedAggregates.Add(pd));
+
+        await _handler.Handle(
+            CreateUpgradeCommand(existing, targetProduct), CancellationToken.None);
+
+        existing.Status.Should().Be(ProductDeploymentStatus.Superseded);
+        existing.IsTerminal.Should().BeTrue();
+        updatedAggregates.Should().Contain(pd => pd.Id == existingId
+            && pd.Status == ProductDeploymentStatus.Superseded);
+    }
+
+    [Fact]
     public async Task Handle_NewAggregateHasUpgradeStatus()
     {
         var currentProduct = CreateTestProduct(1, version: "1.0.0");

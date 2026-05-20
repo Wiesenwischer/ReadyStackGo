@@ -255,6 +255,31 @@ public sealed class ProductDeploymentRemoved : DomainEvent
 }
 
 /// <summary>
+/// Raised when a product deployment is superseded by a successor (e.g. via upgrade).
+/// Docker resources were not removed — they were transferred to the successor — so this
+/// is distinct from <see cref="ProductDeploymentRemoved"/>.
+/// </summary>
+public sealed class ProductDeploymentSuperseded : DomainEvent
+{
+    public ProductDeploymentId ProductDeploymentId { get; }
+    public string ProductName { get; }
+    public string ProductVersion { get; }
+    public ProductDeploymentId SuccessorId { get; }
+
+    public ProductDeploymentSuperseded(
+        ProductDeploymentId productDeploymentId,
+        string productName,
+        string productVersion,
+        ProductDeploymentId successorId)
+    {
+        ProductDeploymentId = productDeploymentId;
+        ProductName = productName;
+        ProductVersion = productVersion;
+        SuccessorId = successorId;
+    }
+}
+
+/// <summary>
 /// Raised when the operation mode of a product deployment changes (Normal ↔ Maintenance).
 /// </summary>
 public sealed class ProductMaintenanceModeChanged : DomainEvent

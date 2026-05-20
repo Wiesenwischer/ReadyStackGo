@@ -726,6 +726,78 @@ public class ProductDeploymentTests
 
     #endregion
 
+    #region MarkSuperseded
+
+    [Fact]
+    public void MarkSuperseded_FromRunning_TransitionsToSupersededAndIsTerminal()
+    {
+        var pd = CreateRunningDeployment(2);
+        var successorId = ProductDeploymentId.NewId();
+
+        pd.MarkSuperseded(successorId);
+
+        pd.Status.Should().Be(ProductDeploymentStatus.Superseded);
+        pd.IsTerminal.Should().BeTrue();
+        pd.CompletedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void MarkSuperseded_RaisesProductDeploymentSupersededEventNotRemovedEvent()
+    {
+        var pd = CreateRunningDeployment(1);
+        var successorId = ProductDeploymentId.NewId();
+
+        pd.MarkSuperseded(successorId);
+
+        var evt = pd.DomainEvents.OfType<ProductDeploymentSuperseded>().Should().ContainSingle().Subject;
+        evt.SuccessorId.Should().Be(successorId);
+        evt.ProductDeploymentId.Should().Be(pd.Id);
+        pd.DomainEvents.OfType<ProductDeploymentRemoved>().Should().BeEmpty();
+    }
+
+    [Fact]
+    public void MarkSuperseded_FromPartiallyRunning_AllowedSoUpgradeCanReplaceUnhealthyPrevious()
+    {
+        var pd = CreatePartiallyRunningDeployment();
+
+        pd.MarkSuperseded(ProductDeploymentId.NewId());
+
+        pd.Status.Should().Be(ProductDeploymentStatus.Superseded);
+    }
+
+    [Fact]
+    public void MarkSuperseded_WhenAlreadyRemoved_ThrowsInvalidOperationException()
+    {
+        var pd = CreateRemovedDeployment();
+
+        var act = () => pd.MarkSuperseded(ProductDeploymentId.NewId());
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void MarkSuperseded_WhenAlreadySuperseded_ThrowsInvalidOperationException()
+    {
+        var pd = CreateRunningDeployment(1);
+        pd.MarkSuperseded(ProductDeploymentId.NewId());
+
+        var act = () => pd.MarkSuperseded(ProductDeploymentId.NewId());
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void MarkSuperseded_NullSuccessor_ThrowsArgumentException()
+    {
+        var pd = CreateRunningDeployment(1);
+
+        var act = () => pd.MarkSuperseded(null!);
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    #endregion
+
     #region State Machine Transitions
 
     [Theory]
@@ -769,6 +841,17 @@ public class ProductDeploymentTests
     [InlineData(ProductDeploymentStatus.Removed, ProductDeploymentStatus.Deploying, false)]
     [InlineData(ProductDeploymentStatus.Removed, ProductDeploymentStatus.Running, false)]
     [InlineData(ProductDeploymentStatus.Removed, ProductDeploymentStatus.Removing, false)]
+    [InlineData(ProductDeploymentStatus.Running, ProductDeploymentStatus.Superseded, true)]
+    [InlineData(ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Superseded, true)]
+    [InlineData(ProductDeploymentStatus.Failed, ProductDeploymentStatus.Superseded, true)]
+    [InlineData(ProductDeploymentStatus.Stopped, ProductDeploymentStatus.Superseded, true)]
+    [InlineData(ProductDeploymentStatus.Deploying, ProductDeploymentStatus.Superseded, false)]
+    [InlineData(ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Superseded, false)]
+    [InlineData(ProductDeploymentStatus.Removing, ProductDeploymentStatus.Superseded, false)]
+    [InlineData(ProductDeploymentStatus.Redeploying, ProductDeploymentStatus.Superseded, false)]
+    [InlineData(ProductDeploymentStatus.Superseded, ProductDeploymentStatus.Deploying, false)]
+    [InlineData(ProductDeploymentStatus.Superseded, ProductDeploymentStatus.Running, false)]
+    [InlineData(ProductDeploymentStatus.Superseded, ProductDeploymentStatus.Removing, false)]
     public void CanTransitionTo_ReturnsExpectedResult(
         ProductDeploymentStatus from, ProductDeploymentStatus to, bool expected)
     {
@@ -1752,8 +1835,16 @@ public class ProductDeploymentTests
             ProductDeploymentStatus.Removing => CreateRemovingDeployment(),
             ProductDeploymentStatus.Removed => CreateRemovedDeployment(),
             ProductDeploymentStatus.Redeploying => CreateRedeployingDeployment(),
+            ProductDeploymentStatus.Superseded => CreateSupersededDeployment(),
             _ => throw new ArgumentOutOfRangeException(nameof(status))
         };
+    }
+
+    private static ProductDeployment CreateSupersededDeployment()
+    {
+        var pd = CreateRunningDeployment(1);
+        pd.MarkSuperseded(ProductDeploymentId.NewId());
+        return pd;
     }
 
     private static ProductDeployment CreateUpgradingDeployment()

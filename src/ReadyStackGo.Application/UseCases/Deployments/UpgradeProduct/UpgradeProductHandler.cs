@@ -191,11 +191,19 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
             request.ContinueOnError);
 
         _repository.Add(productDeployment);
+
+        // Mark the old aggregate as superseded so it no longer appears as an active
+        // product deployment. Docker resources stay live under the same stack names
+        // — they belong to the new aggregate now. Without this the old row would
+        // linger in the dashboard with stale DeploymentId references and surface as
+        // a "0 containers" zombie after the new deployment is removed.
+        existing.MarkSuperseded(newDeploymentId);
+        _repository.Update(existing);
         _repository.SaveChanges();
 
         _logger.LogInformation(
-            "Product upgrade {ProductDeploymentId} initiated for {ProductName} from v{PreviousVersion} to v{TargetVersion} with {StackCount} stacks",
-            newDeploymentId, targetProduct.Name, previousVersion, targetVersion, stackConfigs.Count);
+            "Product upgrade {ProductDeploymentId} initiated for {ProductName} from v{PreviousVersion} to v{TargetVersion} with {StackCount} stacks (superseded {OldId})",
+            newDeploymentId, targetProduct.Name, previousVersion, targetVersion, stackConfigs.Count, existing.Id);
 
         // 8. Generate session ID
         var sessionId = !string.IsNullOrEmpty(request.SessionId)

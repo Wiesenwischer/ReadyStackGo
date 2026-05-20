@@ -13,13 +13,14 @@ using ReadyStackGo.Domain.SharedKernel;
 ///
 /// State machine:
 ///   Deploying        → Running | PartiallyRunning | Failed
-///   Running          → Upgrading | Removing | Stopped | Redeploying
-///   PartiallyRunning → Deploying (retry) | Upgrading | Removing | Stopped
+///   Running          → Upgrading | Removing | Stopped | Redeploying | Superseded
+///   PartiallyRunning → Deploying (retry) | Upgrading | Removing | Stopped | Superseded
 ///   Upgrading        → Running | PartiallyRunning | Failed
-///   Failed           → Deploying (retry) | Upgrading | Removing
-///   Stopped          → Running | PartiallyRunning | Upgrading | Removing
+///   Failed           → Deploying (retry) | Upgrading | Removing | Superseded
+///   Stopped          → Running | PartiallyRunning | Upgrading | Removing | Superseded
 ///   Removing         → Removed (terminal)
 ///   Redeploying      → Running | PartiallyRunning | Failed
+///   Superseded       → (terminal)
 /// </summary>
 public class ProductDeployment : AggregateRoot<ProductDeploymentId>
 {
@@ -40,7 +41,8 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     public string? ErrorMessage { get; private set; }
     public bool ContinueOnError { get; private set; }
 
-    public bool IsTerminal => Status == ProductDeploymentStatus.Removed;
+    public bool IsTerminal => Status is ProductDeploymentStatus.Removed
+                                     or ProductDeploymentStatus.Superseded;
     public bool IsInProgress => Status is ProductDeploymentStatus.Deploying
                                        or ProductDeploymentStatus.Upgrading
                                        or ProductDeploymentStatus.Removing
@@ -79,14 +81,15 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     private static readonly Dictionary<ProductDeploymentStatus, ProductDeploymentStatus[]> ValidTransitions = new()
     {
         { ProductDeploymentStatus.Deploying, new[] { ProductDeploymentStatus.Running, ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Failed } },
-        { ProductDeploymentStatus.Running, new[] { ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing, ProductDeploymentStatus.Stopped, ProductDeploymentStatus.Redeploying } },
-        { ProductDeploymentStatus.PartiallyRunning, new[] { ProductDeploymentStatus.Deploying, ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing, ProductDeploymentStatus.Stopped } },
+        { ProductDeploymentStatus.Running, new[] { ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing, ProductDeploymentStatus.Stopped, ProductDeploymentStatus.Redeploying, ProductDeploymentStatus.Superseded } },
+        { ProductDeploymentStatus.PartiallyRunning, new[] { ProductDeploymentStatus.Deploying, ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing, ProductDeploymentStatus.Stopped, ProductDeploymentStatus.Superseded } },
         { ProductDeploymentStatus.Upgrading, new[] { ProductDeploymentStatus.Running, ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Failed } },
-        { ProductDeploymentStatus.Failed, new[] { ProductDeploymentStatus.Deploying, ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing } },
-        { ProductDeploymentStatus.Stopped, new[] { ProductDeploymentStatus.Running, ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing } },
+        { ProductDeploymentStatus.Failed, new[] { ProductDeploymentStatus.Deploying, ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing, ProductDeploymentStatus.Superseded } },
+        { ProductDeploymentStatus.Stopped, new[] { ProductDeploymentStatus.Running, ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Upgrading, ProductDeploymentStatus.Removing, ProductDeploymentStatus.Superseded } },
         { ProductDeploymentStatus.Removing, new[] { ProductDeploymentStatus.Removed } },
         { ProductDeploymentStatus.Removed, Array.Empty<ProductDeploymentStatus>() },
-        { ProductDeploymentStatus.Redeploying, new[] { ProductDeploymentStatus.Running, ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Failed } }
+        { ProductDeploymentStatus.Redeploying, new[] { ProductDeploymentStatus.Running, ProductDeploymentStatus.PartiallyRunning, ProductDeploymentStatus.Failed } },
+        { ProductDeploymentStatus.Superseded, Array.Empty<ProductDeploymentStatus>() }
     };
 
     // For EF Core
@@ -556,6 +559,28 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
             ErrorMessage = null;
             RecordPhase($"Restarted: {restartedStacks} stacks restarted");
         }
+    }
+
+    /// <summary>
+    /// Marks this product deployment as superseded by a newer one (terminal).
+    /// Used when an upgrade transfers Docker resources (same stack names) into a
+    /// successor row — the old row no longer reflects live state and must be
+    /// excluded from active dashboards/queries, but is kept for history.
+    /// No <see cref="ProductDeploymentRemoved"/> event is raised because nothing
+    /// was Docker-removed.
+    /// </summary>
+    public void MarkSuperseded(ProductDeploymentId successorId)
+    {
+        AssertArgumentNotNull(successorId, "Successor product deployment id is required.");
+        SelfAssertStateTrue(!IsTerminal,
+            $"Cannot supersede a product deployment in terminal status {Status}.");
+
+        var previousStatus = Status;
+        Status = ProductDeploymentStatus.Superseded;
+        CompletedAt ??= SystemClock.UtcNow;
+
+        RecordPhase($"Superseded by {successorId.Value} (was {previousStatus})");
+        AddDomainEvent(new ProductDeploymentSuperseded(Id, ProductName, ProductVersion, successorId));
     }
 
     /// <summary>
