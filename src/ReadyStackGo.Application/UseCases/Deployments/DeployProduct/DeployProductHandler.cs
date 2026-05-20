@@ -149,6 +149,15 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
             _logger.LogWarning(
                 "Product {ProductName} defines maintenanceObserver but it could not be mapped (unresolved variables?) — observer disabled",
                 product.Name);
+            if (_inAppNotificationService is not null)
+            {
+                await _inAppNotificationService.AddAsync(
+                    ReadyStackGo.Application.Notifications.NotificationFactory.CreateMaintenanceObserverDisabledNotification(
+                        productName: product.Name,
+                        productDeploymentId: productDeploymentId.Value.ToString(),
+                        reason: "the manifest references variables that are not defined as shared variables for this product"),
+                    cancellationToken);
+            }
         }
 
         _repository.Add(productDeployment);
