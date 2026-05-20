@@ -163,6 +163,13 @@ Reihenfolge basierend auf Abhängigkeiten:
 
 - [ ] **Phase abschließen** — alle Tests grün, dotnet build 0 errors / 0 warnings, manuelles E2E-Smoketest mit `snmpwalk` aus einem zweiten Container, PR gegen main.
 
+- [ ] **PEN-Migration nach IANA-Zuweisung** — Sobald IANA die Private Enterprise Number zugewiesen hat, Placeholder `99999` ersetzen in:
+  - `appsettings.json` → `Snmp.RootOid` Default
+  - `READYSTACKGO-MIB.txt` → `enterprises` Branch
+  - Documentation (Plan, Public-Website, README)
+  - Beilegender Migration-Hinweis in den Release Notes (Customers, die `99999` schon nutzen, müssen Monitoring-Tools umstellen).
+  - **Status (2026-05-19):** PEN-Antrag bei IANA eingereicht. Kontakt: `dev@wiesenwischer.de`. Bestätigung erwartet 1–3 Wochen.
+
 ## Test-Strategie
 
 - **Unit Tests**:
