@@ -939,6 +939,39 @@ public class DeployProductHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ObserverConnectionStringUnresolvable_EmitsInAppNotification()
+    {
+        var product = CreateProductWithObserver(
+            new global::ReadyStackGo.Domain.StackManagement.Manifests.RsgoMaintenanceObserver
+            {
+                Type = "sqlExtendedProperty",
+                PropertyName = "ams-MaintenanceMode",
+                ConnectionString = "Server=${DB_SERVER};Database=${DB_NAME};",
+                MaintenanceValue = "1"
+            });
+
+        SetupProductFound(product);
+        SetupNoExistingDeployment();
+        SetupAllStacksSucceed();
+
+        // DB_NAME intentionally missing — observer drops and an admin notification fires.
+        var cmd = CreateCommand(product, new Dictionary<string, string>
+        {
+            ["DB_SERVER"] = "sqldev2017"
+        });
+
+        await _handler.Handle(cmd, CancellationToken.None);
+
+        _inAppNotificationMock.Verify(n => n.AddAsync(
+            It.Is<global::ReadyStackGo.Application.Notifications.Notification>(notif =>
+                notif.Type == global::ReadyStackGo.Application.Notifications.NotificationType.MaintenanceObserverDisabled &&
+                notif.Severity == global::ReadyStackGo.Application.Notifications.NotificationSeverity.Warning &&
+                notif.Metadata.ContainsKey("productName") &&
+                notif.Metadata["productName"] == product.Name),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task Handle_ProductHasNoObserver_LeavesConfigNull()
     {
         var product = CreateTestProduct(1);

@@ -197,6 +197,29 @@ public static class NotificationFactory
         };
     }
 
+    public static Notification CreateMaintenanceObserverDisabledNotification(
+        string productName,
+        string productDeploymentId,
+        string reason)
+    {
+        return new Notification
+        {
+            Type = NotificationType.MaintenanceObserverDisabled,
+            Title = "Maintenance observer disabled",
+            Message = $"Product '{productName}' declares a maintenance observer in its manifest, but RSGO could not activate it: {reason}. The deployment will run without maintenance polling until this is resolved.",
+            Severity = NotificationSeverity.Warning,
+            ActionUrl = $"/product-deployments/{productDeploymentId}",
+            ActionLabel = "Open deployment",
+            Metadata = new Dictionary<string, string>
+            {
+                ["productName"] = productName,
+                ["productDeploymentId"] = productDeploymentId,
+                ["reason"] = reason,
+                ["threshold"] = $"{productDeploymentId}:observer-disabled",
+            },
+        };
+    }
+
     private static NotificationSeverity ResolveHealthSeverity(string currentStatus) =>
         currentStatus.ToLowerInvariant() switch
         {
