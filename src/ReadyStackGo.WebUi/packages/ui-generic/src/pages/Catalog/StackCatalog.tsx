@@ -131,12 +131,15 @@ interface ProductCardProps {
 
 function ProductCard({ product }: ProductCardProps) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50 overflow-hidden">
+    <Link
+      to={`/catalog/${encodeURIComponent(product.id)}`}
+      className="group block overflow-hidden rounded-lg border border-gray-200 bg-gray-50 transition hover:border-brand-500 hover:bg-white hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-gray-700 dark:bg-gray-800/50 dark:hover:border-brand-400 dark:hover:bg-gray-800"
+    >
       <div className="p-4">
-        <div className="mb-3 flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h5 className="font-semibold text-gray-900 dark:text-white">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h5 className="font-semibold text-gray-900 group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300">
                 {product.name}
               </h5>
               {product.isMultiStack && (
@@ -155,15 +158,15 @@ function ProductCard({ product }: ProductCardProps) {
             </p>
           </div>
 
-          <Link
-            to={`/catalog/${encodeURIComponent(product.id)}`}
-            className="inline-flex items-center gap-1 rounded bg-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"
+          <svg
+            className="h-5 w-5 flex-shrink-0 text-gray-400 transition group-hover:translate-x-0.5 group-hover:text-brand-600 dark:text-gray-500 dark:group-hover:text-brand-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
           >
-            View Details
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
         </div>
 
         {product.description && (
@@ -193,6 +196,6 @@ function ProductCard({ product }: ProductCardProps) {
           )}
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
