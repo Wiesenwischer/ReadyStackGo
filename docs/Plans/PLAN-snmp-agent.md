@@ -175,7 +175,53 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Betroffene Dateien: `packages/ui-generic/src/pages/Settings/SnmpSettings.tsx` plus Hook in `packages/core/src/hooks/useSnmpSettings.ts` und API in `packages/core/src/api/snmp.ts`.
   - Abhängig von: Feature 5
 
-- [ ] **Feature 7: MIB-File Generation** — Hand-curated MIB-Datei (`READYSTACKGO-MIB.txt`) als Embedded Resource, plus Endpoint zum Download. Validierung mit `smilint` als Teil von CI (Build-Step).
+- [ ] **Feature 7: OID Reference Browser** — Eine WebUI-Seite, die die aktuell aktiven OIDs für die laufende RSGO-Instanz zeigt. Admins können vor dem Einrichten ihrer Monitoring-Tool-Checks sehen, welche konkreten OIDs welche Environments/Products/Stacks/Services repräsentieren — kein vorheriges `snmpwalk` zum Discovery nötig.
+  - **Backend**: REST-Endpoint `GET /api/snmp/oid-reference` (Permission `Snmp:Read`), liefert Snapshot mit allen materialisierten OIDs:
+    ```json
+    {
+      "rootOid": "1.3.6.1.4.1.99999.1",
+      "system": [
+        { "oid": "1.3.6.1.4.1.99999.1.1.1.0", "symbol": "rsgoSystemVersion", "type": "STRING", "currentValue": "0.64.0" },
+        ...
+      ],
+      "environments": [
+        {
+          "name": "test-amsproject",
+          "envId": "c4acceb4-cc2b-4451-9ade-44a90d4163e7",
+          "envIndex": 1572834219,
+          "baseOid": "1.3.6.1.4.1.99999.1.2.1.<column>.1572834219",
+          "products": [
+            {
+              "name": "ams.project",
+              "productId": "SPE-Project:ams.project:3.2.0-ci",
+              "prodIndex": 998012345,
+              "baseOid": "1.3.6.1.4.1.99999.1.3.1.<column>.1572834219.998012345",
+              "stacks": [
+                {
+                  "name": "Infrastructure",
+                  "stackIndex": 123456789,
+                  "baseOid": "1.3.6.1.4.1.99999.1.4.1.<column>.1572834219.998012345.123456789",
+                  "services": [...]
+                },
+                ...
+              ]
+            }
+          ]
+        }
+      ]
+    }
+    ```
+  - **WebUI**: Neuer Tab "OID Reference" auf der Settings/SNMP-Seite (oder eigener Reiter in `Settings → SNMP`). Baum-Darstellung Environment → Product → Stack → Service mit allen OIDs neben jedem Knoten. Pro Knoten ein Copy-Button für die OID. Pro Knoten ein "Export"-Button: lädt eine Textdatei für genau diesen Subtree mit allen Spalten — direkt in Nagios/Zabbix/PRTG kopierbar.
+  - **Filter**: nach Environment, nach Produktname, "nur Failed-Stacks anzeigen". Standardmäßig Tree zusammengeklappt, ausklappen pro Environment.
+  - **Format-Toggle**: numerische OID (`1.3.6.1.4.1.99999.1.3.1.6.…`) ↔ symbolisch (`RSGO-MIB::rsgoProductStatus.…`).
+  - Betroffene Dateien:
+    - `src/ReadyStackGo.Application/Snmp/GetOidReferenceQuery.cs` (CQRS, nutzt denselben `SnmpSnapshotProvider` aus Feature 2)
+    - `src/ReadyStackGo.Api/Endpoints/Snmp/GetOidReferenceEndpoint.cs`
+    - `packages/core/src/api/snmp.ts` (Client-Funktion `getOidReference()`)
+    - `packages/ui-generic/src/pages/Settings/SnmpOidReference.tsx` (neue Seite)
+  - Abhängig von: Feature 2 (Snapshot-Provider muss stehen), Feature 6 (UI-Settings-Section, weil neuer Tab dort)
+
+- [ ] **Feature 8: MIB-File Generation** — Hand-curated MIB-Datei (`READYSTACKGO-MIB.txt`) als Embedded Resource, plus Endpoint zum Download. Validierung mit `smilint` als Teil von CI (Build-Step).
   - Betroffene Dateien: `src/ReadyStackGo.Api/Resources/READYSTACKGO-MIB.txt`, CI-Job-Erweiterung.
   - Abhängig von: Feature 2 (OID-Tree finalisiert)
 
@@ -199,6 +245,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - `SnmpSnapshotProvider` — Mapping Domain → Snapshot (Status-Enums, Counts, leere Tabellen, null-safe Fields).
   - `OidTreeBuilder` — GETNEXT-Iteration über Tabellen, lexikalische OID-Ordnung, INDEX-Encoding.
   - `SnmpSettings` / `SnmpV3User` Domain-Invarianten (Port-Range, Algo-Whitelist, Mindest-Schlüssellängen).
+  - `GetOidReferenceQuery` — Tree-Aufbau (Env → Product → Stack → Service), Hash-Indizes konsistent mit OidTreeBuilder, leere Tabellen.
 
 - **Integration Tests**:
   - Agent gegen lokalen UDP-Loopback. `snmpsharpnet` (im Test als Client-Lib) führt GET/GETNEXT/WALK aus, Assertions auf zurückgegebene Werte.
@@ -209,6 +256,7 @@ Reihenfolge basierend auf Abhängigkeiten:
 - **E2E Tests** (Playwright + Container):
   - Settings-Section: SNMP enablen, Community setzen, v3-User anlegen.
   - Sidecar-Container mit `net-snmp` CLI führt `snmpwalk -v2c -c <community> rsgo` und `snmpwalk -v3 -u <user> ...` aus; Output enthält erwartete Produkte/Stacks/Services.
+  - **OID Reference Page**: Seite öffnen, Tree expanded sehen mit Environment/Product/Stack-Namen. Copy-Button kopiert die OID korrekt. OID aus dem Browser-Tree gegen `snmpget` im Sidecar-Container abfragen — Werte stimmen überein.
 
 ## Offene Punkte
 
