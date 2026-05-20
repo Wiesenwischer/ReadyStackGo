@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   useHealthDashboardStore,
   getHealthStatusPresentation,
+  getOperationModePresentation,
   type ProductGroup,
   type StatusFilter,
 } from '@rsgo/core';
@@ -304,6 +305,8 @@ function ProductGroupCard({ group, isExpanded, onToggle }: {
   onToggle: () => void;
 }) {
   const statusPresentation = getHealthStatusPresentation(group.overallStatus);
+  const modePresentation = getOperationModePresentation(group.operationMode);
+  const showOperationMode = (group.operationMode || 'Normal').toLowerCase() !== 'normal';
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] overflow-hidden">
@@ -333,6 +336,13 @@ function ProductGroupCard({ group, isExpanded, onToggle }: {
           <span className="text-sm text-gray-600 dark:text-gray-400">
             {group.healthyStacks}/{group.totalStacks} healthy
           </span>
+          {showOperationMode && (
+            <span
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${modePresentation.bgColor} ${modePresentation.textColor}`}
+            >
+              {modePresentation.label}
+            </span>
+          )}
           <span
             className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${statusPresentation.bgColor} ${statusPresentation.textColor}`}
           >
