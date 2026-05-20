@@ -17,6 +17,8 @@ public class SnmpSettingsConfiguration : IEntityTypeConfiguration<SnmpSettings>
         builder.Property(s => s.RootOid).IsRequired().HasMaxLength(255);
         builder.Property(s => s.Community).IsRequired().HasMaxLength(255);
         builder.Property(s => s.TrapReceivers).IsRequired().HasMaxLength(2000);
+        builder.Property(s => s.EngineIdHex).IsRequired().HasMaxLength(80);
+        builder.Property(s => s.EngineBoots).IsRequired();
         builder.Property(s => s.Version).IsConcurrencyToken();
     }
 }

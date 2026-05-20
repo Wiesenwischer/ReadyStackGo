@@ -12,7 +12,8 @@ public record SnmpRuntimeSettings(
     string ListenAddress,
     string RootOid,
     string Community,
-    IReadOnlyList<SnmpRuntimeV3User> V3Users);
+    IReadOnlyList<SnmpRuntimeV3User> V3Users,
+    string EngineIdHex);
 
 public record SnmpRuntimeV3User(
     string Name,

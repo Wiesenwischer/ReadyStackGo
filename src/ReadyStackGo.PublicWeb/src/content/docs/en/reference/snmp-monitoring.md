@@ -122,7 +122,6 @@ configured (the community is reused as the trap community).
 
 ## Limits (v0.65)
 
-- **Read-only polling.** No SET.
-- **SNMPv2c responses only.** SNMPv3 credentials authenticate incoming
-  requests correctly, but RSGO currently constructs its responses as v2c —
-  full v3 responses come in a follow-up.
+- **Read-only polling.** No SET. (Traps for ProductDeploymentFailed,
+  ProductDeploymentAutoFinalized, ProductMaintenanceModeChanged are emitted
+  whenever the relevant domain events fire — see the section above.)

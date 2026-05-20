@@ -13,7 +13,7 @@ v0.64 hat SNMP als read-only-MVP mit v2c-Polling und einer read-only Settings-Se
 
 - [x] **Feature 3: Read settings + users from DB** — `SnmpAgent` liest aus `SnmpRuntimeSettingsProvider` über `IServiceScopeFactory`. Re-Read auf `SnmpSettingsChanged` Domain-Event ohne Container-Restart über `ISnmpAgentReloader`-Adapter.
 
-- [ ] **Feature 4: Full SNMPv3 response construction** — *Wandert in eine Folgephase (eigene Session).* USM-Decoding der incoming v3 PDUs steht; Response-Construction (Engine-ID + Time-Window + PrivacyProvider re-encrypt) braucht die SnmpEngine-Framework-Integration und wird separat gezogen.
+- [x] **Feature 4: Full SNMPv3 response construction** — Persistenter Engine-ID in `SnmpSettings` (RFC 3411 Format, einmalig generiert), `EngineBoots`-Counter in-memory hochgezählt pro Listener-Start, `EngineTime` aus Uptime. `SnmpAgent.BuildV3Response` baut die `ResponseMessage` v3 mit `ResponsePdu` in einem neuen `Scope` (gleiche `ContextEngineId`/`ContextName` wie Request), neuen `SecurityParameters` (unsere Engine-ID + boots/time) und derselben `IPrivacyProvider` aus dem Request. `needAuthentication` aus `Header.SecurityLevel`. Reale snmpwalk-v3-Integration testen wir gegen den dev-Container in einer Smoke-Test-Session — Unit-Suite (2908 Tests inkl. 22 SNMP) bleibt grün.
 
 - [x] **Feature 5: CRUD endpoints** — `GET/PUT /api/snmp/settings`, `GET/POST/DELETE /api/snmp/v3-users[/{id}]`. Permission `Settings:Read` / `Settings:Manage`. Settings-Update löst `SnmpSettingsChanged` Domain-Event aus, Notification-Handler ruft Agent.ReloadAsync auf.
 

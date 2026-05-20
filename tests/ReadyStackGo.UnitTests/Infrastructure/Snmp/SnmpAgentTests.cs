@@ -29,7 +29,8 @@ public class SnmpAgentTests : IAsyncLifetime
             ListenAddress: "127.0.0.1",
             RootOid: "1.3.6.1.4.1.99999.1",
             Community: "public",
-            V3Users: Array.Empty<SnmpRuntimeV3User>());
+            V3Users: Array.Empty<SnmpRuntimeV3User>(),
+            EngineIdHex: "80000186A0040123456789ABCDEF");
 
         _agent = NewAgent(settings);
         await _agent.StartAsync(CancellationToken.None);
@@ -138,7 +139,8 @@ public class SnmpAgentTests : IAsyncLifetime
             ListenAddress: "not-an-ip",
             RootOid: "1.3.6.1.4.1.99999.1",
             Community: string.Empty,
-            V3Users: Array.Empty<SnmpRuntimeV3User>());
+            V3Users: Array.Empty<SnmpRuntimeV3User>(),
+            EngineIdHex: "80000186A0040123456789ABCDEF");
 
         await using var brokenAgent = NewAgent(settings);
 
@@ -149,7 +151,7 @@ public class SnmpAgentTests : IAsyncLifetime
     }
 
     private static SnmpRuntimeSettings NewSettings(bool enabled, int port) =>
-        new(enabled, port, "127.0.0.1", "1.3.6.1.4.1.99999.1", "public", Array.Empty<SnmpRuntimeV3User>());
+        new(enabled, port, "127.0.0.1", "1.3.6.1.4.1.99999.1", "public", Array.Empty<SnmpRuntimeV3User>(), "80000186A00401AABBCCDDEEFF");
 
     private static SnmpAgent NewAgent(SnmpRuntimeSettings settings)
     {
@@ -166,7 +168,7 @@ public class SnmpAgentTests : IAsyncLifetime
 
     private sealed class MutableProvider : ISnmpRuntimeSettingsProvider
     {
-        public SnmpRuntimeSettings Settings { get; set; } = new(false, 0, "127.0.0.1", "1.3.6.1.4.1.99999.1", "", Array.Empty<SnmpRuntimeV3User>());
+        public SnmpRuntimeSettings Settings { get; set; } = new(false, 0, "127.0.0.1", "1.3.6.1.4.1.99999.1", "", Array.Empty<SnmpRuntimeV3User>(), "80000186A00401AABBCCDDEEFF");
         public SnmpRuntimeSettings Load() => Settings;
     }
 
