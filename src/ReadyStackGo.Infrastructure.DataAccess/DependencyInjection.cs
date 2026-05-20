@@ -43,6 +43,8 @@ public static class DependencyInjection
         services.AddScoped<IStackSourceRepository, StackSourceRepository>();
         services.AddScoped<IApiKeyRepository, ApiKeyRepository>();
         services.AddScoped<IProductDeploymentRepository, ProductDeploymentRepository>();
+        services.AddScoped<ReadyStackGo.Domain.Snmp.ISnmpSettingsRepository, SnmpSettingsRepository>();
+        services.AddScoped<ReadyStackGo.Domain.Snmp.ISnmpV3UserRepository, SnmpV3UserRepository>();
 
         return services;
     }

@@ -1,0 +1,27 @@
+name: MIB Lint
+
+on:
+  pull_request:
+    paths:
+      - "src/ReadyStackGo.Api/Resources/READYSTACKGO-MIB.txt"
+      - ".github/workflows/mib-lint.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/ReadyStackGo.Api/Resources/READYSTACKGO-MIB.txt"
+      - ".github/workflows/mib-lint.yml"
+
+jobs:
+  smilint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install smitools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y smitools
+
+      - name: Lint READYSTACKGO-MIB.txt
+        run: |
+          smilint -s -l 5 src/ReadyStackGo.Api/Resources/READYSTACKGO-MIB.txt
