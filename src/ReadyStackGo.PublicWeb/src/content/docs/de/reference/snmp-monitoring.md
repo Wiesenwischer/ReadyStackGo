@@ -125,7 +125,6 @@ v2c-Community-String konfiguriert ist (dieser dient auch als Trap-Community).
 
 ## Einschränkungen (v0.65)
 
-- **Read-only-Polling.** Kein SET.
-- **Nur SNMPv2c-Responses.** SNMPv3-Credentials authentifizieren eingehende
-  Requests korrekt, RSGO antwortet aktuell aber via v2c — volle
-  v3-Responses kommen in einer Folgephase.
+- **Read-only-Polling.** Kein SET. (Traps für ProductDeploymentFailed,
+  ProductDeploymentAutoFinalized und ProductMaintenanceModeChanged werden
+  bei Eintreten der Domain-Events emittiert — siehe Abschnitt darüber.)

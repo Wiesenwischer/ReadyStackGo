@@ -37,7 +37,8 @@ public sealed class SnmpRuntimeSettingsProvider : ISnmpRuntimeSettingsProvider
             ListenAddress: s.ListenAddress,
             RootOid: s.RootOid,
             Community: s.Community,
-            V3Users: runtimeUsers);
+            V3Users: runtimeUsers,
+            EngineIdHex: s.EngineIdHex);
     }
 
     private string SafeDecrypt(string ciphertext)

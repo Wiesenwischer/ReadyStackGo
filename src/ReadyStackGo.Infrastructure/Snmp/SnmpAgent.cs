@@ -27,6 +27,8 @@ public sealed class SnmpAgent : IAsyncDisposable
     private CancellationTokenSource? _cts;
     private Task? _receiveTask;
     private CancellationToken _hostCancellationToken = CancellationToken.None;
+    private int _engineBoots;
+    private DateTime _startedAt = DateTime.UtcNow;
 
     public SnmpAgent(
         IServiceScopeFactory scopeFactory,
@@ -106,6 +108,8 @@ public sealed class SnmpAgent : IAsyncDisposable
     {
         _currentSettings = settings;
         _userRegistry = BuildUserRegistry(settings, _logger);
+        _engineBoots++;
+        _startedAt = DateTime.UtcNow;
 
         if (!settings.Enabled)
         {
@@ -327,10 +331,10 @@ public sealed class SnmpAgent : IAsyncDisposable
             }
         }
 
-        // v3 response construction (full Header/SecurityParameters/Scope assembly)
-        // ships in the follow-up phase; for v0.65 we answer v3 requests via v2c
-        // semantics when MessageFactory has already authenticated the request.
-        if (request.Version == VersionCode.V3) return null;
+        if (request.Version == VersionCode.V3)
+        {
+            return BuildV3Response(request, responseVariables);
+        }
 
         return new ResponseMessage(
             request.RequestId(),
@@ -339,5 +343,81 @@ public sealed class SnmpAgent : IAsyncDisposable
             ErrorCode.NoError,
             0,
             responseVariables);
+    }
+
+    private ResponseMessage? BuildV3Response(ISnmpMessage request, IList<Variable> responseVariables)
+    {
+        var v3 = ExtractV3Components(request);
+        if (v3 is null)
+        {
+            _logger.LogDebug("Could not extract v3 components from message {TypeCode}", request.TypeCode());
+            return null;
+        }
+
+        var (header, parameters, scope, privacy) = v3.Value;
+
+        var ourEngineIdBytes = ParseHexBytes(_currentSettings!.EngineIdHex);
+        if (ourEngineIdBytes.Length == 0)
+        {
+            _logger.LogWarning("v3 request received but settings have no EngineIdHex configured — dropping");
+            return null;
+        }
+        var ourEngineId = new OctetString(ourEngineIdBytes);
+        var engineTime = (int)Math.Min(int.MaxValue, (DateTime.UtcNow - _startedAt).TotalSeconds);
+
+        var responsePdu = new ResponsePdu(
+            request.RequestId(),
+            ErrorCode.NoError,
+            0,
+            responseVariables);
+
+        var contextEngineId = scope.ContextEngineId.GetRaw().Length == 0
+            ? ourEngineId
+            : scope.ContextEngineId;
+        var responseScope = new Scope(contextEngineId, scope.ContextName, responsePdu);
+
+        var responseParameters = new SecurityParameters(
+            ourEngineId,
+            new Integer32(_engineBoots),
+            new Integer32(engineTime),
+            parameters.UserName,
+            new OctetString(string.Empty),
+            new OctetString(string.Empty));
+
+        var needAuthentication =
+            (header.SecurityLevel & Levels.Authentication) == Levels.Authentication;
+
+        try
+        {
+            return new ResponseMessage(
+                VersionCode.V3,
+                header,
+                responseParameters,
+                responseScope,
+                privacy,
+                needAuthentication,
+                Array.Empty<byte>());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to assemble SNMPv3 response — dropping request");
+            return null;
+        }
+    }
+
+    private static (Header Header, SecurityParameters Parameters, Scope Scope, IPrivacyProvider Privacy)?
+        ExtractV3Components(ISnmpMessage message) => message switch
+    {
+        GetRequestMessage r     => (r.Header, r.Parameters, r.Scope, r.Privacy),
+        GetNextRequestMessage r => (r.Header, r.Parameters, r.Scope, r.Privacy),
+        GetBulkRequestMessage r => (r.Header, r.Parameters, r.Scope, r.Privacy),
+        _ => null,
+    };
+
+    private static byte[] ParseHexBytes(string hex)
+    {
+        if (string.IsNullOrEmpty(hex)) return Array.Empty<byte>();
+        try { return Convert.FromHexString(hex); }
+        catch { return Array.Empty<byte>(); }
     }
 }

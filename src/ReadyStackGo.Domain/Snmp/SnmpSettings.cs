@@ -19,6 +19,20 @@ public class SnmpSettings : AggregateRoot<int>
     public string Community { get; private set; } = string.Empty;
     public string TrapReceivers { get; private set; } = string.Empty;
 
+    /// <summary>
+    /// SNMPv3 engine ID as hex string (RFC 3411 octet string format). Generated
+    /// once on first save; required for v3 discovery + auth. Stays stable
+    /// across restarts so authenticated v3 sessions don't need to re-discover.
+    /// </summary>
+    public string EngineIdHex { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// SNMPv3 engine boots counter. Incremented every time the agent starts;
+    /// combined with engine time it forms the authoritative timeline for
+    /// replay protection per RFC 3414.
+    /// </summary>
+    public int EngineBoots { get; private set; }
+
     // EF Core
     protected SnmpSettings() { }
 
@@ -33,7 +47,45 @@ public class SnmpSettings : AggregateRoot<int>
             RootOid = "1.3.6.1.4.1.99999.1",
             Community = string.Empty,
             TrapReceivers = string.Empty,
+            EngineIdHex = GenerateEngineId(),
+            EngineBoots = 0,
         };
+    }
+
+    /// <summary>
+    /// Records that the agent started — increments the engine boots counter
+    /// and emits SnmpSettingsChanged so the listener uses the new value.
+    /// Idempotent within one boot: each call increments by 1.
+    /// </summary>
+    public void RecordAgentBoot()
+    {
+        if (string.IsNullOrEmpty(EngineIdHex))
+        {
+            EngineIdHex = GenerateEngineId();
+        }
+        EngineBoots++;
+        IncrementVersion();
+    }
+
+    /// <summary>
+    /// Builds a fresh RFC 3411 engine ID:
+    ///   first octet 0x80 (vendor-specific format marker),
+    ///   octets 1-3 enterprise number 99999 (0x0186A0 minus 1 = 0x01869F),
+    ///   octet 4 format 4 (octet string),
+    ///   octets 5-... unique instance identifier (Guid bytes).
+    /// </summary>
+    private static string GenerateEngineId()
+    {
+        var enterprise = 99999u;
+        var instance = Guid.NewGuid().ToByteArray().Take(8).ToArray();
+        var engineId = new byte[5 + instance.Length];
+        engineId[0] = 0x80;
+        engineId[1] = (byte)((enterprise >> 16) & 0x7F);
+        engineId[2] = (byte)((enterprise >> 8) & 0xFF);
+        engineId[3] = (byte)(enterprise & 0xFF);
+        engineId[4] = 0x04;
+        Array.Copy(instance, 0, engineId, 5, instance.Length);
+        return Convert.ToHexString(engineId);
     }
 
     public bool Update(
