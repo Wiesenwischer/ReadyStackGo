@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Authentication;
 using ReadyStackGo.Infrastructure;
 using ReadyStackGo.Infrastructure.DataAccess;
 using ReadyStackGo.Infrastructure.Security.Authentication;
+using ReadyStackGo.Infrastructure.Snmp;
 
 namespace ReadyStackGo.Api;
 
@@ -125,6 +126,13 @@ public class Program
 
         // Certificate Expiry Notification Service
         builder.Services.AddHostedService<CertificateExpiryCheckService>();
+
+        // SNMP Agent Background Service (v0.64, Feature 1: listener backbone)
+        builder.Services.Configure<SnmpAgentOptions>(
+            builder.Configuration.GetSection(SnmpAgentOptions.SectionName));
+        builder.Services.AddSingleton<IOidTree, EmptyOidTree>();
+        builder.Services.AddSingleton<SnmpAgent>();
+        builder.Services.AddHostedService<SnmpAgentBackgroundService>();
 
         // Add CORS for development
         builder.Services.AddCors(options =>

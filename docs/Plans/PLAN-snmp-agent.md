@@ -150,7 +150,7 @@ Trade-off dokumentieren: Bei schnellen Statuswechseln (Deploy gerade abgeschloss
 
 Reihenfolge basierend auf Abhängigkeiten:
 
-- [ ] **Feature 1: SNMP Listener Backbone** — Lextm.SharpSnmpLib einbinden, `SnmpAgent`-Service in `Infrastructure`, hostet UDP-Listener auf konfigurierbarem Port (Default UDP/1161, non-privileged → rootless-tauglich; im Compose-File auf `1161:1161/udp` gemappt, optional vom Operator auf `161:1161/udp` re-mappbar). Erst ohne echte OIDs — antwortet mit `noSuchObject` auf alles. End-to-End-Pfad damit erstmal stehend.
+- [x] **Feature 1: SNMP Listener Backbone** — Lextm.SharpSnmpLib einbinden, `SnmpAgent`-Service in `Infrastructure`, hostet UDP-Listener auf konfigurierbarem Port (Default UDP/1161, non-privileged → rootless-tauglich; im Compose-File auf `1161:1161/udp` gemappt, optional vom Operator auf `161:1161/udp` re-mappbar). Erst ohne echte OIDs — antwortet mit `noSuchObject` auf alles. End-to-End-Pfad damit erstmal stehend.
   - Betroffene Dateien: neue `src/ReadyStackGo.Infrastructure/Snmp/SnmpAgent.cs`, `Snmp/IOidTree.cs`, `Snmp/OidTreeBuilder.cs` (stub). `src/ReadyStackGo.Api/BackgroundServices/SnmpAgentBackgroundService.cs`.
   - Pattern-Vorlage: [HealthCollectorBackgroundService.cs](../../src/ReadyStackGo.Api/BackgroundServices/HealthCollectorBackgroundService.cs) für DI-Scope + Cancellation-Handling.
   - Abhängig von: -
