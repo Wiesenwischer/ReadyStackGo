@@ -3,91 +3,174 @@ using System.Net.Sockets;
 using Lextm.SharpSnmpLib;
 using Lextm.SharpSnmpLib.Messaging;
 using Lextm.SharpSnmpLib.Security;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using ReadyStackGo.Application.Snmp;
 
 namespace ReadyStackGo.Infrastructure.Snmp;
 
 /// <summary>
-/// UDP-based SNMP agent that listens for GET / GETNEXT / GETBULK requests and
-/// answers them out of the configured <see cref="IOidTree"/>.
-///
-/// v1/v2c: community string match required (configurable, dropped on
-/// mismatch). v3: USM user registry built from configuration, with SHA / AES
-/// auth and priv providers per RFC 3414 / 3826.
+/// UDP-based SNMP agent. Reads its settings + v3 users from the database via
+/// <see cref="ISnmpRuntimeSettingsProvider"/> (resolved through a DI scope) so
+/// admins can edit configuration in the WebUI without restarting the container.
 /// </summary>
 public sealed class SnmpAgent : IAsyncDisposable
 {
-    private readonly SnmpAgentOptions _options;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOidTree _oidTree;
     private readonly ILogger<SnmpAgent> _logger;
-    private UserRegistry _userRegistry = new();
+    private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
 
+    private SnmpRuntimeSettings? _currentSettings;
+    private UserRegistry _userRegistry = new();
     private UdpClient? _udpClient;
     private CancellationTokenSource? _cts;
     private Task? _receiveTask;
+    private CancellationToken _hostCancellationToken = CancellationToken.None;
+    private int _engineBoots;
+    private DateTime _startedAt = DateTime.UtcNow;
 
     public SnmpAgent(
-        IOptions<SnmpAgentOptions> options,
+        IServiceScopeFactory scopeFactory,
         IOidTree oidTree,
         ILogger<SnmpAgent> logger)
     {
-        _options = options.Value;
+        _scopeFactory = scopeFactory;
         _oidTree = oidTree;
         _logger = logger;
     }
 
     public bool IsRunning => _udpClient is not null;
 
-    public IPEndPoint? BoundEndpoint =>
-        _udpClient?.Client.LocalEndPoint as IPEndPoint;
+    public IPEndPoint? BoundEndpoint => _udpClient?.Client.LocalEndPoint as IPEndPoint;
 
-    public Task StartAsync(CancellationToken cancellationToken)
+    public async Task StartAsync(CancellationToken cancellationToken)
     {
-        if (!_options.Enabled)
+        _hostCancellationToken = cancellationToken;
+        await _lifecycleLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            _logger.LogInformation("SNMP agent disabled via configuration (Snmp:Enabled = false)");
-            return Task.CompletedTask;
+            var settings = LoadSettings();
+            await StartListenerAsync(settings).ConfigureAwait(false);
+        }
+        finally
+        {
+            _lifecycleLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Re-reads settings from the database and rebinds the listener if anything
+    /// material changed. Used by the SnmpSettingsChanged notification handler.
+    /// </summary>
+    public async Task ReloadAsync()
+    {
+        await _lifecycleLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var settings = LoadSettings();
+            await StopListenerInternalAsync().ConfigureAwait(false);
+            await StartListenerAsync(settings).ConfigureAwait(false);
+        }
+        finally
+        {
+            _lifecycleLock.Release();
+        }
+    }
+
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        await _lifecycleLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await StopListenerInternalAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            _lifecycleLock.Release();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await StopAsync(CancellationToken.None).ConfigureAwait(false);
+        _lifecycleLock.Dispose();
+    }
+
+    private SnmpRuntimeSettings LoadSettings()
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var provider = scope.ServiceProvider.GetRequiredService<ISnmpRuntimeSettingsProvider>();
+        return provider.Load();
+    }
+
+    private async Task StartListenerAsync(SnmpRuntimeSettings settings)
+    {
+        _currentSettings = settings;
+        _userRegistry = BuildUserRegistry(settings, _logger);
+        _engineBoots++;
+        _startedAt = DateTime.UtcNow;
+
+        if (!settings.Enabled)
+        {
+            _logger.LogInformation("SNMP agent disabled via settings");
+            return;
         }
 
-        if (_udpClient is not null)
-        {
-            _logger.LogWarning("SNMP agent is already running on {Endpoint}", BoundEndpoint);
-            return Task.CompletedTask;
-        }
-
-        if (!IPAddress.TryParse(_options.ListenAddress, out var address))
+        if (!IPAddress.TryParse(settings.ListenAddress, out var address))
         {
             throw new InvalidOperationException(
-                $"Snmp:ListenAddress '{_options.ListenAddress}' is not a valid IP address.");
+                $"Snmp settings ListenAddress '{settings.ListenAddress}' is not a valid IP address.");
         }
 
-        _userRegistry = BuildUserRegistry(_options, _logger);
-
-        var endpoint = new IPEndPoint(address, _options.Port);
+        var endpoint = new IPEndPoint(address, settings.Port);
         _udpClient = new UdpClient(endpoint);
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(_hostCancellationToken);
         _receiveTask = Task.Run(() => ReceiveLoopAsync(_cts.Token), _cts.Token);
 
         _logger.LogInformation(
             "SNMP agent listening on UDP {Address}:{Port} (root OID {RootOid}, v2c {V2cState}, v3 users {V3Count})",
-            _options.ListenAddress, _options.Port, _options.RootOid,
-            string.IsNullOrWhiteSpace(_options.Community) ? "disabled" : "enabled",
-            _options.V3Users?.Count ?? 0);
-        return Task.CompletedTask;
+            settings.ListenAddress, settings.Port, settings.RootOid,
+            string.IsNullOrWhiteSpace(settings.Community) ? "disabled" : "enabled",
+            settings.V3Users.Count);
     }
 
-    private static UserRegistry BuildUserRegistry(SnmpAgentOptions options, ILogger logger)
+    private async Task StopListenerInternalAsync()
+    {
+        if (_cts is null) return;
+
+        try
+        {
+            await _cts.CancelAsync().ConfigureAwait(false);
+            _udpClient?.Close();
+            if (_receiveTask is not null)
+            {
+                try { await _receiveTask.ConfigureAwait(false); }
+                catch (OperationCanceledException) { }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error while stopping SNMP agent");
+        }
+        finally
+        {
+            _udpClient?.Dispose();
+            _cts.Dispose();
+            _udpClient = null;
+            _cts = null;
+            _receiveTask = null;
+            _logger.LogInformation("SNMP agent stopped");
+        }
+    }
+
+    private static UserRegistry BuildUserRegistry(SnmpRuntimeSettings settings, ILogger logger)
     {
         var registry = new UserRegistry();
-        if (options.V3Users is null) return registry;
-
-        foreach (var user in options.V3Users)
+        foreach (var user in settings.V3Users)
         {
             if (string.IsNullOrWhiteSpace(user.Name)) continue;
 
-            var name = new OctetString(user.Name);
             IAuthenticationProvider auth = string.IsNullOrWhiteSpace(user.AuthProtocol)
                 ? DefaultAuthenticationProvider.Instance
                 : CreateAuthProvider(user.AuthProtocol, user.AuthPassphrase, logger, user.Name);
@@ -96,7 +179,7 @@ public sealed class SnmpAgent : IAsyncDisposable
                 ? new DefaultPrivacyProvider(auth)
                 : CreatePrivProvider(user.PrivProtocol, user.PrivPassphrase, auth, logger, user.Name);
 
-            registry.Add(name, priv);
+            registry.Add(new OctetString(user.Name), priv);
             logger.LogInformation("Registered SNMPv3 user '{User}' (auth {AuthProto}, priv {PrivProto})",
                 user.Name,
                 string.IsNullOrWhiteSpace(user.AuthProtocol) ? "none" : user.AuthProtocol,
@@ -144,46 +227,6 @@ public sealed class SnmpAgent : IAsyncDisposable
         }
     }
 
-    public async Task StopAsync(CancellationToken cancellationToken)
-    {
-        if (_cts is null)
-        {
-            return;
-        }
-
-        try
-        {
-            await _cts.CancelAsync().ConfigureAwait(false);
-            _udpClient?.Close();
-            if (_receiveTask is not null)
-            {
-                try
-                {
-                    await _receiveTask.ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) { /* expected */ }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error while stopping SNMP agent");
-        }
-        finally
-        {
-            _udpClient?.Dispose();
-            _cts.Dispose();
-            _udpClient = null;
-            _cts = null;
-            _receiveTask = null;
-            _logger.LogInformation("SNMP agent stopped");
-        }
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        await StopAsync(CancellationToken.None).ConfigureAwait(false);
-    }
-
     private async Task ReceiveLoopAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested && _udpClient is not null)
@@ -193,14 +236,8 @@ public sealed class SnmpAgent : IAsyncDisposable
             {
                 result = await _udpClient.ReceiveAsync(cancellationToken).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (ObjectDisposedException)
-            {
-                break;
-            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { break; }
+            catch (ObjectDisposedException) { break; }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "SNMP agent receive loop error");
@@ -230,21 +267,11 @@ public sealed class SnmpAgent : IAsyncDisposable
             try
             {
                 var response = BuildResponse(message);
-                if (response is null)
-                {
-                    continue;
-                }
+                if (response is null) continue;
 
                 var responseBytes = response.ToBytes();
-                if (_udpClient is null)
-                {
-                    return;
-                }
-
-                await _udpClient
-                    .SendAsync(responseBytes, responseBytes.Length, remote)
-                    .WaitAsync(ct)
-                    .ConfigureAwait(false);
+                if (_udpClient is null) return;
+                await _udpClient.SendAsync(responseBytes, responseBytes.Length, remote).WaitAsync(ct).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -255,18 +282,13 @@ public sealed class SnmpAgent : IAsyncDisposable
 
     private ISnmpMessage? BuildResponse(ISnmpMessage request)
     {
-        // v3 messages are decoded + authenticated by MessageFactory using the
-        // configured UserRegistry; if the user is unknown or the auth/priv keys
-        // don't match, MessageFactory throws and the datagram is dropped
-        // upstream. v2c / v1 are gated here by the community-string check.
+        var settings = _currentSettings;
+        if (settings is null) return null;
+
         if (request.Version == VersionCode.V1 || request.Version == VersionCode.V2)
         {
-            if (string.IsNullOrWhiteSpace(_options.Community))
-            {
-                // v2c disabled — only v3 accepted.
-                return null;
-            }
-            if (request.Community().ToString() != _options.Community)
+            if (string.IsNullOrWhiteSpace(settings.Community)) return null;
+            if (request.Community().ToString() != settings.Community)
             {
                 _logger.LogDebug("Dropped v{Version} request with mismatched community", (int)request.Version);
                 return null;
@@ -305,9 +327,13 @@ public sealed class SnmpAgent : IAsyncDisposable
                     break;
 
                 default:
-                    // SET / TRAP / INFORM are not supported in this milestone.
                     return null;
             }
+        }
+
+        if (request.Version == VersionCode.V3)
+        {
+            return BuildV3Response(request, responseVariables);
         }
 
         return new ResponseMessage(
@@ -317,5 +343,81 @@ public sealed class SnmpAgent : IAsyncDisposable
             ErrorCode.NoError,
             0,
             responseVariables);
+    }
+
+    private ResponseMessage? BuildV3Response(ISnmpMessage request, IList<Variable> responseVariables)
+    {
+        var v3 = ExtractV3Components(request);
+        if (v3 is null)
+        {
+            _logger.LogDebug("Could not extract v3 components from message {TypeCode}", request.TypeCode());
+            return null;
+        }
+
+        var (header, parameters, scope, privacy) = v3.Value;
+
+        var ourEngineIdBytes = ParseHexBytes(_currentSettings!.EngineIdHex);
+        if (ourEngineIdBytes.Length == 0)
+        {
+            _logger.LogWarning("v3 request received but settings have no EngineIdHex configured — dropping");
+            return null;
+        }
+        var ourEngineId = new OctetString(ourEngineIdBytes);
+        var engineTime = (int)Math.Min(int.MaxValue, (DateTime.UtcNow - _startedAt).TotalSeconds);
+
+        var responsePdu = new ResponsePdu(
+            request.RequestId(),
+            ErrorCode.NoError,
+            0,
+            responseVariables);
+
+        var contextEngineId = scope.ContextEngineId.GetRaw().Length == 0
+            ? ourEngineId
+            : scope.ContextEngineId;
+        var responseScope = new Scope(contextEngineId, scope.ContextName, responsePdu);
+
+        var responseParameters = new SecurityParameters(
+            ourEngineId,
+            new Integer32(_engineBoots),
+            new Integer32(engineTime),
+            parameters.UserName,
+            new OctetString(string.Empty),
+            new OctetString(string.Empty));
+
+        var needAuthentication =
+            (header.SecurityLevel & Levels.Authentication) == Levels.Authentication;
+
+        try
+        {
+            return new ResponseMessage(
+                VersionCode.V3,
+                header,
+                responseParameters,
+                responseScope,
+                privacy,
+                needAuthentication,
+                Array.Empty<byte>());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to assemble SNMPv3 response — dropping request");
+            return null;
+        }
+    }
+
+    private static (Header Header, SecurityParameters Parameters, Scope Scope, IPrivacyProvider Privacy)?
+        ExtractV3Components(ISnmpMessage message) => message switch
+    {
+        GetRequestMessage r     => (r.Header, r.Parameters, r.Scope, r.Privacy),
+        GetNextRequestMessage r => (r.Header, r.Parameters, r.Scope, r.Privacy),
+        GetBulkRequestMessage r => (r.Header, r.Parameters, r.Scope, r.Privacy),
+        _ => null,
+    };
+
+    private static byte[] ParseHexBytes(string hex)
+    {
+        if (string.IsNullOrEmpty(hex)) return Array.Empty<byte>();
+        try { return Convert.FromHexString(hex); }
+        catch { return Array.Empty<byte>(); }
     }
 }

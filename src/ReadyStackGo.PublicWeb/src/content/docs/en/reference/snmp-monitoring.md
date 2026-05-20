@@ -8,32 +8,26 @@ ReadyStackGo ships with a read-only SNMP agent so external monitoring systems
 ProductDeployments, individual stacks, container services, and the RSGO server
 itself via standard SNMP GET / GETNEXT / WALK.
 
-> **Status (v0.64):** read-only, SNMPv2c, with a placeholder Private
-> Enterprise Number (`1.3.6.1.4.1.99999.1`). The IANA PEN application is in
-> review; the OID will switch to the assigned PEN before v1.0. SNMPv3 user
-> credentials can be configured but RSGO only answers via v2c in this milestone;
-> full v3 responses ship in v0.65.
+> **Status (v0.65):** SNMPv2c read-only polling is fully supported and
+> configurable via the WebUI without container restarts. SNMPv3 user
+> credentials can be configured; v3 polling decodes correctly but RSGO
+> currently answers only via v2c — full v3 responses ship in a follow-up.
+> SNMP Traps are scaffolded (the receiver list is editable) but actual
+> trap emission also comes in a follow-up. The OID root is the placeholder
+> `1.3.6.1.4.1.99999.1`; the IANA PEN application is in review and the OID
+> will switch to the assigned PEN before v1.0.
 
 ## Enabling the agent
 
-The agent is disabled by default. Enable it via `appsettings.json` (or
-environment variables in your `docker-compose.override.yml`):
+The agent is disabled by default. Enable it in the WebUI:
 
-```json
-{
-  "Snmp": {
-    "Enabled": true,
-    "Port": 1161,
-    "ListenAddress": "0.0.0.0",
-    "RootOid": "1.3.6.1.4.1.99999.1",
-    "Community": "your-community-string",
-    "V3Users": []
-  }
-}
-```
+1. Open **Settings → SNMP Monitoring**
+2. Toggle **Enabled** on
+3. Set a v2c community string (or leave empty and add SNMPv3 users)
+4. Save
 
-Restart the container after changing settings — the agent reads them once at
-startup.
+Changes apply immediately — the listener rebinds without a container restart.
+The configuration is persisted in the RSGO database, so it survives upgrades.
 
 ### Port mapping
 
@@ -111,10 +105,23 @@ the same across container restarts and across add/delete operations on other
 entities — so once you store an OID in your monitoring config, it keeps
 pointing at the same logical object.
 
-## Limits (v0.64)
+## SNMP Traps (push notifications)
 
-- **Read-only.** No SET, no Traps. Both come in later phases.
-- **SNMPv2c responses only.** v3 credentials decode incoming requests but
-  responses are still v2c; full v3 ships in v0.65.
-- **Settings via config only.** The WebUI shows the current configuration but
-  does not edit it yet. Changes require a container restart.
+RSGO sends v2c traps to every receiver listed in **Trap receivers** on the
+Settings page (comma- or newline-separated `host[:port]`, default port `162`)
+whenever a notable domain event occurs:
+
+| Trap | Domain event | Carries |
+| --- | --- | --- |
+| `rsgoProductDeploymentFailedTrap` | A product deployment ended in `Failed`. | Product name, error message |
+| `rsgoProductDeploymentAutoFinalizedTrap` | A stuck deployment was auto-finalized by RSGO. | Product name, resulting status, reason |
+| `rsgoProductMaintenanceModeChangedTrap` | A product entered or left maintenance mode. | New operation mode, reason |
+
+Traps are only sent when the SNMP agent is enabled and a v2c community is
+configured (the community is reused as the trap community).
+
+## Limits (v0.65)
+
+- **Read-only polling.** No SET. (Traps for ProductDeploymentFailed,
+  ProductDeploymentAutoFinalized, ProductMaintenanceModeChanged are emitted
+  whenever the relevant domain events fire — see the section above.)

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ReadyStackGo.Infrastructure.DataAccess;
 
@@ -10,9 +11,11 @@ using ReadyStackGo.Infrastructure.DataAccess;
 namespace ReadyStackGo.Infrastructure.DataAccess.Migrations
 {
     [DbContext(typeof(ReadyStackGoDbContext))]
-    partial class ReadyStackGoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260520083539_AddSnmpSettingsAndV3Users")]
+    partial class AddSnmpSettingsAndV3Users
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");
@@ -608,14 +611,6 @@ namespace ReadyStackGo.Infrastructure.DataAccess.Migrations
 
                     b.Property<bool>("Enabled")
                         .HasColumnType("INTEGER");
-
-                    b.Property<int>("EngineBoots")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("EngineIdHex")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("TEXT");
 
                     b.Property<string>("ListenAddress")
                         .IsRequired()

@@ -46,6 +46,8 @@ public class ReadyStackGoDbContext : DbContext
     public DbSet<StackSource> StackSources => Set<StackSource>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<ProductDeployment> ProductDeployments => Set<ProductDeployment>();
+    public DbSet<ReadyStackGo.Domain.Snmp.SnmpSettings> SnmpSettings => Set<ReadyStackGo.Domain.Snmp.SnmpSettings>();
+    public DbSet<ReadyStackGo.Domain.Snmp.SnmpV3User> SnmpV3Users => Set<ReadyStackGo.Domain.Snmp.SnmpV3User>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {

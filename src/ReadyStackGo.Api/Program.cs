@@ -128,7 +128,7 @@ public class Program
         // Certificate Expiry Notification Service
         builder.Services.AddHostedService<CertificateExpiryCheckService>();
 
-        // SNMP Agent Background Service (v0.64, Features 1+2)
+        // SNMP Agent Background Service (v0.65: DB-backed settings)
         builder.Services.Configure<SnmpAgentOptions>(
             builder.Configuration.GetSection(SnmpAgentOptions.SectionName));
         builder.Services.AddScoped<ReadyStackGo.Application.Snmp.ISnmpSnapshotProvider>(sp =>
@@ -138,9 +138,13 @@ public class Program
                 sp.GetRequiredService<ReadyStackGo.Domain.IdentityAccess.Organizations.IOrganizationRepository>(),
                 sp.GetRequiredService<ReadyStackGo.Domain.StackManagement.Sources.IStackSourceRepository>(),
                 sp.GetRequiredService<ReadyStackGo.Domain.Deployment.Deployments.IDeploymentRepository>(),
-                typeof(Program).Assembly.GetName().Version?.ToString() ?? "0.64.0"));
+                typeof(Program).Assembly.GetName().Version?.ToString() ?? "0.65.0"));
+        builder.Services.AddScoped<ReadyStackGo.Application.Snmp.ISnmpRuntimeSettingsProvider, ReadyStackGo.Application.Snmp.SnmpRuntimeSettingsProvider>();
         builder.Services.AddSingleton<IOidTree, CachingOidTree>();
         builder.Services.AddSingleton<SnmpAgent>();
+        builder.Services.AddSingleton<ReadyStackGo.Application.Snmp.ISnmpAgentReloader>(sp =>
+            new SnmpAgentReloader(sp.GetRequiredService<SnmpAgent>()));
+        builder.Services.AddSingleton<ReadyStackGo.Application.Snmp.ISnmpTrapEmitter, SnmpTrapEmitter>();
         builder.Services.AddHostedService<SnmpAgentBackgroundService>();
 
         // Add CORS for development
