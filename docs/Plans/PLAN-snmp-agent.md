@@ -221,7 +221,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Betroffene Dateien: `src/ReadyStackGo.Api/Resources/READYSTACKGO-MIB.txt`, CI-Job-Erweiterung.
   - Abhängig von: Feature 2 (OID-Tree finalisiert)
 
-- [ ] **Dokumentation & Website**
+- [x] **Dokumentation & Website**
   - Public Website DE/EN: Reference-Page "SNMP Monitoring" mit OID-Liste, Auth-Setup, MIB-Download-Link, Beispiel-snmpwalks für die häufigsten Tools.
   - Docs/Architecture-Notiz dass v0.64 SNMP read-only liefert und Traps/PEN-Wechsel separate Follow-up-Phasen sind.
   - Roadmap-Update.
