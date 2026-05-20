@@ -5,6 +5,7 @@ using Lextm.SharpSnmpLib.Messaging;
 using Lextm.SharpSnmpLib.Security;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using ReadyStackGo.Application.Snmp;
 
 namespace ReadyStackGo.Infrastructure.Snmp;
 
@@ -12,18 +13,16 @@ namespace ReadyStackGo.Infrastructure.Snmp;
 /// UDP-based SNMP agent that listens for GET / GETNEXT / GETBULK requests and
 /// answers them out of the configured <see cref="IOidTree"/>.
 ///
-/// Feature 1 scope: end-to-end UDP path with proper SNMP message
-/// encoding/decoding via SharpSnmpLib. The OID tree is empty so every request
-/// receives noSuchObject / endOfMibView. v2c community strings and v3
-/// auth/priv handling come in Features 3 and 4; this commit accepts any
-/// community and v1/v2c messages only.
+/// v1/v2c: community string match required (configurable, dropped on
+/// mismatch). v3: USM user registry built from configuration, with SHA / AES
+/// auth and priv providers per RFC 3414 / 3826.
 /// </summary>
 public sealed class SnmpAgent : IAsyncDisposable
 {
     private readonly SnmpAgentOptions _options;
     private readonly IOidTree _oidTree;
     private readonly ILogger<SnmpAgent> _logger;
-    private readonly UserRegistry _userRegistry = new();
+    private UserRegistry _userRegistry = new();
 
     private UdpClient? _udpClient;
     private CancellationTokenSource? _cts;
@@ -64,15 +63,85 @@ public sealed class SnmpAgent : IAsyncDisposable
                 $"Snmp:ListenAddress '{_options.ListenAddress}' is not a valid IP address.");
         }
 
+        _userRegistry = BuildUserRegistry(_options, _logger);
+
         var endpoint = new IPEndPoint(address, _options.Port);
         _udpClient = new UdpClient(endpoint);
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _receiveTask = Task.Run(() => ReceiveLoopAsync(_cts.Token), _cts.Token);
 
         _logger.LogInformation(
-            "SNMP agent listening on UDP {Address}:{Port} (root OID {RootOid})",
-            _options.ListenAddress, _options.Port, _options.RootOid);
+            "SNMP agent listening on UDP {Address}:{Port} (root OID {RootOid}, v2c {V2cState}, v3 users {V3Count})",
+            _options.ListenAddress, _options.Port, _options.RootOid,
+            string.IsNullOrWhiteSpace(_options.Community) ? "disabled" : "enabled",
+            _options.V3Users?.Count ?? 0);
         return Task.CompletedTask;
+    }
+
+    private static UserRegistry BuildUserRegistry(SnmpAgentOptions options, ILogger logger)
+    {
+        var registry = new UserRegistry();
+        if (options.V3Users is null) return registry;
+
+        foreach (var user in options.V3Users)
+        {
+            if (string.IsNullOrWhiteSpace(user.Name)) continue;
+
+            var name = new OctetString(user.Name);
+            IAuthenticationProvider auth = string.IsNullOrWhiteSpace(user.AuthProtocol)
+                ? DefaultAuthenticationProvider.Instance
+                : CreateAuthProvider(user.AuthProtocol, user.AuthPassphrase, logger, user.Name);
+
+            IPrivacyProvider priv = string.IsNullOrWhiteSpace(user.PrivProtocol)
+                ? new DefaultPrivacyProvider(auth)
+                : CreatePrivProvider(user.PrivProtocol, user.PrivPassphrase, auth, logger, user.Name);
+
+            registry.Add(name, priv);
+            logger.LogInformation("Registered SNMPv3 user '{User}' (auth {AuthProto}, priv {PrivProto})",
+                user.Name,
+                string.IsNullOrWhiteSpace(user.AuthProtocol) ? "none" : user.AuthProtocol,
+                string.IsNullOrWhiteSpace(user.PrivProtocol) ? "none" : user.PrivProtocol);
+        }
+        return registry;
+    }
+
+    private static IAuthenticationProvider CreateAuthProvider(string protocol, string passphrase, ILogger logger, string userName)
+    {
+        var pass = new OctetString(passphrase ?? string.Empty);
+        return protocol.ToLowerInvariant() switch
+        {
+            "sha" or "sha1" => new SHA1AuthenticationProvider(pass),
+            "sha256" => new SHA256AuthenticationProvider(pass),
+            "sha384" => new SHA384AuthenticationProvider(pass),
+            "sha512" => new SHA512AuthenticationProvider(pass),
+            "md5" => new MD5AuthenticationProvider(pass),
+            _ => Fallback(logger, userName, protocol),
+        };
+
+        static IAuthenticationProvider Fallback(ILogger l, string u, string p)
+        {
+            l.LogWarning("Unknown SNMPv3 auth protocol '{Proto}' for user '{User}' — disabling authentication", p, u);
+            return DefaultAuthenticationProvider.Instance;
+        }
+    }
+
+    private static IPrivacyProvider CreatePrivProvider(string protocol, string passphrase, IAuthenticationProvider auth, ILogger logger, string userName)
+    {
+        var pass = new OctetString(passphrase ?? string.Empty);
+        return protocol.ToLowerInvariant() switch
+        {
+            "aes" or "aes128" => new AESPrivacyProvider(pass, auth),
+            "aes192" => new AES192PrivacyProvider(pass, auth),
+            "aes256" => new AES256PrivacyProvider(pass, auth),
+            "des" => new DESPrivacyProvider(pass, auth),
+            _ => FallbackPriv(logger, userName, protocol, auth),
+        };
+
+        static IPrivacyProvider FallbackPriv(ILogger l, string u, string p, IAuthenticationProvider a)
+        {
+            l.LogWarning("Unknown SNMPv3 priv protocol '{Proto}' for user '{User}' — disabling privacy", p, u);
+            return new DefaultPrivacyProvider(a);
+        }
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
@@ -186,9 +255,24 @@ public sealed class SnmpAgent : IAsyncDisposable
 
     private ISnmpMessage? BuildResponse(ISnmpMessage request)
     {
-        // v3 (auth/priv) ships in Feature 4. For Feature 1 we handle v1/v2c only
-        // and ignore anything else.
-        if (request.Version != VersionCode.V1 && request.Version != VersionCode.V2)
+        // v3 messages are decoded + authenticated by MessageFactory using the
+        // configured UserRegistry; if the user is unknown or the auth/priv keys
+        // don't match, MessageFactory throws and the datagram is dropped
+        // upstream. v2c / v1 are gated here by the community-string check.
+        if (request.Version == VersionCode.V1 || request.Version == VersionCode.V2)
+        {
+            if (string.IsNullOrWhiteSpace(_options.Community))
+            {
+                // v2c disabled — only v3 accepted.
+                return null;
+            }
+            if (request.Community().ToString() != _options.Community)
+            {
+                _logger.LogDebug("Dropped v{Version} request with mismatched community", (int)request.Version);
+                return null;
+            }
+        }
+        else if (request.Version != VersionCode.V3)
         {
             return null;
         }

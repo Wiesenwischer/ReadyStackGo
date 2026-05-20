@@ -1,3 +1,4 @@
+using ReadyStackGo.Application.Snmp;
 using ReadyStackGo.Infrastructure.Snmp;
 
 namespace ReadyStackGo.Api.BackgroundServices;
