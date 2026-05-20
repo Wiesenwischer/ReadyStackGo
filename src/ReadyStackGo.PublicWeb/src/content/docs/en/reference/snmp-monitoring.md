@@ -105,10 +105,24 @@ the same across container restarts and across add/delete operations on other
 entities — so once you store an OID in your monitoring config, it keeps
 pointing at the same logical object.
 
+## SNMP Traps (push notifications)
+
+RSGO sends v2c traps to every receiver listed in **Trap receivers** on the
+Settings page (comma- or newline-separated `host[:port]`, default port `162`)
+whenever a notable domain event occurs:
+
+| Trap | Domain event | Carries |
+| --- | --- | --- |
+| `rsgoProductDeploymentFailedTrap` | A product deployment ended in `Failed`. | Product name, error message |
+| `rsgoProductDeploymentAutoFinalizedTrap` | A stuck deployment was auto-finalized by RSGO. | Product name, resulting status, reason |
+| `rsgoProductMaintenanceModeChangedTrap` | A product entered or left maintenance mode. | New operation mode, reason |
+
+Traps are only sent when the SNMP agent is enabled and a v2c community is
+configured (the community is reused as the trap community).
+
 ## Limits (v0.65)
 
-- **Read-only.** No SET. Traps are scaffolded (receivers editable) but
-  emission ships in a follow-up.
-- **SNMPv2c responses only.** v3 credentials authenticate incoming requests
-  correctly, but the response is currently constructed as v2c — full v3
-  responses come in a follow-up.
+- **Read-only polling.** No SET.
+- **SNMPv2c responses only.** SNMPv3 credentials authenticate incoming
+  requests correctly, but RSGO currently constructs its responses as v2c —
+  full v3 responses come in a follow-up.

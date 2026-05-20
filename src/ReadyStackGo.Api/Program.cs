@@ -144,6 +144,7 @@ public class Program
         builder.Services.AddSingleton<SnmpAgent>();
         builder.Services.AddSingleton<ReadyStackGo.Application.Snmp.ISnmpAgentReloader>(sp =>
             new SnmpAgentReloader(sp.GetRequiredService<SnmpAgent>()));
+        builder.Services.AddSingleton<ReadyStackGo.Application.Snmp.ISnmpTrapEmitter, SnmpTrapEmitter>();
         builder.Services.AddHostedService<SnmpAgentBackgroundService>();
 
         // Add CORS for development
