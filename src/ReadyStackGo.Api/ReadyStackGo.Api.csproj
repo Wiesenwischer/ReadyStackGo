@@ -17,4 +17,8 @@
     <ProjectReference Include="..\ReadyStackGo.Core\ReadyStackGo.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\READYSTACKGO-MIB.txt" />
+  </ItemGroup>
+
 </Project>

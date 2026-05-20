@@ -59,6 +59,18 @@ const settingsSections: SettingsSection[] = [
     ),
   },
   {
+    id: "snmp",
+    title: "SNMP Monitoring",
+    description: "View the SNMP agent status, browse OIDs for your environments, and download the MIB file",
+    href: "/settings/snmp",
+    color: "bg-teal-100 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400",
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12h2m0 0a7 7 0 0114 0m-14 0a7 7 0 0014 0m-7-7v2m0 10v2m-7-7h2m12 0h2" />
+      </svg>
+    ),
+  },
+  {
     id: "system",
     title: "System",
     description: "View version information, build details, and check for updates",

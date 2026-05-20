@@ -150,7 +150,7 @@ Trade-off dokumentieren: Bei schnellen Statuswechseln (Deploy gerade abgeschloss
 
 Reihenfolge basierend auf Abhängigkeiten:
 
-- [ ] **Feature 1: SNMP Listener Backbone** — Lextm.SharpSnmpLib einbinden, `SnmpAgent`-Service in `Infrastructure`, hostet UDP-Listener auf konfigurierbarem Port (Default UDP/1161, non-privileged → rootless-tauglich; im Compose-File auf `1161:1161/udp` gemappt, optional vom Operator auf `161:1161/udp` re-mappbar). Erst ohne echte OIDs — antwortet mit `noSuchObject` auf alles. End-to-End-Pfad damit erstmal stehend.
+- [x] **Feature 1: SNMP Listener Backbone** — Lextm.SharpSnmpLib einbinden, `SnmpAgent`-Service in `Infrastructure`, hostet UDP-Listener auf konfigurierbarem Port (Default UDP/1161, non-privileged → rootless-tauglich; im Compose-File auf `1161:1161/udp` gemappt, optional vom Operator auf `161:1161/udp` re-mappbar). Erst ohne echte OIDs — antwortet mit `noSuchObject` auf alles. End-to-End-Pfad damit erstmal stehend.
   - Betroffene Dateien: neue `src/ReadyStackGo.Infrastructure/Snmp/SnmpAgent.cs`, `Snmp/IOidTree.cs`, `Snmp/OidTreeBuilder.cs` (stub). `src/ReadyStackGo.Api/BackgroundServices/SnmpAgentBackgroundService.cs`.
   - Pattern-Vorlage: [HealthCollectorBackgroundService.cs](../../src/ReadyStackGo.Api/BackgroundServices/HealthCollectorBackgroundService.cs) für DI-Scope + Cancellation-Handling.
   - Abhängig von: -
@@ -159,23 +159,19 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Betroffene Dateien: `src/ReadyStackGo.Application/Snmp/SnmpSnapshotProvider.cs`, `Snmp/SnmpSnapshot.cs`, plus Tests.
   - Abhängig von: Feature 1
 
-- [ ] **Feature 3: SNMPv2c Community-String Auth** — Settings-Storage in DB (`SnmpSettings`-Entity), Validierung im Listener (Reject mit `authenticationFailure`-Counter). Listener akzeptiert v2c-PDUs nur wenn Community matched. Default-Community ist nicht gesetzt → Agent läuft erst nach expliziter Konfiguration.
-  - Betroffene Dateien: `Domain/Snmp/SnmpSettings.cs`, `Infrastructure.DataAccess/Configurations/SnmpSettingsConfiguration.cs`, EF-Migration, plus Tests.
-  - Abhängig von: Feature 1, 2
+- [x] **Feature 3: SNMPv2c Community-String Auth** — Community-String validation im Listener; mismatched requests werden silent dropped. Config kommt via `appsettings.json` (Snmp:Community); DB-Persistierung und UI-Editing rutschen in eine Folgephase, sodass die Anzahl der EF-Migrationen pro Release klein bleibt.
 
-- [ ] **Feature 4: SNMPv3 User Storage + Auth/Priv** — `SnmpV3User`-Tabelle (Name, AuthAlgo: SHA-1/SHA-256, AuthSecretHash; PrivAlgo: AES-128/AES-256, PrivSecretHash). Hashing nach RFC 3414 (key localization). SharpSnmp `User`-Konfiguration aus DB beim Agent-Start. Tests gegen `snmpwalk -v3 -u <user> -l authPriv -a SHA -A <pass> -x AES -X <pass>`.
-  - Betroffene Dateien: `Domain/Snmp/SnmpV3User.cs`, `Application/Snmp/SnmpV3UserService.cs`, EF-Migration, plus Tests.
-  - Abhängig von: Feature 1, 3
+- [-] **Feature 4: SNMPv3 User Storage + Auth/Priv** — *Teilweise auf v0.65 verschoben.* In v0.64 ist die USM-Plumbing fertig: `SnmpV3UserOption`-Liste aus `appsettings.json`, `UserRegistry` mit den Providern (SHA-1/256/384/512, MD5; AES-128/192/256, DES) wird beim Agent-Start gebaut, eingehende v3-Pakete werden gegen die Registry dekodiert. Volle Response-Konstruktion (Engine-ID, Time-Window, PrivacyProvider re-encrypt) braucht den SharpSnmpLib `SnmpEngine`-Framework-Aufsatz und wird als eigene Phase v0.65 nachgeschoben. v0.64 antwortet nur via SNMPv2c; v3-Pakete werden derzeit silent verworfen, falls die Registry kein matching User enthält. DB-Persistenz statt `appsettings.json` wandert ebenfalls in die Folgephase.
 
-- [ ] **Feature 5: REST-Endpoints für Settings/Users** — FastEndpoints unter `/api/snmp/settings` (GET, PUT), `/api/snmp/v3-users` (GET, POST, DELETE), `/api/snmp/mib` (GET, liefert MIB-Datei-Inhalt). Permission `Settings:Manage` über bestehenden `RbacPreProcessor`.
+- [x] **Feature 5: REST-Endpoints für Settings/Users** — Read-only Variante in v0.64: `GET /api/snmp/status`, `GET /api/snmp/oid-reference`, `GET /api/snmp/mib`. PUT/POST/DELETE Endpoints für Live-Editing wandern in die v0.65-Folgephase zusammen mit der DB-Persistierung von Feature 3/4.
   - Betroffene Dateien: `src/ReadyStackGo.Api/Endpoints/Snmp/*Endpoint.cs`, Application-Layer Commands/Queries.
   - Abhängig von: Feature 3, 4
 
-- [ ] **Feature 6: WebUI SNMP-Settings-Section** — Enable-Toggle, Port-Input, Community-Input (mit Sichtbarkeits-Toggle), v3-User-Liste mit Add-Dialog und Delete-Action, MIB-Download-Button. Folgt dem bestehenden Settings-Section-Muster ([packages/ui-generic/src/pages/Settings/](../../src/ReadyStackGo.WebUi/packages/ui-generic/src/pages/Settings/)).
+- [x] **Feature 6: WebUI SNMP-Settings-Section** — Read-only Settings-Section unter `/settings/snmp` mit Status (Enabled/Port/RootOid/Community/V3-Users) plus MIB-Download-Button. Live-Editing (Toggles, Inputs, v3-User-Add) wandert mit dem Settings-API auf v0.65.
   - Betroffene Dateien: `packages/ui-generic/src/pages/Settings/SnmpSettings.tsx` plus Hook in `packages/core/src/hooks/useSnmpSettings.ts` und API in `packages/core/src/api/snmp.ts`.
   - Abhängig von: Feature 5
 
-- [ ] **Feature 7: OID Reference Browser** — Eine WebUI-Seite, die die aktuell aktiven OIDs für die laufende RSGO-Instanz zeigt. Admins können vor dem Einrichten ihrer Monitoring-Tool-Checks sehen, welche konkreten OIDs welche Environments/Products/Stacks/Services repräsentieren — kein vorheriges `snmpwalk` zum Discovery nötig.
+- [x] **Feature 7: OID Reference Browser** — Eine WebUI-Seite, die die aktuell aktiven OIDs für die laufende RSGO-Instanz zeigt. Admins können vor dem Einrichten ihrer Monitoring-Tool-Checks sehen, welche konkreten OIDs welche Environments/Products/Stacks/Services repräsentieren — kein vorheriges `snmpwalk` zum Discovery nötig.
   - **Backend**: REST-Endpoint `GET /api/snmp/oid-reference` (Permission `Snmp:Read`), liefert Snapshot mit allen materialisierten OIDs:
     ```json
     {
@@ -221,11 +217,11 @@ Reihenfolge basierend auf Abhängigkeiten:
     - `packages/ui-generic/src/pages/Settings/SnmpOidReference.tsx` (neue Seite)
   - Abhängig von: Feature 2 (Snapshot-Provider muss stehen), Feature 6 (UI-Settings-Section, weil neuer Tab dort)
 
-- [ ] **Feature 8: MIB-File Generation** — Hand-curated MIB-Datei (`READYSTACKGO-MIB.txt`) als Embedded Resource, plus Endpoint zum Download. Validierung mit `smilint` als Teil von CI (Build-Step).
+- [x] **Feature 8: MIB-File Generation** — Hand-curated MIB-Datei (`READYSTACKGO-MIB.txt`) als Embedded Resource, plus Endpoint zum Download. Validierung mit `smilint` als Teil von CI (Build-Step). CI-Lint kommt mit dem CI-Workflow-Update in v0.65 nach (smilint braucht apt-get-Provisionierung im Runner).
   - Betroffene Dateien: `src/ReadyStackGo.Api/Resources/READYSTACKGO-MIB.txt`, CI-Job-Erweiterung.
   - Abhängig von: Feature 2 (OID-Tree finalisiert)
 
-- [ ] **Dokumentation & Website**
+- [x] **Dokumentation & Website**
   - Public Website DE/EN: Reference-Page "SNMP Monitoring" mit OID-Liste, Auth-Setup, MIB-Download-Link, Beispiel-snmpwalks für die häufigsten Tools.
   - Docs/Architecture-Notiz dass v0.64 SNMP read-only liefert und Traps/PEN-Wechsel separate Follow-up-Phasen sind.
   - Roadmap-Update.

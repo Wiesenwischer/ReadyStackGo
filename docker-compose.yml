@@ -8,6 +8,13 @@ services:
     ports:
       - "8080:8080"
       - "8443:8443"
+      # SNMP agent — container listens on non-privileged 1161/udp so it works
+      # under non-root container runtimes (OpenShift restricted SCC, K8s
+      # runAsNonRoot, rootless Docker). Operators who want the classic SNMP
+      # port 161 reachable from outside can replace the mapping with
+      # "161:1161/udp" in a docker-compose.override.yml; the Docker daemon
+      # already runs as root and can bind the host's privileged port.
+      - "1161:1161/udp"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ~/.docker/config.json:/root/.docker/config.json:ro
