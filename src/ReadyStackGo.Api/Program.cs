@@ -127,10 +127,18 @@ public class Program
         // Certificate Expiry Notification Service
         builder.Services.AddHostedService<CertificateExpiryCheckService>();
 
-        // SNMP Agent Background Service (v0.64, Feature 1: listener backbone)
+        // SNMP Agent Background Service (v0.64, Features 1+2)
         builder.Services.Configure<SnmpAgentOptions>(
             builder.Configuration.GetSection(SnmpAgentOptions.SectionName));
-        builder.Services.AddSingleton<IOidTree, EmptyOidTree>();
+        builder.Services.AddScoped<ReadyStackGo.Application.Snmp.ISnmpSnapshotProvider>(sp =>
+            new ReadyStackGo.Application.Snmp.SnmpSnapshotProvider(
+                sp.GetRequiredService<ReadyStackGo.Domain.Deployment.ProductDeployments.IProductDeploymentRepository>(),
+                sp.GetRequiredService<ReadyStackGo.Domain.Deployment.Environments.IEnvironmentRepository>(),
+                sp.GetRequiredService<ReadyStackGo.Domain.IdentityAccess.Organizations.IOrganizationRepository>(),
+                sp.GetRequiredService<ReadyStackGo.Domain.StackManagement.Sources.IStackSourceRepository>(),
+                sp.GetRequiredService<ReadyStackGo.Domain.Deployment.Deployments.IDeploymentRepository>(),
+                typeof(Program).Assembly.GetName().Version?.ToString() ?? "0.64.0"));
+        builder.Services.AddSingleton<IOidTree, CachingOidTree>();
         builder.Services.AddSingleton<SnmpAgent>();
         builder.Services.AddHostedService<SnmpAgentBackgroundService>();
 
