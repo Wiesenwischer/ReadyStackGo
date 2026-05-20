@@ -24,3 +24,4 @@ Hier finden Sie detaillierte Anleitungen zur Nutzung von ReadyStackGo.
 - [Maintenance Mode](/de/docs/monitoring/maintenance-mode/) - Produkte in den Wartungsmodus versetzen und kontrolliert wieder freigeben
 - [Deployment Precheck](/de/docs/deployments/deployment-precheck/) - Automatische Infrastruktur-Prüfungen vor dem Deployment
 - [OCI Stack Bundles](/de/docs/configuration/oci-stack-bundles/) - Stacks aus Docker/OCI Registries laden mit Lock Files und CI/CD Integration
+- [SNMP Monitoring](/de/docs/monitoring/snmp/) - Eingebauter SNMP-Agent: Deployments aus Nagios, Zabbix, PRTG oder per `snmpwalk` auslesen, mit v3-USM und Traps
