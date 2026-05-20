@@ -233,7 +233,16 @@ public class Program
 
         app.UseAuthentication();
         app.UseAuthorization();
-        app.UseFastEndpoints();
+        app.UseFastEndpoints(c =>
+        {
+            // Serialize enums as strings (PascalCase) for both request and response —
+            // the TypeScript clients (e.g. SnmpAuthProtocol = 'Sha256' | 'Md5' | ...)
+            // exchange enum values as strings. Without this, FastEndpoints would
+            // expect integers and POSTing the SNMPv3 user form would fail with
+            // "could not be converted to ReadyStackGo.Domain.Snmp.SnmpAuthProtocol".
+            c.Serializer.Options.Converters.Add(
+                new System.Text.Json.Serialization.JsonStringEnumConverter());
+        });
 
         // Map SignalR hubs
         app.MapHub<HealthHub>("/hubs/health");

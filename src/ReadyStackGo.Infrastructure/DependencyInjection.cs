@@ -141,7 +141,13 @@ public static class DependencyInjection
         services.AddSingleton<IHealthCheckStrategy, DockerHealthCheckStrategy>();
         services.AddScoped<IHealthCheckStrategy, HttpHealthCheckStrategy>();
         services.AddSingleton<IHealthCheckStrategy, TcpHealthCheckStrategy>();
-        services.AddSingleton<IHealthCheckStrategyFactory, HealthCheckStrategyFactory>();
+        // Factory is Scoped because it consumes IEnumerable<IHealthCheckStrategy>,
+        // and HttpHealthCheckStrategy is Scoped (it wraps the typed HttpClient
+        // IHttpHealthChecker, which AddHttpClient registers as Transient and which
+        // therefore must not be captured by a Singleton). All current consumers of
+        // IHealthCheckStrategyFactory (HealthMonitoringService, HealthCollectorService)
+        // are themselves Scoped, so no behavior changes.
+        services.AddScoped<IHealthCheckStrategyFactory, HealthCheckStrategyFactory>();
 
         // SSH Tunnel services (v0.49)
         services.AddSingleton<ICredentialEncryptionService, CredentialEncryptionService>();
