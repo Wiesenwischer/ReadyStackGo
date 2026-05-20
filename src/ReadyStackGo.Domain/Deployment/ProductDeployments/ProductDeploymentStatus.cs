@@ -5,13 +5,14 @@ namespace ReadyStackGo.Domain.Deployment.ProductDeployments;
 ///
 /// State machine:
 ///   Deploying        → Running | PartiallyRunning | Failed
-///   Running          → Upgrading | Removing | Stopped | Redeploying
-///   PartiallyRunning → Deploying (retry) | Upgrading | Removing | Stopped
+///   Running          → Upgrading | Removing | Stopped | Redeploying | Superseded
+///   PartiallyRunning → Deploying (retry) | Upgrading | Removing | Stopped | Superseded
 ///   Upgrading        → Running | PartiallyRunning | Failed
-///   Failed           → Deploying (retry) | Upgrading | Removing
-///   Stopped          → Running | PartiallyRunning | Upgrading | Removing
+///   Failed           → Deploying (retry) | Upgrading | Removing | Superseded
+///   Stopped          → Running | PartiallyRunning | Upgrading | Removing | Superseded
 ///   Removing         → Removed (terminal)
 ///   Redeploying      → Running | PartiallyRunning | Failed
+///   Superseded       → (terminal — Docker resources transferred to successor)
 /// </summary>
 public enum ProductDeploymentStatus
 {
@@ -58,5 +59,12 @@ public enum ProductDeploymentStatus
     /// <summary>
     /// Redeployment of all or selected stacks is in progress (same version, fresh pull).
     /// </summary>
-    Redeploying = 8
+    Redeploying = 8,
+
+    /// <summary>
+    /// Replaced by a newer ProductDeployment (e.g. via upgrade) — terminal.
+    /// Docker resources were transferred to the successor row (same stack names),
+    /// so this row no longer reflects live state and must be hidden from active lists.
+    /// </summary>
+    Superseded = 9
 }
