@@ -108,10 +108,24 @@ Add/Delete-Operationen auf anderen Entitäten stabil — wenn du eine OID
 einmal in deiner Monitoring-Config speicherst, zeigt sie auch danach noch
 auf dasselbe logische Objekt.
 
+## SNMP Traps (Push-Benachrichtigungen)
+
+RSGO sendet v2c-Traps an alle Empfänger aus dem Feld **Trap receivers**
+auf der Settings-Seite (Komma- oder Zeilenumbruch-getrennt, `host[:port]`,
+Default-Port `162`), sobald ein relevantes Domain-Event eintritt:
+
+| Trap | Domain-Event | Inhalt |
+| --- | --- | --- |
+| `rsgoProductDeploymentFailedTrap` | Ein ProductDeployment ist final auf `Failed`. | Produktname, Fehlermeldung |
+| `rsgoProductDeploymentAutoFinalizedTrap` | Eine stuck-Deployment wurde von RSGO automatisch finalisiert. | Produktname, Folge-Status, Begründung |
+| `rsgoProductMaintenanceModeChangedTrap` | Maintenance-Modus an/aus für ein Produkt. | Neuer Operation-Mode, Begründung |
+
+Traps werden nur gesendet, wenn der SNMP-Agent aktiviert ist und ein
+v2c-Community-String konfiguriert ist (dieser dient auch als Trap-Community).
+
 ## Einschränkungen (v0.65)
 
-- **Read-only.** Kein SET. Traps sind scaffolded (Receiver editierbar), die
-  Emission kommt in einer Folgephase.
-- **Nur SNMPv2c-Responses.** v3-Credentials authentifizieren eingehende
-  Requests korrekt, Antworten gehen aktuell aber via v2c — volle
+- **Read-only-Polling.** Kein SET.
+- **Nur SNMPv2c-Responses.** SNMPv3-Credentials authentifizieren eingehende
+  Requests korrekt, RSGO antwortet aktuell aber via v2c — volle
   v3-Responses kommen in einer Folgephase.

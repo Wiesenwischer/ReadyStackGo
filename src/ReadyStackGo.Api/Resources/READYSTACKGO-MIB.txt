@@ -16,7 +16,7 @@ READYSTACKGO-MIB DEFINITIONS ::= BEGIN
 --
 
 IMPORTS
-    MODULE-IDENTITY, OBJECT-TYPE,
+    MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
     Integer32, Counter32, TimeTicks
         FROM SNMPv2-SMI
     DateAndTime
@@ -43,6 +43,8 @@ rsgoEnvironmentTable  OBJECT IDENTIFIER ::= { readyStackGoMIB 2 }
 rsgoProductTable      OBJECT IDENTIFIER ::= { readyStackGoMIB 3 }
 rsgoStackTable        OBJECT IDENTIFIER ::= { readyStackGoMIB 4 }
 rsgoServiceTable      OBJECT IDENTIFIER ::= { readyStackGoMIB 5 }
+rsgoNotifications     OBJECT IDENTIFIER ::= { readyStackGoMIB 6 }
+rsgoTrapVarBinds      OBJECT IDENTIFIER ::= { readyStackGoMIB 7 }
 
 --
 -- rsgoSystem — scalars
@@ -316,5 +318,42 @@ rsgoServiceHealthStatus    OBJECT-TYPE
     MAX-ACCESS read-only STATUS current ::= { rsgoServiceEntry 8 }
 rsgoServiceRestartCount    OBJECT-TYPE SYNTAX Counter32 MAX-ACCESS read-only STATUS current ::= { rsgoServiceEntry 9 }
 rsgoServiceLastHealthCheck OBJECT-TYPE SYNTAX DateAndTime MAX-ACCESS read-only STATUS current ::= { rsgoServiceEntry 10 }
+
+--
+-- Trap VarBinds — the payload objects RSGO attaches to its notifications.
+--
+rsgoTrapProductId      OBJECT-TYPE SYNTAX OCTET STRING MAX-ACCESS accessible-for-notify STATUS current ::= { rsgoTrapVarBinds 1 }
+rsgoTrapProductName    OBJECT-TYPE SYNTAX OCTET STRING MAX-ACCESS accessible-for-notify STATUS current ::= { rsgoTrapVarBinds 2 }
+rsgoTrapProductVersion OBJECT-TYPE SYNTAX OCTET STRING MAX-ACCESS accessible-for-notify STATUS current ::= { rsgoTrapVarBinds 3 }
+rsgoTrapStatus         OBJECT-TYPE SYNTAX Integer32   MAX-ACCESS accessible-for-notify STATUS current ::= { rsgoTrapVarBinds 4 }
+rsgoTrapStatusText     OBJECT-TYPE SYNTAX OCTET STRING MAX-ACCESS accessible-for-notify STATUS current ::= { rsgoTrapVarBinds 5 }
+rsgoTrapMessage        OBJECT-TYPE SYNTAX OCTET STRING MAX-ACCESS accessible-for-notify STATUS current ::= { rsgoTrapVarBinds 6 }
+rsgoTrapOperationMode  OBJECT-TYPE SYNTAX Integer32   MAX-ACCESS accessible-for-notify STATUS current ::= { rsgoTrapVarBinds 7 }
+
+--
+-- Notifications (SNMP v2c traps)
+--
+rsgoProductDeploymentFailedTrap NOTIFICATION-TYPE
+    OBJECTS { rsgoTrapProductName, rsgoTrapMessage }
+    STATUS  current
+    DESCRIPTION "A product deployment transitioned into Failed state."
+    ::= { rsgoNotifications 1 }
+
+rsgoProductDeploymentAutoFinalizedTrap NOTIFICATION-TYPE
+    OBJECTS { rsgoTrapProductName, rsgoTrapStatus, rsgoTrapStatusText, rsgoTrapMessage }
+    STATUS  current
+    DESCRIPTION
+        "A stuck product deployment was automatically finalized by RSGO
+         after the orchestrator went away. rsgoTrapStatus carries the
+         resulting product status (Running, PartiallyRunning or Failed)."
+    ::= { rsgoNotifications 2 }
+
+rsgoProductMaintenanceModeChangedTrap NOTIFICATION-TYPE
+    OBJECTS { rsgoTrapOperationMode, rsgoTrapMessage }
+    STATUS  current
+    DESCRIPTION
+        "A product deployment's operation mode switched between Normal and
+         Maintenance. rsgoTrapOperationMode carries the new mode."
+    ::= { rsgoNotifications 3 }
 
 END

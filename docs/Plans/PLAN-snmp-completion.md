@@ -19,7 +19,7 @@ v0.64 hat SNMP als read-only-MVP mit v2c-Polling und einer read-only Settings-Se
 
 - [x] **Feature 6: Editable WebUI** — `/settings/snmp` wird read/write: Enable-Toggle, Port, Community, TrapReceivers Inputs; v3-User-Liste mit Add-Dialog (Name + Auth-Protokoll + Passphrase + Priv-Protokoll + Passphrase) und Delete-Action. OID-Reference-Tree und MIB-Download bleiben.
 
-- [ ] **Feature 7: SNMP Traps** — *Wandert in eine Folgephase (eigene Session).* `TrapReceivers`-Feld ist im UI und in der DB vorbereitet; Trap-Emission über `ISnmpTrapEmitter` Application-Service kommt separat.
+- [x] **Feature 7: SNMP Traps** — `ISnmpTrapEmitter` + `SnmpTrapEmitter` (SharpSnmp `Messenger.SendTrapV2Async`) sendet an alle Empfänger aus `SnmpSettings.TrapReceivers`. Drei MediatR-Handler hängen auf `ProductDeploymentFailed`, `ProductDeploymentAutoFinalized`, `ProductMaintenanceModeChanged`. MIB um `rsgoNotifications` + `rsgoTrapVarBinds` erweitert.
 
 - [x] **Feature 8: smilint CI** — `.github/workflows/mib-lint.yml` installiert `smitools` und validiert `READYSTACKGO-MIB.txt` auf PRs + Pushes.
 
