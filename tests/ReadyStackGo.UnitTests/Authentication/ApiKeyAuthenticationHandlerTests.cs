@@ -118,6 +118,59 @@ public class ApiKeyAuthenticationHandlerTests
     }
 
     [Fact]
+    public async Task ValidKeyInQueryString_ReturnsSuccess()
+    {
+        // PRTG "HTTP Data Advanced" sensors cannot inject custom headers, so the
+        // handler also accepts ?apikey=… as a fallback transport.
+        var rawKey = "rsgo_queryparamtest1234";
+        var orgId = OrganizationId.Create();
+        var apiKey = CreateTestApiKey(rawKey, orgId, new List<string> { "Settings.Read" });
+
+        var keyHash = ApiKeyHasher.ComputeSha256Hash(rawKey);
+        _httpContext.Request.QueryString = new QueryString(
+            "?" + ApiKeyAuthenticationHandler.QueryStringParameterName + "=" + rawKey);
+        _repositoryMock.Setup(r => r.GetByKeyHash(keyHash)).Returns(apiKey);
+
+        var result = await AuthenticateAsync();
+
+        result.Succeeded.Should().BeTrue();
+        result.Principal!.Identity!.IsAuthenticated.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task QueryStringHasEmptyValue_ReturnsNoResult()
+    {
+        _httpContext.Request.QueryString = new QueryString(
+            "?" + ApiKeyAuthenticationHandler.QueryStringParameterName + "=");
+
+        var result = await AuthenticateAsync();
+
+        result.None.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task HeaderTakesPrecedenceOverQueryString()
+    {
+        // If both are set, the header wins (header is the documented default).
+        var rawKey = "rsgo_headerwinstest1234";
+        var orgId = OrganizationId.Create();
+        var apiKey = CreateTestApiKey(rawKey, orgId, new List<string> { "Settings.Read" });
+
+        var keyHash = ApiKeyHasher.ComputeSha256Hash(rawKey);
+        _httpContext.Request.Headers[ApiKeyAuthenticationHandler.HeaderName] = rawKey;
+        _httpContext.Request.QueryString = new QueryString(
+            "?" + ApiKeyAuthenticationHandler.QueryStringParameterName + "=rsgo_some_other_key");
+        _repositoryMock.Setup(r => r.GetByKeyHash(keyHash)).Returns(apiKey);
+
+        var result = await AuthenticateAsync();
+
+        result.Succeeded.Should().BeTrue();
+        // The other (bogus) key from the query string should never have been looked up.
+        _repositoryMock.Verify(r => r.GetByKeyHash(ApiKeyHasher.ComputeSha256Hash("rsgo_some_other_key")),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task RevokedKey_ReturnsFail()
     {
         var rawKey = "rsgo_testrevokedkey1234";

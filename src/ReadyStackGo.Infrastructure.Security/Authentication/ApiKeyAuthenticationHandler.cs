@@ -21,6 +21,16 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
 {
     public const string SchemeName = "ApiKey";
     public const string HeaderName = "X-Api-Key";
+
+    /// <summary>
+    /// Query-string parameter alternative to <see cref="HeaderName"/>. Some
+    /// monitoring tools (e.g. PRTG "HTTP Data Advanced" sensors) only accept
+    /// a single URL field and cannot inject custom request headers — the
+    /// query-string fallback is the only way to wire them in one click. The
+    /// header form remains the documented default for everything else.
+    /// </summary>
+    public const string QueryStringParameterName = "apikey";
+
     private const string KeyPrefix = "rsgo_";
 
     private readonly IServiceProvider _serviceProvider;
@@ -37,13 +47,18 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        if (!Request.Headers.TryGetValue(HeaderName, out var headerValue))
+        // Header is the documented default; query-string is a one-click fallback
+        // for tools like PRTG that can only configure a URL (no headers).
+        string rawKey;
+        if (Request.Headers.TryGetValue(HeaderName, out var headerValue) && !string.IsNullOrEmpty(headerValue))
         {
-            return Task.FromResult(AuthenticateResult.NoResult());
+            rawKey = headerValue.ToString();
         }
-
-        var rawKey = headerValue.ToString();
-        if (string.IsNullOrEmpty(rawKey))
+        else if (Request.Query.TryGetValue(QueryStringParameterName, out var queryValue) && !string.IsNullOrEmpty(queryValue))
+        {
+            rawKey = queryValue.ToString();
+        }
+        else
         {
             return Task.FromResult(AuthenticateResult.NoResult());
         }

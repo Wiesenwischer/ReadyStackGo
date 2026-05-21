@@ -12,6 +12,7 @@ Du brauchst keine SNMP-Erfahrung, um dieser Anleitung zu folgen — die Begriffe
 - [Sicherheitsmodelle (Community vs. USM)](/de/docs/monitoring/snmp/sicherheit) — wann reicht v2c, wann brauchst du v3
 - [Auth- und Priv-Algorithmen](/de/docs/monitoring/snmp/auth-priv) — welcher Algorithmus heute noch akzeptabel ist
 - [PRTG-Integration mit einem Klick](/de/docs/monitoring/snmp/prtg) — fertiges Device-Template + MIB + Lookups herunterladen
+- [PRTG HTTP Sensor (5-Min-Setup)](/de/docs/monitoring/snmp/prtg-http-sensor) — ein PRTG-Sensor, eine URL, keine Server-Installation
 :::
 
 ## Was kann der ReadyStackGo SNMP-Agent?
@@ -309,6 +310,7 @@ Wenn der MIB-Import sauber gelaufen ist, sieht PRTG nicht `99999.1.6.1`, sondern
 ## Weiterlesen
 
 - [PRTG-Integration mit einem Klick](/de/docs/monitoring/snmp/prtg) — Bundle-Download, Schritt-für-Schritt-Setup
+- [PRTG HTTP Sensor (5-Min-Setup)](/de/docs/monitoring/snmp/prtg-http-sensor) — kleinster gemeinsamer Nenner: eine URL, ein Sensor
 - [SNMP-Grundlagen & Geschichte](/de/docs/monitoring/snmp/grundlagen) — wie SNMP funktioniert, warum es v1/v2c/v3 gibt
 - [Sicherheitsmodelle (Community vs. USM)](/de/docs/monitoring/snmp/sicherheit) — Auswahl-Entscheidung mit Vor- und Nachteilen
 - [Auth- und Priv-Algorithmen](/de/docs/monitoring/snmp/auth-priv) — welcher Algorithmus heute noch akzeptabel ist
