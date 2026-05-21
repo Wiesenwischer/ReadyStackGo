@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ReadyStackGo Device Template for PRTG Network Monitor.
+
+  This template is generated at request-time by ReadyStackGo so that every
+  OID is rooted at the current SNMP Root OID configured in the agent
+  (default 1.3.6.1.4.1.99999.1, replaced once an IANA PEN is assigned).
+
+  Place the file in:
+    C:\Program Files (x86)\PRTG Network Monitor\devicetemplates\readystackgo.template
+
+  Then restart the PRTG probe service (or reload templates from the web UI)
+  and run Auto-Discovery against your ReadyStackGo host.
+-->
+<devicetemplate id="readystackgo" priority="50">
+  <check requires="SNMP">
+    <id>rsgoSystemVersion</id>
+    <kind>snmpcustomstring</kind>
+    <data>
+      <oid>{{rootOid}}.1.1.0</oid>
+    </data>
+  </check>
+
+  <create>
+    <!-- ============================================================== -->
+    <!-- System Scalars                                                 -->
+    <!-- ============================================================== -->
+    <createdata>
+      <kind>snmpcustomstring</kind>
+      <displayname>RSGO: System Version</displayname>
+      <data>
+        <oid>{{rootOid}}.1.1.0</oid>
+      </data>
+    </createdata>
+
+    <createdata>
+      <kind>snmpcustomstring</kind>
+      <displayname>RSGO: Build Timestamp</displayname>
+      <data>
+        <oid>{{rootOid}}.1.6.0</oid>
+      </data>
+    </createdata>
+
+    <createdata>
+      <kind>snmpcustom</kind>
+      <displayname>RSGO: DB Health</displayname>
+      <data>
+        <oid>{{rootOid}}.1.5.0</oid>
+        <unit>Custom</unit>
+        <customunit>state</customunit>
+        <valuelookup>rsgo.dbhealth</valuelookup>
+      </data>
+    </createdata>
+
+    <createdata>
+      <kind>snmpcustom</kind>
+      <displayname>RSGO: Environment Count</displayname>
+      <data>
+        <oid>{{rootOid}}.1.3.0</oid>
+        <unit>Count</unit>
+      </data>
+    </createdata>
+
+    <createdata>
+      <kind>snmpcustom</kind>
+      <displayname>RSGO: Source Count</displayname>
+      <data>
+        <oid>{{rootOid}}.1.4.0</oid>
+        <unit>Count</unit>
+      </data>
+    </createdata>
+
+    <!-- ============================================================== -->
+    <!-- Environment Table                                              -->
+    <!-- ============================================================== -->
+    <createdata>
+      <kind>snmpcustomtable</kind>
+      <displayname>RSGO: Environments</displayname>
+      <data>
+        <interval>60</interval>
+        <baseoid>{{rootOid}}.2.1</baseoid>
+        <namecolumn>3</namecolumn>
+        <columns>
+          <column id="4" name="Type" unit="Custom" customunit="type" valuelookup="rsgo.environmenttype" />
+        </columns>
+      </data>
+    </createdata>
+
+    <!-- ============================================================== -->
+    <!-- Product Deployment Table                                       -->
+    <!-- ============================================================== -->
+    <createdata>
+      <kind>snmpcustomtable</kind>
+      <displayname>RSGO: Product Deployments</displayname>
+      <data>
+        <interval>60</interval>
+        <baseoid>{{rootOid}}.3.1</baseoid>
+        <namecolumn>4</namecolumn>
+        <columns>
+          <column id="6" name="Status" unit="Custom" customunit="state" valuelookup="rsgo.productstatus" />
+          <column id="8" name="Operation Mode" unit="Custom" customunit="state" valuelookup="rsgo.operationmode" />
+          <column id="9" name="Total Stacks" unit="Count" />
+          <column id="10" name="Running Stacks" unit="Count" />
+          <column id="11" name="Failed Stacks" unit="Count" />
+        </columns>
+      </data>
+    </createdata>
+
+    <!-- ============================================================== -->
+    <!-- Stack Table                                                    -->
+    <!-- ============================================================== -->
+    <createdata>
+      <kind>snmpcustomtable</kind>
+      <displayname>RSGO: Stacks</displayname>
+      <data>
+        <interval>60</interval>
+        <baseoid>{{rootOid}}.4.1</baseoid>
+        <namecolumn>4</namecolumn>
+        <columns>
+          <column id="5" name="Status" unit="Custom" customunit="state" valuelookup="rsgo.stackstatus" />
+          <column id="7" name="Service Count" unit="Count" />
+        </columns>
+      </data>
+    </createdata>
+
+    <!-- ============================================================== -->
+    <!-- Service Table                                                  -->
+    <!-- ============================================================== -->
+    <createdata>
+      <kind>snmpcustomtable</kind>
+      <displayname>RSGO: Services</displayname>
+      <data>
+        <interval>60</interval>
+        <baseoid>{{rootOid}}.5.1</baseoid>
+        <namecolumn>5</namecolumn>
+        <columns>
+          <column id="7" name="Running" unit="Custom" customunit="state" valuelookup="rsgo.servicerunning" />
+          <column id="8" name="Health" unit="Custom" customunit="state" valuelookup="rsgo.healthstatus" />
+          <column id="9" name="Restart Count" unit="Count" />
+        </columns>
+      </data>
+    </createdata>
+  </create>
+</devicetemplate>

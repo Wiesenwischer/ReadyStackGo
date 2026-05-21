@@ -26,4 +26,9 @@
     <InternalsVisibleTo Include="ReadyStackGo.UnitTests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Snmp\Prtg\Resources\devicetemplates\readystackgo.template" />
+    <EmbeddedResource Include="Snmp\Prtg\Resources\README.txt" />
+  </ItemGroup>
+
 </Project>
