@@ -1,6 +1,8 @@
 <!-- GitHub Epic: #401 (Variant 2) -->
 # Phase: PRTG Integration — Variant 2 (Active Push via PRTG API)
 
+> **Status: ✅ DONE** — implemented as the inline PRTG registration on `ProductDeployment`, shipped in [PR #406](https://github.com/Wiesenwischer/ReadyStackGo/pull/406) (v0.66.0). The original plan modelled credentials as a separate `PrtgRegistration` Value Object; the actual implementation inlines the fields (`InlinePrtgUrl`, `InlinePrtgEncryptedToken`, `InlinePrtgTemplateDeviceId`, `InlinePrtgVerifyTls`) directly on `ProductDeployment`. Lifecycle handlers + PRTG HTTP client + tabbed UI on the deployment detail page were all built on V3's plumbing.
+
 ## Ziel
 
 RSGO bekommt einen Deploy-Time-Schalter "Register in PRTG". Wenn aktiviert, ruft RSGO beim Anlegen eines Product Deployments die PRTG-HTTP-API auf, legt dort ein Device + passende SNMP-Sensoren an, und entfernt das Device wieder, wenn das Deployment removed wird. URL und API-Token werden **pro Deployment** im Deploy-Wizard erfasst.

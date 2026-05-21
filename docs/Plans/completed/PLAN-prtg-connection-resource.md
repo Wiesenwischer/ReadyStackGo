@@ -1,6 +1,8 @@
 <!-- GitHub Epic: #401 (Variant 3) -->
 # Phase: PRTG Integration — Variant 3 (PrtgConnection Resource)
 
+> **Status: ✅ DONE** — shipped in [PR #405](https://github.com/Wiesenwischer/ReadyStackGo/pull/405) (v0.66.0). `PrtgConnection` aggregate + repository + EF migration + CRUD API + `/settings/prtg-connections` UI + `ProductDeployment.PrtgConnectionId` link + `PrtgApiClient` + 3 MediatR lifecycle handlers (Completed → register, Removed → deregister, Superseded → deregister). Detail-page UI followed in [PR #406](https://github.com/Wiesenwischer/ReadyStackGo/pull/406) with the "Saved connection" tab.
+
 ## Ziel
 
 Eine PRTG-Anbindung wird im Domain-Modell als wiederverwendbare **PrtgConnection**-Resource modelliert (analog zu `Registry`). Admins legen pro Umgebung ein- oder mehrere PRTG-Connections an, jeder Product Deployment kann optional einer Connection zugewiesen werden und wird beim Deploy automatisch registriert / beim Remove deregistriert.
