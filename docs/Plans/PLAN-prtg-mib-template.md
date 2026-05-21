@@ -7,6 +7,8 @@ RSGO bietet einen Ein-Klick-Export für PRTG: ein importierbares Device-Template
 
 Diese Variante ist der niedrigschwellige Einstieg in die PRTG-Integration: kein Outbound-Call von RSGO, keine Credential-Surface, kompatibel mit jeder PRTG-Lizenz (auch Freeware und PRTG Hosted) und mit allen abgeschotteten PRTG-Setups.
 
+> **Wenn dir "ZIP entpacken in `Program Files` + Probe-Service-Restart" zuviel Ceremonie ist** (real getestet 2026-05-21, klare Reaktion: "viel zu umständlich"), nimm stattdessen **[Variant 4 — HTTP Data Advanced Sensor](PLAN-prtg-http-json-sensor.md)**: ein einzelner PRTG-Sensor, eine URL, fertig. Variant 1 bleibt für tiefe Per-Stack-Granularität die richtige Wahl, ist aber explizit kein 5-Minuten-Setup.
+
 ## Analyse
 
 ### Bestehende Architektur
