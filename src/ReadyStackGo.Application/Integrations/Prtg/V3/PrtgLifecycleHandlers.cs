@@ -42,57 +42,98 @@ public sealed class PrtgRegisterDeviceOnCompletedHandler
     {
         var evt = notification.DomainEvent;
         var deployment = _deployments.Get(evt.ProductDeploymentId);
-        if (deployment?.PrtgConnectionId is null)
-            return; // not linked to a PRTG connection — nothing to do
+        if (deployment is null || !deployment.HasPrtgTarget)
+            return; // no PRTG target configured — nothing to do
 
-        var conn = _connections.Get(deployment.PrtgConnectionId);
-        if (conn is null)
-        {
-            _logger.LogWarning("ProductDeployment {Id} references missing PrtgConnection {ConnId}",
-                deployment.Id, deployment.PrtgConnectionId);
-            return;
-        }
-        if (conn.TemplateDeviceId is null)
-        {
-            _logger.LogInformation(
-                "PRTG connection '{Name}' has no TemplateDeviceId set — skipping auto-register for {ProductName}",
-                conn.Name, evt.ProductName);
-            return;
-        }
+        // Resolve target: saved connection (V3) wins over inline (V2).
+        var target = ResolvePrtgTarget(deployment, _connections, _encryption, _logger);
+        if (target is null)
+            return; // logged in ResolvePrtgTarget
 
         try
         {
-            var token = _encryption.Decrypt(conn.EncryptedApiToken);
-            var info = new PrtgConnectionInfo(conn.Url, token, conn.VerifyTls);
-
             // We use the product name; in a future iteration we may include the
             // RSGO host for clarity in multi-RSGO setups.
             var deviceName = $"RSGO: {deployment.ProductName} ({deployment.ProductVersion})";
-            var host = ExtractHostFromUrl(conn.Url) ?? "rsgo.local"; // PRTG won't accept empty host
+            var host = ExtractHostFromUrl(target.Value.Info.BaseUrl) ?? "rsgo.local"; // PRTG won't accept empty host
 
-            var newId = await _client.DuplicateDeviceAsync(info, conn.TemplateDeviceId.Value, deviceName, host, ct);
+            var newId = await _client.DuplicateDeviceAsync(target.Value.Info, target.Value.TemplateDeviceId, deviceName, host, ct);
             if (newId is null)
             {
                 _logger.LogWarning("PRTG duplicate-device failed for ProductDeployment {Id}", deployment.Id);
                 return;
             }
 
-            await _client.ResumeAsync(info, newId.Value, ct);
+            await _client.ResumeAsync(target.Value.Info, newId.Value, ct);
             deployment.RecordPrtgSync(newId.Value);
             _deployments.Update(deployment);
             _deployments.SaveChanges();
 
-            conn.RecordUsage();
-            _connections.Update(conn);
-            _connections.SaveChanges();
+            if (target.Value.Connection is not null)
+            {
+                target.Value.Connection.RecordUsage();
+                _connections.Update(target.Value.Connection);
+                _connections.SaveChanges();
+            }
 
-            _logger.LogInformation("Registered ProductDeployment {Id} as PRTG device {PrtgId} on '{ConnName}'",
-                deployment.Id, newId, conn.Name);
+            _logger.LogInformation("Registered ProductDeployment {Id} as PRTG device {PrtgId} on {Url}",
+                deployment.Id, newId, target.Value.Info.BaseUrl);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "PRTG auto-register failed for ProductDeployment {Id}", deployment.Id);
         }
+    }
+
+    /// <summary>
+    /// Resolves a deployment's PRTG target — either a saved connection (V3, wins
+    /// when both are set) or the inline per-deployment credentials (V2). Logs
+    /// and returns null when the target is misconfigured (e.g. missing template).
+    /// </summary>
+    internal static (PrtgConnectionInfo Info, int TemplateDeviceId, PrtgConnection? Connection)?
+        ResolvePrtgTarget(
+            ProductDeployment deployment,
+            IPrtgConnectionRepository connections,
+            ICredentialEncryptionService encryption,
+            ILogger logger)
+    {
+        if (deployment.PrtgConnectionId is not null)
+        {
+            var conn = connections.Get(deployment.PrtgConnectionId);
+            if (conn is null)
+            {
+                logger.LogWarning("ProductDeployment {Id} references missing PrtgConnection {ConnId}",
+                    deployment.Id, deployment.PrtgConnectionId);
+                return null;
+            }
+            if (conn.TemplateDeviceId is null)
+            {
+                logger.LogInformation(
+                    "PRTG connection '{Name}' has no TemplateDeviceId set — skipping auto-register",
+                    conn.Name);
+                return null;
+            }
+            var token = encryption.Decrypt(conn.EncryptedApiToken);
+            return (new PrtgConnectionInfo(conn.Url, token, conn.VerifyTls), conn.TemplateDeviceId.Value, conn);
+        }
+
+        // Inline (V2): URL + encrypted token + optional template id
+        if (!string.IsNullOrEmpty(deployment.InlinePrtgUrl)
+            && !string.IsNullOrEmpty(deployment.InlinePrtgEncryptedToken))
+        {
+            if (deployment.InlinePrtgTemplateDeviceId is null)
+            {
+                logger.LogInformation(
+                    "ProductDeployment {Id} has inline PRTG credentials but no TemplateDeviceId — skipping auto-register",
+                    deployment.Id);
+                return null;
+            }
+            var token = encryption.Decrypt(deployment.InlinePrtgEncryptedToken);
+            return (new PrtgConnectionInfo(deployment.InlinePrtgUrl, token, deployment.InlinePrtgVerifyTls),
+                    deployment.InlinePrtgTemplateDeviceId.Value, null);
+        }
+
+        return null;
     }
 
     private static string? ExtractHostFromUrl(string url)
@@ -140,18 +181,23 @@ public sealed class PrtgDeregisterOnRemovedHandler
         CancellationToken ct)
     {
         var deployment = deployments.Get(deploymentId);
-        if (deployment?.PrtgConnectionId is null || deployment.PrtgDeviceId is null)
+        if (deployment is null || deployment.PrtgDeviceId is null)
             return; // never registered, or already cleaned up
 
-        var conn = connections.Get(deployment.PrtgConnectionId);
-        if (conn is null) return;
+        // Resolve the same target the Register handler used. If both saved + inline
+        // were cleared since registration, we can't deregister — log and exit.
+        var target = PrtgRegisterDeviceOnCompletedHandler
+            .ResolvePrtgTarget(deployment, connections, encryption, logger);
+        if (target is null)
+        {
+            logger.LogWarning("ProductDeployment {Id} has a PrtgDeviceId but no resolvable target — skipping deregister",
+                deployment.Id);
+            return;
+        }
 
         try
         {
-            var token = encryption.Decrypt(conn.EncryptedApiToken);
-            var info = new PrtgConnectionInfo(conn.Url, token, conn.VerifyTls);
-
-            var deleted = await client.DeleteObjectAsync(info, deployment.PrtgDeviceId.Value, ct);
+            var deleted = await client.DeleteObjectAsync(target.Value.Info, deployment.PrtgDeviceId.Value, ct);
             if (deleted)
             {
                 logger.LogInformation("Deleted PRTG device {PrtgId} for ProductDeployment {Id}",

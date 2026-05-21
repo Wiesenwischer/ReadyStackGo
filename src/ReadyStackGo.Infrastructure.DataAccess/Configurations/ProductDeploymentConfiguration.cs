@@ -99,6 +99,12 @@ public class ProductDeploymentConfiguration : IEntityTypeConfiguration<ProductDe
         builder.Property(d => d.PrtgLastSyncedAt);
         builder.HasIndex(d => d.PrtgConnectionId);
 
+        // Inline PRTG registration (Variant 2 — ad-hoc credentials per deployment).
+        builder.Property(d => d.InlinePrtgUrl).HasMaxLength(500);
+        builder.Property(d => d.InlinePrtgEncryptedToken).HasMaxLength(2000);
+        builder.Property(d => d.InlinePrtgTemplateDeviceId);
+        builder.Property(d => d.InlinePrtgVerifyTls).HasDefaultValue(true);
+
         // Configure OperationMode
         builder.Property(d => d.OperationMode)
             .HasConversion(

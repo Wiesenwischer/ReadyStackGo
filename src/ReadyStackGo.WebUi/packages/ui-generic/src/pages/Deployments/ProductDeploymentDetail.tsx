@@ -1,8 +1,13 @@
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router";
 import {
   useProductDeploymentDetailStore,
   getOperationModePresentation,
+  listPrtgConnections,
+  linkProductDeploymentToPrtgConnection,
+  setInlinePrtgRegistration,
   type ProductStackDeploymentDto,
+  type PrtgConnectionDto,
 } from '@rsgo/core';
 import { useAuth } from "../../context/AuthContext";
 import { useEnvironment } from "../../context/EnvironmentContext";
@@ -331,6 +336,19 @@ export default function ProductDeploymentDetail() {
         </div>
       </div>
 
+      {/* PRTG monitoring */}
+      <PrtgMonitoringCard
+        productDeploymentId={deployment.productDeploymentId}
+        prtgConnectionId={deployment.prtgConnectionId ?? null}
+        prtgDeviceId={deployment.prtgDeviceId ?? null}
+        prtgLastSyncedAt={deployment.prtgLastSyncedAt ?? null}
+        inlineUrl={deployment.inlinePrtgUrl ?? null}
+        hasInlineApiToken={deployment.hasInlinePrtgApiToken ?? false}
+        inlineTemplateDeviceId={deployment.inlinePrtgTemplateDeviceId ?? null}
+        inlineVerifyTls={deployment.inlinePrtgVerifyTls ?? true}
+        formatDate={store.formatDate}
+      />
+
       {/* Shared Variables */}
       {variableEntries.length > 0 && (
         <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
@@ -447,4 +465,298 @@ function StackRow({ stack, parentOperationMode, formatDate, formatStackDuration 
   }
 
   return <div>{content}</div>;
+}
+
+// ============================================================================
+// PRTG monitoring card (Variant 3)
+// ============================================================================
+
+interface PrtgMonitoringCardProps {
+  productDeploymentId: string;
+  prtgConnectionId: string | null;
+  prtgDeviceId: number | null;
+  prtgLastSyncedAt: string | null;
+  inlineUrl: string | null;
+  hasInlineApiToken: boolean;
+  inlineTemplateDeviceId: number | null;
+  inlineVerifyTls: boolean;
+  formatDate: (dateString: string) => string;
+}
+
+type PrtgMode = 'connection' | 'inline';
+
+function PrtgMonitoringCard(props: PrtgMonitoringCardProps) {
+  const {
+    productDeploymentId,
+    prtgConnectionId,
+    prtgDeviceId,
+    prtgLastSyncedAt,
+    inlineUrl,
+    hasInlineApiToken,
+    inlineTemplateDeviceId,
+    inlineVerifyTls,
+    formatDate,
+  } = props;
+
+  const [connections, setConnections] = useState<PrtgConnectionDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Default mode: whichever is currently configured, falling back to connection.
+  const [mode, setMode] = useState<PrtgMode>(inlineUrl ? 'inline' : 'connection');
+
+  // Connection-mode state
+  const [selected, setSelected] = useState<string>(prtgConnectionId ?? '');
+
+  // Inline-mode state
+  const [inline, setInline] = useState({
+    url: inlineUrl ?? '',
+    apiToken: '',
+    templateDeviceId: inlineTemplateDeviceId !== null ? String(inlineTemplateDeviceId) : '',
+    verifyTls: inlineVerifyTls,
+  });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        const list = await listPrtgConnections();
+        setConnections(list);
+        setError(null);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    setSelected(prtgConnectionId ?? '');
+  }, [prtgConnectionId]);
+
+  const linkedConnection = connections.find((c) => c.id === prtgConnectionId);
+
+  const saveConnection = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await linkProductDeploymentToPrtgConnection(
+        productDeploymentId,
+        selected === '' ? null : selected,
+      );
+      window.location.reload();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+      setSaving(false);
+    }
+  };
+
+  const saveInline = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const url = inline.url.trim();
+      await setInlinePrtgRegistration(productDeploymentId, {
+        url: url === '' ? null : url,
+        apiToken: inline.apiToken === '' ? null : inline.apiToken,
+        templateDeviceId: inline.templateDeviceId === '' ? null : Number(inline.templateDeviceId),
+        verifyTls: inline.verifyTls,
+      });
+      window.location.reload();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+      setSaving(false);
+    }
+  };
+
+  const clearInline = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await setInlinePrtgRegistration(productDeploymentId, {
+        url: null,
+        verifyTls: true,
+      });
+      window.location.reload();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+      <div className="px-4 py-5 md:px-6">
+        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">PRTG monitoring</h4>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          RSGO can auto-register this deployment as a PRTG device when it goes Running and
+          auto-deregister on remove. Pick a saved <strong>connection</strong> (reusable across
+          deployments) or enter <strong>inline credentials</strong> for one-off setups.
+        </p>
+      </div>
+
+      {/* Tab bar */}
+      <div className="border-t border-gray-200 dark:border-gray-700 px-4 md:px-6 pt-3 flex gap-2">
+        <button
+          onClick={() => setMode('connection')}
+          className={`px-3 py-1.5 text-sm rounded-md ${
+            mode === 'connection'
+              ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300'
+              : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800/50'
+          }`}
+        >
+          Saved connection
+        </button>
+        <button
+          onClick={() => setMode('inline')}
+          className={`px-3 py-1.5 text-sm rounded-md ${
+            mode === 'inline'
+              ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300'
+              : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800/50'
+          }`}
+        >
+          Inline (ad-hoc)
+        </button>
+      </div>
+
+      {mode === 'connection' ? (
+        <div className="px-4 py-4 md:px-6 space-y-3">
+          {loading ? (
+            <p className="text-sm text-gray-500">Loading PRTG connections…</p>
+          ) : connections.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No saved PRTG connections.{' '}
+              <Link to="/settings/prtg-connections" className="text-brand-600 hover:underline">
+                Add one in Settings
+              </Link>
+              {' '}or use the <em>Inline (ad-hoc)</em> tab for one-off credentials.
+            </p>
+          ) : (
+            <>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-gray-500 dark:text-gray-400">Connection</span>
+                <select
+                  value={selected}
+                  onChange={(e) => setSelected(e.target.value)}
+                  className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-brand-500"
+                  disabled={saving}
+                >
+                  <option value="">— Not linked —</option>
+                  {connections.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.url})</option>
+                  ))}
+                </select>
+              </label>
+
+              {prtgConnectionId && (
+                <div className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-gray-800/50 dark:text-gray-300">
+                  {linkedConnection
+                    ? <>Linked to <strong>{linkedConnection.name}</strong>.</>
+                    : <>Linked to a connection that is no longer in the list (deleted?). Selecting another will replace it.</>}
+                  {prtgDeviceId !== null && (
+                    <> Registered as PRTG device <code className="font-mono">{prtgDeviceId}</code>.</>
+                  )}
+                  {prtgLastSyncedAt && (
+                    <> Last sync: {formatDate(prtgLastSyncedAt)}.</>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={saveConnection}
+                  disabled={saving || selected === (prtgConnectionId ?? '')}
+                  className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+                >
+                  {saving ? 'Saving…' : (selected === '' ? 'Unlink' : 'Save link')}
+                </button>
+                {error && <span className="text-sm text-red-600 dark:text-red-400">{error}</span>}
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="px-4 py-4 md:px-6 space-y-3">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Inline credentials are stored encrypted on this single deployment. They take
+            precedence over any saved connection (saving inline clears the connection link).
+            Use this for ad-hoc / customer-hosted PRTG setups.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-gray-500 dark:text-gray-400">URL</span>
+              <input
+                value={inline.url}
+                onChange={(e) => setInline({ ...inline, url: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-brand-500"
+                placeholder="https://prtg.example.local"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-gray-500 dark:text-gray-400">
+                API token / passhash {hasInlineApiToken && <span className="text-xs italic">(leave empty to keep existing)</span>}
+              </span>
+              <input
+                type="password"
+                value={inline.apiToken}
+                onChange={(e) => setInline({ ...inline, apiToken: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-brand-500"
+                placeholder={hasInlineApiToken ? '••••••••••' : 'PRTG API token or passhash'}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-gray-500 dark:text-gray-400">Template Device ID</span>
+              <input
+                type="number"
+                value={inline.templateDeviceId}
+                onChange={(e) => setInline({ ...inline, templateDeviceId: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-brand-500"
+                placeholder="e.g. 4221"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={inline.verifyTls}
+                onChange={(e) => setInline({ ...inline, verifyTls: e.target.checked })}
+                className="rounded text-brand-600 focus:ring-brand-500"
+              />
+              <span className="text-gray-700 dark:text-gray-200">Verify TLS certificate</span>
+            </label>
+          </div>
+
+          {prtgDeviceId !== null && inlineUrl && (
+            <div className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-gray-800/50 dark:text-gray-300">
+              Registered as PRTG device <code className="font-mono">{prtgDeviceId}</code> on{' '}
+              <span className="font-mono">{inlineUrl}</span>.
+              {prtgLastSyncedAt && <> Last sync: {formatDate(prtgLastSyncedAt)}.</>}
+            </div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={saveInline}
+              disabled={saving || !inline.url || (!hasInlineApiToken && !inline.apiToken)}
+              className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : 'Save inline'}
+            </button>
+            {inlineUrl && (
+              <button
+                onClick={clearInline}
+                disabled={saving}
+                className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
+              >
+                Clear inline
+              </button>
+            )}
+            {error && <span className="text-sm text-red-600 dark:text-red-400">{error}</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
