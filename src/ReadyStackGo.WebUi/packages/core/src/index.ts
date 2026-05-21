@@ -13,6 +13,7 @@ export * from './api/health';
 export * from './api/notifications';
 export * from './api/onboarding';
 export * from './api/organizations';
+export * from './api/prtgConnections';
 export * from './api/registries';
 export * from './api/stackSources';
 export * from './api/stacks';

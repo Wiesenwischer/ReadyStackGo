@@ -73,6 +73,20 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     public MaintenanceTrigger? MaintenanceTrigger { get; private set; }
     public MaintenanceObserverConfig? MaintenanceObserverConfig { get; private set; }
 
+    // ── PRTG Integration (Variant 3 — PrtgConnection-Resource) ─────
+    /// <summary>
+    /// Optional reference to a reusable <c>PrtgConnection</c>. When set,
+    /// lifecycle handlers auto-register the deployment as a PRTG device when
+    /// it completes and auto-deregister on remove/supersede.
+    /// </summary>
+    public PrtgConnections.PrtgConnectionId? PrtgConnectionId { get; private set; }
+
+    /// <summary>The PRTG device-id this deployment was registered as. Set by the lifecycle handler.</summary>
+    public int? PrtgDeviceId { get; private set; }
+
+    /// <summary>UTC of the last successful PRTG register/sync.</summary>
+    public DateTime? PrtgLastSyncedAt { get; private set; }
+
     // ── Phase History ────────────────────────────────────────────────
     private readonly List<ProductDeploymentPhaseRecord> _phaseHistory = new();
     public IReadOnlyCollection<ProductDeploymentPhaseRecord> PhaseHistory => _phaseHistory.AsReadOnly();
@@ -581,6 +595,38 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
 
         RecordPhase($"Superseded by {successorId.Value} (was {previousStatus})");
         AddDomainEvent(new ProductDeploymentSuperseded(Id, ProductName, ProductVersion, successorId));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // PRTG Integration (Variant 3)
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Attaches this deployment to a reusable PRTG connection. Lifecycle handlers
+    /// register/deregister a PRTG device based on this link.
+    /// </summary>
+    public void LinkPrtgConnection(PrtgConnections.PrtgConnectionId connectionId)
+    {
+        AssertArgumentNotNull(connectionId, "PrtgConnectionId is required.");
+        PrtgConnectionId = connectionId;
+        // PrtgDeviceId stays null until the lifecycle handler successfully
+        // creates the device on PRTG. PrtgLastSyncedAt likewise tracks the
+        // first successful sync.
+    }
+
+    /// <summary>Removes the PRTG connection link. Does not delete the PRTG device — caller does that.</summary>
+    public void UnlinkPrtgConnection()
+    {
+        PrtgConnectionId = null;
+        PrtgDeviceId = null;
+        PrtgLastSyncedAt = null;
+    }
+
+    /// <summary>Called by the lifecycle handler after successful PRTG device create/update.</summary>
+    public void RecordPrtgSync(int prtgDeviceId)
+    {
+        PrtgDeviceId = prtgDeviceId;
+        PrtgLastSyncedAt = SystemClock.UtcNow;
     }
 
     /// <summary>

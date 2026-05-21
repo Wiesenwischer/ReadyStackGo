@@ -149,6 +149,24 @@ public static class DependencyInjection
         // are themselves Scoped, so no behavior changes.
         services.AddScoped<IHealthCheckStrategyFactory, HealthCheckStrategyFactory>();
 
+        // PRTG HTTP API client (Variant 3) — separate verify/no-verify-TLS clients
+        // so customers with self-signed PRTG certificates can opt out of cert
+        // validation per-connection (set on the PrtgConnection aggregate).
+        services.AddHttpClient("PrtgApiVerifyTls", c =>
+        {
+            c.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-PrtgClient");
+        });
+        services.AddHttpClient("PrtgApiNoVerifyTls", c =>
+        {
+            c.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-PrtgClient");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        });
+        services.AddSingleton<ReadyStackGo.Application.Services.IPrtgApiClient,
+                              Services.Prtg.PrtgApiClient>();
+
         // SSH Tunnel services (v0.49)
         services.AddSingleton<ICredentialEncryptionService, CredentialEncryptionService>();
         services.AddSingleton<Docker.ISshTunnelManager, Docker.SshTunnelManager>();
