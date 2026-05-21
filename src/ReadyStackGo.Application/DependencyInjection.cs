@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.Services.Impl;
+using ReadyStackGo.Application.Snmp.Prtg;
 using ReadyStackGo.Application.UseCases.Deployments.Precheck;
 using ReadyStackGo.Application.UseCases.Deployments.Precheck.Rules;
 
@@ -24,6 +25,9 @@ public static class DependencyInjection
         // Distribution extension points (TryAdd: downstream distributions can register their own before calling AddApplication)
         services.TryAddSingleton<ISetupWizardDefinitionProvider, GenericSetupWizardDefinitionProvider>();
         services.TryAddScoped<IBootstrapper, GenericBootstrapper>();
+
+        // PRTG bundle builder — pure, deterministic, no state, safe as singleton
+        services.AddSingleton<IPrtgBundleBuilder, PrtgBundleBuilder>();
 
         return services;
     }

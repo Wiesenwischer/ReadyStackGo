@@ -4,6 +4,7 @@ import {
   getSnmpStatus,
   getOidReference,
   getMibDownloadUrl,
+  getPrtgBundleDownloadUrl,
   getSnmpSettings,
   updateSnmpSettings,
   listV3Users,
@@ -93,6 +94,8 @@ export default function SnmpSettingsPage() {
           </a>
         </div>
       </div>
+
+      <PrtgIntegrationCard />
 
       <OidReferenceTree reference={reference} />
     </div>
@@ -307,6 +310,53 @@ function Select({ label, value, options, onChange }: { label: string; value: str
         {options.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     </label>
+  );
+}
+
+function PrtgIntegrationCard() {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="md:flex-1">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">PRTG integration</h3>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Download a ready-to-use bundle for <strong>PRTG Network Monitor</strong>.
+            Includes a device template, the MIB and value lookups so PRTG renders
+            statuses (<span className="text-green-600 dark:text-green-400">Running</span>,
+            <span className="text-amber-600 dark:text-amber-400"> PartiallyRunning</span>,
+            <span className="text-red-600 dark:text-red-400"> Failed</span>) instead of
+            raw integers.
+          </p>
+          <ol className="mt-3 list-decimal pl-5 text-sm text-gray-600 dark:text-gray-300 space-y-1">
+            <li>
+              Stop the <em>PRTG Probe</em> service (or reload templates from the PRTG web UI
+              after copying the files).
+            </li>
+            <li>
+              Unpack the ZIP into <code className="text-xs">C:\Program Files (x86)\PRTG Network Monitor\</code>.
+              The folders inside match PRTG's layout so files land in the right place.
+            </li>
+            <li>
+              Import the MIB via <em>Paessler MIB Importer → File → Save for PRTG</em>.
+            </li>
+            <li>
+              Start the probe and run <em>Auto-Discovery (with template)</em> on your
+              ReadyStackGo device — pick "ReadyStackGo Deployment".
+            </li>
+          </ol>
+        </div>
+        <a
+          href={getPrtgBundleDownloadUrl()}
+          className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 self-start"
+          download
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+          </svg>
+          Download PRTG bundle
+        </a>
+      </div>
+    </div>
   );
 }
 

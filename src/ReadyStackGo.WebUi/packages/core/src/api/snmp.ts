@@ -74,6 +74,10 @@ export function getMibDownloadUrl(): string {
   return '/api/snmp/mib';
 }
 
+export function getPrtgBundleDownloadUrl(): string {
+  return '/api/snmp/prtg-bundle';
+}
+
 // ─── Editable settings (v0.65) ───────────────────────────────────────────
 
 export interface SnmpSettings {

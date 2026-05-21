@@ -121,14 +121,14 @@ Der Pfad in der ZIP entspricht der Ziel-Struktur unter `C:\Program Files (x86)\P
 
 Reihenfolge basierend auf Abhängigkeiten:
 
-- [ ] **Feature 1: PRTG Template Skeleton + Embedded Resources** — Template-XML mit `{{rootOid}}`-Platzhaltern, README-Text, vier Lookup-Skeletons. Alle als Embedded Resources unter `src/ReadyStackGo.Application/Snmp/Prtg/Resources/`.
+- [x] **Feature 1: PRTG Template Skeleton + Embedded Resources** — Template-XML mit `{{rootOid}}`-Platzhaltern, README-Text. Lookups werden zur Request-Zeit aus den Domain-Enums generiert (kein OVL-Skeleton nötig, Single Source of Truth). Alle als Embedded Resources unter `src/ReadyStackGo.Application/Snmp/Prtg/Resources/`.
   - Betroffene Dateien:
     - `src/ReadyStackGo.Application/Snmp/Prtg/Resources/readystackgo.template`
     - `src/ReadyStackGo.Application/Snmp/Prtg/Resources/README.txt`
     - `src/ReadyStackGo.Application/Snmp/Prtg/Resources/lookups/*.ovl`
   - Abhängig von: -
 
-- [ ] **Feature 2: PrtgBundleBuilder + GetPrtgBundleQuery** — Service liest Embedded Resources, interpoliert RootOid und Enum-Werte, baut In-Memory-ZIP. CQRS-Query in `@Application`.
+- [x] **Feature 2: PrtgBundleBuilder + GetPrtgBundleQuery** — Service liest Embedded Resources, interpoliert RootOid und Enum-Werte, baut In-Memory-ZIP. CQRS-Query in `@Application`.
   - Betroffene Dateien:
     - `src/ReadyStackGo.Application/Snmp/Prtg/PrtgBundleBuilder.cs`
     - `src/ReadyStackGo.Application/Snmp/Prtg/GetPrtgBundleQuery.cs`
@@ -136,27 +136,28 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Pattern-Vorlage: bestehende MIB-Download-Query
   - Abhängig von: Feature 1
 
-- [ ] **Feature 3: REST-Endpoint** — `GET /api/snmp/prtg-bundle` mit `[RequirePermission("Snmp","Read")]` + `RbacPreProcessor`, Response `application/zip`, Dateiname `readystackgo-prtg-bundle-{version}.zip`.
+- [x] **Feature 3: REST-Endpoint** — `GET /api/snmp/prtg-bundle` mit `[RequirePermission("Snmp","Read")]` + `RbacPreProcessor`, Response `application/zip`, Dateiname `readystackgo-prtg-bundle-{version}.zip`.
   - Betroffene Dateien:
     - `src/ReadyStackGo.Api/Endpoints/Snmp/GetPrtgBundleEndpoint.cs`
   - Abhängig von: Feature 2
 
-- [ ] **Feature 4: Core-Hook + API-Client** — `useDownloadPrtgBundle()` in `@rsgo/core` triggert den Download (Browser-Save-Dialog). API-Funktion `downloadPrtgBundle()` in `packages/core/src/api/snmp.ts`.
+- [x] **Feature 4: Core-Hook + API-Client** — kein dedizierter Hook nötig, der Download ist ein simples `<a href download>` (parallel zum MIB-Download). API-Funktion `getPrtgBundleDownloadUrl()` in `packages/core/src/api/snmp.ts`. — `useDownloadPrtgBundle()` in `@rsgo/core` triggert den Download (Browser-Save-Dialog). API-Funktion `downloadPrtgBundle()` in `packages/core/src/api/snmp.ts`.
   - Betroffene Dateien:
     - `src/ReadyStackGo.WebUi/packages/core/src/api/snmp.ts`
     - `src/ReadyStackGo.WebUi/packages/core/src/hooks/usePrtgBundle.ts`
   - Abhängig von: Feature 3
 
-- [ ] **Feature 5: WebUI-Section "PRTG Integration"** — neue Section auf der SNMP-Settings-Page mit Download-Button und Setup-Anleitung (3 Schritte: ZIP herunterladen, in PRTG-Programmverzeichnis entpacken, in PRTG Auto-Discovery starten). Permission-gated (`Snmp:Read`).
+- [x] **Feature 5: WebUI-Section "PRTG Integration"** — neue Section auf der SNMP-Settings-Page mit Download-Button und Setup-Anleitung (3 Schritte: ZIP herunterladen, in PRTG-Programmverzeichnis entpacken, in PRTG Auto-Discovery starten). Permission-gated (`Snmp:Read`).
   - Betroffene Dateien:
     - `src/ReadyStackGo.WebUi/packages/ui-generic/src/pages/Settings/Snmp/PrtgIntegrationSection.tsx`
     - `src/ReadyStackGo.WebUi/packages/ui-generic/src/pages/Settings/Snmp/SnmpSettingsPage.tsx` (Section einhängen)
   - Abhängig von: Feature 4
 
-- [ ] **Feature 6: Public Website Doc** — Reference-Page "PRTG Integration" unter DE/EN mit Screenshots des Import-Wizards, Beispiel-Sensor-Konfigurationen und Verlinkung auf die SNMP-Reference.
-  - Betroffene Dateien:
-    - `public-website/src/content/docs/reference/prtg-integration.md` (DE)
-    - `public-website/src/content/docs/en/reference/prtg-integration.md` (EN)
+- [x] **Feature 6: Public Website Doc** — Reference-Page "PRTG Integration" unter DE/EN mit Bundle-Layout, Schritt-für-Schritt-Anleitung, Lookup-State-Mapping-Tabelle und Verlinkung von der SNMP-Hauptseite.
+  - Tatsächlich abgelegt unter:
+    - `src/ReadyStackGo.PublicWeb/src/content/docs/de/docs/monitoring/snmp/prtg.md`
+    - `src/ReadyStackGo.PublicWeb/src/content/docs/en/docs/monitoring/snmp/prtg.md`
+  - Screenshots werden in einem Folge-PR ergänzt, sobald eine PRTG-Trial-Instanz verfügbar ist (siehe "Offene Punkte" unten).
 
 - [ ] **Dokumentation & Wiki** — kurzer Eintrag in der internen Docs unter "Monitoring Integrations", Roadmap-Update.
 
