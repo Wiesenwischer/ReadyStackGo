@@ -23,12 +23,24 @@ public record OidReferenceScalar(
     string Type,
     string CurrentValue);
 
+/// <summary>
+/// One concrete table column for a specific row — i.e. a single fully-qualified
+/// OID with its symbolic name, type and the value it currently returns. The
+/// admin can copy <see cref="Oid"/> straight into PRTG / Zabbix / Nagios.
+/// </summary>
+public record OidReferenceColumn(
+    string Symbol,
+    int ColumnNumber,
+    string Oid,
+    string Type,
+    string CurrentValue);
+
 public record OidReferenceEnvironment(
     int EnvironmentIndex,
     string EnvironmentId,
     string Name,
     int EnvironmentType,
-    string BaseOid,
+    IReadOnlyList<OidReferenceColumn> Columns,
     IReadOnlyList<OidReferenceProduct> Products);
 
 public record OidReferenceProduct(
@@ -38,7 +50,7 @@ public record OidReferenceProduct(
     string Version,
     int Status,
     string StatusText,
-    string BaseOid,
+    IReadOnlyList<OidReferenceColumn> Columns,
     IReadOnlyList<OidReferenceStack> Stacks);
 
 public record OidReferenceStack(
@@ -46,7 +58,7 @@ public record OidReferenceStack(
     string Name,
     int Status,
     string StatusText,
-    string BaseOid,
+    IReadOnlyList<OidReferenceColumn> Columns,
     IReadOnlyList<OidReferenceService> Services);
 
 public record OidReferenceService(
@@ -54,4 +66,4 @@ public record OidReferenceService(
     string Name,
     string ContainerName,
     bool Running,
-    string BaseOid);
+    IReadOnlyList<OidReferenceColumn> Columns);

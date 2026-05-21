@@ -16,12 +16,24 @@ export interface OidReferenceScalar {
   currentValue: string;
 }
 
+/**
+ * One concrete table column for a specific row — fully qualified OID with its
+ * MIB name, type and the value SNMP currently returns for it.
+ */
+export interface OidReferenceColumn {
+  symbol: string;
+  columnNumber: number;
+  oid: string;
+  type: string;
+  currentValue: string;
+}
+
 export interface OidReferenceService {
   serviceIndex: number;
   name: string;
   containerName: string;
   running: boolean;
-  baseOid: string;
+  columns: OidReferenceColumn[];
 }
 
 export interface OidReferenceStack {
@@ -29,7 +41,7 @@ export interface OidReferenceStack {
   name: string;
   status: number;
   statusText: string;
-  baseOid: string;
+  columns: OidReferenceColumn[];
   services: OidReferenceService[];
 }
 
@@ -40,7 +52,7 @@ export interface OidReferenceProduct {
   version: string;
   status: number;
   statusText: string;
-  baseOid: string;
+  columns: OidReferenceColumn[];
   stacks: OidReferenceStack[];
 }
 
@@ -49,7 +61,7 @@ export interface OidReferenceEnvironment {
   environmentId: string;
   name: string;
   environmentType: number;
-  baseOid: string;
+  columns: OidReferenceColumn[];
   products: OidReferenceProduct[];
 }
 

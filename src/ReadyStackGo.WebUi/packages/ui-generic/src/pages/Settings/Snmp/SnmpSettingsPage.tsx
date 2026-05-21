@@ -18,6 +18,8 @@ import type {
   OidReferenceEnvironment,
   OidReferenceProduct,
   OidReferenceStack,
+  OidReferenceService,
+  OidReferenceColumn,
   SnmpSettings,
   SnmpV3User,
   SnmpAuthProtocol,
@@ -436,7 +438,7 @@ function OidReferenceTree({ reference }: { reference: OidReference }) {
     <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white">OID reference</h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        Concrete OIDs you can paste into Nagios, Zabbix, PRTG, etc. <code>&lt;column&gt;</code> is the column number per the MIB.
+        Concrete OIDs you can paste into Nagios, Zabbix, PRTG, etc. Expand a node to see every column with its current value.
       </p>
 
       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 uppercase mt-4">System scalars</h4>
@@ -460,16 +462,47 @@ function OidReferenceTree({ reference }: { reference: OidReference }) {
   );
 }
 
+function ColumnsTable({ columns }: { columns: OidReferenceColumn[] }) {
+  return (
+    <div className="mt-2 rounded-md border border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-white/[0.02] p-2">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-left text-gray-400">
+            <th className="font-normal pb-1 pr-3">Symbol</th>
+            <th className="font-normal pb-1 pr-3">Type</th>
+            <th className="font-normal pb-1 pr-3">OID</th>
+            <th className="font-normal pb-1">Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          {columns.map((c) => (
+            <tr key={c.oid} className="border-t border-gray-100 dark:border-gray-800">
+              <td className="py-1 pr-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{c.symbol}</td>
+              <td className="py-1 pr-3 text-gray-400 whitespace-nowrap">{c.type}</td>
+              <td className="py-1 pr-3"><CopyOid oid={c.oid} small /></td>
+              <td className="py-1 text-gray-500 dark:text-gray-400 truncate max-w-xs" title={c.currentValue}>= {c.currentValue}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function EnvironmentNode({ env }: { env: OidReferenceEnvironment }) {
   const [open, setOpen] = useState(true);
+  const [showColumns, setShowColumns] = useState(false);
   return (
     <li className="border border-gray-100 dark:border-gray-800 rounded-lg p-3">
-      <button onClick={() => setOpen(!open)} className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white w-full text-left">
-        <span>{open ? '▾' : '▸'}</span>
-        <span>{env.name}</span>
-        <span className="text-xs text-gray-500">envIdx {env.environmentIndex}</span>
-        <CopyOid oid={env.baseOid} small />
-      </button>
+      <div className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white">
+        <button onClick={() => setOpen(!open)} className="flex items-center gap-2 flex-1 text-left">
+          <span>{open ? '▾' : '▸'}</span>
+          <span>{env.name}</span>
+          <span className="text-xs text-gray-500">envIdx {env.environmentIndex}</span>
+        </button>
+        <ColumnsToggle open={showColumns} onClick={() => setShowColumns(!showColumns)} count={env.columns.length} />
+      </div>
+      {showColumns && <ColumnsTable columns={env.columns} />}
       {open && (
         <ul className="mt-2 ml-5 space-y-2">
           {env.products.map((p) => <ProductNode key={p.productIndex} product={p} />)}
@@ -482,15 +515,19 @@ function EnvironmentNode({ env }: { env: OidReferenceEnvironment }) {
 
 function ProductNode({ product }: { product: OidReferenceProduct }) {
   const [open, setOpen] = useState(true);
+  const [showColumns, setShowColumns] = useState(false);
   return (
     <li>
-      <button onClick={() => setOpen(!open)} className="flex items-center gap-2 text-sm text-gray-900 dark:text-white w-full text-left">
-        <span>{open ? '▾' : '▸'}</span>
-        <span className="font-medium">{product.name}</span>
-        <span className="text-xs text-gray-500">v{product.version}</span>
-        <StatusBadge status={product.statusText} />
-        <CopyOid oid={product.baseOid} small />
-      </button>
+      <div className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
+        <button onClick={() => setOpen(!open)} className="flex items-center gap-2 flex-1 text-left">
+          <span>{open ? '▾' : '▸'}</span>
+          <span className="font-medium">{product.name}</span>
+          <span className="text-xs text-gray-500">v{product.version}</span>
+          <StatusBadge status={product.statusText} />
+        </button>
+        <ColumnsToggle open={showColumns} onClick={() => setShowColumns(!showColumns)} count={product.columns.length} />
+      </div>
+      {showColumns && <ColumnsTable columns={product.columns} />}
       {open && (
         <ul className="mt-1 ml-5 space-y-1">
           {product.stacks.map((s) => <StackNode key={s.stackIndex} stack={s} />)}
@@ -501,29 +538,51 @@ function ProductNode({ product }: { product: OidReferenceProduct }) {
 }
 
 function StackNode({ stack }: { stack: OidReferenceStack }) {
+  const [showColumns, setShowColumns] = useState(false);
   return (
     <li className="text-sm text-gray-700 dark:text-gray-300">
       <div className="flex items-center gap-2">
         <span className="text-gray-400">└</span>
         <span>{stack.name}</span>
         <StatusBadge status={stack.statusText} />
-        <CopyOid oid={stack.baseOid} small />
+        <ColumnsToggle open={showColumns} onClick={() => setShowColumns(!showColumns)} count={stack.columns.length} className="ml-auto" />
       </div>
+      {showColumns && <ColumnsTable columns={stack.columns} />}
       {stack.services.length > 0 && (
         <ul className="ml-6 mt-1 space-y-0.5">
-          {stack.services.map((sv) => (
-            <li key={sv.serviceIndex} className="flex items-center gap-2 text-xs text-gray-500">
-              <span>·</span>
-              <span>{sv.name}</span>
-              <span className={`px-1.5 rounded ${sv.running ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-100 text-gray-500'}`}>
-                {sv.running ? 'running' : 'stopped'}
-              </span>
-              <CopyOid oid={sv.baseOid} small />
-            </li>
-          ))}
+          {stack.services.map((sv) => <ServiceNode key={sv.serviceIndex} service={sv} />)}
         </ul>
       )}
     </li>
+  );
+}
+
+function ServiceNode({ service }: { service: OidReferenceService }) {
+  const [showColumns, setShowColumns] = useState(false);
+  return (
+    <li className="text-xs text-gray-500">
+      <div className="flex items-center gap-2">
+        <span>·</span>
+        <span>{service.name}</span>
+        <span className={`px-1.5 rounded ${service.running ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-100 text-gray-500'}`}>
+          {service.running ? 'running' : 'stopped'}
+        </span>
+        <ColumnsToggle open={showColumns} onClick={() => setShowColumns(!showColumns)} count={service.columns.length} className="ml-auto" />
+      </div>
+      {showColumns && <ColumnsTable columns={service.columns} />}
+    </li>
+  );
+}
+
+function ColumnsToggle({ open, onClick, count, className }: { open: boolean; onClick: () => void; count: number; className?: string }) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      className={`text-xs px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-brand-600 hover:border-brand-600 whitespace-nowrap ${className ?? ''}`}
+      title={open ? 'Hide column OIDs' : 'Show column OIDs'}
+    >
+      {open ? '− columns' : `+ ${count} columns`}
+    </button>
   );
 }
 
