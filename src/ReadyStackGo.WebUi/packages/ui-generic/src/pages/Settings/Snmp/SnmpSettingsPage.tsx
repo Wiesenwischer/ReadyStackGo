@@ -5,6 +5,7 @@ import {
   getOidReference,
   getMibDownloadUrl,
   getPrtgBundleDownloadUrl,
+  getPrtgSensorUrl,
   getSnmpSettings,
   updateSnmpSettings,
   listV3Users,
@@ -94,6 +95,8 @@ export default function SnmpSettingsPage() {
           </a>
         </div>
       </div>
+
+      <PrtgHttpSensorCard />
 
       <PrtgIntegrationCard />
 
@@ -310,6 +313,74 @@ function Select({ label, value, options, onChange }: { label: string; value: str
         {options.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     </label>
+  );
+}
+
+function PrtgHttpSensorCard() {
+  const url = getPrtgSensorUrl('');
+  const [copied, setCopied] = useState(false);
+
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* silent — clipboard may be blocked in some browsers */
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+      <div className="flex flex-col gap-4">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            PRTG HTTP sensor <span className="ml-2 inline-flex items-center rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">5-min setup</span>
+          </h3>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            One PRTG sensor, one URL, no file copies and no probe restart. Paste the URL below
+            into a PRTG <strong>HTTP Data Advanced</strong> sensor — PRTG polls it on its
+            regular interval and renders aggregated channels (Healthy / Failed / Maintenance /
+            DB health, …).
+          </p>
+        </div>
+
+        <ol className="list-decimal pl-5 text-sm text-gray-600 dark:text-gray-300 space-y-1">
+          <li>
+            Create an API key with permission <code className="text-xs">Settings:Read</code>
+            via{' '}
+            <Link to="/settings/cicd" className="text-brand-600 hover:underline">
+              CI/CD Integration
+            </Link>{' '}
+            (name it e.g. <em>"prtg-sensor"</em>).
+          </li>
+          <li>
+            Copy the URL below and replace <code className="text-xs">YOUR_API_KEY</code> with the
+            generated key.
+          </li>
+          <li>
+            In PRTG: <em>Add Sensor → HTTP Data Advanced</em> → paste the URL → done.
+          </li>
+        </ol>
+
+        <div className="flex items-center gap-2 rounded-md bg-gray-50 px-3 py-2 font-mono text-xs text-gray-800 dark:bg-gray-900/60 dark:text-gray-200">
+          <span className="truncate" title={url}>{url}</span>
+          <button
+            type="button"
+            onClick={onCopy}
+            className="ml-auto shrink-0 rounded bg-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+          >
+            {copied ? 'Copied ✓' : 'Copy'}
+          </button>
+        </div>
+
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          The query-string API key is the only way PRTG accepts an authenticated URL in a single
+          field. Treat the resulting sensor URL like a password — anyone with the URL can read
+          the same status the sensor sees.
+        </p>
+      </div>
+    </div>
   );
 }
 

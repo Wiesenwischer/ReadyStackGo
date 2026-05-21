@@ -84,6 +84,11 @@ public class Program
                 {
                     if (context.Request.Headers.ContainsKey(ApiKeyAuthenticationHandler.HeaderName))
                         return ApiKeyAuthenticationHandler.SchemeName;
+                    // Query-string API key (e.g. PRTG HTTP Data Advanced sensors that
+                    // cannot inject headers). Same scheme, same validation, just a
+                    // different transport for the key.
+                    if (context.Request.Query.ContainsKey(ApiKeyAuthenticationHandler.QueryStringParameterName))
+                        return ApiKeyAuthenticationHandler.SchemeName;
                     return JwtBearerDefaults.AuthenticationScheme;
                 };
             });

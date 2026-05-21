@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.Services.Impl;
+using ReadyStackGo.Application.Integrations.Prtg;
 using ReadyStackGo.Application.Snmp.Prtg;
 using ReadyStackGo.Application.UseCases.Deployments.Precheck;
 using ReadyStackGo.Application.UseCases.Deployments.Precheck.Rules;
@@ -28,6 +29,9 @@ public static class DependencyInjection
 
         // PRTG bundle builder — pure, deterministic, no state, safe as singleton
         services.AddSingleton<IPrtgBundleBuilder, PrtgBundleBuilder>();
+
+        // PRTG HTTP Data Advanced JSON builder — Variant 4, also pure
+        services.AddSingleton<IPrtgJsonStatusBuilder, PrtgJsonStatusBuilder>();
 
         return services;
     }

@@ -78,6 +78,21 @@ export function getPrtgBundleDownloadUrl(): string {
   return '/api/snmp/prtg-bundle';
 }
 
+/**
+ * Builds the absolute URL a PRTG "HTTP Data Advanced" sensor polls.
+ *
+ * @param apiKey - API key created via /settings/cicd (any key with `Settings:Read`
+ *                  permission works). Pass an empty string to render the URL with
+ *                  a placeholder for display purposes only.
+ * @param origin - Optional override; defaults to `window.location.origin`.
+ */
+export function getPrtgSensorUrl(apiKey: string, origin?: string): string {
+  const base = (origin ?? (typeof window !== 'undefined' ? window.location.origin : ''))
+    .replace(/\/$/, '');
+  const keyParam = apiKey ? encodeURIComponent(apiKey) : 'YOUR_API_KEY';
+  return `${base}/api/integrations/prtg/status?apikey=${keyParam}`;
+}
+
 // ─── Editable settings (v0.65) ───────────────────────────────────────────
 
 export interface SnmpSettings {

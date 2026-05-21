@@ -12,6 +12,7 @@ You do **not** need prior SNMP experience to follow this guide — every term is
 - [Security models (community vs. USM)](/en/docs/monitoring/snmp/security) — when v2c is fine, when you need v3
 - [Auth and Priv algorithms](/en/docs/monitoring/snmp/auth-priv) — which algorithm is still safe today
 - [One-click PRTG integration](/en/docs/monitoring/snmp/prtg) — drop-in device template + MIB + lookups
+- [PRTG HTTP sensor (5-minute setup)](/en/docs/monitoring/snmp/prtg-http-sensor) — one PRTG sensor, one URL, no server-side install
 :::
 
 ## What the SNMP agent gives you
@@ -309,6 +310,7 @@ If the MIB import worked, PRTG will not show `99999.1.6.1` but `rsgoTrapProductD
 ## Read on
 
 - [One-click PRTG integration](/en/docs/monitoring/snmp/prtg) — bundle download, step-by-step setup
+- [PRTG HTTP sensor (5-minute setup)](/en/docs/monitoring/snmp/prtg-http-sensor) — lowest-friction option: one URL, one sensor
 - [SNMP basics & history](/en/docs/monitoring/snmp/basics) — how SNMP works, why v1/v2c/v3 exist
 - [Security models (community vs. USM)](/en/docs/monitoring/snmp/security) — pros and cons to help you pick
 - [Auth and Priv algorithms](/en/docs/monitoring/snmp/auth-priv) — which algorithm is still safe today
