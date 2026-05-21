@@ -63,3 +63,26 @@ export async function linkProductDeploymentToPrtgConnection(
     prtgConnectionId,
   });
 }
+
+/**
+ * Sets ad-hoc per-deployment PRTG credentials (Variant 2). Pass null URL to clear.
+ */
+export interface InlinePrtgRegistration {
+  url: string | null;
+  apiToken?: string | null;
+  templateDeviceId?: number | null;
+  verifyTls: boolean;
+}
+
+export async function setInlinePrtgRegistration(
+  productDeploymentId: string,
+  registration: InlinePrtgRegistration,
+): Promise<void> {
+  await apiPut<void>(`/api/deployments/${productDeploymentId}/prtg-inline`, {
+    id: productDeploymentId,
+    url: registration.url,
+    apiToken: registration.apiToken ?? null,
+    templateDeviceId: registration.templateDeviceId ?? null,
+    verifyTls: registration.verifyTls,
+  });
+}

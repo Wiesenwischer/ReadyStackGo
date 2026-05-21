@@ -87,6 +87,24 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     /// <summary>UTC of the last successful PRTG register/sync.</summary>
     public DateTime? PrtgLastSyncedAt { get; private set; }
 
+    // ── PRTG Integration (Variant 2 — ad-hoc inline credentials) ───
+    /// <summary>
+    /// Optional inline PRTG URL when no reusable <see cref="PrtgConnectionId"/> is
+    /// set. Lets a user wire one deployment to one PRTG instance without going
+    /// through a Settings round-trip — useful for multi-tenant / customer-hosted
+    /// PRTG. If both inline and PrtgConnectionId are set, the saved connection wins.
+    /// </summary>
+    public string? InlinePrtgUrl { get; private set; }
+
+    /// <summary>Encrypted PRTG API token for the inline registration.</summary>
+    public string? InlinePrtgEncryptedToken { get; private set; }
+
+    /// <summary>Optional template-device id on the inline PRTG instance.</summary>
+    public int? InlinePrtgTemplateDeviceId { get; private set; }
+
+    /// <summary>Whether to verify the inline PRTG instance's TLS certificate.</summary>
+    public bool InlinePrtgVerifyTls { get; private set; } = true;
+
     // ── Phase History ────────────────────────────────────────────────
     private readonly List<ProductDeploymentPhaseRecord> _phaseHistory = new();
     public IReadOnlyCollection<ProductDeploymentPhaseRecord> PhaseHistory => _phaseHistory.AsReadOnly();
@@ -628,6 +646,43 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
         PrtgDeviceId = prtgDeviceId;
         PrtgLastSyncedAt = SystemClock.UtcNow;
     }
+
+    /// <summary>
+    /// Sets an inline (per-deployment) PRTG registration. Clears any existing
+    /// saved-connection link — only one PRTG target is active at a time.
+    /// </summary>
+    public void SetInlinePrtgRegistration(string url, string encryptedToken, int? templateDeviceId, bool verifyTls)
+    {
+        AssertArgumentNotEmpty(url, "Inline PRTG URL is required.");
+        AssertArgumentNotEmpty(encryptedToken, "Inline PRTG encrypted token is required.");
+
+        InlinePrtgUrl = url;
+        InlinePrtgEncryptedToken = encryptedToken;
+        InlinePrtgTemplateDeviceId = templateDeviceId;
+        InlinePrtgVerifyTls = verifyTls;
+        // Inline overrides connection — clear the link if present.
+        if (PrtgConnectionId is not null)
+        {
+            PrtgConnectionId = null;
+            PrtgDeviceId = null;
+            PrtgLastSyncedAt = null;
+        }
+    }
+
+    /// <summary>Clears inline PRTG registration. PRTG-device cleanup is the caller's responsibility.</summary>
+    public void ClearInlinePrtgRegistration()
+    {
+        InlinePrtgUrl = null;
+        InlinePrtgEncryptedToken = null;
+        InlinePrtgTemplateDeviceId = null;
+        InlinePrtgVerifyTls = true;
+        PrtgDeviceId = null;
+        PrtgLastSyncedAt = null;
+    }
+
+    /// <summary>True when either an inline or saved-connection PRTG target is configured.</summary>
+    public bool HasPrtgTarget => PrtgConnectionId is not null
+                              || !string.IsNullOrEmpty(InlinePrtgUrl);
 
     /// <summary>
     /// Marks a stack as removed during the removal process.

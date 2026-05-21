@@ -13,6 +13,8 @@ Du brauchst keine SNMP-Erfahrung, um dieser Anleitung zu folgen — die Begriffe
 - [Auth- und Priv-Algorithmen](/de/docs/monitoring/snmp/auth-priv) — welcher Algorithmus heute noch akzeptabel ist
 - [PRTG-Integration mit einem Klick](/de/docs/monitoring/snmp/prtg) — fertiges Device-Template + MIB + Lookups herunterladen
 - [PRTG HTTP Sensor (5-Min-Setup)](/de/docs/monitoring/snmp/prtg-http-sensor) — ein PRTG-Sensor, eine URL, keine Server-Installation
+- [PRTG Auto-Register über PrtgConnection](/de/docs/monitoring/snmp/prtg-connection) — RSGO trägt sich selbst in PRTG ein
+- [PRTG Inline-Registration](/de/docs/monitoring/snmp/prtg-inline) — Ad-hoc URL+Token pro Deployment
 :::
 
 ## Was kann der ReadyStackGo SNMP-Agent?

@@ -519,6 +519,15 @@ export interface GetProductDeploymentResponse {
   durationSeconds?: number;
   stacks: ProductStackDeploymentDto[];
   sharedVariables: Record<string, string>;
+  // PRTG integration (Variant 3) — null when the deployment is not linked.
+  prtgConnectionId?: string | null;
+  prtgDeviceId?: number | null;
+  prtgLastSyncedAt?: string | null;
+  // PRTG inline registration (Variant 2) — null when not set.
+  inlinePrtgUrl?: string | null;
+  hasInlinePrtgApiToken?: boolean;
+  inlinePrtgTemplateDeviceId?: number | null;
+  inlinePrtgVerifyTls?: boolean;
 }
 
 export interface MaintenanceTriggerDto {

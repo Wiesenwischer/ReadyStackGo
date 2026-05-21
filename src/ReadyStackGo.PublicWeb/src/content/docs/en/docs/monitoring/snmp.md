@@ -13,6 +13,8 @@ You do **not** need prior SNMP experience to follow this guide — every term is
 - [Auth and Priv algorithms](/en/docs/monitoring/snmp/auth-priv) — which algorithm is still safe today
 - [One-click PRTG integration](/en/docs/monitoring/snmp/prtg) — drop-in device template + MIB + lookups
 - [PRTG HTTP sensor (5-minute setup)](/en/docs/monitoring/snmp/prtg-http-sensor) — one PRTG sensor, one URL, no server-side install
+- [PRTG auto-register via PrtgConnection](/en/docs/monitoring/snmp/prtg-connection) — RSGO calls PRTG's API on deploy/remove
+- [PRTG inline registration](/en/docs/monitoring/snmp/prtg-inline) — ad-hoc URL+token per deployment
 :::
 
 ## What the SNMP agent gives you

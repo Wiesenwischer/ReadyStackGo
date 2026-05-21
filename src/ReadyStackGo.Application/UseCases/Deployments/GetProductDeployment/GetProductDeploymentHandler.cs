@@ -74,6 +74,13 @@ public class GetProductDeploymentHandler : IRequestHandler<GetProductDeploymentQ
                 : null,
             DurationSeconds = pd.GetDuration()?.TotalSeconds,
             SharedVariables = new Dictionary<string, string>(pd.SharedVariables),
+            PrtgConnectionId = pd.PrtgConnectionId?.Value.ToString(),
+            PrtgDeviceId = pd.PrtgDeviceId,
+            PrtgLastSyncedAt = pd.PrtgLastSyncedAt,
+            InlinePrtgUrl = pd.InlinePrtgUrl,
+            HasInlinePrtgApiToken = !string.IsNullOrEmpty(pd.InlinePrtgEncryptedToken),
+            InlinePrtgTemplateDeviceId = pd.InlinePrtgTemplateDeviceId,
+            InlinePrtgVerifyTls = pd.InlinePrtgVerifyTls,
             Stacks = pd.GetStacksInDeployOrder().Select(s => new ProductStackDeploymentDto
             {
                 StackName = s.StackName,

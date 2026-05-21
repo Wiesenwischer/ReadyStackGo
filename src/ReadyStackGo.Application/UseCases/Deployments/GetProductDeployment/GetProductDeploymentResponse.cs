@@ -36,6 +36,17 @@ public class GetProductDeploymentResponse
     public double? DurationSeconds { get; set; }
     public List<ProductStackDeploymentDto> Stacks { get; set; } = new();
     public Dictionary<string, string> SharedVariables { get; set; } = new();
+
+    // PRTG integration (Variant 3) — null when the deployment is not linked.
+    public string? PrtgConnectionId { get; set; }
+    public int? PrtgDeviceId { get; set; }
+    public DateTime? PrtgLastSyncedAt { get; set; }
+    // PRTG inline registration (Variant 2) — null when not set. ApiToken is
+    // never echoed back; HasInlinePrtgApiToken is a boolean indicator only.
+    public string? InlinePrtgUrl { get; set; }
+    public bool HasInlinePrtgApiToken { get; set; }
+    public int? InlinePrtgTemplateDeviceId { get; set; }
+    public bool InlinePrtgVerifyTls { get; set; } = true;
 }
 
 /// <summary>
