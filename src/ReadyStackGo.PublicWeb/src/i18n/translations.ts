@@ -75,6 +75,8 @@ export const translations = {
 		'features.sshtunnel.desc': 'Remote Docker-Hosts über SSH-Tunnel anbinden — kein exponierter Port, kein Agent, nur SSH-Zugang nötig.',
 		'features.precheck.title': 'Deployment Precheck',
 		'features.precheck.desc': 'Prüft alle Voraussetzungen für ein erfolgreiches Deployment — Images, Ports, Netzwerke und Variablen.',
+		'features.snmp.title': 'SNMP Monitoring',
+		'features.snmp.desc': 'Eingebauter SNMP-Agent — alle Deployments per Nagios, Zabbix, PRTG oder snmpwalk auslesen, inkl. v3-USM und Traps.',
 
 		// Feature Pages
 		'featurepage.multistack.subtitle': 'Definiere komplexe Anwendungen mit mehreren Docker Stacks und gemeinsamen Variablen in einem einzigen Manifest.',
@@ -178,6 +180,8 @@ export const translations = {
 		'features.sshtunnel.desc': 'Connect remote Docker hosts via SSH tunnel — no exposed port, no agent, just SSH access needed.',
 		'features.precheck.title': 'Deployment Precheck',
 		'features.precheck.desc': 'Validates all prerequisites for a successful deployment — images, ports, networks and variables.',
+		'features.snmp.title': 'SNMP Monitoring',
+		'features.snmp.desc': 'Built-in SNMP agent — poll every deployment from Nagios, Zabbix, PRTG, or snmpwalk, with v3 USM and traps.',
 
 		// Feature Pages
 		'featurepage.multistack.subtitle': 'Define complex applications with multiple Docker Stacks and shared variables in a single manifest.',
