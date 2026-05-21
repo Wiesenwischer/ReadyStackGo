@@ -37,7 +37,13 @@ In PRTG: **Setup → System Administration → User Accounts** → your user →
 
 ### Step 3: store the connection in RSGO
 
-Settings → **PRTG Connections** → **+ Add connection**:
+Settings has a dedicated **PRTG Connections** tile as the entry point:
+
+![Settings index with the PRTG Connections tile sitting next to the other configuration tiles](/images/docs/prtg-v3-settings-tile.png)
+
+The list is empty on first visit. **+ Add connection** opens the form:
+
+![Add-PRTG-connection form with Name, URL, API token, Template Device ID and Verify-TLS checkbox](/images/docs/prtg-v3-add-form.png)
 
 | Field | Value |
 |-------|-------|
@@ -47,11 +53,18 @@ Settings → **PRTG Connections** → **+ Add connection**:
 | **Template Device ID** | `4221` from step 1 — leave empty to disable auto-register |
 | **Verify TLS certificate** | Uncheck if PRTG uses a self-signed cert (very common) |
 
-Click **Create**. The token is encrypted in the RSGO database — you will **never** see it in the UI again.
+Click **Create**. The token is encrypted in the RSGO database — you will **never** see it in the UI again. Then the list shows the new entry:
+
+![PRTG Connections list with the newly created entry, columns for URL, template device, TLS, last used](/images/docs/prtg-v3-connections-list-populated.png)
 
 ## Linking a ProductDeployment to a connection
 
-The link is currently set via REST (UI on the deployment detail page is coming in a follow-up):
+On the deployment detail page there is a **PRTG monitoring** card with two tabs:
+
+- **Saved connection** — dropdown of connections (this variant)
+- **Inline (ad-hoc)** — enter URL+token directly (see [V2](/en/docs/monitoring/snmp/prtg-inline))
+
+Or via REST:
 
 ```bash
 curl -X PUT https://rsgo.local/api/deployments/<deployment-id>/prtg-connection \

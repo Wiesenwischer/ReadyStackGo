@@ -21,7 +21,11 @@ Diese Seite setzt voraus, dass du SNMP in RSGO schon aktiviert hast. Falls nicht
 
 ## Schritt 1: Bundle herunterladen
 
-Auf der **SNMP-Settings-Seite** (`/settings/snmp`) gibt es einen Block **PRTG integration** mit einem **Download PRTG bundle**-Button. Klick darauf — du bekommst eine Datei wie `readystackgo-prtg-bundle-0.66.0.zip`.
+Auf der **SNMP-Settings-Seite** (`/settings/snmp`) gibt es einen Block **PRTG integration** mit einem **Download PRTG bundle**-Button:
+
+![PRTG integration card auf der SNMP-Settings-Seite mit Download-Button und 4-Schritt-Anleitung](/images/docs/prtg-v1-bundle-card.png)
+
+Klick darauf — du bekommst eine Datei wie `readystackgo-prtg-bundle-0.66.0.zip`.
 
 Der Inhalt der ZIP entspricht eins-zu-eins der Ordner­struktur, die PRTG erwartet:
 

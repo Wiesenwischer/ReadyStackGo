@@ -37,7 +37,13 @@ In PRTG: **Setup → System Administration → User Accounts** → eigener User 
 
 ### Schritt 3: Connection in RSGO speichern
 
-Settings → **PRTG Connections** → **+ Add connection**:
+Settings hat eine eigene Kachel **PRTG Connections** für den Einstieg:
+
+![Settings-Index mit der PRTG-Connections-Kachel zwischen den anderen Konfigurations-Tiles](/images/docs/prtg-v3-settings-tile.png)
+
+Beim ersten Aufruf ist die Liste noch leer. **+ Add connection** öffnet das Formular:
+
+![Add-PRTG-Connection-Formular mit Name, URL, API token, Template Device ID und Verify-TLS-Checkbox](/images/docs/prtg-v3-add-form.png)
 
 | Feld | Wert |
 |------|------|
@@ -47,11 +53,18 @@ Settings → **PRTG Connections** → **+ Add connection**:
 | **Template Device ID** | `4221` aus Schritt 1 — leer lassen schaltet Auto-Register aus |
 | **Verify TLS certificate** | Aushaken, wenn PRTG ein Self-Signed Cert hat (sehr häufig) |
 
-Auf **Create** klicken. Der Token wird in der RSGO-DB verschlüsselt — du siehst ihn danach **nie wieder** in der UI.
+Auf **Create** klicken. Der Token wird in der RSGO-DB verschlüsselt — du siehst ihn danach **nie wieder** in der UI. Anschließend zeigt die Liste den neuen Eintrag:
+
+![PRTG-Connections-Liste mit dem neu erstellten Eintrag, Spalten für URL, Template-Device und Last-used](/images/docs/prtg-v3-connections-list-populated.png)
 
 ## Ein ProductDeployment an die Connection linken
 
-Die Verknüpfung läuft aktuell über die REST-API (die UI-Integration auf der Detail-Seite kommt in einem Follow-up):
+Auf der Deployment-Detail-Seite findest du eine **PRTG monitoring** Card mit zwei Tabs:
+
+- **Saved connection** — Connection-Dropdown (für diese Variante)
+- **Inline (ad-hoc)** — direkt URL+Token eintragen (siehe [V2](/de/docs/monitoring/snmp/prtg-inline))
+
+Alternativ per REST-API:
 
 ```bash
 curl -X PUT https://rsgo.local/api/deployments/<deployment-id>/prtg-connection \

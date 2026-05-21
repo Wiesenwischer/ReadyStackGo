@@ -48,6 +48,8 @@ Kopiere den **einmal angezeigten** Key (Format `rsgo_...`).
 
 Auf **Settings → SNMP Monitoring** findest du die Card **"PRTG HTTP sensor"** mit der vollständigen URL:
 
+![PRTG HTTP sensor Card mit kopierbarer URL, 5-min-Setup-Badge und 3-Schritt-Anleitung](/images/docs/prtg-v4-http-sensor-card.png)
+
 ```
 https://rsgo.example.local/api/integrations/prtg/status?apikey=YOUR_API_KEY
 ```

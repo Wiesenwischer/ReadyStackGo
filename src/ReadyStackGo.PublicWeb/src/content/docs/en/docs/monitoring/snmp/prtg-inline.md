@@ -20,6 +20,10 @@ On the **Deployment Detail page** (`/deployments/<id>`) the **"PRTG monitoring"*
 - **Saved connection** — picks from Variant 3 connections ([docs](/en/docs/monitoring/snmp/prtg-connection))
 - **Inline (ad-hoc)** — this variant
 
+The fields in the inline tab mirror the [saved-connection variant](/en/docs/monitoring/snmp/prtg-connection) — only that they are persisted per deployment instead of centrally. Layout reference (the V3 add form has the same fields, plus a Name input):
+
+![V3 Add-PRTG-connection form (Name/URL/Token/Template-Device-ID/Verify-TLS) — the inline tab shows the same fields minus the name](/images/docs/prtg-v3-add-form.png)
+
 In the inline tab you fill in:
 
 | Field | Value |

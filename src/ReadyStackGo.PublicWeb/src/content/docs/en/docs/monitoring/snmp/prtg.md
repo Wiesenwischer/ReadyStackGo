@@ -21,7 +21,11 @@ This page assumes the SNMP agent in RSGO is already enabled. If not: see [Set up
 
 ## Step 1: Download the bundle
 
-On the **SNMP settings page** (`/settings/snmp`) you'll find a **PRTG integration** block with a **Download PRTG bundle** button. Click it — you get a file like `readystackgo-prtg-bundle-0.66.0.zip`.
+On the **SNMP settings page** (`/settings/snmp`) you'll find a **PRTG integration** block with a **Download PRTG bundle** button:
+
+![PRTG integration card on the SNMP settings page with the download button and 4-step instructions](/images/docs/prtg-v1-bundle-card.png)
+
+Click it — you get a file like `readystackgo-prtg-bundle-0.66.0.zip`.
 
 The archive layout mirrors PRTG's:
 
