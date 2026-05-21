@@ -15,7 +15,7 @@ können.
 > dekodiert, RSGO antwortet aktuell aber via v2c. Vollständige
 > v3-Responses kommen in einer Folgephase. SNMP-Traps sind scaffolded
 > (Receiver-Liste editierbar), die eigentliche Trap-Emission folgt
-> separat. Der OID-Root ist der Platzhalter `1.3.6.1.4.1.99999.1`;
+> separat. Der OID-Root ist der Platzhalter `1.3.6.1.4.1.65846.1`;
 > der IANA-PEN-Antrag läuft und wird vor v1.0 umgestellt.
 
 ## Agent aktivieren
@@ -71,12 +71,12 @@ Namen wie `RSGO-MIB::rsgoProductStatus` aufgelöst werden.
 
 ```bash
 # Den kompletten RSGO-Subtree walken
-snmpwalk -v2c -c dein-community-string rsgo-host:1161 1.3.6.1.4.1.99999.1
+snmpwalk -v2c -c dein-community-string rsgo-host:1161 1.3.6.1.4.1.65846.1
 
 # Status eines konkreten ProductDeployments abfragen
 # (envIdx und prodIdx aus Settings → SNMP Monitoring)
 snmpget -v2c -c dein-community-string rsgo-host:1161 \
-   1.3.6.1.4.1.99999.1.3.1.6.<envIdx>.<prodIdx>
+   1.3.6.1.4.1.65846.1.3.1.6.<envIdx>.<prodIdx>
 ```
 
 ## OID-Struktur

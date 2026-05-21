@@ -108,7 +108,7 @@ Practical consequence: you cannot just move a v3 user entry from agent A to agen
 The engine ID is exposed in the MIB as `rsgoSnmpEngineId` and can be read via `snmpget`:
 
 ```bash
-snmpget -v 2c -c readonly-demo rsgo.local 1.3.6.1.4.1.99999.1.1.<n>.0
+snmpget -v 2c -c readonly-demo rsgo.local 1.3.6.1.4.1.65846.1.1.<n>.0
 ```
 (The exact column number is in the MIB.)
 :::

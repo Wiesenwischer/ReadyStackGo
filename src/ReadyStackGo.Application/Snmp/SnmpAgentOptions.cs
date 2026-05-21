@@ -33,10 +33,10 @@ public class SnmpAgentOptions
 
     /// <summary>
     /// Root OID under which all RSGO managed objects live. Default is the
-    /// placeholder 1.3.6.1.4.1.99999.1; replaced with the assigned IANA Private
+    /// IANA-assigned enterprise root 1.3.6.1.4.1.65846.1 (PEN 65846, ReadyStackGo).
     /// Enterprise Number once issued.
     /// </summary>
-    public string RootOid { get; set; } = "1.3.6.1.4.1.99999.1";
+    public string RootOid { get; set; } = "1.3.6.1.4.1.65846.1";
 
     /// <summary>
     /// SNMPv2c community string. Requests that arrive with a different community

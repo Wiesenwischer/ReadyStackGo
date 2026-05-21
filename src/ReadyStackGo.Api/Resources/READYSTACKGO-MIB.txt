@@ -7,12 +7,11 @@ READYSTACKGO-MIB DEFINITIONS ::= BEGIN
 -- SNMP agent. It is intended for monitoring ProductDeployments, individual
 -- stacks, container/service health, and the RSGO server itself.
 --
--- NOTE: The root OID below uses the temporary placeholder Private Enterprise
--- Number 99999. RSGO has an IANA PEN application pending; once issued, the
--- placeholder will be replaced with the assigned number. Operators who
--- already collected data against the placeholder OIDs will need to update
--- their monitoring configuration; the migration is documented in the v0.65
--- release notes.
+-- The root OID below sits under the IANA-assigned Private Enterprise Number
+-- 65846 (ReadyStackGo, assigned 2026-05-21). Operators who collected data
+-- against the previous placeholder PEN 99999 need to re-download this MIB
+-- (and the PRTG bundle, if used) and update their RootOid in the RSGO
+-- settings; the v0.67 release notes cover the migration path.
 --
 
 IMPORTS
@@ -23,7 +22,7 @@ IMPORTS
         FROM SNMPv2-TC;
 
 readyStackGoMIB MODULE-IDENTITY
-    LAST-UPDATED "202605200000Z"
+    LAST-UPDATED "202605210000Z"
     ORGANIZATION "ReadyStackGo"
     CONTACT-INFO
         "Marcus Dammann
@@ -32,8 +31,8 @@ readyStackGoMIB MODULE-IDENTITY
     DESCRIPTION
         "ReadyStackGo managed objects. Provides read access to the state of
          ProductDeployments, the stacks they orchestrate, individual container
-         services, and the RSGO server."
-    ::= { 1 3 6 1 4 1 99999 1 }
+         services, and the RSGO server. IANA-assigned PEN: 65846."
+    ::= { 1 3 6 1 4 1 65846 1 }
 
 --
 -- Top-level structure

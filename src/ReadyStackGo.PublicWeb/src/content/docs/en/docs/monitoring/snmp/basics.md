@@ -41,17 +41,17 @@ An **Object Identifier (OID)** is a unique dot-separated numeric path. Like a ph
 Example:
 
 ```
-1.3.6.1.4.1.99999.1.1.1.0
+1.3.6.1.4.1.65846.1.1.1.0
 └─┬──┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘
   │     │     │     │     │
   │     │     │     │     └── Scalar (.0 = single value, no index)
   │     │     │     └──────── ReadyStackGo subtree (.1 = system scalars)
-  │     │     └────────────── ReadyStackGo under PEN 99999
+  │     │     └────────────── ReadyStackGo under PEN 65846
   │     └──────────────────── private.enterprises (4.1)
   └────────────────────────── iso.org.dod.internet (1.3.6.1)
 ```
 
-Every vendor gets their own PEN (Private Enterprise Number) from IANA and can lay out arbitrary trees underneath. ReadyStackGo currently uses `99999` as a placeholder — the real PEN was applied for on 2026-05-19 and will land in a future release.
+Every vendor gets their own PEN (Private Enterprise Number) from IANA and can lay out arbitrary trees underneath. ReadyStackGo currently uses `65846` (IANA-assigned 2026-05-21) — the real PEN was applied for on 2026-05-19 and will land in a future release.
 
 :::tip[Visualise the OID tree]
 The [SNMP settings page](/en/docs/monitoring/snmp#step-6-browse-the-oid-reference) shows the full OID tree for your environment interactively and lets you copy any OID to your clipboard.
@@ -134,7 +134,7 @@ A typical SNMPv2c `GET` contains:
 | PDU type | `GetRequest` |
 | Request ID | `12345` (uniquely matches request to response) |
 | Error status | `0` (zero in requests) |
-| VarBind list | `[(1.3.6.1.4.1.99999.1.1.1.0, NULL)]` |
+| VarBind list | `[(1.3.6.1.4.1.65846.1.1.1.0, NULL)]` |
 
 The agent's response is the same shape — except `NULL` is replaced by the real value.
 

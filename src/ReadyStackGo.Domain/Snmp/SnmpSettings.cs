@@ -15,7 +15,7 @@ public class SnmpSettings : AggregateRoot<int>
     public bool Enabled { get; private set; }
     public int Port { get; private set; }
     public string ListenAddress { get; private set; } = "0.0.0.0";
-    public string RootOid { get; private set; } = "1.3.6.1.4.1.99999.1";
+    public string RootOid { get; private set; } = "1.3.6.1.4.1.65846.1";
     public string Community { get; private set; } = string.Empty;
     public string TrapReceivers { get; private set; } = string.Empty;
 
@@ -44,7 +44,7 @@ public class SnmpSettings : AggregateRoot<int>
             Enabled = false,
             Port = 1161,
             ListenAddress = "0.0.0.0",
-            RootOid = "1.3.6.1.4.1.99999.1",
+            RootOid = "1.3.6.1.4.1.65846.1",
             Community = string.Empty,
             TrapReceivers = string.Empty,
             EngineIdHex = GenerateEngineId(),
@@ -70,13 +70,18 @@ public class SnmpSettings : AggregateRoot<int>
     /// <summary>
     /// Builds a fresh RFC 3411 engine ID:
     ///   first octet 0x80 (vendor-specific format marker),
-    ///   octets 1-3 enterprise number 99999 (0x0186A0 minus 1 = 0x01869F),
+    ///   octets 1-3 enterprise number 65846 (IANA-assigned PEN for ReadyStackGo, 0x010136),
     ///   octet 4 format 4 (octet string),
     ///   octets 5-... unique instance identifier (Guid bytes).
+    ///
+    /// Note: existing installs keep the engine ID generated under the previous
+    /// placeholder PEN 99999 — only fresh agents get an engine ID rooted at the
+    /// real PEN 65846. SNMPv3 USM keys are derived from passphrase + engine ID,
+    /// so re-generating the engine ID would invalidate every v3 user's keys.
     /// </summary>
     private static string GenerateEngineId()
     {
-        var enterprise = 99999u;
+        var enterprise = 65846u;
         var instance = Guid.NewGuid().ToByteArray().Take(8).ToArray();
         var engineId = new byte[5 + instance.Length];
         engineId[0] = 0x80;

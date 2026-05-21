@@ -18,9 +18,11 @@ Scope ist explizit **read-only**: keine SET-Operationen, keine Traps. Beides ist
 - **Settings-Persistence** — Settings für Cert/Renewal/etc. werden heute teils in `appsettings.json` und teils in der `SystemSettings`-DB abgelegt. SNMP-Settings (Port, Enable, Community, v3-Users) brauchen DB-Persistenz weil sie online über die WebUI bearbeitbar sein müssen — das schließt sich an das `SystemSettings`-Muster an, ggf. mit eigener Tabelle für v3-Users (Hashes nie im Klartext).
 - **Notification/Settings UI** — Settings-Seite existiert in [packages/ui-generic/src/pages/Settings/](../../src/ReadyStackGo.WebUi/packages/ui-generic/src/pages/Settings/) mit Tabs/Sections. SNMP bekommt einen neuen Section dort.
 
-### OID-Strategie (vorerst experimentell)
+### OID-Strategie
 
-Wir nutzen den Platzhalter-Root `1.3.6.1.4.1.99999.1` (`rsgoRoot`). Eine offizielle IANA Private Enterprise Number wird vor v1.0 beantragt; der Platzhalter wird dann durch die zugewiesene PEN ersetzt (Breaking Change für frühe Customers, dokumentiert in den Release Notes).
+> **Update 2026-05-21**: IANA hat die PEN **65846** zugewiesen. Der Root ist jetzt `1.3.6.1.4.1.65846.1`. Die historischen `99999`-Beispiele weiter unten in diesem Plan dokumentieren den Zustand zum Planungs-Zeitpunkt — der laufende Code (ab v0.67) nutzt die echte PEN.
+
+Wir nutzten zur Planungszeit den Platzhalter-Root `1.3.6.1.4.1.99999.1` (`rsgoRoot`). Eine offizielle IANA Private Enterprise Number war geplant; sie wurde am 2026-05-21 als `65846` zugewiesen.
 
 Der Root macht den Tree leicht konfigurierbar — alle untergeordneten OIDs sind relativ zu einer per `appsettings.json` überschreibbaren `RootOid`-Konstante aufgebaut, sodass Customers mit eigener PEN sie auf ihre Wurzel mappen können.
 

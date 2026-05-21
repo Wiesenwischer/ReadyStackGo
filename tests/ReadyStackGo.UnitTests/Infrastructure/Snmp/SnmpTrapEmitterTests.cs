@@ -95,10 +95,10 @@ public class SnmpTrapEmitterTests : IAsyncLifetime
         var trapV2 = messages[0] as TrapV2Message;
         trapV2.Should().NotBeNull();
 
-        trapV2.Enterprise.ToString().Should().Contain("99999.1.6.1");
+        trapV2.Enterprise.ToString().Should().Contain("65846.1.6.1");
 
         var variables = trapV2.Pdu().Variables;
-        var productNameVb = variables.FirstOrDefault(v => v.Id.ToString().Contains("99999.1.7.2.0"));
+        var productNameVb = variables.FirstOrDefault(v => v.Id.ToString().Contains("65846.1.7.2.0"));
         productNameVb.Should().NotBeNull("the productName varbind should be present");
         productNameVb!.Data.ToString().Should().Be("ams.project");
     }
@@ -118,7 +118,7 @@ public class SnmpTrapEmitterTests : IAsyncLifetime
     {
         var s = SnmpSettings.CreateDefault();
         s.Update(enabled, port: 1161, listenAddress: "0.0.0.0",
-            rootOid: "1.3.6.1.4.1.99999.1", community: community, trapReceivers: receivers);
+            rootOid: "1.3.6.1.4.1.65846.1", community: community, trapReceivers: receivers);
         return s;
     }
 

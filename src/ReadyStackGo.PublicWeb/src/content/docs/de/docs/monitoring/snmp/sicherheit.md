@@ -108,7 +108,7 @@ Praktische Folge: Du kannst nicht einen V3-User-Eintrag von Agent A einfach zu A
 Die Engine-ID steht in der MIB als `rsgoSnmpEngineId`-Scalar und kann mit `snmpget` ausgelesen werden:
 
 ```bash
-snmpget -v 2c -c readonly-demo rsgo.local 1.3.6.1.4.1.99999.1.1.<n>.0
+snmpget -v 2c -c readonly-demo rsgo.local 1.3.6.1.4.1.65846.1.1.<n>.0
 ```
 (`<n>` siehst du in der MIB.)
 :::

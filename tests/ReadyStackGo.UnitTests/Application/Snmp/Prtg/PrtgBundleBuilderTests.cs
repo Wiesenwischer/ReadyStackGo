@@ -13,7 +13,7 @@ public class PrtgBundleBuilderTests
 
     private static PrtgBundleInput MakeInput(string? rootOid = null, string? version = null) => new()
     {
-        RootOid = rootOid ?? "1.3.6.1.4.1.99999.1",
+        RootOid = rootOid ?? "1.3.6.1.4.1.65846.1",
         MibBytes = SampleMib,
         RsgoVersion = version,
         SourceHost = "rsgo.example.local",
@@ -88,7 +88,7 @@ public class PrtgBundleBuilderTests
 
         var readme = entries["README.txt"];
         readme.Should().NotContain("{{")
-            .And.Contain("1.3.6.1.4.1.99999.1")
+            .And.Contain("1.3.6.1.4.1.65846.1")
             .And.Contain("0.66.0")
             .And.Contain("rsgo.example.local")
             .And.Contain("2026-05-21T07:00:00Z");
@@ -157,7 +157,7 @@ public class PrtgBundleBuilderTests
     public void Build_RejectsEmptyMib()
     {
         var builder = new PrtgBundleBuilder();
-        var input = new PrtgBundleInput { RootOid = "1.3.6.1.4.1.99999.1", MibBytes = Array.Empty<byte>() };
+        var input = new PrtgBundleInput { RootOid = "1.3.6.1.4.1.65846.1", MibBytes = Array.Empty<byte>() };
 
         Action act = () => builder.Build(input);
         act.Should().Throw<ArgumentException>();
