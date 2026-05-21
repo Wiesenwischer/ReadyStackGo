@@ -14,7 +14,7 @@ itself via standard SNMP GET / GETNEXT / WALK.
 > currently answers only via v2c — full v3 responses ship in a follow-up.
 > SNMP Traps are scaffolded (the receiver list is editable) but actual
 > trap emission also comes in a follow-up. The OID root is the placeholder
-> `1.3.6.1.4.1.99999.1`; the IANA PEN application is in review and the OID
+> `1.3.6.1.4.1.65846.1`; the IANA PEN application is in review and the OID
 > will switch to the assigned PEN before v1.0.
 
 ## Enabling the agent
@@ -69,12 +69,12 @@ into your monitoring tool so the numeric OIDs resolve to symbolic names like
 
 ```bash
 # Walk the entire RSGO subtree
-snmpwalk -v2c -c your-community-string rsgo-host:1161 1.3.6.1.4.1.99999.1
+snmpwalk -v2c -c your-community-string rsgo-host:1161 1.3.6.1.4.1.65846.1
 
 # Get the status of a specific ProductDeployment
 # (envIdx and prodIdx come from the Settings → SNMP Monitoring page)
 snmpget -v2c -c your-community-string rsgo-host:1161 \
-   1.3.6.1.4.1.99999.1.3.1.6.<envIdx>.<prodIdx>
+   1.3.6.1.4.1.65846.1.3.1.6.<envIdx>.<prodIdx>
 ```
 
 ## OID layout

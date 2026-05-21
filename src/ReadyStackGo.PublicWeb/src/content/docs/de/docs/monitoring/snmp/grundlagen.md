@@ -41,17 +41,17 @@ Eine **Object Identifier (OID)** ist ein eindeutiger Punkt-getrennter Zahlenpfad
 Beispiel:
 
 ```
-1.3.6.1.4.1.99999.1.1.1.0
+1.3.6.1.4.1.65846.1.1.1.0
 └─┬──┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘
   │     │     │     │     │
   │     │     │     │     └── Skalar (.0 = einzelner Wert, kein Index)
   │     │     │     └──────── ReadyStackGo Sub-Baum (.1 = System-Scalars)
-  │     │     └────────────── ReadyStackGo unter PEN 99999
+  │     │     └────────────── ReadyStackGo unter PEN 65846
   │     └──────────────────── private.enterprises (4.1)
   └────────────────────────── iso.org.dod.internet (1.3.6.1)
 ```
 
-Jeder Hersteller bekommt von der **IANA** eine eigene PEN (Private Enterprise Number) und kann darunter beliebige Bäume aufspannen. ReadyStackGo nutzt aktuell `99999` als Platzhalter — die richtige PEN wurde am 2026-05-19 beantragt und kommt in einer der nächsten Versionen.
+Jeder Hersteller bekommt von der **IANA** eine eigene PEN (Private Enterprise Number) und kann darunter beliebige Bäume aufspannen. ReadyStackGo nutzt aktuell `65846` (IANA-assigned 2026-05-21) — die richtige PEN wurde am 2026-05-19 beantragt und kommt in einer der nächsten Versionen.
 
 :::tip[OID-Baum visualisieren]
 Auf der [SNMP-Settings-Seite](/de/docs/monitoring/snmp#schritt-6-oid-reference-im-blick) zeigt ReadyStackGo den gesamten OID-Baum deiner Umgebung interaktiv an — du kannst direkt einzelne OIDs in die Zwischenablage kopieren.
@@ -134,7 +134,7 @@ Ein typischer SNMPv2c `GET` enthält:
 | PDU-Typ | `GetRequest` |
 | Request-ID | `12345` (eindeutige Zuordnung Frage/Antwort) |
 | Error-Status | `0` (im Request immer 0) |
-| VarBind-Liste | `[(1.3.6.1.4.1.99999.1.1.1.0, NULL)]` |
+| VarBind-Liste | `[(1.3.6.1.4.1.65846.1.1.1.0, NULL)]` |
 
 Der Agent antwortet mit denselben Feldern, nur dass `NULL` durch den realen Wert ersetzt ist.
 

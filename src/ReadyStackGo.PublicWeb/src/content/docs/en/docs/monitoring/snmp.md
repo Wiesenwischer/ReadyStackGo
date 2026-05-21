@@ -61,7 +61,7 @@ The top of the page shows the configuration block. These are the fields that mat
 | **Enabled** | Master switch for the agent. With this off, no UDP listener is opened. | off |
 | **Listen address** | IP the agent binds to. `0.0.0.0` means every network interface inside the container. | `0.0.0.0` |
 | **Port** | UDP port. The agent runs **on 1161 inside the container** (non-privileged). If you want the SNMP standard port 161 exposed on your host, map `161:1161` in your `docker-compose.override.yml`. | `1161` |
-| **Root OID** | The prefix under which every ReadyStackGo value hangs. Currently uses the placeholder PEN `99999` — it will be migrated to the real IANA-assigned PEN as soon as it is granted. | `1.3.6.1.4.1.99999.1` |
+| **Root OID** | The prefix under which every ReadyStackGo value hangs. Currently uses the placeholder PEN `65846` — it will be migrated to the real IANA-assigned PEN as soon as it is granted. | `1.3.6.1.4.1.65846.1` |
 | **SNMPv2c community** | Password-like string for v2c access. **Leave it blank to disable v2c entirely** and allow v3 only. | empty |
 | **Trap receivers** | List of receivers, separated by commas, semicolons or newlines, formatted as `host` or `host:port`. The default port is 162. | empty |
 
@@ -93,18 +93,18 @@ On a Linux/Mac host with `net-snmp` installed (package `snmp` on Debian/Ubuntu):
 
 ```bash
 # Assumes ReadyStackGo runs on rsgo.local and you mapped 161:1161.
-snmpwalk -v 2c -c readonly-demo rsgo.local 1.3.6.1.4.1.99999.1.1
+snmpwalk -v 2c -c readonly-demo rsgo.local 1.3.6.1.4.1.65846.1.1
 ```
 
 You should see something like:
 
 ```
-SNMPv2-SMI::enterprises.99999.1.1.1.0 = STRING: "0.65.3"
-SNMPv2-SMI::enterprises.99999.1.1.2.0 = Counter32: 3214
-SNMPv2-SMI::enterprises.99999.1.1.3.0 = INTEGER: 2
-SNMPv2-SMI::enterprises.99999.1.1.4.0 = INTEGER: 5
-SNMPv2-SMI::enterprises.99999.1.1.5.0 = INTEGER: 1
-SNMPv2-SMI::enterprises.99999.1.1.6.0 = STRING: "2026-05-20T15:42:51Z"
+SNMPv2-SMI::enterprises.65846.1.1.1.0 = STRING: "0.65.3"
+SNMPv2-SMI::enterprises.65846.1.1.2.0 = Counter32: 3214
+SNMPv2-SMI::enterprises.65846.1.1.3.0 = INTEGER: 2
+SNMPv2-SMI::enterprises.65846.1.1.4.0 = INTEGER: 5
+SNMPv2-SMI::enterprises.65846.1.1.5.0 = INTEGER: 1
+SNMPv2-SMI::enterprises.65846.1.1.6.0 = STRING: "2026-05-20T15:42:51Z"
 ```
 
 Those are the **system scalars**: version, uptime in seconds, environment count, source count, DB health (`1 = ok`), build timestamp.
@@ -126,7 +126,7 @@ The settings page has a **MIB file** block with a **Download MIB** button.
 Download `READYSTACKGO-MIB.txt` and import it into your tool. The exact "how" depends on the tool — see the PRTG section below.
 
 :::note[What is a MIB?]
-Think of a MIB as a **phone book**: on the left is the OID (number), on the right is the human-readable name and the data type. Without the MIB you see `.1.3.6.1.4.1.99999.1.3.1.4.7.5`; with the MIB you see `rsgoProductName.7.5 = "ams.project"`.
+Think of a MIB as a **phone book**: on the left is the OID (number), on the right is the human-readable name and the data type. Without the MIB you see `.1.3.6.1.4.1.65846.1.3.1.4.7.5`; with the MIB you see `rsgoProductName.7.5 = "ams.project"`.
 :::
 
 ---
@@ -179,7 +179,7 @@ ReadyStackGo stores the passphrases **encrypted** in the database. They are **no
 snmpwalk -v 3 -u docs-monitor -l authPriv \
   -a SHA-256 -A 'AuthPass12345' \
   -x AES         -X 'PrivPass12345' \
-  rsgo.local 1.3.6.1.4.1.99999.1.1
+  rsgo.local 1.3.6.1.4.1.65846.1.1
 ```
 
 What the flags mean:
@@ -213,7 +213,7 @@ One address per line (or comma-separated). Default port is 162.
 | **`rsgoTrapProductDeploymentAutoFinalized`** | A stuck deployment is auto-finalized by the watchdog | ID, name, version, old and new status, number of completed/failed stacks |
 | **`rsgoTrapProductMaintenanceModeChanged`** | A product enters or exits **maintenance** | ID, name, new operation mode |
 
-Each trap lives under `1.3.6.1.4.1.99999.1.6.<N>` (1, 2, 3). The bundled **VarBinds** (fields) live under `.7.1` to `.7.7`:
+Each trap lives under `1.3.6.1.4.1.65846.1.6.<N>` (1, 2, 3). The bundled **VarBinds** (fields) live under `.7.1` to `.7.7`:
 
 | VarBind | OID column | Type | Meaning |
 |---------|------------|------|---------|
@@ -273,10 +273,10 @@ PRTG uses a separate **MIB importer** (`MIB Importer.exe` in the PRTG install di
 
 1. Put the PRTG server's IP into **Trap receivers** in the ReadyStackGo UI.
 2. In PRTG, add an **SNMP Trap Receiver** sensor on the probe (the sensor listens on port 162).
-3. Optionally define a **filter** on OID `1.3.6.1.4.1.99999.1.6.*` so only ReadyStackGo traps count toward the sensor.
+3. Optionally define a **filter** on OID `1.3.6.1.4.1.65846.1.6.*` so only ReadyStackGo traps count toward the sensor.
 
 :::tip[Symbolic names in the trap view]
-If the MIB import worked, PRTG will not show `99999.1.6.1` but `rsgoTrapProductDeploymentFailed` — much easier to filter on and to alarm against.
+If the MIB import worked, PRTG will not show `65846.1.6.1` but `rsgoTrapProductDeploymentFailed` — much easier to filter on and to alarm against.
 :::
 
 ---
@@ -299,13 +299,13 @@ If the MIB import worked, PRTG will not show `99999.1.6.1` but `rsgoTrapProductD
 | Term | Explanation |
 |------|-------------|
 | **SNMP** | Simple Network Management Protocol. A UDP-based standard for reading and receiving status values from network and server devices. |
-| **OID** | Object Identifier. A unique dot-separated numeric path like `1.3.6.1.4.1.99999.1.1.1.0`. Every measurable value has its own OID. |
+| **OID** | Object Identifier. A unique dot-separated numeric path like `1.3.6.1.4.1.65846.1.1.1.0`. Every measurable value has its own OID. |
 | **MIB** | Management Information Base. A text file that maps OIDs to symbolic names, data types, and descriptions. |
 | **Trap** | An agent-initiated "push" — the agent contacts you on its own as soon as something happens (no polling needed). |
 | **Community string** | The v1/v2c "password". Sent in clear text — only use on trusted networks. |
 | **USM** | User-based Security Model. The SNMPv3 security model with named users, auth, and priv algorithms. |
 | **Auth / Priv** | Auth = packet authenticity check (HMAC). Priv = encryption of the payload. |
-| **PEN** | Private Enterprise Number — the OID root `1.3.6.1.4.1.<X>` any company can request from IANA. ReadyStackGo currently uses `99999` as a placeholder. |
+| **PEN** | Private Enterprise Number — the OID root `1.3.6.1.4.1.<X>` any company can request from IANA. ReadyStackGo currently uses `65846` (IANA-assigned 2026-05-21). |
 
 ---
 

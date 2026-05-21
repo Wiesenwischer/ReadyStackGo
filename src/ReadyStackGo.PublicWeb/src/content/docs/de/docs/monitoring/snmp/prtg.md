@@ -17,7 +17,7 @@ Diese Seite setzt voraus, dass du SNMP in RSGO schon aktiviert hast. Falls nicht
 | Maintenance erkennen | "Operation Mode"-Spalte mit Status `None` für Wartung — kein roter Alarm bei geplantem Stillstand |
 | Pro Service prüfen, ob ein Container hochfährt | Sensor-Tabelle "RSGO: Services" mit `Running`-Flag, `HealthStatus` und `RestartCount` |
 | Symbolische OID-Namen statt Zahlen | MIB ist im Bundle dabei, wird über den PRTG MIB Importer übernommen |
-| Echtzeitmeldungen bei Deployment-Fehlern | Trap-Receiver konfigurieren (siehe Hauptseite, Schritt 8) — der MIB-Import sorgt dafür, dass PRTG `rsgoTrapProductDeploymentFailed` statt `99999.1.6.1` anzeigt |
+| Echtzeitmeldungen bei Deployment-Fehlern | Trap-Receiver konfigurieren (siehe Hauptseite, Schritt 8) — der MIB-Import sorgt dafür, dass PRTG `rsgoTrapProductDeploymentFailed` statt `65846.1.6.1` anzeigt |
 
 ## Schritt 1: Bundle herunterladen
 

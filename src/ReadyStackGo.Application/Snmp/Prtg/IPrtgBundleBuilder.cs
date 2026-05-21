@@ -17,7 +17,7 @@ public interface IPrtgBundleBuilder
 /// </summary>
 public sealed class PrtgBundleInput
 {
-    /// <summary>SNMP root OID, e.g. <c>1.3.6.1.4.1.99999.1</c>.</summary>
+    /// <summary>SNMP root OID, e.g. <c>1.3.6.1.4.1.65846.1</c>.</summary>
     public required string RootOid { get; init; }
 
     /// <summary>Raw MIB file content.</summary>

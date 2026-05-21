@@ -41,7 +41,7 @@ public class UpdateSnmpSettingsRequest
     public bool Enabled { get; set; }
     public int Port { get; set; }
     public string ListenAddress { get; set; } = "0.0.0.0";
-    public string RootOid { get; set; } = "1.3.6.1.4.1.99999.1";
+    public string RootOid { get; set; } = "1.3.6.1.4.1.65846.1";
     public string? Community { get; set; }
     public string? TrapReceivers { get; set; }
 }

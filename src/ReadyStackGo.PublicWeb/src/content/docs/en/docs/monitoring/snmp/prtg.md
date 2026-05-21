@@ -17,7 +17,7 @@ This page assumes the SNMP agent in RSGO is already enabled. If not: see [Set up
 | To distinguish maintenance from outages | An "Operation Mode" column with state `None` for maintenance — no red alert during planned windows |
 | Per-service checks | A "RSGO: Services" table with `Running`, `HealthStatus` and `RestartCount` columns |
 | Symbolic OID names instead of numbers | MIB included; imported via the PRTG MIB Importer |
-| Realtime alerts on deployment failures | Combine with the SNMP trap receivers (see the main page, step 8) — after the MIB import PRTG shows `rsgoTrapProductDeploymentFailed` instead of `99999.1.6.1` |
+| Realtime alerts on deployment failures | Combine with the SNMP trap receivers (see the main page, step 8) — after the MIB import PRTG shows `rsgoTrapProductDeploymentFailed` instead of `65846.1.6.1` |
 
 ## Step 1: Download the bundle
 

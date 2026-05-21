@@ -7,7 +7,7 @@ namespace ReadyStackGo.UnitTests.Infrastructure.Snmp;
 
 public class OidTreeBuilderTests
 {
-    private const string Root = "1.3.6.1.4.1.99999.1";
+    private const string Root = "1.3.6.1.4.1.65846.1";
 
     [Fact]
     public void Build_System_PopulatesScalarOids()
@@ -65,7 +65,7 @@ public class OidTreeBuilderTests
         var snapshot = NewSnapshot();
         var tree = OidTreeBuilder.Build(snapshot, Root);
 
-        var farFuture = new ObjectIdentifier("1.3.6.1.4.1.99999.1.99.99.99.99");
+        var farFuture = new ObjectIdentifier("1.3.6.1.4.1.65846.1.99.99.99.99");
         tree.GetNext(farFuture).Should().BeNull();
     }
 

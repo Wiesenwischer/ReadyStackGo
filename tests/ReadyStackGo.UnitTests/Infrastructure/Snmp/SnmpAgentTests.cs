@@ -27,7 +27,7 @@ public class SnmpAgentTests : IAsyncLifetime
             Enabled: true,
             Port: _port,
             ListenAddress: "127.0.0.1",
-            RootOid: "1.3.6.1.4.1.99999.1",
+            RootOid: "1.3.6.1.4.1.65846.1",
             Community: "public",
             V3Users: Array.Empty<SnmpRuntimeV3User>(),
             EngineIdHex: "80000186A0040123456789ABCDEF");
@@ -67,7 +67,7 @@ public class SnmpAgentTests : IAsyncLifetime
     public void Get_UnknownOid_ReturnsNoSuchObject()
     {
         var endpoint = new IPEndPoint(IPAddress.Loopback, _port);
-        var requested = new ObjectIdentifier("1.3.6.1.4.1.99999.1.1.1.0");
+        var requested = new ObjectIdentifier("1.3.6.1.4.1.65846.1.1.1.0");
 
         var result = Messenger.Get(
             VersionCode.V2,
@@ -91,7 +91,7 @@ public class SnmpAgentTests : IAsyncLifetime
             VersionCode.V2,
             endpoint,
             new OctetString("public"),
-            new ObjectIdentifier("1.3.6.1.4.1.99999.1"),
+            new ObjectIdentifier("1.3.6.1.4.1.65846.1"),
             collected,
             timeout: 2000,
             WalkMode.WithinSubtree);
@@ -109,7 +109,7 @@ public class SnmpAgentTests : IAsyncLifetime
             VersionCode.V2,
             endpoint,
             new OctetString("wrong-community"),
-            new List<Variable> { new(new ObjectIdentifier("1.3.6.1.4.1.99999.1.1.1.0")) },
+            new List<Variable> { new(new ObjectIdentifier("1.3.6.1.4.1.65846.1.1.1.0")) },
             timeout: 500);
 
         act.Should().Throw<Lextm.SharpSnmpLib.Messaging.TimeoutException>();
@@ -137,7 +137,7 @@ public class SnmpAgentTests : IAsyncLifetime
             Enabled: true,
             Port: GetFreeUdpPort(),
             ListenAddress: "not-an-ip",
-            RootOid: "1.3.6.1.4.1.99999.1",
+            RootOid: "1.3.6.1.4.1.65846.1",
             Community: string.Empty,
             V3Users: Array.Empty<SnmpRuntimeV3User>(),
             EngineIdHex: "80000186A0040123456789ABCDEF");
@@ -151,7 +151,7 @@ public class SnmpAgentTests : IAsyncLifetime
     }
 
     private static SnmpRuntimeSettings NewSettings(bool enabled, int port) =>
-        new(enabled, port, "127.0.0.1", "1.3.6.1.4.1.99999.1", "public", Array.Empty<SnmpRuntimeV3User>(), "80000186A00401AABBCCDDEEFF");
+        new(enabled, port, "127.0.0.1", "1.3.6.1.4.1.65846.1", "public", Array.Empty<SnmpRuntimeV3User>(), "80000186A00401AABBCCDDEEFF");
 
     private static SnmpAgent NewAgent(SnmpRuntimeSettings settings)
     {
@@ -168,7 +168,7 @@ public class SnmpAgentTests : IAsyncLifetime
 
     private sealed class MutableProvider : ISnmpRuntimeSettingsProvider
     {
-        public SnmpRuntimeSettings Settings { get; set; } = new(false, 0, "127.0.0.1", "1.3.6.1.4.1.99999.1", "", Array.Empty<SnmpRuntimeV3User>(), "80000186A00401AABBCCDDEEFF");
+        public SnmpRuntimeSettings Settings { get; set; } = new(false, 0, "127.0.0.1", "1.3.6.1.4.1.65846.1", "", Array.Empty<SnmpRuntimeV3User>(), "80000186A00401AABBCCDDEEFF");
         public SnmpRuntimeSettings Load() => Settings;
     }
 
