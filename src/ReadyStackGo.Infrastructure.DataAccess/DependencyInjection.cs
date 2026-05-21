@@ -40,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<IDeploymentRepository, DeploymentRepository>();
         services.AddScoped<IHealthSnapshotRepository, HealthSnapshotRepository>();
         services.AddScoped<IRegistryRepository, RegistryRepository>();
+        services.AddScoped<ReadyStackGo.Domain.Deployment.PrtgConnections.IPrtgConnectionRepository, PrtgConnectionRepository>();
         services.AddScoped<IStackSourceRepository, StackSourceRepository>();
         services.AddScoped<IApiKeyRepository, ApiKeyRepository>();
         services.AddScoped<IProductDeploymentRepository, ProductDeploymentRepository>();

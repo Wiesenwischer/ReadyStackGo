@@ -177,6 +177,15 @@ public class MigrationBaselineTests
                 );
                 CREATE INDEX "IX_HealthSnapshots_DeploymentId" ON "HealthSnapshots" ("DeploymentId");
                 CREATE INDEX "IX_HealthSnapshots_EnvironmentId" ON "HealthSnapshots" ("EnvironmentId");
+
+                -- Minimal ProductDeployments stub so migrations that ALTER TABLE this
+                -- table (e.g. AddPrtgConnections, future PRTG-link migrations) succeed
+                -- against a legacy DB that pre-dates EF migrations. Only the primary
+                -- key + Version are needed; column-add migrations don't read the rest.
+                CREATE TABLE "ProductDeployments" (
+                    "Id" TEXT NOT NULL PRIMARY KEY,
+                    "Version" INTEGER NOT NULL DEFAULT 0
+                );
                 CREATE INDEX "IX_HealthSnapshots_CapturedAtUtc" ON "HealthSnapshots" ("CapturedAtUtc");
                 CREATE INDEX "IX_HealthSnapshots_DeploymentId_CapturedAtUtc"
                     ON "HealthSnapshots" ("DeploymentId", "CapturedAtUtc");

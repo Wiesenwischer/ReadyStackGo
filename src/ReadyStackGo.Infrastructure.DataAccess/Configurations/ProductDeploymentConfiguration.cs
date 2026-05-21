@@ -88,6 +88,17 @@ public class ProductDeploymentConfiguration : IEntityTypeConfiguration<ProductDe
         builder.Property(d => d.Version)
             .IsConcurrencyToken();
 
+        // PRTG link (Variant 3 — optional reference to a PrtgConnection)
+        builder.Property(d => d.PrtgConnectionId)
+            .HasConversion(
+                id => id == null ? (Guid?)null : id.Value,
+                value => value.HasValue
+                    ? new ReadyStackGo.Domain.Deployment.PrtgConnections.PrtgConnectionId(value.Value)
+                    : null);
+        builder.Property(d => d.PrtgDeviceId);
+        builder.Property(d => d.PrtgLastSyncedAt);
+        builder.HasIndex(d => d.PrtgConnectionId);
+
         // Configure OperationMode
         builder.Property(d => d.OperationMode)
             .HasConversion(

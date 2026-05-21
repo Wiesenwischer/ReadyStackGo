@@ -10,6 +10,7 @@ using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Domain.Deployment.ProductDeployments;
+using ReadyStackGo.Domain.Deployment.PrtgConnections;
 using ReadyStackGo.Domain.Deployment.Registries;
 using ReadyStackGo.Domain.SharedKernel;
 using ReadyStackGo.Domain.StackManagement.Sources;
@@ -43,6 +44,7 @@ public class ReadyStackGoDbContext : DbContext
     public DbSet<Deployment> Deployments => Set<Deployment>();
     public DbSet<HealthSnapshot> HealthSnapshots => Set<HealthSnapshot>();
     public DbSet<Registry> Registries => Set<Registry>();
+    public DbSet<PrtgConnection> PrtgConnections => Set<PrtgConnection>();
     public DbSet<StackSource> StackSources => Set<StackSource>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<ProductDeployment> ProductDeployments => Set<ProductDeployment>();

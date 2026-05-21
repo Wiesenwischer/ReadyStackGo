@@ -55,6 +55,7 @@ import {
   SystemInfo,
   Licenses,
   SnmpSettingsPage,
+  PrtgConnectionsPage,
 } from "@rsgo/ui-generic/pages/Settings";
 import SetupEnvironment from "@rsgo/ui-generic/pages/Environments/SetupEnvironment";
 import SetupOrganization from "@rsgo/ui-generic/pages/Settings/Organization/SetupOrganization";
@@ -372,6 +373,7 @@ export default function App() {
                 <Route path="/settings/system" element={<SystemInfo />} />
                 <Route path="/settings/licenses" element={<Licenses />} />
                 <Route path="/settings/snmp" element={<SnmpSettingsPage />} />
+                <Route path="/settings/prtg-connections" element={<PrtgConnectionsPage />} />
               </Route>
               {/* 404 catch-all route */}
               <Route path="*" element={<NotFound />} />
