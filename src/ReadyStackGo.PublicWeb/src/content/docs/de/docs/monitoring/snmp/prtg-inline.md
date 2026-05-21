@@ -20,9 +20,9 @@ Auf der **Deployment-Detail-Seite** (`/deployments/<id>`) gibt es eine Card **"P
 - **Saved connection** — Dropdown der konfigurierten PRTG-Connections (Variant 3, [Doku](/de/docs/monitoring/snmp/prtg-connection))
 - **Inline (ad-hoc)** — diese Variante
 
-Die Felder im Inline-Tab spiegeln die der [Saved-Connection-Variante](/de/docs/monitoring/snmp/prtg-connection) — nur dass sie pro Deployment statt zentral gespeichert werden. Layout-Vergleich mit dem V3-Add-Formular:
+Der Inline-Tab auf der Deployment-Detail-Seite — Felder identisch mit der [Saved-Connection-Variante](/de/docs/monitoring/snmp/prtg-connection), nur dass sie pro Deployment statt zentral gespeichert werden:
 
-![V3 Add-PRTG-Connection-Formular (Name/URL/Token/Template-Device-ID/Verify-TLS) — die Inline-Tab-Variante zeigt die gleichen Felder ohne den Namen](/images/docs/prtg-v3-add-form.png)
+![Inline-Tab der PRTG-monitoring-Card mit URL/Token/Template-Device-ID/Verify-TLS-Feldern und Save/Clear-Buttons](/images/docs/prtg-detail-inline-tab.png)
 
 Im Inline-Tab trägst du ein:
 

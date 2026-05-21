@@ -1,10 +1,13 @@
 import { test, expect } from '@playwright/test';
+import { execSync } from 'child_process';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SCREENSHOT_DIR = path.join(__dirname, '..', '..', 'ReadyStackGo.PublicWeb', 'public', 'images', 'docs');
+
+const BASE_URL = 'http://localhost:8080';
 
 /**
  * E2E spec that captures screenshots for the public PRTG integration docs.
@@ -136,3 +139,154 @@ test.describe('PRTG integration screenshots', () => {
     }
   });
 });
+
+// ────────────────────────────────────────────────────────────────────
+// Detail-page screenshots (V2 + V3 tabs on the PRTG monitoring card).
+// Requires an active ProductDeployment; we reuse the e2e-platform fixture
+// pattern from maintenance-mode.spec.ts to set one up if needed.
+// ────────────────────────────────────────────────────────────────────
+
+test.describe.serial('PRTG monitoring card on deployment detail', () => {
+  test.setTimeout(180_000);
+
+  let authToken = '';
+  let environmentId = '';
+  let productDeploymentId = '';
+
+  test.beforeAll(async () => {
+    authToken = curlJson<{ token: string }>(
+      `-X POST ${BASE_URL}/api/auth/login -H "Content-Type: application/json" `
+      + `-d "{\\"username\\":\\"admin\\",\\"password\\":\\"Admin1234\\"}"`,
+    ).token;
+
+    const envs = curlJson<{ environments: { id: string }[] }>(
+      `${BASE_URL}/api/environments -H "Authorization: Bearer ${authToken}"`,
+    );
+    environmentId = envs.environments[0].id;
+
+    productDeploymentId = await ensureE2ePlatformDeployed(authToken, environmentId);
+  });
+
+  test.beforeEach(async ({ page }) => {
+    test.skip(!productDeploymentId, 'No e2e-platform deployment — skipping detail-page screenshots');
+    await page.goto('/login');
+    await page.fill('input[type="text"]', 'admin');
+    await page.fill('input[type="password"]', 'Admin1234');
+    await page.click('button[type="submit"]');
+    await page.waitForURL(/\/(dashboard)?$/, { timeout: 10000 });
+  });
+
+  test('captures the "Saved connection" tab on the deployment detail page', async ({ page }) => {
+    await page.goto(`/product-deployments/${productDeploymentId}`);
+    await page.waitForLoadState('networkidle');
+
+    const card = page.getByRole('heading', { name: 'PRTG monitoring' });
+    await expect(card).toBeVisible();
+    await card.scrollIntoViewIfNeeded();
+
+    // Saved-connection tab is the default — just take the shot.
+    await page.screenshot({
+      path: path.join(SCREENSHOT_DIR, 'prtg-detail-saved-tab.png'),
+      fullPage: false,
+    });
+  });
+
+  test('captures the "Inline (ad-hoc)" tab (V2)', async ({ page }) => {
+    await page.goto(`/product-deployments/${productDeploymentId}`);
+    await page.waitForLoadState('networkidle');
+
+    const card = page.getByRole('heading', { name: 'PRTG monitoring' });
+    await expect(card).toBeVisible();
+    await card.scrollIntoViewIfNeeded();
+
+    await page.getByRole('button', { name: 'Inline (ad-hoc)' }).click();
+    // Form should now be visible.
+    await expect(page.getByPlaceholder('https://prtg.example.local')).toBeVisible();
+
+    // Fill with demo values so the screenshot is informative.
+    await page.getByPlaceholder('https://prtg.example.local').fill('https://prtg.example.local');
+    await page.getByPlaceholder('PRTG API token or passhash').fill('PRTG_TOKEN_demo_value');
+    await page.getByPlaceholder('e.g. 4221').fill('4221');
+
+    await page.screenshot({
+      path: path.join(SCREENSHOT_DIR, 'prtg-detail-inline-tab.png'),
+      fullPage: false,
+    });
+  });
+});
+
+// ── helpers ────────────────────────────────────────────────────────
+
+function curlJson<T>(args: string): T {
+  const out = execSync(`curl -sf ${args}`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+  return JSON.parse(out) as T;
+}
+
+function curlSilent(args: string): void {
+  try {
+    execSync(`curl -sf ${args}`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+  } catch {
+    // ignore — the call is best-effort (resource might already exist, etc.)
+  }
+}
+
+async function ensureE2ePlatformDeployed(authToken: string, environmentId: string): Promise<string> {
+  // Already running?
+  const existing = curlJson<{ productDeployments: { productDeploymentId: string; productName: string; status: string }[] }>(
+    `${BASE_URL}/api/environments/${environmentId}/product-deployments `
+    + `-H "Authorization: Bearer ${authToken}"`,
+  );
+  const already = existing.productDeployments.find(
+    (p) => p.productName === 'E2E Platform' && (p.status === 'Running' || p.status === 'PartiallyRunning'),
+  );
+  if (already) return already.productDeploymentId;
+
+  // Make sure the source exists and is synced.
+  curlSilent(
+    `-X POST ${BASE_URL}/api/stack-sources `
+    + `-H "Authorization: Bearer ${authToken}" -H "Content-Type: application/json" `
+    + `-d "{\\"id\\":\\"e2e-test-source\\",\\"name\\":\\"E2E Test Source\\",`
+    + `\\"type\\":\\"LocalDirectory\\",\\"path\\":\\"/app/stacks/examples/e2e-platform\\"}"`,
+  );
+  curlSilent(`-X POST ${BASE_URL}/api/stack-sources/sync -H "Authorization: Bearer ${authToken}"`);
+
+  // Deploy.
+  const products = curlJson<{ id: string; name: string; stacks: { id: string }[] }[]>(
+    `${BASE_URL}/api/products -H "Authorization: Bearer ${authToken}"`,
+  );
+  const product = products.find((p) => p.name === 'E2E Platform');
+  if (!product) return '';
+
+  const stackConfigs = product.stacks.map((s) => ({ stackId: s.id, variables: {} }));
+  const deployBody = JSON.stringify({
+    productId: product.id,
+    deploymentName: 'e2e-platform',
+    stackConfigs,
+    continueOnError: true,
+  });
+
+  execSync(
+    `curl -sf -X POST ${BASE_URL}/api/environments/${environmentId}/product-deployments `
+    + `-H "Authorization: Bearer ${authToken}" -H "Content-Type: application/json" `
+    + `-d @-`,
+    { encoding: 'utf-8', input: deployBody, stdio: ['pipe', 'pipe', 'ignore'] },
+  );
+
+  // Poll up to 60s for Running / PartiallyRunning / Failed.
+  for (let i = 0; i < 30; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    try {
+      const status = curlJson<{ productDeployments: { productDeploymentId: string; productName: string; status: string }[] }>(
+        `${BASE_URL}/api/environments/${environmentId}/product-deployments `
+        + `-H "Authorization: Bearer ${authToken}"`,
+      );
+      const pd = status.productDeployments.find((p) => p.productName === 'E2E Platform');
+      if (pd && (pd.status === 'Running' || pd.status === 'PartiallyRunning' || pd.status === 'Failed')) {
+        return pd.productDeploymentId;
+      }
+    } catch {
+      // keep polling
+    }
+  }
+  return '';
+}
