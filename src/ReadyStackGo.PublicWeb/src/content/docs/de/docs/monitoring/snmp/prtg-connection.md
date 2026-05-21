@@ -64,6 +64,8 @@ Auf der Deployment-Detail-Seite findest du eine **PRTG monitoring** Card mit zwe
 - **Saved connection** — Connection-Dropdown (für diese Variante)
 - **Inline (ad-hoc)** — direkt URL+Token eintragen (siehe [V2](/de/docs/monitoring/snmp/prtg-inline))
 
+![Saved-Connection-Tab der PRTG-monitoring-Card auf der Deployment-Detail-Seite mit Dropdown zum Auswählen der Connection](/images/docs/prtg-detail-saved-tab.png)
+
 Alternativ per REST-API:
 
 ```bash
