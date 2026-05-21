@@ -1,6 +1,8 @@
 <!-- GitHub Epic: #401 (Variant 4) -->
 # Phase: PRTG Integration — Variant 4 (HTTP Data Advanced Sensor)
 
+> **Status: ✅ DONE** — shipped in [PR #404](https://github.com/Wiesenwischer/ReadyStackGo/pull/404) (v0.66.0). `PrtgJsonStatusBuilder` + `GetPrtgJsonStatusQuery` + `GET /api/integrations/prtg/status` (13 aggregated channels) + `?apikey=` query-string auth extension on `ApiKeyAuthenticationHandler` + "PRTG HTTP sensor" UI card on the SNMP settings page + DE/EN docs at `/docs/monitoring/snmp/prtg-http-sensor`.
+
 ## Ziel
 
 RSGO liefert unter einem dedizierten Endpoint JSON im **PRTG-"HTTP Data Advanced"-Schema** aus. Ein PRTG-Admin fügt **einen einzelnen Sensor** vom Typ "HTTP Data Advanced" hinzu, hängt die RSGO-URL plus API-Key an, und PRTG pollt ab dem Moment Status-Zahlen direkt vom RSGO-API — ohne Device-Template-Install, ohne Probe-Restart, ohne MIB-Import.
