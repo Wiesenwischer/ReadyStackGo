@@ -28,7 +28,10 @@ public class LinkPrtgConnectionEndpoint : Endpoint<LinkPrtgConnectionRequest>
             ThrowError(result.Error ?? "Failed to link PRTG connection.", StatusCodes.Status400BadRequest);
             return;
         }
-        await Send.OkAsync(ct);
+        // NoContent — Send.OkAsync(ct) binds `ct` positionally as TResponse and
+        // tries to serialize the CancellationToken (throws on WaitHandle.Handle
+        // IntPtr). This endpoint has no response body, so 204 is the right code.
+        await Send.NoContentAsync(ct);
     }
 }
 
