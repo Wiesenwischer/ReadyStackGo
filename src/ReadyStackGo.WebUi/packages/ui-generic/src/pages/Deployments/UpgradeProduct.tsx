@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router';
 import { useUpgradeProductStore } from '@rsgo/core';
 import { useAuth } from '../../context/AuthContext';
 import { useEnvironment } from '../../context/EnvironmentContext';
 import VariableInput, { groupVariables } from '../../components/variables/VariableInput';
+import { DeploymentProgressPanel } from '../../components/deployments/DeploymentProgressPanel';
 
 export default function UpgradeProduct() {
   const { productDeploymentId } = useParams<{ productDeploymentId: string }>();
@@ -15,13 +16,7 @@ export default function UpgradeProduct() {
 
   const store = useUpgradeProductStore(token, activeEnvironment?.id, productDeploymentId, targetVersionParam);
 
-  const logEndRef = useRef<HTMLDivElement>(null);
   const envFileInputRef = useRef<HTMLInputElement>(null);
-
-  // Auto-scroll init container logs
-  useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [store.initContainerLogs]);
 
   // Handle .env file import (reads file, then delegates to store)
   const handleEnvFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -256,155 +251,208 @@ export default function UpgradeProduct() {
       ? Math.round(((completedCount + failedCount) / totalStacks) * 100)
       : store.progressUpdate?.percentComplete ?? 0;
 
+    const selectedStatus = store.selectedStack ? (store.stackStatuses[store.selectedStack] || 'pending') : null;
+    const selectedProgress = store.selectedStack ? (store.perStackProgress[store.selectedStack] || null) : null;
+    const selectedLogs = store.selectedStack ? (store.perStackLogs[store.selectedStack] || {}) : {};
+
     return (
       <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-white/[0.03]">
-          <div className="flex flex-col items-center py-8">
-            <div className="w-16 h-16 mb-6 border-4 border-brand-600 border-t-transparent rounded-full animate-spin"></div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Upgrading Product...
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Upgrading {store.productDeployment?.productName} from v{store.productDeployment?.productVersion} to v{store.selectedVersion || store.upgradeInfo?.latestVersion}
-            </p>
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-10 h-10 border-4 border-brand-600 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                Upgrading Product...
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {store.productDeployment?.productName} — v{store.productDeployment?.productVersion} → v{store.selectedVersion || store.upgradeInfo?.latestVersion} · {completedCount}/{totalStacks} stacks completed
+              </p>
+            </div>
+          </div>
 
-            {/* Overall Progress */}
-            <div className="w-full max-w-lg">
-              <div className="mb-4">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600 dark:text-gray-400">
-                    {store.progressUpdate?.phase === 'ProductDeploy'
-                      ? store.progressUpdate.message || 'Upgrading stacks...'
-                      : store.currentUpgradingStack
-                        ? `Upgrading: ${store.currentUpgradingStack}`
-                        : store.formattedPhase || 'Initializing'}
-                  </span>
-                  <span className="text-gray-600 dark:text-gray-400">
-                    {completedCount}/{totalStacks} stacks
-                  </span>
-                </div>
-                <div className="h-3 bg-gray-200 rounded-full dark:bg-gray-700 overflow-hidden">
-                  <div
-                    className="h-full bg-brand-600 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${overallPercent}%` }}
-                  />
-                </div>
-              </div>
+          {/* Overall Progress Bar */}
+          <div className="mb-6">
+            <div className="h-2 bg-gray-200 rounded-full dark:bg-gray-700 overflow-hidden">
+              <div
+                className="h-full bg-brand-600 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${overallPercent}%` }}
+              />
+            </div>
+          </div>
 
-              {/* Stack Status List */}
-              {store.targetProduct && (
-                <div className="mt-4 space-y-2">
-                  {store.targetProduct.stacks.map((stack) => {
-                    const status = store.stackStatuses[stack.name] || 'pending';
-                    const isNew = store.isNewStack(stack.name);
-                    return (
-                      <div
-                        key={stack.id}
-                        className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50"
-                      >
-                        <div className="flex items-center gap-2">
-                          {status === 'pending' && (
-                            <span className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600" />
-                          )}
-                          {status === 'upgrading' && (
-                            <div className="w-4 h-4 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
-                          )}
-                          {status === 'running' && (
-                            <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                          {status === 'failed' && (
-                            <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          )}
-                          <span className={`text-sm ${
-                            status === 'upgrading' ? 'font-medium text-brand-600 dark:text-brand-400' :
-                            status === 'running' ? 'text-green-700 dark:text-green-400' :
-                            status === 'failed' ? 'text-red-700 dark:text-red-400' :
-                            'text-gray-600 dark:text-gray-400'
-                          }`}>
-                            {stack.name}
-                          </span>
-                          {isNew && (
-                            <span className="inline-flex items-center rounded-full bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                              New
-                            </span>
-                          )}
-                        </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          status === 'pending' ? 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' :
-                          status === 'upgrading' ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300' :
-                          status === 'running' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
-                          'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+          {/* Split View: Stack List (left) + Detail Panel (right) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* LEFT: Stack Overview */}
+            <div className="lg:col-span-1">
+              <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                Stacks
+              </h3>
+              <div className="space-y-1">
+                {store.targetProduct?.stacks.map((stack) => {
+                  const status = store.stackStatuses[stack.name] || 'pending';
+                  const isSelected = store.selectedStack === stack.name;
+                  const isNew = store.isNewStack(stack.name);
+                  return (
+                    <button
+                      key={stack.id}
+                      onClick={() => store.handleStackSelect(stack.name)}
+                      className={`w-full flex items-center justify-between p-3 rounded-lg text-left transition-colors ${
+                        isSelected
+                          ? 'bg-brand-50 border-l-4 border-l-brand-600 dark:bg-brand-900/20'
+                          : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {status === 'pending' && (
+                          <span className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600 flex-shrink-0" />
+                        )}
+                        {status === 'removing' && (
+                          <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                        )}
+                        {status === 'upgrading' && (
+                          <div className="w-4 h-4 border-2 border-brand-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                        )}
+                        {status === 'running' && (
+                          <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                        {status === 'failed' && (
+                          <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        )}
+                        <span className={`text-sm ${
+                          status === 'removing' ? 'font-medium text-orange-600 dark:text-orange-400' :
+                          status === 'upgrading' ? 'font-medium text-brand-600 dark:text-brand-400' :
+                          status === 'running' ? 'text-green-700 dark:text-green-400' :
+                          status === 'failed' ? 'text-red-700 dark:text-red-400' :
+                          'text-gray-600 dark:text-gray-400'
                         }`}>
-                          {status === 'pending' ? 'Pending' :
-                           status === 'upgrading' ? 'Upgrading' :
-                           status === 'running' ? 'Running' : 'Failed'}
+                          {stack.name}
                         </span>
+                        {isNew && (
+                          <span className="inline-flex items-center rounded-full bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                            New
+                          </span>
+                        )}
                       </div>
-                    );
-                  })}
+                      <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
+                        status === 'pending' ? 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' :
+                        status === 'removing' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' :
+                        status === 'upgrading' ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300' :
+                        status === 'running' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                        'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                      }`}>
+                        {status === 'pending' ? 'Pending' :
+                         status === 'removing' ? 'Removing' :
+                         status === 'upgrading' ? 'Upgrading' :
+                         status === 'running' ? 'Running' : 'Failed'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* RIGHT: Detail Panel */}
+            <div className="lg:col-span-2">
+              {!store.selectedStack && (
+                <div className="flex flex-col items-center justify-center h-full py-12 text-gray-400 dark:text-gray-500">
+                  <svg className="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  <p className="text-sm">Waiting for upgrade to start...</p>
                 </div>
               )}
 
-              {/* Current Stack Detail Progress */}
-              {store.progressUpdate && store.progressUpdate.phase !== 'ProductDeploy' && (
-                <div className="mt-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    {store.formattedPhase}
-                  </p>
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
-                    {store.progressUpdate.message}
-                  </p>
-                  {(store.progressUpdate.totalServices > 0 || store.progressUpdate.totalInitContainers > 0) && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {store.progressUpdate.phase === 'PullingImages'
-                        ? `Images: ${store.progressUpdate.completedServices} / ${store.progressUpdate.totalServices}`
-                        : store.progressUpdate.phase === 'InitializingContainers'
-                          ? `Init Containers: ${store.progressUpdate.completedInitContainers} / ${store.progressUpdate.totalInitContainers}`
-                          : `Services: ${store.progressUpdate.completedServices} / ${store.progressUpdate.totalServices}`
-                      }
+              {store.selectedStack && selectedStatus === 'pending' && (
+                <div className="flex flex-col items-center justify-center h-full py-12 text-gray-400 dark:text-gray-500">
+                  <span className="w-12 h-12 rounded-full border-2 border-gray-300 dark:border-gray-600 mb-3" />
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{store.selectedStack}</p>
+                  <p className="text-sm">Waiting to upgrade...</p>
+                </div>
+              )}
+
+              {store.selectedStack && selectedStatus === 'removing' && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
+                    {store.selectedStack}
+                    <span className="ml-2 text-xs font-normal text-orange-600 dark:text-orange-400">Removing</span>
+                  </h3>
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-orange-50 dark:bg-orange-900/10">
+                    <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                    <p className="text-sm text-orange-700 dark:text-orange-300">
+                      Removing existing stack before deploying the new version...
                     </p>
+                  </div>
+                </div>
+              )}
+
+              {store.selectedStack && selectedStatus === 'upgrading' && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
+                    {store.selectedStack}
+                    <span className="ml-2 text-xs font-normal text-brand-600 dark:text-brand-400">Upgrading</span>
+                  </h3>
+                  <DeploymentProgressPanel
+                    progressUpdate={selectedProgress}
+                    initContainerLogs={selectedLogs}
+                    connectionState={store.connectionState}
+                    defaultMessage={`Upgrading ${store.selectedStack}...`}
+                  />
+                </div>
+              )}
+
+              {store.selectedStack && selectedStatus === 'running' && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
+                    {store.selectedStack}
+                    <span className="ml-2 text-xs font-normal text-green-600 dark:text-green-400">Upgraded</span>
+                  </h3>
+                  <div className="flex items-center gap-3 mb-4 p-4 rounded-lg bg-green-50 dark:bg-green-900/10">
+                    <svg className="w-6 h-6 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      Stack upgraded successfully
+                    </p>
+                  </div>
+                  {selectedProgress && (
+                    <DeploymentProgressPanel
+                      progressUpdate={selectedProgress}
+                      initContainerLogs={selectedLogs}
+                      connectionState={store.connectionState}
+                    />
                   )}
                 </div>
               )}
 
-              {/* Connection Status */}
-              <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                <span className={`w-2 h-2 rounded-full ${
-                  store.connectionState === 'connected' ? 'bg-green-500' :
-                  store.connectionState === 'connecting' ? 'bg-yellow-500' :
-                  store.connectionState === 'reconnecting' ? 'bg-yellow-500' :
-                  'bg-red-500'
-                }`} />
-                {store.connectionState === 'connected' ? 'Live updates' :
-                 store.connectionState === 'connecting' ? 'Connecting...' :
-                 store.connectionState === 'reconnecting' ? 'Reconnecting...' :
-                 'Updates unavailable'}
-              </div>
+              {store.selectedStack && selectedStatus === 'failed' && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
+                    {store.selectedStack}
+                    <span className="ml-2 text-xs font-normal text-red-600 dark:text-red-400">Failed</span>
+                  </h3>
+                  <div className="flex items-center gap-3 mb-4 p-4 rounded-lg bg-red-50 dark:bg-red-900/10">
+                    <svg className="w-6 h-6 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <p className="text-sm text-red-700 dark:text-red-300">
+                      Stack upgrade failed
+                    </p>
+                  </div>
+                  {selectedProgress && (
+                    <DeploymentProgressPanel
+                      progressUpdate={selectedProgress}
+                      initContainerLogs={selectedLogs}
+                      connectionState={store.connectionState}
+                    />
+                  )}
+                </div>
+              )}
             </div>
-
-            {/* Init Container Logs */}
-            {Object.keys(store.initContainerLogs).length > 0 && (
-              <div className="mt-6 w-full">
-                <div className="px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-t-lg">
-                  Init Container Logs
-                </div>
-                <div className="bg-gray-900 rounded-b-lg p-3 max-h-80 overflow-y-auto">
-                  {Object.entries(store.initContainerLogs).map(([name, lines]) => (
-                    <div key={name} className="mb-2 last:mb-0">
-                      <div className="text-xs font-bold text-blue-400 mb-1">{name}</div>
-                      {lines.map((line, i) => (
-                        <div key={i} className="font-mono text-xs text-green-400 whitespace-pre-wrap break-all leading-relaxed">{line}</div>
-                      ))}
-                    </div>
-                  ))}
-                  <div ref={logEndRef} />
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
