@@ -54,13 +54,44 @@ export async function deletePrtgConnection(id: string): Promise<void> {
   await apiDelete<void>(`/api/prtg-connections/${id}`);
 }
 
+export interface ProbedPrtgGroup {
+  objectId: number;
+  name: string;
+  probe: string | null;
+}
+
+export interface ProbePrtgGroupsResponse {
+  success: boolean;
+  error?: string | null;
+  groups: ProbedPrtgGroup[];
+}
+
+/**
+ * Asks the live PRTG instance for its group hierarchy so the Connection form
+ * can show a dropdown — the admin picks a target group (where RSGO will create
+ * new devices on link) instead of typing a numeric id.
+ *
+ * @param req.apiToken  Pass the token from the form, OR leave empty and pass
+ *                      `existingConnectionId` to reuse a stored token (for edit).
+ */
+export async function probePrtgGroups(req: {
+  url: string;
+  apiToken?: string;
+  existingConnectionId?: string;
+  verifyTls: boolean;
+}): Promise<ProbePrtgGroupsResponse> {
+  return apiPost<ProbePrtgGroupsResponse>('/api/prtg-connections/probe-groups', req);
+}
+
 export async function linkProductDeploymentToPrtgConnection(
   productDeploymentId: string,
   prtgConnectionId: string | null,
+  targetGroupId: number | null,
 ): Promise<void> {
   await apiPut<void>(`/api/deployments/${productDeploymentId}/prtg-connection`, {
     id: productDeploymentId,
     prtgConnectionId,
+    targetGroupId,
   });
 }
 

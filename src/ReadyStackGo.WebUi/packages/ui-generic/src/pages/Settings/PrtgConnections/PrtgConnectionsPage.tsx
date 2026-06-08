@@ -47,9 +47,10 @@ export default function PrtgConnectionsPage() {
           <Link to="/settings" className="text-sm text-gray-500 hover:text-brand-600">← Settings</Link>
           <h2 className="mt-2 text-2xl font-bold text-black dark:text-white">PRTG Connections</h2>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Manage reusable PRTG Network Monitor connections. ProductDeployments can link to
-            one, then RSGO auto-registers the deployment as a PRTG device when it goes live and
-            auto-deregisters when it is removed.
+            Manage PRTG Network Monitor connections (URL + API token). To register a
+            deployment as a PRTG device, open the deployment detail page and use the
+            <em> Add to PRTG monitoring </em>button there — you pick connection and target group
+            at that point, the connection itself stays reusable across deployments.
           </p>
         </div>
         <button
@@ -81,9 +82,9 @@ export default function PrtgConnectionsPage() {
               No PRTG connections yet.
             </p>
             <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-              Add one to enable auto-register on ProductDeployments. The connection stores
-              the PRTG URL, an API token (encrypted at rest) and an optional template-device
-              id used to clone sensors per deployment.
+              Add one to enable monitoring. The connection stores the PRTG URL and an
+              API token (encrypted at rest). Once saved you can register individual
+              deployments to PRTG from the deployment detail page.
             </p>
           </div>
         ) : (
@@ -92,7 +93,6 @@ export default function PrtgConnectionsPage() {
               <tr>
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">URL</th>
-                <th className="px-4 py-3">Template Device</th>
                 <th className="px-4 py-3">TLS</th>
                 <th className="px-4 py-3">Last used</th>
                 <th className="px-4 py-3"></th>
@@ -103,9 +103,6 @@ export default function PrtgConnectionsPage() {
                 <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50">
                   <td className="px-4 py-2 font-medium text-gray-900 dark:text-white">{c.name}</td>
                   <td className="px-4 py-2 font-mono text-xs text-gray-600 dark:text-gray-300">{c.url}</td>
-                  <td className="px-4 py-2 text-gray-700 dark:text-gray-200">
-                    {c.templateDeviceId ?? <span className="italic text-gray-400">(none)</span>}
-                  </td>
                   <td className="px-4 py-2 text-xs">
                     {c.verifyTls
                       ? <span className="text-green-700 dark:text-green-400">verified</span>
@@ -147,7 +144,6 @@ function ConnectionForm({
     name: initial?.name ?? '',
     url: initial?.url ?? 'https://',
     apiToken: '',
-    templateDeviceId: initial?.templateDeviceId ?? '',
     verifyTls: initial?.verifyTls ?? true,
   });
   const [busy, setBusy] = useState(false);
@@ -159,11 +155,14 @@ function ConnectionForm({
     setBusy(true);
     setErr(null);
     try {
+      // Connection holds only credentials. Target group is picked per
+      // deployment in the "Add to PRTG" dialog so the connection stays
+      // reusable across deployments living in different PRTG groups.
       const payload = {
         name: form.name,
         url: form.url,
         apiToken: form.apiToken || undefined,
-        templateDeviceId: form.templateDeviceId === '' ? null : Number(form.templateDeviceId),
+        templateDeviceId: null,
         verifyTls: form.verifyTls,
       };
       const response = isEdit
@@ -172,7 +171,7 @@ function ConnectionForm({
             name: form.name,
             url: form.url,
             apiToken: form.apiToken,
-            templateDeviceId: payload.templateDeviceId,
+            templateDeviceId: null,
             verifyTls: form.verifyTls,
           });
       if (!response.success) {
@@ -223,17 +222,6 @@ function ConnectionForm({
             className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-brand-500"
             placeholder={isEdit ? '••••••••••' : 'PRTG API token or passhash'}
           />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-500 dark:text-gray-400">Template Device ID (optional)</span>
-          <input
-            type="number"
-            value={form.templateDeviceId}
-            onChange={(e) => setForm({ ...form, templateDeviceId: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-brand-500"
-            placeholder="e.g. 4221"
-          />
-          <span className="text-xs text-gray-400">PRTG device-id RSGO duplicates per deployment. Leave empty to disable auto-register.</span>
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input

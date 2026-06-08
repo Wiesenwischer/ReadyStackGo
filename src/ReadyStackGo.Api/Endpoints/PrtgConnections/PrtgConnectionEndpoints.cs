@@ -116,7 +116,7 @@ public class DeletePrtgConnectionEndpoint : Endpoint<DeletePrtgConnectionRequest
             ThrowError(result.Error ?? "Failed to delete PRTG connection.", StatusCodes.Status404NotFound);
             return;
         }
-        await Send.OkAsync(ct);
+        await Send.NoContentAsync(ct);
     }
 }
 

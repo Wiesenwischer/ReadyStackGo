@@ -48,5 +48,17 @@
     "tags": ["enterprise", "vendor", "ams", "rc", "pre-release"],
     "featured": false,
     "stackCount": 2
+  },
+  {
+    "id": "rsgo-ams-project-ci",
+    "name": "ams.project Stacks (CI)",
+    "description": "Continuous-integration stacks for ams.project and ams.identityaccess — latest *-ci manifests for test and evaluation environments",
+    "type": "git-repository",
+    "gitUrl": "https://github.com/Wiesenwischer/rsgo-ams-project-ci.git",
+    "gitBranch": "main",
+    "category": "vendor",
+    "tags": ["enterprise", "vendor", "ams", "ci", "latest"],
+    "featured": false,
+    "stackCount": 2
   }
 ]

@@ -22,13 +22,23 @@ public class LinkPrtgConnectionEndpoint : Endpoint<LinkPrtgConnectionRequest>
 
     public override async Task HandleAsync(LinkPrtgConnectionRequest req, CancellationToken ct)
     {
-        var result = await _mediator.Send(new LinkPrtgConnectionCommand(req.Id, req.PrtgConnectionId), ct);
+        // The host that PRTG will SNMP-poll. We take it from the request's Host
+        // header — that's the address the admin is currently using to reach
+        // RSGO, which is almost always also the address PRTG can use. Strip
+        // any port; PRTG defaults to 161/UDP and we already mention the
+        // 1161 mapping in the dialog.
+        var rsgoHost = HttpContext.Request.Host.Host;
+        var result = await _mediator.Send(
+            new LinkPrtgConnectionCommand(req.Id, req.PrtgConnectionId, req.TargetGroupId, rsgoHost), ct);
         if (!result.Success)
         {
             ThrowError(result.Error ?? "Failed to link PRTG connection.", StatusCodes.Status400BadRequest);
             return;
         }
-        await Send.OkAsync(ct);
+        // NoContent — Send.OkAsync(ct) binds `ct` positionally as TResponse and
+        // tries to serialize the CancellationToken (throws on WaitHandle.Handle
+        // IntPtr). This endpoint has no response body, so 204 is the right code.
+        await Send.NoContentAsync(ct);
     }
 }
 
@@ -36,4 +46,5 @@ public class LinkPrtgConnectionRequest
 {
     public Guid Id { get; set; }                    // ProductDeploymentId — bound from route
     public Guid? PrtgConnectionId { get; set; }     // null = unlink
+    public int? TargetGroupId { get; set; }         // PRTG group id where the new device gets created (null = unlink path)
 }
