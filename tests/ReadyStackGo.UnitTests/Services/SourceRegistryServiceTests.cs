@@ -88,25 +88,26 @@ public class SourceRegistryServiceTests
     }
 
     [Fact]
-    public void GetAll_DoesNotContainStableAmsProjectStacksEntry()
+    public void GetAll_DoesNotContainStableOrRcAmsProjectChannels()
     {
-        // The stable "ams.project Stacks" channel was removed from the registry
-        // because there is currently no production-ready ams.project version.
+        // Only the Preview channel is currently offered: there is no
+        // production-ready ams.project version (stable removed) and the RC
+        // channel has been retired as well.
         var service = CreateService();
 
         var entries = service.GetAll();
 
         entries.Should().NotContain(e => e.Id == "rsgo-ams-project-stacks");
+        entries.Should().NotContain(e => e.Id == "rsgo-ams-project-rc");
     }
 
     [Fact]
-    public void GetAll_ContainsAmsProjectPreReleaseEntries()
+    public void GetAll_ContainsAmsProjectPreviewEntry()
     {
         var service = CreateService();
 
         var entries = service.GetAll();
 
-        entries.Should().Contain(e => e.Id == "rsgo-ams-project-rc");
         entries.Should().Contain(e => e.Id == "rsgo-ams-project-preview");
     }
 
