@@ -26,18 +26,6 @@
     "stackCount": 1
   },
   {
-    "id": "rsgo-ams-project-stacks",
-    "name": "ams.project Stacks",
-    "description": "Stable release stacks for ams.project and ams.identityaccess by ams.Solution AG",
-    "type": "git-repository",
-    "gitUrl": "https://github.com/Wiesenwischer/rsgo-ams-project.git",
-    "gitBranch": "main",
-    "category": "vendor",
-    "tags": ["enterprise", "vendor", "ams", "stable"],
-    "featured": false,
-    "stackCount": 2
-  },
-  {
     "id": "rsgo-ams-project-rc",
     "name": "ams.project Stacks (RC)",
     "description": "Release candidate stacks for ams.project and ams.identityaccess — pre-release testing",

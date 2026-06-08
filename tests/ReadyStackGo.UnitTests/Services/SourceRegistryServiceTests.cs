@@ -88,24 +88,37 @@ public class SourceRegistryServiceTests
     }
 
     [Fact]
-    public void GetAll_ContainsAmsProjectStacksEntry()
+    public void GetAll_DoesNotContainStableAmsProjectStacksEntry()
+    {
+        // The stable "ams.project Stacks" channel was removed from the registry
+        // because there is currently no production-ready ams.project version.
+        var service = CreateService();
+
+        var entries = service.GetAll();
+
+        entries.Should().NotContain(e => e.Id == "rsgo-ams-project-stacks");
+    }
+
+    [Fact]
+    public void GetAll_ContainsAmsProjectPreReleaseEntries()
     {
         var service = CreateService();
 
         var entries = service.GetAll();
 
-        entries.Should().Contain(e => e.Id == "rsgo-ams-project-stacks");
+        entries.Should().Contain(e => e.Id == "rsgo-ams-project-rc");
+        entries.Should().Contain(e => e.Id == "rsgo-ams-project-preview");
     }
 
     [Fact]
-    public void GetAll_AmsProjectStacksHasCorrectData()
+    public void GetAll_AmsProjectPreviewHasCorrectData()
     {
         var service = CreateService();
 
-        var entry = service.GetAll().First(e => e.Id == "rsgo-ams-project-stacks");
+        var entry = service.GetAll().First(e => e.Id == "rsgo-ams-project-preview");
 
-        entry.Name.Should().Be("ams.project Stacks");
-        entry.GitUrl.Should().Contain("github.com/Wiesenwischer/rsgo-ams-project");
+        entry.Name.Should().Be("ams.project Stacks (Preview)");
+        entry.GitUrl.Should().Contain("github.com/Wiesenwischer/rsgo-ams-project-preview");
         entry.GitBranch.Should().Be("main");
         entry.Category.Should().Be("vendor");
         entry.Featured.Should().BeFalse();
