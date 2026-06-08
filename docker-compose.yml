@@ -26,6 +26,13 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
       - ConfigPath=/app/config
+      # DataPath override: appsettings.Development.json hardcodes a Windows
+      # developer path. The container needs /app/data so the auto-generated
+      # encryption key survives restarts on the rsgo-data volume — without
+      # this override every restart generates a new key and previously
+      # encrypted credentials (PRTG tokens, SSH keys, SNMP passphrases)
+      # become unreadable with "Padding is invalid".
+      - DataPath=/app/data
       - ConnectionStrings__ReadyStackGo=Data Source=/app/data/readystackgo.db
       # Docker registry credentials (optional, set via .env file or environment)
       # - Docker__Username=${DOCKER_USERNAME}

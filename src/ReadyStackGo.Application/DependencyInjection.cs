@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.Services.Impl;
 using ReadyStackGo.Application.Integrations.Prtg;
+using ReadyStackGo.Application.Integrations.Prtg.V3;
 using ReadyStackGo.Application.Snmp.Prtg;
 using ReadyStackGo.Application.UseCases.Deployments.Precheck;
 using ReadyStackGo.Application.UseCases.Deployments.Precheck.Rules;
@@ -32,6 +33,10 @@ public static class DependencyInjection
 
         // PRTG HTTP Data Advanced JSON builder — Variant 4, also pure
         services.AddSingleton<IPrtgJsonStatusBuilder, PrtgJsonStatusBuilder>();
+
+        // PRTG device sync (V3) — registers / deregisters PRTG devices both on
+        // lifecycle events and immediately when the admin links a connection.
+        services.AddScoped<IPrtgDeviceSyncService, PrtgDeviceSyncService>();
 
         return services;
     }
