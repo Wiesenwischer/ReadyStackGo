@@ -22,14 +22,48 @@ public class PrtgConnectionLinkIntegrationTests : AuthenticatedTestBase
         var connectionId = await CreatePrtgConnectionAsync("repro-prtg");
         var productDeploymentId = SeedProductDeployment();
 
+        // A target group is required when linking. The subsequent PRTG
+        // device registration runs against the fake PRTG URL and fails
+        // gracefully (caught, reported as a message), so the link call
+        // still succeeds — which is exactly what this test guards.
         var response = await Client.PutAsJsonAsync(
             $"/api/deployments/{productDeploymentId}/prtg-connection",
-            new { id = productDeploymentId, prtgConnectionId = connectionId });
+            new { id = productDeploymentId, prtgConnectionId = connectionId, targetGroupId = 1 });
 
         var body = await response.Content.ReadAsStringAsync();
         // Print whatever we got so a failing test surfaces the real reason.
         response.StatusCode.Should().NotBe(HttpStatusCode.InternalServerError,
             $"server returned 500 — body: {body}");
+        response.IsSuccessStatusCode.Should().BeTrue($"unexpected status {response.StatusCode} — body: {body}");
+    }
+
+    [Fact]
+    public async Task LinkPrtgConnection_WithoutTargetGroup_ReturnsBadRequest()
+    {
+        var connectionId = await CreatePrtgConnectionAsync("repro-prtg-no-group");
+        var productDeploymentId = SeedProductDeployment();
+
+        var response = await Client.PutAsJsonAsync(
+            $"/api/deployments/{productDeploymentId}/prtg-connection",
+            new { id = productDeploymentId, prtgConnectionId = connectionId });
+
+        var body = await response.Content.ReadAsStringAsync();
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
+            $"linking without a target group must be rejected — body: {body}");
+        body.Should().Contain("Target group is required");
+    }
+
+    [Fact]
+    public async Task UnlinkPrtgConnection_WithoutTargetGroup_Succeeds()
+    {
+        var productDeploymentId = SeedProductDeployment();
+
+        // Unlink path (no connection id) must not require a target group.
+        var response = await Client.PutAsJsonAsync(
+            $"/api/deployments/{productDeploymentId}/prtg-connection",
+            new { id = productDeploymentId, prtgConnectionId = (Guid?)null });
+
+        var body = await response.Content.ReadAsStringAsync();
         response.IsSuccessStatusCode.Should().BeTrue($"unexpected status {response.StatusCode} — body: {body}");
     }
 
