@@ -950,7 +950,7 @@ public class UpgradeProductHandlerTests
     #region SignalR Progress
 
     [Fact]
-    public async Task Handle_SendsProgressBeforeEachStack()
+    public async Task Handle_SendsRemovingThenUpgradingProgressForEachStack()
     {
         var currentProduct = CreateTestProduct(2, version: "1.0.0");
         var targetProduct = CreateTestProduct(2, version: "2.0.0");
@@ -963,27 +963,112 @@ public class UpgradeProductHandlerTests
         await _handler.Handle(
             CreateUpgradeCommand(existing, targetProduct), CancellationToken.None);
 
+        // Each carried-over stack reports a "Removing" then an "Upgrading" phase
+        // under the shared "ProductDeploy" SignalR phase.
         _notificationMock.Verify(n => n.NotifyProgressAsync(
-            It.IsAny<string>(),
-            "ProductUpgrade",
-            It.Is<string>(m => m.Contains("1/2")),
-            It.IsAny<int>(),
-            It.IsAny<string>(),
-            2,
-            It.IsAny<int>(),
-            0, 0,
+            It.IsAny<string>(), "ProductDeploy",
+            It.Is<string>(m => m.Contains("Removing stack 1/2")),
+            It.IsAny<int>(), It.IsAny<string>(), 2, It.IsAny<int>(), 0, 0,
             It.IsAny<CancellationToken>()), Times.Once);
 
         _notificationMock.Verify(n => n.NotifyProgressAsync(
-            It.IsAny<string>(),
-            "ProductUpgrade",
-            It.Is<string>(m => m.Contains("2/2")),
-            It.IsAny<int>(),
-            It.IsAny<string>(),
-            2,
-            It.IsAny<int>(),
-            0, 0,
+            It.IsAny<string>(), "ProductDeploy",
+            It.Is<string>(m => m.Contains("Upgrading stack 1/2")),
+            It.IsAny<int>(), It.IsAny<string>(), 2, It.IsAny<int>(), 0, 0,
             It.IsAny<CancellationToken>()), Times.Once);
+
+        _notificationMock.Verify(n => n.NotifyProgressAsync(
+            It.IsAny<string>(), "ProductDeploy",
+            It.Is<string>(m => m.Contains("Removing stack 2/2")),
+            It.IsAny<int>(), It.IsAny<string>(), 2, It.IsAny<int>(), It.IsAny<int>(), 0,
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        _notificationMock.Verify(n => n.NotifyProgressAsync(
+            It.IsAny<string>(), "ProductDeploy",
+            It.Is<string>(m => m.Contains("Upgrading stack 2/2")),
+            It.IsAny<int>(), It.IsAny<string>(), 2, It.IsAny<int>(), It.IsAny<int>(), 0,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_CarriedOverStack_RemovedBeforeDeploy()
+    {
+        var currentProduct = CreateTestProduct(1, version: "1.0.0",
+            stackNames: new List<string> { "stack-0" });
+        var targetProduct = CreateTestProduct(1, version: "2.0.0",
+            stackNames: new List<string> { "stack-0" });
+        var existing = CreateExistingDeployment(currentProduct);
+
+        SetupExistingDeployment(existing);
+        SetupTargetProductFound(targetProduct);
+        SetupAllStacksSucceed();
+
+        await _handler.Handle(
+            CreateUpgradeCommand(existing, targetProduct), CancellationToken.None);
+
+        // The carried-over stack is removed under its derived deployment name
+        // before the fresh deploy.
+        var derivedName = ProductDeployment.DeriveStackDeploymentName("test-deployment", "stack-0");
+        _deploymentServiceMock.Verify(
+            d => d.RemoveDeploymentAsync(TestEnvironmentId, derivedName), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_NewStackInTarget_NotRemovedBeforeDeploy()
+    {
+        var currentProduct = CreateTestProduct(1, version: "1.0.0",
+            stackNames: new List<string> { "stack-0" });
+        var targetProduct = CreateTestProduct(2, version: "2.0.0",
+            stackNames: new List<string> { "stack-0", "new-stack" });
+        var existing = CreateExistingDeployment(currentProduct);
+
+        SetupExistingDeployment(existing);
+        SetupTargetProductFound(targetProduct);
+        SetupAllStacksSucceed();
+
+        await _handler.Handle(
+            CreateUpgradeCommand(existing, targetProduct), CancellationToken.None);
+
+        // The new stack has nothing to remove → no remove call for its derived name.
+        var newDerivedName = ProductDeployment.DeriveStackDeploymentName("test-deployment", "new-stack");
+        _deploymentServiceMock.Verify(
+            d => d.RemoveDeploymentAsync(TestEnvironmentId, newDerivedName), Times.Never);
+
+        // The carried-over stack is still removed first.
+        var carriedDerivedName = ProductDeployment.DeriveStackDeploymentName("test-deployment", "stack-0");
+        _deploymentServiceMock.Verify(
+            d => d.RemoveDeploymentAsync(TestEnvironmentId, carriedDerivedName), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_RemoveBeforeDeployFails_FallsBackToMarkRemoved_StillDeploys()
+    {
+        var currentProduct = CreateTestProduct(1, version: "1.0.0",
+            stackNames: new List<string> { "stack-0" });
+        var targetProduct = CreateTestProduct(1, version: "2.0.0",
+            stackNames: new List<string> { "stack-0" });
+        var existing = CreateExistingDeployment(currentProduct);
+
+        SetupExistingDeployment(existing);
+        SetupTargetProductFound(targetProduct);
+        SetupAllStacksSucceed();
+
+        var derivedName = ProductDeployment.DeriveStackDeploymentName("test-deployment", "stack-0");
+        _deploymentServiceMock
+            .Setup(d => d.RemoveDeploymentAsync(TestEnvironmentId, derivedName))
+            .ReturnsAsync(new DeployComposeResponse { Success = false, Message = "container not found" });
+        _deploymentServiceMock
+            .Setup(d => d.MarkDeploymentAsRemovedAsync(TestEnvironmentId, derivedName))
+            .Returns(Task.CompletedTask);
+
+        var result = await _handler.Handle(
+            CreateUpgradeCommand(existing, targetProduct), CancellationToken.None);
+
+        // Remove failure is tolerated: DB is marked removed and the deploy still runs.
+        _deploymentServiceMock.Verify(
+            d => d.MarkDeploymentAsRemovedAsync(TestEnvironmentId, derivedName), Times.Once);
+        result.Success.Should().BeTrue();
+        result.Status.Should().Be("Running");
     }
 
     [Fact]

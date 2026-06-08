@@ -223,15 +223,6 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
             var reqStack = request.StackConfigs.First(s =>
                 s.StackId.Equals(stack.StackId, StringComparison.OrdinalIgnoreCase));
 
-            // Send product-level progress
-            await NotifyProductProgressAsync(
-                sessionId, stack.StackDisplayName, i, stacks.Count,
-                productDeployment.CompletedStacks, cancellationToken);
-
-            _logger.LogInformation(
-                "Upgrading stack {StackIndex}/{TotalStacks}: {StackName} for product {ProductName} (isNew: {IsNew})",
-                i + 1, stacks.Count, stack.StackDisplayName, targetProduct.Name, stack.IsNewInUpgrade);
-
             // Merge variables for this stack
             var stackDef = targetProduct.Stacks.First(s =>
                 s.Id.Value.Equals(stack.StackId, StringComparison.OrdinalIgnoreCase));
@@ -243,6 +234,37 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
             var mergedVariables = MergeVariables(stackDef, existingVariables, request.SharedVariables, reqStack.Variables);
             var stackDeploymentName = ProductDeployment.DeriveStackDeploymentName(
                 deploymentName, stackDef.Name);
+
+            // Phase A — Remove the existing stack first, then deploy fresh.
+            // Upgrade = remove old + deploy new (same pattern as Redeploy), so the UI
+            // shows the same detailed Removing → Deploying steps per stack. Stacks
+            // newly introduced in the target version have nothing to remove → deploy only.
+            if (!stack.IsNewInUpgrade)
+            {
+                await NotifyProductProgressAsync(
+                    sessionId, stack.StackName, stack.StackDisplayName, i, stacks.Count,
+                    productDeployment.CompletedStacks, cancellationToken, phase: "Removing");
+
+                var removeResult = await _deploymentService.RemoveDeploymentAsync(
+                    request.EnvironmentId, stackDeploymentName);
+                if (!removeResult.Success)
+                {
+                    _logger.LogWarning(
+                        "Remove of stack '{StackName}' before upgrade failed ({Error}) — continuing with fresh deploy",
+                        stackDeploymentName, removeResult.Message);
+                    await _deploymentService.MarkDeploymentAsRemovedAsync(
+                        request.EnvironmentId, stackDeploymentName);
+                }
+            }
+
+            // Phase B — Deploy the new version
+            await NotifyProductProgressAsync(
+                sessionId, stack.StackName, stack.StackDisplayName, i, stacks.Count,
+                productDeployment.CompletedStacks, cancellationToken, phase: "Upgrading");
+
+            _logger.LogInformation(
+                "Upgrading stack {StackIndex}/{TotalStacks}: {StackName} for product {ProductName} (isNew: {IsNew})",
+                i + 1, stacks.Count, stack.StackDisplayName, targetProduct.Name, stack.IsNewInUpgrade);
 
             // Dispatch DeployStackCommand (handles both fresh deploy and upgrade)
             DeployStackResponse deployResult;
@@ -284,6 +306,10 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
                 stackResult.DeploymentStackName = stackDeploymentName;
 
                 _logger.LogInformation("Stack {StackName} upgraded successfully", stack.StackDisplayName);
+
+                await NotifyStackCompletedAsync(
+                    sessionId, stack.StackName, stack.StackDisplayName,
+                    true, null, i, stacks.Count, productDeployment.CompletedStacks, cancellationToken);
             }
             else
             {
@@ -306,6 +332,10 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
                 stackResult.ErrorMessage = error;
 
                 _logger.LogWarning("Stack {StackName} upgrade failed: {Error}", stack.StackDisplayName, error);
+
+                await NotifyStackCompletedAsync(
+                    sessionId, stack.StackName, stack.StackDisplayName,
+                    false, error, i, stacks.Count, productDeployment.CompletedStacks, cancellationToken);
 
                 if (!request.ContinueOnError)
                 {
@@ -438,20 +468,26 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
     }
 
     private async Task NotifyProductProgressAsync(
-        string sessionId, string stackDisplayName, int stackIndex, int totalStacks,
-        int completedStacks, CancellationToken ct)
+        string sessionId, string stackName, string stackDisplayName, int stackIndex, int totalStacks,
+        int completedStacks, CancellationToken ct, string phase = "Upgrading")
     {
         if (_notificationService == null) return;
 
         try
         {
             var percentComplete = totalStacks > 0 ? (int)(completedStacks * 100.0 / totalStacks) : 0;
+            var message = phase == "Removing"
+                ? $"Removing stack {stackIndex + 1}/{totalStacks}: {stackDisplayName}"
+                : $"Upgrading stack {stackIndex + 1}/{totalStacks}: {stackDisplayName}";
+            // SignalR phase "ProductDeploy" lets the WebUI reuse the shared
+            // per-stack progress routing (same as Deploy/Redeploy); the
+            // Removing/Upgrading distinction is carried in the message.
             await _notificationService.NotifyProgressAsync(
                 sessionId,
-                "ProductUpgrade",
-                $"Upgrading stack {stackIndex + 1}/{totalStacks}: {stackDisplayName}",
+                "ProductDeploy",
+                message,
                 percentComplete,
-                stackDisplayName,
+                stackName,
                 totalStacks,
                 completedStacks,
                 0, 0, ct);
@@ -459,6 +495,35 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Failed to send product upgrade progress notification");
+        }
+    }
+
+    private async Task NotifyStackCompletedAsync(
+        string sessionId, string stackName, string stackDisplayName,
+        bool success, string? error, int stackIndex, int totalStacks,
+        int completedStacks, CancellationToken ct)
+    {
+        if (_notificationService == null) return;
+
+        try
+        {
+            var percentComplete = totalStacks > 0 ? (int)(completedStacks * 100.0 / totalStacks) : 0;
+            var message = success
+                ? $"Stack {stackDisplayName} upgraded successfully"
+                : $"Stack {stackDisplayName} upgrade failed: {error}";
+            await _notificationService.NotifyProgressAsync(
+                sessionId,
+                "ProductDeploy",
+                message,
+                percentComplete,
+                stackName,
+                totalStacks,
+                completedStacks,
+                0, 0, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to send stack completion notification");
         }
     }
 
