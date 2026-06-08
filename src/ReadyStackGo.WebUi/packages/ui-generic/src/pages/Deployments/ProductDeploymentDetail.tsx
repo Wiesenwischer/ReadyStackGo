@@ -6,8 +6,10 @@ import {
   listPrtgConnections,
   linkProductDeploymentToPrtgConnection,
   setInlinePrtgRegistration,
+  probePrtgGroups,
   type ProductStackDeploymentDto,
   type PrtgConnectionDto,
+  type ProbedPrtgGroup,
 } from '@rsgo/core';
 import { useAuth } from "../../context/AuthContext";
 import { useEnvironment } from "../../context/EnvironmentContext";
@@ -506,8 +508,8 @@ function PrtgMonitoringCard(props: PrtgMonitoringCardProps) {
   // Default mode: whichever is currently configured, falling back to connection.
   const [mode, setMode] = useState<PrtgMode>(inlineUrl ? 'inline' : 'connection');
 
-  // Connection-mode state
-  const [selected, setSelected] = useState<string>(prtgConnectionId ?? '');
+  // "Add to PRTG" dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   // Inline-mode state
   const [inline, setInline] = useState({
@@ -532,20 +534,14 @@ function PrtgMonitoringCard(props: PrtgMonitoringCardProps) {
     })();
   }, []);
 
-  useEffect(() => {
-    setSelected(prtgConnectionId ?? '');
-  }, [prtgConnectionId]);
-
   const linkedConnection = connections.find((c) => c.id === prtgConnectionId);
 
-  const saveConnection = async () => {
+  const unlink = async () => {
+    if (!confirm('Remove this deployment from PRTG monitoring? The PRTG device will be deleted.')) return;
     setSaving(true);
     setError(null);
     try {
-      await linkProductDeploymentToPrtgConnection(
-        productDeploymentId,
-        selected === '' ? null : selected,
-      );
+      await linkProductDeploymentToPrtgConnection(productDeploymentId, null, null);
       window.location.reload();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -625,55 +621,75 @@ function PrtgMonitoringCard(props: PrtgMonitoringCardProps) {
         <div className="px-4 py-4 md:px-6 space-y-3">
           {loading ? (
             <p className="text-sm text-gray-500">Loading PRTG connections…</p>
+          ) : prtgConnectionId ? (
+            // Already linked: show status + Remove
+            <>
+              <div className="rounded-md bg-green-50 px-3 py-3 text-sm text-green-800 dark:bg-green-900/20 dark:text-green-300 flex items-start gap-2">
+                <span aria-hidden>✓</span>
+                <div>
+                  <div>
+                    Registered with <strong>{linkedConnection?.name ?? 'a deleted connection'}</strong>
+                    {prtgDeviceId !== null && <> as PRTG device <code className="font-mono">{prtgDeviceId}</code></>}
+                    .
+                  </div>
+                  {linkedConnection && prtgDeviceId !== null && (
+                    <a
+                      href={`${linkedConnection.url.replace(/\/$/, '')}/device.htm?id=${prtgDeviceId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs underline hover:no-underline"
+                    >
+                      Open device in PRTG ↗
+                    </a>
+                  )}
+                  {prtgLastSyncedAt && (
+                    <div className="mt-0.5 text-xs opacity-80">
+                      Last sync: {formatDate(prtgLastSyncedAt)}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={unlink}
+                disabled={saving}
+                className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
+              >
+                {saving ? 'Removing…' : 'Remove from PRTG monitoring'}
+              </button>
+              {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+            </>
           ) : connections.length === 0 ? (
+            // Not linked + no connections exist → bounce to Settings
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              No saved PRTG connections.{' '}
+              No PRTG connections configured.{' '}
               <Link to="/settings/prtg-connections" className="text-brand-600 hover:underline">
                 Add one in Settings
               </Link>
-              {' '}or use the <em>Inline (ad-hoc)</em> tab for one-off credentials.
+              {' '}first, then come back here to register this deployment.
             </p>
           ) : (
+            // Not linked, connections exist → single Add button + modal
             <>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-gray-500 dark:text-gray-400">Connection</span>
-                <select
-                  value={selected}
-                  onChange={(e) => setSelected(e.target.value)}
-                  className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-brand-500"
-                  disabled={saving}
-                >
-                  <option value="">— Not linked —</option>
-                  {connections.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name} ({c.url})</option>
-                  ))}
-                </select>
-              </label>
-
-              {prtgConnectionId && (
-                <div className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-gray-800/50 dark:text-gray-300">
-                  {linkedConnection
-                    ? <>Linked to <strong>{linkedConnection.name}</strong>.</>
-                    : <>Linked to a connection that is no longer in the list (deleted?). Selecting another will replace it.</>}
-                  {prtgDeviceId !== null && (
-                    <> Registered as PRTG device <code className="font-mono">{prtgDeviceId}</code>.</>
-                  )}
-                  {prtgLastSyncedAt && (
-                    <> Last sync: {formatDate(prtgLastSyncedAt)}.</>
-                  )}
-                </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Not yet registered in PRTG. RSGO can create a PRTG device for this
+                deployment and trigger auto-discovery — sensors come from the imported
+                RSGO MIB.
+              </p>
+              <button
+                onClick={() => setDialogOpen(true)}
+                className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+              >
+                + Add to PRTG monitoring
+              </button>
+              {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+              {dialogOpen && (
+                <AddToPrtgDialog
+                  productDeploymentId={productDeploymentId}
+                  connections={connections}
+                  onClose={() => setDialogOpen(false)}
+                  onDone={() => { setDialogOpen(false); window.location.reload(); }}
+                />
               )}
-
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={saveConnection}
-                  disabled={saving || selected === (prtgConnectionId ?? '')}
-                  className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-                >
-                  {saving ? 'Saving…' : (selected === '' ? 'Unlink' : 'Save link')}
-                </button>
-                {error && <span className="text-sm text-red-600 dark:text-red-400">{error}</span>}
-              </div>
             </>
           )}
         </div>
@@ -759,4 +775,198 @@ function PrtgMonitoringCard(props: PrtgMonitoringCardProps) {
       )}
     </div>
   );
+}
+
+// ============================================================================
+// AddToPrtgDialog — modal that takes the admin from "have a connection" to
+// "have a PRTG device" in a single short flow. Shows phased progress like a
+// product deployment so the user knows what's happening.
+// ============================================================================
+
+type AddPhaseStatus = 'pending' | 'running' | 'ok' | 'failed';
+
+interface AddPhase {
+  label: string;
+  status: AddPhaseStatus;
+  detail?: string;
+}
+
+function AddToPrtgDialog({
+  productDeploymentId,
+  connections,
+  onClose,
+  onDone,
+}: {
+  productDeploymentId: string;
+  connections: PrtgConnectionDto[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [connectionId, setConnectionId] = useState(connections[0]?.id ?? '');
+  const [groups, setGroups] = useState<ProbedPrtgGroup[]>([]);
+  const [groupId, setGroupId] = useState<string>('');
+  const [loadingGroups, setLoadingGroups] = useState(false);
+  const [probeError, setProbeError] = useState<string | null>(null);
+  const [phases, setPhases] = useState<AddPhase[] | null>(null);
+  const [running, setRunning] = useState(false);
+
+  // Auto-load groups whenever the selected connection changes.
+  useEffect(() => {
+    if (!connectionId) {
+      setGroups([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoadingGroups(true);
+      setProbeError(null);
+      try {
+        const resp = await probePrtgGroups({
+          url: connections.find((c) => c.id === connectionId)?.url ?? '',
+          existingConnectionId: connectionId,
+          verifyTls: connections.find((c) => c.id === connectionId)?.verifyTls ?? true,
+        });
+        if (cancelled) return;
+        if (!resp.success) {
+          setProbeError(resp.error ?? 'Could not reach PRTG.');
+          setGroups([]);
+          return;
+        }
+        setGroups(resp.groups);
+        // Auto-pick first group if only one was returned.
+        if (resp.groups.length === 1) setGroupId(String(resp.groups[0].objectId));
+      } catch (e: unknown) {
+        if (!cancelled) {
+          setProbeError(e instanceof Error ? e.message : String(e));
+          setGroups([]);
+        }
+      } finally {
+        if (!cancelled) setLoadingGroups(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [connectionId, connections]);
+
+  const run = async () => {
+    if (!connectionId || !groupId) return;
+    setRunning(true);
+    const initial: AddPhase[] = [
+      { label: 'Creating device in PRTG…', status: 'running' },
+      { label: 'Triggering auto-discovery', status: 'pending' },
+    ];
+    setPhases(initial);
+
+    try {
+      await linkProductDeploymentToPrtgConnection(productDeploymentId, connectionId, Number(groupId));
+      // The backend does both create + discovery synchronously; if we got here
+      // without an exception, both succeeded. Mark them as ok in one shot.
+      setPhases([
+        { label: 'Device created in PRTG', status: 'ok' },
+        { label: 'Auto-discovery triggered', status: 'ok' },
+      ]);
+      // Brief pause so the user sees the green check, then reload to show the
+      // post-link status box on the page underneath.
+      setTimeout(onDone, 800);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setPhases([
+        { label: 'Create device in PRTG', status: 'failed', detail: msg },
+        { label: 'Auto-discovery', status: 'pending' },
+      ]);
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 dark:bg-gray-900">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Add to PRTG monitoring</h3>
+
+        {phases === null ? (
+          <div className="mt-4 space-y-3">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-gray-500 dark:text-gray-400">PRTG connection</span>
+              <select
+                value={connectionId}
+                onChange={(e) => { setConnectionId(e.target.value); setGroupId(''); }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-brand-500"
+                disabled={connections.length === 1}
+              >
+                {connections.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.url})</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-gray-500 dark:text-gray-400">
+                Target group {loadingGroups && <span className="text-xs italic">(loading from PRTG…)</span>}
+              </span>
+              <select
+                value={groupId}
+                onChange={(e) => setGroupId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
+                disabled={loadingGroups || groups.length === 0}
+              >
+                <option value="">— pick a group —</option>
+                {groups.map((g) => (
+                  <option key={g.objectId} value={g.objectId}>
+                    {g.probe ? `${g.probe} › ${g.name}` : g.name}
+                  </option>
+                ))}
+              </select>
+              {probeError && <span className="text-xs text-red-600 dark:text-red-400">{probeError}</span>}
+            </label>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={onClose}
+                className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={run}
+                disabled={!connectionId || !groupId || running}
+                className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+              >
+                Add to PRTG
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4">
+            <ol className="space-y-2 text-sm">
+              {phases.map((p, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <PhaseIcon status={p.status} />
+                  <div>
+                    <div className="text-gray-800 dark:text-gray-200">{p.label}</div>
+                    {p.detail && <div className="text-xs text-red-600 dark:text-red-400">{p.detail}</div>}
+                  </div>
+                </li>
+              ))}
+            </ol>
+            {!running && (
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={onClose}
+                  className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                >
+                  Close
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PhaseIcon({ status }: { status: AddPhaseStatus }) {
+  if (status === 'ok') return <span className="text-green-600" aria-hidden>✓</span>;
+  if (status === 'failed') return <span className="text-red-600" aria-hidden>✗</span>;
+  if (status === 'running') return <span className="text-brand-600 animate-pulse" aria-hidden>●</span>;
+  return <span className="text-gray-400" aria-hidden>○</span>;
 }
