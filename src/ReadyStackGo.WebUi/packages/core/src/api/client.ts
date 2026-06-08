@@ -17,6 +17,38 @@ function getAuthHeaders(includeContentType: boolean = true): HeadersInit {
   return headers;
 }
 
+/**
+ * Extracts a useful error message from a non-OK fetch response. Tries the JSON
+ * body first (FastEndpoints validation errors, business error fields), falls
+ * back to statusText.
+ */
+async function extractErrorMessage(response: Response): Promise<string> {
+  const fallback = `API request failed: ${response.statusText}`;
+  try {
+    const body = await response.json();
+    if (body.errors) {
+      // FastEndpoints validation error format: { errors: { fieldA: ["msg"], ... } }
+      const messages = Object.values(body.errors).flat();
+      return messages.length > 0 ? messages.join(', ') : fallback;
+    }
+    if (body.error) return body.error;
+    if (body.message) return body.message;
+    if (body.detail) return body.detail;
+    if (body.title) return body.title;
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function handle401IfNeeded(response: Response): void {
+  if (response.status === 401) {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    window.location.href = '/login';
+  }
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: getAuthHeaders(false),
@@ -24,29 +56,8 @@ export async function apiGet<T>(path: string): Promise<T> {
   });
 
   if (!response.ok) {
-    if (response.status === 401) {
-      // Unauthorized - clear stale token and redirect to login
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('auth_user');
-      window.location.href = '/login';
-    }
-    // Try to get error details from response body
-    let errorMessage = `API request failed: ${response.statusText}`;
-    try {
-      const errorBody = await response.json();
-      if (errorBody.errors) {
-        // FastEndpoints validation error format
-        const messages = Object.values(errorBody.errors).flat();
-        errorMessage = messages.join(', ') || errorMessage;
-      } else if (errorBody.error) {
-        errorMessage = errorBody.error;
-      } else if (errorBody.message) {
-        errorMessage = errorBody.message;
-      }
-    } catch {
-      // Ignore if body is not JSON
-    }
-    throw new Error(errorMessage);
+    handle401IfNeeded(response);
+    throw new Error(await extractErrorMessage(response));
   }
 
   // Handle empty responses
@@ -68,27 +79,8 @@ export async function apiPost<T = void>(path: string, body?: unknown): Promise<T
   });
 
   if (!response.ok) {
-    if (response.status === 401) {
-      // Unauthorized - clear stale token and redirect to login
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('auth_user');
-      window.location.href = '/login';
-    }
-    // Try to get error details from response body
-    let errorMessage = `API request failed: ${response.statusText}`;
-    try {
-      const errorBody = await response.json();
-      if (errorBody.errors) {
-        // FastEndpoints validation error format
-        const messages = Object.values(errorBody.errors).flat();
-        errorMessage = messages.join(', ') || errorMessage;
-      } else if (errorBody.message) {
-        errorMessage = errorBody.message;
-      }
-    } catch {
-      // Ignore if body is not JSON
-    }
-    throw new Error(errorMessage);
+    handle401IfNeeded(response);
+    throw new Error(await extractErrorMessage(response));
   }
 
   // Handle empty responses - check multiple conditions
@@ -116,13 +108,8 @@ export async function apiPut<T = void>(path: string, body?: unknown): Promise<T>
   });
 
   if (!response.ok) {
-    if (response.status === 401) {
-      // Unauthorized - clear stale token and redirect to login
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('auth_user');
-      window.location.href = '/login';
-    }
-    throw new Error(`API request failed: ${response.statusText}`);
+    handle401IfNeeded(response);
+    throw new Error(await extractErrorMessage(response));
   }
 
   // Handle empty responses - check multiple conditions
@@ -150,13 +137,8 @@ export async function apiDelete<T = void>(path: string, body?: unknown): Promise
   });
 
   if (!response.ok) {
-    if (response.status === 401) {
-      // Unauthorized - clear stale token and redirect to login
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('auth_user');
-      window.location.href = '/login';
-    }
-    throw new Error(`API request failed: ${response.statusText}`);
+    handle401IfNeeded(response);
+    throw new Error(await extractErrorMessage(response));
   }
 
   // Handle empty responses - check multiple conditions
