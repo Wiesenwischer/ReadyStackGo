@@ -64,8 +64,9 @@ const parseEnvContent = (content: string): Record<string, string> => {
 
 export type UpgradeProductState = 'loading' | 'configure' | 'upgrading' | 'success' | 'error';
 
-// Stack status for the upgrading view
-export type StackProgressStatus = 'pending' | 'upgrading' | 'running' | 'failed';
+// Stack status for the upgrading view. Upgrade runs per-stack as remove → deploy,
+// so a stack passes through 'removing' before 'upgrading' (mirrors Redeploy).
+export type StackProgressStatus = 'pending' | 'removing' | 'upgrading' | 'running' | 'failed';
 
 export interface UseUpgradeProductStoreReturn {
   // State
@@ -88,7 +89,9 @@ export interface UseUpgradeProductStoreReturn {
 
   // Progress state
   progressUpdate: DeploymentProgressUpdate | null;
-  initContainerLogs: Record<string, string[]>;
+  perStackProgress: Record<string, DeploymentProgressUpdate | null>;
+  perStackLogs: Record<string, Record<string, string[]>>;
+  selectedStack: string | null;
   stackStatuses: Record<string, StackProgressStatus>;
   currentUpgradingStack: string | null;
   stackResults: UpgradeProductStackResult[];
@@ -104,6 +107,7 @@ export interface UseUpgradeProductStoreReturn {
   toggleStackExpanded: (stackId: string) => void;
   handleVersionChange: (newVersion: string) => Promise<void>;
   handleEnvFileContent: (content: string) => void;
+  handleStackSelect: (stackName: string) => void;
   handleUpgrade: () => Promise<void>;
 
   // Computed helpers
@@ -142,7 +146,12 @@ export function useUpgradeProductStore(
   // Upgrade progress state
   const upgradeSessionIdRef = useRef<string | null>(null);
   const [progressUpdate, setProgressUpdate] = useState<DeploymentProgressUpdate | null>(null);
-  const [initContainerLogs, setInitContainerLogs] = useState<Record<string, string[]>>({});
+  const [perStackProgress, setPerStackProgress] = useState<Record<string, DeploymentProgressUpdate | null>>({});
+  const [perStackLogs, setPerStackLogs] = useState<Record<string, Record<string, string[]>>>({});
+  const [selectedStack, setSelectedStack] = useState<string | null>(null);
+  const currentDeployingStackRef = useRef<string | null>(null);
+  const userSelectedStackRef = useRef(false);
+  const completedRef = useRef(false);
 
   // Stack-level progress tracking for the upgrading view
   const [stackStatuses, setStackStatuses] = useState<Record<string, StackProgressStatus>>({});
@@ -154,26 +163,47 @@ export function useUpgradeProductStore(
   // SignalR hub
   const handleUpgradeProgress = useCallback((update: DeploymentProgressUpdate) => {
     const currentSessionId = upgradeSessionIdRef.current;
-    if (currentSessionId && update.sessionId === currentSessionId) {
-      setProgressUpdate(update);
+    if (!currentSessionId || update.sessionId !== currentSessionId) return;
 
-      // Parse product-level progress from the message
-      if (update.phase === 'ProductDeploy' && update.currentService) {
+    setProgressUpdate(update);
+
+    if (update.phase === 'ProductDeploy') {
+      // Product-level orchestration events. The backend runs each carried-over
+      // stack as remove → deploy, so we parse the message to drive the per-stack
+      // status (mirrors the Redeploy store).
+      if (update.currentService) {
         const stackName = update.currentService;
         setCurrentUpgradingStack(stackName);
-        setStackStatuses(prev => ({
-          ...prev,
-          [stackName]: 'upgrading'
-        }));
-      }
-
-      if (update.isComplete) {
-        if (update.isError) {
-          setError(update.errorMessage || 'Upgrade failed');
-          setState('error');
-        } else {
-          setState('success');
+        if (update.message?.startsWith('Removing stack')) {
+          setStackStatuses(prev => ({ ...prev, [stackName]: 'removing' }));
+        } else if (update.message?.startsWith('Upgrading stack')) {
+          currentDeployingStackRef.current = stackName;
+          setStackStatuses(prev => ({ ...prev, [stackName]: 'upgrading' }));
+          if (!userSelectedStackRef.current) {
+            setSelectedStack(stackName);
+          }
+        } else if (update.message?.includes('upgraded successfully')) {
+          setStackStatuses(prev => ({ ...prev, [stackName]: 'running' }));
+        } else if (update.message?.includes('upgrade failed')) {
+          setStackStatuses(prev => ({ ...prev, [stackName]: 'failed' }));
         }
+      }
+    } else {
+      // Inner stack deployment progress (PullingImages, etc.) → route to the
+      // currently deploying stack's detail panel.
+      const deployingStack = currentDeployingStackRef.current;
+      if (deployingStack) {
+        setPerStackProgress(prev => ({ ...prev, [deployingStack]: update }));
+      }
+    }
+
+    if (update.isComplete && !completedRef.current) {
+      completedRef.current = true;
+      if (update.isError) {
+        setError(update.errorMessage || 'Upgrade failed');
+        setState('error');
+      } else {
+        setState('success');
       }
     }
   }, []);
@@ -181,10 +211,16 @@ export function useUpgradeProductStore(
   const handleInitContainerLog = useCallback((log: InitContainerLogEntry) => {
     const currentSessionId = upgradeSessionIdRef.current;
     if (currentSessionId && log.sessionId === currentSessionId) {
-      setInitContainerLogs(prev => ({
-        ...prev,
-        [log.containerName]: [...(prev[log.containerName] || []), log.logLine]
-      }));
+      const deployingStack = currentDeployingStackRef.current;
+      if (deployingStack) {
+        setPerStackLogs(prev => ({
+          ...prev,
+          [deployingStack]: {
+            ...prev[deployingStack],
+            [log.containerName]: [...(prev[deployingStack]?.[log.containerName] || []), log.logLine],
+          },
+        }));
+      }
     }
   }, []);
 
@@ -403,6 +439,11 @@ export function useUpgradeProductStore(
     }));
   }, []);
 
+  const handleStackSelect = useCallback((stackName: string) => {
+    setSelectedStack(stackName);
+    userSelectedStackRef.current = true;
+  }, []);
+
   const handleUpgrade = useCallback(async () => {
     if (!targetProduct || !environmentId || !productDeployment || !upgradeInfo) {
       setError('Missing required data for upgrade');
@@ -443,6 +484,9 @@ export function useUpgradeProductStore(
     // Generate session ID
     const sessionId = `upgrade-product-${productDeployment.productName}-${Date.now()}`;
     upgradeSessionIdRef.current = sessionId;
+    completedRef.current = false;
+    currentDeployingStackRef.current = null;
+    userSelectedStackRef.current = false;
 
     // Initialize stack statuses
     const initialStatuses: Record<string, StackProgressStatus> = {};
@@ -454,7 +498,9 @@ export function useUpgradeProductStore(
     setState('upgrading');
     setError('');
     setProgressUpdate(null);
-    setInitContainerLogs({});
+    setPerStackProgress({});
+    setPerStackLogs({});
+    setSelectedStack(null);
     setStackResults([]);
     setCurrentUpgradingStack(null);
 
@@ -480,31 +526,38 @@ export function useUpgradeProductStore(
 
       setStackResults(response.stackResults || []);
 
-      // Update stack statuses from results
-      const finalStatuses: Record<string, StackProgressStatus> = {};
-      for (const result of response.stackResults || []) {
-        finalStatuses[result.stackDisplayName] = result.success ? 'running' : 'failed';
-      }
-      setStackStatuses(finalStatuses);
+      // Finalize from the API response. When SignalR is connected we give it a
+      // short grace period to deliver the terminal isComplete event first;
+      // completedRef guards against a double finalization.
+      const finalize = () => {
+        if (completedRef.current) return;
+        completedRef.current = true;
 
-      if (!response.success && response.status === 'Failed') {
-        setError(response.message || 'Product upgrade failed');
-        setState('error');
-        return;
-      }
+        const finalStatuses: Record<string, StackProgressStatus> = {};
+        for (const result of response.stackResults || []) {
+          finalStatuses[result.stackName] = result.success ? 'running' : 'failed';
+        }
+        setStackStatuses(prev => ({ ...prev, ...finalStatuses }));
 
-      // If SignalR is not connected, set state based on response
-      if (connectionState !== 'connected') {
-        if (response.success) {
-          setState('success');
-        } else {
+        if (!response.success) {
           setError(response.message || 'Upgrade completed with errors');
           setState('error');
+        } else {
+          setState('success');
         }
+      };
+
+      if (connectionState === 'connected') {
+        setTimeout(finalize, 3000);
+      } else {
+        finalize();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upgrade failed');
-      setState('error');
+      if (!completedRef.current) {
+        completedRef.current = true;
+        setError(err instanceof Error ? err.message : 'Upgrade failed');
+        setState('error');
+      }
     }
   }, [
     targetProduct, environmentId, productDeployment, upgradeInfo,
@@ -544,7 +597,9 @@ export function useUpgradeProductStore(
     sharedVarNames,
     expandedStacks,
     progressUpdate,
-    initContainerLogs,
+    perStackProgress,
+    perStackLogs,
+    selectedStack,
     stackStatuses,
     currentUpgradingStack,
     stackResults,
@@ -556,6 +611,7 @@ export function useUpgradeProductStore(
     toggleStackExpanded,
     handleVersionChange,
     handleEnvFileContent,
+    handleStackSelect,
     handleUpgrade,
     getBackUrl,
     isNewStack,
