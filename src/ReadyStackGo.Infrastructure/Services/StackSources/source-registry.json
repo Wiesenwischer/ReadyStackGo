@@ -50,14 +50,14 @@
     "stackCount": 2
   },
   {
-    "id": "rsgo-ams-project-ci",
-    "name": "ams.project Stacks (CI)",
-    "description": "Continuous-integration stacks for ams.project and ams.identityaccess — latest *-ci manifests for test and evaluation environments",
+    "id": "rsgo-ams-project-preview",
+    "name": "ams.project Stacks (Preview)",
+    "description": "Preview-version stacks for ams.project and ams.identityaccess — early preview builds for evaluation and pre-release testing",
     "type": "git-repository",
-    "gitUrl": "https://github.com/Wiesenwischer/rsgo-ams-project-ci.git",
+    "gitUrl": "https://github.com/Wiesenwischer/rsgo-ams-project-preview.git",
     "gitBranch": "main",
     "category": "vendor",
-    "tags": ["enterprise", "vendor", "ams", "ci", "latest"],
+    "tags": ["enterprise", "vendor", "ams", "preview", "pre-release"],
     "featured": false,
     "stackCount": 2
   }
