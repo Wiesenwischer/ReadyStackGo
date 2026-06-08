@@ -75,7 +75,7 @@ public class UpdateV3UserEndpoint : Endpoint<UpdateV3UserRequest>
             ThrowError(result.ErrorMessage ?? "Failed", StatusCodes.Status400BadRequest);
             return;
         }
-        await Send.OkAsync(ct);
+        await Send.NoContentAsync(ct);
     }
 }
 
@@ -104,7 +104,7 @@ public class DeleteV3UserEndpoint : Endpoint<DeleteV3UserRequest>
             ThrowError(result.ErrorMessage ?? "Failed", StatusCodes.Status404NotFound);
             return;
         }
-        await Send.OkAsync(ct);
+        await Send.NoContentAsync(ct);
     }
 }
 

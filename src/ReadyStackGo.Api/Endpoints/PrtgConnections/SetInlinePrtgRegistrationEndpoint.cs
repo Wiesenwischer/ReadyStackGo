@@ -30,7 +30,7 @@ public class SetInlinePrtgRegistrationEndpoint : Endpoint<SetInlinePrtgRegistrat
             ThrowError(result.Error ?? "Failed to set inline PRTG registration.", StatusCodes.Status400BadRequest);
             return;
         }
-        await Send.OkAsync(ct);
+        await Send.NoContentAsync(ct);
     }
 }
 
