@@ -186,7 +186,7 @@ function ProductCard({ product }: ProductCardProps) {
           )}
           {product.version && (
             <span className="inline-flex items-center rounded bg-gray-200 px-2 py-1 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-              v{product.version.substring(0, 8)}
+              v{product.version}
             </span>
           )}
           {product.category && (
