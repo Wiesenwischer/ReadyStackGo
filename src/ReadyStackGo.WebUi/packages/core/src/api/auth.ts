@@ -61,6 +61,16 @@ export async function requestEmailVerification(): Promise<SimpleResult> {
   return apiPost<SimpleResult>('/api/auth/request-email-verification');
 }
 
+// --- Password reset ---
+
+export async function requestPasswordReset(identifier: string): Promise<SimpleResult> {
+  return apiPost<SimpleResult>('/api/auth/request-password-reset', { identifier });
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<SimpleResult> {
+  return apiPost<SimpleResult>('/api/auth/reset-password', { token, newPassword });
+}
+
 /**
  * Decodes the username and role from a ReadyStackGo JWT (used to seed auth state after an
  * OIDC login or invitation acceptance, where the server returns only the token).
