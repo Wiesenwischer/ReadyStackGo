@@ -73,6 +73,22 @@ public class Program
                         }
 
                         return Task.CompletedTask;
+                    },
+                    // Reject tokens that have been revoked (server-side logout).
+                    OnTokenValidated = context =>
+                    {
+                        var jti = context.Principal?.FindFirst("jti")?.Value;
+                        if (!string.IsNullOrEmpty(jti))
+                        {
+                            var revocation = context.HttpContext.RequestServices
+                                .GetRequiredService<ReadyStackGo.Application.Services.ITokenRevocationService>();
+                            if (revocation.IsRevoked(jti))
+                            {
+                                context.Fail("Token has been revoked.");
+                            }
+                        }
+
+                        return Task.CompletedTask;
                     }
                 };
             })
