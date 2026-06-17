@@ -4,6 +4,7 @@ using MediatR;
 
 public record RegisterSystemAdminCommand(
     string Username,
+    string Email,
     string Password) : IRequest<RegisterSystemAdminResult>;
 
 public record RegisterSystemAdminResult(

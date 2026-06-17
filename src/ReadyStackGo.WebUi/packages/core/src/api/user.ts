@@ -2,9 +2,13 @@ import { apiGet, apiPost } from './client';
 
 export interface UserProfile {
   username: string;
+  email: string;
   role: string;
   createdAt: string;
   passwordChangedAt?: string;
+  emailVerified: boolean;
+  /** Whether SMTP is configured (so the "verify your email" prompt can be sent). */
+  smtpEnabled: boolean;
 }
 
 export interface ChangePasswordRequest {

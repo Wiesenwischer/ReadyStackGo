@@ -186,6 +186,29 @@ public class MigrationBaselineTests
                     "Id" TEXT NOT NULL PRIMARY KEY,
                     "Version" INTEGER NOT NULL DEFAULT 0
                 );
+
+                -- Baseline Users table (matches InitialCreate). Needed because the
+                -- email-verification migration ALTERs Users (PasswordHash -> nullable),
+                -- which triggers a SQLite table rebuild that requires the table to exist.
+                CREATE TABLE "Users" (
+                    "Id" TEXT NOT NULL PRIMARY KEY,
+                    "Username" TEXT NOT NULL,
+                    "Email" TEXT NOT NULL,
+                    "PasswordHash" TEXT NOT NULL,
+                    "Enabled" INTEGER NOT NULL,
+                    "EnablementStartDate" TEXT NULL,
+                    "EnablementEndDate" TEXT NULL,
+                    "CreatedAt" TEXT NOT NULL,
+                    "IsLocked" INTEGER NOT NULL,
+                    "LockReason" TEXT NULL,
+                    "LockedUntil" TEXT NULL,
+                    "FailedLoginAttempts" INTEGER NOT NULL,
+                    "PasswordChangedAt" TEXT NULL,
+                    "MustChangePassword" INTEGER NOT NULL,
+                    "Version" INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE UNIQUE INDEX "IX_Users_Username" ON "Users" ("Username");
+                CREATE UNIQUE INDEX "IX_Users_Email" ON "Users" ("Email");
                 CREATE INDEX "IX_HealthSnapshots_CapturedAtUtc" ON "HealthSnapshots" ("CapturedAtUtc");
                 CREATE INDEX "IX_HealthSnapshots_DeploymentId_CapturedAtUtc"
                     ON "HealthSnapshots" ("DeploymentId", "CapturedAtUtc");

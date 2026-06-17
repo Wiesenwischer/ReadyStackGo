@@ -55,8 +55,8 @@ public class ChangePasswordEndpoint : Endpoint<ChangePasswordRequest, ChangePass
             return Task.CompletedTask;
         }
 
-        // Verify current password
-        if (!user.Password.Verify(req.CurrentPassword, _passwordHasher))
+        // Verify current password (users without a local password cannot change it here).
+        if (user.Password is null || !user.Password.Verify(req.CurrentPassword, _passwordHasher))
         {
             HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
             Response = new ChangePasswordResponse

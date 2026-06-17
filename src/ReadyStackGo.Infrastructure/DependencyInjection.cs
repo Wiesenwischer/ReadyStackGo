@@ -180,6 +180,13 @@ public static class DependencyInjection
         // Notification Service (in-memory, singleton)
         services.AddSingleton<INotificationService, InMemoryNotificationService>();
 
+        // Email (SMTP via MailKit) and SMTP settings store
+        services.AddSingleton<Application.Services.Email.ISmtpSettingsService, Services.Email.SmtpSettingsService>();
+        services.AddSingleton<Application.Services.Email.IEmailService, Services.Email.SmtpEmailService>();
+
+        // OIDC settings store (the OIDC flow service itself is registered in AddSecurity)
+        services.AddSingleton<Application.Services.Oidc.IOidcSettingsService, Services.Oidc.OidcSettingsService>();
+
         // Domain Services
         services.AddScoped<SystemAdminRegistrationService>();
         services.AddScoped<OrganizationProvisioningService>();

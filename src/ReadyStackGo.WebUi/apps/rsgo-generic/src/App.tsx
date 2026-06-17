@@ -56,10 +56,16 @@ import {
   Licenses,
   SnmpSettingsPage,
   PrtgConnectionsPage,
+  SmtpSettingsPage,
+  OidcSettingsPage,
+  InvitationsPage,
 } from "@rsgo/ui-generic/pages/Settings";
 import SetupEnvironment from "@rsgo/ui-generic/pages/Environments/SetupEnvironment";
 import SetupOrganization from "@rsgo/ui-generic/pages/Settings/Organization/SetupOrganization";
 import Login from "@rsgo/ui-generic/pages/Auth/Login";
+import AcceptInvitationPage from "@rsgo/ui-generic/pages/Auth/AcceptInvitationPage";
+import VerifyEmailPage from "@rsgo/ui-generic/pages/Auth/VerifyEmailPage";
+import OidcCallbackPage from "@rsgo/ui-generic/pages/Auth/OidcCallbackPage";
 import Wizard from "@rsgo/ui-generic/pages/Wizard";
 import Onboarding from "@rsgo/ui-generic/pages/Onboarding";
 import Profile from "@rsgo/ui-generic/pages/Profile/Profile";
@@ -83,6 +89,10 @@ export default function App() {
             <Routes>
               <Route path="/wizard" element={<Wizard />} />
               <Route path="/login" element={<Login />} />
+              {/* Public auth flows */}
+              <Route path="/accept-invite" element={<AcceptInvitationPage />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
+              <Route path="/oidc-callback" element={<OidcCallbackPage />} />
               {/* Update status page - standalone, no layout */}
               <Route
                 path="/update"
@@ -374,6 +384,9 @@ export default function App() {
                 <Route path="/settings/licenses" element={<Licenses />} />
                 <Route path="/settings/snmp" element={<SnmpSettingsPage />} />
                 <Route path="/settings/prtg-connections" element={<PrtgConnectionsPage />} />
+                <Route path="/settings/email" element={<SmtpSettingsPage />} />
+                <Route path="/settings/oidc" element={<OidcSettingsPage />} />
+                <Route path="/settings/invitations" element={<InvitationsPage />} />
               </Route>
               {/* 404 catch-all route */}
               <Route path="*" element={<NotFound />} />

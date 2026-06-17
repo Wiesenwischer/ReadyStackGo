@@ -53,6 +53,12 @@ public class SystemConfigService : ISystemConfigService
         await _configStore.SaveSystemConfigAsync(config);
     }
 
+    public async Task<string> GetBaseUrlAsync()
+    {
+        var config = await _configStore.GetSystemConfigAsync();
+        return config.BaseUrl;
+    }
+
     private static InfraWizardState MapToInfraWizardState(AppWizardState state)
     {
         return state switch

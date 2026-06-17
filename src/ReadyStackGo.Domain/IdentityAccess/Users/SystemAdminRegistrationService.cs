@@ -23,10 +23,14 @@ public class SystemAdminRegistrationService
     }
 
     /// <summary>
-    /// Registers the initial system administrator.
+    /// Registers the initial system administrator with a real email address.
+    /// The email is intentionally NOT marked verified: there is no SMTP server during
+    /// initial setup, so verification happens later through a real ownership proof. The
+    /// bootstrap admin can still log in (trust is placed in the setup process, not the
+    /// email), see <see cref="AuthenticationService"/>.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown if a system admin already exists.</exception>
-    public User RegisterSystemAdmin(string username, string password)
+    public User RegisterSystemAdmin(string username, string email, string password)
     {
         // Check if system admin already exists
         var existingAdmins = _userRepository.GetAll()
@@ -38,10 +42,10 @@ public class SystemAdminRegistrationService
         }
 
         var userId = _userRepository.NextIdentity();
-        var email = new EmailAddress($"{username}@system.local");
+        var emailAddress = new EmailAddress(email);
         var hashedPassword = HashedPassword.Create(password, _passwordHasher);
 
-        var user = User.Register(userId, username, email, hashedPassword);
+        var user = User.Register(userId, username, emailAddress, hashedPassword);
         user.AssignRole(RoleAssignment.Global(RoleId.SystemAdmin));
 
         _userRepository.Add(user);

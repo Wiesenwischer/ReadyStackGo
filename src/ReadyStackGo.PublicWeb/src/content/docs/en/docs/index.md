@@ -12,6 +12,7 @@ Here you'll find detailed guides for using ReadyStackGo.
 - [Registry Management](/en/docs/configuration/registry-management/) - Manage Docker Registries and configure Image Patterns
 - [Stack Sources](/en/docs/configuration/stack-sources/) - Manage stack sources – catalog, import/export, and onboarding
 - [CI/CD Integration](/en/docs/configuration/ci-cd-integration/) - Automated deployments via API keys and webhooks
+- [User Access, Email & SSO](/en/docs/configuration/user-access/) - Invite users, verify email, sign in by email/username, and single sign-on (OIDC)
 - [Self-Update](/en/docs/system/self-update/) - Update ReadyStackGo with a single click
 - [Product Deployment](/en/docs/deployments/product-deployment/) - Deploy entire products with all stacks in a single operation
 - [Product Redeploy](/en/docs/deployments/product-redeploy/) - Redeploy products with real-time per-stack progress tracking

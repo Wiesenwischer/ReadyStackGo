@@ -589,6 +589,60 @@ namespace ReadyStackGo.Infrastructure.DataAccess.Migrations
                     b.ToTable("ApiKeys", (string)null);
                 });
 
+            modelBuilder.Entity("ReadyStackGo.Domain.IdentityAccess.Invitations.Invitation", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("Id");
+
+                    b.Property<DateTime?>("AcceptedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("InvitedBy")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("InvitedBy");
+
+                    b.Property<string>("RoleId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("RoleId");
+
+                    b.Property<string>("ScopeId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ScopeType")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash");
+
+                    b.ToTable("Invitations", (string)null);
+                });
+
             modelBuilder.Entity("ReadyStackGo.Domain.IdentityAccess.Organizations.Organization", b =>
                 {
                     b.Property<string>("Id")
@@ -637,6 +691,9 @@ namespace ReadyStackGo.Infrastructure.DataAccess.Migrations
                         .HasColumnName("Id");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("EmailVerifiedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("FailedLoginAttempts")
@@ -1011,11 +1068,11 @@ namespace ReadyStackGo.Infrastructure.DataAccess.Migrations
                     b.Navigation("Stacks");
                 });
 
-            modelBuilder.Entity("ReadyStackGo.Domain.IdentityAccess.Users.User", b =>
+            modelBuilder.Entity("ReadyStackGo.Domain.IdentityAccess.Invitations.Invitation", b =>
                 {
                     b.OwnsOne("ReadyStackGo.Domain.IdentityAccess.Users.EmailAddress", "Email", b1 =>
                         {
-                            b1.Property<string>("UserId")
+                            b1.Property<string>("InvitationId")
                                 .HasColumnType("TEXT");
 
                             b1.Property<string>("Value")
@@ -1024,17 +1081,22 @@ namespace ReadyStackGo.Infrastructure.DataAccess.Migrations
                                 .HasColumnType("TEXT")
                                 .HasColumnName("Email");
 
-                            b1.HasKey("UserId");
+                            b1.HasKey("InvitationId");
 
-                            b1.HasIndex("Value")
-                                .IsUnique();
+                            b1.HasIndex("Value");
 
-                            b1.ToTable("Users");
+                            b1.ToTable("Invitations");
 
                             b1.WithOwner()
-                                .HasForeignKey("UserId");
+                                .HasForeignKey("InvitationId");
                         });
 
+                    b.Navigation("Email")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ReadyStackGo.Domain.IdentityAccess.Users.User", b =>
+                {
                     b.OwnsOne("ReadyStackGo.Domain.IdentityAccess.Users.Enablement", "Enablement", b1 =>
                         {
                             b1.Property<string>("UserId")
@@ -1055,6 +1117,45 @@ namespace ReadyStackGo.Infrastructure.DataAccess.Migrations
                             b1.HasKey("UserId");
 
                             b1.ToTable("Users");
+
+                            b1.WithOwner()
+                                .HasForeignKey("UserId");
+                        });
+
+                    b.OwnsMany("ReadyStackGo.Domain.IdentityAccess.Users.ExternalIdentity", "ExternalIdentities", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("TEXT");
+
+                            b1.Property<DateTime>("LinkedAt")
+                                .HasColumnType("TEXT")
+                                .HasColumnName("LinkedAt");
+
+                            b1.Property<string>("Provider")
+                                .IsRequired()
+                                .HasMaxLength(100)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Provider");
+
+                            b1.Property<string>("Subject")
+                                .IsRequired()
+                                .HasMaxLength(256)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Subject");
+
+                            b1.Property<string>("UserId")
+                                .IsRequired()
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("UserId");
+
+                            b1.HasIndex("Provider", "Subject")
+                                .IsUnique();
+
+                            b1.ToTable("UserExternalIdentities", (string)null);
 
                             b1.WithOwner()
                                 .HasForeignKey("UserId");
@@ -1119,14 +1220,37 @@ namespace ReadyStackGo.Infrastructure.DataAccess.Migrations
                                 .HasForeignKey("UserId");
                         });
 
+                    b.OwnsOne("ReadyStackGo.Domain.IdentityAccess.Users.EmailAddress", "Email", b1 =>
+                        {
+                            b1.Property<string>("UserId")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("Value")
+                                .IsRequired()
+                                .HasMaxLength(254)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Email");
+
+                            b1.HasKey("UserId");
+
+                            b1.HasIndex("Value")
+                                .IsUnique();
+
+                            b1.ToTable("Users");
+
+                            b1.WithOwner()
+                                .HasForeignKey("UserId");
+                        });
+
                     b.Navigation("Email")
                         .IsRequired();
 
                     b.Navigation("Enablement")
                         .IsRequired();
 
-                    b.Navigation("Password")
-                        .IsRequired();
+                    b.Navigation("ExternalIdentities");
+
+                    b.Navigation("Password");
 
                     b.Navigation("RoleAssignments");
                 });
