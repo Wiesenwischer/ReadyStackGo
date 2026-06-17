@@ -15,6 +15,7 @@ public static class DependencyInjection
         services.AddSingleton<ITokenService, TokenService>();
         services.AddSingleton<IEmailVerificationTokenService, EmailVerificationTokenService>();
         services.AddSingleton<IPasswordResetTokenService, PasswordResetTokenService>();
+        services.AddSingleton<ITokenRevocationService, TokenRevocationService>();
         services.AddSingleton<Application.Services.Oidc.IOidcService, OidcService>();
         services.AddSingleton<IRbacService, RbacService>();
 
