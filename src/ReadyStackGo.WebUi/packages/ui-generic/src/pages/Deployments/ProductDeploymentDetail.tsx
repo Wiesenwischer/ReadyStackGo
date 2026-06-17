@@ -14,6 +14,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { useEnvironment } from "../../context/EnvironmentContext";
 import { DeploymentError } from "../../components/ui/DeploymentError";
+import ProductUpdateBadge from "../../components/deployments/ProductUpdateBadge";
 
 function getProductStatusPresentation(status: string) {
   switch (status) {
@@ -138,6 +139,12 @@ export default function ProductDeploymentDetail() {
             <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${status.bgColor} ${status.textColor}`}>
               {status.label}
             </span>
+            {activeEnvironment?.id && productDeploymentId && (
+              <ProductUpdateBadge
+                environmentId={activeEnvironment.id}
+                productDeploymentId={productDeploymentId}
+              />
+            )}
             {modePresentation && (
               <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${modePresentation.bgColor} ${modePresentation.textColor}`}>
                 {modePresentation.label}

@@ -9,7 +9,9 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@rsgo/core": "workspace:*"
+    "@rsgo/core": "workspace:*",
+    "react-markdown": "^10.1.0",
+    "rehype-sanitize": "^6.0.0"
   },
   "peerDependencies": {
     "i18next": "^25.6.2",

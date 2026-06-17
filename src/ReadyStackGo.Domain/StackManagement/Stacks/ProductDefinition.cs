@@ -73,6 +73,20 @@ public class ProductDefinition
     public string? Documentation { get; }
 
     /// <summary>
+    /// Optional URL to external release notes for this version (rendered as a link).
+    /// </summary>
+    public string? ReleaseNotesUrl { get; }
+
+    /// <summary>
+    /// Optional release-notes markdown, loaded from a CHANGELOG.md next to the manifest.
+    /// Preferred over <see cref="ReleaseNotesUrl"/> when present.
+    /// </summary>
+    public string? ChangelogMarkdown { get; }
+
+    /// <summary>True if any release-notes source (URL or changelog) is available.</summary>
+    public bool HasReleaseNotes => !string.IsNullOrWhiteSpace(ReleaseNotesUrl) || !string.IsNullOrWhiteSpace(ChangelogMarkdown);
+
+    /// <summary>
     /// Maintenance observer configuration for this product.
     /// Used to detect maintenance mode across all stacks in this product.
     /// </summary>
@@ -128,7 +142,9 @@ public class ProductDefinition
         RsgoMaintenanceObserver? maintenanceObserver = null,
         string? filePath = null,
         string? relativePath = null,
-        string? productId = null)
+        string? productId = null,
+        string? releaseNotesUrl = null,
+        string? changelogMarkdown = null)
     {
         if (string.IsNullOrWhiteSpace(sourceId))
             throw new ArgumentException("SourceId cannot be empty.", nameof(sourceId));
@@ -149,6 +165,8 @@ public class ProductDefinition
         Tags = (tags?.ToList() ?? new List<string>()).AsReadOnly();
         Icon = icon;
         Documentation = documentation;
+        ReleaseNotesUrl = releaseNotesUrl;
+        ChangelogMarkdown = changelogMarkdown;
         MaintenanceObserver = maintenanceObserver;
         FilePath = filePath;
         RelativePath = relativePath;

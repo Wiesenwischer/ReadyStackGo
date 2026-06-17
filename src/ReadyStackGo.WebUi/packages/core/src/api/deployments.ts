@@ -573,6 +573,8 @@ export interface AvailableProductVersion {
   productId: string;
   sourceId: string;
   stackCount: number;
+  releaseNotesUrl?: string;
+  hasReleaseNotes: boolean;
 }
 
 /**
@@ -585,6 +587,8 @@ export interface CheckProductUpgradeResponse {
   currentVersion?: string;
   latestVersion?: string;
   latestProductId?: string;
+  latestReleaseNotesUrl?: string;
+  latestHasReleaseNotes: boolean;
   availableVersions?: AvailableProductVersion[];
   newStacks?: string[];
   removedStacks?: string[];
@@ -601,6 +605,32 @@ export async function checkProductUpgrade(
 ): Promise<CheckProductUpgradeResponse> {
   return apiGet<CheckProductUpgradeResponse>(
     `/api/environments/${environmentId}/product-deployments/${productDeploymentId}/upgrade/check`
+  );
+}
+
+/**
+ * Release notes for a product version.
+ * mode "markdown": render `content`; mode "url": link to `url` (never embed).
+ */
+export interface ProductReleaseNotesResponse {
+  success: boolean;
+  message?: string;
+  mode: 'markdown' | 'url' | 'none';
+  content?: string;
+  url?: string;
+  version?: string;
+}
+
+/**
+ * Fetch release notes for a specific version of a product deployment's product.
+ */
+export async function getProductReleaseNotes(
+  environmentId: string,
+  productDeploymentId: string,
+  version: string
+): Promise<ProductReleaseNotesResponse> {
+  return apiGet<ProductReleaseNotesResponse>(
+    `/api/environments/${environmentId}/product-deployments/${productDeploymentId}/release-notes?version=${encodeURIComponent(version)}`
   );
 }
 

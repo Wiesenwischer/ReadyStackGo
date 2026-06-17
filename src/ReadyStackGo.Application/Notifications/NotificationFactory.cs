@@ -110,6 +110,37 @@ public static class NotificationFactory
         };
     }
 
+    /// <summary>
+    /// Notification that a newer version of an installed product is available in the catalog.
+    /// Deduped per (productDeploymentId, latestVersion) via Metadata.
+    /// </summary>
+    public static Notification CreateProductUpdateAvailable(
+        string productName, string currentVersion, string latestVersion, string productDeploymentId)
+    {
+        return new Notification
+        {
+            Type = NotificationType.ProductUpdateAvailable,
+            Title = "Product update available",
+            Message = $"A newer version of '{productName}' is available: {currentVersion} → {latestVersion}.",
+            Severity = NotificationSeverity.Info,
+            ActionUrl = $"/product-deployments/{productDeploymentId}",
+            ActionLabel = "View Product Deployment",
+            Metadata = new Dictionary<string, string>
+            {
+                ["productName"] = productName,
+                ["currentVersion"] = currentVersion,
+                ["latestVersion"] = latestVersion,
+                ["productDeploymentId"] = productDeploymentId,
+                // Composite dedup key: one notification per (deployment, target version).
+                ["dedupKey"] = ProductUpdateDedupKey(productDeploymentId, latestVersion)
+            }
+        };
+    }
+
+    /// <summary>Dedup key for product-update notifications: one per (deployment, target version).</summary>
+    public static string ProductUpdateDedupKey(string productDeploymentId, string latestVersion) =>
+        $"{productDeploymentId}:{latestVersion}";
+
     public static Notification CreateHealthChangeNotification(
         string stackName, string serviceName,
         string previousStatus, string currentStatus,
