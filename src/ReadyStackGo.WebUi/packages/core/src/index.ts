@@ -4,6 +4,9 @@
 export { apiGet, apiPost, apiPut, apiDelete } from './api/client';
 
 // Domain APIs
+export * from './api/auth';
+export * from './api/settings';
+export * from './api/invitations';
 export * from './api/apiKeys';
 export * from './api/containers';
 export * from './api/dashboard';

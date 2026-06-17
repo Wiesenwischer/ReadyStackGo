@@ -39,7 +39,7 @@ public class UserPasswordChangeTests
         user.ChangePassword(newPassword);
 
         user.Password.Should().Be(newPassword);
-        user.Password.Verify("NewPass1", _hasherMock.Object).Should().BeTrue();
+        user.Password!.Verify("NewPass1", _hasherMock.Object).Should().BeTrue();
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public class UserPasswordChangeTests
     {
         var user = CreateUser("MyPass99");
 
-        user.Password.Verify("MyPass99", _hasherMock.Object).Should().BeTrue();
+        user.Password!.Verify("MyPass99", _hasherMock.Object).Should().BeTrue();
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class UserPasswordChangeTests
     {
         var user = CreateUser("MyPass99");
 
-        user.Password.Verify("WrongPass1", _hasherMock.Object).Should().BeFalse();
+        user.Password!.Verify("WrongPass1", _hasherMock.Object).Should().BeFalse();
     }
 
     [Fact]
@@ -111,7 +111,7 @@ public class UserPasswordChangeTests
     {
         var user = CreateUser("MyPass99");
 
-        user.Password.Verify("", _hasherMock.Object).Should().BeFalse();
+        user.Password!.Verify("", _hasherMock.Object).Should().BeFalse();
     }
 
     [Fact]
@@ -167,12 +167,12 @@ public class UserPasswordChangeTests
     public void ChangePassword_OldPasswordNoLongerVerifies()
     {
         var user = CreateUser("OldPass1");
-        user.Password.Verify("OldPass1", _hasherMock.Object).Should().BeTrue();
+        user.Password!.Verify("OldPass1", _hasherMock.Object).Should().BeTrue();
 
         var newPassword = HashedPassword.Create("NewPass1", _hasherMock.Object);
         user.ChangePassword(newPassword);
 
-        user.Password.Verify("OldPass1", _hasherMock.Object).Should().BeFalse();
-        user.Password.Verify("NewPass1", _hasherMock.Object).Should().BeTrue();
+        user.Password!.Verify("OldPass1", _hasherMock.Object).Should().BeFalse();
+        user.Password!.Verify("NewPass1", _hasherMock.Object).Should().BeTrue();
     }
 }

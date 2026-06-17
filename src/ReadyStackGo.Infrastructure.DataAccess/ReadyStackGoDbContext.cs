@@ -50,6 +50,7 @@ public class ReadyStackGoDbContext : DbContext
     public DbSet<ProductDeployment> ProductDeployments => Set<ProductDeployment>();
     public DbSet<ReadyStackGo.Domain.Snmp.SnmpSettings> SnmpSettings => Set<ReadyStackGo.Domain.Snmp.SnmpSettings>();
     public DbSet<ReadyStackGo.Domain.Snmp.SnmpV3User> SnmpV3Users => Set<ReadyStackGo.Domain.Snmp.SnmpV3User>();
+    public DbSet<ReadyStackGo.Domain.IdentityAccess.Invitations.Invitation> Invitations => Set<ReadyStackGo.Domain.IdentityAccess.Invitations.Invitation>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {

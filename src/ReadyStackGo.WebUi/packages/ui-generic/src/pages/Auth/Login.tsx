@@ -1,6 +1,15 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getOidcProviders, startOidcLogin, type OidcProviderDto } from '@rsgo/core';
 import { useAuth } from '../../context/AuthContext';
+
+const OIDC_ERROR_MESSAGES: Record<string, string> = {
+  oidc_failed: 'Single sign-on failed. Please try again.',
+  oidc_state: 'Single sign-on session expired. Please try again.',
+  oidc_provider: 'The selected sign-on provider is no longer available.',
+  oidc_token: 'Single sign-on could not be completed.',
+  oidc_no_account: 'No account exists for this identity. Ask an administrator to invite you.',
+};
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -8,9 +17,23 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [providers, setProviders] = useState<OidcProviderDto[]>([]);
 
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Surface an OIDC error passed back as ?error=... by the callback redirect.
+    const params = new URLSearchParams(window.location.search);
+    const errorCode = params.get('error');
+    if (errorCode) {
+      setError(OIDC_ERROR_MESSAGES[errorCode] ?? 'Sign-in failed. Please try again.');
+    }
+
+    getOidcProviders()
+      .then(setProviders)
+      .catch(() => setProviders([]));
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -21,7 +44,7 @@ export default function Login() {
       await login(username, password);
       navigate('/');
     } catch {
-      setError('Invalid username or password');
+      setError('Invalid credentials');
     } finally {
       setIsLoading(false);
     }
@@ -39,7 +62,7 @@ export default function Login() {
                   Sign In to ReadyStackGo
                 </h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Enter your username and password to manage your Docker stacks
+                  Enter your credentials to manage your Docker stacks
                 </p>
               </div>
 
@@ -53,13 +76,13 @@ export default function Login() {
 
                   <div>
                     <label className="block mb-2.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Username <span className="text-error-500">*</span>
+                      Email or username <span className="text-error-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      placeholder="admin"
+                      placeholder="admin@example.com"
                       required
                       className="w-full h-12.5 px-4 py-3 text-sm bg-transparent border border-gray-300 rounded-lg shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 dark:border-gray-700 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-600"
                     />
@@ -117,6 +140,31 @@ export default function Login() {
                   </div>
                 </div>
               </form>
+
+              {providers.length > 0 && (
+                <div className="mt-6">
+                  <div className="relative flex items-center justify-center mb-4">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-gray-200 dark:border-gray-700" />
+                    </div>
+                    <span className="relative px-3 text-xs text-gray-400 bg-white dark:bg-gray-900">
+                      or continue with
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {providers.map((p) => (
+                      <button
+                        key={p.name}
+                        type="button"
+                        onClick={() => startOidcLogin(p.name)}
+                        className="inline-flex items-center justify-center w-full py-3 text-sm font-medium text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-transparent dark:text-white/90 dark:hover:bg-white/5 px-7"
+                      >
+                        Sign in with {p.displayName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

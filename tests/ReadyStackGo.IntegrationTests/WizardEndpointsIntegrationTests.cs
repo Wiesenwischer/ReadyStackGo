@@ -51,6 +51,7 @@ public class WizardEndpointsIntegrationTests : IAsyncLifetime
         var request = new
         {
             username = "testadmin",
+            email = "testadmin@example.com",
             password = "TestPassword123!"
         };
 
@@ -73,7 +74,43 @@ public class WizardEndpointsIntegrationTests : IAsyncLifetime
         var request = new
         {
             username = "testadmin",
+            email = "testadmin@example.com",
             password = "short"
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/wizard/admin", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task POST_CreateAdmin_WithInvalidEmail_ReturnsBadRequest()
+    {
+        // Arrange
+        var request = new
+        {
+            username = "testadmin",
+            email = "not-an-email",
+            password = "TestPassword123!"
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/wizard/admin", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task POST_CreateAdmin_WithMissingEmail_ReturnsBadRequest()
+    {
+        // Arrange
+        var request = new
+        {
+            username = "testadmin",
+            password = "TestPassword123!"
         };
 
         // Act
@@ -139,7 +176,7 @@ public class WizardEndpointsIntegrationTests : IAsyncLifetime
         status!.IsCompleted.Should().BeFalse();
 
         // Step 2: Create admin
-        var adminRequest = new { username = "flowadmin", password = "FlowPassword123!" };
+        var adminRequest = new { username = "flowadmin", email = "flowadmin@example.com", password = "FlowPassword123!" };
         var adminResponse = await _client.PostAsJsonAsync("/api/wizard/admin", adminRequest);
         adminResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var adminResult = await adminResponse.Content.ReadFromJsonAsync<WizardResponse>();
@@ -236,6 +273,7 @@ public class WizardEndpointsIntegrationTests : IAsyncLifetime
         var request = new
         {
             username = "",
+            email = "emptyuser@example.com",
             password = "TestPassword123!"
         };
 
@@ -267,9 +305,11 @@ public class WizardEndpointsIntegrationTests : IAsyncLifetime
 
     private async Task CreateAdminForTest()
     {
+        var username = $"testadmin_{Guid.NewGuid():N}";
         var request = new
         {
-            username = $"testadmin_{Guid.NewGuid():N}",
+            username,
+            email = $"{username}@example.com",
             password = "TestPassword123!"
         };
         await _client.PostAsJsonAsync("/api/wizard/admin", request);

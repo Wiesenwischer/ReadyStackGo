@@ -40,7 +40,7 @@ public class RegisterSystemAdminHandlerTests
     {
         // Act
         var result = await _handler.Handle(
-            new RegisterSystemAdminCommand("admin", "ValidPass1"),
+            new RegisterSystemAdminCommand("admin", "admin@example.com", "ValidPass1"),
             CancellationToken.None);
 
         // Assert
@@ -53,7 +53,7 @@ public class RegisterSystemAdminHandlerTests
     {
         // Act
         var result = await _handler.Handle(
-            new RegisterSystemAdminCommand("admin", "ValidPass1"),
+            new RegisterSystemAdminCommand("admin", "admin@example.com", "ValidPass1"),
             CancellationToken.None);
 
         // Assert
@@ -65,7 +65,7 @@ public class RegisterSystemAdminHandlerTests
     {
         // Act
         var result = await _handler.Handle(
-            new RegisterSystemAdminCommand("admin", "ValidPass1"),
+            new RegisterSystemAdminCommand("admin", "admin@example.com", "ValidPass1"),
             CancellationToken.None);
 
         // Assert
@@ -78,7 +78,7 @@ public class RegisterSystemAdminHandlerTests
     {
         // Act
         var result = await _handler.Handle(
-            new RegisterSystemAdminCommand("admin", "ValidPass1"),
+            new RegisterSystemAdminCommand("admin", "admin@example.com", "ValidPass1"),
             CancellationToken.None);
 
         // Assert
@@ -90,7 +90,7 @@ public class RegisterSystemAdminHandlerTests
     {
         // Act
         await _handler.Handle(
-            new RegisterSystemAdminCommand("admin", "ValidPass1"),
+            new RegisterSystemAdminCommand("admin", "admin@example.com", "ValidPass1"),
             CancellationToken.None);
 
         // Assert
@@ -112,7 +112,7 @@ public class RegisterSystemAdminHandlerTests
 
         // Act
         var result = await _handler.Handle(
-            new RegisterSystemAdminCommand("admin", "ValidPass1"),
+            new RegisterSystemAdminCommand("admin", "admin@example.com", "ValidPass1"),
             CancellationToken.None);
 
         // Assert
@@ -129,7 +129,7 @@ public class RegisterSystemAdminHandlerTests
 
         // Act
         var result = await _handler.Handle(
-            new RegisterSystemAdminCommand("admin", "ValidPass1"),
+            new RegisterSystemAdminCommand("admin", "admin@example.com", "ValidPass1"),
             CancellationToken.None);
 
         // Assert
@@ -147,7 +147,7 @@ public class RegisterSystemAdminHandlerTests
 
         // Act
         await _handler.Handle(
-            new RegisterSystemAdminCommand("admin", "ValidPass1"),
+            new RegisterSystemAdminCommand("admin", "admin@example.com", "ValidPass1"),
             CancellationToken.None);
 
         // Assert
@@ -159,7 +159,7 @@ public class RegisterSystemAdminHandlerTests
     {
         // Act
         var result = await _handler.Handle(
-            new RegisterSystemAdminCommand("admin", "weak"),
+            new RegisterSystemAdminCommand("admin", "admin@example.com", "weak"),
             CancellationToken.None);
 
         // Assert
@@ -173,7 +173,7 @@ public class RegisterSystemAdminHandlerTests
     {
         // Act
         var result = await _handler.Handle(
-            new RegisterSystemAdminCommand("ab", "ValidPass1"),
+            new RegisterSystemAdminCommand("ab", "admin@example.com", "ValidPass1"),
             CancellationToken.None);
 
         // Assert

@@ -14,12 +14,30 @@ public class User : AggregateRoot<UserId>
 {
     private readonly List<RoleAssignment> _roleAssignments = new();
     private readonly List<LoginAttempt> _loginHistory = new();
+    private readonly List<ExternalIdentity> _externalIdentities = new();
 
     public string Username { get; private set; } = null!;
     public EmailAddress Email { get; private set; } = null!;
-    public HashedPassword Password { get; private set; } = null!;
+
+    /// <summary>
+    /// Local password hash. Null for users that authenticate only through an external
+    /// identity provider (OIDC) and never set a local password.
+    /// </summary>
+    public HashedPassword? Password { get; private set; }
     public Enablement Enablement { get; private set; } = null!;
     public DateTime CreatedAt { get; private set; }
+
+    /// <summary>
+    /// Timestamp at which the email ownership was proven (verification link or a trusted
+    /// external provider). Null means the email has not been verified yet. This flag is
+    /// always honest: it is never set without a real ownership proof.
+    /// </summary>
+    public DateTime? EmailVerifiedAt { get; private set; }
+
+    public bool IsEmailVerified => EmailVerifiedAt.HasValue;
+
+    /// <summary>True if the user has a local password (can authenticate without an IdP).</summary>
+    public bool HasPassword => Password != null;
 
     // Account locking
     public bool IsLocked { get; private set; }
@@ -33,6 +51,7 @@ public class User : AggregateRoot<UserId>
 
     public IReadOnlyCollection<RoleAssignment> RoleAssignments => _roleAssignments.AsReadOnly();
     public IReadOnlyCollection<LoginAttempt> LoginHistory => _loginHistory.AsReadOnly();
+    public IReadOnlyCollection<ExternalIdentity> ExternalIdentities => _externalIdentities.AsReadOnly();
 
     // For EF Core
     protected User() { }
@@ -41,13 +60,12 @@ public class User : AggregateRoot<UserId>
         UserId id,
         string username,
         EmailAddress email,
-        HashedPassword password)
+        HashedPassword? password)
     {
         SelfAssertArgumentNotNull(id, "UserId is required.");
         SelfAssertArgumentNotEmpty(username, "Username is required.");
         SelfAssertArgumentLength(username, 3, 50, "Username must be 3 to 50 characters.");
         SelfAssertArgumentNotNull(email, "Email is required.");
-        SelfAssertArgumentNotNull(password, "Password is required.");
 
         Id = id;
         Username = username;
@@ -55,20 +73,100 @@ public class User : AggregateRoot<UserId>
         Password = password;
         Enablement = Enablement.IndefiniteEnablement();
         CreatedAt = SystemClock.UtcNow;
-        PasswordChangedAt = SystemClock.UtcNow;
+        PasswordChangedAt = password != null ? SystemClock.UtcNow : null;
 
         AddDomainEvent(new UserRegistered(Id, Username, Email));
     }
 
     #region Factory Methods
 
+    /// <summary>
+    /// Registers a user with a local password. The email is NOT verified by this call —
+    /// it must be verified through a real ownership proof (<see cref="VerifyEmail"/>).
+    /// </summary>
     public static User Register(
         UserId id,
         string username,
         EmailAddress email,
         HashedPassword password)
     {
+        AssertionConcern.AssertArgumentNotNull(password, "Password is required.");
         return new User(id, username, email, password);
+    }
+
+    /// <summary>
+    /// Registers a user that authenticates only through an external identity provider
+    /// (OIDC). No local password is set, and the email is marked verified because a
+    /// trusted external provider asserted ownership.
+    /// </summary>
+    public static User RegisterExternal(
+        UserId id,
+        string username,
+        EmailAddress email,
+        string provider,
+        string subject)
+    {
+        var user = new User(id, username, email, password: null);
+        user.LinkExternalIdentity(provider, subject);
+        user.VerifyEmail(SystemClock.UtcNow);
+        return user;
+    }
+
+    #endregion
+
+    #region Email Verification
+
+    /// <summary>
+    /// Marks the email as verified. Idempotent: re-verifying is a no-op and the original
+    /// verification timestamp is preserved.
+    /// </summary>
+    public void VerifyEmail(DateTime verifiedAt)
+    {
+        if (EmailVerifiedAt.HasValue)
+            return;
+
+        EmailVerifiedAt = verifiedAt;
+        AddDomainEvent(new EmailVerified(Id, Email));
+    }
+
+    #endregion
+
+    #region External Identities
+
+    /// <summary>
+    /// Links an external identity provider (OIDC) to this user. Idempotent for the same
+    /// (provider, subject). Throws if the provider is already linked to a different subject.
+    /// </summary>
+    public void LinkExternalIdentity(string provider, string subject)
+    {
+        SelfAssertArgumentNotEmpty(provider, "Provider is required.");
+        SelfAssertArgumentNotEmpty(subject, "Subject is required.");
+
+        var normalizedProvider = provider.ToLowerInvariant();
+        var existing = _externalIdentities.FirstOrDefault(e => e.Provider == normalizedProvider);
+        if (existing != null)
+        {
+            if (existing.Subject == subject)
+                return; // Already linked to the same external identity.
+
+            throw new InvalidOperationException(
+                $"User is already linked to provider '{normalizedProvider}' with a different subject.");
+        }
+
+        _externalIdentities.Add(new ExternalIdentity(normalizedProvider, subject, SystemClock.UtcNow));
+        AddDomainEvent(new ExternalIdentityLinked(Id, normalizedProvider, subject));
+    }
+
+    /// <summary>
+    /// Finds the external identity for the given provider, or null if not linked.
+    /// </summary>
+    public ExternalIdentity? FindExternalIdentity(string provider)
+    {
+        if (string.IsNullOrEmpty(provider))
+            return null;
+
+        var normalizedProvider = provider.ToLowerInvariant();
+        return _externalIdentities.FirstOrDefault(e => e.Provider == normalizedProvider);
     }
 
     #endregion

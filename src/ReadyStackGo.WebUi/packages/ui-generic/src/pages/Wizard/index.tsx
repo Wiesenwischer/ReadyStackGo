@@ -18,7 +18,7 @@ export default function Wizard() {
   const navigate = useNavigate();
   const { setAuthDirectly } = useAuth();
 
-  const handleAdminCreated = async (data: { username: string; password: string }) => {
+  const handleAdminCreated = async (data: { username: string; email: string; password: string }) => {
     const response = await submitAdmin(data);
     if (response.token && response.username && response.role) {
       setAuthDirectly(response.token, response.username, response.role);

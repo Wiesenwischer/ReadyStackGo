@@ -60,6 +60,7 @@ public abstract class AuthenticatedTestBase : IAsyncLifetime
         var adminRequest = new
         {
             username = AdminUsername,
+            email = $"{AdminUsername}@example.com",
             password = AdminPassword
         };
         var adminResponse = await Client.PostAsJsonAsync("/api/wizard/admin", adminRequest);

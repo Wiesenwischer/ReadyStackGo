@@ -29,6 +29,7 @@ export interface WizardStatusResponse {
 
 export interface CreateAdminRequest {
   username: string;
+  email: string;
   password: string;
 }
 

@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from 'react';
 
 interface AdminStepProps {
-  onNext: (data: { username: string; password: string }) => Promise<void>;
+  onNext: (data: { username: string; email: string; password: string }) => Promise<void>;
 }
 
 export default function AdminStep({ onNext }: AdminStepProps) {
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -22,6 +23,11 @@ export default function AdminStep({ onNext }: AdminStepProps) {
       return;
     }
 
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
     if (password.length < 8) {
       setError('Password must be at least 8 characters long');
       return;
@@ -34,7 +40,7 @@ export default function AdminStep({ onNext }: AdminStepProps) {
 
     setIsLoading(true);
     try {
-      await onNext({ username, password });
+      await onNext({ username, email, password });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create admin user');
     } finally {
@@ -77,6 +83,23 @@ export default function AdminStep({ onNext }: AdminStepProps) {
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Minimum 3 characters
+            </p>
+          </div>
+
+          <div>
+            <label className="block mb-2.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+              Email <span className="text-error-500">*</span>
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="admin@example.com"
+              required
+              className="w-full h-12.5 px-4 py-3 text-sm bg-transparent border border-gray-300 rounded-lg shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 dark:border-gray-700 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-600"
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              You can verify this address later once email is configured
             </p>
           </div>
 

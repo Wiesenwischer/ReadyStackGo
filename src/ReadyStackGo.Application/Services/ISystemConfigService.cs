@@ -24,4 +24,9 @@ public interface ISystemConfigService
     /// Sets the health notification cooldown in seconds.
     /// </summary>
     Task SetHealthNotificationCooldownSecondsAsync(int seconds);
+
+    /// <summary>
+    /// Gets the configured public base URL of the application, used to build links in emails.
+    /// </summary>
+    Task<string> GetBaseUrlAsync();
 }

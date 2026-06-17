@@ -22,7 +22,7 @@ public class RegisterSystemAdminHandler : IRequestHandler<RegisterSystemAdminCom
     {
         try
         {
-            var user = _registrationService.RegisterSystemAdmin(request.Username, request.Password);
+            var user = _registrationService.RegisterSystemAdmin(request.Username, request.Email, request.Password);
             var token = _tokenService.GenerateToken(user);
             var role = user.HasRole(RoleId.SystemAdmin) ? "admin" : "user";
 

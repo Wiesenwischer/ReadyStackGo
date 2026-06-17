@@ -54,7 +54,7 @@ public class AuthenticationServiceTests
         // Arrange
         var user = CreateTestUser();
         _userRepositoryMock.Setup(r => r.FindByUsername("testuser")).Returns(user);
-        _passwordHasherMock.Setup(h => h.Verify("ValidPass1", user.Password.Hash)).Returns(true);
+        _passwordHasherMock.Setup(h => h.Verify("ValidPass1", user.Password!.Hash)).Returns(true);
 
         // Act
         var result = _sut.Authenticate("testuser", "ValidPass1");
@@ -83,7 +83,7 @@ public class AuthenticationServiceTests
         // Arrange
         var user = CreateTestUser();
         _userRepositoryMock.Setup(r => r.FindByUsername("testuser")).Returns(user);
-        _passwordHasherMock.Setup(h => h.Verify("wrongpassword", user.Password.Hash)).Returns(false);
+        _passwordHasherMock.Setup(h => h.Verify("wrongpassword", user.Password!.Hash)).Returns(false);
 
         // Act
         var result = _sut.Authenticate("testuser", "wrongpassword");
@@ -135,6 +135,103 @@ public class AuthenticationServiceTests
 
         // Assert
         _userRepositoryMock.Verify(r => r.FindByUsername("testuser"), Times.Once);
+    }
+
+    #endregion
+
+    #region Login By Email
+
+    [Fact]
+    public void Authenticate_WithEmailIdentifier_ResolvesByEmail()
+    {
+        // Arrange
+        var user = CreateTestUser();
+        _userRepositoryMock.Setup(r => r.FindByEmail(new EmailAddress("test@example.com"))).Returns(user);
+        _passwordHasherMock.Setup(h => h.Verify("ValidPass1", user.Password!.Hash)).Returns(true);
+
+        // Act
+        var result = _sut.Authenticate("test@example.com", "ValidPass1");
+
+        // Assert
+        result.Should().Be(user);
+        _userRepositoryMock.Verify(r => r.FindByEmail(It.IsAny<EmailAddress>()), Times.Once);
+    }
+
+    [Fact]
+    public void Authenticate_WithEmailIdentifier_DoesNotFallBackToUsernameWhenEmailMatches()
+    {
+        // Arrange
+        var user = CreateTestUser();
+        _userRepositoryMock.Setup(r => r.FindByEmail(new EmailAddress("test@example.com"))).Returns(user);
+        _passwordHasherMock.Setup(h => h.Verify("ValidPass1", user.Password!.Hash)).Returns(true);
+
+        // Act
+        _sut.Authenticate("test@example.com", "ValidPass1");
+
+        // Assert - username lookup is not needed when the email matches
+        _userRepositoryMock.Verify(r => r.FindByUsername(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public void Authenticate_WithUnknownEmail_ReturnsNull()
+    {
+        // Arrange
+        _userRepositoryMock.Setup(r => r.FindByEmail(It.IsAny<EmailAddress>())).Returns((User?)null);
+        _userRepositoryMock.Setup(r => r.FindByUsername(It.IsAny<string>())).Returns((User?)null);
+
+        // Act
+        var result = _sut.Authenticate("unknown@example.com", "ValidPass1");
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void Authenticate_WithUsernameIdentifier_DoesNotQueryEmail()
+    {
+        // Arrange
+        var user = CreateTestUser();
+        _userRepositoryMock.Setup(r => r.FindByUsername("testuser")).Returns(user);
+        _passwordHasherMock.Setup(h => h.Verify("ValidPass1", user.Password!.Hash)).Returns(true);
+
+        // Act
+        var result = _sut.Authenticate("testuser", "ValidPass1");
+
+        // Assert
+        result.Should().Be(user);
+        _userRepositoryMock.Verify(r => r.FindByEmail(It.IsAny<EmailAddress>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Authenticate_WithBlankIdentifier_ReturnsNull(string identifier)
+    {
+        // Act
+        var result = _sut.Authenticate(identifier, "ValidPass1");
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void Authenticate_ExternalOnlyUserWithoutPassword_ReturnsNull()
+    {
+        // Arrange - an OIDC-only user has no local password and cannot log in with one
+        var user = User.RegisterExternal(
+            UserId.NewId(),
+            "oidcuser",
+            new EmailAddress("oidc@example.com"),
+            "identityaccess",
+            "sub-1");
+        _userRepositoryMock.Setup(r => r.FindByEmail(new EmailAddress("oidc@example.com"))).Returns(user);
+
+        // Act
+        var result = _sut.Authenticate("oidc@example.com", "anything");
+
+        // Assert
+        result.Should().BeNull();
+        _passwordHasherMock.Verify(h => h.Verify(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     #endregion

@@ -16,4 +16,10 @@ public interface IConfigStore
 
     Task<ReleaseConfig> GetReleaseConfigAsync();
     Task SaveReleaseConfigAsync(ReleaseConfig config);
+
+    Task<SmtpConfig> GetSmtpConfigAsync();
+    Task SaveSmtpConfigAsync(SmtpConfig config);
+
+    Task<OidcConfig> GetOidcConfigAsync();
+    Task SaveOidcConfigAsync(OidcConfig config);
 }

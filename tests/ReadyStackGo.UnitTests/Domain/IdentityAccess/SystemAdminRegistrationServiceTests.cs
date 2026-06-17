@@ -61,7 +61,7 @@ public class SystemAdminRegistrationServiceTests
         _userRepositoryMock.Setup(r => r.GetAll()).Returns(new List<User>());
 
         // Act
-        var result = _sut.RegisterSystemAdmin("admin", "ValidPass1");
+        var result = _sut.RegisterSystemAdmin("admin", "admin@example.com", "ValidPass1");
 
         // Assert
         result.Should().NotBeNull();
@@ -73,7 +73,7 @@ public class SystemAdminRegistrationServiceTests
     public void RegisterSystemAdmin_CreatesUserWithSystemAdminRole()
     {
         // Act
-        var result = _sut.RegisterSystemAdmin("admin", "ValidPass1");
+        var result = _sut.RegisterSystemAdmin("admin", "admin@example.com", "ValidPass1");
 
         // Assert
         result.RoleAssignments.Should().ContainSingle(r =>
@@ -82,20 +82,42 @@ public class SystemAdminRegistrationServiceTests
     }
 
     [Fact]
-    public void RegisterSystemAdmin_GeneratesSystemEmail()
+    public void RegisterSystemAdmin_UsesProvidedEmail()
     {
         // Act
-        var result = _sut.RegisterSystemAdmin("admin", "ValidPass1");
+        var result = _sut.RegisterSystemAdmin("admin", "Admin@Example.com", "ValidPass1");
+
+        // Assert - email is normalized to lowercase by the value object.
+        result.Email.Value.Should().Be("admin@example.com");
+    }
+
+    [Fact]
+    public void RegisterSystemAdmin_DoesNotVerifyEmail()
+    {
+        // Act - there is no SMTP server during initial setup, so the bootstrap admin's
+        // email must NOT be auto-verified; it stays honest until a real ownership proof.
+        var result = _sut.RegisterSystemAdmin("admin", "admin@example.com", "ValidPass1");
 
         // Assert
-        result.Email.Value.Should().Be("admin@system.local");
+        result.IsEmailVerified.Should().BeFalse();
+        result.EmailVerifiedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public void RegisterSystemAdmin_WithInvalidEmail_ThrowsArgumentException()
+    {
+        // Act
+        var act = () => _sut.RegisterSystemAdmin("admin", "not-an-email", "ValidPass1");
+
+        // Assert
+        act.Should().Throw<ArgumentException>();
     }
 
     [Fact]
     public void RegisterSystemAdmin_HashesPassword()
     {
         // Act
-        _sut.RegisterSystemAdmin("admin", "ValidPass1");
+        _sut.RegisterSystemAdmin("admin", "admin@example.com", "ValidPass1");
 
         // Assert
         _passwordHasherMock.Verify(h => h.Hash("ValidPass1"), Times.Once);
@@ -105,7 +127,7 @@ public class SystemAdminRegistrationServiceTests
     public void RegisterSystemAdmin_AddsUserToRepository()
     {
         // Act
-        var result = _sut.RegisterSystemAdmin("admin", "ValidPass1");
+        var result = _sut.RegisterSystemAdmin("admin", "admin@example.com", "ValidPass1");
 
         // Assert
         _userRepositoryMock.Verify(r => r.Add(result), Times.Once);
@@ -119,7 +141,7 @@ public class SystemAdminRegistrationServiceTests
         _userRepositoryMock.Setup(r => r.GetAll()).Returns(new List<User> { existingAdmin });
 
         // Act
-        var act = () => _sut.RegisterSystemAdmin("newadmin", "ValidPass1");
+        var act = () => _sut.RegisterSystemAdmin("newadmin", "newadmin@example.com", "ValidPass1");
 
         // Assert
         act.Should().Throw<InvalidOperationException>()
@@ -130,7 +152,7 @@ public class SystemAdminRegistrationServiceTests
     public void RegisterSystemAdmin_WithWeakPassword_ThrowsArgumentException()
     {
         // Act
-        var act = () => _sut.RegisterSystemAdmin("admin", "weak");
+        var act = () => _sut.RegisterSystemAdmin("admin", "admin@example.com", "weak");
 
         // Assert
         act.Should().Throw<ArgumentException>();
@@ -140,7 +162,7 @@ public class SystemAdminRegistrationServiceTests
     public void RegisterSystemAdmin_WithPasswordMissingUppercase_ThrowsArgumentException()
     {
         // Act
-        var act = () => _sut.RegisterSystemAdmin("admin", "password1");
+        var act = () => _sut.RegisterSystemAdmin("admin", "admin@example.com", "password1");
 
         // Assert
         act.Should().Throw<ArgumentException>()
@@ -151,7 +173,7 @@ public class SystemAdminRegistrationServiceTests
     public void RegisterSystemAdmin_WithPasswordMissingLowercase_ThrowsArgumentException()
     {
         // Act
-        var act = () => _sut.RegisterSystemAdmin("admin", "PASSWORD1");
+        var act = () => _sut.RegisterSystemAdmin("admin", "admin@example.com", "PASSWORD1");
 
         // Assert
         act.Should().Throw<ArgumentException>()
@@ -162,7 +184,7 @@ public class SystemAdminRegistrationServiceTests
     public void RegisterSystemAdmin_WithPasswordMissingDigit_ThrowsArgumentException()
     {
         // Act
-        var act = () => _sut.RegisterSystemAdmin("admin", "Password");
+        var act = () => _sut.RegisterSystemAdmin("admin", "admin@example.com", "Password");
 
         // Assert
         act.Should().Throw<ArgumentException>()
@@ -173,7 +195,7 @@ public class SystemAdminRegistrationServiceTests
     public void RegisterSystemAdmin_RequestsNextIdentityFromRepository()
     {
         // Act
-        _sut.RegisterSystemAdmin("admin", "ValidPass1");
+        _sut.RegisterSystemAdmin("admin", "admin@example.com", "ValidPass1");
 
         // Assert
         _userRepositoryMock.Verify(r => r.NextIdentity(), Times.Once);
