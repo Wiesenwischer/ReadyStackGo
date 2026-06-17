@@ -218,6 +218,71 @@ public class UserEmailVerificationAndExternalIdentityTests
         user.FindExternalIdentity("google").Should().BeNull();
     }
 
+    #endregion
+
+    #region Unlink External Identity
+
+    [Fact]
+    public void UnlinkExternalIdentity_RemovesAndRaisesEvent()
+    {
+        var user = CreateLocalUser(); // has a password
+        user.LinkExternalIdentity("google", "g-1");
+        user.ClearDomainEvents();
+
+        user.UnlinkExternalIdentity("google");
+
+        user.FindExternalIdentity("google").Should().BeNull();
+        user.ExternalIdentities.Should().BeEmpty();
+        user.DomainEvents.OfType<ExternalIdentityUnlinked>().Should().ContainSingle();
+    }
+
+    [Fact]
+    public void UnlinkExternalIdentity_NotLinked_IsNoOp()
+    {
+        var user = CreateLocalUser();
+        user.ClearDomainEvents();
+
+        user.UnlinkExternalIdentity("google");
+
+        user.DomainEvents.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void UnlinkExternalIdentity_LocalUser_CanRemoveAllIdentities()
+    {
+        // A user with a local password keeps a sign-in method, so the last identity is removable.
+        var user = CreateLocalUser();
+        user.LinkExternalIdentity("google", "g-1");
+
+        user.UnlinkExternalIdentity("google");
+
+        user.ExternalIdentities.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void UnlinkExternalIdentity_ExternalOnlyUser_LastIdentity_Throws()
+    {
+        // No password + only one identity → removing it would lock the user out.
+        var user = User.RegisterExternal(UserId.NewId(), "oidcuser", new EmailAddress("oidc@example.com"), "identityaccess", "sub-1");
+
+        var act = () => user.UnlinkExternalIdentity("identityaccess");
+
+        act.Should().Throw<InvalidOperationException>();
+        user.FindExternalIdentity("identityaccess").Should().NotBeNull();
+    }
+
+    [Fact]
+    public void UnlinkExternalIdentity_ExternalOnlyUser_WithTwoIdentities_CanRemoveOne()
+    {
+        var user = User.RegisterExternal(UserId.NewId(), "oidcuser", new EmailAddress("oidc@example.com"), "identityaccess", "sub-1");
+        user.LinkExternalIdentity("google", "g-1");
+
+        user.UnlinkExternalIdentity("google");
+
+        user.ExternalIdentities.Should().ContainSingle();
+        user.FindExternalIdentity("identityaccess").Should().NotBeNull();
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData(null)]

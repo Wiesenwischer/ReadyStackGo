@@ -1,4 +1,5 @@
 import { useProfileStore } from '@rsgo/core';
+import ConnectedAccounts from './ConnectedAccounts';
 
 function formatDate(isoString?: string): string {
   if (!isoString) return "-";
@@ -181,6 +182,9 @@ export default function Profile() {
               </form>
             </div>
           </div>
+
+          {/* Connected accounts (OIDC) */}
+          <ConnectedAccounts />
         </div>
       )}
     </div>

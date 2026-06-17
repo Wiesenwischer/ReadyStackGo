@@ -158,6 +158,31 @@ public class User : AggregateRoot<UserId>
     }
 
     /// <summary>
+    /// Removes the external identity for the given provider. Idempotent if not linked.
+    /// Refuses to remove the user's only sign-in method (no local password and the last
+    /// linked identity) to prevent lockout.
+    /// </summary>
+    public void UnlinkExternalIdentity(string provider)
+    {
+        if (string.IsNullOrEmpty(provider))
+            return;
+
+        var normalizedProvider = provider.ToLowerInvariant();
+        var existing = _externalIdentities.FirstOrDefault(e => e.Provider == normalizedProvider);
+        if (existing == null)
+            return; // Not linked — idempotent.
+
+        if (!HasPassword && _externalIdentities.Count <= 1)
+        {
+            throw new InvalidOperationException(
+                "Cannot unlink the only sign-in method. Set a password first.");
+        }
+
+        _externalIdentities.Remove(existing);
+        AddDomainEvent(new ExternalIdentityUnlinked(Id, existing.Provider, existing.Subject));
+    }
+
+    /// <summary>
     /// Finds the external identity for the given provider, or null if not linked.
     /// </summary>
     public ExternalIdentity? FindExternalIdentity(string provider)
