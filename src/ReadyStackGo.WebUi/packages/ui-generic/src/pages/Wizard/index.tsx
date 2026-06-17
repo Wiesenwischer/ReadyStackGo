@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import WizardLayout from './WizardLayout';
 import AdminStep from './AdminStep';
+import SmtpStep from './SmtpStep';
 import { useWizardStore } from '@rsgo/core';
 import { useAuth } from '../../context/AuthContext';
 
@@ -17,16 +19,20 @@ export default function Wizard() {
   } = useWizardStore();
   const navigate = useNavigate();
   const { setAuthDirectly } = useAuth();
+  const [step, setStep] = useState<'admin' | 'smtp'>('admin');
 
   const handleAdminCreated = async (data: { username: string; email: string; password: string }) => {
     const response = await submitAdmin(data);
     if (response.token && response.username && response.role) {
       setAuthDirectly(response.token, response.username, response.role);
     }
+    // The admin is now authenticated; offer the optional SMTP step before completing.
+    setStep('smtp');
+  };
 
+  const completeAndContinue = async () => {
     // Mark wizard as installed (completes the wizard state machine)
     await completeWizard();
-
     // Redirect to dashboard where the onboarding checklist will guide further setup
     navigate('/', { replace: true });
   };
@@ -93,7 +99,11 @@ export default function Wizard() {
 
   return (
     <WizardLayout timeout={timeout} onTimeout={handleTimeout}>
-      <AdminStep onNext={handleAdminCreated} />
+      {step === 'admin' ? (
+        <AdminStep onNext={handleAdminCreated} />
+      ) : (
+        <SmtpStep onComplete={completeAndContinue} />
+      )}
     </WizardLayout>
   );
 }

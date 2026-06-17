@@ -6,6 +6,7 @@ import {
   testSmtpSettings,
   type SmtpSettingsDto,
 } from '@rsgo/core';
+import SmtpFields from '../../../components/settings/SmtpFields';
 
 const EMPTY: SmtpSettingsDto = {
   enabled: false,
@@ -39,9 +40,6 @@ export default function SmtpSettingsPage() {
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load settings'))
       .finally(() => setLoading(false));
   }, []);
-
-  const update = <K extends keyof SmtpSettingsDto>(key: K, value: SmtpSettingsDto[K]) =>
-    setSettings((s) => ({ ...s, [key]: value }));
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
@@ -98,55 +96,7 @@ export default function SmtpSettingsPage() {
       )}
 
       <form onSubmit={handleSave} className="space-y-5">
-        <label className="flex items-center gap-3">
-          <input type="checkbox" checked={settings.enabled} onChange={(e) => update('enabled', e.target.checked)} />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Enable email sending</span>
-        </label>
-
-        <div className="grid grid-cols-3 gap-4">
-          <div className="col-span-2">
-            <label className={labelClass}>SMTP host</label>
-            <input className={inputClass} value={settings.host} onChange={(e) => update('host', e.target.value)} placeholder="smtp.example.com" />
-          </div>
-          <div>
-            <label className={labelClass}>Port</label>
-            <input className={inputClass} type="number" value={settings.port} onChange={(e) => update('port', Number(e.target.value))} />
-          </div>
-        </div>
-
-        <label className="flex items-center gap-3">
-          <input type="checkbox" checked={settings.useStartTls} onChange={(e) => update('useStartTls', e.target.checked)} />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Use STARTTLS</span>
-        </label>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={labelClass}>Username</label>
-            <input className={inputClass} value={settings.username ?? ''} onChange={(e) => update('username', e.target.value)} autoComplete="off" />
-          </div>
-          <div>
-            <label className={labelClass}>Password</label>
-            <input
-              className={inputClass}
-              type="password"
-              value={settings.password ?? ''}
-              onChange={(e) => update('password', e.target.value)}
-              placeholder={settings.hasPassword ? '•••••••• (unchanged)' : ''}
-              autoComplete="new-password"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={labelClass}>From address</label>
-            <input className={inputClass} value={settings.fromAddress} onChange={(e) => update('fromAddress', e.target.value)} placeholder="noreply@example.com" />
-          </div>
-          <div>
-            <label className={labelClass}>From name</label>
-            <input className={inputClass} value={settings.fromName} onChange={(e) => update('fromName', e.target.value)} />
-          </div>
-        </div>
+        <SmtpFields value={settings} onChange={(patch) => setSettings((s) => ({ ...s, ...patch }))} />
 
         <button
           type="submit"
