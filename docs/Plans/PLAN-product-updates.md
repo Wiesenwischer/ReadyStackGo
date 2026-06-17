@@ -93,7 +93,7 @@ Reihenfolge basierend auf Abhängigkeiten:
   - Abhängig von: Features 2–3.
 - [ ] **Feature 6: UI — Badge + Viewer + Dashboard**
   - Update-Badge neben Versions-Badge in `ProductDeploymentDetail.tsx`, gespeist aus `checkProductUpgrade()` (`upgradeAvailable`/`latestVersion`).
-  - Neue Komponente `ReleaseNotesViewer` (Modal oder Seiten-Sektion).
+  - Neue Komponente `ReleaseNotesViewer` (Modal oder Seiten-Sektion) — rendert `mode: "markdown"` mit **`react-markdown` + `rehype-sanitize`**, `mode: "url"` als externen Link (kein Embed).
   - Dashboard/Overview: Indikator auf Zeilen mit verfügbarem Update.
   - Betroffene Dateien: `src/ReadyStackGo.WebUi/packages/ui-generic/src/pages/Deployments/ProductDeploymentDetail.tsx`, `src/ReadyStackGo.WebUi/packages/ui-generic/src/components/ReleaseNotesViewer.tsx`, Dashboard-Liste.
   - Abhängig von: Feature 5.
@@ -118,10 +118,10 @@ Reihenfolge basierend auf Abhängigkeiten:
 
 ## Offene Punkte
 
-- [ ] **Markdown-Library**: `react-markdown` (sicher, modular) vs. `marked` (schlank, weniger Deps). Entscheidung beim ersten Implementierungs-PR.
-- [ ] **Release-Notes-Aggregation**: Wenn zwischen installiert (v1.0.2) und neuester (v1.3.0) mehrere Versionen liegen — alle Changelogs anzeigen oder nur die der Ziel-Version? Empfehlung: nur Ziel-Version; Aggregation als Folge-Feature.
+- [x] **Markdown-Library** (entschieden): **`react-markdown` + `rehype-sanitize`** für die generische React-UI. Begründung: React-idiomatisch (kein `dangerouslySetInnerHTML`), integriert in den Komponentenbaum, mit `rehype-sanitize` XSS-sicher. `marked` liefert einen HTML-String, der via `dangerouslySetInnerHTML` + DOMPurify eingebunden werden müsste. Im App-Code wird bisher **kein** Markdown gerendert und keine Markdown-Lib ist direkte Abhängigkeit → Neuaufnahme von `react-markdown` + `rehype-sanitize` in `packages/ui-generic`. (AMS-Counterpart wählt seinen eigenen Renderer für Lit — siehe AMS-PLAN.)
+- [x] **Release-Notes-Aggregation** (entschieden): **nur die Ziel-/neueste Version** anzeigen. Mehrfach-Aggregation (alle Changelogs zwischen installiert und Ziel) ist ein **Folge-Feature**, nicht Teil dieser Phase.
 - [x] **Multi-Version im Katalog** (geklärt, v0.73): Der Katalog hält bereits mehrere Versionen pro Produkt (`ProductDefinition.Id = SourceId:Name:ProductVersion`; Cache gruppiert per `GroupId`, wählt neueste via `SemVerComparer`). `GetAvailableUpgradesAsync` liefert die verfügbaren Versionen — keine zusätzliche Persistenz nötig.
-- [ ] **Sicherheit Release-Notes-Viewer**: Externe URLs sollen nicht serverseitig gefetcht werden (SSRF-Risiko). CHANGELOG.md aus eigenen Sources ist ok; externe URLs werden nur als Link gerendert, nicht im Viewer embedded.
+- [x] **Sicherheit Release-Notes-Viewer** (entschieden): **Kein serverseitiges Fetchen externer URLs** (SSRF-Schutz). Nur `CHANGELOG.md` aus den **eigenen** Sources wird serverseitig geladen und als Markdown gerendert (`mode: "markdown"`); ein `releaseNotesUrl` wird ausschließlich als **externer Link** zurückgegeben (`mode: "url"`) und im UI als Link (kein Embed) dargestellt.
 
 ## Entscheidungen
 
@@ -132,3 +132,6 @@ Reihenfolge basierend auf Abhängigkeiten:
 | UI-Scope | Badge / Badge+Notif / Komplett | **Komplett** | Vom User gewählt: Badge + Notification + Dashboard + Release-Notes-Viewer. |
 | Update-Scope | Strikt SemVer-newer / Alle ≠ installiert | **Strikt newer** | Vom User gewählt. Konsistent zum RSGO-self-update, kein Downgrade-Noise. |
 | AMS-Counterpart | Ja / Deferred / Nein / Teilweise | **Ja (eigener PLAN)** | UI-Komponenten betroffen; separates PLAN im AMS-Repo, shared Hooks in `@rsgo/core`. |
+| Markdown-Library | `react-markdown` / `marked` | **`react-markdown` + `rehype-sanitize`** | React-idiomatisch, kein `dangerouslySetInnerHTML`, sanitized; keine Markdown-Lib bisher im Frontend. |
+| Release-Notes-Aggregation | Nur Ziel / Alle dazwischen | **Nur Ziel-/neueste Version** | Einfach; Mehrfach-Aggregation als Folge-Feature. |
+| Externe URLs (SSRF) | Server-fetch / Link-only | **Link-only**; nur eigene `CHANGELOG.md` server-seitig | Verhindert SSRF; externe URLs nur als Link, kein Embed. |
