@@ -14,6 +14,7 @@ public static class DependencyInjection
         services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
         services.AddSingleton<ITokenService, TokenService>();
         services.AddSingleton<IEmailVerificationTokenService, EmailVerificationTokenService>();
+        services.AddSingleton<IPasswordResetTokenService, PasswordResetTokenService>();
         services.AddSingleton<Application.Services.Oidc.IOidcService, OidcService>();
         services.AddSingleton<IRbacService, RbacService>();
 

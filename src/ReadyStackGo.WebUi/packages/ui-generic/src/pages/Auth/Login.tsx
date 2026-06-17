@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getOidcProviders, startOidcLogin, type OidcProviderDto } from '@rsgo/core';
 import { useAuth } from '../../context/AuthContext';
 
@@ -137,6 +137,12 @@ export default function Login() {
                     >
                       {isLoading ? 'Signing in...' : 'Sign in'}
                     </button>
+                  </div>
+
+                  <div className="text-center">
+                    <Link to="/forgot-password" className="text-sm text-brand-600 hover:text-brand-700">
+                      Forgot password?
+                    </Link>
                   </div>
                 </div>
               </form>

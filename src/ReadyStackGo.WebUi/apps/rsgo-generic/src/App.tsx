@@ -66,6 +66,8 @@ import Login from "@rsgo/ui-generic/pages/Auth/Login";
 import AcceptInvitationPage from "@rsgo/ui-generic/pages/Auth/AcceptInvitationPage";
 import VerifyEmailPage from "@rsgo/ui-generic/pages/Auth/VerifyEmailPage";
 import OidcCallbackPage from "@rsgo/ui-generic/pages/Auth/OidcCallbackPage";
+import ForgotPasswordPage from "@rsgo/ui-generic/pages/Auth/ForgotPasswordPage";
+import ResetPasswordPage from "@rsgo/ui-generic/pages/Auth/ResetPasswordPage";
 import Wizard from "@rsgo/ui-generic/pages/Wizard";
 import Onboarding from "@rsgo/ui-generic/pages/Onboarding";
 import Profile from "@rsgo/ui-generic/pages/Profile/Profile";
@@ -93,6 +95,8 @@ export default function App() {
               <Route path="/accept-invite" element={<AcceptInvitationPage />} />
               <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route path="/oidc-callback" element={<OidcCallbackPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               {/* Update status page - standalone, no layout */}
               <Route
                 path="/update"
