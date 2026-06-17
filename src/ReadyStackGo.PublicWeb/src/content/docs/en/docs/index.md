@@ -15,6 +15,7 @@ Here you'll find detailed guides for using ReadyStackGo.
 - [User Access, Email & SSO](/en/docs/configuration/user-access/) - Invite users, verify email, sign in by email/username, and single sign-on (OIDC)
 - [Self-Update](/en/docs/system/self-update/) - Update ReadyStackGo with a single click
 - [Product Deployment](/en/docs/deployments/product-deployment/) - Deploy entire products with all stacks in a single operation
+- [Product Updates & Release Notes](/en/docs/configuration/product-release-notes/) - Surface update availability and read release notes (CHANGELOG.md / releaseNotesUrl) in the UI
 - [Product Redeploy](/en/docs/deployments/product-redeploy/) - Redeploy products with real-time per-stack progress tracking
 - [Volume Management](/en/docs/monitoring/volume-management/) - Manage Docker Volumes and clean up orphaned volumes
 - [Container Management](/en/docs/monitoring/container-management/) - Monitor, control, and view logs for all Docker containers
