@@ -88,6 +88,10 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
                     product.MaintenanceObserver, observerVariables);
                 productDeployment.SetMaintenanceObserverConfig(observerConfig);
 
+                // Refresh the maintenance setter config too (mirror of the observer).
+                productDeployment.SetMaintenanceSetterConfig(
+                    MaintenanceSetterConfigMapper.Map(product.MaintenanceSetter, observerVariables));
+
                 if (observerConfig != null)
                 {
                     _logger.LogInformation(

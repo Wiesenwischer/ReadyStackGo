@@ -19,6 +19,7 @@ public class ChangeProductOperationModeHandlerTests
     private readonly Mock<IDeploymentRepository> _deploymentRepositoryMock;
     private readonly Mock<IDockerService> _dockerServiceMock;
     private readonly Mock<IHealthNotificationService> _healthNotificationMock;
+    private readonly Mock<IMaintenanceSetterService> _setterServiceMock;
     private readonly Mock<ILogger<ChangeProductOperationModeHandler>> _loggerMock;
     private readonly ChangeProductOperationModeHandler _handler;
 
@@ -30,6 +31,10 @@ public class ChangeProductOperationModeHandlerTests
         _deploymentRepositoryMock = new Mock<IDeploymentRepository>();
         _dockerServiceMock = new Mock<IDockerService>();
         _healthNotificationMock = new Mock<IHealthNotificationService>();
+        _setterServiceMock = new Mock<IMaintenanceSetterService>();
+        _setterServiceMock
+            .Setup(s => s.ApplyAsync(It.IsAny<MaintenanceSetterConfig?>(), It.IsAny<MaintenanceState>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SetterResult.WasSkipped("no setter configured"));
         _loggerMock = new Mock<ILogger<ChangeProductOperationModeHandler>>();
 
         _handler = new ChangeProductOperationModeHandler(
@@ -37,6 +42,7 @@ public class ChangeProductOperationModeHandlerTests
             _deploymentRepositoryMock.Object,
             _dockerServiceMock.Object,
             _healthNotificationMock.Object,
+            _setterServiceMock.Object,
             _loggerMock.Object);
     }
 
@@ -89,6 +95,51 @@ public class ChangeProductOperationModeHandlerTests
             mode,
             reason,
             source);
+    }
+
+    #endregion
+
+    #region Maintenance setter (loop protection)
+
+    [Fact]
+    public async Task Handle_ManualEnterMaintenance_FiresSetterMaintenance()
+    {
+        var deployment = CreateRunningDeployment();
+        SetupDeploymentFound(deployment);
+
+        await _handler.Handle(CreateCommand(deployment, mode: "Maintenance", source: "Manual"), CancellationToken.None);
+
+        _setterServiceMock.Verify(s => s.ApplyAsync(
+            It.IsAny<MaintenanceSetterConfig?>(), MaintenanceState.Maintenance, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ObserverEnterMaintenance_DoesNotFireSetter()
+    {
+        // Loop protection: observer-initiated transitions must NOT write back.
+        var deployment = CreateRunningDeployment();
+        SetupDeploymentFound(deployment);
+
+        await _handler.Handle(CreateCommand(deployment, mode: "Maintenance", source: "Observer"), CancellationToken.None);
+
+        _setterServiceMock.Verify(s => s.ApplyAsync(
+            It.IsAny<MaintenanceSetterConfig?>(), It.IsAny<MaintenanceState>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_ManualExitMaintenance_FiresSetterNormal()
+    {
+        var deployment = CreateRunningDeployment();
+        deployment.EnterMaintenance(MaintenanceTrigger.Manual("test"));
+        SetupDeploymentFound(deployment);
+
+        await _handler.Handle(CreateCommand(deployment, mode: "Normal", source: "Manual"), CancellationToken.None);
+
+        _setterServiceMock.Verify(s => s.ApplyAsync(
+            It.IsAny<MaintenanceSetterConfig?>(), MaintenanceState.Normal, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     #endregion

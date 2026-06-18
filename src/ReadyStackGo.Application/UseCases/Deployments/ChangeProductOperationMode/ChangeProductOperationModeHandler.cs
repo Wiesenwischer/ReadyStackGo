@@ -22,6 +22,7 @@ public class ChangeProductOperationModeHandler
     private readonly IDeploymentRepository _deploymentRepository;
     private readonly IDockerService _dockerService;
     private readonly IHealthNotificationService _healthNotificationService;
+    private readonly IMaintenanceSetterService _maintenanceSetterService;
     private readonly ILogger<ChangeProductOperationModeHandler> _logger;
 
     public ChangeProductOperationModeHandler(
@@ -29,12 +30,14 @@ public class ChangeProductOperationModeHandler
         IDeploymentRepository deploymentRepository,
         IDockerService dockerService,
         IHealthNotificationService healthNotificationService,
+        IMaintenanceSetterService maintenanceSetterService,
         ILogger<ChangeProductOperationModeHandler> logger)
     {
         _productDeploymentRepository = productDeploymentRepository;
         _deploymentRepository = deploymentRepository;
         _dockerService = dockerService;
         _healthNotificationService = healthNotificationService;
+        _maintenanceSetterService = maintenanceSetterService;
         _logger = logger;
     }
 
@@ -113,12 +116,44 @@ public class ChangeProductOperationModeHandler
             "Changed operation mode for product deployment {ProductDeploymentId} ({ProductName}) from {PreviousMode} to {NewMode}",
             request.ProductDeploymentId, productDeployment.ProductName, previousMode.Name, targetMode.Name);
 
+        // Propagate the state to the product via the maintenance setter (best-effort).
+        // Loop protection: only fire for Manual transitions. Observer-initiated transitions
+        // mean the product already set the flag itself — re-writing would be redundant and
+        // could drive a feedback loop.
+        var fireSetter = source == MaintenanceTriggerSource.Manual;
+        var setterConfig = productDeployment.MaintenanceSetterConfig;
+        SetterResult? setterResult = null;
+
+        if (targetMode == OperationMode.Maintenance && fireSetter)
+        {
+            setterResult = await _maintenanceSetterService.ApplyAsync(
+                setterConfig, MaintenanceState.Maintenance, cancellationToken);
+
+            // Optional grace window: let the product drain clients before containers stop.
+            if (setterConfig is { GracePeriod.Ticks: > 0 })
+            {
+                _logger.LogInformation(
+                    "Waiting {GraceSeconds}s grace period before stopping containers for {ProductDeploymentId}",
+                    setterConfig.GracePeriod.TotalSeconds, request.ProductDeploymentId);
+                await Task.Delay(setterConfig.GracePeriod, cancellationToken);
+            }
+        }
+
         // Handle container lifecycle and propagate operation mode to ALL child stacks
         await HandleContainerLifecycleAsync(
             productDeployment, previousMode, targetMode, trigger, source, cancellationToken);
 
+        if (targetMode == OperationMode.Normal && fireSetter)
+        {
+            // Fire after containers have been started again (health verification is the caller's concern).
+            setterResult = await _maintenanceSetterService.ApplyAsync(
+                setterConfig, MaintenanceState.Normal, cancellationToken);
+        }
+
+        var setterError = setterResult is { Success: false } ? setterResult.Error : null;
+
         return ChangeProductOperationModeResponse.Ok(
-            request.ProductDeploymentId, previousMode.Name, targetMode.Name, source.ToString());
+            request.ProductDeploymentId, previousMode.Name, targetMode.Name, source.ToString(), setterError);
     }
 
     private async Task HandleContainerLifecycleAsync(

@@ -513,6 +513,70 @@ maintenance:
     normalValue: "false"
 ```
 
+### Setter Configuration
+
+The optional `maintenance.setter` is the mirror image of the observer: when an operator puts
+the product into maintenance **from within ReadyStackGo** (not via the observer), RSGO actively
+propagates that state to the product. This keeps the RSGO operation mode and the product's own
+maintenance flag consistent, and lets the product warn/drain its clients.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | **Yes** | `sqlExtendedProperty` or `webhook` |
+| `gracePeriod` | string | No | Delay between firing the setter and stopping containers (e.g. `10s`). Default `0` |
+
+:::note[No feedback loop]
+The setter fires **only for operator/manual transitions**, never for observer-initiated ones
+(where the product already set the flag). The SQL write is idempotent. Setter failures are
+non-fatal: they are logged and reported, but do not block the maintenance transition.
+:::
+
+#### SQL Extended Property (`sqlExtendedProperty`)
+
+Writes the **same** extended property the observer reads, keeping both sides in sync. Works
+even while the product is down.
+
+```yaml
+maintenance:
+  observer:
+    type: sqlExtendedProperty
+    connectionString: "${AMS_DB}"
+    propertyName: ams-MaintenanceMode
+    maintenanceValue: "1"
+    normalValue: "0"
+  setter:
+    type: sqlExtendedProperty
+    connectionString: "${AMS_DB}"
+    propertyName: ams-MaintenanceMode
+    maintenanceValue: "1"
+    normalValue: "0"
+    gracePeriod: "10s"
+```
+
+#### Webhook (`webhook`)
+
+Calls a product endpoint with `POST { "state": "maintenance" | "normal" }`, signed with
+HMAC-SHA256 over the body (header `X-RSGO-Signature: sha256=<hex>`). Good for a synchronous
+product reaction while it is still running. The external URL is never read back (no SSRF).
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `url` | string | **Yes** | Endpoint the product exposes (supports `${VAR}`) |
+| `secret` | string | No | HMAC secret to sign the body (supports `${VAR}`; never logged) |
+| `timeout` | string | No | Request timeout (e.g. `10s`). Default `10s` |
+| `retries` | int | No | Retries on failure. Default `2` |
+
+```yaml
+maintenance:
+  setter:
+    type: webhook
+    url: "${PRODUCT_BASE_URL}/internal/maintenance"
+    secret: "${MAINTENANCE_WEBHOOK_SECRET}"
+    timeout: "10s"
+    retries: 2
+    gracePeriod: "15s"
+```
+
 ---
 
 ## Multi-Stack Products

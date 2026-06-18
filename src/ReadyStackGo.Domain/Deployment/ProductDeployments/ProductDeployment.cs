@@ -72,6 +72,7 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     public OperationMode OperationMode { get; private set; } = OperationMode.Normal;
     public MaintenanceTrigger? MaintenanceTrigger { get; private set; }
     public MaintenanceObserverConfig? MaintenanceObserverConfig { get; private set; }
+    public MaintenanceSetterConfig? MaintenanceSetterConfig { get; private set; }
 
     // ── PRTG Integration (Variant 3 — PrtgConnection-Resource) ─────
     /// <summary>
@@ -873,6 +874,15 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     public void SetMaintenanceObserverConfig(MaintenanceObserverConfig? config)
     {
         MaintenanceObserverConfig = config;
+    }
+
+    /// <summary>
+    /// Sets the maintenance setter configuration for this product deployment.
+    /// Called during deployment when setter config is available from the product definition.
+    /// </summary>
+    public void SetMaintenanceSetterConfig(MaintenanceSetterConfig? config)
+    {
+        MaintenanceSetterConfig = config;
     }
 
     /// <summary>

@@ -454,6 +454,70 @@ maintenance:
     normalValue: "false"
 ```
 
+### Setter-Konfiguration
+
+Der optionale `maintenance.setter` ist das Spiegelbild zum Observer: Wenn ein Operator das
+Produkt **direkt in ReadyStackGo** in den Wartungsmodus versetzt (nicht über den Observer),
+propagiert RSGO diesen Zustand aktiv ins Produkt. So bleiben RSGO-OperationMode und das
+Maintenance-Flag des Produkts konsistent, und das Produkt kann seine Clients vorwarnen.
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|--------------|
+| `type` | string | **Ja** | `sqlExtendedProperty` oder `webhook` |
+| `gracePeriod` | string | Nein | Verzögerung zwischen Setter-Aufruf und Container-Stop (z. B. `10s`). Default `0` |
+
+:::note[Kein Feedback-Loop]
+Der Setter feuert **nur bei manuellen/Operator-Übergängen**, nie bei Observer-getriggerten
+(dort hat das Produkt das Flag bereits gesetzt). Der SQL-Write ist idempotent. Setter-Fehler
+sind non-fatal: Sie werden geloggt und ausgewiesen, verhindern den Übergang aber nicht.
+:::
+
+#### SQL Extended Property (`sqlExtendedProperty`)
+
+Schreibt **dieselbe** Extended Property, die der Observer liest — beide Seiten bleiben synchron.
+Funktioniert auch, wenn das Produkt down ist.
+
+```yaml
+maintenance:
+  observer:
+    type: sqlExtendedProperty
+    connectionString: "${AMS_DB}"
+    propertyName: ams-MaintenanceMode
+    maintenanceValue: "1"
+    normalValue: "0"
+  setter:
+    type: sqlExtendedProperty
+    connectionString: "${AMS_DB}"
+    propertyName: ams-MaintenanceMode
+    maintenanceValue: "1"
+    normalValue: "0"
+    gracePeriod: "10s"
+```
+
+#### Webhook (`webhook`)
+
+Ruft einen Produkt-Endpoint mit `POST { "state": "maintenance" | "normal" }` auf, signiert per
+HMAC-SHA256 über den Body (Header `X-RSGO-Signature: sha256=<hex>`). Gut für eine synchrone
+Produkt-Reaktion, solange es noch läuft. Externe URLs werden nie serverseitig gelesen (kein SSRF).
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|--------------|
+| `url` | string | **Ja** | Vom Produkt bereitgestellter Endpoint (unterstützt `${VAR}`) |
+| `secret` | string | Nein | HMAC-Secret zum Signieren des Body (unterstützt `${VAR}`; wird nie geloggt) |
+| `timeout` | string | Nein | Request-Timeout (z. B. `10s`). Default `10s` |
+| `retries` | int | Nein | Wiederholungen bei Fehler. Default `2` |
+
+```yaml
+maintenance:
+  setter:
+    type: webhook
+    url: "${PRODUCT_BASE_URL}/internal/maintenance"
+    secret: "${MAINTENANCE_WEBHOOK_SECRET}"
+    timeout: "10s"
+    retries: 2
+    gracePeriod: "15s"
+```
+
 ---
 
 ## Multi-Stack Products

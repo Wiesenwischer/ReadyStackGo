@@ -126,6 +126,20 @@ public static class DependencyInjection
             ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
         });
 
+        // Maintenance Setter (mirror of the observer — propagates RSGO-initiated transitions)
+        services.AddSingleton<IMaintenanceSetterFactory, MaintenanceSetterFactory>();
+        services.AddScoped<IMaintenanceSetterService, Application.Services.Impl.MaintenanceSetterService>();
+
+        // HTTP client for the webhook setter
+        services.AddHttpClient("MaintenanceSetter", client =>
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-MaintenanceSetter");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        });
+
         // Health check infrastructure services
         services.AddHttpClient<IHttpHealthChecker, HttpHealthChecker>(client =>
         {
