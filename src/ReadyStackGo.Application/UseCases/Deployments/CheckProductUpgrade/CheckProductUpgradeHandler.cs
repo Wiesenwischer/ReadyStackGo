@@ -99,7 +99,9 @@ public class CheckProductUpgradeHandler : IRequestHandler<CheckProductUpgradeQue
                 Version = p.ProductVersion ?? "unknown",
                 ProductId = p.Id,
                 SourceId = p.SourceId,
-                StackCount = p.Stacks.Count
+                StackCount = p.Stacks.Count,
+                ReleaseNotesUrl = p.ReleaseNotesUrl,
+                HasReleaseNotes = p.HasReleaseNotes
             })
             .ToList();
 
@@ -110,6 +112,8 @@ public class CheckProductUpgradeHandler : IRequestHandler<CheckProductUpgradeQue
             CurrentVersion = currentVersion,
             LatestVersion = latestUpgrade?.ProductVersion,
             LatestProductId = latestUpgrade?.Id,
+            LatestReleaseNotesUrl = latestUpgrade?.ReleaseNotesUrl,
+            LatestHasReleaseNotes = latestUpgrade?.HasReleaseNotes ?? false,
             AvailableVersions = availableVersions.Count > 0 ? availableVersions : null,
             NewStacks = newStacks,
             RemovedStacks = removedStacks,

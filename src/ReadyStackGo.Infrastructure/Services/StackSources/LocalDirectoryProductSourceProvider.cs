@@ -284,6 +284,11 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
                 productName, stack.Variables.Count, stack.Services.Count);
         }
 
+        // Release notes: explicit URL from the manifest, plus an optional CHANGELOG.md
+        // sitting next to the manifest (preferred over the URL when present).
+        var releaseNotesUrl = manifest.Metadata?.ReleaseNotesUrl;
+        var changelogMarkdown = TryReadChangelog(filePath);
+
         return new ProductDefinition(
             sourceId: sourceId,
             name: productName,
@@ -296,7 +301,37 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
             maintenanceObserver: maintenanceObserver,
             filePath: filePath,
             relativePath: relativePath,
-            productId: manifest.Metadata?.ProductId);
+            productId: manifest.Metadata?.ProductId,
+            releaseNotesUrl: releaseNotesUrl,
+            changelogMarkdown: changelogMarkdown);
+    }
+
+    /// <summary>
+    /// Reads a CHANGELOG.md sitting next to the manifest, if present. Best-effort:
+    /// returns null on missing file or read errors.
+    /// </summary>
+    private string? TryReadChangelog(string? manifestFilePath)
+    {
+        if (string.IsNullOrEmpty(manifestFilePath))
+            return null;
+
+        try
+        {
+            var directory = Path.GetDirectoryName(manifestFilePath);
+            if (string.IsNullOrEmpty(directory))
+                return null;
+
+            var changelogPath = Path.Combine(directory, "CHANGELOG.md");
+            return File.Exists(changelogPath) ? File.ReadAllText(changelogPath) : null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     /// <summary>

@@ -42,6 +42,13 @@ public class RsgoProductMetadata
     public string? Documentation { get; set; }
 
     /// <summary>
+    /// Optional URL to the release notes / changelog for this version (e.g. a GitHub release).
+    /// Rendered as an external link in the UI. If a CHANGELOG.md sits next to the manifest,
+    /// that is preferred over this URL.
+    /// </summary>
+    public string? ReleaseNotesUrl { get; set; }
+
+    /// <summary>
     /// Icon URL for UI display.
     /// </summary>
     public string? Icon { get; set; }
