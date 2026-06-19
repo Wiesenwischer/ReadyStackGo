@@ -136,6 +136,18 @@ public class ProductDeploymentConfiguration : IEntityTypeConfiguration<ProductDe
                 v => string.IsNullOrEmpty(v) ? null : JsonSerializer.Deserialize<MaintenanceObserverConfig>(v, observerConfigOptions))
             .HasColumnName("MaintenanceObserverConfigJson");
 
+        // Configure MaintenanceSetterConfig as JSON column (mirror of the observer config)
+        var setterConfigOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Converters = { new MaintenanceSetterConfigJsonConverter() }
+        };
+        builder.Property(d => d.MaintenanceSetterConfig)
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, setterConfigOptions),
+                v => string.IsNullOrEmpty(v) ? null : JsonSerializer.Deserialize<MaintenanceSetterConfig>(v, setterConfigOptions))
+            .HasColumnName("MaintenanceSetterConfigJson");
+
         // Configure SharedVariables as JSON column
         builder.Property(d => d.SharedVariables)
             .HasConversion(

@@ -89,6 +89,44 @@ Wenn Maintenance durch den Observer aktiviert wurde, kann es **nicht** manuell �
 
 ---
 
+## Das Produkt benachrichtigen (Maintenance-Setter)
+
+Standardmäßig ist die Maintenance-Integration **read-only**: Der Observer pollt ein Flag, das
+das Produkt setzt. Daraus entsteht eine Lücke — startet ein Operator die Wartung **direkt in
+ReadyStackGo**, erfährt das Produkt selbst nichts davon. Der optionale **Maintenance-Setter**
+schließt diese Lücke: Er ist das Spiegelbild zum Observer und **propagiert** einen
+RSGO-initiierten Wartungszustand **aktiv** ans Produkt — so kann das Produkt seine Clients
+vorwarnen/geordnet beenden, und sein eigenes Maintenance-Flag bleibt mit RSGO konsistent.
+
+Der Setter wird pro Produkt im Manifest deklariert (`maintenance.setter`) und unterstützt zwei Typen:
+
+| Typ | Was er tut | Gut für |
+|-----|------------|---------|
+| `sqlExtendedProperty` | Schreibt **dieselbe** SQL-Server-Extended-Property, die der Observer liest | Konsistenz von RSGO & SQL-Flag; funktioniert auch wenn das Produkt down ist |
+| `webhook` | `POST { "state": "maintenance" \| "normal" }`, HMAC-SHA256-signiert | Synchrone Produkt-Reaktion (z. B. Clients vorwarnen), solange es noch läuft |
+
+**Wann er feuert:**
+
+- Eintritt in Maintenance: Setter schreibt `maintenance` **vor** dem Stoppen der Container.
+- Rückkehr in Normal: Setter schreibt `normal` **nach** dem Neustart der Container.
+- Ein optionales `gracePeriod` verzögert den Container-Stop, damit das Produkt seine Clients drainen kann.
+
+:::note[Kein Feedback-Loop]
+Der Setter feuert **nur bei manuellen/Operator-Übergängen** — nie bei observer-getriggerten
+(dort hat das Produkt das Flag bereits gesetzt). Der SQL-Write ist idempotent, sodass Observer
+(lesen) und Setter (schreiben) sich nicht gegenseitig aufschaukeln können.
+:::
+
+:::caution[Best-effort & sicher]
+Setter-Fehler (DB nicht erreichbar, Webhook-Timeout/5xx) sind **non-fatal**: Sie werden geloggt
+und in der API-Antwort ausgewiesen, verhindern den Wartungsübergang aber nie. Webhook-Secrets
+werden nie geloggt, externe Webhook-URLs nie serverseitig gelesen (kein SSRF).
+:::
+
+Die YAML-Felder sind in der [Manifest-Format-Referenz](/de/reference/manifest-format/#setter-konfiguration) dokumentiert.
+
+---
+
 ## API-Endpoint
 
 Der Maintenance Mode kann auch über die REST API gesteuert werden:

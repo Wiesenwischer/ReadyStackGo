@@ -160,6 +160,17 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
             }
         }
 
+        // Resolve and attach the product-level maintenance setter config (mirror of observer).
+        var setterConfig = MaintenanceSetterConfigMapper.Map(
+            product.MaintenanceSetter, request.SharedVariables);
+        if (setterConfig != null)
+        {
+            productDeployment.SetMaintenanceSetterConfig(setterConfig);
+            _logger.LogInformation(
+                "Product deployment {ProductDeploymentId} wired maintenance setter type={SetterType}",
+                productDeploymentId, setterConfig.Type);
+        }
+
         _repository.Add(productDeployment);
         _repository.SaveChanges();
 

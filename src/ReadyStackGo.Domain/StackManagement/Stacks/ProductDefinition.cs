@@ -93,6 +93,12 @@ public class ProductDefinition
     public RsgoMaintenanceObserver? MaintenanceObserver { get; }
 
     /// <summary>
+    /// Maintenance setter configuration for this product.
+    /// Used to propagate RSGO-initiated maintenance transitions back to the product.
+    /// </summary>
+    public RsgoMaintenanceSetter? MaintenanceSetter { get; }
+
+    /// <summary>
     /// Whether this product contains multiple stacks.
     /// </summary>
     public bool IsMultiStack => Stacks.Count > 1;
@@ -144,7 +150,8 @@ public class ProductDefinition
         string? relativePath = null,
         string? productId = null,
         string? releaseNotesUrl = null,
-        string? changelogMarkdown = null)
+        string? changelogMarkdown = null,
+        RsgoMaintenanceSetter? maintenanceSetter = null)
     {
         if (string.IsNullOrWhiteSpace(sourceId))
             throw new ArgumentException("SourceId cannot be empty.", nameof(sourceId));
@@ -168,6 +175,7 @@ public class ProductDefinition
         ReleaseNotesUrl = releaseNotesUrl;
         ChangelogMarkdown = changelogMarkdown;
         MaintenanceObserver = maintenanceObserver;
+        MaintenanceSetter = maintenanceSetter;
         FilePath = filePath;
         RelativePath = relativePath;
 

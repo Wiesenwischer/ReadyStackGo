@@ -89,6 +89,44 @@ If maintenance was activated by the observer, it **cannot** be ended manually vi
 
 ---
 
+## Notifying the product (maintenance setter)
+
+By default the maintenance integration is **read-only**: the observer polls a flag the product
+sets. That leaves a gap — if an operator starts maintenance **inside ReadyStackGo**, the product
+itself never learns about it. The optional **maintenance setter** closes that gap: it is the
+mirror image of the observer and **actively propagates** an RSGO-initiated maintenance state to
+the product, so the product can warn/drain its clients and its own maintenance flag stays in
+sync with RSGO.
+
+The setter is declared per product in the manifest (`maintenance.setter`) and supports two types:
+
+| Type | What it does | Good for |
+|------|--------------|----------|
+| `sqlExtendedProperty` | Writes the **same** SQL Server extended property the observer reads | Keeping RSGO and the SQL flag consistent; works even while the product is down |
+| `webhook` | `POST { "state": "maintenance" \| "normal" }`, signed with HMAC-SHA256 | A synchronous product reaction (e.g. warning clients) while it is still running |
+
+**When it fires:**
+
+- Entering maintenance: the setter writes `maintenance` **before** containers are stopped.
+- Exiting maintenance: the setter writes `normal` **after** containers are started again.
+- An optional `gracePeriod` delays the container stop, giving the product time to drain clients.
+
+:::note[No feedback loop]
+The setter fires **only for manual/operator transitions** — never for observer-initiated ones
+(there the product already set the flag). The SQL write is idempotent, so the observer (read) and
+setter (write) can never drive each other in a loop.
+:::
+
+:::caution[Best-effort & secure]
+Setter failures (DB unreachable, webhook timeout/5xx) are **non-fatal**: they are logged and
+reported in the API response, but never block the maintenance transition. Webhook secrets are
+never logged, and external webhook URLs are never read back (no SSRF).
+:::
+
+The YAML fields are documented in the [manifest format reference](/en/reference/manifest-format/#setter-configuration).
+
+---
+
 ## API Endpoint
 
 Maintenance mode can also be controlled via the REST API:
