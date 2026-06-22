@@ -1412,6 +1412,30 @@ in this order, falling back to the next stage when one is not configured:
 The machine-readable status (`GET /__status`) and the `/hc` / `/liveness` passthrough are
 **identical across all three modes** — only the visual page differs.
 
+### Optional Host-Level SNI Router
+
+By default each product edge is its own public front door (binding its own `publicPort`).
+Optionally, RSGO can run a single shared **Layer-4 SNI passthrough router** that fronts one
+public port (e.g. `:443`) for many product hostnames: it peeks the TLS ClientHello SNI and
+proxies the raw TCP stream to the matching edge **without terminating TLS**, so every edge keeps
+its own certificate.
+
+This is **host-level RSGO configuration, not a manifest field**, and is **off by default**:
+
+```jsonc
+// appsettings.json
+"Edge": {
+  "SniRouter": {
+    "Enabled": false,            // default — nothing is provisioned, edges are unchanged
+    "Image": "<caddy-l4-image>", // must include the Caddy `layer4` module
+    "ListenPort": 443
+  }
+}
+```
+
+> The official `caddy` image does not include the `layer4` module; enabling the router requires
+> a caddy-l4-capable image supplied via `Image`.
+
 ### Routing & Status
 
 | Deploy state | Maintenance flag | Edge behaviour | `/__status` `state` |

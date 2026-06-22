@@ -72,6 +72,13 @@ public static class EdgeConstants
     public static string AdminBaseUrl(string deploymentName)
         => $"http://{EdgeNetworkAlias(deploymentName)}:{CaddyAdminPort}";
 
+    /// <summary>Container name / network alias of the optional shared SNI passthrough router.</summary>
+    public const string SniRouterContainerName = "rsgo-sni-router";
+
+    /// <summary>Caddy admin API base URL for the shared SNI router (reached over rsgo-net).</summary>
+    public static string SniRouterAdminBaseUrl()
+        => $"http://{SniRouterContainerName}:{CaddyAdminPort}";
+
     private static string Sanitize(string raw)
     {
         var lowered = raw.ToLowerInvariant();

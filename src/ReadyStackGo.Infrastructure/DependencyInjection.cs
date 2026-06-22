@@ -137,6 +137,7 @@ public static class DependencyInjection
         services.AddSingleton<Application.Services.Edge.IEdgeBundleReader, Services.Edge.EdgeBundleReader>();
         services.AddSingleton<Application.Services.Edge.IEdgeConfigCache, Application.Services.Edge.EdgeConfigCache>();
         services.AddScoped<Application.Services.Edge.IEdgeReconciler, Application.Services.Impl.EdgeReconciler>();
+        services.AddScoped<Application.Services.Edge.ISniRouterReconciler, Application.Services.Impl.SniRouterReconciler>();
 
         // HTTP client for the Caddy admin API
         services.AddHttpClient(Services.Edge.CaddyAdminClient.HttpClientName, client =>

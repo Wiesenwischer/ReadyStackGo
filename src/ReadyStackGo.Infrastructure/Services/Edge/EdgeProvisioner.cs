@@ -107,6 +107,62 @@ public class EdgeProvisioner : IEdgeProvisioner
         return adminBaseUrl;
     }
 
+    public async Task<string> EnsureSniRouterAsync(
+        string environmentId,
+        SniRouterOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        var containerName = EdgeConstants.SniRouterContainerName;
+        var adminBaseUrl = EdgeConstants.SniRouterAdminBaseUrl();
+
+        await _dockerService.EnsureNetworkAsync(environmentId, ManagementNetwork, cancellationToken);
+
+        var existing = await _dockerService.GetContainerByNameAsync(environmentId, containerName, cancellationToken);
+        if (existing != null)
+        {
+            if (!existing.State.Equals("running", StringComparison.OrdinalIgnoreCase))
+            {
+                try { await _dockerService.StartContainerAsync(environmentId, existing.Id, cancellationToken); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Failed to (re)start SNI router {Name}", containerName); }
+            }
+            return adminBaseUrl;
+        }
+
+        await EnsureImageAsync(environmentId, options.Image, cancellationToken);
+
+        // Boot with an empty SNI server so the admin API is reachable; the reconciler fills routes.
+        var bootstrap = Layer4ConfigBuilder.Build(Array.Empty<SniRoute>(), options.ListenPort, EdgeConstants.CaddyAdminPort);
+
+        var request = new CreateContainerRequest
+        {
+            Name = containerName,
+            Image = options.Image,
+            Networks = new List<string> { ManagementNetwork },
+            NetworkAliases = new List<string> { containerName },
+            Ports = new List<string> { $"{options.ListenPort}:{options.ListenPort}" },
+            EnvironmentVariables = new Dictionary<string, string> { ["CADDY_BOOTSTRAP_CONFIG"] = bootstrap },
+            Entrypoint = new List<string>
+            {
+                "sh", "-c",
+                "printf '%s' \"$CADDY_BOOTSTRAP_CONFIG\" > /etc/caddy/bootstrap.json && exec caddy run --config /etc/caddy/bootstrap.json"
+            },
+            Labels = new Dictionary<string, string>
+            {
+                [EdgeConstants.ScopeLabel] = EdgeConstants.ScopeEdge,
+                [EdgeConstants.RedeployLabel] = EdgeConstants.RedeployIgnore,
+                ["rsgo.maintenance"] = "ignore",
+                [EdgeConstants.ContextLabel] = "sni-router"
+            },
+            RestartPolicy = "unless-stopped"
+        };
+
+        var id = await _dockerService.CreateAndStartContainerAsync(environmentId, request, cancellationToken);
+        _logger.LogInformation("Provisioned shared SNI passthrough router {Name} ({Id}) on port {Port}",
+            containerName, id, options.ListenPort);
+
+        return adminBaseUrl;
+    }
+
     private async Task EnsureImageAsync(string environmentId, string image, CancellationToken ct)
     {
         var (name, tag) = ParseImageRef(image);
