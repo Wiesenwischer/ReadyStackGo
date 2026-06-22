@@ -249,7 +249,7 @@ public static class CaddyConfigBuilder
     {
         var payload = new Dictionary<string, object?>
         {
-            ["schema"] = 1,
+            ["schema"] = EdgeStatusContract.SchemaVersion,
             ["state"] = desired.StatusStateToken,
             ["reason"] = desired.Reason,
             ["until"] = desired.Until,

@@ -1446,13 +1446,20 @@ This is **host-level RSGO configuration, not a manifest field**, and is **off by
 | `Failed`/`Stopped`/other | off | Maintenance page (temporarily unavailable) | `maintenance` |
 
 - `/hc` and `/liveness` are **always** reverse-proxied to the upstream, even in maintenance.
-- `GET /__status` returns a stable, versioned JSON document, identical regardless of the
-  visual branding stage:
+- `GET /__status` returns a **stable, versioned** JSON document, identical regardless of the
+  visual branding stage (default/bundle/container), so a client/launcher can parse it robustly:
 
 ```json
 { "schema": 1, "state": "running|maintenance|deploying",
   "reason": "<optional>", "until": "<iso8601|null>", "productVersion": "<optional>" }
 ```
+
+  - `state`: `running` (proxying), `maintenance` (planned, via the flag — `reason` is set),
+    or `deploying` (a redeploy/upgrade is in progress — temporary unavailability). The flag
+    distinguishes planned maintenance from a redeploy; both are driven purely by RSGO's
+    authoritative state, never by health-guessing.
+  - `reason`/`until` are populated from the maintenance source when available, else `null`.
+  - `schema` is the contract version; consumers should branch on it.
 
 RSGO is the single writer of the edge config and pushes it atomically (connection-preserving)
 via the Caddy admin API whenever the desired state changes.
