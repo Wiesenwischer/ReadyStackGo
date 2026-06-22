@@ -21,10 +21,11 @@ public class EdgeReconcilerTests
     private readonly Mock<IProductDeploymentRepository> _repo = new();
     private readonly Mock<IEdgeProvisioner> _provisioner = new();
     private readonly Mock<ICaddyAdminClient> _adminClient = new();
+    private readonly Mock<IEdgeCertificateProvider> _certProvider = new();
     private readonly EdgeConfigCache _cache = new();
 
     private EdgeReconciler CreateSut() => new(
-        _repo.Object, _provisioner.Object, _adminClient.Object, _cache,
+        _repo.Object, _provisioner.Object, _adminClient.Object, _certProvider.Object, _cache,
         new Mock<ILogger<EdgeReconciler>>().Object);
 
     private static ProductDeployment RunningDeployment(EdgeConfig? edge)

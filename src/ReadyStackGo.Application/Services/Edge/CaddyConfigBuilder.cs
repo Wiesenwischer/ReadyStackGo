@@ -35,11 +35,60 @@ public static class CaddyConfigBuilder
     /// <summary>
     /// Builds the full Caddy JSON config for the given edge + desired state.
     /// </summary>
-    public static string Build(EdgeConfig config, EdgeDesiredState desired)
+    /// <param name="tls">
+    /// Optional TLS material. When provided (and <see cref="EdgeConfig.TlsMode"/> is not
+    /// <see cref="EdgeTlsMode.None"/>) the edge terminates HTTPS on the public port using this
+    /// RSGO-managed certificate, injected inline (no ACME in Caddy). When null the edge serves
+    /// plain HTTP (Phase 1 behaviour).
+    /// </param>
+    public static string Build(EdgeConfig config, EdgeDesiredState desired, EdgeCertMaterial? tls = null)
     {
         var routes = desired.Mode == EdgeMode.Proxy
             ? BuildProxyRoutes(config, desired)
             : BuildMaintenanceRoutes(config, desired);
+
+        var terminatesTls = tls != null && config.TlsMode != EdgeTlsMode.None;
+
+        var edgeServer = new Dictionary<string, object?>
+        {
+            ["listen"] = new[] { $":{config.PublicPort}" },
+            ["routes"] = routes
+        };
+
+        var apps = new Dictionary<string, object?>
+        {
+            ["http"] = new Dictionary<string, object?>
+            {
+                ["servers"] = new Dictionary<string, object?> { ["edge"] = edgeServer }
+            }
+        };
+
+        if (terminatesTls)
+        {
+            // Terminate TLS with the RSGO-managed cert; never let Caddy run ACME itself.
+            // default_sni ensures our cert is selected even when a client connects by IP / sends
+            // no (or a non-matching) SNI.
+            edgeServer["automatic_https"] = new Dictionary<string, object?> { ["disable"] = true };
+            edgeServer["tls_connection_policies"] = new[]
+            {
+                new Dictionary<string, object?> { ["default_sni"] = config.PublicHostname }
+            };
+
+            apps["tls"] = new Dictionary<string, object?>
+            {
+                ["certificates"] = new Dictionary<string, object?>
+                {
+                    ["load_pem"] = new[]
+                    {
+                        new Dictionary<string, object?>
+                        {
+                            ["certificate"] = tls!.CertificatePem,
+                            ["key"] = tls.PrivateKeyPem
+                        }
+                    }
+                }
+            };
+        }
 
         var root = new Dictionary<string, object?>
         {
@@ -47,20 +96,7 @@ public static class CaddyConfigBuilder
             {
                 ["listen"] = $"0.0.0.0:{EdgeConstants.CaddyAdminPort}"
             },
-            ["apps"] = new Dictionary<string, object?>
-            {
-                ["http"] = new Dictionary<string, object?>
-                {
-                    ["servers"] = new Dictionary<string, object?>
-                    {
-                        ["edge"] = new Dictionary<string, object?>
-                        {
-                            ["listen"] = new[] { $":{config.PublicPort}" },
-                            ["routes"] = routes
-                        }
-                    }
-                }
-            }
+            ["apps"] = apps
         };
 
         return JsonSerializer.Serialize(root, SerializerOptions);

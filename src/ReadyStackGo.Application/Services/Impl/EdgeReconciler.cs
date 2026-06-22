@@ -16,6 +16,7 @@ public class EdgeReconciler : IEdgeReconciler
     private readonly IProductDeploymentRepository _productDeploymentRepository;
     private readonly IEdgeProvisioner _provisioner;
     private readonly ICaddyAdminClient _adminClient;
+    private readonly IEdgeCertificateProvider _certificateProvider;
     private readonly IEdgeConfigCache _configCache;
     private readonly ILogger<EdgeReconciler> _logger;
 
@@ -23,12 +24,14 @@ public class EdgeReconciler : IEdgeReconciler
         IProductDeploymentRepository productDeploymentRepository,
         IEdgeProvisioner provisioner,
         ICaddyAdminClient adminClient,
+        IEdgeCertificateProvider certificateProvider,
         IEdgeConfigCache configCache,
         ILogger<EdgeReconciler> logger)
     {
         _productDeploymentRepository = productDeploymentRepository;
         _provisioner = provisioner;
         _adminClient = adminClient;
+        _certificateProvider = certificateProvider;
         _configCache = configCache;
         _logger = logger;
     }
@@ -69,8 +72,13 @@ public class EdgeReconciler : IEdgeReconciler
         // 2. Compute the desired state purely from authoritative deploy state + flag.
         var desired = EdgeStateResolver.Resolve(pd.Status, pd.OperationMode, pd.MaintenanceTrigger, pd.ProductVersion);
 
-        // 3. Build the Caddy config and push it only when it actually changed.
-        var configJson = CaddyConfigBuilder.Build(edgeConfig, desired);
+        // 3. Resolve the TLS material (null when TLS is disabled → plain HTTP).
+        var tls = await _certificateProvider.GetCertificateAsync(edgeConfig, ct);
+
+        // 4. Build the Caddy config and push it only when it actually changed. Since the cert
+        //    PEM is embedded in the config, a renewed cert changes the config and is reloaded
+        //    via the admin API without restarting the edge.
+        var configJson = CaddyConfigBuilder.Build(edgeConfig, desired, tls);
 
         if (_configCache.Get(pd.Id.Value) == configJson)
             return;

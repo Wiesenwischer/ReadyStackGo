@@ -124,6 +124,78 @@ public class CaddyConfigBuilderTests
         status.GetProperty("until").ValueKind.Should().Be(JsonValueKind.Null);
     }
 
+    // ── Phase 2: TLS termination ────────────────────────────────────
+
+    private static EdgeConfig TlsConfig() => EdgeConfig.Create(
+        publicHostname: "app.example.com", publicPort: 443,
+        upstreamService: "web-bff", upstreamPort: 8080,
+        network: "app-edge-net", image: "caddy:2.8.4",
+        tlsMode: EdgeTlsMode.SelfSigned);
+
+    private static EdgeCertMaterial SampleCert() => new(
+        "-----BEGIN CERTIFICATE-----\nMIIB...\n-----END CERTIFICATE-----",
+        "-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END PRIVATE KEY-----",
+        DateTime.UtcNow.AddDays(365), "ABC123");
+
+    [Fact]
+    public void Tls_WhenCertProvided_TerminatesWithInlinePemAndDisablesAcme()
+    {
+        var json = CaddyConfigBuilder.Build(TlsConfig(),
+            new EdgeDesiredState(EdgeMode.Proxy, EdgeStatusState.Running, false, null, null, null),
+            SampleCert());
+
+        var apps = Root(json).GetProperty("apps");
+
+        // TLS app loads the cert inline (no ACME, no files).
+        var loadPem = apps.GetProperty("tls").GetProperty("certificates").GetProperty("load_pem");
+        loadPem.GetArrayLength().Should().Be(1);
+        loadPem[0].GetProperty("certificate").GetString().Should().Contain("BEGIN CERTIFICATE");
+        loadPem[0].GetProperty("key").GetString().Should().Contain("BEGIN PRIVATE KEY");
+
+        var server = apps.GetProperty("http").GetProperty("servers").GetProperty("edge");
+        server.GetProperty("automatic_https").GetProperty("disable").GetBoolean()
+            .Should().BeTrue("the edge must never run ACME itself (RSGO owns certs)");
+        server.GetProperty("tls_connection_policies").GetArrayLength().Should().Be(1);
+        server.GetProperty("listen").EnumerateArray().Select(e => e.GetString()).Should().Contain(":443");
+    }
+
+    [Fact]
+    public void Tls_NoCert_StaysPlainHttp()
+    {
+        var json = CaddyConfigBuilder.Build(TlsConfig(),
+            new EdgeDesiredState(EdgeMode.Proxy, EdgeStatusState.Running, false, null, null, null),
+            tls: null);
+
+        Root(json).GetProperty("apps").TryGetProperty("tls", out _)
+            .Should().BeFalse("without cert material the edge serves plain HTTP");
+    }
+
+    [Fact]
+    public void Tls_ModeNoneIgnoresCert()
+    {
+        // Even if cert material is supplied, TlsMode.None means no termination.
+        var httpConfig = EdgeConfig.Create("h", 80, "u", 8080, "n", "caddy:2.8.4", tlsMode: EdgeTlsMode.None);
+
+        var json = CaddyConfigBuilder.Build(httpConfig,
+            new EdgeDesiredState(EdgeMode.Proxy, EdgeStatusState.Running, false, null, null, null),
+            SampleCert());
+
+        Root(json).GetProperty("apps").TryGetProperty("tls", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Tls_RenewedCert_ChangesConfig_SoReloadIsTriggered()
+    {
+        var state = new EdgeDesiredState(EdgeMode.Proxy, EdgeStatusState.Running, false, null, null, null);
+        var first = CaddyConfigBuilder.Build(TlsConfig(), state, SampleCert());
+        var renewed = CaddyConfigBuilder.Build(TlsConfig(), state, new EdgeCertMaterial(
+            "-----BEGIN CERTIFICATE-----\nDIFFERENT\n-----END CERTIFICATE-----",
+            "-----BEGIN PRIVATE KEY-----\nDIFFERENT\n-----END PRIVATE KEY-----",
+            DateTime.UtcNow.AddDays(365), "XYZ789"));
+
+        renewed.Should().NotBe(first, "a renewed cert changes the config so the reconciler re-pushes (reload without restart)");
+    }
+
     [Fact]
     public void DefaultPage_PlannedVsUnavailable_DiffersInWording()
     {

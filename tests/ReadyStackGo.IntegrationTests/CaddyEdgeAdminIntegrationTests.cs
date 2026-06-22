@@ -69,6 +69,7 @@ public class CaddyEdgeAdminIntegrationTests : IAsyncLifetime
             .WithEntrypoint("sh", "-c",
                 "printf '%s' \"$CADDY_BOOTSTRAP_CONFIG\" > /etc/caddy/bootstrap.json && exec caddy run --config /etc/caddy/bootstrap.json")
             .WithPortBinding(80, true)
+            .WithPortBinding(443, true) // TLS test listens on 443 (Caddy's https_port)
             .WithPortBinding(EdgeConstants.CaddyAdminPort, true)
             .Build();
         await _edge.StartAsync();
@@ -148,6 +149,62 @@ public class CaddyEdgeAdminIntegrationTests : IAsyncLifetime
         var hc = await http.GetAsync("/hc");
         hc.StatusCode.Should().Be(HttpStatusCode.NotFound,
             "/hc is reverse-proxied to nginx (which has no /hc → 404), proving passthrough rather than the 503 page");
+    }
+
+    [SkippableFact]
+    public async Task LoadConfig_TerminatesTls_AndReloadsRenewedCertWithoutRestart()
+    {
+        Skip.IfNot(_fixture.IsDockerAvailable, "Docker is not available");
+
+        var adminBaseUrl = $"http://localhost:{_edge!.GetMappedPublicPort((ushort)EdgeConstants.CaddyAdminPort)}";
+        var httpsPort = _edge.GetMappedPublicPort(443);
+
+        var adminClient = new CaddyAdminClient(new SingleHttpClientFactory(), Substitute.For<ILogger<CaddyAdminClient>>());
+
+        // HTTPS client that ignores cert trust (self-signed) — we only assert termination works.
+        using var https = new HttpClient(new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+        }) { BaseAddress = new Uri($"https://localhost:{httpsPort}") };
+
+        // Terminate on 443 (Caddy's https_port) — matches the production default publicPort.
+        var tlsConfig = EdgeConfig.Create("edge.test.local", 443, "upstream", 80, "n", EdgeConstants.DefaultCaddyImage,
+            tlsMode: EdgeTlsMode.SelfSigned);
+        var proxyState = new EdgeDesiredState(EdgeMode.Proxy, EdgeStatusState.Running, false, null, null, "1.2.3");
+
+        // ── Terminate TLS with an RSGO-managed self-signed cert ─────
+        var cert1 = SelfSigned("edge.test.local");
+        (await adminClient.LoadConfigAsync(adminBaseUrl, CaddyConfigBuilder.Build(tlsConfig, proxyState, cert1)))
+            .Should().BeTrue("Caddy must accept the generated TLS config");
+
+        var resp = await https.GetAsync("/");
+        resp.StatusCode.Should().Be(HttpStatusCode.OK, "the edge terminates HTTPS and proxies to nginx");
+        (await resp.Content.ReadAsStringAsync()).Should().Contain("nginx");
+
+        // ── Reload a renewed cert via the admin API, no restart ─────
+        var cert2 = SelfSigned("edge.test.local");
+        cert2.Thumbprint.Should().NotBe(cert1.Thumbprint);
+        (await adminClient.LoadConfigAsync(adminBaseUrl, CaddyConfigBuilder.Build(tlsConfig, proxyState, cert2)))
+            .Should().BeTrue("Caddy reloads the renewed cert without a restart");
+
+        var resp2 = await https.GetAsync("/");
+        resp2.StatusCode.Should().Be(HttpStatusCode.OK, "HTTPS still serves after the cert was rotated live");
+    }
+
+    private static EdgeCertMaterial SelfSigned(string hostname)
+    {
+        using var rsa = System.Security.Cryptography.RSA.Create(2048);
+        var req = new System.Security.Cryptography.X509Certificates.CertificateRequest(
+            $"CN={hostname}", rsa,
+            System.Security.Cryptography.HashAlgorithmName.SHA256,
+            System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+        var san = new System.Security.Cryptography.X509Certificates.SubjectAlternativeNameBuilder();
+        san.AddDnsName(hostname);
+        san.AddDnsName("localhost"); // test connects via https://localhost so SNI matches
+        req.CertificateExtensions.Add(san.Build());
+        using var cert = req.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(365));
+        return new EdgeCertMaterial(cert.ExportCertificatePem(), rsa.ExportPkcs8PrivateKeyPem(),
+            cert.NotAfter.ToUniversalTime(), cert.Thumbprint);
     }
 
     private sealed class SingleHttpClientFactory : IHttpClientFactory

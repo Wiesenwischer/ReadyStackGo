@@ -133,6 +133,7 @@ public static class DependencyInjection
         // Managed Maintenance Edge-Proxy (opt-in per manifest; dormant otherwise)
         services.AddSingleton<Application.Services.Edge.IEdgeProvisioner, Services.Edge.EdgeProvisioner>();
         services.AddSingleton<Application.Services.Edge.ICaddyAdminClient, Services.Edge.CaddyAdminClient>();
+        services.AddSingleton<Application.Services.Edge.IEdgeCertificateProvider, Services.Edge.EdgeCertificateProvider>();
         services.AddSingleton<Application.Services.Edge.IEdgeConfigCache, Application.Services.Edge.EdgeConfigCache>();
         services.AddScoped<Application.Services.Edge.IEdgeReconciler, Application.Services.Impl.EdgeReconciler>();
 

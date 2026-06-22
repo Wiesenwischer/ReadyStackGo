@@ -1375,8 +1375,25 @@ edge:
 | `upstream.service` | yes | — | Internal DNS name of the product's public entry (e.g. its BFF). |
 | `upstream.port` | no | `8080` | Upstream port. |
 | `network` | yes | — | Shared external network connecting edge and upstream. |
-| `tls.mode` | no | none | TLS termination mode (Phase 2+). |
+| `tls.mode` | no | none | TLS termination mode: `selfsigned`, `custom` (`certRef`), `reuse` (RSGO's own cert), `letsencrypt` (reuses RSGO's ACME cert). |
 | `maintenancePage.mode` | no | `default` | Maintenance-page resolution mode (Phase 3+). |
+
+### TLS Termination
+
+When `tls.mode` is set, the edge **terminates HTTPS** on `publicPort` using a certificate that
+**RSGO owns and manages** — the edge never runs ACME itself. RSGO injects the certificate into
+Caddy inline via the admin API, so renewed certificates are reloaded **without restarting the
+edge** (connection-preserving).
+
+| `tls.mode` | Certificate source |
+|------------|--------------------|
+| `selfsigned` | RSGO generates a per-hostname self-signed cert and auto-renews it before expiry. |
+| `custom` | Operator-provided certificate referenced by `certRef`. |
+| `reuse` | RSGO's own endpoint certificate (single-host case where the edge hostname == RSGO's). |
+| `letsencrypt` | Reuses RSGO's ACME-managed certificate (RSGO's existing renewal applies). |
+
+If a configured certificate cannot be materialized, the edge falls back to a self-signed cert so
+HTTPS still terminates.
 
 ### Routing & Status
 
