@@ -114,6 +114,42 @@ public class EdgeConfigMapperTests
         config.Branding.Locales.Should().BeEquivalentTo(new[] { "de", "en" });
     }
 
+    [Fact]
+    public void MapsContainerBranding_WithPortAndBundleHtml()
+    {
+        var edge = new RsgoEdge
+        {
+            Enabled = true,
+            PublicHostname = "h",
+            Network = "n",
+            Upstream = new() { Service = "s" },
+            MaintenancePage = new()
+            {
+                Mode = "container",
+                Container = new() { Service = "maint-web", Port = 8090 }
+            }
+        };
+
+        var config = EdgeConfigMapper.Map(edge, NoVars, bundleHtml: "<html>x</html>");
+
+        config!.MaintenancePageMode.Should().Be(EdgeMaintenancePageMode.Container);
+        config.MaintenanceContainerService.Should().Be("maint-web");
+        config.MaintenanceContainerPort.Should().Be(8090);
+        config.BundleHtml.Should().Be("<html>x</html>");
+    }
+
+    [Fact]
+    public void ContainerPort_DefaultsTo80()
+    {
+        var edge = new RsgoEdge
+        {
+            Enabled = true, PublicHostname = "h", Network = "n", Upstream = new() { Service = "s" },
+            MaintenancePage = new() { Mode = "container", Container = new() { Service = "m" } }
+        };
+
+        EdgeConfigMapper.Map(edge, NoVars)!.MaintenanceContainerPort.Should().Be(80);
+    }
+
     [Theory]
     [InlineData("reuse", EdgeTlsMode.Reuse)]
     [InlineData("selfsigned", EdgeTlsMode.SelfSigned)]

@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Notifications;
 using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.Services.Edge;
 using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
@@ -22,6 +23,7 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
     private readonly INotificationService? _inAppNotificationService;
     private readonly ILogger<DeployProductHandler> _logger;
     private readonly TimeProvider _timeProvider;
+    private readonly IEdgeBundleReader? _edgeBundleReader;
 
     public DeployProductHandler(
         IProductSourceService productSourceService,
@@ -30,7 +32,8 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
         ILogger<DeployProductHandler> logger,
         IDeploymentNotificationService? notificationService = null,
         INotificationService? inAppNotificationService = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IEdgeBundleReader? edgeBundleReader = null)
     {
         _productSourceService = productSourceService;
         _repository = repository;
@@ -39,6 +42,7 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
         _notificationService = notificationService;
         _inAppNotificationService = inAppNotificationService;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _edgeBundleReader = edgeBundleReader;
     }
 
     public async Task<DeployProductResponse> Handle(DeployProductCommand request, CancellationToken cancellationToken)
@@ -173,7 +177,16 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
 
         // Resolve and attach the optional product-level edge config. Null = feature inert,
         // so products without an enabled edge: block behave exactly as before.
-        var edgeConfig = EdgeConfigMapper.Map(product.Edge, request.SharedVariables);
+        // For bundle branding, read the maintenance HTML from the manifest repo now so the
+        // reconciler stays manifest-free.
+        string? edgeBundleHtml = null;
+        if (_edgeBundleReader != null &&
+            string.Equals(product.Edge?.MaintenancePage?.Mode, "bundle", StringComparison.OrdinalIgnoreCase))
+        {
+            edgeBundleHtml = await _edgeBundleReader.ReadBundleHtmlAsync(
+                product.FilePath, product.Edge!.MaintenancePage!.BundlePath, cancellationToken);
+        }
+        var edgeConfig = EdgeConfigMapper.Map(product.Edge, request.SharedVariables, edgeBundleHtml);
         if (edgeConfig != null)
         {
             productDeployment.SetEdgeConfig(edgeConfig);

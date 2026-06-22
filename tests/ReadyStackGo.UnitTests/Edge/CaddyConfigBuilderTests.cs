@@ -196,6 +196,81 @@ public class CaddyConfigBuilderTests
         renewed.Should().NotBe(first, "a renewed cert changes the config so the reconciler re-pushes (reload without restart)");
     }
 
+    // ── Phase 3: Branding contract (default → bundle → container) ────
+
+    private static readonly EdgeDesiredState MaintState =
+        new(EdgeMode.Maintenance, EdgeStatusState.Maintenance, false, null, null, "9.9.9");
+
+    private static EdgeConfig BrandingConfig(EdgeMaintenancePageMode mode, string? service = null, string? bundleHtml = null) =>
+        EdgeConfig.Create("app.example.com", 8443, "web-bff", 8080, "app-edge-net", "caddy:2.8.4",
+            maintenancePageMode: mode, maintenanceContainerService: service, maintenanceContainerPort: 8090, bundleHtml: bundleHtml);
+
+    [Fact]
+    public void Branding_Container_ProxiesToMaintenanceContainer()
+    {
+        var json = CaddyConfigBuilder.Build(
+            BrandingConfig(EdgeMaintenancePageMode.Container, service: "maint-web"), MaintState);
+
+        var routes = EdgeRoutes(json);
+        var catchAll = routes[routes.GetArrayLength() - 1];
+        catchAll.GetProperty("handle")[0].GetProperty("handler").GetString().Should().Be("reverse_proxy");
+        json.Should().Contain("maint-web:8090");
+        json.Should().NotContain("Temporarily unavailable", "container mode delegates the page to the product container");
+    }
+
+    [Fact]
+    public void Branding_Bundle_ServesBundleHtmlInline()
+    {
+        var json = CaddyConfigBuilder.Build(
+            BrandingConfig(EdgeMaintenancePageMode.Bundle, bundleHtml: "<html>BUNDLE-PAGE</html>"), MaintState);
+
+        json.Should().Contain("\"status_code\":503");
+        json.Should().Contain("BUNDLE-PAGE");
+        json.Should().NotContain("Temporarily unavailable");
+    }
+
+    [Fact]
+    public void Branding_Default_RendersStandardPage()
+    {
+        var json = CaddyConfigBuilder.Build(BrandingConfig(EdgeMaintenancePageMode.Default), MaintState);
+
+        json.Should().Contain("\"status_code\":503");
+        json.Should().Contain("Temporarily unavailable");
+    }
+
+    [Fact]
+    public void Branding_ContainerWithoutService_FallsBackToDefault()
+    {
+        var json = CaddyConfigBuilder.Build(
+            BrandingConfig(EdgeMaintenancePageMode.Container, service: null), MaintState);
+
+        json.Should().Contain("Temporarily unavailable", "misconfigured container mode falls back to the default page");
+    }
+
+    [Fact]
+    public void Branding_StatusJsonIdenticalAcrossAllModes()
+    {
+        var def = CaddyConfigBuilder.Build(BrandingConfig(EdgeMaintenancePageMode.Default), MaintState);
+        var bundle = CaddyConfigBuilder.Build(BrandingConfig(EdgeMaintenancePageMode.Bundle, bundleHtml: "<x/>"), MaintState);
+        var container = CaddyConfigBuilder.Build(BrandingConfig(EdgeMaintenancePageMode.Container, service: "m"), MaintState);
+
+        var expected = CaddyConfigBuilder.BuildStatusJson(MaintState);
+        foreach (var cfg in new[] { def, bundle, container })
+            StatusBody(cfg).Should().Be(expected, "the status contract must be identical regardless of branding stage");
+    }
+
+    private static string StatusBody(string configJson)
+    {
+        foreach (var route in EdgeRoutes(configJson).EnumerateArray())
+        {
+            if (!route.TryGetProperty("match", out var match)) continue;
+            var paths = match[0].GetProperty("path").EnumerateArray().Select(p => p.GetString());
+            if (paths.Contains(CaddyConfigBuilder.StatusPath))
+                return route.GetProperty("handle")[0].GetProperty("body").GetString()!;
+        }
+        throw new Xunit.Sdk.XunitException("No /__status route found");
+    }
+
     [Fact]
     public void DefaultPage_PlannedVsUnavailable_DiffersInWording()
     {

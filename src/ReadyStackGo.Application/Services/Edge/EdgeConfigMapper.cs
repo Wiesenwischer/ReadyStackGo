@@ -14,9 +14,14 @@ namespace ReadyStackGo.Application.Services;
 /// </summary>
 public static class EdgeConfigMapper
 {
+    /// <param name="bundleHtml">
+    /// Pre-resolved maintenance-page HTML for <c>bundle</c> mode (read from the manifest bundle
+    /// at deploy time by the caller, since the mapper is pure and has no file access).
+    /// </param>
     public static EdgeConfig? Map(
         RsgoEdge? source,
-        IReadOnlyDictionary<string, string> variables)
+        IReadOnlyDictionary<string, string> variables,
+        string? bundleHtml = null)
     {
         if (source is null || !source.Enabled)
             return null;
@@ -48,6 +53,7 @@ public static class EdgeConfigMapper
         var pageMode = ParsePageMode(source.MaintenancePage?.Mode);
         var bundlePath = Resolve(source.MaintenancePage?.BundlePath, variables);
         var maintenanceContainerService = Resolve(source.MaintenancePage?.Container?.Service, variables);
+        var maintenanceContainerPort = source.MaintenancePage?.Container?.Port ?? 80;
 
         var branding = MapBranding(source.MaintenancePage?.Branding, variables);
 
@@ -67,6 +73,8 @@ public static class EdgeConfigMapper
                 pageMode,
                 bundlePath,
                 maintenanceContainerService,
+                maintenanceContainerPort,
+                bundleHtml,
                 branding);
         }
         catch (ArgumentException)

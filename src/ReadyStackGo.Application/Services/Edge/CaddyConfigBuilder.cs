@@ -117,8 +117,72 @@ public static class CaddyConfigBuilder
         {
             // Health endpoints always pass through to the upstream (even during maintenance).
             ReverseProxyRoute(config, matchPaths: HealthPassthroughPaths),
+            // /__status is always edge-served and identical across all branding modes.
             StatusRoute(desired),
-            MaintenancePageRoute(config, desired)
+            // Catch-all maintenance experience, resolved by branding mode (container → bundle → default).
+            MaintenanceCatchAllRoute(config, desired)
+        };
+    }
+
+    /// <summary>
+    /// Builds the catch-all maintenance route honouring the branding resolution order
+    /// (container → bundle → default), falling back to the next stage when a stage is not
+    /// configured. The status contract (<see cref="StatusRoute"/>) is unaffected.
+    /// </summary>
+    private static object MaintenanceCatchAllRoute(EdgeConfig config, EdgeDesiredState desired)
+    {
+        // 1. Container: proxy to the product-contributed maintenance-page container.
+        if (config.MaintenancePageMode == EdgeMaintenancePageMode.Container &&
+            !string.IsNullOrWhiteSpace(config.MaintenanceContainerService))
+        {
+            return new Dictionary<string, object?>
+            {
+                ["handle"] = new[]
+                {
+                    new Dictionary<string, object?>
+                    {
+                        ["handler"] = "reverse_proxy",
+                        ["upstreams"] = new[]
+                        {
+                            new Dictionary<string, object?>
+                            {
+                                ["dial"] = $"{config.MaintenanceContainerService}:{config.MaintenanceContainerPort}"
+                            }
+                        }
+                    }
+                }
+            };
+        }
+
+        // 2. Bundle: serve the manifest-provided HTML inline.
+        if (config.MaintenancePageMode == EdgeMaintenancePageMode.Bundle &&
+            !string.IsNullOrWhiteSpace(config.BundleHtml))
+        {
+            return StaticPageRoute(config.BundleHtml!);
+        }
+
+        // 3. Default: RSGO standard page (also the fallback when container/bundle is misconfigured).
+        return StaticPageRoute(EdgeMaintenancePage.RenderDefault(config, desired));
+    }
+
+    private static object StaticPageRoute(string html)
+    {
+        return new Dictionary<string, object?>
+        {
+            ["handle"] = new[]
+            {
+                new Dictionary<string, object?>
+                {
+                    ["handler"] = "static_response",
+                    ["status_code"] = 503,
+                    ["headers"] = new Dictionary<string, object?>
+                    {
+                        ["Content-Type"] = new[] { "text/html; charset=utf-8" },
+                        ["Retry-After"] = new[] { "120" }
+                    },
+                    ["body"] = html
+                }
+            }
         };
     }
 
@@ -172,27 +236,6 @@ public static class CaddyConfigBuilder
                         ["Content-Type"] = new[] { "application/json" }
                     },
                     ["body"] = BuildStatusJson(desired)
-                }
-            }
-        };
-    }
-
-    private static object MaintenancePageRoute(EdgeConfig config, EdgeDesiredState desired)
-    {
-        return new Dictionary<string, object?>
-        {
-            ["handle"] = new[]
-            {
-                new Dictionary<string, object?>
-                {
-                    ["handler"] = "static_response",
-                    ["status_code"] = 503,
-                    ["headers"] = new Dictionary<string, object?>
-                    {
-                        ["Content-Type"] = new[] { "text/html; charset=utf-8" },
-                        ["Retry-After"] = new[] { "120" }
-                    },
-                    ["body"] = EdgeMaintenancePage.RenderDefault(config, desired)
                 }
             }
         };

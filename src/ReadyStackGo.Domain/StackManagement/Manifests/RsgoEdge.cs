@@ -142,13 +142,23 @@ public class RsgoEdgeMaintenancePage
 
 /// <summary>
 /// Product-contributed maintenance-page container reference.
+///
+/// The product deploys this service as a normal container but labels it
+/// <c>rsgo.role: maintenance-page</c> and <c>rsgo.redeploy: ignore</c> so it survives product
+/// redeploys (same survival primitive as the edge), and attaches it to the shared edge network
+/// so the edge can reach it by its service alias.
 /// </summary>
 public class RsgoEdgeMaintenanceContainer
 {
     /// <summary>
-    /// Service name (labelled <c>rsgo.role: maintenance-page</c>) that serves the page.
+    /// Service name (DNS alias on the edge network) the edge proxies to during maintenance.
     /// </summary>
     public string? Service { get; set; }
+
+    /// <summary>
+    /// Port the maintenance container serves on. Defaults to 80.
+    /// </summary>
+    public int? Port { get; set; }
 }
 
 /// <summary>

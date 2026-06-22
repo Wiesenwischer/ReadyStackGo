@@ -191,6 +191,39 @@ public class CaddyEdgeAdminIntegrationTests : IAsyncLifetime
         resp2.StatusCode.Should().Be(HttpStatusCode.OK, "HTTPS still serves after the cert was rotated live");
     }
 
+    [SkippableFact]
+    public async Task Maintenance_BrandingModes_ContainerProxiesAndBundleServesInline()
+    {
+        Skip.IfNot(_fixture.IsDockerAvailable, "Docker is not available");
+
+        var adminBaseUrl = $"http://localhost:{_edge!.GetMappedPublicPort((ushort)EdgeConstants.CaddyAdminPort)}";
+        var adminClient = new CaddyAdminClient(new SingleHttpClientFactory(), Substitute.For<ILogger<CaddyAdminClient>>());
+        using var http = new HttpClient { BaseAddress = new Uri($"http://localhost:{_edge.GetMappedPublicPort(80)}") };
+
+        var maint = new EdgeDesiredState(EdgeMode.Maintenance, EdgeStatusState.Maintenance, true, null, null, "1.0.0");
+
+        // ── Container branding: proxy the catch-all to the maintenance container (nginx) ──
+        var containerCfg = EdgeConfig.Create("edge.test.local", 80, "upstream", 80, "n", EdgeConstants.DefaultCaddyImage,
+            maintenancePageMode: EdgeMaintenancePageMode.Container, maintenanceContainerService: "upstream", maintenanceContainerPort: 80);
+        (await adminClient.LoadConfigAsync(adminBaseUrl, CaddyConfigBuilder.Build(containerCfg, maint))).Should().BeTrue();
+
+        var viaContainer = await http.GetAsync("/");
+        viaContainer.StatusCode.Should().Be(HttpStatusCode.OK, "container branding proxies the page to the maintenance container");
+        (await viaContainer.Content.ReadAsStringAsync()).Should().Contain("nginx");
+        // Status is still maintenance, identical contract.
+        JsonDocument.Parse(await http.GetStringAsync(CaddyConfigBuilder.StatusPath)).RootElement
+            .GetProperty("state").GetString().Should().Be("maintenance");
+
+        // ── Bundle branding: serve the manifest HTML inline as a 503 ──
+        var bundleCfg = EdgeConfig.Create("edge.test.local", 80, "upstream", 80, "n", EdgeConstants.DefaultCaddyImage,
+            maintenancePageMode: EdgeMaintenancePageMode.Bundle, bundleHtml: "<html><body>BUNDLE-PAGE-XYZ</body></html>");
+        (await adminClient.LoadConfigAsync(adminBaseUrl, CaddyConfigBuilder.Build(bundleCfg, maint))).Should().BeTrue();
+
+        var viaBundle = await http.GetAsync("/");
+        viaBundle.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+        (await viaBundle.Content.ReadAsStringAsync()).Should().Contain("BUNDLE-PAGE-XYZ");
+    }
+
     private static EdgeCertMaterial SelfSigned(string hostname)
     {
         using var rsa = System.Security.Cryptography.RSA.Create(2048);

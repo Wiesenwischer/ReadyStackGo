@@ -31,6 +31,8 @@ public class EdgeConfigJsonConverter : JsonConverter<EdgeConfig>
         var pageMode = ParseEnum(GetString(root, "maintenancePageMode"), EdgeMaintenancePageMode.Default);
         var bundlePath = GetString(root, "bundlePath");
         var maintenanceContainerService = GetString(root, "maintenanceContainerService");
+        var maintenanceContainerPort = GetInt(root, "maintenanceContainerPort", 80);
+        var bundleHtml = GetString(root, "bundleHtml");
 
         EdgeBranding branding = EdgeBranding.Empty;
         if (root.TryGetProperty("branding", out var b) && b.ValueKind == JsonValueKind.Object)
@@ -66,6 +68,8 @@ public class EdgeConfigJsonConverter : JsonConverter<EdgeConfig>
             pageMode,
             bundlePath,
             maintenanceContainerService,
+            maintenanceContainerPort,
+            bundleHtml,
             branding);
     }
 
@@ -88,6 +92,8 @@ public class EdgeConfigJsonConverter : JsonConverter<EdgeConfig>
         writer.WriteString("maintenancePageMode", value.MaintenancePageMode.ToString());
         if (value.BundlePath != null) writer.WriteString("bundlePath", value.BundlePath);
         if (value.MaintenanceContainerService != null) writer.WriteString("maintenanceContainerService", value.MaintenanceContainerService);
+        writer.WriteNumber("maintenanceContainerPort", value.MaintenanceContainerPort);
+        if (value.BundleHtml != null) writer.WriteString("bundleHtml", value.BundleHtml);
 
         writer.WriteStartObject("branding");
         if (value.Branding.ProductName != null) writer.WriteString("productName", value.Branding.ProductName);

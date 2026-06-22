@@ -120,6 +120,15 @@ public sealed class EdgeConfig : ValueObject
     /// <summary>For <see cref="EdgeMaintenancePageMode.Container"/>: the maintenance-page service name.</summary>
     public string? MaintenanceContainerService { get; }
 
+    /// <summary>For <see cref="EdgeMaintenancePageMode.Container"/>: the maintenance-page service port.</summary>
+    public int MaintenanceContainerPort { get; }
+
+    /// <summary>
+    /// For <see cref="EdgeMaintenancePageMode.Bundle"/>: the maintenance page HTML, resolved from
+    /// the manifest bundle at deploy time and persisted so the reconciler stays manifest-free.
+    /// </summary>
+    public string? BundleHtml { get; }
+
     /// <summary>Branding variables for the default maintenance page.</summary>
     public EdgeBranding Branding { get; }
 
@@ -137,6 +146,8 @@ public sealed class EdgeConfig : ValueObject
         EdgeMaintenancePageMode maintenancePageMode,
         string? bundlePath,
         string? maintenanceContainerService,
+        int maintenanceContainerPort,
+        string? bundleHtml,
         EdgeBranding branding)
     {
         PublicHostname = publicHostname;
@@ -152,6 +163,8 @@ public sealed class EdgeConfig : ValueObject
         MaintenancePageMode = maintenancePageMode;
         BundlePath = bundlePath;
         MaintenanceContainerService = maintenanceContainerService;
+        MaintenanceContainerPort = maintenanceContainerPort;
+        BundleHtml = bundleHtml;
         Branding = branding;
     }
 
@@ -169,6 +182,8 @@ public sealed class EdgeConfig : ValueObject
         EdgeMaintenancePageMode maintenancePageMode = EdgeMaintenancePageMode.Default,
         string? bundlePath = null,
         string? maintenanceContainerService = null,
+        int maintenanceContainerPort = 80,
+        string? bundleHtml = null,
         EdgeBranding? branding = null)
     {
         if (string.IsNullOrWhiteSpace(publicHostname))
@@ -198,6 +213,8 @@ public sealed class EdgeConfig : ValueObject
             maintenancePageMode,
             bundlePath,
             maintenanceContainerService,
+            maintenanceContainerPort,
+            bundleHtml,
             branding ?? EdgeBranding.Empty);
     }
 
@@ -216,6 +233,8 @@ public sealed class EdgeConfig : ValueObject
         yield return MaintenancePageMode;
         yield return BundlePath;
         yield return MaintenanceContainerService;
+        yield return MaintenanceContainerPort;
+        yield return BundleHtml;
         yield return Branding;
     }
 }

@@ -1376,7 +1376,7 @@ edge:
 | `upstream.port` | no | `8080` | Upstream port. |
 | `network` | yes | — | Shared external network connecting edge and upstream. |
 | `tls.mode` | no | none | TLS termination mode: `selfsigned`, `custom` (`certRef`), `reuse` (RSGO's own cert), `letsencrypt` (reuses RSGO's ACME cert). |
-| `maintenancePage.mode` | no | `default` | Maintenance-page resolution mode (Phase 3+). |
+| `maintenancePage.mode` | no | `default` | Maintenance-page branding: `default`, `bundle`, or `container`. |
 
 ### TLS Termination
 
@@ -1394,6 +1394,23 @@ edge** (connection-preserving).
 
 If a configured certificate cannot be materialized, the edge falls back to a self-signed cert so
 HTTPS still terminates.
+
+### Maintenance-Page Branding
+
+`maintenancePage.mode` selects how the maintenance experience is rendered. The edge resolves it
+in this order, falling back to the next stage when one is not configured:
+
+1. **`container`** — the edge reverse-proxies the maintenance page to a product-contributed
+   container. The product deploys a service (named by `container.service`, port `container.port`,
+   default 80), labels it `rsgo.role: maintenance-page` **and** `rsgo.redeploy: ignore` so it
+   survives redeploys (same survival primitive as the edge), and attaches it to the shared edge
+   network so the edge can reach it by alias.
+2. **`bundle`** — the edge serves the HTML at `bundlePath/index.html` (read from the manifest
+   repo at deploy time) inline as the 503 page.
+3. **`default`** — RSGO's standard themeable page (driven by `branding.*`).
+
+The machine-readable status (`GET /__status`) and the `/hc` / `/liveness` passthrough are
+**identical across all three modes** — only the visual page differs.
 
 ### Routing & Status
 
