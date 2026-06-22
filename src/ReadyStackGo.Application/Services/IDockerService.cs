@@ -227,6 +227,16 @@ public class CreateContainerRequest
     public string RestartPolicy { get; set; } = "unless-stopped";
 
     /// <summary>
+    /// Optional command override (Docker CMD). When null, the image's default command runs.
+    /// </summary>
+    public List<string>? Command { get; set; }
+
+    /// <summary>
+    /// Optional entrypoint override (Docker ENTRYPOINT). When null, the image's default entrypoint runs.
+    /// </summary>
+    public List<string>? Entrypoint { get; set; }
+
+    /// <summary>
     /// Docker HEALTHCHECK to set on the container (optional).
     /// Only used for Docker-type health checks with explicit test commands.
     /// </summary>

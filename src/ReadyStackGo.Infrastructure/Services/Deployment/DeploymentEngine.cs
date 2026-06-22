@@ -2,6 +2,8 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.UseCases.Deployments;
 using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.Services.Edge;
+using ReadyStackGo.Application.UseCases.Containers;
 using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
@@ -535,10 +537,14 @@ public class DeploymentEngine : IDeploymentEngine
             _logger.LogInformation("Removing stack version {Version} from environment {EnvironmentId}",
                 stackVersion, environmentId);
 
-            // Get all containers with the rsgo.stack label matching stackVersion
+            // Get all containers with the rsgo.stack label matching stackVersion.
+            // Survival primitive: containers in the edge scope (rsgo.scope=edge) or carrying
+            // the generic rsgo.redeploy=ignore opt-out are NEVER torn down here — they live
+            // outside the product stack identity and must survive redeploys/removals.
             var containers = await _dockerService.ListContainersAsync(environmentId);
             var stackContainers = containers
                 .Where(c => c.Labels.TryGetValue("rsgo.stack", out var stack) && stack == stackVersion)
+                .Where(c => !IsSurvivorScoped(c))
                 .ToList();
 
             if (!stackContainers.Any())
@@ -613,10 +619,13 @@ public class DeploymentEngine : IDeploymentEngine
                 await progressCallback("Initializing", "Finding containers to remove...", 5, null, 0, 0, 0, 0);
             }
 
-            // Get all containers with the rsgo.stack label matching stackVersion
+            // Get all containers with the rsgo.stack label matching stackVersion.
+            // Survival primitive (see other overload): never tear down edge-scoped or
+            // rsgo.redeploy=ignore containers.
             var containers = await _dockerService.ListContainersAsync(environmentId);
             var stackContainers = containers
                 .Where(c => c.Labels.TryGetValue("rsgo.stack", out var stack) && stack == stackVersion)
+                .Where(c => !IsSurvivorScoped(c))
                 .ToList();
 
             var totalContainers = stackContainers.Count;
@@ -1055,6 +1064,25 @@ public class DeploymentEngine : IDeploymentEngine
 
         await _configStore.SaveReleaseConfigAsync(releaseConfig);
         _logger.LogInformation("Updated release configuration for stack {Version}", plan.StackVersion);
+    }
+
+    /// <summary>
+    /// Survival primitive: true when a container must be excluded from stack teardown
+    /// because it lives outside the product stack identity. Two equivalent opt-outs are
+    /// honoured: the edge scope (<c>rsgo.scope=edge</c>) and the generic
+    /// <c>rsgo.redeploy=ignore</c> label. Generic by design — any future survivor-scoped
+    /// container (e.g. a product-contributed maintenance page) is covered automatically.
+    /// </summary>
+    private static bool IsSurvivorScoped(ContainerDto container)
+    {
+        if (container.Labels.TryGetValue(EdgeConstants.ScopeLabel, out var scope) &&
+            string.Equals(scope, EdgeConstants.ScopeEdge, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return container.Labels.TryGetValue(EdgeConstants.RedeployLabel, out var redeploy) &&
+               string.Equals(redeploy, EdgeConstants.RedeployIgnore, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

@@ -75,6 +75,15 @@ public class RsgoManifest
     public RsgoMaintenance? Maintenance { get; set; }
 
     /// <summary>
+    /// Edge configuration section (optional, product-level).
+    /// Opts the product into a managed reverse-proxy ("edge") container that survives
+    /// redeploys and serves a maintenance page + status while the product is down.
+    /// Dormant by default: without this block (or with <c>edge.enabled: false</c>)
+    /// nothing changes about the product's deploy/teardown behaviour.
+    /// </summary>
+    public RsgoEdge? Edge { get; set; }
+
+    /// <summary>
     /// Determines if this manifest is a product (has productVersion).
     /// Products can contain multiple stacks and are the primary deployment unit.
     /// Manifests without productVersion are fragments, only loadable via include.

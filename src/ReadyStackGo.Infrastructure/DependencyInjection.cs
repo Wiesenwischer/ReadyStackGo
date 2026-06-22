@@ -130,6 +130,19 @@ public static class DependencyInjection
         services.AddSingleton<IMaintenanceSetterFactory, MaintenanceSetterFactory>();
         services.AddScoped<IMaintenanceSetterService, Application.Services.Impl.MaintenanceSetterService>();
 
+        // Managed Maintenance Edge-Proxy (opt-in per manifest; dormant otherwise)
+        services.AddSingleton<Application.Services.Edge.IEdgeProvisioner, Services.Edge.EdgeProvisioner>();
+        services.AddSingleton<Application.Services.Edge.ICaddyAdminClient, Services.Edge.CaddyAdminClient>();
+        services.AddSingleton<Application.Services.Edge.IEdgeConfigCache, Application.Services.Edge.EdgeConfigCache>();
+        services.AddScoped<Application.Services.Edge.IEdgeReconciler, Application.Services.Impl.EdgeReconciler>();
+
+        // HTTP client for the Caddy admin API
+        services.AddHttpClient(Services.Edge.CaddyAdminClient.HttpClientName, client =>
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-Edge");
+            client.Timeout = TimeSpan.FromSeconds(10);
+        });
+
         // HTTP client for the webhook setter
         services.AddHttpClient("MaintenanceSetter", client =>
         {

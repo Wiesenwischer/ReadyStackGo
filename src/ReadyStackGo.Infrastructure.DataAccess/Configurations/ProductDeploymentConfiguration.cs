@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Edge;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Domain.Deployment.Observers;
@@ -147,6 +148,18 @@ public class ProductDeploymentConfiguration : IEntityTypeConfiguration<ProductDe
                 v => v == null ? null : JsonSerializer.Serialize(v, setterConfigOptions),
                 v => string.IsNullOrEmpty(v) ? null : JsonSerializer.Deserialize<MaintenanceSetterConfig>(v, setterConfigOptions))
             .HasColumnName("MaintenanceSetterConfigJson");
+
+        // Configure EdgeConfig as JSON column (managed maintenance edge-proxy, opt-in)
+        var edgeConfigOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Converters = { new EdgeConfigJsonConverter() }
+        };
+        builder.Property(d => d.EdgeConfig)
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, edgeConfigOptions),
+                v => string.IsNullOrEmpty(v) ? null : JsonSerializer.Deserialize<EdgeConfig>(v, edgeConfigOptions))
+            .HasColumnName("EdgeConfigJson");
 
         // Configure SharedVariables as JSON column
         builder.Property(d => d.SharedVariables)

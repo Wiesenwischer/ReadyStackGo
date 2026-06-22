@@ -171,6 +171,23 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
                 productDeploymentId, setterConfig.Type);
         }
 
+        // Resolve and attach the optional product-level edge config. Null = feature inert,
+        // so products without an enabled edge: block behave exactly as before.
+        var edgeConfig = EdgeConfigMapper.Map(product.Edge, request.SharedVariables);
+        if (edgeConfig != null)
+        {
+            productDeployment.SetEdgeConfig(edgeConfig);
+            _logger.LogInformation(
+                "Product deployment {ProductDeploymentId} wired managed edge for host {Hostname} -> {Upstream}:{Port}",
+                productDeploymentId, edgeConfig.PublicHostname, edgeConfig.UpstreamService, edgeConfig.UpstreamPort);
+        }
+        else if (product.Edge is { Enabled: true })
+        {
+            _logger.LogWarning(
+                "Product {ProductName} declares an enabled edge: block but it could not be resolved (unresolved variables or invalid values) — edge disabled",
+                product.Name);
+        }
+
         _repository.Add(productDeployment);
         _repository.SaveChanges();
 

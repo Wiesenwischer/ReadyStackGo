@@ -2,6 +2,7 @@ namespace ReadyStackGo.Domain.Deployment.ProductDeployments;
 
 using System.Text.RegularExpressions;
 using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Edge;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Domain.Deployment.Observers;
@@ -73,6 +74,14 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     public MaintenanceTrigger? MaintenanceTrigger { get; private set; }
     public MaintenanceObserverConfig? MaintenanceObserverConfig { get; private set; }
     public MaintenanceSetterConfig? MaintenanceSetterConfig { get; private set; }
+
+    // ── Edge (Maintenance Edge-Proxy) ──────────────────────────────
+    /// <summary>
+    /// Optional resolved edge configuration. When set, RSGO runs a managed reverse-proxy
+    /// ("edge") container for this product that survives redeploys and serves a maintenance
+    /// page + status while the product is down. Null = feature inert for this product.
+    /// </summary>
+    public EdgeConfig? EdgeConfig { get; private set; }
 
     // ── PRTG Integration (Variant 3 — PrtgConnection-Resource) ─────
     /// <summary>
@@ -883,6 +892,16 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     public void SetMaintenanceSetterConfig(MaintenanceSetterConfig? config)
     {
         MaintenanceSetterConfig = config;
+    }
+
+    /// <summary>
+    /// Sets (or clears) the resolved edge configuration for this product deployment.
+    /// Called during deployment when an <c>edge:</c> block is present and enabled in the
+    /// product definition. A null value keeps the edge feature inert for this product.
+    /// </summary>
+    public void SetEdgeConfig(EdgeConfig? config)
+    {
+        EdgeConfig = config;
     }
 
     /// <summary>

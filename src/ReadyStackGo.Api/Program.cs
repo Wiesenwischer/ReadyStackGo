@@ -135,6 +135,10 @@ public class Program
         // Maintenance Observer Background Service (v0.11)
         builder.Services.AddHostedService<MaintenanceObserverBackgroundService>();
 
+        // Edge Reconciler Background Service (managed maintenance edge-proxy; inert unless a
+        // product opts in via its manifest edge: block)
+        builder.Services.AddHostedService<EdgeReconcilerBackgroundService>();
+
         // Deployment Recovery Service - handles stuck deployments on startup (v0.15)
         builder.Services.AddHostedService<DeploymentRecoveryService>();
 

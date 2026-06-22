@@ -236,6 +236,12 @@ public class DockerService : IDockerService, IDisposable
             NetworkingConfig = networkingConfig
         };
 
+        // Optional command/entrypoint overrides (e.g. the edge container's Caddy bootstrap).
+        if (request.Entrypoint is { Count: > 0 })
+            createParams.Entrypoint = request.Entrypoint;
+        if (request.Command is { Count: > 0 })
+            createParams.Cmd = request.Command;
+
         // Set Docker HEALTHCHECK if configured (from manifest/compose)
         if (request.HealthCheck != null)
         {

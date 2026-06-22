@@ -190,6 +190,14 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
             request.SharedVariables,
             request.ContinueOnError);
 
+        // Carry the optional edge config forward onto the successor aggregate so the
+        // managed edge keeps reconciling across the upgrade. Null = feature inert.
+        var edgeConfig = EdgeConfigMapper.Map(targetProduct.Edge, request.SharedVariables);
+        if (edgeConfig != null)
+        {
+            productDeployment.SetEdgeConfig(edgeConfig);
+        }
+
         _repository.Add(productDeployment);
 
         // Mark the old aggregate as superseded so it no longer appears as an active
