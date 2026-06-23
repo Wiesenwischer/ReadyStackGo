@@ -258,9 +258,16 @@ aber die bindenden Constraints — hier festgehalten, damit der Plan den Ist-Sta
 5. **`until` aus Maintenance-Quelle** (Vervollständigung Phase 5): generischer (nicht ams-spezifischer)
    Mechanismus, um eine angekündigte „until"-Zeit in den Status zu heben, ohne §7 zu verletzen (Observer bleibt
    reine Eingabe). Bis dahin `until: null`. **Akzeptanz:** `until` wird gesetzt, wenn die Quelle es liefert.
+6. **Per-Produkt-Let's-Encrypt-Ausstellung** (Vervollständigung Phase 2 / §2.7): `tls.mode: letsencrypt`
+   **wiederverwendet** derzeit nur den RSGO-Cert (bzw. selfsigned-Fallback) — also den von §2.7 genannten
+   **Single-Host-Sonderfall**. Offen ist die in §2.7 geforderte **Verallgemeinerung**: RSGO stellt über **seine
+   eigene ACME-Mechanik** (nicht in Caddy!) einen per-Produkt-LE-Cert für `publicHostname` aus, legt ihn im
+   Cert-Store ab und injiziert/erneuert ihn am Edge. **Akzeptanz:** ein Produkt mit eigenem Public-Hostname
+   erhält einen gültigen, öffentlich vertrauenswürdigen LE-Cert; Renewal greift.
 
-**Weiterhin Non-Goal:** Per-Produkt-ACME / zweite ACME-Instanz in Caddy — durch §2.7 ausgeschlossen (RSGO
-verwaltet die Certs; `reuse` im Single-Host-Fall).
+**Weiterhin Non-Goal:** eine **zweite ACME-Instanz *in Caddy*** (der Edge führt selbst kein ACME aus). Das ist
+**nicht** dasselbe wie Task 6 — dort läuft ACME weiterhin in **RSGO**, der Edge bekommt nur den fertigen Cert
+injiziert.
 
 ---
 
