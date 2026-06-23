@@ -221,6 +221,49 @@ Branding-Stufen, und unterscheidet „geplante Wartung" (Flag) von „Redeploy/t
 
 ---
 
+### Phase 6 — Follow-ups & Hardening (offen)
+
+> Erfasst **nach** der Umsetzung von Phasen 1–5 (Branch `feature/maintenance-edge-proxy`). Enthält teils
+> zurückgestellte Tasks aus früheren Phasen, teils neu erkannte Lücken. Reihenfolge nach Produktrelevanz.
+
+**As-Built-Hinweise zu Phasen 1–5** (Umsetzung weicht im *nicht-bindenden* Detail vom Wortlaut ab, erfüllt
+aber die bindenden Constraints — hier festgehalten, damit der Plan den Ist-Stand widerspiegelt):
+
+- **TLS-Cert-Injektion (§2.7):** inline `load_pem` über die **Caddy-Admin-API** statt Datei-/Volume-Mount +
+  Caddyfile `tls <cert> <key>`. Grund: `/app/config` ist ein **compose-präfixiertes Named Volume**
+  (Host-Pfad-/Volume-Namen-Introspektion fragil); inline erlaubt zudem den geforderten **Cert-Reload ohne
+  Edge-Neustart**. Bindend erfüllt: Edge terminiert, RSGO verwaltet den Cert, **keine** zweite ACME-Instanz,
+  verbindungserhaltender Reload.
+- **Edge-Image (§2.2):** Default **Tag-Pin** `caddy:2.8.4`, Digest über `edge.image` überschreibbar (Digest
+  offline nicht verifizierbar).
+- **SNI-Router (§2.8):** braucht das Caddy-`layer4`-Modul (nicht im offiziellen Image) → Image über
+  `Edge:SniRouter:Image`; Control-Plane unit-getestet, Live-L4-Test umgebungsabhängig ausgelassen.
+- **Sonstige Plan-0-Korrekturen:** `edge:`-Block an `RsgoManifest` (Geschwister von `maintenance:`);
+  Reconciler = Polling-`BackgroundService` (§1.4 erlaubt „Event/Hook/Polling").
+
+**Tasks:**
+
+1. **Edge-Teardown bei Produkt-Entfernung** (neu — in §1–5 nicht adressiert): Beim **vollständigen Remove**
+   eines Produkts den zugehörigen Edge (und survivor-scoped Maintenance-Container) deterministisch entfernen.
+   Das Survival-Primitiv gilt bewusst nur für **Redeploy**, nicht für **Remove** — sonst verwaiste Container.
+   **Akzeptanz:** Remove entfernt den Edge; Redeploy lässt ihn stehen.
+2. **SNI-Router ↔ Edge-Port-Koordination** (Detail zu Phase 4): Bei aktivem Router ist der Router der alleinige
+   öffentliche `:443`-Eingang → Edges binden ihren `publicPort` dann **nicht** an den Host (nur intern, vom
+   Router per SNI erreicht). Ohne Router unverändert. **Akzeptanz:** kein Host-Port-Konflikt bei aktivem Router.
+3. **Bundle = Asset-Verzeichnis** (Vervollständigung Phase 3, Task 1): statt nur inline-`index.html` ein
+   vollständiges Asset-Verzeichnis (CSS/Logo/…) ausliefern (Caddy `file_server` bzw. gleichwertig). **Akzeptanz:**
+   mehrteilige Bundles laden vollständig.
+4. **Per-Produkt-Cert-Upload-Endpoint** (Phase 2, Task 4 „falls nötig"): produkt-scoped Cert-Upload analog
+   `/api/system/tls`. **Akzeptanz:** `custom`-Cert per API hochladbar und vom Edge genutzt.
+5. **`until` aus Maintenance-Quelle** (Vervollständigung Phase 5): generischer (nicht ams-spezifischer)
+   Mechanismus, um eine angekündigte „until"-Zeit in den Status zu heben, ohne §7 zu verletzen (Observer bleibt
+   reine Eingabe). Bis dahin `until: null`. **Akzeptanz:** `until` wird gesetzt, wenn die Quelle es liefert.
+
+**Weiterhin Non-Goal:** Per-Produkt-ACME / zweite ACME-Instanz in Caddy — durch §2.7 ausgeschlossen (RSGO
+verwaltet die Certs; `reuse` im Single-Host-Fall).
+
+---
+
 ## 6. Tests
 
 - **Unit:** EdgeConfigReconciler (Zustands-→-Config-Mapping inkl. `/hc`-Durchlass, Wortwahl aus Flag),
