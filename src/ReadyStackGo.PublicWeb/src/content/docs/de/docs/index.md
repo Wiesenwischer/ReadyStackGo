@@ -24,6 +24,7 @@ Hier finden Sie detaillierte Anleitungen zur Nutzung von ReadyStackGo.
 - [Custom Distributions](/de/docs/system/distributions/) - RSGO mit eigenem Corporate Design betreiben — gebrandete Deployment-Plattform für Unternehmen
 - [Health Monitoring](/de/docs/monitoring/health-monitoring/) - Echtzeit-Überwachung aller Deployments mit Status-Dashboard und Health History Timeline
 - [Maintenance Mode](/de/docs/monitoring/maintenance-mode/) - Produkte in den Wartungsmodus versetzen und kontrolliert wieder freigeben
+- [Maintenance Edge-Proxy](/de/docs/configuration/maintenance-edge-proxy/) - Überlebender Reverse-Proxy pro Produkt mit kontrollierter Wartungsseite und maschinenlesbarem Status während Redeploy und Wartung
 - [Deployment Precheck](/de/docs/deployments/deployment-precheck/) - Automatische Infrastruktur-Prüfungen vor dem Deployment
 - [OCI Stack Bundles](/de/docs/configuration/oci-stack-bundles/) - Stacks aus Docker/OCI Registries laden mit Lock Files und CI/CD Integration
 - [SNMP Monitoring](/de/docs/monitoring/snmp/) - Eingebauter SNMP-Agent: Deployments aus Nagios, Zabbix, PRTG oder per `snmpwalk` auslesen, mit v3-USM und Traps
