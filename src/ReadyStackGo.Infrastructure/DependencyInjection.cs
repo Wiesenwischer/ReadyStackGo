@@ -131,7 +131,9 @@ public static class DependencyInjection
         services.AddScoped<IMaintenanceSetterService, Application.Services.Impl.MaintenanceSetterService>();
 
         // Managed Maintenance Edge-Proxy (opt-in per manifest; dormant otherwise)
-        services.AddSingleton<Application.Services.Edge.IEdgeProvisioner, Services.Edge.EdgeProvisioner>();
+        // Scoped: the provisioner depends on the scoped IDockerService — a singleton would be a
+        // captive dependency that ASP.NET Core scope validation rejects at startup.
+        services.AddScoped<Application.Services.Edge.IEdgeProvisioner, Services.Edge.EdgeProvisioner>();
         services.AddSingleton<Application.Services.Edge.ICaddyAdminClient, Services.Edge.CaddyAdminClient>();
         services.AddSingleton<Application.Services.Edge.IEdgeCertificateProvider, Services.Edge.EdgeCertificateProvider>();
         services.AddSingleton<Application.Services.Edge.IEdgeBundleReader, Services.Edge.EdgeBundleReader>();
