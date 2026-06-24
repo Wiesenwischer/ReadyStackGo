@@ -27,9 +27,10 @@ public class RsgoEdge
     public string? PublicHostname { get; set; }
 
     /// <summary>
-    /// Public port the edge listens on. Defaults to 443.
+    /// Public port the edge listens on. Defaults to 443. String-typed so it can hold a
+    /// <c>${VAR}</c> placeholder (resolved at deploy time); literal numbers also work.
     /// </summary>
-    public int? PublicPort { get; set; }
+    public string? PublicPort { get; set; }
 
     /// <summary>
     /// Optional override for the Caddy edge image. Defaults to a digest-pinned official
@@ -71,9 +72,9 @@ public class RsgoEdgeUpstream
     public string? Service { get; set; }
 
     /// <summary>
-    /// Upstream port. Defaults to 8080.
+    /// Upstream port. Defaults to 8080. String-typed so it can hold a <c>${VAR}</c> placeholder.
     /// </summary>
-    public int? Port { get; set; }
+    public string? Port { get; set; }
 }
 
 /// <summary>
@@ -156,9 +157,10 @@ public class RsgoEdgeMaintenanceContainer
     public string? Service { get; set; }
 
     /// <summary>
-    /// Port the maintenance container serves on. Defaults to 80.
+    /// Port the maintenance container serves on. Defaults to 80. String-typed so it can hold
+    /// a <c>${VAR}</c> placeholder.
     /// </summary>
-    public int? Port { get; set; }
+    public string? Port { get; set; }
 }
 
 /// <summary>

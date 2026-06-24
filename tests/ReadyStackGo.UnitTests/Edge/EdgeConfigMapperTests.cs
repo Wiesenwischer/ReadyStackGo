@@ -88,10 +88,10 @@ public class EdgeConfigMapperTests
         {
             Enabled = true,
             PublicHostname = "${PUBLIC_HOST}",
-            PublicPort = 443,
+            PublicPort = "443",
             Image = "caddy:2.8.4",
             Network = "${EDGE_NET}",
-            Upstream = new() { Service = "web-bff", Port = 9090 },
+            Upstream = new() { Service = "web-bff", Port = "9090" },
             Tls = new() { Mode = "custom", CertRef = "my-cert" },
             MaintenancePage = new()
             {
@@ -126,7 +126,7 @@ public class EdgeConfigMapperTests
             MaintenancePage = new()
             {
                 Mode = "container",
-                Container = new() { Service = "maint-web", Port = 8090 }
+                Container = new() { Service = "maint-web", Port = "8090" }
             }
         };
 

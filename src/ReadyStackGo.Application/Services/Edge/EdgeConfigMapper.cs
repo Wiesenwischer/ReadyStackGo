@@ -42,8 +42,8 @@ public static class EdgeConfigMapper
         if (string.IsNullOrWhiteSpace(image))
             image = EdgeConstants.DefaultCaddyImage;
 
-        var publicPort = source.PublicPort ?? EdgeConstants.DefaultPublicPort;
-        var upstreamPort = source.Upstream?.Port ?? EdgeConstants.DefaultUpstreamPort;
+        var publicPort = ResolvePort(source.PublicPort, variables, EdgeConstants.DefaultPublicPort);
+        var upstreamPort = ResolvePort(source.Upstream?.Port, variables, EdgeConstants.DefaultUpstreamPort);
 
         var tlsMode = ParseTlsMode(source.Tls?.Mode);
         var tlsCertRef = Resolve(source.Tls?.CertRef, variables);
@@ -53,7 +53,7 @@ public static class EdgeConfigMapper
         var pageMode = ParsePageMode(source.MaintenancePage?.Mode);
         var bundlePath = Resolve(source.MaintenancePage?.BundlePath, variables);
         var maintenanceContainerService = Resolve(source.MaintenancePage?.Container?.Service, variables);
-        var maintenanceContainerPort = source.MaintenancePage?.Container?.Port ?? 80;
+        var maintenanceContainerPort = ResolvePort(source.MaintenancePage?.Container?.Port, variables, 80);
 
         var branding = MapBranding(source.MaintenancePage?.Branding, variables);
 
@@ -113,6 +113,23 @@ public static class EdgeConfigMapper
         "container" => EdgeMaintenancePageMode.Container,
         _ => EdgeMaintenancePageMode.Default
     };
+
+    /// <summary>
+    /// Resolves a port value that may be a literal (<c>443</c>) or a <c>${VAR}</c> placeholder.
+    /// Falls back to <paramref name="fallback"/> when empty, unresolved, or not a valid port.
+    /// Port fields are string-typed in the manifest so a placeholder does not break YAML
+    /// deserialization at catalog-load time (before deploy variables are known).
+    /// </summary>
+    private static int ResolvePort(string? template, IReadOnlyDictionary<string, string> variables, int fallback)
+    {
+        if (string.IsNullOrWhiteSpace(template))
+            return fallback;
+
+        var resolved = Resolve(template, variables);
+        return int.TryParse(resolved?.Trim(), out var port) && port is > 0 and <= 65535
+            ? port
+            : fallback;
+    }
 
     /// <summary>
     /// Resolves <c>${VAR}</c> placeholders. Returns null when a placeholder remains
