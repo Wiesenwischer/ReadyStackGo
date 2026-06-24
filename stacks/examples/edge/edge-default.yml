@@ -1,0 +1,31 @@
+metadata:
+  name: edge-default
+  productVersion: "1.0.0"
+  description: Edge-Proxy demo with the built-in (default) themeable maintenance page.
+  category: Examples
+
+networks:
+  edge-examples-net:
+    external: true
+
+services:
+  web-bff:
+    image: traefik/whoami:latest
+    networks: [edge-examples-net]
+
+edge:
+  enabled: true
+  publicHostname: edge-default.localhost
+  publicPort: 9443
+  upstream:
+    service: web-bff
+    port: 80
+  network: edge-examples-net
+  tls:
+    mode: selfsigned
+  maintenancePage:
+    mode: default
+    branding:
+      productName: "Edge Default Demo"
+      supportContact: support@example.test
+      locales: [de, en]

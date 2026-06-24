@@ -198,6 +198,29 @@ Im Wartungsfall reicht der Edge die Catch-All-Anfragen an `maintenance-web:80` w
 
 ---
 
+## Fertige Vorlagen (Beispiele im Repo)
+
+Im Repository liegt unter [`examples/edge-maintenance/`](https://github.com/Wiesenwischer/ReadyStackGo/tree/main/examples/edge-maintenance) eine einsatzbereite Vorlage für **beide** Anpassungswege:
+
+| Variante | Inhalt | Ordner |
+|----------|--------|--------|
+| **Bundle** | Eine eigenständige, gebrandete `index.html` + Manifest-Snippet | `bundle/` |
+| **Container** | `Dockerfile` (`nginx:alpine`), Assets (`index.html`, `styles.css`, `logo.svg`, `status.js`) + Manifest-Snippet | `container/` |
+
+**Der Beispiel-Container** (`examples/edge-maintenance/container/`) ist ein minimaler `nginx:alpine`, der das Verzeichnis `html/` ausliefert. Du baust und pushst ihn so:
+
+```bash
+cd examples/edge-maintenance/container
+docker build -t deine-registry/ams-maintenance-page:1.0 .
+docker push deine-registry/ams-maintenance-page:1.0
+```
+
+Anschließend trägst du das Image im Manifest unter `maintenance-web` ein (siehe Snippet oben). Ersetze die Assets in `html/` durch deine eigenen — Webserver und Port sind frei wählbar.
+
+**Live-Status:** Beide Vorlagen pollen `/__status` (gleiche Origin hinter dem Edge) über ein kleines Script (`status.js` bzw. inline). Damit wechselt die Seite automatisch die Wortwahl zwischen „geplanter Wartung" und „Aktualisierung läuft" und lädt neu, sobald das Produkt wieder `running` ist.
+
+---
+
 ## Manifest-Referenz: der `edge:`-Block
 
 | Feld | Pflicht | Default | Beschreibung |

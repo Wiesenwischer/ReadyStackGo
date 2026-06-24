@@ -1,0 +1,38 @@
+# Manifest snippet: maintenance page served by your OWN container (full control).
+# Merge these sections into your product manifest.
+
+networks:
+  ams-project-edge-net:
+    external: true                 # shared network: edge <-> upstream <-> maintenance page
+
+services:
+  # Your public entry (BFF/gateway) — proxied to while the product is running.
+  web-bff:
+    image: ams/bff:1.0.0
+    networks: [ams-project-edge-net]
+
+  # The product-contributed maintenance page. It MUST:
+  #  - carry rsgo.role=maintenance-page  and  rsgo.redeploy=ignore  (so it survives redeploys), and
+  #  - be attached to the shared edge network (so the edge can reach it by alias).
+  maintenance-web:
+    image: your-registry/ams-maintenance-page:1.0   # built from ./Dockerfile
+    networks: [ams-project-edge-net]
+    labels:
+      rsgo.role: maintenance-page
+      rsgo.redeploy: ignore
+
+edge:
+  enabled: true
+  publicHostname: project.kunde.tld
+  publicPort: 443
+  upstream:
+    service: web-bff
+    port: 8080
+  network: ams-project-edge-net
+  tls:
+    mode: selfsigned
+  maintenancePage:
+    mode: container
+    container:
+      service: maintenance-web     # = the service alias on the network
+      port: 80

@@ -198,6 +198,29 @@ During maintenance the edge forwards catch-all requests to `maintenance-web:80`.
 
 ---
 
+## Ready-made templates (examples in the repo)
+
+The repository ships a ready-to-use template for **both** customization paths under [`examples/edge-maintenance/`](https://github.com/Wiesenwischer/ReadyStackGo/tree/main/examples/edge-maintenance):
+
+| Variant | Contents | Folder |
+|---------|----------|--------|
+| **Bundle** | A self-contained, branded `index.html` + manifest snippet | `bundle/` |
+| **Container** | `Dockerfile` (`nginx:alpine`), assets (`index.html`, `styles.css`, `logo.svg`, `status.js`) + manifest snippet | `container/` |
+
+**The example container** (`examples/edge-maintenance/container/`) is a minimal `nginx:alpine` serving the `html/` directory. Build and push it like this:
+
+```bash
+cd examples/edge-maintenance/container
+docker build -t your-registry/ams-maintenance-page:1.0 .
+docker push your-registry/ams-maintenance-page:1.0
+```
+
+Then reference the image in your manifest under `maintenance-web` (see the snippet above) and replace the assets in `html/` with your own — the web server and port are up to you.
+
+**Live status:** both templates poll `/__status` (same origin behind the edge) via a small script (`status.js` / inline). The page automatically switches its wording between "planned maintenance" and "deploying" and reloads once the product is `running` again.
+
+---
+
 ## Manifest reference: the `edge:` block
 
 | Field | Required | Default | Description |
