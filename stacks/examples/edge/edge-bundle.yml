@@ -1,0 +1,28 @@
+metadata:
+  name: edge-bundle
+  productVersion: "1.0.0"
+  description: Edge-Proxy demo serving a custom HTML bundle as the maintenance page.
+  category: Examples
+
+networks:
+  edge-examples-net:
+    external: true
+
+services:
+  web-bff:
+    image: traefik/whoami:latest
+    networks: [edge-examples-net]
+
+edge:
+  enabled: true
+  publicHostname: edge-bundle.localhost
+  publicPort: 9444
+  upstream:
+    service: web-bff
+    port: 80
+  network: edge-examples-net
+  tls:
+    mode: selfsigned
+  maintenancePage:
+    mode: bundle
+    bundlePath: ./maintenance/   # reads stacks/examples/edge/maintenance/index.html at deploy time

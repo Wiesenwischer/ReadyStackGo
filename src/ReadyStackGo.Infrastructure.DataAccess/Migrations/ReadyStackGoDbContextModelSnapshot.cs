@@ -304,6 +304,10 @@ namespace ReadyStackGo.Infrastructure.DataAccess.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("EdgeConfig")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("EdgeConfigJson");
+
                     b.Property<Guid>("EnvironmentId")
                         .HasColumnType("TEXT");
 

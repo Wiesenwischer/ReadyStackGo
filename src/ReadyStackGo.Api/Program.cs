@@ -135,6 +135,21 @@ public class Program
         // Maintenance Observer Background Service (v0.11)
         builder.Services.AddHostedService<MaintenanceObserverBackgroundService>();
 
+        // Edge Reconciler Background Service (managed maintenance edge-proxy; inert unless a
+        // product opts in via its manifest edge: block)
+        builder.Services.AddHostedService<EdgeReconcilerBackgroundService>();
+
+        // Optional shared SNI passthrough router (Phase 4; default off)
+        var sniRouterOptions = builder.Configuration
+            .GetSection(ReadyStackGo.Application.Services.Edge.SniRouterOptions.SectionName)
+            .Get<ReadyStackGo.Application.Services.Edge.SniRouterOptions>()
+            ?? new ReadyStackGo.Application.Services.Edge.SniRouterOptions();
+        builder.Services.AddSingleton(sniRouterOptions);
+        if (sniRouterOptions.Enabled)
+        {
+            builder.Services.AddHostedService<SniRouterBackgroundService>();
+        }
+
         // Deployment Recovery Service - handles stuck deployments on startup (v0.15)
         builder.Services.AddHostedService<DeploymentRecoveryService>();
 

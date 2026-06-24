@@ -253,6 +253,7 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
         var productTags = manifest.Metadata?.Tags;
         var maintenanceObserver = manifest.Maintenance?.Observer;
         var maintenanceSetter = manifest.Maintenance?.Setter;
+        var edge = manifest.Edge;
         var version = ComputeHash(yamlContent);
         var stacks = new List<StackDefinition>();
 
@@ -305,7 +306,8 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
             productId: manifest.Metadata?.ProductId,
             releaseNotesUrl: releaseNotesUrl,
             changelogMarkdown: changelogMarkdown,
-            maintenanceSetter: maintenanceSetter);
+            maintenanceSetter: maintenanceSetter,
+            edge: edge);
     }
 
     /// <summary>

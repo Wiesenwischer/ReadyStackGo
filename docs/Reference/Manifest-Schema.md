@@ -24,6 +24,10 @@ maintenanceObserver:              # Automatic maintenance mode trigger (optional
   type: sqlExtendedProperty
   ...
 
+edge:                             # Managed maintenance edge-proxy (optional, opt-in)
+  enabled: true
+  ...
+
 stacks:                           # Stack definitions (Multi-Stack only)
   api:
     include: api.yaml
@@ -598,6 +602,23 @@ services:
 - **Databases**: Keep PostgreSQL, MySQL, or other databases running for migrations
 - **Message Brokers**: Keep RabbitMQ, Kafka running to preserve messages
 - **Shared Services**: Services used by multiple stacks
+
+#### Edge Survival Labels
+
+When a product opts into the [Maintenance Edge-Proxy](#maintenance-edge-proxy), RSGO marks the
+managed edge container (and, later, product-contributed maintenance-page containers) with
+survival labels so they live *outside* the product stack identity and are **never torn down**
+by a redeploy or removal of the product stacks.
+
+| Label | Value | Behavior |
+|-------|-------|----------|
+| `rsgo.scope` | `edge` | Container belongs to the edge scope — excluded from stack teardown |
+| `rsgo.redeploy` | `ignore` | Generic survival opt-out — excluded from stack teardown regardless of scope |
+| `rsgo.role` | `maintenance-page` | Marks a product-contributed maintenance-page container (Phase 3) |
+
+> **Note:** These labels are managed automatically by RSGO for the edge container. You only
+> set `rsgo.role: maintenance-page` yourself when you contribute a custom maintenance-page
+> container via `edge.maintenancePage.mode: container`.
 
 #### Complete Example with Health and Maintenance
 
@@ -1300,6 +1321,148 @@ services:
 ```
 
 See [Operation Mode](../Operations/Operation-Mode.md#maintenance-observers) for detailed observer documentation.
+
+---
+
+## Maintenance Edge-Proxy
+
+An optional, product-level `edge:` block opts a product into a **managed reverse-proxy
+("edge") container** that RSGO runs alongside the product. The edge is a separate container
+(Caddy) in the *edge scope* — it **survives product redeploys and removals** (see
+[Edge Survival Labels](#edge-survival-labels)) so the product's public front door never
+disappears. Driven by RSGO's authoritative deploy state and the maintenance flag, the edge
+either transparently proxies to the upstream or serves a controlled maintenance page plus a
+machine-readable status.
+
+> **Opt-in & dormant by default.** Without an `edge:` block — or with `edge.enabled: false` —
+> nothing changes: no edge container is created and the product's deploy/teardown behaviour is
+> exactly as before.
+
+```yaml
+edge:
+  enabled: true                       # default false → feature completely inert
+  publicHostname: project.customer.tld # hostname the edge serves (cert CN from Phase 2)
+  publicPort: 443                     # public port the edge listens on (default 443)
+  image: caddy:2.8.4                  # optional override (default: digest-pinnable caddy)
+  upstream:
+    service: web-bff                  # internal service name (DNS alias) of the product entry
+    port: 8080                        # upstream port (default 8080)
+  network: ams-project-edge-net       # shared external network edge <-> upstream (external: true)
+  tls:                                # consumed from Phase 2 onward
+    mode: reuse | selfsigned | custom | letsencrypt
+    certRef: <name>                   # for custom: reference to an uploaded certificate
+    letsencrypt: { email: ..., dnsChallenge: ... }
+  maintenancePage:                    # branding contract (Phase 3); default branding used in Phase 1
+    mode: default | bundle | container
+    bundlePath: ./maintenance/        # for bundle: asset directory in the manifest repo
+    container:                        # for container: product-contributed survivor container
+      service: maintenance-web        # service labelled rsgo.role: maintenance-page
+    branding:                         # for default: themeable variables
+      productName: "ams.project"
+      logoUrl: https://.../logo.svg
+      supportContact: support@customer.tld
+      locales: [de, en]
+```
+
+### Fields
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `enabled` | yes | `false` | Master switch. `false`/absent → feature inert. |
+| `publicHostname` | yes | — | Hostname the edge serves (certificate CN in later phases). |
+| `publicPort` | no | `443` | Public port the edge listens on. |
+| `image` | no | pinned `caddy` | Edge image; override with a digest-pinned ref in production. |
+| `upstream.service` | yes | — | Internal DNS name of the product's public entry (e.g. its BFF). |
+| `upstream.port` | no | `8080` | Upstream port. |
+| `network` | yes | — | Shared external network connecting edge and upstream. |
+| `tls.mode` | no | none | TLS termination mode: `selfsigned`, `custom` (`certRef`), `reuse` (RSGO's own cert), `letsencrypt` (reuses RSGO's ACME cert). |
+| `maintenancePage.mode` | no | `default` | Maintenance-page branding: `default`, `bundle`, or `container`. |
+
+### TLS Termination
+
+When `tls.mode` is set, the edge **terminates HTTPS** on `publicPort` using a certificate that
+**RSGO owns and manages** — the edge never runs ACME itself. RSGO injects the certificate into
+Caddy inline via the admin API, so renewed certificates are reloaded **without restarting the
+edge** (connection-preserving).
+
+| `tls.mode` | Certificate source |
+|------------|--------------------|
+| `selfsigned` | RSGO generates a per-hostname self-signed cert and auto-renews it before expiry. |
+| `custom` | Operator-provided certificate referenced by `certRef`. |
+| `reuse` | RSGO's own endpoint certificate (single-host case where the edge hostname == RSGO's). |
+| `letsencrypt` | Reuses RSGO's ACME-managed certificate (RSGO's existing renewal applies). |
+
+If a configured certificate cannot be materialized, the edge falls back to a self-signed cert so
+HTTPS still terminates.
+
+### Maintenance-Page Branding
+
+`maintenancePage.mode` selects how the maintenance experience is rendered. The edge resolves it
+in this order, falling back to the next stage when one is not configured:
+
+1. **`container`** — the edge reverse-proxies the maintenance page to a product-contributed
+   container. The product deploys a service (named by `container.service`, port `container.port`,
+   default 80), labels it `rsgo.role: maintenance-page` **and** `rsgo.redeploy: ignore` so it
+   survives redeploys (same survival primitive as the edge), and attaches it to the shared edge
+   network so the edge can reach it by alias.
+2. **`bundle`** — the edge serves the HTML at `bundlePath/index.html` (read from the manifest
+   repo at deploy time) inline as the 503 page.
+3. **`default`** — RSGO's standard themeable page (driven by `branding.*`).
+
+The machine-readable status (`GET /__status`) and the `/hc` / `/liveness` passthrough are
+**identical across all three modes** — only the visual page differs.
+
+### Optional Host-Level SNI Router
+
+By default each product edge is its own public front door (binding its own `publicPort`).
+Optionally, RSGO can run a single shared **Layer-4 SNI passthrough router** that fronts one
+public port (e.g. `:443`) for many product hostnames: it peeks the TLS ClientHello SNI and
+proxies the raw TCP stream to the matching edge **without terminating TLS**, so every edge keeps
+its own certificate.
+
+This is **host-level RSGO configuration, not a manifest field**, and is **off by default**:
+
+```jsonc
+// appsettings.json
+"Edge": {
+  "SniRouter": {
+    "Enabled": false,            // default — nothing is provisioned, edges are unchanged
+    "Image": "<caddy-l4-image>", // must include the Caddy `layer4` module
+    "ListenPort": 443
+  }
+}
+```
+
+> The official `caddy` image does not include the `layer4` module; enabling the router requires
+> a caddy-l4-capable image supplied via `Image`.
+
+### Routing & Status
+
+| Deploy state | Maintenance flag | Edge behaviour | `/__status` `state` |
+|--------------|------------------|----------------|---------------------|
+| `Running` | off | Transparent proxy to upstream | `running` |
+| `Running` | **on** | Maintenance page (planned wording) | `maintenance` |
+| `Deploying`/`Redeploying`/`Upgrading` | any | Maintenance page (temporarily unavailable) | `deploying` |
+| `Failed`/`Stopped`/other | off | Maintenance page (temporarily unavailable) | `maintenance` |
+
+- `/hc` and `/liveness` are **always** reverse-proxied to the upstream, even in maintenance.
+- `GET /__status` returns a **stable, versioned** JSON document, identical regardless of the
+  visual branding stage (default/bundle/container), so a client/launcher can parse it robustly:
+
+```json
+{ "schema": 1, "state": "running|maintenance|deploying",
+  "reason": "<optional>", "until": "<iso8601|null>", "productVersion": "<optional>" }
+```
+
+  - `state`: `running` (proxying), `maintenance` (planned, via the flag — `reason` is set),
+    or `deploying` (a redeploy/upgrade is in progress — temporary unavailability). The flag
+    distinguishes planned maintenance from a redeploy; both are driven purely by RSGO's
+    authoritative state, never by health-guessing.
+  - `reason`/`until` are populated from the maintenance source when available, else `null`.
+  - `schema` is the contract version; consumers should branch on it.
+
+RSGO is the single writer of the edge config and pushes it atomically (connection-preserving)
+via the Caddy admin API whenever the desired state changes.
 
 ---
 

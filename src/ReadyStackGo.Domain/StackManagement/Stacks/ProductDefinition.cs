@@ -99,6 +99,12 @@ public class ProductDefinition
     public RsgoMaintenanceSetter? MaintenanceSetter { get; }
 
     /// <summary>
+    /// Optional edge configuration for this product (managed reverse-proxy / maintenance edge).
+    /// Null or disabled means the edge feature is inert for this product.
+    /// </summary>
+    public RsgoEdge? Edge { get; }
+
+    /// <summary>
     /// Whether this product contains multiple stacks.
     /// </summary>
     public bool IsMultiStack => Stacks.Count > 1;
@@ -151,7 +157,8 @@ public class ProductDefinition
         string? productId = null,
         string? releaseNotesUrl = null,
         string? changelogMarkdown = null,
-        RsgoMaintenanceSetter? maintenanceSetter = null)
+        RsgoMaintenanceSetter? maintenanceSetter = null,
+        RsgoEdge? edge = null)
     {
         if (string.IsNullOrWhiteSpace(sourceId))
             throw new ArgumentException("SourceId cannot be empty.", nameof(sourceId));
@@ -176,6 +183,7 @@ public class ProductDefinition
         ChangelogMarkdown = changelogMarkdown;
         MaintenanceObserver = maintenanceObserver;
         MaintenanceSetter = maintenanceSetter;
+        Edge = edge;
         FilePath = filePath;
         RelativePath = relativePath;
 

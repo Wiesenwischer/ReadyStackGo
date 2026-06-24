@@ -130,6 +130,24 @@ public static class DependencyInjection
         services.AddSingleton<IMaintenanceSetterFactory, MaintenanceSetterFactory>();
         services.AddScoped<IMaintenanceSetterService, Application.Services.Impl.MaintenanceSetterService>();
 
+        // Managed Maintenance Edge-Proxy (opt-in per manifest; dormant otherwise)
+        // Scoped: the provisioner depends on the scoped IDockerService — a singleton would be a
+        // captive dependency that ASP.NET Core scope validation rejects at startup.
+        services.AddScoped<Application.Services.Edge.IEdgeProvisioner, Services.Edge.EdgeProvisioner>();
+        services.AddSingleton<Application.Services.Edge.ICaddyAdminClient, Services.Edge.CaddyAdminClient>();
+        services.AddSingleton<Application.Services.Edge.IEdgeCertificateProvider, Services.Edge.EdgeCertificateProvider>();
+        services.AddSingleton<Application.Services.Edge.IEdgeBundleReader, Services.Edge.EdgeBundleReader>();
+        services.AddSingleton<Application.Services.Edge.IEdgeConfigCache, Application.Services.Edge.EdgeConfigCache>();
+        services.AddScoped<Application.Services.Edge.IEdgeReconciler, Application.Services.Impl.EdgeReconciler>();
+        services.AddScoped<Application.Services.Edge.ISniRouterReconciler, Application.Services.Impl.SniRouterReconciler>();
+
+        // HTTP client for the Caddy admin API
+        services.AddHttpClient(Services.Edge.CaddyAdminClient.HttpClientName, client =>
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-Edge");
+            client.Timeout = TimeSpan.FromSeconds(10);
+        });
+
         // HTTP client for the webhook setter
         services.AddHttpClient("MaintenanceSetter", client =>
         {

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wartung — Edge Bundle Demo</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: radial-gradient(1200px 600px at 50% -10%, #1e293b, #0f172a);
+      color: #e2e8f0; padding: 2rem; text-align: center;
+    }
+    .card { max-width: 34rem; }
+    h1 { font-size: 1.7rem; margin: .25rem 0 .75rem; }
+    p { color: #94a3b8; line-height: 1.55; }
+    .badge {
+      display: inline-block; margin-bottom: 1rem; padding: .25rem .75rem; border-radius: 999px;
+      font-size: .8rem; letter-spacing: .04em; text-transform: uppercase;
+      background: #1d4ed833; color: #93c5fd; border: 1px solid #1d4ed855;
+    }
+    .meta { margin-top: 1.5rem; font-size: .9rem; color: #cbd5e1; min-height: 1.2em; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge" id="badge">Wartung</div>
+    <h1 id="title">Geplante Wartung (Bundle-Demo)</h1>
+    <p id="body">Diese Seite stammt aus einem HTML-Bundle (<code>maintenancePage.mode: bundle</code>)
+      und wird vom Edge inline ausgeliefert.</p>
+    <p class="meta" id="meta"></p>
+  </div>
+  <script>
+    async function refresh() {
+      try {
+        const s = await (await fetch('/__status', { cache: 'no-store' })).json();
+        const $ = (id) => document.getElementById(id);
+        if (s.state === 'deploying') { $('badge').textContent = 'Update'; $('title').textContent = 'Aktualisierung läuft (Bundle-Demo)'; }
+        else { $('badge').textContent = 'Wartung'; $('title').textContent = 'Geplante Wartung (Bundle-Demo)'; }
+        const bits = []; if (s.reason) bits.push(s.reason); if (s.until) bits.push('bis ' + new Date(s.until).toLocaleString());
+        $('meta').textContent = bits.join(' · ');
+        if (s.state === 'running') location.reload();
+      } catch (_) {}
+    }
+    refresh(); setInterval(refresh, 5000);
+  </script>
+</body>
+</html>

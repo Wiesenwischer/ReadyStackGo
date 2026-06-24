@@ -23,6 +23,7 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
     private readonly INotificationService? _inAppNotificationService;
     private readonly ILogger<UpgradeProductHandler> _logger;
     private readonly TimeProvider _timeProvider;
+    private readonly Application.Services.Edge.IEdgeBundleReader? _edgeBundleReader;
 
     public UpgradeProductHandler(
         IProductSourceService productSourceService,
@@ -32,7 +33,8 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
         ILogger<UpgradeProductHandler> logger,
         IDeploymentNotificationService? notificationService = null,
         INotificationService? inAppNotificationService = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        Application.Services.Edge.IEdgeBundleReader? edgeBundleReader = null)
     {
         _productSourceService = productSourceService;
         _repository = repository;
@@ -42,6 +44,7 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
         _notificationService = notificationService;
         _inAppNotificationService = inAppNotificationService;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _edgeBundleReader = edgeBundleReader;
     }
 
     public async Task<UpgradeProductResponse> Handle(UpgradeProductCommand request, CancellationToken cancellationToken)
@@ -189,6 +192,21 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
             stackConfigs,
             request.SharedVariables,
             request.ContinueOnError);
+
+        // Carry the optional edge config forward onto the successor aggregate so the
+        // managed edge keeps reconciling across the upgrade. Null = feature inert.
+        string? edgeBundleHtml = null;
+        if (_edgeBundleReader != null &&
+            string.Equals(targetProduct.Edge?.MaintenancePage?.Mode, "bundle", StringComparison.OrdinalIgnoreCase))
+        {
+            edgeBundleHtml = await _edgeBundleReader.ReadBundleHtmlAsync(
+                targetProduct.FilePath, targetProduct.Edge!.MaintenancePage!.BundlePath, cancellationToken);
+        }
+        var edgeConfig = EdgeConfigMapper.Map(targetProduct.Edge, request.SharedVariables, edgeBundleHtml);
+        if (edgeConfig != null)
+        {
+            productDeployment.SetEdgeConfig(edgeConfig);
+        }
 
         _repository.Add(productDeployment);
 
