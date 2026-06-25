@@ -106,9 +106,15 @@ Deploy as usual. RSGO detects the `edge:` block, provisions the edge container, 
 
 ### Step 3: Observe the behaviour
 
-During a **redeploy** the edge stays up and serves the maintenance page (`state: deploying`) — no connection-refused. With the **maintenance flag** set it shows the page with "planned maintenance" and a `reason`:
+During a **redeploy** the edge stays up and serves the maintenance page (`state: deploying`) — no connection-refused:
+
+![Edge-proxy page during a rollout](/images/docs/edge-05-maintenance-deploying.png)
+
+With the **maintenance flag** set it shows the planned-maintenance variant including the `reason`:
 
 ![Default maintenance page of the edge-proxy](/images/docs/edge-01-maintenance-page.png)
+
+The page renders the live `/__status` contract directly as a status panel, **auto-refreshes every few seconds**, and **reloads into the app automatically** as soon as the product reports `running` — visitors never have to reload by hand. The accent colour follows the state (amber for maintenance, blue for a rollout).
 
 The machine-readable status at `/__status` distinguishes the states unambiguously:
 
@@ -124,7 +130,7 @@ There are three stages. The edge resolves them in the order **container → bund
 
 ### Default page (branding variables)
 
-`maintenancePage.mode: default` serves the built-in, bilingual page. Customize it without any HTML via `branding`:
+`maintenancePage.mode: default` serves the built-in page — a live status panel in RSGO's brand colours that mirrors the `/__status` contract (state, reason, version), polls for updates and switches users back to the app automatically once it is `running`. Customize it without any HTML via `branding`:
 
 ```yaml
 maintenancePage:
@@ -141,7 +147,11 @@ maintenancePage:
 | `productName` | Display name on the page / in the browser tab |
 | `logoUrl` | Optional logo (absolute URL) |
 | `supportContact` | Optional support address shown at the bottom |
-| `locales` | Languages for the texts (e.g. `[de, en]`) |
+| `locales` | Languages for the on-page toggle (e.g. `[de, en]`) |
+
+:::note[What the page shows]
+The panel surfaces `state`, the `reason` (when provided — e.g. for planned maintenance) and the deployed `productVersion`; rows without data are hidden automatically. `locales` drives the on-page language toggle — the first locale is the default, and with a single locale the toggle is hidden. Supported languages: `de`, `en`.
+:::
 
 ### Your own HTML (bundle)
 
