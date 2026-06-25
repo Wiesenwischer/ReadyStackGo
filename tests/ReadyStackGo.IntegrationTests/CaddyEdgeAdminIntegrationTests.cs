@@ -138,7 +138,9 @@ public class CaddyEdgeAdminIntegrationTests : IAsyncLifetime
 
         var maintenance = await http.GetAsync("/");
         maintenance.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable, "maintenance serves a controlled 503");
-        (await maintenance.Content.ReadAsStringAsync()).Should().Contain("Scheduled maintenance");
+        var maintenanceBody = await maintenance.Content.ReadAsStringAsync();
+        maintenanceBody.Should().Contain("Scheduled maintenance", "the default page renders the maintenance wording");
+        maintenanceBody.Should().Contain("DB upgrade", "the server-rendered reason flows into the page");
 
         var statusMaint = JsonDocument.Parse(await http.GetStringAsync(CaddyConfigBuilder.StatusPath)).RootElement;
         statusMaint.GetProperty("schema").GetInt32().Should().Be(1);
