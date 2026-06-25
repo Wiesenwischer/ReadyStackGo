@@ -45,7 +45,10 @@ public class RemoveDeploymentByIdHandler : IRequestHandler<RemoveDeploymentByIdC
         if (string.IsNullOrEmpty(request.SessionId))
         {
             var simpleResult = await _deploymentService.RemoveDeploymentByIdAsync(request.EnvironmentId, request.DeploymentId);
-            await CreateRemoveNotificationAsync(simpleResult, cancellationToken);
+            // Suppress the per-stack in-app notification when invoked from product removal —
+            // the parent RemoveProductHandler emits a single aggregated product notification.
+            if (!request.SuppressNotification)
+                await CreateRemoveNotificationAsync(simpleResult, cancellationToken);
             return simpleResult;
         }
 
@@ -100,7 +103,9 @@ public class RemoveDeploymentByIdHandler : IRequestHandler<RemoveDeploymentByIdC
             progressCallback,
             cancellationToken);
 
-        await CreateRemoveNotificationAsync(result, cancellationToken);
+        // See above: skip the per-stack in-app notification under product removal.
+        if (!request.SuppressNotification)
+            await CreateRemoveNotificationAsync(result, cancellationToken);
         return result;
     }
 
