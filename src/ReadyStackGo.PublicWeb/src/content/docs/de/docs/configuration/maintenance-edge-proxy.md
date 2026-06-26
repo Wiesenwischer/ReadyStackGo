@@ -106,9 +106,15 @@ Deploye das Produkt wie gewohnt. RSGO erkennt den `edge:`-Block, provisioniert d
 
 ### Schritt 3: Verhalten beobachten
 
-Während eines **Redeploys** bleibt der Edge stehen und liefert die Wartungsseite (`state: deploying`) — kein Connection-Refused. Bei aktivem **Maintenance-Flag** zeigt er die Seite mit „geplanter Wartung" und einem `reason`:
+Während eines **Redeploys** bleibt der Edge stehen und liefert die Wartungsseite (`state: deploying`) — kein Connection-Refused:
+
+![Edge-Proxy-Seite während eines Rollouts](/images/docs/edge-05-maintenance-deploying.png)
+
+Bei aktivem **Maintenance-Flag** zeigt er die Variante „geplante Wartung" inklusive `reason`:
 
 ![Default-Wartungsseite des Edge-Proxy](/images/docs/edge-01-maintenance-page.png)
+
+Die Seite rendert den Live-Status aus `/__status` direkt als Status-Panel, **aktualisiert sich automatisch im Sekundentakt** und **leitet automatisch in die App weiter**, sobald das Produkt `running` meldet — niemand muss manuell neu laden. Die Akzentfarbe folgt dem Zustand (Amber bei Wartung, Blau beim Rollout).
 
 Der maschinenlesbare Status unter `/__status` unterscheidet die Zustände eindeutig:
 
@@ -124,7 +130,7 @@ Es gibt drei Stufen. Der Edge löst sie in der Reihenfolge **container → bundl
 
 ### Standard-Seite (Branding-Variablen)
 
-`maintenancePage.mode: default` liefert die mitgelieferte, zweisprachige Seite. Über `branding` passt du sie ohne eigenes HTML an:
+`maintenancePage.mode: default` liefert die mitgelieferte Seite — ein Live-Status-Panel in den RSGO-Markenfarben, das den `/__status`-Vertrag (Zustand, Grund, Version) spiegelt, sich automatisch aktualisiert und Besucher zurück in die App leitet, sobald sie `running` ist. Über `branding` passt du sie ohne eigenes HTML an:
 
 ```yaml
 maintenancePage:
@@ -141,7 +147,11 @@ maintenancePage:
 | `productName` | Anzeigename auf der Seite / im Browser-Tab |
 | `logoUrl` | Optionales Logo (absolute URL) |
 | `supportContact` | Optionale Support-Adresse, unten eingeblendet |
-| `locales` | Sprachen für die Texte (z. B. `[de, en]`) |
+| `locales` | Sprachen für den Umschalter auf der Seite (z. B. `[de, en]`) |
+
+:::note[Was die Seite anzeigt]
+Das Panel zeigt `state`, den `reason` (falls vorhanden — z. B. bei geplanter Wartung) und die deployte `productVersion`; Zeilen ohne Daten werden automatisch ausgeblendet. `locales` steuert den Sprachumschalter — die erste Sprache ist die Vorgabe, bei nur einer Sprache entfällt der Umschalter. Unterstützte Sprachen: `de`, `en`.
+:::
 
 ### Eigenes HTML (Bundle)
 

@@ -215,7 +215,7 @@ public class CaddyConfigBuilderTests
         var catchAll = routes[routes.GetArrayLength() - 1];
         catchAll.GetProperty("handle")[0].GetProperty("handler").GetString().Should().Be("reverse_proxy");
         json.Should().Contain("maint-web:8090");
-        json.Should().NotContain("Temporarily unavailable", "container mode delegates the page to the product container");
+        json.Should().NotContain("GET /__status", "container mode delegates the page to the product container");
     }
 
     [Fact]
@@ -226,7 +226,7 @@ public class CaddyConfigBuilderTests
 
         json.Should().Contain("\"status_code\":503");
         json.Should().Contain("BUNDLE-PAGE");
-        json.Should().NotContain("Temporarily unavailable");
+        json.Should().NotContain("GET /__status", "bundle mode serves the manifest HTML, not the default page");
     }
 
     [Fact]
@@ -235,7 +235,7 @@ public class CaddyConfigBuilderTests
         var json = CaddyConfigBuilder.Build(BrandingConfig(EdgeMaintenancePageMode.Default), MaintState);
 
         json.Should().Contain("\"status_code\":503");
-        json.Should().Contain("Temporarily unavailable");
+        json.Should().Contain("GET /__status", "the default page renders the live status instrument panel");
     }
 
     [Fact]
@@ -244,7 +244,7 @@ public class CaddyConfigBuilderTests
         var json = CaddyConfigBuilder.Build(
             BrandingConfig(EdgeMaintenancePageMode.Container, service: null), MaintState);
 
-        json.Should().Contain("Temporarily unavailable", "misconfigured container mode falls back to the default page");
+        json.Should().Contain("GET /__status", "misconfigured container mode falls back to the default page");
     }
 
     [Fact]
@@ -271,20 +271,122 @@ public class CaddyConfigBuilderTests
         throw new Xunit.Sdk.XunitException("No /__status route found");
     }
 
+    // ── Default maintenance page (instrument-panel redesign) ────
+    // These assert on the raw HTML from RenderDefault, not the Caddy config (which
+    // double-encodes the page body as a JSON string and would obscure <, >, & and ").
+
     [Fact]
-    public void DefaultPage_PlannedVsUnavailable_DiffersInWording()
+    public void DefaultPage_MaintenanceVsDeploying_DiffersInAccentAndState()
     {
         var config = SampleConfig(new EdgeBranding("ACME Portal", null, "support@acme.test", new[] { "de", "en" }));
 
-        var planned = CaddyConfigBuilder.Build(config,
+        var planned = EdgeMaintenancePage.RenderDefault(config,
             new EdgeDesiredState(EdgeMode.Maintenance, EdgeStatusState.Maintenance, true, null, null, null));
-        var unavailable = CaddyConfigBuilder.Build(config,
+        var deploying = EdgeMaintenancePage.RenderDefault(config,
             new EdgeDesiredState(EdgeMode.Maintenance, EdgeStatusState.Deploying, false, null, null, null));
 
-        planned.Should().Contain("Scheduled maintenance");
+        // Branding is rendered into the page (server-side fallback + live model).
         planned.Should().Contain("ACME Portal");
         planned.Should().Contain("support@acme.test");
-        unavailable.Should().Contain("Temporarily unavailable");
-        unavailable.Should().NotContain("Scheduled maintenance");
+
+        // Accent colour and initial model state are driven by the status token.
+        planned.Should().Contain("--accent:#FDB022", "maintenance uses the warning accent");
+        planned.Should().Contain("\"state\":\"maintenance\"", "the live model is seeded with the current state");
+
+        deploying.Should().Contain("--accent:#7592FF", "deploying uses the brand-blue accent");
+        deploying.Should().NotContain("--accent:#FDB022");
+        deploying.Should().Contain("\"state\":\"deploying\"");
+    }
+
+    [Fact]
+    public void DefaultPage_OmitsReasonAndUntilRows_WhenDataAbsent()
+    {
+        // Reason is only set for planned maintenance; until is never populated yet (#436).
+        var html = EdgeMaintenancePage.RenderDefault(SampleConfig(),
+            new EdgeDesiredState(EdgeMode.Maintenance, EdgeStatusState.Maintenance, true, null, null, "1.2.3"));
+
+        html.Should().Contain("id=\"rowReason\" style=\"display:none", "no reason → reason row hidden");
+        html.Should().Contain("id=\"rowUntil\" style=\"display:none", "until is always null today → until row hidden");
+    }
+
+    [Fact]
+    public void DefaultPage_ShowsReasonRow_WhenReasonPresent()
+    {
+        var html = EdgeMaintenancePage.RenderDefault(SampleConfig(),
+            new EdgeDesiredState(EdgeMode.Maintenance, EdgeStatusState.Maintenance, true,
+                Reason: "Planned database migration", Until: null, ProductVersion: "1.2.3"));
+
+        // Reason row is visible (empty inline style) and the value is rendered server-side.
+        html.Should().Contain("id=\"rowReason\" style=\"\"");
+        html.Should().Contain("Planned database migration");
+    }
+
+    [Fact]
+    public void DefaultPage_FallsBackToHostname_WhenProductNameMissing()
+    {
+        var html = EdgeMaintenancePage.RenderDefault(SampleConfig(EdgeBranding.Empty), MaintState);
+
+        // SampleConfig's publicHostname is the fallback brand name.
+        html.Should().Contain("app.example.com");
+    }
+
+    [Fact]
+    public void DefaultPage_EscapesBrandingToPreventInjection()
+    {
+        var config = SampleConfig(new EdgeBranding("<script>x</script>", null, null, new[] { "en" }));
+
+        var html = EdgeMaintenancePage.RenderDefault(config, MaintState);
+
+        // Server-rendered brand name is HTML-escaped; the live model uses JSON \u escaping.
+        html.Should().NotContain("<script>x</script>", "branding must never be emitted as raw markup");
+        html.Should().Contain("&lt;script&gt;", "the server-rendered brand name is HTML-escaped");
+        html.Should().Contain("\\u003Cscript", "the JSON model escapes angle brackets");
+    }
+
+    [Theory]
+    [InlineData(new[] { "de", "en" }, "data-lang=\"de\" aria-pressed=\"true\"")]
+    [InlineData(new[] { "en", "de" }, "data-lang=\"en\" aria-pressed=\"true\"")]
+    public void DefaultPage_PrimaryLocaleDrivesToggle(string[] locales, string expectedPrimaryButton)
+    {
+        var html = EdgeMaintenancePage.RenderDefault(
+            SampleConfig(new EdgeBranding("ACME", null, null, locales)), MaintState);
+
+        html.Should().Contain(expectedPrimaryButton);
+    }
+
+    [Fact]
+    public void DefaultPage_SingleLocale_HidesLanguageToggle()
+    {
+        var html = EdgeMaintenancePage.RenderDefault(
+            SampleConfig(new EdgeBranding("ACME", null, null, new[] { "en" })), MaintState);
+
+        html.Should().Contain("aria-label=\"Language\" style=\"display:none");
+        html.Should().Contain("data-lang=\"en\"");
+        html.Should().NotContain("data-lang=\"de\"");
+    }
+
+    [Fact]
+    public void DefaultPage_UnknownOrEmptyLocales_FallBackToEnAndDe()
+    {
+        var empty = EdgeMaintenancePage.RenderDefault(
+            SampleConfig(new EdgeBranding("ACME", null, null, Array.Empty<string>())), MaintState);
+        var unknown = EdgeMaintenancePage.RenderDefault(
+            SampleConfig(new EdgeBranding("ACME", null, null, new[] { "fr", "es" })), MaintState);
+
+        foreach (var html in new[] { empty, unknown })
+        {
+            html.Should().Contain("data-lang=\"en\"");
+            html.Should().Contain("data-lang=\"de\"");
+            html.Should().NotContain("data-lang=\"fr\"");
+        }
+    }
+
+    [Fact]
+    public void DefaultPage_RendersLogoFromBranding()
+    {
+        var html = EdgeMaintenancePage.RenderDefault(
+            SampleConfig(new EdgeBranding("ACME", "https://cdn.acme.test/logo.svg", null, new[] { "en" })), MaintState);
+
+        html.Should().Contain("\"logoUrl\":\"https://cdn.acme.test/logo.svg\"");
     }
 }
