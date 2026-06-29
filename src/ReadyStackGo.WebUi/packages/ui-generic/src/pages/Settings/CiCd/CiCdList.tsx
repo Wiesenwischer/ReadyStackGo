@@ -10,6 +10,7 @@ const AVAILABLE_PERMISSIONS = [
   { value: "Hooks.SyncSources", label: "Sync Sources", description: "Synchronize stack catalog sources" },
   { value: "Hooks.StopContainers", label: "Stop Containers", description: "Stop containers of a product deployment" },
   { value: "Hooks.RestartContainers", label: "Restart Containers", description: "Restart containers of a product deployment" },
+  { value: "Settings.Read", label: "Read Status (PRTG)", description: "Read-only status access for the PRTG HTTP Data Advanced sensor" },
 ];
 
 export default function CiCdList() {
@@ -303,8 +304,8 @@ export default function CiCdList() {
 
       {/* Create Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+          <div className="my-auto w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Create API Key</h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               The API key will be shown only once after creation.
@@ -393,8 +394,8 @@ export default function CiCdList() {
 
       {/* Revoke confirmation modal */}
       {showRevokeModal && revokeTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+          <div className="my-auto w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Revoke API Key</h3>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
               Are you sure you want to revoke <strong className="text-gray-900 dark:text-white">{revokeTarget.name}</strong>?
