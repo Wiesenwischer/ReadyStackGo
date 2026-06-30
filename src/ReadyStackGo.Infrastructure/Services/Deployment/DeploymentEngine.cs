@@ -265,6 +265,13 @@ public class DeploymentEngine : IDeploymentEngine
             var pulledImages = 0;
             var totalImages = plan.Steps.Count;
 
+            // Pull-failure policy: by DEFAULT a failed image pull fails the deployment. Silently
+            // falling back to a stale local image masks broken registry access — a service then keeps
+            // running an outdated image while the deploy (and thus the CI pipeline) reports success.
+            // Operators can opt back into the lenient local-fallback via SystemConfig
+            // (AllowStaleImageOnPullFailure), e.g. for air-gapped/offline environments.
+            var allowStaleImageOnPullFailure = (await _configStore.GetSystemConfigAsync()).AllowStaleImageOnPullFailure;
+
             await ReportProgress("PullingImages", $"Pulling {totalImages} images...", 0);
 
             // Helper to report progress during pull phase - passes pulledImages as completedSteps
@@ -312,8 +319,24 @@ public class DeploymentEngine : IDeploymentEngine
                         return result;
                     }
 
-                    pullWarnings[step.ContextName] = $"Image '{fullImageName}' could not be pulled - using existing local image. The deployed version may be outdated.";
-                    _logger.LogWarning("Using existing local image {Image} (pull failed: {Error})", fullImageName, ex.Message);
+                    // A local copy exists, but using it would silently deploy an outdated image.
+                    // Default: fail the deployment so the problem (registry access/credentials) is
+                    // visible. Only fall back to the local image when explicitly opted in.
+                    if (!allowStaleImageOnPullFailure)
+                    {
+                        var errorMessage = $"Service '{step.ContextName}': Failed to pull image '{imageName}' (tag: {imageTag}). " +
+                            $"A local copy exists, but deploying it would run an outdated version, so the deployment is failed. " +
+                            $"Fix the registry access/credentials for this image, or set SystemConfig.AllowStaleImageOnPullFailure " +
+                            $"to permit the stale local fallback. Error: {ex.Message}";
+                        _logger.LogError(errorMessage);
+                        result.Errors.Add(errorMessage);
+                        result.Success = false;
+                        await ReportProgress("Failed", errorMessage, 0, step.ContextName);
+                        return result;
+                    }
+
+                    pullWarnings[step.ContextName] = $"Image '{fullImageName}' could not be pulled - using existing local image (allowStaleImageOnPullFailure). The deployed version may be outdated.";
+                    _logger.LogWarning("Using existing local image {Image} (pull failed; stale fallback allowed by feature flag: {Error})", fullImageName, ex.Message);
                 }
 
                 pulledImages++;
