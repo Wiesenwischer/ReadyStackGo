@@ -42,8 +42,11 @@ public class DeploymentEngineSurvivalTests
             .Callback<string, string, bool, CancellationToken>((_, id, _, _) => _removedIds.Add(id))
             .Returns(Task.CompletedTask);
 
+        // Simulate the daemon: a container that was removed no longer appears on a re-list.
+        // RemoveStackAsync re-lists to verify teardown, so a static list would look like the
+        // container never went away.
         _docker.Setup(x => x.ListContainersAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Containers());
+            .ReturnsAsync(() => Containers().Where(c => !_removedIds.Contains(c.Id)).ToList());
     }
 
     private static List<ContainerDto> Containers() => new()
