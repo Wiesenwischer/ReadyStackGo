@@ -64,4 +64,16 @@ public class SystemConfig
     /// Default: 300 seconds (5 minutes).
     /// </summary>
     public int HealthNotificationCooldownSeconds { get; set; } = 300;
+
+    /// <summary>
+    /// When an image pull fails during deployment but a local copy of the image already exists,
+    /// controls whether the deployment falls back to that (potentially outdated) local image.
+    /// <para>
+    /// Default <c>false</c>: a failed pull fails the deployment, so broken registry access can never
+    /// silently deploy a stale image while the deployment (and any calling CI pipeline) still reports
+    /// success. Set to <c>true</c> only for environments that intentionally rely on cached local images
+    /// (e.g. air-gapped/offline installations) and accept the risk of running an outdated version.
+    /// </para>
+    /// </summary>
+    public bool AllowStaleImageOnPullFailure { get; set; }
 }

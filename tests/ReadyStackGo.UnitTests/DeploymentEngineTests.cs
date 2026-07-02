@@ -78,12 +78,69 @@ public class DeploymentEngineTests
 
         _configStoreMock.Setup(x => x.GetFeaturesConfigAsync()).ReturnsAsync(new FeaturesConfig());
         _configStoreMock.Setup(x => x.GetReleaseConfigAsync()).ReturnsAsync(new ReleaseConfig());
+        // Default: AllowStaleImageOnPullFailure = false → a failed pull fails the deployment.
+        _configStoreMock.Setup(x => x.GetSystemConfigAsync()).ReturnsAsync(new SystemConfig());
     }
 
     [Fact]
-    public async Task ExecuteDeploymentAsync_WhenImagePullFails_AndLocalImageExists_ShouldSucceedWithWarning()
+    public async Task ExecuteDeploymentAsync_WhenImagePullFails_AndLocalImageExists_ByDefault_ShouldFail()
     {
         // Arrange
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "api",
+                    Image = "myregistry.com/api",
+                    Version = "1.0.0",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>()
+                }
+            }
+        };
+
+        // Mock image pull failure
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Connection refused - registry unreachable"));
+
+        // Mock local image exists (a stale fallback would otherwise be available)
+        _dockerServiceMock
+            .Setup(x => x.ImageExistsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var startCalled = false;
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .Callback(() => startCalled = true)
+            .ReturnsAsync("container-id-123");
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan);
+
+        // Assert — without the opt-in flag a failed pull fails the deployment, even though a
+        // local copy exists, so a stale image is never silently deployed (and CI goes red).
+        result.Success.Should().BeFalse("a failed pull must fail the deployment by default");
+        result.Errors.Should().ContainSingle();
+        result.Errors[0].Should().Contain("Failed to pull image");
+        result.Errors[0].Should().Contain("AllowStaleImageOnPullFailure");
+        startCalled.Should().BeFalse("no containers should be started when the pull phase fails");
+    }
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_WhenImagePullFails_AndLocalImageExists_WithAllowStaleFlag_ShouldSucceedWithWarning()
+    {
+        // Arrange — opt back into the lenient local-image fallback via SystemConfig.
+        _configStoreMock.Setup(x => x.GetSystemConfigAsync())
+            .ReturnsAsync(new SystemConfig { AllowStaleImageOnPullFailure = true });
+
         var plan = new DeploymentPlan
         {
             StackVersion = "1.0.0",
@@ -123,7 +180,7 @@ public class DeploymentEngineTests
         var result = await _sut.ExecuteDeploymentAsync(plan);
 
         // Assert
-        result.Success.Should().BeTrue("deployment should succeed when local image is available");
+        result.Success.Should().BeTrue("deployment should succeed when local image is available and the flag is set");
         result.Warnings.Should().ContainSingle("there should be one warning about using local image");
         result.Warnings[0].Should().Contain("could not be pulled");
         result.Warnings[0].Should().Contain("using existing local image");
@@ -220,7 +277,10 @@ public class DeploymentEngineTests
     [Fact]
     public async Task ExecuteDeploymentAsync_WithMultipleServices_WhenOneImagePullFails_ShouldIncludeWarningForThatService()
     {
-        // Arrange
+        // Arrange — the lenient local-image fallback (warning instead of failure) is now opt-in.
+        _configStoreMock.Setup(x => x.GetSystemConfigAsync())
+            .ReturnsAsync(new SystemConfig { AllowStaleImageOnPullFailure = true });
+
         var plan = new DeploymentPlan
         {
             StackVersion = "1.0.0",
