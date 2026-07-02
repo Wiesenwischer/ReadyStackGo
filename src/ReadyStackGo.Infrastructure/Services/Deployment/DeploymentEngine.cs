@@ -37,6 +37,19 @@ public class DeploymentEngine : IDeploymentEngine
     /// </summary>
     public const int DefaultInitContainerTimeoutSeconds = 1800;
 
+    /// <summary>
+    /// Number of list-then-remove passes during stack teardown. After removing the current snapshot
+    /// the engine re-lists and removes any container that was missed or recreated by a restart policy.
+    /// Bounded so a genuinely un-removable container cannot spin forever.
+    /// </summary>
+    private const int MaxRemovalPasses = 3;
+
+    /// <summary>Attempts per container before a removal is treated as failed (transient Docker errors are retried).</summary>
+    private const int MaxRemoveAttemptsPerContainer = 3;
+
+    /// <summary>Back-off between container removal retries.</summary>
+    private static readonly TimeSpan RemoveRetryBackoff = TimeSpan.FromMilliseconds(500);
+
     private readonly IConfigStore _configStore;
     private readonly IDockerService _dockerService;
     private readonly IOrganizationRepository _organizationRepository;
@@ -56,6 +69,13 @@ public class DeploymentEngine : IDeploymentEngine
         _environmentRepository = environmentRepository;
         _logger = logger;
     }
+
+    /// <summary>
+    /// Back-off between retries of a transient container removal. Overridable so unit tests
+    /// can run the retry/verification loop without real delays.
+    /// </summary>
+    protected virtual Task DelayAsync(TimeSpan delay, CancellationToken cancellationToken)
+        => Task.Delay(delay, cancellationToken);
 
     public async Task<DeploymentPlan> GenerateDeploymentPlanAsync(ReleaseManifest manifest)
     {
@@ -524,7 +544,26 @@ public class DeploymentEngine : IDeploymentEngine
         return await ExecuteDeploymentAsync(plan);
     }
 
-    public async Task<DeploymentResult> RemoveStackAsync(string environmentId, string stackVersion)
+    public Task<DeploymentResult> RemoveStackAsync(string environmentId, string stackVersion)
+        => RemoveStackInternalAsync(environmentId, stackVersion, progressCallback: null);
+
+    public Task<DeploymentResult> RemoveStackAsync(string environmentId, string stackVersion, DeploymentProgressCallback? progressCallback)
+        => RemoveStackInternalAsync(environmentId, stackVersion, progressCallback);
+
+    /// <summary>
+    /// Robust stack teardown shared by both overloads. Removes every container carrying the
+    /// <c>rsgo.stack=stackVersion</c> label (survivors excluded), then re-lists and repeats until
+    /// none remain or <see cref="MaxRemovalPasses"/> is exhausted. Each individual removal is
+    /// retried up to <see cref="MaxRemoveAttemptsPerContainer"/> times on transient Docker errors
+    /// (e.g. "removal already in progress", "device or resource busy").
+    ///
+    /// The verification passes are the important part: a container that a restart policy recreates
+    /// mid-teardown — or that simply wasn't in the initial snapshot — would otherwise survive as an
+    /// orphan while the deployment is still reported as successfully removed. Success is therefore
+    /// keyed on the final re-list being empty, not merely on the first pass completing.
+    /// </summary>
+    private async Task<DeploymentResult> RemoveStackInternalAsync(
+        string environmentId, string stackVersion, DeploymentProgressCallback? progressCallback)
     {
         var result = new DeploymentResult
         {
@@ -537,101 +576,18 @@ public class DeploymentEngine : IDeploymentEngine
             _logger.LogInformation("Removing stack version {Version} from environment {EnvironmentId}",
                 stackVersion, environmentId);
 
-            // Get all containers with the rsgo.stack label matching stackVersion.
-            // Survival primitive: containers in the edge scope (rsgo.scope=edge) or carrying
-            // the generic rsgo.redeploy=ignore opt-out are NEVER torn down here — they live
-            // outside the product stack identity and must survive redeploys/removals.
-            var containers = await _dockerService.ListContainersAsync(environmentId);
-            var stackContainers = containers
-                .Where(c => c.Labels.TryGetValue("rsgo.stack", out var stack) && stack == stackVersion)
-                .Where(c => !IsSurvivorScoped(c))
-                .ToList();
-
-            if (!stackContainers.Any())
-            {
-                _logger.LogWarning("No containers found for stack {Version} in environment {EnvironmentId}",
-                    stackVersion, environmentId);
-            }
-
-            // Remove all containers for this stack
-            foreach (var container in stackContainers)
-            {
-                try
-                {
-                    _logger.LogInformation("Removing container {Name} ({Id})", container.Name, container.Id);
-                    await _dockerService.RemoveContainerAsync(environmentId, container.Id, force: true);
-
-                    // Extract context name from label
-                    if (container.Labels.TryGetValue("rsgo.context", out var contextName))
-                    {
-                        result.DeployedContexts.Add(contextName);
-                    }
-                    else
-                    {
-                        result.DeployedContexts.Add(container.Name);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to remove container {Name}", container.Name);
-                    result.Errors.Add($"Failed to remove {container.Name}: {ex.Message}");
-                }
-            }
-
-            // Clear release configuration
-            var releaseConfig = await _configStore.GetReleaseConfigAsync();
-            if (releaseConfig.InstalledStackVersion == stackVersion)
-            {
-                releaseConfig.InstalledStackVersion = null;
-                releaseConfig.InstalledContexts.Clear();
-                releaseConfig.InstallDate = null;
-                await _configStore.SaveReleaseConfigAsync(releaseConfig);
-            }
-
-            result.Success = result.Errors.Count == 0;
-            _logger.LogInformation("Stack removal completed for {Version}", stackVersion);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Stack removal failed");
-            result.Errors.Add($"Removal failed: {ex.Message}");
-            result.Success = false;
-        }
-
-        return result;
-    }
-
-    public async Task<DeploymentResult> RemoveStackAsync(string environmentId, string stackVersion, DeploymentProgressCallback? progressCallback)
-    {
-        var result = new DeploymentResult
-        {
-            StackVersion = stackVersion,
-            DeploymentTime = DateTime.UtcNow
-        };
-
-        try
-        {
-            _logger.LogInformation("Removing stack version {Version} from environment {EnvironmentId} with progress tracking",
-                stackVersion, environmentId);
-
             if (progressCallback != null)
             {
                 await progressCallback("Initializing", "Finding containers to remove...", 5, null, 0, 0, 0, 0);
             }
 
-            // Get all containers with the rsgo.stack label matching stackVersion.
-            // Survival primitive (see other overload): never tear down edge-scoped or
-            // rsgo.redeploy=ignore containers.
-            var containers = await _dockerService.ListContainersAsync(environmentId);
-            var stackContainers = containers
-                .Where(c => c.Labels.TryGetValue("rsgo.stack", out var stack) && stack == stackVersion)
-                .Where(c => !IsSurvivorScoped(c))
-                .ToList();
-
+            // Initial snapshot of the stack's containers (survivors excluded — see IsSurvivorScoped).
+            var stackContainers = await FindStackContainersAsync(environmentId, stackVersion);
             var totalContainers = stackContainers.Count;
             var removedCount = 0;
+            var removedContexts = new HashSet<string>();
 
-            if (!stackContainers.Any())
+            if (totalContainers == 0)
             {
                 _logger.LogWarning("No containers found for stack {Version} in environment {EnvironmentId}",
                     stackVersion, environmentId);
@@ -640,53 +596,60 @@ public class DeploymentEngine : IDeploymentEngine
                     await progressCallback("Complete", "No containers to remove", 100, null, 0, 0, 0, 0);
                 }
             }
-            else
+            else if (progressCallback != null)
             {
-                if (progressCallback != null)
+                await progressCallback("RemovingContainers", $"Found {totalContainers} container(s) to remove", 10, null, totalContainers, 0, 0, 0);
+            }
+
+            for (var pass = 1; pass <= MaxRemovalPasses && stackContainers.Count > 0; pass++)
+            {
+                if (pass > 1)
                 {
-                    await progressCallback("RemovingContainers", $"Found {totalContainers} container(s) to remove", 10, null, totalContainers, 0, 0, 0);
+                    _logger.LogInformation(
+                        "Stack {Version}: verification pass {Pass} found {Count} remaining container(s) to remove",
+                        stackVersion, pass, stackContainers.Count);
                 }
 
-                // Remove all containers for this stack
                 foreach (var container in stackContainers)
                 {
-                    try
+                    var containerName = container.Labels.TryGetValue("rsgo.context", out var ctx) ? ctx : container.Name;
+
+                    if (progressCallback != null)
                     {
-                        var containerName = container.Labels.TryGetValue("rsgo.context", out var ctx) ? ctx : container.Name;
-
-                        if (progressCallback != null)
-                        {
-                            var progressPercent = 10 + (int)((removedCount / (double)totalContainers) * 80);
-                            await progressCallback("RemovingContainers", $"Removing {containerName}...", progressPercent, containerName, totalContainers, removedCount, 0, 0);
-                        }
-
-                        _logger.LogInformation("Removing container {Name} ({Id})", container.Name, container.Id);
-                        await _dockerService.RemoveContainerAsync(environmentId, container.Id, force: true);
-
-                        removedCount++;
-
-                        // Extract context name from label
-                        if (container.Labels.TryGetValue("rsgo.context", out var contextName))
-                        {
-                            result.DeployedContexts.Add(contextName);
-                        }
-                        else
-                        {
-                            result.DeployedContexts.Add(container.Name);
-                        }
-
-                        if (progressCallback != null)
-                        {
-                            var progressPercent = 10 + (int)((removedCount / (double)totalContainers) * 80);
-                            await progressCallback("RemovingContainers", $"Removed {containerName}", progressPercent, null, totalContainers, removedCount, 0, 0);
-                        }
+                        await progressCallback("RemovingContainers", $"Removing {containerName}...",
+                            RemovalProgressPercent(removedCount, totalContainers), containerName, totalContainers, removedCount, 0, 0);
                     }
-                    catch (Exception ex)
+
+                    if (await TryRemoveContainerWithRetryAsync(environmentId, container, result))
                     {
-                        _logger.LogWarning(ex, "Failed to remove container {Name}", container.Name);
-                        result.Errors.Add($"Failed to remove {container.Name}: {ex.Message}");
+                        removedCount++;
+                        removedContexts.Add(containerName);
+
+                        if (progressCallback != null)
+                        {
+                            await progressCallback("RemovingContainers", $"Removed {containerName}",
+                                RemovalProgressPercent(removedCount, totalContainers), null, totalContainers, removedCount, 0, 0);
+                        }
                     }
                 }
+
+                // Re-list to catch containers missed by the snapshot or recreated by a restart policy.
+                stackContainers = await FindStackContainersAsync(environmentId, stackVersion);
+            }
+
+            result.DeployedContexts.AddRange(removedContexts);
+
+            // Anything still present after all passes is a genuine teardown failure. Record it so the
+            // caller does NOT mark the deployment as removed (which would turn the leftover into an orphan).
+            foreach (var leftover in stackContainers)
+            {
+                var name = leftover.Labels.TryGetValue("rsgo.context", out var c) ? c : leftover.Name;
+                if (!result.Errors.Any(e => e.Contains(name, StringComparison.Ordinal)))
+                {
+                    result.Errors.Add($"Container '{name}' still present after {MaxRemovalPasses} removal passes");
+                }
+                _logger.LogWarning("Container {Name} for stack {Version} could not be removed after {Passes} passes",
+                    name, stackVersion, MaxRemovalPasses);
             }
 
             if (progressCallback != null)
@@ -704,12 +667,20 @@ public class DeploymentEngine : IDeploymentEngine
                 await _configStore.SaveReleaseConfigAsync(releaseConfig);
             }
 
-            result.Success = result.Errors.Count == 0;
-            _logger.LogInformation("Stack removal completed for {Version}", stackVersion);
+            result.Success = result.Errors.Count == 0 && stackContainers.Count == 0;
+            _logger.LogInformation("Stack removal completed for {Version}: success={Success}, removed={Removed}",
+                stackVersion, result.Success, removedCount);
 
             if (progressCallback != null)
             {
-                await progressCallback("Complete", $"Successfully removed {removedCount} container(s)", 100, null, totalContainers, removedCount, 0, 0);
+                if (result.Success)
+                {
+                    await progressCallback("Complete", $"Successfully removed {removedCount} container(s)", 100, null, totalContainers, removedCount, 0, 0);
+                }
+                else
+                {
+                    await progressCallback("Error", $"Removal incomplete: {result.Errors.Count} container(s) could not be removed", 100, null, totalContainers, removedCount, 0, 0);
+                }
             }
         }
         catch (Exception ex)
@@ -725,6 +696,61 @@ public class DeploymentEngine : IDeploymentEngine
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Lists the stack's containers by the <c>rsgo.stack</c> label, excluding survivor-scoped
+    /// containers (edge scope / <c>rsgo.redeploy=ignore</c>) which must never be torn down here.
+    /// </summary>
+    private async Task<List<ContainerDto>> FindStackContainersAsync(string environmentId, string stackVersion)
+    {
+        var containers = await _dockerService.ListContainersAsync(environmentId);
+        return containers
+            .Where(c => c.Labels.TryGetValue("rsgo.stack", out var stack) && stack == stackVersion)
+            .Where(c => !IsSurvivorScoped(c))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Force-removes a single container, retrying on transient Docker errors. Returns true if the
+    /// container was removed, false if all attempts failed (an error is appended to <paramref name="result"/>).
+    /// </summary>
+    private async Task<bool> TryRemoveContainerWithRetryAsync(string environmentId, ContainerDto container, DeploymentResult result)
+    {
+        for (var attempt = 1; attempt <= MaxRemoveAttemptsPerContainer; attempt++)
+        {
+            try
+            {
+                _logger.LogInformation("Removing container {Name} ({Id}) [attempt {Attempt}/{Max}]",
+                    container.Name, container.Id, attempt, MaxRemoveAttemptsPerContainer);
+                await _dockerService.RemoveContainerAsync(environmentId, container.Id, force: true);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                if (attempt >= MaxRemoveAttemptsPerContainer)
+                {
+                    _logger.LogWarning(ex, "Failed to remove container {Name} after {Max} attempts",
+                        container.Name, MaxRemoveAttemptsPerContainer);
+                    result.Errors.Add($"Failed to remove {container.Name}: {ex.Message}");
+                    return false;
+                }
+
+                _logger.LogWarning(ex, "Transient failure removing container {Name} (attempt {Attempt}/{Max}); retrying",
+                    container.Name, attempt, MaxRemoveAttemptsPerContainer);
+                await DelayAsync(RemoveRetryBackoff, CancellationToken.None);
+            }
+        }
+
+        return false;
+    }
+
+    private static int RemovalProgressPercent(int removedCount, int totalContainers)
+    {
+        if (totalContainers <= 0) return 50;
+        // Clamp: verification passes can push removedCount toward totalContainers without exceeding the 10-90 band.
+        var ratio = Math.Min(1.0, removedCount / (double)totalContainers);
+        return 10 + (int)(ratio * 80);
     }
 
     private Dictionary<string, string> GenerateGlobalEnvVars(

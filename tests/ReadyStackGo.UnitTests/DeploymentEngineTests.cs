@@ -969,10 +969,12 @@ public class DeploymentEngineTests
     {
         // Arrange
         var progressUpdates = new List<(string Phase, int TotalInitContainers, int CompletedInitContainers)>();
+        var removedIds = new HashSet<string>();
 
+        // Simulate the daemon: a removed container no longer appears on the verification re-list.
         _dockerServiceMock
             .Setup(x => x.ListContainersAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<ContainerDto>
+            .ReturnsAsync(() => new List<ContainerDto>
             {
                 new()
                 {
@@ -983,10 +985,11 @@ public class DeploymentEngineTests
                     Status = "running",
                     Labels = new Dictionary<string, string> { ["rsgo.stack"] = "test-stack", ["rsgo.context"] = "api" }
                 }
-            });
+            }.Where(c => !removedIds.Contains(c.Id)).ToList());
 
         _dockerServiceMock
             .Setup(x => x.RemoveContainerAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, bool, CancellationToken>((_, id, _, _) => removedIds.Add(id))
             .Returns(Task.CompletedTask);
 
         _configStoreMock
