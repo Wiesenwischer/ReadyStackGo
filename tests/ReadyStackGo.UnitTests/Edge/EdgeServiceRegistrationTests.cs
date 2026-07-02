@@ -61,25 +61,34 @@ public class EdgeServiceRegistrationTests
     }
 
     /// <summary>
-    /// Regression guard for #446: the edge admin <c>/load</c> call is container-internal and must
-    /// never be routed through a forward proxy (<c>HTTP_PROXY</c>/<c>HTTPS_PROXY</c>). Otherwise,
-    /// in proxied environments, the POST is sent to the proxy, fails, and the edge never leaves
-    /// its bootstrap holding page — the maintenance page is shown forever.
+    /// Regression guard for #446: every HTTP client whose target is reachable directly — a
+    /// product container on the internal Docker network (edge admin, HTTP observer/setter, HTTP
+    /// health checks) or the PRTG server on the customer LAN — must bypass a forward proxy
+    /// (<c>HTTP_PROXY</c>/<c>HTTPS_PROXY</c>). Otherwise, in proxied environments, the call is
+    /// routed to the proxy and fails: the edge admin <c>/load</c> POST then strands the edge on
+    /// its holding page (the maintenance page is shown forever), and health/observer/setter/PRTG
+    /// all break the same way.
     /// </summary>
-    [Fact]
-    public void EdgeAdminHttpClient_BypassesForwardProxy()
+    [Theory]
+    [InlineData(CaddyAdminClient.HttpClientName)]
+    [InlineData("MaintenanceObserver")]
+    [InlineData("MaintenanceSetter")]
+    [InlineData("IHttpHealthChecker")] // typed client logical name = typeof(IHttpHealthChecker).Name
+    [InlineData("PrtgApiVerifyTls")]
+    [InlineData("PrtgApiNoVerifyTls")]
+    public void InternalHttpClients_BypassForwardProxy(string clientName)
     {
         var services = new ServiceCollection();
-        services.AddEdgeAdminHttpClient();
+        services.AddInternalHttpClients();
         using var provider = services.BuildServiceProvider();
 
         var factory = provider.GetRequiredService<IHttpMessageHandlerFactory>();
-        using var handler = factory.CreateHandler(CaddyAdminClient.HttpClientName);
+        using var handler = factory.CreateHandler(clientName);
 
         var primary = PrimaryHandler(handler);
         var httpClientHandler = Assert.IsType<HttpClientHandler>(primary);
         Assert.False(httpClientHandler.UseProxy,
-            "the internal edge admin client must not use a forward proxy (#446)");
+            $"internal/LAN client '{clientName}' must not use a forward proxy (#446)");
     }
 
     private static HttpMessageHandler PrimaryHandler(HttpMessageHandler handler)
