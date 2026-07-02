@@ -141,12 +141,8 @@ public static class DependencyInjection
         services.AddScoped<Application.Services.Edge.IEdgeReconciler, Application.Services.Impl.EdgeReconciler>();
         services.AddScoped<Application.Services.Edge.ISniRouterReconciler, Application.Services.Impl.SniRouterReconciler>();
 
-        // HTTP client for the Caddy admin API
-        services.AddHttpClient(Services.Edge.CaddyAdminClient.HttpClientName, client =>
-        {
-            client.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-Edge");
-            client.Timeout = TimeSpan.FromSeconds(10);
-        });
+        // HTTP client for the Caddy admin API (internal — must bypass any forward proxy).
+        services.AddEdgeAdminHttpClient();
 
         // HTTP client for the webhook setter
         services.AddHttpClient("MaintenanceSetter", client =>
@@ -224,6 +220,23 @@ public static class DependencyInjection
         services.AddScoped<OrganizationProvisioningService>();
         services.AddScoped<AuthenticationService>();
 
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the named <see cref="System.Net.Http.HttpClient"/> used to talk to a product
+    /// edge's Caddy admin API. This is always a container-internal call, so it must never
+    /// traverse a forward proxy (<c>HTTP_PROXY</c>/<c>HTTPS_PROXY</c>): otherwise, in
+    /// environments where a proxy is configured, the admin <c>/load</c> POST is routed to the
+    /// proxy, fails, and the edge never leaves its bootstrap holding page (issue #446).
+    /// </summary>
+    public static IServiceCollection AddEdgeAdminHttpClient(this IServiceCollection services)
+    {
+        services.AddHttpClient(Services.Edge.CaddyAdminClient.HttpClientName, client =>
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-Edge");
+            client.Timeout = TimeSpan.FromSeconds(10);
+        });
         return services;
     }
 }

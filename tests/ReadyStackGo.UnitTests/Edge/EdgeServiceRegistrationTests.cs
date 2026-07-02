@@ -1,3 +1,4 @@
+using System.Net.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -5,6 +6,7 @@ using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.Services.Edge;
 using ReadyStackGo.Application.Services.Impl;
 using ReadyStackGo.Domain.Deployment.ProductDeployments;
+using ReadyStackGo.Infrastructure;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Services.Edge;
 using Xunit;
@@ -56,5 +58,35 @@ public class EdgeServiceRegistrationTests
         });
 
         Assert.Null(ex);
+    }
+
+    /// <summary>
+    /// Regression guard for #446: the edge admin <c>/load</c> call is container-internal and must
+    /// never be routed through a forward proxy (<c>HTTP_PROXY</c>/<c>HTTPS_PROXY</c>). Otherwise,
+    /// in proxied environments, the POST is sent to the proxy, fails, and the edge never leaves
+    /// its bootstrap holding page — the maintenance page is shown forever.
+    /// </summary>
+    [Fact]
+    public void EdgeAdminHttpClient_BypassesForwardProxy()
+    {
+        var services = new ServiceCollection();
+        services.AddEdgeAdminHttpClient();
+        using var provider = services.BuildServiceProvider();
+
+        var factory = provider.GetRequiredService<IHttpMessageHandlerFactory>();
+        using var handler = factory.CreateHandler(CaddyAdminClient.HttpClientName);
+
+        var primary = PrimaryHandler(handler);
+        var httpClientHandler = Assert.IsType<HttpClientHandler>(primary);
+        Assert.False(httpClientHandler.UseProxy,
+            "the internal edge admin client must not use a forward proxy (#446)");
+    }
+
+    private static HttpMessageHandler PrimaryHandler(HttpMessageHandler handler)
+    {
+        var current = handler;
+        while (current is DelegatingHandler delegating && delegating.InnerHandler is not null)
+            current = delegating.InnerHandler;
+        return current;
     }
 }
