@@ -73,4 +73,14 @@ public interface IDeploymentNotificationService
         string containerName,
         string logLine,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Notify clients about product maintenance progress (stopping/starting containers
+    /// per stack and per container), including the terminal completed/failed update.
+    /// </summary>
+    /// <param name="update">The maintenance progress payload.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task NotifyMaintenanceProgressAsync(
+        MaintenanceProgressNotification update,
+        CancellationToken cancellationToken = default);
 }

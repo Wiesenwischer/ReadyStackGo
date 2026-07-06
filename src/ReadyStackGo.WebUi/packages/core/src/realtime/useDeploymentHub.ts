@@ -27,9 +27,29 @@ export interface InitContainerLogEntry {
   logLine: string;
 }
 
+// Progress for a product maintenance transition (entering = stopping, exiting = starting).
+// Backend payload gets converted to camelCase by SignalR JSON serialization.
+export interface MaintenanceProgressUpdate {
+  sessionId: string;
+  action: string;        // 'enter' | 'exit'
+  phase: string;         // 'InProgress' | 'Completed' | 'Failed'
+  currentStackName?: string;
+  currentStackDisplayName?: string;
+  stackIndex: number;
+  totalStacks: number;
+  currentContainer?: string;
+  containerIndex: number;
+  totalContainers: number;
+  message: string;
+  // Added by frontend handlers
+  isComplete?: boolean;
+  isError?: boolean;
+}
+
 export interface UseDeploymentHubOptions {
   onDeploymentProgress?: (update: DeploymentProgressUpdate) => void;
   onInitContainerLog?: (log: InitContainerLogEntry) => void;
+  onMaintenanceProgress?: (update: MaintenanceProgressUpdate) => void;
   onConnectionStateChanged?: (state: ConnectionState) => void;
 }
 
@@ -102,6 +122,15 @@ export function useDeploymentHub(token: string | null, options: UseDeploymentHub
 
     connection.on('InitContainerLog', (payload: InitContainerLogEntry) => {
       optionsRef.current.onInitContainerLog?.(payload);
+    });
+
+    connection.on('MaintenanceProgress', (payload: MaintenanceProgressUpdate) => {
+      const update: MaintenanceProgressUpdate = {
+        ...payload,
+        isComplete: payload.phase === 'Completed' || payload.phase === 'Failed',
+        isError: payload.phase === 'Failed',
+      };
+      optionsRef.current.onMaintenanceProgress?.(update);
     });
 
     // Connection state handlers

@@ -23,6 +23,7 @@ public class ChangeProductOperationModeHandler
     private readonly IDockerService _dockerService;
     private readonly IHealthNotificationService _healthNotificationService;
     private readonly IMaintenanceSetterService _maintenanceSetterService;
+    private readonly IDeploymentNotificationService _deploymentNotificationService;
     private readonly ILogger<ChangeProductOperationModeHandler> _logger;
 
     public ChangeProductOperationModeHandler(
@@ -31,6 +32,7 @@ public class ChangeProductOperationModeHandler
         IDockerService dockerService,
         IHealthNotificationService healthNotificationService,
         IMaintenanceSetterService maintenanceSetterService,
+        IDeploymentNotificationService deploymentNotificationService,
         ILogger<ChangeProductOperationModeHandler> logger)
     {
         _productDeploymentRepository = productDeploymentRepository;
@@ -38,6 +40,7 @@ public class ChangeProductOperationModeHandler
         _dockerService = dockerService;
         _healthNotificationService = healthNotificationService;
         _maintenanceSetterService = maintenanceSetterService;
+        _deploymentNotificationService = deploymentNotificationService;
         _logger = logger;
     }
 
@@ -141,7 +144,7 @@ public class ChangeProductOperationModeHandler
 
         // Handle container lifecycle and propagate operation mode to ALL child stacks
         await HandleContainerLifecycleAsync(
-            productDeployment, previousMode, targetMode, trigger, source, cancellationToken);
+            productDeployment, previousMode, targetMode, trigger, source, request.SessionId, cancellationToken);
 
         if (targetMode == OperationMode.Normal && fireSetter)
         {
@@ -162,36 +165,88 @@ public class ChangeProductOperationModeHandler
         OperationMode targetMode,
         MaintenanceTrigger? trigger,
         MaintenanceTriggerSource source,
+        string? sessionId,
         CancellationToken cancellationToken)
     {
         var environmentId = productDeployment.EnvironmentId.Value.ToString();
+        var isEnter = targetMode == OperationMode.Maintenance;
+        var isExit = previousMode == OperationMode.Maintenance && targetMode == OperationMode.Normal;
+        var action = isEnter ? "enter" : "exit";
 
-        foreach (var stack in productDeployment.Stacks)
+        // Only stacks that are actually running are affected — this is the real
+        // denominator for the "stack X of N" progress shown to the user.
+        var affectedStacks = productDeployment.Stacks
+            .Where(s => s.Status == StackDeploymentStatus.Running)
+            .ToList();
+        var totalStacks = affectedStacks.Count;
+
+        // Local helper: forwards a progress update to connected clients (no-op without a session).
+        async Task NotifyAsync(
+            string phase, string? stackName, string? stackDisplay, int stackIndex,
+            string? container, int containerIndex, int totalContainers, string message)
         {
-            if (stack.Status != StackDeploymentStatus.Running) continue;
+            if (sessionId == null) return;
+
+            try
+            {
+                await _deploymentNotificationService.NotifyMaintenanceProgressAsync(
+                    new MaintenanceProgressNotification(
+                        sessionId, action, phase, stackName, stackDisplay,
+                        stackIndex, totalStacks, container, containerIndex, totalContainers, message),
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to send maintenance progress for session {SessionId}", sessionId);
+            }
+        }
+
+        var stackIndex = 0;
+
+        foreach (var stack in affectedStacks)
+        {
+            stackIndex++;
+            var currentStackIndex = stackIndex;
 
             try
             {
                 // Propagate operation mode to child Deployment aggregate
                 PropagateOperationModeToChildDeployment(stack, targetMode, trigger, source);
 
-                if (targetMode == OperationMode.Maintenance)
+                // Mark the stack active before enumerating its containers (which can take a moment).
+                await NotifyAsync(
+                    "InProgress", stack.StackName, stack.StackDisplayName, currentStackIndex,
+                    null, 0, 0,
+                    isEnter
+                        ? $"Stopping stack {stack.StackDisplayName}"
+                        : $"Starting stack {stack.StackDisplayName}");
+
+                // NotifyAsync is a no-op without a session, so this callback is safe to pass always.
+                Task OnContainer(StackContainerProgress cp) => NotifyAsync(
+                    "InProgress", stack.StackName, stack.StackDisplayName, currentStackIndex,
+                    cp.ContainerName, cp.Index, cp.Total,
+                    isEnter
+                        ? $"Stopping {cp.ContainerName} ({cp.Index}/{cp.Total})"
+                        : $"Starting {cp.ContainerName} ({cp.Index}/{cp.Total})");
+
+                if (isEnter)
                 {
                     _logger.LogInformation(
                         "Stopping containers for stack {StackName} (product maintenance)",
                         stack.StackName);
 
                     await _dockerService.StopStackContainersAsync(
-                        environmentId, stack.DeploymentStackName!, cancellationToken);
+                        environmentId, stack.DeploymentStackName!, OnContainer, cancellationToken);
                 }
-                else if (previousMode == OperationMode.Maintenance && targetMode == OperationMode.Normal)
+                else if (isExit)
                 {
                     _logger.LogInformation(
                         "Starting containers for stack {StackName} (product maintenance exit)",
                         stack.StackName);
 
                     await _dockerService.StartStackContainersAsync(
-                        environmentId, stack.DeploymentStackName!, cancellationToken);
+                        environmentId, stack.DeploymentStackName!, OnContainer, cancellationToken);
                 }
             }
             catch (Exception ex)
@@ -203,6 +258,11 @@ public class ChangeProductOperationModeHandler
         }
 
         _deploymentRepository.SaveChanges();
+
+        // Terminal update so the UI can flip every stack to done and leave the processing view.
+        await NotifyAsync(
+            "Completed", null, null, totalStacks, null, 0, 0,
+            isEnter ? "All containers stopped" : "All containers started");
     }
 
     private void PropagateOperationModeToChildDeployment(
