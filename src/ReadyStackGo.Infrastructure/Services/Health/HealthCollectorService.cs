@@ -107,14 +107,15 @@ public class HealthCollectorService : IHealthCollectorService
 
                 // Track health changes and create in-app notifications.
                 // Suppress during install/upgrade so the per-product result is the
-                // sole signal the user sees for the deploy. Also suppress while
-                // the parent product is in Maintenance — every service goes down
-                // by design and we don't want 40+ Service-Health-Changed
-                // notifications for one planned event (issue #391).
+                // sole signal the user sees for the deploy. Also suppress while the
+                // parent product is in Maintenance or mid-transition (deploy/upgrade/
+                // remove/redeploy) — every service goes down by design and we don't
+                // want dozens of Service-Health-Changed notifications for one planned
+                // event (issue #391; redeploy churn).
                 var serviceStatuses = dto.Self.Services
                     .Select(s => new ServiceHealthUpdate(s.Name, s.Status))
                     .ToList();
-                var suppress = deployment.IsInProgress || IsParentInMaintenance(deployment.Id);
+                var suppress = deployment.IsInProgress || ShouldSuppressForParent(deployment.Id);
                 await _healthChangeTracker.ProcessHealthUpdateAsync(
                     deployment.Id.Value.ToString(),
                     deployment.StackName,
@@ -209,7 +210,8 @@ public class HealthCollectorService : IHealthCollectorService
 
             // Track health changes and create in-app notifications.
             // Suppress during install/upgrade (defense in depth — the Running-only
-            // filter above already blocks this path, but keep the signal explicit).
+            // filter above already blocks this path, but keep the signal explicit),
+            // and while the parent product is in Maintenance or mid-transition.
             var serviceStatuses = dto.Self.Services
                 .Select(s => new ServiceHealthUpdate(s.Name, s.Status))
                 .ToList();
@@ -217,7 +219,7 @@ public class HealthCollectorService : IHealthCollectorService
                 deploymentId.Value.ToString(),
                 deployment.StackName,
                 serviceStatuses,
-                deployment.IsInProgress,
+                deployment.IsInProgress || ShouldSuppressForParent(deploymentId),
                 cancellationToken);
 
             // Notify about deployment health change (SignalR real-time)
@@ -319,13 +321,19 @@ public class HealthCollectorService : IHealthCollectorService
     }
 
     /// <summary>
-    /// Returns true if the stack deployment belongs to a ProductDeployment that
-    /// is currently in Maintenance mode. Used to suppress per-service health
-    /// notifications during planned maintenance (issue #391).
+    /// Returns true if the stack deployment belongs to a ProductDeployment that is
+    /// currently a source of expected, self-inflicted health churn — either in
+    /// Maintenance mode (issue #391) or mid-transition (Deploying/Upgrading/Removing/
+    /// Redeploying). In all of these cases every service goes down and back up by
+    /// design, so per-service "Service Health Changed" notifications are noise that
+    /// would drown out the single per-product result the user actually cares about.
     /// </summary>
-    private bool IsParentInMaintenance(DeploymentId deploymentId)
+    private bool ShouldSuppressForParent(DeploymentId deploymentId)
     {
         var parent = _productDeploymentRepository.GetByStackDeploymentId(deploymentId);
-        return parent is not null && parent.OperationMode == ReadyStackGo.Domain.Deployment.Health.OperationMode.Maintenance;
+        if (parent is null) return false;
+
+        return parent.OperationMode == ReadyStackGo.Domain.Deployment.Health.OperationMode.Maintenance
+               || parent.IsInProgress;
     }
 }
