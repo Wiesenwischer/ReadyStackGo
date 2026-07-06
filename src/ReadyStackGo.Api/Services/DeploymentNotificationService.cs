@@ -145,4 +145,15 @@ public class DeploymentNotificationService : IDeploymentNotificationService
             .Group(groupName)
             .SendAsync("InitContainerLog", payload, cancellationToken);
     }
+
+    public async Task NotifyMaintenanceProgressAsync(
+        MaintenanceProgressNotification update,
+        CancellationToken cancellationToken = default)
+    {
+        var groupName = $"deployment:{update.SessionId}";
+
+        await _hubContext.Clients
+            .Group(groupName)
+            .SendAsync("MaintenanceProgress", update, cancellationToken);
+    }
 }

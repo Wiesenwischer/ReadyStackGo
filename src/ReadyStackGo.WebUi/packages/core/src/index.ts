@@ -39,6 +39,7 @@ export {
   useDeploymentHub,
   type DeploymentProgressUpdate,
   type InitContainerLogEntry,
+  type MaintenanceProgressUpdate,
   type UseDeploymentHubOptions,
   type UseDeploymentHubReturn,
 } from './realtime/useDeploymentHub';
@@ -70,7 +71,7 @@ export { useRedeployProductStore, type UseRedeployProductStoreReturn, type Redep
 export { useDeploymentsStore, type UseDeploymentsStoreReturn } from './hooks/useDeploymentsStore';
 export { useRestartProductStore, type UseRestartProductStoreReturn, type RestartProductState } from './hooks/useRestartProductStore';
 export { useStopProductStore, type UseStopProductStoreReturn, type StopProductState } from './hooks/useStopProductStore';
-export { useMaintenanceProductStore, type UseMaintenanceProductStoreReturn, type MaintenanceProductState, type MaintenanceAction } from './hooks/useMaintenanceProductStore';
+export { useMaintenanceProductStore, type UseMaintenanceProductStoreReturn, type MaintenanceProductState, type MaintenanceAction, type MaintenanceStackStatus } from './hooks/useMaintenanceProductStore';
 export { useProductDeploymentDetailStore, type UseProductDeploymentDetailStoreReturn, type ProductDeploymentDetailState } from './hooks/useProductDeploymentDetailStore';
 export { useDeploymentDetailStore, type UseDeploymentDetailStoreReturn } from './hooks/useDeploymentDetailStore';
 export { useDeployProductStore, type UseDeployProductStoreReturn, type DeployProductState, type DeployProductRestoreState } from './hooks/useDeployProductStore';

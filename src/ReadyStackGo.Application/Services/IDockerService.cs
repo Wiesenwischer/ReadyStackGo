@@ -2,6 +2,14 @@ using ReadyStackGo.Application.UseCases.Containers;
 
 namespace ReadyStackGo.Application.Services;
 
+/// <summary>
+/// Per-container progress reported while stopping or starting the containers of a stack.
+/// </summary>
+/// <param name="ContainerName">Name of the container currently being processed.</param>
+/// <param name="Index">1-based position of this container within the stack.</param>
+/// <param name="Total">Total number of containers being processed for the stack.</param>
+public record StackContainerProgress(string ContainerName, int Index, int Total);
+
 public interface IDockerService
 {
     /// <summary>
@@ -83,6 +91,21 @@ public interface IDockerService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Stops all containers belonging to a stack, reporting per-container progress
+    /// before each container is stopped.
+    /// </summary>
+    /// <param name="environmentId">Environment ID</param>
+    /// <param name="stackName">Stack name (rsgo.stack label value)</param>
+    /// <param name="onContainerProgress">Callback invoked before each container is stopped.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of container IDs that were stopped</returns>
+    Task<IReadOnlyList<string>> StopStackContainersAsync(
+        string environmentId,
+        string stackName,
+        Func<StackContainerProgress, Task> onContainerProgress,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Starts all containers belonging to a stack (identified by rsgo.stack label).
     /// Containers with rsgo.maintenance=ignore label will be excluded.
     /// </summary>
@@ -93,6 +116,21 @@ public interface IDockerService
     Task<IReadOnlyList<string>> StartStackContainersAsync(
         string environmentId,
         string stackName,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Starts all containers belonging to a stack, reporting per-container progress
+    /// before each container is started.
+    /// </summary>
+    /// <param name="environmentId">Environment ID</param>
+    /// <param name="stackName">Stack name (rsgo.stack label value)</param>
+    /// <param name="onContainerProgress">Callback invoked before each container is started.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of container IDs that were started</returns>
+    Task<IReadOnlyList<string>> StartStackContainersAsync(
+        string environmentId,
+        string stackName,
+        Func<StackContainerProgress, Task> onContainerProgress,
         CancellationToken cancellationToken = default);
 
     /// <summary>

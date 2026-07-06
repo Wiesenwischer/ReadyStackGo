@@ -2,6 +2,7 @@ import { useParams, Link } from 'react-router';
 import { useMaintenanceProductStore } from '@rsgo/core';
 import { useAuth } from '../../context/AuthContext';
 import { useEnvironment } from '../../context/EnvironmentContext';
+import MaintenanceProgressView from './MaintenanceProgressView';
 
 export default function ExitMaintenanceProduct() {
   const { productDeploymentId } = useParams<{ productDeploymentId: string }>();
@@ -92,43 +93,12 @@ export default function ExitMaintenanceProduct() {
   // --- Processing state ---
   if (store.state === 'processing') {
     return (
-      <div className="mx-auto max-w-screen-xl p-4 md:p-6 2xl:p-10">
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-white/[0.03]">
-          <div className="flex flex-col items-center py-8">
-            <div className="w-16 h-16 mb-6 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Exiting Maintenance Mode...
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Starting containers for {store.deployment?.productDisplayName}
-            </p>
-
-            <div className="w-full max-w-lg">
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                {store.deployment?.stacks
-                  .slice()
-                  .sort((a, b) => a.order - b.order)
-                  .map((stack) => (
-                    <div
-                      key={stack.stackName}
-                      className="flex items-center justify-between px-4 py-3 border-b last:border-b-0 border-gray-200 dark:border-gray-700"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-                        <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                          {stack.stackDisplayName}
-                        </span>
-                      </div>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {stack.serviceCount} service{stack.serviceCount !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <MaintenanceProgressView
+        action="exit"
+        stacks={store.deployment?.stacks ?? []}
+        stackStatuses={store.stackStatuses}
+        progress={store.progress}
+      />
     );
   }
 

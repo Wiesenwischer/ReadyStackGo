@@ -712,10 +712,24 @@ public class DockerService : IDockerService, IDisposable
         }
     }
 
-    public async Task<IReadOnlyList<string>> StopStackContainersAsync(
+    public Task<IReadOnlyList<string>> StopStackContainersAsync(
         string environmentId,
         string stackName,
         CancellationToken cancellationToken = default)
+        => StopStackContainersCoreAsync(environmentId, stackName, null, cancellationToken);
+
+    public Task<IReadOnlyList<string>> StopStackContainersAsync(
+        string environmentId,
+        string stackName,
+        Func<StackContainerProgress, Task> onContainerProgress,
+        CancellationToken cancellationToken = default)
+        => StopStackContainersCoreAsync(environmentId, stackName, onContainerProgress, cancellationToken);
+
+    private async Task<IReadOnlyList<string>> StopStackContainersCoreAsync(
+        string environmentId,
+        string stackName,
+        Func<StackContainerProgress, Task>? onContainerProgress,
+        CancellationToken cancellationToken)
     {
         _logger.LogInformation(
             "Stopping containers for stack {StackName} in environment {EnvironmentId}",
@@ -730,9 +744,17 @@ public class DockerService : IDockerService, IDisposable
             .ToList();
 
         var stoppedIds = new List<string>();
+        var index = 0;
 
         foreach (var container in stackContainers)
         {
+            index++;
+            if (onContainerProgress != null)
+            {
+                await onContainerProgress(new StackContainerProgress(
+                    NormalizeContainerName(container.Name), index, stackContainers.Count));
+            }
+
             try
             {
                 _logger.LogDebug("Stopping container {Name} ({Id})", container.Name, container.Id);
@@ -752,10 +774,24 @@ public class DockerService : IDockerService, IDisposable
         return stoppedIds;
     }
 
-    public async Task<IReadOnlyList<string>> StartStackContainersAsync(
+    public Task<IReadOnlyList<string>> StartStackContainersAsync(
         string environmentId,
         string stackName,
         CancellationToken cancellationToken = default)
+        => StartStackContainersCoreAsync(environmentId, stackName, null, cancellationToken);
+
+    public Task<IReadOnlyList<string>> StartStackContainersAsync(
+        string environmentId,
+        string stackName,
+        Func<StackContainerProgress, Task> onContainerProgress,
+        CancellationToken cancellationToken = default)
+        => StartStackContainersCoreAsync(environmentId, stackName, onContainerProgress, cancellationToken);
+
+    private async Task<IReadOnlyList<string>> StartStackContainersCoreAsync(
+        string environmentId,
+        string stackName,
+        Func<StackContainerProgress, Task>? onContainerProgress,
+        CancellationToken cancellationToken)
     {
         _logger.LogInformation(
             "Starting containers for stack {StackName} in environment {EnvironmentId}",
@@ -770,9 +806,17 @@ public class DockerService : IDockerService, IDisposable
             .ToList();
 
         var startedIds = new List<string>();
+        var index = 0;
 
         foreach (var container in stackContainers)
         {
+            index++;
+            if (onContainerProgress != null)
+            {
+                await onContainerProgress(new StackContainerProgress(
+                    NormalizeContainerName(container.Name), index, stackContainers.Count));
+            }
+
             try
             {
                 _logger.LogDebug("Starting container {Name} ({Id})", container.Name, container.Id);
@@ -791,6 +835,10 @@ public class DockerService : IDockerService, IDisposable
 
         return startedIds;
     }
+
+    // Docker container names are often reported with a leading slash; strip it for display.
+    private static string NormalizeContainerName(string name) =>
+        name.StartsWith('/') ? name[1..] : name;
 
     public async Task<int?> GetContainerExitCodeAsync(string environmentId, string containerId, CancellationToken cancellationToken = default)
     {
