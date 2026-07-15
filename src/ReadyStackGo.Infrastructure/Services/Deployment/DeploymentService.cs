@@ -439,7 +439,31 @@ public class DeploymentService : IDeploymentService
         }
     }
 
-    public async Task<DeployComposeResponse> RemoveDeploymentAsync(string environmentId, string stackName)
+    public Task<DeployComposeResponse> RemoveDeploymentAsync(string environmentId, string stackName)
+        => RemoveDeploymentCoreAsync(environmentId, stackName, engineCallback: null);
+
+    public Task<DeployComposeResponse> RemoveDeploymentAsync(
+        string environmentId, string stackName, Func<StackContainerProgress, Task> onContainerProgress)
+        => RemoveDeploymentCoreAsync(environmentId, stackName, BuildRemovalContainerCallback(onContainerProgress));
+
+    // Adapt the engine's rich removal progress to a simple per-container signal: forward only
+    // the "about to remove container X" ticks (those carry a container name), so the caller can
+    // surface "Removing web-1 (2/8)" without knowing the engine's phase vocabulary.
+    private static DeploymentProgressCallback BuildRemovalContainerCallback(
+        Func<StackContainerProgress, Task> onContainerProgress)
+    {
+        return async (phase, _, _, currentService, totalServices, completedServices, _, _) =>
+        {
+            if (phase == "RemovingContainers" && !string.IsNullOrEmpty(currentService) && totalServices > 0)
+            {
+                await onContainerProgress(new StackContainerProgress(
+                    currentService!, completedServices + 1, totalServices));
+            }
+        };
+    }
+
+    private async Task<DeployComposeResponse> RemoveDeploymentCoreAsync(
+        string environmentId, string stackName, DeploymentProgressCallback? engineCallback)
     {
         try
         {
@@ -457,7 +481,7 @@ public class DeploymentService : IDeploymentService
             }
 
             // Remove the stack using the deployment engine
-            var result = await _deploymentEngine.RemoveStackAsync(environmentId, stackName);
+            var result = await _deploymentEngine.RemoveStackAsync(environmentId, stackName, engineCallback);
 
             if (!result.Success)
             {

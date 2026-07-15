@@ -55,7 +55,13 @@ export function useRedeployProductStore(
       if (update.currentService) {
         const stackName = update.currentService;
         if (update.message?.startsWith('Removing stack')) {
+          // Mark this stack active so subsequent per-container removal events
+          // (non-'ProductDeploy' phase) are routed to its detail panel.
+          currentDeployingStackRef.current = stackName;
           setStackStatuses(prev => ({ ...prev, [stackName]: 'removing' }));
+          if (!userSelectedStackRef.current) {
+            setSelectedStack(stackName);
+          }
         } else if (update.message?.startsWith('Redeploying stack')) {
           currentDeployingStackRef.current = stackName;
           setStackStatuses(prev => ({ ...prev, [stackName]: 'deploying' }));
