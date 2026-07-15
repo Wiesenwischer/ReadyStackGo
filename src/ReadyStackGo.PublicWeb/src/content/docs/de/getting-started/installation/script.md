@@ -34,7 +34,7 @@ Das Bootstrap-Script führt automatisch folgende Schritte aus:
 | **1. Systemprüfung** | Erkennt deine Linux-Distribution und Paketmanager |
 | **2. Docker-Installation** | Installiert Docker falls nicht vorhanden (via `get.docker.com`) |
 | **3. Docker-Start** | Startet und aktiviert den Docker-Dienst |
-| **4. Verzeichnisstruktur** | Erstellt `/var/readystackgo` für persistente Daten |
+| **4. Volumes** | Legt die benannten Volumes `readystackgo-config`, `readystackgo-data` und `readystackgo-stacks` für persistente Daten an |
 | **5. Container-Start** | Lädt und startet den ReadyStackGo-Container |
 
 ---
@@ -65,7 +65,7 @@ Erfolgreiche Ausgabe:
 
 ```
 CONTAINER ID   IMAGE                              STATUS         PORTS                    NAMES
-abc123...      ghcr.io/ams/readystackgo:latest    Up 2 minutes   0.0.0.0:8080->8080/tcp   readystackgo
+abc123...      wiesenwischer/readystackgo:latest  Up 2 minutes   0.0.0.0:8080->8080/tcp   readystackgo
 ```
 
 ---
