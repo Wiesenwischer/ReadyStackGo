@@ -21,13 +21,7 @@ sudo systemctl start docker
 
 ## Installation
 
-### Schritt 1: Datenverzeichnis erstellen
-
-```bash
-sudo mkdir -p /var/readystackgo
-```
-
-### Schritt 2: Container starten
+### Container starten
 
 ```bash
 docker run -d \
@@ -35,9 +29,13 @@ docker run -d \
   --restart unless-stopped \
   -p 8080:8080 \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v /var/readystackgo:/data \
-  ghcr.io/ams/readystackgo:latest
+  -v readystackgo-config:/app/config \
+  -v readystackgo-data:/app/data \
+  -v readystackgo-stacks:/app/stacks \
+  wiesenwischer/readystackgo:latest
 ```
+
+Die benannten Volumes werden von Docker beim ersten Start automatisch angelegt – du musst vorab kein Verzeichnis erstellen.
 
 ---
 
@@ -50,7 +48,9 @@ docker run -d \
 | `--restart unless-stopped` | Automatischer Neustart nach System-Reboot |
 | `-p 8080:8080` | Port-Mapping (Host:Container) |
 | `-v /var/run/docker.sock:...` | Docker Socket für Container-Management |
-| `-v /var/readystackgo:/data` | Persistente Daten (Konfiguration, Deployments) |
+| `-v readystackgo-config:/app/config` | Persistente Konfiguration |
+| `-v readystackgo-data:/app/data` | Datenbank und Verschlüsselungsschlüssel (**kritisch** – ohne dieses Volume gehen bei einem Neustart alle verschlüsselten Zugangsdaten verloren) |
+| `-v readystackgo-stacks:/app/stacks` | Stack-Definitionen |
 
 ---
 
@@ -64,8 +64,10 @@ docker run -d \
   --restart unless-stopped \
   -p 3000:8080 \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v /var/readystackgo:/data \
-  ghcr.io/ams/readystackgo:latest
+  -v readystackgo-config:/app/config \
+  -v readystackgo-data:/app/data \
+  -v readystackgo-stacks:/app/stacks \
+  wiesenwischer/readystackgo:latest
 ```
 
 In diesem Beispiel ist ReadyStackGo unter Port `3000` erreichbar.
@@ -86,7 +88,7 @@ Erfolgreiche Ausgabe:
 
 ```
 CONTAINER ID   IMAGE                              STATUS         PORTS                    NAMES
-abc123...      ghcr.io/ams/readystackgo:latest    Up 2 minutes   0.0.0.0:8080->8080/tcp   readystackgo
+abc123...      wiesenwischer/readystackgo:latest  Up 2 minutes   0.0.0.0:8080->8080/tcp   readystackgo
 ```
 
 ---

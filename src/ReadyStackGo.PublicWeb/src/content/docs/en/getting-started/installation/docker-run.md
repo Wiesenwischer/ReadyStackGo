@@ -21,13 +21,7 @@ sudo systemctl start docker
 
 ## Installation
 
-### Step 1: Create Data Directory
-
-```bash
-sudo mkdir -p /var/readystackgo
-```
-
-### Step 2: Start Container
+### Start Container
 
 ```bash
 docker run -d \
@@ -35,9 +29,13 @@ docker run -d \
   --restart unless-stopped \
   -p 8080:8080 \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v /var/readystackgo:/data \
-  ghcr.io/ams/readystackgo:latest
+  -v readystackgo-config:/app/config \
+  -v readystackgo-data:/app/data \
+  -v readystackgo-stacks:/app/stacks \
+  wiesenwischer/readystackgo:latest
 ```
+
+The named volumes are created automatically by Docker on first start – you do not need to create a directory beforehand.
 
 ---
 
@@ -50,7 +48,9 @@ docker run -d \
 | `--restart unless-stopped` | Auto-restart after system reboot |
 | `-p 8080:8080` | Port mapping (Host:Container) |
 | `-v /var/run/docker.sock:...` | Docker socket for container management |
-| `-v /var/readystackgo:/data` | Persistent data (configuration, deployments) |
+| `-v readystackgo-config:/app/config` | Persistent configuration |
+| `-v readystackgo-data:/app/data` | Database and encryption key (**critical** – without this volume all encrypted credentials are lost on restart) |
+| `-v readystackgo-stacks:/app/stacks` | Stack definitions |
 
 ---
 
@@ -64,8 +64,10 @@ docker run -d \
   --restart unless-stopped \
   -p 3000:8080 \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v /var/readystackgo:/data \
-  ghcr.io/ams/readystackgo:latest
+  -v readystackgo-config:/app/config \
+  -v readystackgo-data:/app/data \
+  -v readystackgo-stacks:/app/stacks \
+  wiesenwischer/readystackgo:latest
 ```
 
 In this example, ReadyStackGo is accessible on port `3000`.
