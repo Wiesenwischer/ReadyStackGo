@@ -180,7 +180,8 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
                 phase: "Removing");
 
             var removeResult = await _deploymentService.RemoveDeploymentAsync(
-                request.EnvironmentId, stackDeploymentName);
+                request.EnvironmentId, stackDeploymentName,
+                cp => NotifyRemovingContainerAsync(sessionId, stack.StackName, cp, cancellationToken));
             if (!removeResult.Success)
             {
                 _logger.LogWarning(
@@ -390,6 +391,31 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Failed to send product redeploy progress notification");
+        }
+    }
+
+    private async Task NotifyRemovingContainerAsync(
+        string sessionId, string stackName, StackContainerProgress cp, CancellationToken ct)
+    {
+        if (_notificationService == null) return;
+
+        try
+        {
+            // Non-"ProductDeploy" phase → the frontend routes this to the per-stack detail
+            // panel of the stack currently being removed (see useRedeployProductStore).
+            await _notificationService.NotifyProgressAsync(
+                sessionId,
+                "RemovingContainer",
+                $"Removing {cp.ContainerName} ({cp.Index}/{cp.Total})",
+                0,
+                stackName,
+                cp.Total,
+                cp.Index,
+                0, 0, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to send per-container removal progress notification");
         }
     }
 
