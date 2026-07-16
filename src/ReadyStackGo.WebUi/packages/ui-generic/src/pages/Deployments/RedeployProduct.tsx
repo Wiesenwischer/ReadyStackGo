@@ -254,7 +254,7 @@ export default function RedeployProduct() {
                   <div className="flex items-center gap-3 p-4 rounded-lg bg-orange-50 dark:bg-orange-900/10">
                     <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
                     <p className="text-sm text-orange-700 dark:text-orange-300">
-                      Removing existing stack before redeploy...
+                      {selectedProgress?.message ?? 'Removing existing stack before redeploy...'}
                     </p>
                   </div>
                 </div>

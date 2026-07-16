@@ -71,6 +71,15 @@ public interface IDeploymentService
     Task<DeployComposeResponse> RemoveDeploymentAsync(string environmentId, string stackName);
 
     /// <summary>
+    /// Remove a deployed stack by stack name, reporting per-container progress as each
+    /// container is torn down.
+    /// </summary>
+    Task<DeployComposeResponse> RemoveDeploymentAsync(
+        string environmentId,
+        string stackName,
+        Func<StackContainerProgress, Task> onContainerProgress);
+
+    /// <summary>
     /// Marks a deployment as removed in the database without calling Docker.
     /// Use as fallback when Docker removal fails but the DB record must still be cleaned up.
     /// </summary>
