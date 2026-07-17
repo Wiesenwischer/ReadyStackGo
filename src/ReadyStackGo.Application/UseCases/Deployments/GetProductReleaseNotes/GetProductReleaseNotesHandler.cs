@@ -53,15 +53,24 @@ public class GetProductReleaseNotesHandler
             return GetProductReleaseNotesResponse.Failed("Version not found in catalog.");
         }
 
-        // Prefer own CHANGELOG.md (safe to render) over an external URL.
-        if (!string.IsNullOrWhiteSpace(definition.ChangelogMarkdown))
+        var availableLocales = definition.AvailableChangelogLocales;
+
+        // Prefer own CHANGELOG (safe to render) over an external URL. Resolution order:
+        //   1. localized changelog matching the requested locale (exact, then language-only),
+        //   2. language-neutral CHANGELOG.md,
+        //   3. first available localized changelog (stable order),
+        //   4. external release-notes URL.
+        var (content, resolvedLocale) = ResolveChangelog(definition, request.Locale);
+        if (content != null)
         {
             return new GetProductReleaseNotesResponse
             {
                 Success = true,
                 Mode = "markdown",
-                Content = definition.ChangelogMarkdown,
-                Version = definition.ProductVersion
+                Content = content,
+                Version = definition.ProductVersion,
+                Locale = resolvedLocale,
+                AvailableLocales = availableLocales
             };
         }
 
@@ -77,5 +86,41 @@ public class GetProductReleaseNotesHandler
         }
 
         return GetProductReleaseNotesResponse.Failed("No release notes available for this version.");
+    }
+
+    /// <summary>
+    /// Resolves the changelog markdown for a requested locale. Returns the content and the
+    /// language code that was actually served (null for the language-neutral changelog).
+    /// </summary>
+    private static (string? Content, string? ResolvedLocale) ResolveChangelog(
+        Domain.StackManagement.Stacks.ProductDefinition definition, string? requestedLocale)
+    {
+        var localized = definition.LocalizedChangelogs;
+
+        if (localized.Count > 0 && !string.IsNullOrWhiteSpace(requestedLocale))
+        {
+            var normalized = requestedLocale.Trim().ToLowerInvariant();
+
+            // Exact match (e.g. "de-DE"), then language-only match (e.g. "de").
+            if (localized.TryGetValue(normalized, out var exact) && !string.IsNullOrWhiteSpace(exact))
+                return (exact, normalized);
+
+            var languageOnly = normalized.Split('-')[0];
+            var match = localized.Keys.FirstOrDefault(k =>
+                string.Equals(k.Split('-')[0], languageOnly, StringComparison.OrdinalIgnoreCase));
+            if (match != null && !string.IsNullOrWhiteSpace(localized[match]))
+                return (localized[match], match);
+        }
+
+        // Language-neutral fallback.
+        if (!string.IsNullOrWhiteSpace(definition.ChangelogMarkdown))
+            return (definition.ChangelogMarkdown, null);
+
+        // First available localized changelog (stable order) as a last resort.
+        var first = definition.AvailableChangelogLocales.FirstOrDefault();
+        if (first != null && localized.TryGetValue(first, out var firstContent) && !string.IsNullOrWhiteSpace(firstContent))
+            return (firstContent, first);
+
+        return (null, null);
     }
 }

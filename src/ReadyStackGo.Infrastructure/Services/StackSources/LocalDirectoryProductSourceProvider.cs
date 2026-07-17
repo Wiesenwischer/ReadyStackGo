@@ -286,10 +286,11 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
                 productName, stack.Variables.Count, stack.Services.Count);
         }
 
-        // Release notes: explicit URL from the manifest, plus an optional CHANGELOG.md
-        // sitting next to the manifest (preferred over the URL when present).
+        // Release notes: explicit URL from the manifest, plus optional CHANGELOG.md files
+        // sitting next to the manifest. A language-neutral CHANGELOG.md is the default/
+        // fallback; CHANGELOG.<locale>.md files provide localized variants (e.g. de/en).
         var releaseNotesUrl = manifest.Metadata?.ReleaseNotesUrl;
-        var changelogMarkdown = TryReadChangelog(filePath);
+        var (changelogMarkdown, localizedChangelogs) = TryReadChangelogs(filePath);
 
         return new ProductDefinition(
             sourceId: sourceId,
@@ -307,34 +308,58 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
             releaseNotesUrl: releaseNotesUrl,
             changelogMarkdown: changelogMarkdown,
             maintenanceSetter: maintenanceSetter,
-            edge: edge);
+            edge: edge,
+            localizedChangelogs: localizedChangelogs);
     }
 
+    // Matches a localized changelog file name: CHANGELOG.<locale>.md, where locale is a
+    // language code, optionally with a region (e.g. "de", "en", "de-DE", "pt-BR").
+    private static readonly System.Text.RegularExpressions.Regex LocalizedChangelogPattern =
+        new(@"^CHANGELOG\.([A-Za-z]{2}(?:-[A-Za-z]{2})?)\.md$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
     /// <summary>
-    /// Reads a CHANGELOG.md sitting next to the manifest, if present. Best-effort:
-    /// returns null on missing file or read errors.
+    /// Reads the changelog files sitting next to the manifest. Returns the language-neutral
+    /// CHANGELOG.md content (or null) and a map of localized CHANGELOG.&lt;locale&gt;.md
+    /// contents keyed by lowercase language code. Best-effort: missing files or read errors
+    /// yield null / an empty map rather than throwing.
     /// </summary>
-    private string? TryReadChangelog(string? manifestFilePath)
+    private (string? Plain, IReadOnlyDictionary<string, string> Localized) TryReadChangelogs(string? manifestFilePath)
     {
+        var empty = (string?)null;
+        var localized = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         if (string.IsNullOrEmpty(manifestFilePath))
-            return null;
+            return (empty, localized);
 
         try
         {
             var directory = Path.GetDirectoryName(manifestFilePath);
-            if (string.IsNullOrEmpty(directory))
-                return null;
+            if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
+                return (empty, localized);
 
-            var changelogPath = Path.Combine(directory, "CHANGELOG.md");
-            return File.Exists(changelogPath) ? File.ReadAllText(changelogPath) : null;
+            var plainPath = Path.Combine(directory, "CHANGELOG.md");
+            var plain = File.Exists(plainPath) ? File.ReadAllText(plainPath) : null;
+
+            foreach (var file in Directory.EnumerateFiles(directory, "CHANGELOG.*.md"))
+            {
+                var match = LocalizedChangelogPattern.Match(Path.GetFileName(file));
+                if (!match.Success)
+                    continue;
+
+                var locale = match.Groups[1].Value.ToLowerInvariant();
+                localized[locale] = File.ReadAllText(file);
+            }
+
+            return (plain, localized);
         }
         catch (IOException)
         {
-            return null;
+            return (empty, localized);
         }
         catch (UnauthorizedAccessException)
         {
-            return null;
+            return (empty, localized);
         }
     }
 
