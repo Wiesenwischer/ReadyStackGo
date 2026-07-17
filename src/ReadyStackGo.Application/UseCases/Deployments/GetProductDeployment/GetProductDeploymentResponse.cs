@@ -66,6 +66,14 @@ public class ProductStackDeploymentDto
     public int Order { get; set; }
     public int ServiceCount { get; set; }
     public bool IsNewInUpgrade { get; set; }
+
+    /// <summary>
+    /// Variables configured for this stack in the current deployment. Carried
+    /// through so the Upgrade form can pre-fill per-stack values (the backend
+    /// merges them anyway, but the frontend validates required variables before
+    /// sending the request).
+    /// </summary>
+    public Dictionary<string, string> Variables { get; set; } = new();
 }
 
 /// <summary>
