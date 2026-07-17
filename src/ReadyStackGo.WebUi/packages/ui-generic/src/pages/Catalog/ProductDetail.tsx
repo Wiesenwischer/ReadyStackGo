@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router";
 import {
   useProductDetailStore,
+  getCatalogProductReleaseNotes,
   type ProductStack,
   type ProductStackDeploymentDto,
 } from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
+import ReleaseNotesViewer from "../../components/deployments/ReleaseNotesViewer";
 
 export default function ProductDetail() {
   const { productId } = useParams<{ productId: string }>();
@@ -16,6 +18,12 @@ export default function ProductDetail() {
     product, loading, error,
     productDeployment, upgradeAvailable,
   } = useProductDetailStore(productId, activeEnvironment?.id);
+
+  const [showNotes, setShowNotes] = useState(false);
+  const loadNotes = useCallback(
+    (locale?: string) => getCatalogProductReleaseNotes(product!.id, locale),
+    [product],
+  );
 
   const handleDeployAll = () => {
     if (product) {
@@ -112,6 +120,19 @@ export default function ProductDetail() {
               <span className="text-sm text-gray-500 dark:text-gray-400">
                 {product.sourceName}
               </span>
+              {(product.availableVersions?.find((v) => v.isCurrent)?.hasReleaseNotes
+                ?? product.availableVersions?.find((v) => v.productId === product.id)?.hasReleaseNotes) && (
+                <button
+                  type="button"
+                  onClick={() => setShowNotes(true)}
+                  className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 underline hover:no-underline dark:text-brand-400"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Release notes
+                </button>
+              )}
             </div>
 
             {product.description && (
@@ -257,6 +278,14 @@ export default function ProductDetail() {
           </div>
         </div>
       </div>
+
+      {showNotes && (
+        <ReleaseNotesViewer
+          version={product.version ?? ''}
+          load={loadNotes}
+          onClose={() => setShowNotes(false)}
+        />
+      )}
     </div>
   );
 }

@@ -86,7 +86,8 @@ public class GetProductEndpoint : Endpoint<GetProductRequest, ProductDetailDto>
                 Version = v.Version,
                 ProductId = v.ProductId,
                 DefaultStackId = v.DefaultStackId,
-                IsCurrent = v.IsCurrent
+                IsCurrent = v.IsCurrent,
+                HasReleaseNotes = v.HasReleaseNotes
             }).ToList()
         };
     }
@@ -127,4 +128,5 @@ public class ProductVersionDto
     public required string ProductId { get; init; }
     public required string DefaultStackId { get; init; }
     public bool IsCurrent { get; init; }
+    public bool HasReleaseNotes { get; init; }
 }

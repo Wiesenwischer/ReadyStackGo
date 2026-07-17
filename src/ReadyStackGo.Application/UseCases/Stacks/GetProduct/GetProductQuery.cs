@@ -115,7 +115,12 @@ public record ProductVersionInfo(
     /// <summary>
     /// Whether this is the currently displayed version
     /// </summary>
-    bool IsCurrent
+    bool IsCurrent,
+
+    /// <summary>
+    /// Whether this version has release notes (a CHANGELOG or an external URL) to display.
+    /// </summary>
+    bool HasReleaseNotes
 );
 
 /// <summary>

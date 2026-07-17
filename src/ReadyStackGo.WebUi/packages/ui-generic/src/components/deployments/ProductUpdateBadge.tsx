@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { checkProductUpgrade, type CheckProductUpgradeResponse } from '@rsgo/core';
+import { useCallback, useEffect, useState } from 'react';
+import { checkProductUpgrade, getProductReleaseNotes, type CheckProductUpgradeResponse } from '@rsgo/core';
 import ReleaseNotesViewer from './ReleaseNotesViewer';
 
 interface ProductUpdateBadgeProps {
@@ -15,6 +15,12 @@ interface ProductUpdateBadgeProps {
 export default function ProductUpdateBadge({ environmentId, productDeploymentId }: ProductUpdateBadgeProps) {
   const [status, setStatus] = useState<CheckProductUpgradeResponse | null>(null);
   const [showNotes, setShowNotes] = useState(false);
+
+  const latestVersion = status?.latestVersion;
+  const loadNotes = useCallback(
+    (locale?: string) => getProductReleaseNotes(environmentId, productDeploymentId, latestVersion!, locale),
+    [environmentId, productDeploymentId, latestVersion],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -48,9 +54,8 @@ export default function ProductUpdateBadge({ environmentId, productDeploymentId 
 
       {showNotes && status.latestVersion && (
         <ReleaseNotesViewer
-          environmentId={environmentId}
-          productDeploymentId={productDeploymentId}
           version={status.latestVersion}
+          load={loadNotes}
           onClose={() => setShowNotes(false)}
         />
       )}
