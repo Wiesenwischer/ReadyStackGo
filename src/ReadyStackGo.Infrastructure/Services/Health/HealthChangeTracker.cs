@@ -19,6 +19,11 @@ public class HealthChangeTracker : IHealthChangeTracker
     private readonly ConcurrentDictionary<string, string> _previousStatuses = new();
     private readonly ConcurrentDictionary<string, DateTime> _cooldownTimestamps = new();
 
+    // Product-level baselines/cooldowns. Cooldown is keyed by (product, targetStatus)
+    // so a recovery is never swallowed by a preceding degradation within the window.
+    private readonly ConcurrentDictionary<string, string> _previousProductStatuses = new();
+    private readonly ConcurrentDictionary<string, DateTime> _productCooldownTimestamps = new();
+
     public HealthChangeTracker(
         INotificationService notificationService,
         IConfigStore configStore,
@@ -96,6 +101,57 @@ public class HealthChangeTracker : IHealthChangeTracker
         }
     }
 
+    public async Task ProcessProductHealthUpdateAsync(
+        string productDeploymentId,
+        string productDisplayName,
+        string overallStatus,
+        bool suppressNotifications = false,
+        CancellationToken ct = default)
+    {
+        var previousStatus = _previousProductStatuses.GetValueOrDefault(productDeploymentId);
+        _previousProductStatuses[productDeploymentId] = overallStatus;
+
+        // No previous status (first collection) or no change — skip.
+        if (previousStatus == null || string.Equals(previousStatus, overallStatus, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        // Product mid-transition/maintenance — advance baseline but stay silent; the
+        // per-product deploy result is the authoritative signal for those windows.
+        if (suppressNotifications)
+            return;
+
+        var config = await _configStore.GetSystemConfigAsync();
+        var cooldownSeconds = config.HealthNotificationCooldownSeconds;
+
+        // Direction-aware cooldown: throttle repeated transitions *into the same status*
+        // (flapping), but let the opposite direction (e.g. a recovery) through immediately.
+        var cooldownKey = $"{productDeploymentId}:{overallStatus}";
+        if (!IsOutsideProductCooldown(cooldownKey, cooldownSeconds))
+        {
+            _logger.LogDebug(
+                "Product health notification throttled for {CooldownKey} (cooldown {Cooldown}s)",
+                cooldownKey, cooldownSeconds);
+            return;
+        }
+
+        try
+        {
+            var notification = NotificationFactory.CreateProductHealthChangeNotification(
+                productDisplayName, previousStatus, overallStatus, productDeploymentId);
+
+            await _notificationService.AddAsync(notification, ct);
+            _productCooldownTimestamps[cooldownKey] = DateTime.UtcNow;
+
+            _logger.LogInformation(
+                "Product health notification created: {ProductDisplayName} changed from {Previous} to {Current}",
+                productDisplayName, previousStatus, overallStatus);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to create product health change notification for {ProductDeploymentId}", productDeploymentId);
+        }
+    }
+
     public Task ResetBaselineAsync(string deploymentId, CancellationToken ct = default)
     {
         var prefix = $"{deploymentId}:";
@@ -117,6 +173,14 @@ public class HealthChangeTracker : IHealthChangeTracker
     private bool IsOutsideCooldown(string serviceKey, int cooldownSeconds)
     {
         if (!_cooldownTimestamps.TryGetValue(serviceKey, out var lastNotificationTime))
+            return true;
+
+        return (DateTime.UtcNow - lastNotificationTime).TotalSeconds >= cooldownSeconds;
+    }
+
+    private bool IsOutsideProductCooldown(string cooldownKey, int cooldownSeconds)
+    {
+        if (!_productCooldownTimestamps.TryGetValue(cooldownKey, out var lastNotificationTime))
             return true;
 
         return (DateTime.UtcNow - lastNotificationTime).TotalSeconds >= cooldownSeconds;
