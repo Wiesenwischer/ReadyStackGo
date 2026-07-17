@@ -11,11 +11,11 @@
   },
   {
     "PackageId": "Microsoft.AspNetCore.Authentication.JwtBearer",
-    "PackageVersion": "9.0.16",
+    "PackageVersion": "9.0.18",
     "PackageProjectUrl": "https://asp.net/",
     "Copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
     "Authors": "Microsoft",
-    "Description": "ASP.NET Core middleware that enables an application to receive an OpenID Connect bearer token.\n\nThis package was built from the source code at https://github.com/dotnet/aspnetcore/tree/4d825aeb5e5023588c036709c7914008b625b0eb",
+    "Description": "ASP.NET Core middleware that enables an application to receive an OpenID Connect bearer token.\n\nThis package was built from the source code at https://github.com/dotnet/aspnetcore/tree/a95d6599f37762ec8394ba9ca01e8263b2e36a26",
     "License": "MIT",
     "LicenseUrl": "https://licenses.nuget.org/MIT",
     "LicenseInformationOrigin": 0
