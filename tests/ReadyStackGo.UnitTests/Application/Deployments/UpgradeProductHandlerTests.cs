@@ -43,9 +43,15 @@ public class UpgradeProductHandlerTests
 
         _repositoryMock.Setup(r => r.NextIdentity()).Returns(ProductDeploymentId.NewId());
 
-        // Default: removal succeeds
+        // Default: removal succeeds (both the plain overload used for removed/renamed
+        // stacks and the per-container-progress overload used for the Phase-A
+        // remove-before-deploy of carried-over stacks).
         _deploymentServiceMock
             .Setup(d => d.RemoveDeploymentAsync(It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(new DeployComposeResponse { Success = true });
+        _deploymentServiceMock
+            .Setup(d => d.RemoveDeploymentAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>()))
             .ReturnsAsync(new DeployComposeResponse { Success = true });
 
         _handler = new UpgradeProductHandler(
@@ -1010,7 +1016,8 @@ public class UpgradeProductHandlerTests
         // before the fresh deploy.
         var derivedName = ProductDeployment.DeriveStackDeploymentName("test-deployment", "stack-0");
         _deploymentServiceMock.Verify(
-            d => d.RemoveDeploymentAsync(TestEnvironmentId, derivedName), Times.Once);
+            d => d.RemoveDeploymentAsync(TestEnvironmentId, derivedName,
+                It.IsAny<Func<StackContainerProgress, Task>>()), Times.Once);
     }
 
     [Fact]
@@ -1032,12 +1039,57 @@ public class UpgradeProductHandlerTests
         // The new stack has nothing to remove → no remove call for its derived name.
         var newDerivedName = ProductDeployment.DeriveStackDeploymentName("test-deployment", "new-stack");
         _deploymentServiceMock.Verify(
-            d => d.RemoveDeploymentAsync(TestEnvironmentId, newDerivedName), Times.Never);
+            d => d.RemoveDeploymentAsync(TestEnvironmentId, newDerivedName,
+                It.IsAny<Func<StackContainerProgress, Task>>()), Times.Never);
 
         // The carried-over stack is still removed first.
         var carriedDerivedName = ProductDeployment.DeriveStackDeploymentName("test-deployment", "stack-0");
         _deploymentServiceMock.Verify(
-            d => d.RemoveDeploymentAsync(TestEnvironmentId, carriedDerivedName), Times.Once);
+            d => d.RemoveDeploymentAsync(TestEnvironmentId, carriedDerivedName,
+                It.IsAny<Func<StackContainerProgress, Task>>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ForwardsPerContainerRemovalProgress()
+    {
+        // Carried-over stacks are removed before the fresh deploy. The removal must
+        // report per-container progress (like Redeploy) so the UI shows a detailed
+        // "Removing web-1 (1/2)" panel instead of a static message.
+        var currentProduct = CreateTestProduct(1, version: "1.0.0",
+            stackNames: new List<string> { "stack-0" });
+        var targetProduct = CreateTestProduct(1, version: "2.0.0",
+            stackNames: new List<string> { "stack-0" });
+        var existing = CreateExistingDeployment(currentProduct);
+
+        SetupExistingDeployment(existing);
+        SetupTargetProductFound(targetProduct);
+        SetupAllStacksSucceed();
+
+        var derivedName = ProductDeployment.DeriveStackDeploymentName("test-deployment", "stack-0");
+        _deploymentServiceMock
+            .Setup(d => d.RemoveDeploymentAsync(TestEnvironmentId, derivedName,
+                It.IsAny<Func<StackContainerProgress, Task>>()))
+            .Returns(async (string _, string _, Func<StackContainerProgress, Task> cb) =>
+            {
+                await cb(new StackContainerProgress("web-1", 1, 2));
+                await cb(new StackContainerProgress("web-2", 2, 2));
+                return new DeployComposeResponse { Success = true };
+            });
+
+        await _handler.Handle(
+            CreateUpgradeCommand(existing, targetProduct), CancellationToken.None);
+
+        // Each container yields a "RemovingContainer" progress event with its index/total.
+        _notificationMock.Verify(n => n.NotifyProgressAsync(
+            It.IsAny<string>(), "RemovingContainer",
+            It.Is<string>(m => m.Contains("web-1") && m.Contains("(1/2)")),
+            It.IsAny<int>(), It.IsAny<string>(), 2, 1, 0, 0, It.IsAny<CancellationToken>()),
+            Times.Once);
+        _notificationMock.Verify(n => n.NotifyProgressAsync(
+            It.IsAny<string>(), "RemovingContainer",
+            It.Is<string>(m => m.Contains("web-2") && m.Contains("(2/2)")),
+            It.IsAny<int>(), It.IsAny<string>(), 2, 2, 0, 0, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -1055,7 +1107,8 @@ public class UpgradeProductHandlerTests
 
         var derivedName = ProductDeployment.DeriveStackDeploymentName("test-deployment", "stack-0");
         _deploymentServiceMock
-            .Setup(d => d.RemoveDeploymentAsync(TestEnvironmentId, derivedName))
+            .Setup(d => d.RemoveDeploymentAsync(TestEnvironmentId, derivedName,
+                It.IsAny<Func<StackContainerProgress, Task>>()))
             .ReturnsAsync(new DeployComposeResponse { Success = false, Message = "container not found" });
         _deploymentServiceMock
             .Setup(d => d.MarkDeploymentAsRemovedAsync(TestEnvironmentId, derivedName))

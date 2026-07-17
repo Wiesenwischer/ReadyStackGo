@@ -264,7 +264,8 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
                     productDeployment.CompletedStacks, cancellationToken, phase: "Removing");
 
                 var removeResult = await _deploymentService.RemoveDeploymentAsync(
-                    request.EnvironmentId, stackDeploymentName);
+                    request.EnvironmentId, stackDeploymentName,
+                    cp => NotifyRemovingContainerAsync(sessionId, stack.StackName, cp, cancellationToken));
                 if (!removeResult.Success)
                 {
                     _logger.LogWarning(
@@ -513,6 +514,31 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Failed to send product upgrade progress notification");
+        }
+    }
+
+    private async Task NotifyRemovingContainerAsync(
+        string sessionId, string stackName, StackContainerProgress cp, CancellationToken ct)
+    {
+        if (_notificationService == null) return;
+
+        try
+        {
+            // Non-"ProductDeploy" phase → the frontend routes this to the per-stack detail
+            // panel of the stack currently being removed (see useUpgradeProductStore).
+            await _notificationService.NotifyProgressAsync(
+                sessionId,
+                "RemovingContainer",
+                $"Removing {cp.ContainerName} ({cp.Index}/{cp.Total})",
+                0,
+                stackName,
+                cp.Total,
+                cp.Index,
+                0, 0, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to send per-container removal progress notification");
         }
     }
 

@@ -175,7 +175,14 @@ export function useUpgradeProductStore(
         const stackName = update.currentService;
         setCurrentUpgradingStack(stackName);
         if (update.message?.startsWith('Removing stack')) {
+          // Mark this stack active so subsequent per-container removal events
+          // (non-'ProductDeploy' phase) are routed to its detail panel — mirrors
+          // the Redeploy store so upgrade shows "Removing web-1 (2/8)" live.
+          currentDeployingStackRef.current = stackName;
           setStackStatuses(prev => ({ ...prev, [stackName]: 'removing' }));
+          if (!userSelectedStackRef.current) {
+            setSelectedStack(stackName);
+          }
         } else if (update.message?.startsWith('Upgrading stack')) {
           currentDeployingStackRef.current = stackName;
           setStackStatuses(prev => ({ ...prev, [stackName]: 'upgrading' }));
