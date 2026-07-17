@@ -625,18 +625,26 @@ export interface ProductReleaseNotesResponse {
   content?: string;
   url?: string;
   version?: string;
+  /** Language of the returned markdown (only when a localized changelog was served). */
+  locale?: string;
+  /** Language codes with a localized changelog; the viewer shows a selector when >1. */
+  availableLocales?: string[];
 }
 
 /**
  * Fetch release notes for a specific version of a product deployment's product.
+ * Pass `locale` (e.g. "de", "en") to select a localized changelog when the product
+ * ships CHANGELOG.<locale>.md files.
  */
 export async function getProductReleaseNotes(
   environmentId: string,
   productDeploymentId: string,
-  version: string
+  version: string,
+  locale?: string
 ): Promise<ProductReleaseNotesResponse> {
+  const localeParam = locale ? `&locale=${encodeURIComponent(locale)}` : '';
   return apiGet<ProductReleaseNotesResponse>(
-    `/api/environments/${environmentId}/product-deployments/${productDeploymentId}/release-notes?version=${encodeURIComponent(version)}`
+    `/api/environments/${environmentId}/product-deployments/${productDeploymentId}/release-notes?version=${encodeURIComponent(version)}${localeParam}`
   );
 }
 

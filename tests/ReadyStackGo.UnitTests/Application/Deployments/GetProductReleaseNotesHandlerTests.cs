@@ -22,7 +22,8 @@ public class GetProductReleaseNotesHandlerTests
     }
 
     private static ProductDefinition CreateProduct(
-        string version, string? releaseNotesUrl = null, string? changelog = null)
+        string version, string? releaseNotesUrl = null, string? changelog = null,
+        IReadOnlyDictionary<string, string>? localizedChangelogs = null)
     {
         var productId = new ProductId("stacks:test-product");
         var stack = new StackDefinition(
@@ -33,7 +34,8 @@ public class GetProductReleaseNotesHandlerTests
 
         return new ProductDefinition(
             "stacks", "test-product", "Test", new[] { stack }, productVersion: version,
-            releaseNotesUrl: releaseNotesUrl, changelogMarkdown: changelog);
+            releaseNotesUrl: releaseNotesUrl, changelogMarkdown: changelog,
+            localizedChangelogs: localizedChangelogs);
     }
 
     private ProductDeployment SetupDeployment(ProductDefinition product)
@@ -149,5 +151,98 @@ public class GetProductReleaseNotesHandlerTests
             new GetProductReleaseNotesQuery(id, version), CancellationToken.None);
 
         result.Success.Should().BeFalse();
+    }
+
+    // ── Localized changelogs ────────────────────────────────────────────
+
+    private static Dictionary<string, string> Localized() => new()
+    {
+        ["de"] = "# v2 (Deutsch)",
+        ["en"] = "# v2 (English)",
+    };
+
+    [Fact]
+    public async Task Handle_RequestedLocale_ReturnsMatchingLanguage_AndListsAvailable()
+    {
+        var deployment = SetupDeployment(CreateProduct("1.0.0"));
+        SetupCatalog(deployment.ProductGroupId, CreateProduct("2.0.0", localizedChangelogs: Localized()));
+
+        var result = await _handler.Handle(
+            new GetProductReleaseNotesQuery(deployment.Id.Value.ToString(), "2.0.0", "en"), CancellationToken.None);
+
+        result.Mode.Should().Be("markdown");
+        result.Content.Should().Contain("English");
+        result.Locale.Should().Be("en");
+        result.AvailableLocales.Should().BeEquivalentTo(new[] { "de", "en" });
+    }
+
+    [Fact]
+    public async Task Handle_RegionLocale_FallsBackToLanguageOnlyChangelog()
+    {
+        var deployment = SetupDeployment(CreateProduct("1.0.0"));
+        SetupCatalog(deployment.ProductGroupId, CreateProduct("2.0.0", localizedChangelogs: Localized()));
+
+        var result = await _handler.Handle(
+            new GetProductReleaseNotesQuery(deployment.Id.Value.ToString(), "2.0.0", "de-DE"), CancellationToken.None);
+
+        result.Content.Should().Contain("Deutsch");
+        result.Locale.Should().Be("de");
+    }
+
+    [Fact]
+    public async Task Handle_UnknownLocale_FallsBackToNeutralChangelog()
+    {
+        var deployment = SetupDeployment(CreateProduct("1.0.0"));
+        SetupCatalog(deployment.ProductGroupId,
+            CreateProduct("2.0.0", changelog: "# neutral", localizedChangelogs: Localized()));
+
+        var result = await _handler.Handle(
+            new GetProductReleaseNotesQuery(deployment.Id.Value.ToString(), "2.0.0", "fr"), CancellationToken.None);
+
+        result.Content.Should().Contain("neutral");
+        result.Locale.Should().BeNull();
+        result.AvailableLocales.Should().BeEquivalentTo(new[] { "de", "en" });
+    }
+
+    [Fact]
+    public async Task Handle_UnknownLocale_NoNeutral_FallsBackToFirstAvailable()
+    {
+        var deployment = SetupDeployment(CreateProduct("1.0.0"));
+        SetupCatalog(deployment.ProductGroupId, CreateProduct("2.0.0", localizedChangelogs: Localized()));
+
+        var result = await _handler.Handle(
+            new GetProductReleaseNotesQuery(deployment.Id.Value.ToString(), "2.0.0", "fr"), CancellationToken.None);
+
+        // "de" sorts before "en" → deterministic first available.
+        result.Mode.Should().Be("markdown");
+        result.Content.Should().Contain("Deutsch");
+        result.Locale.Should().Be("de");
+    }
+
+    [Fact]
+    public async Task Handle_NoLocaleRequested_OnlyLocalized_ReturnsFirstAvailable()
+    {
+        var deployment = SetupDeployment(CreateProduct("1.0.0"));
+        SetupCatalog(deployment.ProductGroupId, CreateProduct("2.0.0", localizedChangelogs: Localized()));
+
+        var result = await _handler.Handle(
+            new GetProductReleaseNotesQuery(deployment.Id.Value.ToString(), "2.0.0"), CancellationToken.None);
+
+        result.Mode.Should().Be("markdown");
+        result.Locale.Should().Be("de");
+    }
+
+    [Fact]
+    public async Task Handle_NeutralChangelogOnly_NoAvailableLocales()
+    {
+        var deployment = SetupDeployment(CreateProduct("1.0.0"));
+        SetupCatalog(deployment.ProductGroupId, CreateProduct("2.0.0", changelog: "# neutral"));
+
+        var result = await _handler.Handle(
+            new GetProductReleaseNotesQuery(deployment.Id.Value.ToString(), "2.0.0", "de"), CancellationToken.None);
+
+        result.Content.Should().Contain("neutral");
+        result.Locale.Should().BeNull();
+        result.AvailableLocales.Should().BeEmpty();
     }
 }
