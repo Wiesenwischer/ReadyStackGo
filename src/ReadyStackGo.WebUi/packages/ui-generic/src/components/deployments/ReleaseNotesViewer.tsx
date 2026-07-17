@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 import type { ProductReleaseNotesResponse } from '@rsgo/core';
 
@@ -102,8 +103,8 @@ export default function ReleaseNotesViewer({
           )}
 
           {!loading && !error && data?.mode === 'markdown' && (
-            <div className="prose prose-sm max-w-none dark:prose-invert">
-              <Markdown rehypePlugins={[rehypeSanitize]}>{data.content ?? ''}</Markdown>
+            <div className="prose prose-sm max-w-none overflow-x-auto dark:prose-invert">
+              <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{data.content ?? ''}</Markdown>
             </div>
           )}
 
