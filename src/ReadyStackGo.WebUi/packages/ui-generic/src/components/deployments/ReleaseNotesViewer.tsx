@@ -1,19 +1,16 @@
 import { useEffect, useState } from 'react';
 import Markdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
-import { getProductReleaseNotes, type ProductReleaseNotesResponse } from '@rsgo/core';
+import type { ProductReleaseNotesResponse } from '@rsgo/core';
 
 interface ReleaseNotesViewerProps {
-  environmentId: string;
-  productDeploymentId: string;
   version: string;
+  /** Loads the release notes for a given language; the caller decides the source
+   *  (a deployment or a catalog product). Called again when the language changes. */
+  load: (locale?: string) => Promise<ProductReleaseNotesResponse>;
   onClose: () => void;
 }
 
-/**
- * Modal that shows release notes for a product version: own CHANGELOG.md rendered as
- * sanitized markdown, or an external URL shown as a link (never embedded).
- */
 // Best-effort default: the browser's primary language (e.g. "de-DE" -> "de"), so a
 // German browser gets the German changelog when available. The backend falls back
 // to a neutral / first-available changelog when this language isn't present.
@@ -23,10 +20,14 @@ const browserLocale = typeof navigator !== 'undefined'
 
 const localeLabel = (code: string) => code.toUpperCase();
 
+/**
+ * Modal that shows release notes for a product version: own CHANGELOG(.locale).md rendered
+ * as sanitized markdown (with a language selector when multiple languages exist), or an
+ * external URL shown as a link (never embedded). Source-agnostic via the `load` prop.
+ */
 export default function ReleaseNotesViewer({
-  environmentId,
-  productDeploymentId,
   version,
+  load,
   onClose,
 }: ReleaseNotesViewerProps) {
   const [data, setData] = useState<ProductReleaseNotesResponse | null>(null);
@@ -39,11 +40,11 @@ export default function ReleaseNotesViewer({
   useEffect(() => {
     setLoading(true);
     setError('');
-    getProductReleaseNotes(environmentId, productDeploymentId, version, selectedLocale)
+    load(selectedLocale)
       .then(setData)
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load release notes'))
       .finally(() => setLoading(false));
-  }, [environmentId, productDeploymentId, version, selectedLocale]);
+  }, [load, selectedLocale]);
 
   const availableLocales = data?.availableLocales ?? [];
   const showLanguageSelector = availableLocales.length > 1;

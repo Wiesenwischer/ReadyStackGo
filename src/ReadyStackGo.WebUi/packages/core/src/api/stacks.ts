@@ -1,4 +1,5 @@
 import { apiGet } from './client';
+import type { ProductReleaseNotesResponse } from './deployments';
 
 /**
  * Variable types matching the backend VariableType enum.
@@ -137,6 +138,8 @@ export interface ProductVersion {
   productId: string;
   defaultStackId: string;
   isCurrent: boolean;
+  /** Whether this version has release notes (a CHANGELOG or an external URL) to display. */
+  hasReleaseNotes?: boolean;
 }
 
 export interface Product {
@@ -163,6 +166,20 @@ export async function getProducts(): Promise<Product[]> {
 
 export async function getProduct(productId: string): Promise<Product> {
   return apiGet<Product>(`/api/products/${encodeURIComponent(productId)}`);
+}
+
+/**
+ * Fetch release notes for a catalog product version directly by its product id (no
+ * deployment required). Pass `locale` (e.g. "de", "en") to select a localized changelog.
+ */
+export async function getCatalogProductReleaseNotes(
+  productId: string,
+  locale?: string
+): Promise<ProductReleaseNotesResponse> {
+  const localeParam = locale ? `?locale=${encodeURIComponent(locale)}` : '';
+  return apiGet<ProductReleaseNotesResponse>(
+    `/api/products/${encodeURIComponent(productId)}/release-notes${localeParam}`
+  );
 }
 
 // Re-export old names for backwards compatibility during migration
