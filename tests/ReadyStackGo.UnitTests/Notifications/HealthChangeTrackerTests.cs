@@ -336,4 +336,130 @@ public class HealthChangeTrackerTests
             n => n.AddAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()),
             Times.Exactly(3)); // Unhealthy + Healthy(recovery) + Unhealthy
     }
+
+    // ========================================================================
+    // Product-level health notifications
+    // ========================================================================
+
+    [Fact]
+    public async Task Product_FirstCollection_NoNotification()
+    {
+        await _tracker.ProcessProductHealthUpdateAsync("prod-1", "My Product", "Healthy");
+
+        _notificationService.Verify(
+            n => n.AddAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Product_NoChange_NoNotification()
+    {
+        await _tracker.ProcessProductHealthUpdateAsync("prod-1", "My Product", "Healthy");
+        await _tracker.ProcessProductHealthUpdateAsync("prod-1", "My Product", "Healthy");
+
+        _notificationService.Verify(
+            n => n.AddAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Product_HealthyToDegraded_CreatesProductHealthChangeNotification()
+    {
+        await _tracker.ProcessProductHealthUpdateAsync("prod-1", "My Product", "Healthy");
+        await _tracker.ProcessProductHealthUpdateAsync("prod-1", "My Product", "Degraded");
+
+        _notificationService.Verify(n => n.AddAsync(
+            It.Is<Notification>(not =>
+                not.Type == NotificationType.ProductHealthChange &&
+                not.Metadata["currentStatus"] == "Degraded" &&
+                not.Metadata["productDeploymentId"] == "prod-1"),
+            It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Product_Recovery_ComesThroughEvenWithinCooldownAfterDegradation()
+    {
+        // Regression for the reported bug: an Unhealthy fired, but the following
+        // recovery-to-Healthy was swallowed. Product-level throttling is direction-aware,
+        // so the recovery must still surface even within the cooldown window.
+        var config = new SystemConfig { HealthNotificationCooldownSeconds = 600 };
+        _configStore.Setup(c => c.GetSystemConfigAsync()).ReturnsAsync(config);
+
+        await _tracker.ProcessProductHealthUpdateAsync("prod-1", "My Product", "Healthy");
+        await _tracker.ProcessProductHealthUpdateAsync("prod-1", "My Product", "Unhealthy");
+        await _tracker.ProcessProductHealthUpdateAsync("prod-1", "My Product", "Healthy");
+
+        // Both the degradation and the recovery produce a notification.
+        _notificationService.Verify(
+            n => n.AddAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
+        _notificationService.Verify(n => n.AddAsync(
+            It.Is<Notification>(not =>
+                not.Type == NotificationType.ProductHealthChange &&
+                not.Title == "Product Recovered" &&
+                not.Metadata["currentStatus"] == "Healthy"),
+            It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Product_SameStatusWithinCooldown_Throttled()
+    {
+        // Direction-aware cooldown still throttles repeated transitions INTO the same
+        // status (flapping) — a second degradation within the window is suppressed.
+        var config = new SystemConfig { HealthNotificationCooldownSeconds = 600 };
+        _configStore.Setup(c => c.GetSystemConfigAsync()).ReturnsAsync(config);
+
+        await _tracker.ProcessProductHealthUpdateAsync("prod-1", "My Product", "Healthy");
+        await _tracker.ProcessProductHealthUpdateAsync("prod-1", "My Product", "Unhealthy"); // notif
+        await _tracker.ProcessProductHealthUpdateAsync("prod-1", "My Product", "Healthy");   // recovery notif
+        await _tracker.ProcessProductHealthUpdateAsync("prod-1", "My Product", "Unhealthy"); // throttled (same target within cooldown)
+
+        _notificationService.Verify(
+            n => n.AddAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task Product_Suppressed_AdvancesBaseline_NoNotification()
+    {
+        await _tracker.ProcessProductHealthUpdateAsync("prod-1", "My Product", "Healthy");
+
+        // While the product is mid-transition, suppress but advance baseline to Unhealthy.
+        await _tracker.ProcessProductHealthUpdateAsync("prod-1", "My Product", "Unhealthy",
+            suppressNotifications: true);
+
+        _notificationService.Verify(
+            n => n.AddAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        // Same status as the suppressed baseline — no transition, still silent (no stale flood).
+        await _tracker.ProcessProductHealthUpdateAsync("prod-1", "My Product", "Unhealthy");
+
+        _notificationService.Verify(
+            n => n.AddAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        // Genuine transition after suppression ends — fires.
+        await _tracker.ProcessProductHealthUpdateAsync("prod-1", "My Product", "Healthy");
+
+        _notificationService.Verify(
+            n => n.AddAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Product_DifferentProductsTrackedIndependently()
+    {
+        await _tracker.ProcessProductHealthUpdateAsync("prod-1", "Product One", "Healthy");
+        await _tracker.ProcessProductHealthUpdateAsync("prod-2", "Product Two", "Healthy");
+
+        await _tracker.ProcessProductHealthUpdateAsync("prod-1", "Product One", "Degraded");
+        await _tracker.ProcessProductHealthUpdateAsync("prod-2", "Product Two", "Unhealthy");
+
+        _notificationService.Verify(
+            n => n.AddAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
+    }
 }

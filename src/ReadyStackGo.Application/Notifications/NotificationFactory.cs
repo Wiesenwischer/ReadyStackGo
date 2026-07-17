@@ -179,6 +179,39 @@ public static class NotificationFactory
         };
     }
 
+    /// <summary>
+    /// Creates a product-level health-change notification. Emitted when a product
+    /// deployment's aggregated overall health transitions (e.g. Healthy → Degraded),
+    /// so the user sees one signal per product instead of one per service/stack.
+    /// </summary>
+    public static Notification CreateProductHealthChangeNotification(
+        string productDisplayName,
+        string previousStatus, string currentStatus,
+        string productDeploymentId)
+    {
+        var isRecovery = currentStatus.Equals("Healthy", StringComparison.OrdinalIgnoreCase);
+        var severity = ResolveHealthSeverity(currentStatus);
+        var title = isRecovery ? "Product Recovered" : "Product Health Changed";
+        var message = $"Product '{productDisplayName}' health changed from {previousStatus} to {currentStatus}.";
+
+        return new Notification
+        {
+            Type = NotificationType.ProductHealthChange,
+            Title = title,
+            Message = message,
+            Severity = severity,
+            ActionUrl = $"/product-deployments/{Uri.EscapeDataString(productDeploymentId)}",
+            ActionLabel = "View Product",
+            Metadata = new Dictionary<string, string>
+            {
+                ["productDeploymentId"] = productDeploymentId,
+                ["productDisplayName"] = productDisplayName,
+                ["previousStatus"] = previousStatus,
+                ["currentStatus"] = currentStatus
+            }
+        };
+    }
+
     public static Notification CreateApiKeyFirstUseNotification(
         string keyName, string keyPrefix)
     {
