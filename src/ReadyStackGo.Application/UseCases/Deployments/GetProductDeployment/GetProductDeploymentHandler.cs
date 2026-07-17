@@ -94,7 +94,8 @@ public class GetProductDeploymentHandler : IRequestHandler<GetProductDeploymentQ
                 ErrorMessage = s.ErrorMessage,
                 Order = s.Order,
                 ServiceCount = s.ServiceCount,
-                IsNewInUpgrade = s.IsNewInUpgrade
+                IsNewInUpgrade = s.IsNewInUpgrade,
+                Variables = new Dictionary<string, string>(s.Variables)
             }).ToList()
         };
     }

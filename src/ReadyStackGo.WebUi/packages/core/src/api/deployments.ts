@@ -482,6 +482,12 @@ export interface ProductStackDeploymentDto {
   order: number;
   serviceCount: number;
   isNewInUpgrade: boolean;
+  /**
+   * Variables configured for this stack in the current deployment. Used to
+   * pre-fill per-stack values on the Upgrade page so required-variable
+   * validation does not block an upgrade whose values were set at deploy time.
+   */
+  variables: Record<string, string>;
 }
 
 /**

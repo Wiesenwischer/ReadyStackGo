@@ -270,12 +270,22 @@ export function useUpgradeProductStore(
         if (v.isRequired && !v.defaultValue) hasRequiredMissing = true;
       }
 
-      // Find matching existing stack deployment and overlay its variables
-      const _existingStack = deployment.stacks.find(
+      // Overlay the existing stack deployment's per-stack values so the upgrade
+      // form is pre-filled with what the user configured at deploy time. Without
+      // this, required per-stack variables would appear empty and the upgrade
+      // would be blocked by validation even though the backend already merges
+      // the stored values. Only overlay variables that exist in the target
+      // version's variable set so removed variables don't leak forward.
+      const existingStack = deployment.stacks.find(
         s => s.stackName.toLowerCase() === stack.name.toLowerCase()
       );
-      // existingStack is found for potential future use (overlay per-stack vars)
-      void _existingStack;
+      if (existingStack?.variables) {
+        for (const v of stackVars) {
+          if (Object.prototype.hasOwnProperty.call(existingStack.variables, v.name)) {
+            varValues[v.name] = existingStack.variables[v.name];
+          }
+        }
+      }
 
       perStackInit[stack.id] = varValues;
 

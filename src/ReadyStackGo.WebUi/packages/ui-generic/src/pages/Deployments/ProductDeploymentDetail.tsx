@@ -63,6 +63,7 @@ export default function ProductDeploymentDetail() {
   const { activeEnvironment } = useEnvironment();
 
   const store = useProductDeploymentDetailStore(token, activeEnvironment?.id, productDeploymentId);
+  const [showStackVariables, setShowStackVariables] = useState(false);
 
   if (store.state === 'loading') {
     return (
@@ -391,6 +392,68 @@ export default function ProductDeploymentDetail() {
           )}
         </div>
       )}
+
+      {/* Stack Variables — per-stack values (excluding shared, which are shown above) */}
+      {(() => {
+        const sharedKeys = new Set(Object.keys(deployment.sharedVariables ?? {}));
+        const stacksWithVars = deployment.stacks
+          .slice()
+          .sort((a, b) => a.order - b.order)
+          .map((stack) => ({
+            stack,
+            entries: Object.entries(stack.variables ?? {}).filter(([key]) => !sharedKeys.has(key)),
+          }))
+          .filter((s) => s.entries.length > 0);
+
+        if (stacksWithVars.length === 0) return null;
+        const totalCount = stacksWithVars.reduce((sum, s) => sum + s.entries.length, 0);
+
+        return (
+          <div className="mt-6 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+            <button
+              onClick={() => setShowStackVariables((v) => !v)}
+              className="w-full px-4 py-5 md:px-6 flex items-center justify-between text-left"
+            >
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Stack Variables ({totalCount})
+              </h4>
+              <svg
+                className={`w-5 h-5 text-gray-500 transition-transform ${showStackVariables ? 'rotate-180' : ''}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showStackVariables && (
+              <div className="border-t border-gray-200 dark:border-gray-700 p-4 md:p-6 space-y-6">
+                {stacksWithVars.map(({ stack, entries }) => (
+                  <div key={stack.stackId}>
+                    <div className="mb-3 flex items-center gap-2">
+                      <span className="text-xs font-mono text-gray-400 dark:text-gray-500">#{stack.order}</span>
+                      <h5 className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {stack.stackDisplayName || stack.stackName}
+                      </h5>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        ({entries.length} variable{entries.length !== 1 ? 's' : ''})
+                      </span>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {entries.map(([key, value]) => (
+                        <div key={key} className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800/50">
+                          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{key}</div>
+                          <div className="mt-1 text-sm font-mono text-gray-900 dark:text-white break-all">
+                            {value || <span className="text-gray-400 italic">not set</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
