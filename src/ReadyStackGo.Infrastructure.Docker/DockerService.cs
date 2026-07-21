@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Docker.DotNet;
@@ -231,7 +232,12 @@ public class DockerService : IDockerService, IDisposable
                 PortBindings = portBindings,
                 Binds = binds,
                 RestartPolicy = restartPolicy,
-                NetworkMode = primaryNetwork
+                NetworkMode = primaryNetwork,
+                // Namespaced sysctls (e.g. edge TCP path-MTU probing). Only set when requested
+                // so unrelated containers keep the daemon defaults.
+                Sysctls = request.Sysctls.Count > 0
+                    ? new Dictionary<string, string>(request.Sysctls)
+                    : null
             },
             NetworkingConfig = networkingConfig
         };
@@ -306,8 +312,15 @@ public class DockerService : IDockerService, IDisposable
         _logger.LogInformation("Removed container {ContainerId} in environment {EnvironmentId}", containerId, environmentId);
     }
 
-    public async Task EnsureNetworkAsync(string environmentId, string networkName, CancellationToken cancellationToken = default)
+    public Task EnsureNetworkAsync(string environmentId, string networkName, CancellationToken cancellationToken = default)
+        => EnsureNetworkAsync(environmentId, networkName, mtu: null, cancellationToken);
+
+    public async Task EnsureNetworkAsync(string environmentId, string networkName, int? mtu, CancellationToken cancellationToken)
     {
+        // Docker bridge networks accept an MTU via the driver option below; the veth MTU it
+        // yields caps the edge's egress TCP segment size (used by the fixed-MSS edge mode).
+        const string MtuOption = "com.docker.network.driver.mtu";
+
         var client = await GetDockerClientAsync(environmentId);
 
         try
@@ -321,23 +334,48 @@ public class DockerService : IDockerService, IDisposable
                 }
             }, cancellationToken);
 
-            if (networks.Any(n => n.Name == networkName))
+            var existing = networks.FirstOrDefault(n => n.Name == networkName);
+            if (existing != null)
             {
-                _logger.LogDebug("Network {NetworkName} already exists in environment {EnvironmentId}",
-                    networkName, environmentId);
+                // Docker cannot change an existing network's MTU without recreating it (which
+                // would disrupt attached containers). Warn on a mismatch so the operator can act.
+                if (mtu.HasValue
+                    && existing.Options != null
+                    && existing.Options.TryGetValue(MtuOption, out var currentMtu)
+                    && currentMtu != mtu.Value.ToString(CultureInfo.InvariantCulture))
+                {
+                    _logger.LogWarning(
+                        "Network {NetworkName} already exists with MTU {CurrentMtu}; requested MTU {RequestedMtu} " +
+                        "will not be applied (recreation required). The fixed edge MSS may not take effect.",
+                        networkName, currentMtu, mtu.Value);
+                }
+                else
+                {
+                    _logger.LogDebug("Network {NetworkName} already exists in environment {EnvironmentId}",
+                        networkName, environmentId);
+                }
                 return;
             }
 
             // Create network
-            await client.Networks.CreateNetworkAsync(new NetworksCreateParameters
+            var createParams = new NetworksCreateParameters
             {
                 Name = networkName,
                 Driver = "bridge",
                 CheckDuplicate = true
-            }, cancellationToken);
+            };
+            if (mtu.HasValue)
+            {
+                createParams.Options = new Dictionary<string, string>
+                {
+                    [MtuOption] = mtu.Value.ToString(CultureInfo.InvariantCulture)
+                };
+            }
 
-            _logger.LogInformation("Created network {NetworkName} in environment {EnvironmentId}",
-                networkName, environmentId);
+            await client.Networks.CreateNetworkAsync(createParams, cancellationToken);
+
+            _logger.LogInformation("Created network {NetworkName} in environment {EnvironmentId}{MtuSuffix}",
+                networkName, environmentId, mtu.HasValue ? $" (MTU {mtu.Value})" : string.Empty);
         }
         catch (Exception ex)
         {

@@ -39,8 +39,13 @@ public class EdgeProvisioner : IEdgeProvisioner
         var containerName = EdgeConstants.EdgeContainerName(deploymentName);
         var adminBaseUrl = EdgeConstants.AdminBaseUrl(deploymentName);
 
+        // Client-facing VPN robustness (adaptive sysctls or a fixed-MSS network MTU).
+        var (sysctls, networkMtu) = ResolveMssTuning(config);
+
         // Ensure both networks exist (idempotent; external networks are created once, shared).
-        await _dockerService.EnsureNetworkAsync(environmentId, config.Network, cancellationToken);
+        // The edge network carries the requested MTU in fixed-MSS mode; the management network
+        // stays at the default MTU (internal, never traverses a VPN).
+        await _dockerService.EnsureNetworkAsync(environmentId, config.Network, networkMtu, cancellationToken);
         await _dockerService.EnsureNetworkAsync(environmentId, ManagementNetwork, cancellationToken);
 
         // Idempotency: reuse an existing edge container; just make sure it is running.
@@ -88,6 +93,7 @@ public class EdgeProvisioner : IEdgeProvisioner
                 "sh", "-c",
                 "printf '%s' \"$CADDY_BOOTSTRAP_CONFIG\" > /etc/caddy/bootstrap.json && exec caddy run --config /etc/caddy/bootstrap.json"
             },
+            Sysctls = sysctls,
             Labels = new Dictionary<string, string>
             {
                 [EdgeConstants.ScopeLabel] = EdgeConstants.ScopeEdge,
@@ -101,8 +107,8 @@ public class EdgeProvisioner : IEdgeProvisioner
 
         var id = await _dockerService.CreateAndStartContainerAsync(environmentId, request, cancellationToken);
         _logger.LogInformation(
-            "Provisioned managed edge container {Name} ({Id}) for product {Product} on {PublicPort} -> {Upstream}:{UpstreamPort}",
-            containerName, id, productGroupId, config.PublicPort, config.UpstreamService, config.UpstreamPort);
+            "Provisioned managed edge container {Name} ({Id}) for product {Product} on {PublicPort} -> {Upstream}:{UpstreamPort} (MSS mode: {MssMode})",
+            containerName, id, productGroupId, config.PublicPort, config.UpstreamService, config.UpstreamPort, config.MssMode);
 
         return adminBaseUrl;
     }
@@ -161,6 +167,34 @@ public class EdgeProvisioner : IEdgeProvisioner
             containerName, id, options.ListenPort);
 
         return adminBaseUrl;
+    }
+
+    /// <summary>
+    /// Translates the configured client-facing MSS mode into the concrete Docker knobs:
+    /// namespaced sysctls for the adaptive <see cref="EdgeMssMode.Pmtu"/> mode (no elevated
+    /// capability), a lowered edge-network MTU for <see cref="EdgeMssMode.Fixed"/>, and nothing
+    /// for <see cref="EdgeMssMode.Off"/> (byte-for-byte the pre-feature behaviour).
+    /// </summary>
+    internal static (Dictionary<string, string> Sysctls, int? NetworkMtu) ResolveMssTuning(EdgeConfig config)
+    {
+        switch (config.MssMode)
+        {
+            case EdgeMssMode.Pmtu:
+                return (new Dictionary<string, string>
+                {
+                    [EdgeConstants.TcpMtuProbingSysctl] = EdgeConstants.AdaptiveMtuProbing,
+                    [EdgeConstants.TcpBaseMssSysctl] = EdgeConstants.AdaptiveBaseMss
+                }, null);
+
+            case EdgeMssMode.Fixed:
+                // A fixed MSS n is enforced as an egress cap by the network MTU (n + headers).
+                var mtu = config.MssValue!.Value + EdgeConstants.MssHeaderOverhead;
+                return (new Dictionary<string, string>(), mtu);
+
+            case EdgeMssMode.Off:
+            default:
+                return (new Dictionary<string, string>(), null);
+        }
     }
 
     private async Task EnsureImageAsync(string environmentId, string image, CancellationToken ct)

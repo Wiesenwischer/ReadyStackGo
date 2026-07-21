@@ -34,6 +34,12 @@ public class EdgeConfigJsonConverter : JsonConverter<EdgeConfig>
         var maintenanceContainerPort = GetInt(root, "maintenanceContainerPort", 80);
         var bundleHtml = GetString(root, "bundleHtml");
 
+        // Default to the adaptive mode for edge configs persisted before this field existed.
+        var mssMode = ParseEnum(GetString(root, "mssMode"), EdgeMssMode.Pmtu);
+        int? mssValue = root.TryGetProperty("mssValue", out var mv) && mv.ValueKind == JsonValueKind.Number
+            ? mv.GetInt32()
+            : null;
+
         EdgeBranding branding = EdgeBranding.Empty;
         if (root.TryGetProperty("branding", out var b) && b.ValueKind == JsonValueKind.Object)
         {
@@ -70,7 +76,9 @@ public class EdgeConfigJsonConverter : JsonConverter<EdgeConfig>
             maintenanceContainerService,
             maintenanceContainerPort,
             bundleHtml,
-            branding);
+            branding,
+            mssMode,
+            mssValue);
     }
 
     public override void Write(Utf8JsonWriter writer, EdgeConfig value, JsonSerializerOptions options)
@@ -94,6 +102,9 @@ public class EdgeConfigJsonConverter : JsonConverter<EdgeConfig>
         if (value.MaintenanceContainerService != null) writer.WriteString("maintenanceContainerService", value.MaintenanceContainerService);
         writer.WriteNumber("maintenanceContainerPort", value.MaintenanceContainerPort);
         if (value.BundleHtml != null) writer.WriteString("bundleHtml", value.BundleHtml);
+
+        writer.WriteString("mssMode", value.MssMode.ToString());
+        if (value.MssValue.HasValue) writer.WriteNumber("mssValue", value.MssValue.Value);
 
         writer.WriteStartObject("branding");
         if (value.Branding.ProductName != null) writer.WriteString("productName", value.Branding.ProductName);
