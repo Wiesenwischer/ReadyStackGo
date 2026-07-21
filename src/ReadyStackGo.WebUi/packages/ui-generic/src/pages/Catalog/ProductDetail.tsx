@@ -1,13 +1,11 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router";
 import {
   useProductDetailStore,
-  getCatalogProductReleaseNotes,
   type ProductStack,
   type ProductStackDeploymentDto,
 } from '@rsgo/core';
 import { useEnvironment } from "../../context/EnvironmentContext";
-import ReleaseNotesViewer from "../../components/deployments/ReleaseNotesViewer";
 
 export default function ProductDetail() {
   const { productId } = useParams<{ productId: string }>();
@@ -18,12 +16,6 @@ export default function ProductDetail() {
     product, loading, error,
     productDeployment, upgradeAvailable,
   } = useProductDetailStore(productId, activeEnvironment?.id);
-
-  const [showNotes, setShowNotes] = useState(false);
-  const loadNotes = useCallback(
-    (locale?: string) => getCatalogProductReleaseNotes(product!.id, locale),
-    [product],
-  );
 
   const handleDeployAll = () => {
     if (product) {
@@ -124,7 +116,7 @@ export default function ProductDetail() {
                 ?? product.availableVersions?.find((v) => v.productId === product.id)?.hasReleaseNotes) && (
                 <button
                   type="button"
-                  onClick={() => setShowNotes(true)}
+                  onClick={() => navigate(`/release-notes/${encodeURIComponent(product.id)}`)}
                   className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 underline hover:no-underline dark:text-brand-400"
                 >
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -278,14 +270,6 @@ export default function ProductDetail() {
           </div>
         </div>
       </div>
-
-      {showNotes && (
-        <ReleaseNotesViewer
-          version={product.version ?? ''}
-          load={loadNotes}
-          onClose={() => setShowNotes(false)}
-        />
-      )}
     </div>
   );
 }
