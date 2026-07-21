@@ -242,6 +242,7 @@ Then reference the image in your manifest under `maintenance-web` (see the snipp
 | `upstream.service` | yes | — | Internal DNS alias of the public entry (e.g. the BFF). |
 | `upstream.port` | no | `8080` | Upstream port. |
 | `network` | yes | — | Shared external network connecting edge and upstream (`external: true`). |
+| `mss` | no | `pmtu` | Client-facing TCP segment sizing for VPN robustness: `pmtu` (adaptive, default), a fixed number (e.g. `1360`), or `off`. See [VPN robustness](#vpn-robustness-the-mss-option) below. |
 | `tls.mode` | no | none | TLS termination: `selfsigned`, `custom` (`certRef`), `reuse` (RSGO cert), `letsencrypt`. |
 | `tls.certRef` | for `custom` | — | Reference to the uploaded certificate. |
 | `tls.letsencrypt.email` / `.dnsChallenge` | for `letsencrypt` | — | ACME settings. |
@@ -262,6 +263,41 @@ When `tls.mode` is set, the edge **terminates** HTTPS on `publicPort` with a cer
 | `letsencrypt` | Uses RSGO's ACME-managed certificate. |
 
 Full schema details: [RSGo Manifest Format](/en/docs/reference/manifest-format/).
+
+---
+
+## VPN robustness: the `mss` option
+
+### The problem
+
+Products hosted behind the edge can be perfectly usable on the LAN yet fail over a VPN: the login (small requests) works, but loading a larger page or a big start-up configuration ends in an **HTTP 502** or a timeout.
+
+The cause is not the server — it is the path. A VPN tunnel wraps every packet in an extra header, which lowers the usable packet size (MTU). Normally the network signals "packet too large" back to the sender (Path MTU Discovery), but many corporate VPNs **filter that ICMP message**. Large response packets (sent with the *don't-fragment* bit set) are then dropped **silently** — small transfers still fit, large ones stall. This is a classic *PMTU blackhole*.
+
+Because the edge **terminates** the client TCP connection and is the public front door, network/MTU robustness belongs here — solved once at the edge, it applies to **every** RSGO-hosted product at every customer, with **no change on the customer's VPN**.
+
+### The option
+
+```yaml
+edge:
+  enabled: true
+  # ...
+  mss: pmtu        # default — you normally do not set this
+```
+
+| Value | Behaviour |
+|-------|-----------|
+| `pmtu` | **Default, recommended.** Adaptive kernel path-MTU probing (PLPMTUD, RFC 4821): the edge detects a blackhole on large responses and shrinks its TCP segment size on its own — **without** relying on the (filtered) ICMP message and **without** a guessed fixed value. Harmless on the LAN (full segment size when the path allows it). |
+| a number, e.g. `1360` | Enforce a **fixed** maximum segment size. Use only if you must pin an exact value; valid range **536–1460**. Applied by lowering the edge network's MTU to `mss + 40`. |
+| `off` | Disable the feature entirely — the edge keeps the OS default (the behaviour before this option existed). Backward-compatibility escape hatch. |
+
+If `mss` is absent, invalid, or out of range, the edge falls back to `pmtu` — an unusable front door is worse than an ignored tuning value.
+
+### Security note: no elevated privileges
+
+The default (`pmtu`) is implemented with **namespaced kernel sysctls** (`net.ipv4.tcp_mtu_probing`, `net.ipv4.tcp_base_mss`) set only on the edge container. The fixed mode lowers the **edge network MTU**. **Neither mode requires the `NET_ADMIN` capability** or any change to the container image — the edge runs with the same privileges as before.
+
+> **Fixed-mode caveat:** a fixed MSS is applied when RSGO **creates** the edge network. If the network already exists (e.g. it was created by the product stack first) its MTU cannot be changed without recreating it; RSGO logs a warning and the fixed cap does not take effect. In that case, prefer `pmtu` (which works regardless of who owns the network) or let RSGO create the network.
 
 ---
 

@@ -24,6 +24,39 @@ public enum EdgeTlsMode
 }
 
 /// <summary>
+/// Client-facing TCP segment-size behaviour of the edge.
+///
+/// VPN tunnels shrink the usable path MTU. When the far end filters ICMP
+/// "fragmentation needed" (a common corporate-VPN blackhole), large HTTP responses
+/// sent with DF set are dropped silently while small requests still pass — the edge
+/// terminates the client connection, so the fix is to make its kernel emit smaller
+/// egress segments.
+/// </summary>
+public enum EdgeMssMode
+{
+    /// <summary>
+    /// Adaptive (default). The edge enables kernel path-MTU probing (PLPMTUD, RFC 4821):
+    /// it detects a blackhole on large responses and shrinks the segment size on its own,
+    /// without relying on (filtered) ICMP and without a guessed fixed value. Requires no
+    /// elevated container capability.
+    /// </summary>
+    Pmtu,
+
+    /// <summary>
+    /// A fixed maximum segment size is enforced by lowering the edge network MTU
+    /// (MTU = <see cref="EdgeConfig.MssValue"/> + IPv4/TCP header overhead). Capability-free
+    /// hard cap; see <see cref="EdgeConfig.MssValue"/>.
+    /// </summary>
+    Fixed,
+
+    /// <summary>
+    /// Disabled — the edge keeps the OS default segment sizing (identical to the
+    /// behaviour before this option existed). Backward-compatibility escape hatch.
+    /// </summary>
+    Off
+}
+
+/// <summary>
 /// Maintenance-page resolution mode. Consumed from Phase 3 onward.
 /// </summary>
 public enum EdgeMaintenancePageMode
@@ -132,6 +165,18 @@ public sealed class EdgeConfig : ValueObject
     /// <summary>Branding variables for the default maintenance page.</summary>
     public EdgeBranding Branding { get; }
 
+    /// <summary>
+    /// Client-facing TCP segment-size behaviour. Defaults to <see cref="EdgeMssMode.Pmtu"/>
+    /// (adaptive) so the edge is VPN-robust out of the box.
+    /// </summary>
+    public EdgeMssMode MssMode { get; }
+
+    /// <summary>
+    /// For <see cref="EdgeMssMode.Fixed"/>: the maximum segment size (bytes) to enforce.
+    /// Null for the <see cref="EdgeMssMode.Pmtu"/> and <see cref="EdgeMssMode.Off"/> modes.
+    /// </summary>
+    public int? MssValue { get; }
+
     private EdgeConfig(
         string publicHostname,
         int publicPort,
@@ -148,7 +193,9 @@ public sealed class EdgeConfig : ValueObject
         string? maintenanceContainerService,
         int maintenanceContainerPort,
         string? bundleHtml,
-        EdgeBranding branding)
+        EdgeBranding branding,
+        EdgeMssMode mssMode,
+        int? mssValue)
     {
         PublicHostname = publicHostname;
         PublicPort = publicPort;
@@ -166,7 +213,15 @@ public sealed class EdgeConfig : ValueObject
         MaintenanceContainerPort = maintenanceContainerPort;
         BundleHtml = bundleHtml;
         Branding = branding;
+        MssMode = mssMode;
+        MssValue = mssValue;
     }
+
+    /// <summary>Smallest fixed MSS accepted (IPv4 minimum-datagram guarantee, RFC 879).</summary>
+    public const int MinFixedMss = 536;
+
+    /// <summary>Largest fixed MSS accepted (standard Ethernet payload of 1500 minus 40).</summary>
+    public const int MaxFixedMss = 1460;
 
     public static EdgeConfig Create(
         string publicHostname,
@@ -184,7 +239,9 @@ public sealed class EdgeConfig : ValueObject
         string? maintenanceContainerService = null,
         int maintenanceContainerPort = 80,
         string? bundleHtml = null,
-        EdgeBranding? branding = null)
+        EdgeBranding? branding = null,
+        EdgeMssMode mssMode = EdgeMssMode.Pmtu,
+        int? mssValue = null)
     {
         if (string.IsNullOrWhiteSpace(publicHostname))
             throw new ArgumentException("Edge publicHostname is required.", nameof(publicHostname));
@@ -198,6 +255,18 @@ public sealed class EdgeConfig : ValueObject
             throw new ArgumentException("Edge network is required.", nameof(network));
         if (string.IsNullOrWhiteSpace(image))
             throw new ArgumentException("Edge image is required.", nameof(image));
+
+        if (mssMode == EdgeMssMode.Fixed)
+        {
+            if (mssValue is not (>= MinFixedMss and <= MaxFixedMss))
+                throw new ArgumentException(
+                    $"A fixed edge MSS must be in range {MinFixedMss}-{MaxFixedMss}.", nameof(mssValue));
+        }
+        else if (mssValue is not null)
+        {
+            throw new ArgumentException(
+                "An MSS value may only be supplied together with the Fixed mode.", nameof(mssValue));
+        }
 
         return new EdgeConfig(
             publicHostname,
@@ -215,7 +284,9 @@ public sealed class EdgeConfig : ValueObject
             maintenanceContainerService,
             maintenanceContainerPort,
             bundleHtml,
-            branding ?? EdgeBranding.Empty);
+            branding ?? EdgeBranding.Empty,
+            mssMode,
+            mssValue);
     }
 
     protected override IEnumerable<object?> GetEqualityComponents()
@@ -236,5 +307,7 @@ public sealed class EdgeConfig : ValueObject
         yield return MaintenanceContainerPort;
         yield return BundleHtml;
         yield return Branding;
+        yield return MssMode;
+        yield return MssValue;
     }
 }

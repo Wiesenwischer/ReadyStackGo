@@ -57,6 +57,14 @@ public interface IDockerService
     Task EnsureNetworkAsync(string environmentId, string networkName, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Ensures a Docker network exists, requesting a specific interface MTU when the network is
+    /// created. When <paramref name="mtu"/> is null this behaves exactly like the two-argument
+    /// overload. If the network already exists its MTU is left untouched (Docker cannot change
+    /// an existing network's MTU without recreating it); a mismatch is logged as a warning.
+    /// </summary>
+    Task EnsureNetworkAsync(string environmentId, string networkName, int? mtu, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Pulls an image in the specified environment.
     /// </summary>
     Task PullImageAsync(string environmentId, string image, string tag = "latest", CancellationToken cancellationToken = default);
@@ -273,6 +281,13 @@ public class CreateContainerRequest
     /// Optional entrypoint override (Docker ENTRYPOINT). When null, the image's default entrypoint runs.
     /// </summary>
     public List<string>? Entrypoint { get; set; }
+
+    /// <summary>
+    /// Kernel sysctls to set in the container's namespaces (maps to Docker <c>--sysctl</c> /
+    /// <c>HostConfig.Sysctls</c>). Only namespaced sysctls are permitted by the daemon; used by
+    /// the edge to enable adaptive TCP path-MTU probing without any elevated capability.
+    /// </summary>
+    public Dictionary<string, string> Sysctls { get; set; } = new();
 
     /// <summary>
     /// Docker HEALTHCHECK to set on the container (optional).

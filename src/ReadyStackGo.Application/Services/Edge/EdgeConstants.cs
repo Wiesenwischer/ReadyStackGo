@@ -56,6 +56,30 @@ public static class EdgeConstants
     public const int DefaultUpstreamPort = 8080;
 
     /// <summary>
+    /// Namespaced sysctl that controls kernel path-MTU probing (PLPMTUD, RFC 4821) in the
+    /// edge container's network namespace. Used by the adaptive <c>pmtu</c> MSS mode.
+    /// </summary>
+    public const string TcpMtuProbingSysctl = "net.ipv4.tcp_mtu_probing";
+
+    /// <summary>
+    /// Namespaced sysctl for the base MSS the kernel probes up from once a blackhole is
+    /// detected. Paired with <see cref="TcpMtuProbingSysctl"/> in the adaptive mode.
+    /// </summary>
+    public const string TcpBaseMssSysctl = "net.ipv4.tcp_base_mss";
+
+    /// <summary>Value for <see cref="TcpMtuProbingSysctl"/> enabling blackhole-triggered probing.</summary>
+    public const string AdaptiveMtuProbing = "1";
+
+    /// <summary>Safe floor the kernel drops to when a blackhole is detected (adaptive mode).</summary>
+    public const string AdaptiveBaseMss = "1024";
+
+    /// <summary>
+    /// IPv4 + TCP header overhead (20 + 20 bytes). A fixed MSS <c>n</c> is enforced by setting
+    /// the edge network MTU to <c>n + MssHeaderOverhead</c>.
+    /// </summary>
+    public const int MssHeaderOverhead = 40;
+
+    /// <summary>
     /// Derives the deterministic edge container name from the product deployment name.
     /// Idempotency anchor: the provisioner reuses an existing container with this name.
     /// </summary>
