@@ -24,6 +24,7 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
     private readonly ILogger<UpgradeProductHandler> _logger;
     private readonly TimeProvider _timeProvider;
     private readonly Application.Services.Edge.IEdgeBundleReader? _edgeBundleReader;
+    private readonly Application.Services.Edge.IEdgeSettingsReconciler? _edgeSettingsReconciler;
 
     public UpgradeProductHandler(
         IProductSourceService productSourceService,
@@ -34,7 +35,8 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
         IDeploymentNotificationService? notificationService = null,
         INotificationService? inAppNotificationService = null,
         TimeProvider? timeProvider = null,
-        Application.Services.Edge.IEdgeBundleReader? edgeBundleReader = null)
+        Application.Services.Edge.IEdgeBundleReader? edgeBundleReader = null,
+        Application.Services.Edge.IEdgeSettingsReconciler? edgeSettingsReconciler = null)
     {
         _productSourceService = productSourceService;
         _repository = repository;
@@ -45,6 +47,7 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
         _inAppNotificationService = inAppNotificationService;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _edgeBundleReader = edgeBundleReader;
+        _edgeSettingsReconciler = edgeSettingsReconciler;
     }
 
     public async Task<UpgradeProductResponse> Handle(UpgradeProductCommand request, CancellationToken cancellationToken)
@@ -207,6 +210,15 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
         {
             productDeployment.SetEdgeConfig(edgeConfig);
         }
+        else if (existing.EdgeConfig != null)
+        {
+            // The target manifest's edge: block did not resolve — carry the running config
+            // forward instead of leaving the live edge container without a config to reconcile.
+            productDeployment.SetEdgeConfig(existing.EdgeConfig);
+            _logger.LogWarning(
+                "Target version of {ProductName} has no resolvable edge: block — keeping the edge config of the running deployment",
+                targetProduct.Name);
+        }
 
         _repository.Add(productDeployment);
 
@@ -222,6 +234,14 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
         _logger.LogInformation(
             "Product upgrade {ProductDeploymentId} initiated for {ProductName} from v{PreviousVersion} to v{TargetVersion} with {StackCount} stacks (superseded {OldId})",
             newDeploymentId, targetProduct.Name, previousVersion, targetVersion, stackConfigs.Count, existing.Id);
+
+        // Edge settings that are fixed at container creation (the client-facing MSS tuning) only
+        // take effect on a fresh container. Recreate it before the stacks are touched so the
+        // upgrade already runs behind the edge the target version asks for.
+        if (_edgeSettingsReconciler != null)
+        {
+            await _edgeSettingsReconciler.ApplyCreateTimeSettingsAsync(productDeployment, cancellationToken);
+        }
 
         // 8. Generate session ID
         var sessionId = !string.IsNullOrEmpty(request.SessionId)

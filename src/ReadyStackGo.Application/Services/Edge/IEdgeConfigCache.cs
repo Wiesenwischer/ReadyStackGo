@@ -15,6 +15,13 @@ public interface IEdgeConfigCache
 
     /// <summary>Records the config most recently pushed successfully for a deployment.</summary>
     void Set(Guid productDeploymentId, string configJson);
+
+    /// <summary>
+    /// Drops the recorded config for a deployment, forcing the next reconcile cycle to push
+    /// again. Required whenever the edge container is replaced: the fresh container only carries
+    /// the bootstrap config, so a cache hit would leave it stuck on the maintenance page.
+    /// </summary>
+    void Invalidate(Guid productDeploymentId);
 }
 
 /// <summary>Default <see cref="IEdgeConfigCache"/> backed by a concurrent dictionary.</summary>
@@ -27,4 +34,7 @@ public class EdgeConfigCache : IEdgeConfigCache
 
     public void Set(Guid productDeploymentId, string configJson)
         => _lastPushed[productDeploymentId] = configJson;
+
+    public void Invalidate(Guid productDeploymentId)
+        => _lastPushed.TryRemove(productDeploymentId, out _);
 }

@@ -1,5 +1,7 @@
 namespace ReadyStackGo.Application.Services.Edge;
 
+using ReadyStackGo.Domain.Deployment.Edge;
+
 /// <summary>
 /// Shared constants for the managed maintenance edge-proxy feature.
 /// </summary>
@@ -78,6 +80,32 @@ public static class EdgeConstants
     /// the edge network MTU to <c>n + MssHeaderOverhead</c>.
     /// </summary>
     public const int MssHeaderOverhead = 40;
+
+    /// <summary>
+    /// Label recording the client-facing MSS tuning the edge container was <em>created</em> with.
+    /// Sysctls and the network MTU cannot be changed on a live container, so this label is the
+    /// drift fingerprint: when it no longer matches <see cref="MssFingerprint"/> of the current
+    /// config, the container has to be recreated for the setting to take effect.
+    /// </summary>
+    public const string MssLabel = "rsgo.edge.mss";
+
+    /// <summary>
+    /// Fingerprint of the configured client-facing MSS tuning: <c>pmtu</c>, the plain number for
+    /// a fixed MSS, or <c>off</c>. Stored in <see cref="MssLabel"/> at container creation.
+    /// </summary>
+    public static string MssFingerprint(EdgeConfig config) => config.MssMode switch
+    {
+        EdgeMssMode.Pmtu => "pmtu",
+        EdgeMssMode.Fixed => config.MssValue!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        _ => MssFingerprintOff
+    };
+
+    /// <summary>
+    /// Fingerprint of an edge container that applies no MSS tuning at all. Also the assumed
+    /// fingerprint of a container created before the <c>mss</c> option existed (no label): such a
+    /// container carries neither sysctls nor a lowered MTU, which is exactly <c>off</c>.
+    /// </summary>
+    public const string MssFingerprintOff = "off";
 
     /// <summary>
     /// Derives the deterministic edge container name from the product deployment name.

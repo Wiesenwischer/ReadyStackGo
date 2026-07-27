@@ -299,6 +299,38 @@ The default (`pmtu`) is implemented with **namespaced kernel sysctls** (`net.ipv
 
 > **Fixed-mode caveat:** a fixed MSS is applied when RSGO **creates** the edge network. If the network already exists (e.g. it was created by the product stack first) its MTU cannot be changed without recreating it; RSGO logs a warning and the fixed cap does not take effect. In that case, prefer `pmtu` (which works regardless of who owns the network) or let RSGO create the network.
 
+### When a change takes effect
+
+Sysctls and the network MTU are **create-time** container settings — they cannot be changed on a running container. On top of that, the edge container deliberately survives every redeploy (label `rsgo.redeploy=ignore`) so the maintenance page stays reachable while the product is down.
+
+So a changed `mss` value reaches a running deployment like this:
+
+- **Redeploy and upgrade re-read the `edge:` block from the manifest** and compare the configured tuning against the one the live edge container was created with (label `rsgo.edge.mss`). On a mismatch the edge container is **recreated once** — before the product stacks are touched. The front door is unreachable for a few seconds, at a point where the product is being redeployed anyway.
+- **The background reconciler does not do this.** It only keeps the edge alive and pushes Caddy config; it never restarts the front door on its own.
+- An edge container **from an RSGO version older than this option** carries no label and no tuning — it counts as `off` and is switched to the configured mode (`pmtu` by default) on the next redeploy/upgrade.
+- For a **fixed** value the network caveat above still applies: a fresh container alone does not change the MTU of an existing network.
+
+### Verifying that clamping is actually in effect
+
+At startup the edge container logs **one line** with the values it reads from its own kernel — so you can tell at a customer site whether the container really got updated:
+
+```bash
+docker logs <deployment>-edge 2>&1 | head -1
+# rsgo-edge: client-facing MSS tuning mode=pmtu verdict=ACTIVE (expected: tcp_mtu_probing=1 | tcp_mtu_probing=1 tcp_base_mss=1024 iface_mtu: eth0=1500 eth1=1500)
+```
+
+| `verdict` | Meaning |
+|-----------|---------|
+| `ACTIVE` | The configured mode is in effect inside the container. |
+| `DISABLED` | `mss: off` — no tuning by choice. |
+| `INACTIVE` | The container is **not** running the configured mode (e.g. it predates the setting, or a fixed MTU could not be applied to the existing network) → run a redeploy, or check the network caveat. |
+
+The label additionally shows which mode the container was created with:
+
+```bash
+docker inspect -f '{{index .Config.Labels "rsgo.edge.mss"}}' <deployment>-edge
+```
+
 ---
 
 ## Status contract: `GET /__status`

@@ -8,6 +8,7 @@ using ReadyStackGo.Application.UseCases.Deployments;
 using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 using ReadyStackGo.Application.UseCases.Deployments.UpgradeProduct;
 using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Edge;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.ProductDeployments;
 using ReadyStackGo.Domain.StackManagement.Stacks;
@@ -24,6 +25,7 @@ public class UpgradeProductHandlerTests
     private readonly Mock<IDeploymentNotificationService> _notificationMock;
     private readonly Mock<INotificationService> _inAppNotificationMock;
     private readonly Mock<ILogger<UpgradeProductHandler>> _loggerMock;
+    private readonly Mock<ReadyStackGo.Application.Services.Edge.IEdgeSettingsReconciler> _edgeSettingsMock;
     private readonly FakeTimeProvider _timeProvider;
     private readonly UpgradeProductHandler _handler;
 
@@ -54,6 +56,8 @@ public class UpgradeProductHandlerTests
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>()))
             .ReturnsAsync(new DeployComposeResponse { Success = true });
 
+        _edgeSettingsMock = new Mock<ReadyStackGo.Application.Services.Edge.IEdgeSettingsReconciler>();
+
         _handler = new UpgradeProductHandler(
             _productSourceMock.Object,
             _repositoryMock.Object,
@@ -62,7 +66,8 @@ public class UpgradeProductHandlerTests
             _loggerMock.Object,
             _notificationMock.Object,
             _inAppNotificationMock.Object,
-            _timeProvider);
+            _timeProvider,
+            edgeSettingsReconciler: _edgeSettingsMock.Object);
     }
 
     #region Test Helpers
@@ -1307,6 +1312,89 @@ public class UpgradeProductHandlerTests
         result["SHARED_VAR"].Should().Be("user-configured");
         result["STACK_0_VAR"].Should().Be("user-configured-stack");
     }
+
+    #endregion
+
+    #region Edge Config Carry-Over
+
+    [Fact]
+    public async Task Handle_AppliesCreateTimeEdgeSettingsOfTheSuccessor()
+    {
+        var currentProduct = CreateTestProduct(1, version: "1.0.0");
+        var targetProduct = CreateTestProduct(1, version: "2.0.0");
+        var existing = CreateExistingDeployment(currentProduct);
+        existing.SetEdgeConfig(CreateEdgeConfig(EdgeMssMode.Off));
+
+        SetupExistingDeployment(existing);
+        SetupTargetProductFound(targetProduct);
+        SetupAllStacksSucceed();
+
+        ProductDeployment? captured = null;
+        _repositoryMock
+            .Setup(r => r.Add(It.IsAny<ProductDeployment>()))
+            .Callback<ProductDeployment>(pd => captured = pd);
+
+        await _handler.Handle(CreateUpgradeCommand(existing, targetProduct), CancellationToken.None);
+
+        _edgeSettingsMock.Verify(
+            r => r.ApplyCreateTimeSettingsAsync(captured!, It.IsAny<CancellationToken>()), Times.Once,
+            "the successor aggregate carries the edge config the upgraded product should run behind");
+    }
+
+    [Fact]
+    public async Task Handle_TargetVersionWithoutResolvableEdge_CarriesRunningEdgeConfigForward()
+    {
+        var currentProduct = CreateTestProduct(1, version: "1.0.0");
+        var targetProduct = CreateTestProduct(1, version: "2.0.0");
+        var existing = CreateExistingDeployment(currentProduct);
+        existing.SetEdgeConfig(CreateEdgeConfig(EdgeMssMode.Fixed, 1360));
+
+        SetupExistingDeployment(existing);
+        SetupTargetProductFound(targetProduct); // CreateTestProduct has no edge: block
+        SetupAllStacksSucceed();
+
+        ProductDeployment? captured = null;
+        _repositoryMock
+            .Setup(r => r.Add(It.IsAny<ProductDeployment>()))
+            .Callback<ProductDeployment>(pd => captured = pd);
+
+        await _handler.Handle(CreateUpgradeCommand(existing, targetProduct), CancellationToken.None);
+
+        captured!.EdgeConfig.Should().NotBeNull(
+            "a live edge container without a config on the active aggregate would never be reconciled again");
+        captured.EdgeConfig!.MssValue.Should().Be(1360);
+    }
+
+    [Fact]
+    public async Task Handle_NoEdgeAnywhere_LeavesSuccessorEdgeInert()
+    {
+        var currentProduct = CreateTestProduct(1, version: "1.0.0");
+        var targetProduct = CreateTestProduct(1, version: "2.0.0");
+        var existing = CreateExistingDeployment(currentProduct);
+
+        SetupExistingDeployment(existing);
+        SetupTargetProductFound(targetProduct);
+        SetupAllStacksSucceed();
+
+        ProductDeployment? captured = null;
+        _repositoryMock
+            .Setup(r => r.Add(It.IsAny<ProductDeployment>()))
+            .Callback<ProductDeployment>(pd => captured = pd);
+
+        await _handler.Handle(CreateUpgradeCommand(existing, targetProduct), CancellationToken.None);
+
+        captured!.EdgeConfig.Should().BeNull();
+        _edgeSettingsMock.Verify(
+            r => r.ApplyCreateTimeSettingsAsync(It.IsAny<ProductDeployment>(), It.IsAny<CancellationToken>()),
+            Times.Once,
+            "the reconciler itself is the no-op guard for products without an edge");
+    }
+
+    private static ReadyStackGo.Domain.Deployment.Edge.EdgeConfig CreateEdgeConfig(
+        EdgeMssMode mode, int? mssValue = null)
+        => ReadyStackGo.Domain.Deployment.Edge.EdgeConfig.Create(
+            "app.test", 443, "bff", 8080, "edge-net", "caddy:2.8.4",
+            mssMode: mode, mssValue: mssValue);
 
     #endregion
 }
