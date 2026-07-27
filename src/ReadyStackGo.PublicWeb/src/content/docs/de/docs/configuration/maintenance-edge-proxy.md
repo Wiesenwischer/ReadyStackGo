@@ -299,6 +299,38 @@ Der Standard (`pmtu`) wird über **namespace-lokale Kernel-Sysctls** (`net.ipv4.
 
 > **Einschränkung im festen Modus:** Ein fester MSS-Wert wird angewendet, wenn RSGO das Edge-Netz **anlegt**. Existiert das Netz bereits (z. B. weil es zuerst vom Produkt-Stack erstellt wurde), lässt sich seine MTU nicht ohne Neuanlage ändern; RSGO schreibt eine Warnung ins Log und die feste Grenze greift nicht. Bevorzuge in diesem Fall `pmtu` (funktioniert unabhängig davon, wer das Netz besitzt) oder lass RSGO das Netz anlegen.
 
+### Wann eine Änderung greift
+
+Sysctls und die Netz-MTU sind **Erstellungs-Parameter** eines Containers — sie lassen sich an einem laufenden Container nicht ändern. Der Edge-Container überlebt außerdem bewusst jeden Redeploy (Label `rsgo.redeploy=ignore`), damit die Wartungsseite während des Redeploys erreichbar bleibt.
+
+Damit eine geänderte `mss`-Einstellung trotzdem ankommt, gilt:
+
+- **Redeploy und Upgrade lesen den `edge:`-Block neu aus dem Manifest** und vergleichen die eingestellte Tuning-Variante mit der, mit der der laufende Edge-Container erzeugt wurde (Label `rsgo.edge.mss`). Bei einer Abweichung wird der Edge-Container **einmalig neu erstellt** — noch bevor die Produkt-Stacks angefasst werden. Die Vordertür ist dabei wenige Sekunden nicht erreichbar; das Produkt ist zu diesem Zeitpunkt ohnehin im Redeploy.
+- **Der Hintergrund-Reconciler tut das nicht.** Er hält den Edge nur am Leben und schiebt Caddy-Konfiguration nach; er würde die Vordertür nie von sich aus neu starten.
+- Ein Edge-Container **aus einer RSGO-Version vor dieser Option** trägt kein Label und damit auch kein Tuning — er zählt als `off` und wird beim nächsten Redeploy/Upgrade auf die konfigurierte Variante (Standard `pmtu`) umgestellt.
+- Für einen **festen** Wert gilt zusätzlich die Netz-Einschränkung oben: Der neue Container allein hebt die MTU eines bestehenden Netzes nicht an.
+
+### Prüfen, ob das Clamping wirklich greift
+
+Der Edge-Container schreibt beim Start **eine Zeile** mit den Werten, die er selbst im Kernel vorfindet — damit lässt sich beim Kunden ohne Rätselraten feststellen, ob der Container tatsächlich aktualisiert wurde:
+
+```bash
+docker logs <deployment>-edge 2>&1 | head -1
+# rsgo-edge: client-facing MSS tuning mode=pmtu verdict=ACTIVE (expected: tcp_mtu_probing=1 | tcp_mtu_probing=1 tcp_base_mss=1024 iface_mtu: eth0=1500 eth1=1500)
+```
+
+| `verdict` | Bedeutung |
+|-----------|-----------|
+| `ACTIVE` | Die konfigurierte Variante ist im Container wirksam. |
+| `DISABLED` | `mss: off` — bewusst keine Anpassung. |
+| `INACTIVE` | Der Container läuft **nicht** mit der konfigurierten Variante (z. B. Container älter als die Einstellung, oder feste MTU am bestehenden Netz nicht anwendbar) → Redeploy ausführen bzw. Netz-Einschränkung prüfen. |
+
+Ergänzend zeigt das Label, mit welcher Variante der Container erzeugt wurde:
+
+```bash
+docker inspect -f '{{index .Config.Labels "rsgo.edge.mss"}}' <deployment>-edge
+```
+
 ---
 
 ## Status-Vertrag: `GET /__status`

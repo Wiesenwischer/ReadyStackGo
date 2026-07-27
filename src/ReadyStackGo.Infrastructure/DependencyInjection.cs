@@ -130,6 +130,7 @@ public static class DependencyInjection
         services.AddSingleton<Application.Services.Edge.IEdgeBundleReader, Services.Edge.EdgeBundleReader>();
         services.AddSingleton<Application.Services.Edge.IEdgeConfigCache, Application.Services.Edge.EdgeConfigCache>();
         services.AddScoped<Application.Services.Edge.IEdgeReconciler, Application.Services.Impl.EdgeReconciler>();
+        services.AddScoped<Application.Services.Edge.IEdgeSettingsReconciler, Application.Services.Impl.EdgeSettingsReconciler>();
         services.AddScoped<Application.Services.Edge.ISniRouterReconciler, Application.Services.Impl.SniRouterReconciler>();
 
         // Internal/LAN HTTP clients — edge admin API, HTTP maintenance observer/setter, HTTP

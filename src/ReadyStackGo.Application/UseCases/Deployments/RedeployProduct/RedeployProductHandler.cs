@@ -23,6 +23,8 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
     private readonly INotificationService? _inAppNotificationService;
     private readonly ILogger<RedeployProductHandler> _logger;
     private readonly TimeProvider _timeProvider;
+    private readonly Application.Services.Edge.IEdgeBundleReader? _edgeBundleReader;
+    private readonly Application.Services.Edge.IEdgeSettingsReconciler? _edgeSettingsReconciler;
 
     public RedeployProductHandler(
         IProductDeploymentRepository repository,
@@ -32,7 +34,9 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
         ILogger<RedeployProductHandler> logger,
         IDeploymentNotificationService? notificationService = null,
         INotificationService? inAppNotificationService = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        Application.Services.Edge.IEdgeBundleReader? edgeBundleReader = null,
+        Application.Services.Edge.IEdgeSettingsReconciler? edgeSettingsReconciler = null)
     {
         _repository = repository;
         _productSourceService = productSourceService;
@@ -42,6 +46,8 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
         _notificationService = notificationService;
         _inAppNotificationService = inAppNotificationService;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _edgeBundleReader = edgeBundleReader;
+        _edgeSettingsReconciler = edgeSettingsReconciler;
     }
 
     public async Task<DeployProductResponse> Handle(RedeployProductCommand request, CancellationToken cancellationToken)
@@ -92,6 +98,8 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
                 productDeployment.SetMaintenanceSetterConfig(
                     MaintenanceSetterConfigMapper.Map(product.MaintenanceSetter, observerVariables));
 
+                await RefreshEdgeConfigAsync(productDeployment, product, observerVariables, cancellationToken);
+
                 if (observerConfig != null)
                 {
                     _logger.LogInformation(
@@ -118,6 +126,14 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
 
         _repository.Update(productDeployment);
         _repository.SaveChanges();
+
+        // Edge settings that are fixed when the container is created (the client-facing MSS
+        // tuning) only take effect on a fresh container. Recreate it here — before the stacks
+        // go down — so the whole redeploy already runs behind the configured edge.
+        if (_edgeSettingsReconciler != null)
+        {
+            await _edgeSettingsReconciler.ApplyCreateTimeSettingsAsync(productDeployment, cancellationToken);
+        }
 
         var pendingStacks = productDeployment.Stacks.Count(s => s.Status == StackDeploymentStatus.Pending);
         _logger.LogInformation(
@@ -304,6 +320,50 @@ public class RedeployProductHandler : IRequestHandler<RedeployProductCommand, De
             SessionId = sessionId,
             StackResults = stackResults
         };
+    }
+
+    /// <summary>
+    /// Re-resolves the optional managed-edge config from the current catalog, mirroring the
+    /// maintenance-observer refresh: this is how manifest edits to the <c>edge:</c> block (e.g.
+    /// <c>edge.mss</c>) reach a running deployment on redeploy.
+    /// </summary>
+    private async Task RefreshEdgeConfigAsync(
+        ProductDeployment productDeployment,
+        Domain.StackManagement.Stacks.ProductDefinition product,
+        IReadOnlyDictionary<string, string> variables,
+        CancellationToken cancellationToken)
+    {
+        string? edgeBundleHtml = null;
+        if (_edgeBundleReader != null &&
+            string.Equals(product.Edge?.MaintenancePage?.Mode, "bundle", StringComparison.OrdinalIgnoreCase))
+        {
+            edgeBundleHtml = await _edgeBundleReader.ReadBundleHtmlAsync(
+                product.FilePath, product.Edge!.MaintenancePage!.BundlePath, cancellationToken);
+        }
+
+        var edgeConfig = EdgeConfigMapper.Map(product.Edge, variables, edgeBundleHtml);
+
+        if (edgeConfig == null)
+        {
+            if (productDeployment.EdgeConfig != null)
+            {
+                // Deliberately keep the stored config: tearing down a product's front door
+                // because a manifest value stopped resolving is worse than an outdated setting.
+                _logger.LogWarning(
+                    "Product {ProductName} has a stored edge config but the manifest edge: block could not be resolved on redeploy (removed or unresolved variables?) — keeping the existing edge",
+                    productDeployment.ProductName);
+            }
+            return;
+        }
+
+        if (edgeConfig.Equals(productDeployment.EdgeConfig))
+            return;
+
+        productDeployment.SetEdgeConfig(edgeConfig);
+        _logger.LogInformation(
+            "Redeploy {ProductDeploymentId} refreshed edge config for host {Hostname} -> {Upstream}:{Port} (MSS mode: {MssMode})",
+            productDeployment.Id, edgeConfig.PublicHostname, edgeConfig.UpstreamService,
+            edgeConfig.UpstreamPort, edgeConfig.MssMode);
     }
 
     // Merge shared variables with redeploy overrides for observer placeholder resolution.
