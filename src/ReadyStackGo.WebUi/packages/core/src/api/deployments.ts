@@ -486,8 +486,26 @@ export interface ProductStackDeploymentDto {
    * Variables configured for this stack in the current deployment. Used to
    * pre-fill per-stack values on the Upgrade page so required-variable
    * validation does not block an upgrade whose values were set at deploy time.
+   * Secret values are withheld — see {@link DeploymentVariableDto}.
    */
-  variables: Record<string, string>;
+  variables: DeploymentVariableDto[];
+}
+
+/**
+ * A variable of a deployment as returned by the API.
+ *
+ * Secret values never leave the server: for a password or connection string `value` is null and
+ * `hasValue` states whether something is stored. That is enough to pre-fill required-variable
+ * validation on the Upgrade page without knowing the value — the backend merges the stored value.
+ */
+export interface DeploymentVariableDto {
+  name: string;
+  /** The value, or null when `isSecret` is true. */
+  value: string | null;
+  /** Whether the value is withheld by the server. */
+  isSecret: boolean;
+  /** Whether a non-empty value is stored. */
+  hasValue: boolean;
 }
 
 /**
@@ -524,7 +542,8 @@ export interface GetProductDeploymentResponse {
   maintenanceTrigger?: MaintenanceTriggerDto;
   durationSeconds?: number;
   stacks: ProductStackDeploymentDto[];
-  sharedVariables: Record<string, string>;
+  /** Secret values are withheld — see {@link DeploymentVariableDto}. */
+  sharedVariables: DeploymentVariableDto[];
   // PRTG integration (Variant 3) — null when the deployment is not linked.
   prtgConnectionId?: string | null;
   prtgDeviceId?: number | null;
@@ -665,6 +684,8 @@ export interface UpgradeProductRequest {
   sharedVariables: Record<string, string>;
   sessionId?: string;
   continueOnError?: boolean;
+  /** Variable names the user chose NOT to persist (transient/sensitive values) */
+  excludeFromStorage?: string[];
 }
 
 /**

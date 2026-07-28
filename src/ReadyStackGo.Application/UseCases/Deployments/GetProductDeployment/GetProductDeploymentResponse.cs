@@ -35,7 +35,7 @@ public class GetProductDeploymentResponse
     public MaintenanceTriggerDto? MaintenanceTrigger { get; set; }
     public double? DurationSeconds { get; set; }
     public List<ProductStackDeploymentDto> Stacks { get; set; } = new();
-    public Dictionary<string, string> SharedVariables { get; set; } = new();
+    public List<DeploymentVariableDto> SharedVariables { get; set; } = new();
 
     // PRTG integration (Variant 3) — null when the deployment is not linked.
     public string? PrtgConnectionId { get; set; }
@@ -71,9 +71,9 @@ public class ProductStackDeploymentDto
     /// Variables configured for this stack in the current deployment. Carried
     /// through so the Upgrade form can pre-fill per-stack values (the backend
     /// merges them anyway, but the frontend validates required variables before
-    /// sending the request).
+    /// sending the request). Secret values are withheld — see <see cref="DeploymentVariableDto"/>.
     /// </summary>
-    public Dictionary<string, string> Variables { get; set; } = new();
+    public List<DeploymentVariableDto> Variables { get; set; } = new();
 }
 
 /// <summary>
@@ -85,4 +85,26 @@ public class MaintenanceTriggerDto
     public string? Reason { get; set; }
     public DateTime TriggeredAtUtc { get; set; }
     public string? TriggeredBy { get; set; }
+}
+
+/// <summary>
+/// A variable of a deployment as exposed to clients.
+///
+/// Secret values never leave the server: for a password or a connection string,
+/// <see cref="Value"/> is null and <see cref="HasValue"/> tells the client whether something is
+/// stored. That is enough for the upgrade form to satisfy required-variable validation without
+/// knowing the value — the backend merges the stored value when it deploys.
+/// </summary>
+public class DeploymentVariableDto
+{
+    public required string Name { get; set; }
+
+    /// <summary>The value, or null when <see cref="IsSecret"/> is true.</summary>
+    public string? Value { get; set; }
+
+    /// <summary>Whether this variable's value is withheld.</summary>
+    public bool IsSecret { get; set; }
+
+    /// <summary>Whether a non-empty value is stored for this variable.</summary>
+    public bool HasValue { get; set; }
 }

@@ -7,6 +7,7 @@ using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Domain.Deployment.Observers;
 using ReadyStackGo.Domain.SharedKernel;
+using ReadyStackGo.Domain.StackManagement.Manifests;
 
 /// <summary>
 /// Aggregate root representing a product-level deployment.
@@ -63,6 +64,15 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     // ── Shared Variables ─────────────────────────────────────────────
     private readonly Dictionary<string, string> _sharedVariables = new();
     public IReadOnlyDictionary<string, string> SharedVariables => _sharedVariables;
+
+    // ── Secret Variables ─────────────────────────────────────────────
+    // Names of variables whose values must never be returned to a client, recorded from the product
+    // definition at deploy/upgrade time. Kept on the deployment so read paths never have to resolve
+    // the product source (which can be remote, slow, or unavailable) just to answer "may I show
+    // this?". Empty for deployments created before this was recorded — read paths fall back to
+    // judging by name.
+    private readonly HashSet<string> _secretVariableNames = new(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlySet<string> SecretVariableNames => _secretVariableNames;
 
     // ── Upgrade Tracking ─────────────────────────────────────────────
     public string? PreviousVersion { get; private set; }
@@ -875,6 +885,32 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     // ═══════════════════════════════════════════════════════════════════
     // Maintenance / Operation Mode
     // ═══════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Records which variable names hold secret values, taken from the product definition at
+    /// deploy/upgrade time. Replaces any previously recorded set, so a variable that stops being a
+    /// secret in a newer product version stops being withheld.
+    /// </summary>
+    public void SetSecretVariableNames(IEnumerable<string>? names)
+    {
+        _secretVariableNames.Clear();
+
+        if (names == null) return;
+
+        foreach (var name in names.Where(n => !string.IsNullOrWhiteSpace(n)))
+        {
+            _secretVariableNames.Add(name);
+        }
+    }
+
+    /// <summary>
+    /// Whether the value of <paramref name="variableName"/> must be withheld from clients. Uses the
+    /// recorded set, and falls back to judging by name so deployments predating the recording — or
+    /// variables missing from it — are not exposed.
+    /// </summary>
+    public bool IsSecretVariable(string variableName)
+        => _secretVariableNames.Contains(variableName)
+           || VariableTypeSecrecy.NameSuggestsSecret(variableName);
 
     /// <summary>
     /// Sets the maintenance observer configuration for this product deployment.
