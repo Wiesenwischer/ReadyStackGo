@@ -1211,7 +1211,6 @@ maintenanceObserver:
 | `normalValue` | string | **Yes** | Value that exits maintenance mode |
 | `pollingInterval` | string | No | Check interval (default: `30s`) |
 | `timeout` | string | No | Query timeout (default: `10s`) |
-| `enabled` | boolean | No | Enable/disable observer (default: `true`) |
 
 *Use either `connectionString` OR `connectionName`, not both. `connectionName` is recommended when you already have a connection variable defined.
 

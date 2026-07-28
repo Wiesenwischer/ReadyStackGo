@@ -117,6 +117,15 @@ public static class DependencyInjection
         services.AddSingleton<IMaintenanceObserverFactory, MaintenanceObserverFactory>();
         services.AddScoped<IMaintenanceObserverService, MaintenanceObserverService>();
 
+        // Observer state (instances, last result, last check time) must survive the per-cycle scope
+        // of MaintenanceObserverBackgroundService — the service itself stays scoped because it
+        // depends on repositories and the mediator.
+        services.AddSingleton<IMaintenanceObserverStateStore, MaintenanceObserverStateStore>();
+
+        // Reads database availability from master, so a SQL observer never connects to a database a
+        // product currently holds exclusively (see SqlDatabaseAvailabilityProbe).
+        services.AddSingleton<ISqlDatabaseAvailabilityProbe, SqlDatabaseAvailabilityProbe>();
+
         // Maintenance Setter (mirror of the observer — propagates RSGO-initiated transitions)
         services.AddSingleton<IMaintenanceSetterFactory, MaintenanceSetterFactory>();
         services.AddScoped<IMaintenanceSetterService, Application.Services.Impl.MaintenanceSetterService>();

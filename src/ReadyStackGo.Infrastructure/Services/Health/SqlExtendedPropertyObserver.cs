@@ -8,14 +8,15 @@ namespace ReadyStackGo.Infrastructure.Services.Health;
 /// Observer that reads a SQL Server Extended Property to determine maintenance state.
 /// Extended Properties are metadata attached to database objects.
 /// </summary>
-public sealed class SqlExtendedPropertyObserver : BaseMaintenanceObserver
+public sealed class SqlExtendedPropertyObserver : SqlMaintenanceObserverBase
 {
     private readonly SqlObserverSettings _settings;
 
     public SqlExtendedPropertyObserver(
         MaintenanceObserverConfig config,
+        ISqlDatabaseAvailabilityProbe availabilityProbe,
         ILogger<SqlExtendedPropertyObserver> logger)
-        : base(config, logger)
+        : base(config, availabilityProbe, logger)
     {
         _settings = config.Settings as SqlObserverSettings
             ?? throw new ArgumentException("Invalid settings type for SQL Extended Property observer");
@@ -28,9 +29,7 @@ public sealed class SqlExtendedPropertyObserver : BaseMaintenanceObserver
 
     protected override async Task<string> GetObservedValueAsync(CancellationToken cancellationToken)
     {
-        var connectionString = GetConnectionString();
-
-        await using var connection = new SqlConnection(connectionString);
+        await using var connection = new SqlConnection(ConnectionString);
         await connection.OpenAsync(cancellationToken);
 
         // Query the extended property at database level
@@ -57,16 +56,19 @@ public sealed class SqlExtendedPropertyObserver : BaseMaintenanceObserver
         return result.ToString() ?? string.Empty;
     }
 
-    private string GetConnectionString()
+    protected override string RawConnectionString
     {
-        if (!string.IsNullOrEmpty(_settings.ConnectionString))
+        get
         {
-            return _settings.ConnectionString;
-        }
+            if (!string.IsNullOrEmpty(_settings.ConnectionString))
+            {
+                return _settings.ConnectionString;
+            }
 
-        // ConnectionName resolution would be handled by manifest variable resolver
-        // For now, we expect the resolved connection string to be in ConnectionString
-        throw new InvalidOperationException(
-            "Connection string not available. ConnectionName should be resolved before creating the observer.");
+            // ConnectionName resolution would be handled by manifest variable resolver
+            // For now, we expect the resolved connection string to be in ConnectionString
+            throw new InvalidOperationException(
+                "Connection string not available. ConnectionName should be resolved before creating the observer.");
+        }
     }
 }

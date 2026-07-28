@@ -25,6 +25,12 @@ public abstract class BaseMaintenanceObserver : IMaintenanceObserver
         {
             Logger.LogDebug("Performing maintenance check for {ObserverType}", Type.DisplayName);
 
+            var shortCircuit = await TryShortCircuitAsync(cancellationToken);
+            if (shortCircuit != null)
+            {
+                return shortCircuit;
+            }
+
             var observedValue = await GetObservedValueAsync(cancellationToken);
 
             var result = DetermineResult(observedValue);
@@ -54,6 +60,15 @@ public abstract class BaseMaintenanceObserver : IMaintenanceObserver
     /// Implemented by each specific observer type.
     /// </summary>
     protected abstract Task<string> GetObservedValueAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lets an observer answer without reading the observed value at all. Returning null means
+    /// "carry on with the regular check". Used by the SQL observers to report maintenance while the
+    /// product database is held exclusively — the value cannot be read then, and attempting to
+    /// would interfere with the product's own maintenance.
+    /// </summary>
+    protected virtual Task<ObserverResult?> TryShortCircuitAsync(CancellationToken cancellationToken)
+        => Task.FromResult<ObserverResult?>(null);
 
     /// <summary>
     /// Determines the result based on the observed value and configuration.

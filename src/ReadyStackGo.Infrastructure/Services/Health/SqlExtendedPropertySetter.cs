@@ -34,7 +34,10 @@ public sealed class SqlExtendedPropertySetter : IMaintenanceSetter
 
         try
         {
-            await using var connection = new SqlConnection(_settings.ConnectionString);
+            // Non-pooled, like the observers: a setter write must not leave a session behind that a
+            // product waits on before taking its database exclusively (see SqlObserverConnection).
+            await using var connection = new SqlConnection(
+                SqlObserverConnection.Normalize(_settings.ConnectionString));
             await connection.OpenAsync(cancellationToken);
 
             // Idempotent upsert of the database-level extended property.
