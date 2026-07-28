@@ -662,7 +662,7 @@ export function useUpgradeProductStore(
   }, [
     targetProduct, environmentId, productDeployment, upgradeInfo,
     selectedVersion, sharedVars, sharedVariableValues, sharedVarNames,
-    perStackVariableValues, continueOnError, connectionState,
+    perStackVariableValues, storedSecretNames, continueOnError, connectionState,
     subscribeToDeployment, productDeploymentId,
   ]);
 
