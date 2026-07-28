@@ -115,6 +115,18 @@ public class DockerService : IDockerService, IDisposable
         _logger.LogInformation("Stopped container {ContainerId} in environment {EnvironmentId}", containerId, environmentId);
     }
 
+    public async Task KillContainerAsync(string environmentId, string containerId, CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+
+        await client.Containers.KillContainerAsync(
+            containerId,
+            new ContainerKillParameters(),
+            cancellationToken);
+
+        _logger.LogWarning("Killed container {ContainerId} in environment {EnvironmentId}", containerId, environmentId);
+    }
+
     public async Task<TestConnectionResult> TestConnectionAsync(string dockerHost, CancellationToken cancellationToken = default)
     {
         try

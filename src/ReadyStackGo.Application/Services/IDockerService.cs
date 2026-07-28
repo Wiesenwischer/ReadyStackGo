@@ -34,6 +34,13 @@ public interface IDockerService
     Task StopContainerAsync(string environmentId, string containerId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Kills a container in the specified environment (SIGKILL, no grace period).
+    /// Escalation for a container that did not react to a stop — used by the maintenance
+    /// transition, which must not leave a container running.
+    /// </summary>
+    Task KillContainerAsync(string environmentId, string containerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Tests the connection to a Docker host.
     /// </summary>
     Task<TestConnectionResult> TestConnectionAsync(string dockerHost, CancellationToken cancellationToken = default);
