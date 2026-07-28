@@ -115,6 +115,18 @@ public class DockerService : IDockerService, IDisposable
         _logger.LogInformation("Stopped container {ContainerId} in environment {EnvironmentId}", containerId, environmentId);
     }
 
+    public async Task KillContainerAsync(string environmentId, string containerId, CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+
+        await client.Containers.KillContainerAsync(
+            containerId,
+            new ContainerKillParameters(),
+            cancellationToken);
+
+        _logger.LogWarning("Killed container {ContainerId} in environment {EnvironmentId}", containerId, environmentId);
+    }
+
     public async Task<TestConnectionResult> TestConnectionAsync(string dockerHost, CancellationToken cancellationToken = default)
     {
         try
@@ -775,10 +787,8 @@ public class DockerService : IDockerService, IDisposable
 
         var containers = await ListContainersAsync(environmentId, cancellationToken);
         var stackContainers = containers
-            .Where(c => c.Labels.TryGetValue("rsgo.stack", out var stack) && stack == stackName)
-            .Where(c => !c.Labels.TryGetValue("rsgo.maintenance", out var mode) ||
-                        !mode.Equals("ignore", StringComparison.OrdinalIgnoreCase))
-            .Where(c => c.State == "running")
+            .Where(c => MaintenanceContainerFilter.BelongsToStack(c, stackName))
+            .Where(MaintenanceContainerFilter.ShouldStop)
             .ToList();
 
         var stoppedIds = new List<string>();
@@ -837,10 +847,8 @@ public class DockerService : IDockerService, IDisposable
 
         var containers = await ListContainersAsync(environmentId, cancellationToken);
         var stackContainers = containers
-            .Where(c => c.Labels.TryGetValue("rsgo.stack", out var stack) && stack == stackName)
-            .Where(c => !c.Labels.TryGetValue("rsgo.maintenance", out var mode) ||
-                        !mode.Equals("ignore", StringComparison.OrdinalIgnoreCase))
-            .Where(c => c.State == "exited" || c.State == "created")
+            .Where(c => MaintenanceContainerFilter.BelongsToStack(c, stackName))
+            .Where(MaintenanceContainerFilter.ShouldStart)
             .ToList();
 
         var startedIds = new List<string>();
