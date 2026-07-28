@@ -35,6 +35,22 @@ function computeSharedVariables(stacks: ProductStack[]): StackVariable[] {
     .map(e => e.variable);
 }
 
+/**
+ * Drops variables that are stored secrets the user did not retype. Their field is empty because the
+ * server withholds the value; submitting that empty string would win over the stored value when the
+ * backend merges variables, silently wiping a password on upgrade.
+ */
+function withoutUntouchedSecrets(
+  values: Record<string, string>,
+  storedSecretNames: Set<string>,
+): Record<string, string> {
+  if (storedSecretNames.size === 0) return values;
+
+  return Object.fromEntries(
+    Object.entries(values).filter(([name, value]) => value !== '' || !storedSecretNames.has(name)),
+  );
+}
+
 // Get stack-specific variables (not in shared set)
 function getStackSpecificVariables(stack: ProductStack, sharedNames: Set<string>): StackVariable[] {
   return stack.variables.filter(v => !sharedNames.has(v.name));
@@ -83,6 +99,14 @@ export interface UseUpgradeProductStoreReturn {
   perStackVariableValues: Record<string, Record<string, string>>;
   sharedVars: StackVariable[];
   sharedVarNames: Set<string>;
+  /**
+   * Secret variables that already have a stored value. Their input stays empty (the server withholds
+   * the value); leaving it empty keeps the stored value, typing a new one replaces it.
+   */
+  storedSecretNames: Set<string>;
+  /** Variable names the user chose NOT to persist. */
+  excludeFromStorage: Set<string>;
+  setVariableSave: (varName: string, save: boolean) => void;
 
   // Accordion state
   expandedStacks: Set<string>;
@@ -138,6 +162,17 @@ export function useUpgradeProductStore(
 
   // Accordion: which stacks are expanded
   const [expandedStacks, setExpandedStacks] = useState<Set<string>>(new Set());
+
+  // Names of secret variables that already have a stored value. The server withholds the value, so
+  // the form cannot pre-fill it — it must still count as "set" for required-variable validation, and
+  // must not be submitted as an empty string (which would overwrite the stored value on merge).
+  const [storedSecretNames, setStoredSecretNames] = useState<Set<string>>(new Set());
+  const storedSecretNamesRef = useRef<Set<string>>(new Set());
+
+  // Per-variable "save value" opt-out, carried forward so an upgrade does not quietly start storing
+  // a password the user declined to store at deploy time.
+  const [excludeFromStorage, setExcludeFromStorage] = useState<Set<string>>(new Set());
+  const excludeFromStorageRef = useRef<Set<string>>(new Set());
 
   // Computed shared variables
   const [sharedVars, setSharedVars] = useState<StackVariable[]>([]);
@@ -254,12 +289,19 @@ export function useUpgradeProductStore(
       sharedInit[v.name] = v.defaultValue || '';
     }
 
-    // Overlay with current deployment shared variables
+    // Overlay with current deployment shared variables. A secret arrives without its value; all we
+    // learn is whether one is stored, which is enough to satisfy validation later.
+    const storedSecrets = new Set<string>();
     if (deployment.sharedVariables) {
-      for (const [key, value] of Object.entries(deployment.sharedVariables)) {
-        if (Object.prototype.hasOwnProperty.call(sharedInit, key)) {
-          sharedInit[key] = value;
+      for (const variable of deployment.sharedVariables) {
+        if (!Object.prototype.hasOwnProperty.call(sharedInit, variable.name)) continue;
+
+        if (variable.isSecret) {
+          if (variable.hasValue) storedSecrets.add(variable.name);
+          continue;
         }
+
+        sharedInit[variable.name] = variable.value ?? '';
       }
     }
 
@@ -287,14 +329,26 @@ export function useUpgradeProductStore(
         s => s.stackName.toLowerCase() === stack.name.toLowerCase()
       );
       if (existingStack?.variables) {
-        for (const v of stackVars) {
-          if (Object.prototype.hasOwnProperty.call(existingStack.variables, v.name)) {
-            varValues[v.name] = existingStack.variables[v.name];
+        const targetNames = new Set(stackVars.map(v => v.name));
+        for (const variable of existingStack.variables) {
+          if (!targetNames.has(variable.name)) continue;
+
+          if (variable.isSecret) {
+            if (variable.hasValue) storedSecrets.add(variable.name);
+            continue;
           }
+
+          varValues[variable.name] = variable.value ?? '';
         }
       }
 
       perStackInit[stack.id] = varValues;
+
+      // A required secret with a stored value is not missing, even though the field stays empty.
+      if (hasRequiredMissing) {
+        hasRequiredMissing = stackVars.some(
+          v => v.isRequired && !varValues[v.name] && !storedSecrets.has(v.name));
+      }
 
       // Expand stacks that are new or have required variables missing values
       const isNew = newStacks?.some(n => n.toLowerCase() === stack.name.toLowerCase());
@@ -306,6 +360,27 @@ export function useUpgradeProductStore(
     setSharedVariableValues(sharedInit);
     setPerStackVariableValues(perStackInit);
     setExpandedStacks(expandInit);
+    setStoredSecretNames(storedSecrets);
+    storedSecretNamesRef.current = storedSecrets;
+
+    // Default the opt-out from the target version's hints, plus every secret the current deployment
+    // holds no value for — that is the trace of a deploy-time "do not save".
+    const excluded = new Set<string>();
+    for (const stack of product.stacks) {
+      for (const v of stack.variables) {
+        if (v.defaultTransient) excluded.add(v.name);
+      }
+    }
+    for (const variable of deployment.sharedVariables ?? []) {
+      if (variable.isSecret && !variable.hasValue) excluded.add(variable.name);
+    }
+    for (const stack of deployment.stacks) {
+      for (const variable of stack.variables ?? []) {
+        if (variable.isSecret && !variable.hasValue) excluded.add(variable.name);
+      }
+    }
+    setExcludeFromStorage(excluded);
+    excludeFromStorageRef.current = excluded;
   }, []);
 
   // Load product deployment and upgrade info
@@ -479,7 +554,7 @@ export function useUpgradeProductStore(
 
     // Check required shared variables
     const missingShared = sharedVars
-      .filter(v => v.isRequired && !sharedVariableValues[v.name])
+      .filter(v => v.isRequired && !sharedVariableValues[v.name] && !storedSecretNames.has(v.name))
       .map(v => v.label || v.name);
     if (missingShared.length > 0) {
       setError(`Missing required shared variables: ${missingShared.join(', ')}`);
@@ -490,7 +565,9 @@ export function useUpgradeProductStore(
     for (const stack of targetProduct.stacks) {
       const stackSpecific = getStackSpecificVariables(stack, sharedVarNames);
       const missing = stackSpecific
-        .filter(v => v.isRequired && !perStackVariableValues[stack.id]?.[v.name])
+        .filter(v => v.isRequired
+          && !perStackVariableValues[stack.id]?.[v.name]
+          && !storedSecretNames.has(v.name))
         .map(v => v.label || v.name);
       if (missing.length > 0) {
         setError(`Missing required variables in "${stack.name}": ${missing.join(', ')}`);
@@ -527,18 +604,24 @@ export function useUpgradeProductStore(
     }
 
     try {
-      // Build stack configs
+      // Build stack configs. Untouched stored secrets are omitted rather than sent as empty
+      // strings: an empty override would win over the stored value when the backend merges.
       const stackConfigs = targetProduct.stacks.map(stack => ({
         stackId: stack.id,
-        variables: perStackVariableValues[stack.id] || {},
+        variables: withoutUntouchedSecrets(
+          perStackVariableValues[stack.id] || {}, storedSecretNamesRef.current),
       }));
 
       const response = await upgradeProduct(environmentId, productDeploymentId!, {
         targetProductId,
         stackConfigs,
-        sharedVariables: sharedVariableValues,
+        sharedVariables: withoutUntouchedSecrets(
+          sharedVariableValues, storedSecretNamesRef.current),
         sessionId,
         continueOnError,
+        excludeFromStorage: excludeFromStorageRef.current.size > 0
+          ? [...excludeFromStorageRef.current]
+          : undefined,
       });
 
       setStackResults(response.stackResults || []);
@@ -579,9 +662,22 @@ export function useUpgradeProductStore(
   }, [
     targetProduct, environmentId, productDeployment, upgradeInfo,
     selectedVersion, sharedVars, sharedVariableValues, sharedVarNames,
-    perStackVariableValues, continueOnError, connectionState,
+    perStackVariableValues, storedSecretNames, continueOnError, connectionState,
     subscribeToDeployment, productDeploymentId,
   ]);
+
+  const setVariableSave = useCallback((varName: string, save: boolean) => {
+    setExcludeFromStorage(prev => {
+      const next = new Set(prev);
+      if (save) {
+        next.delete(varName);
+      } else {
+        next.add(varName);
+      }
+      excludeFromStorageRef.current = next;
+      return next;
+    });
+  }, []);
 
   const getBackUrl = useCallback(() => {
     if (productDeployment?.productId) {
@@ -612,6 +708,9 @@ export function useUpgradeProductStore(
     perStackVariableValues,
     sharedVars,
     sharedVarNames,
+    storedSecretNames,
+    excludeFromStorage,
+    setVariableSave,
     expandedStacks,
     progressUpdate,
     perStackProgress,

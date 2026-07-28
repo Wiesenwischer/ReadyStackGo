@@ -129,12 +129,13 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
 
             var mergedVariables = MergeVariables(stackDef, existingVariables, request.SharedVariables, reqStack.Variables);
 
+            // The full set is deployed below; only what the user allowed to be kept is persisted.
             stackConfigs.Add(new StackDeploymentConfig(
                 stackDef.Name,
                 stackDef.Name,
                 reqStack.StackId,
                 stackDef.Services.Count,
-                mergedVariables));
+                VariableStorageFilter.ForStorage(mergedVariables, request.ExcludeFromStorage)));
         }
 
         // Remove stacks that exist in the current deployment but are not in the target version.
@@ -193,8 +194,13 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
             deploymentName,
             existing,
             stackConfigs,
-            request.SharedVariables,
+            VariableStorageFilter.ForStorage(request.SharedVariables, request.ExcludeFromStorage),
             request.ContinueOnError);
+
+        // Re-record the secret variable names from the *target* version: a variable can change type
+        // between versions, and the successor aggregate starts without a recorded set.
+        productDeployment.SetSecretVariableNames(
+            DeployProduct.DeployProductHandler.CollectSecretVariableNames(targetProduct));
 
         // Carry the optional edge config forward onto the successor aggregate so the
         // managed edge keeps reconciling across the upgrade. Null = feature inert.
@@ -315,7 +321,8 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
                     stackDeploymentName,
                     new Dictionary<string, string>(mergedVariables),
                     sessionId,
-                    SuppressNotification: true), cancellationToken);
+                    SuppressNotification: true,
+                    ExcludeFromStorage: request.ExcludeFromStorage), cancellationToken);
             }
             catch (Exception ex)
             {

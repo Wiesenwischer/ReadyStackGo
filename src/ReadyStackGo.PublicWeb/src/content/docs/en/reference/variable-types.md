@@ -84,7 +84,14 @@ DB_PASSWORD:
   description: At least 8 characters
 ```
 
-**UI**: Password field with eye icon to show/hide
+**UI**: Password field with an eye icon to show/hide
+
+**How the value is handled**: values of `Password` variables and of every connection-string type count
+as secrets. The API **never returns them** — the deployment detail page only shows whether a value is
+stored (`••••••••`), not the value itself. At deploy and upgrade time, **"Save value"** decides per
+variable whether the value is stored at all; without storing it, it has to be entered again on the
+next redeploy or upgrade. When a secret is stored, its field stays empty on upgrade — leaving it empty
+keeps the stored value, entering one replaces it.
 
 ---
 

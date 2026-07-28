@@ -86,6 +86,14 @@ DB_PASSWORD:
 
 **UI**: Passwortfeld mit Auge-Symbol zum Ein-/Ausblenden
 
+**Umgang mit dem Wert**: Werte von `Password`-Variablen und von allen Connection-String-Typen gelten
+als Secret. Sie werden von der API **nie zurückgeliefert** — die Deployment-Detailseite zeigt nur, ob
+ein Wert gespeichert ist (`••••••••`), nicht den Wert selbst. Beim Deploy und beim Upgrade lässt sich
+pro Variable über **„Save value"** entscheiden, ob der Wert überhaupt gespeichert wird; ohne
+Speicherung muss er beim nächsten Redeploy oder Upgrade erneut eingegeben werden. Ist ein Secret
+gespeichert, bleibt das Feld beim Upgrade leer — leer lassen behält den gespeicherten Wert, eine
+Eingabe ersetzt ihn.
+
 ---
 
 ### Port

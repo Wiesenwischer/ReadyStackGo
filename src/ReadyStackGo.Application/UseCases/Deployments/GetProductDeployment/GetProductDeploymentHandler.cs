@@ -73,7 +73,7 @@ public class GetProductDeploymentHandler : IRequestHandler<GetProductDeploymentQ
                 }
                 : null,
             DurationSeconds = pd.GetDuration()?.TotalSeconds,
-            SharedVariables = new Dictionary<string, string>(pd.SharedVariables),
+            SharedVariables = MapVariables(pd, pd.SharedVariables),
             PrtgConnectionId = pd.PrtgConnectionId?.Value.ToString(),
             PrtgDeviceId = pd.PrtgDeviceId,
             PrtgLastSyncedAt = pd.PrtgLastSyncedAt,
@@ -95,8 +95,33 @@ public class GetProductDeploymentHandler : IRequestHandler<GetProductDeploymentQ
                 Order = s.Order,
                 ServiceCount = s.ServiceCount,
                 IsNewInUpgrade = s.IsNewInUpgrade,
-                Variables = new Dictionary<string, string>(s.Variables)
+                Variables = MapVariables(pd, s.Variables)
             }).ToList()
         };
+    }
+
+    /// <summary>
+    /// Maps stored variables for the client, withholding the value of every variable the deployment
+    /// classifies as secret. The client learns only that a value exists.
+    /// </summary>
+    private static List<DeploymentVariableDto> MapVariables(
+        ProductDeployment pd,
+        IReadOnlyDictionary<string, string> variables)
+    {
+        return variables
+            .OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(kvp =>
+            {
+                var isSecret = pd.IsSecretVariable(kvp.Key);
+
+                return new DeploymentVariableDto
+                {
+                    Name = kvp.Key,
+                    Value = isSecret ? null : kvp.Value,
+                    IsSecret = isSecret,
+                    HasValue = !string.IsNullOrEmpty(kvp.Value)
+                };
+            })
+            .ToList();
     }
 }

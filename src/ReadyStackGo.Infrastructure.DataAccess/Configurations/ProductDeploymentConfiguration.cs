@@ -168,6 +168,20 @@ public class ProductDeploymentConfiguration : IEntityTypeConfiguration<ProductDe
                 v => JsonSerializer.Deserialize<Dictionary<string, string>>(v, (JsonSerializerOptions?)null) ?? new())
             .HasColumnName("SharedVariablesJson");
 
+        // Names of variables whose values must never be returned to a client. JSON column, mirroring
+        // SharedVariables; the backing field is a HashSet so it needs field access.
+        builder.Property(d => d.SecretVariableNames)
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                // Rebuild with the case-insensitive comparer: deserialization would otherwise hand
+                // back a set with the default comparer and quietly lose case-insensitive lookups.
+                v => new HashSet<string>(
+                    JsonSerializer.Deserialize<HashSet<string>>(v, (JsonSerializerOptions?)null)
+                        ?? new HashSet<string>(),
+                    StringComparer.OrdinalIgnoreCase))
+            .HasColumnName("SecretVariableNamesJson")
+            .Metadata.SetPropertyAccessMode(PropertyAccessMode.Field);
+
         // Configure PhaseHistory as JSON column
         builder.Property(d => d.PhaseHistory)
             .HasConversion(
