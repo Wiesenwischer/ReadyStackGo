@@ -458,6 +458,23 @@ public class ChangeProductOperationModeStopVerificationTests
     }
 
     [Fact]
+    public async Task EnterMaintenance_VerificationFails_ReportsFailedPhase()
+    {
+        // If the container list cannot be read, nothing is known about the stack. Claiming success
+        // without having looked is precisely what kept the original bug invisible.
+        var deployment = RunningDeployment();
+        _dockerServiceMock
+            .Setup(d => d.ListContainersAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("docker daemon unreachable"));
+
+        var response = await EnterMaintenance(deployment);
+
+        response.Success.Should().BeTrue();
+        TerminalUpdate.Phase.Should().Be("Failed");
+        TerminalUpdate.Message.Should().Contain("verify");
+    }
+
+    [Fact]
     public async Task EnterMaintenance_ContainersRemainRunning_StillReportsModeChange()
     {
         // The mode has already been propagated to the product; rolling it back would be more

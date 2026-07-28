@@ -787,10 +787,8 @@ public class DockerService : IDockerService, IDisposable
 
         var containers = await ListContainersAsync(environmentId, cancellationToken);
         var stackContainers = containers
-            .Where(c => c.Labels.TryGetValue("rsgo.stack", out var stack) && stack == stackName)
-            .Where(c => !c.Labels.TryGetValue("rsgo.maintenance", out var mode) ||
-                        !mode.Equals("ignore", StringComparison.OrdinalIgnoreCase))
-            .Where(c => c.State == "running")
+            .Where(c => MaintenanceContainerFilter.BelongsToStack(c, stackName))
+            .Where(MaintenanceContainerFilter.ShouldStop)
             .ToList();
 
         var stoppedIds = new List<string>();
@@ -849,10 +847,8 @@ public class DockerService : IDockerService, IDisposable
 
         var containers = await ListContainersAsync(environmentId, cancellationToken);
         var stackContainers = containers
-            .Where(c => c.Labels.TryGetValue("rsgo.stack", out var stack) && stack == stackName)
-            .Where(c => !c.Labels.TryGetValue("rsgo.maintenance", out var mode) ||
-                        !mode.Equals("ignore", StringComparison.OrdinalIgnoreCase))
-            .Where(c => c.State == "exited" || c.State == "created")
+            .Where(c => MaintenanceContainerFilter.BelongsToStack(c, stackName))
+            .Where(MaintenanceContainerFilter.ShouldStart)
             .ToList();
 
         var startedIds = new List<string>();
