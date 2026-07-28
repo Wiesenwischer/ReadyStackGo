@@ -22,6 +22,7 @@ public class MaintenanceObserverFactoryTests
         // Add required services
         services.AddLogging();
         services.AddHttpClient("MaintenanceObserver");
+        services.AddSingleton<ISqlDatabaseAvailabilityProbe, SqlDatabaseAvailabilityProbe>();
 
         _serviceProvider = services.BuildServiceProvider();
         _factory = new MaintenanceObserverFactory(_serviceProvider);

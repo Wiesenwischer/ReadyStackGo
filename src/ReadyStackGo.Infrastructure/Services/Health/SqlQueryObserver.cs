@@ -8,14 +8,15 @@ namespace ReadyStackGo.Infrastructure.Services.Health;
 /// Observer that executes a SQL query to determine maintenance state.
 /// The query must return a single scalar value.
 /// </summary>
-public sealed class SqlQueryObserver : BaseMaintenanceObserver
+public sealed class SqlQueryObserver : SqlMaintenanceObserverBase
 {
     private readonly SqlObserverSettings _settings;
 
     public SqlQueryObserver(
         MaintenanceObserverConfig config,
+        ISqlDatabaseAvailabilityProbe availabilityProbe,
         ILogger<SqlQueryObserver> logger)
-        : base(config, logger)
+        : base(config, availabilityProbe, logger)
     {
         _settings = config.Settings as SqlObserverSettings
             ?? throw new ArgumentException("Invalid settings type for SQL Query observer");
@@ -28,9 +29,7 @@ public sealed class SqlQueryObserver : BaseMaintenanceObserver
 
     protected override async Task<string> GetObservedValueAsync(CancellationToken cancellationToken)
     {
-        var connectionString = GetConnectionString();
-
-        await using var connection = new SqlConnection(connectionString);
+        await using var connection = new SqlConnection(ConnectionString);
         await connection.OpenAsync(cancellationToken);
 
         await using var command = new SqlCommand(_settings.Query, connection);
@@ -47,14 +46,17 @@ public sealed class SqlQueryObserver : BaseMaintenanceObserver
         return result.ToString() ?? string.Empty;
     }
 
-    private string GetConnectionString()
+    protected override string RawConnectionString
     {
-        if (!string.IsNullOrEmpty(_settings.ConnectionString))
+        get
         {
-            return _settings.ConnectionString;
-        }
+            if (!string.IsNullOrEmpty(_settings.ConnectionString))
+            {
+                return _settings.ConnectionString;
+            }
 
-        throw new InvalidOperationException(
-            "Connection string not available. ConnectionName should be resolved before creating the observer.");
+            throw new InvalidOperationException(
+                "Connection string not available. ConnectionName should be resolved before creating the observer.");
+        }
     }
 }

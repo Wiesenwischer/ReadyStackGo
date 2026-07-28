@@ -1,5 +1,6 @@
 using FastEndpoints;
 using Microsoft.Data.SqlClient;
+using ReadyStackGo.Infrastructure.Services.Health;
 
 namespace ReadyStackGo.API.Endpoints.Connections;
 
@@ -53,7 +54,11 @@ public class TestSqlServerConnectionEndpoint : Endpoint<TestSqlServerConnectionR
                 builder.ConnectTimeout = 5;
             }
 
-            await using var connection = new SqlConnection(builder.ConnectionString);
+            // Non-pooled: a connection test must not leave an idle session behind on the product
+            // database. Pooling would keep it alive for minutes, long enough to block a product
+            // maintenance routine started right after someone validated the connection here.
+            await using var connection = new SqlConnection(
+                SqlObserverConnection.Normalize(builder.ConnectionString, "ReadyStackGo-ConnectionTest"));
             await connection.OpenAsync(ct);
 
             Response = new TestSqlServerConnectionResponse
