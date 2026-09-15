@@ -11,7 +11,8 @@ concurrency:
 
 env:
   DOTNET_VERSION: '9.0.x'
-  NODE_VERSION: '20.x'
+  # 22.x is the floor for vitest 5 (and matches the local toolchain).
+  NODE_VERSION: '22.x'
 
 jobs:
   build-and-test:
@@ -64,6 +65,10 @@ jobs:
       - name: Type Check Frontend
         working-directory: src/ReadyStackGo.WebUi
         run: pnpm exec tsc -b
+
+      - name: Run Frontend Unit Tests
+        working-directory: src/ReadyStackGo.WebUi
+        run: pnpm run test
 
       - name: Build frontend
         working-directory: src/ReadyStackGo.WebUi
