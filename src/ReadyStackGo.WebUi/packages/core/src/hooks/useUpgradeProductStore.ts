@@ -36,6 +36,24 @@ function computeSharedVariables(stacks: ProductStack[]): StackVariable[] {
 }
 
 /**
+ * Empties the field of every variable that already has a stored secret value.
+ *
+ * Fields are seeded from the target version's defaults, but for a stored secret that default is a
+ * value the user never typed — submitting it would replace what is stored with the manifest default
+ * on every upgrade. An empty field is also what "leave empty to keep it" promises.
+ */
+function withoutStoredSecretDefaults(
+  values: Record<string, string>,
+  storedSecretNames: Set<string>,
+): Record<string, string> {
+  if (storedSecretNames.size === 0) return values;
+
+  return Object.fromEntries(
+    Object.entries(values).map(([name, value]) => [name, storedSecretNames.has(name) ? '' : value]),
+  );
+}
+
+/**
  * Drops variables that are stored secrets the user did not retype. Their field is empty because the
  * server withholds the value; submitting that empty string would win over the stored value when the
  * backend merges variables, silently wiping a password on upgrade.
@@ -367,8 +385,11 @@ export function useUpgradeProductStore(
       }
     }
 
-    setSharedVariableValues(sharedInit);
-    setPerStackVariableValues(perStackInit);
+    // Applied once the full set of stored secrets is known — a name can be marked by any stack.
+    setSharedVariableValues(withoutStoredSecretDefaults(sharedInit, storedSecrets));
+    setPerStackVariableValues(Object.fromEntries(
+      Object.entries(perStackInit).map(([stackId, values]) =>
+        [stackId, withoutStoredSecretDefaults(values, storedSecrets)])));
     setExpandedStacks(expandInit);
     setStoredSecretNames(storedSecrets);
     storedSecretNamesRef.current = storedSecrets;
