@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
@@ -11,6 +11,7 @@ using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Edge;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.ProductDeployments;
+using ReadyStackGo.Domain.StackManagement.Manifests;
 using ReadyStackGo.Domain.StackManagement.Stacks;
 using UserId = ReadyStackGo.Domain.Deployment.UserId;
 
@@ -153,7 +154,8 @@ public class UpgradeProductHandlerTests
         ProductDefinition targetProduct,
         Dictionary<string, string>? sharedVariables = null,
         bool continueOnError = true,
-        string? sessionId = null)
+        string? sessionId = null,
+        HashSet<string>? excludeFromStorage = null)
     {
         var stackConfigs = targetProduct.Stacks.Select(s =>
             new UpgradeProductStackConfig(
@@ -168,7 +170,8 @@ public class UpgradeProductHandlerTests
             sharedVariables ?? new Dictionary<string, string>(),
             sessionId,
             continueOnError,
-            TestUserId);
+            TestUserId,
+            excludeFromStorage);
     }
 
     private void SetupExistingDeployment(ProductDeployment deployment)
@@ -1311,6 +1314,295 @@ public class UpgradeProductHandlerTests
 
         result["SHARED_VAR"].Should().Be("user-configured");
         result["STACK_0_VAR"].Should().Be("user-configured-stack");
+    }
+
+    #endregion
+
+    #region Shared Variable Carry-Over (#470)
+
+    /// <summary>
+    /// A product whose stack declares a password variable, so the handler classifies it as secret.
+    /// </summary>
+    private static ProductDefinition CreateProductWithSecret(
+        string version, string secretName = "DB_PASSWORD")
+    {
+        var productId = new ProductId("stacks:secret-product");
+        var stack = new StackDefinition(
+            "stacks",
+            "stack-0",
+            productId,
+            services: new[] { new ServiceTemplate { Name = "svc-0", Image = "test:latest" } },
+            variables: new[]
+            {
+                new Variable("SHARED_VAR", "default-shared"),
+                new Variable(secretName, null, null, VariableType.Password)
+            },
+            productName: "secret-product",
+            productDisplayName: "Secret Product",
+            productVersion: version);
+
+        return new ProductDefinition(
+            "stacks", "secret-product", "Secret Product", new List<StackDefinition> { stack },
+            productVersion: version);
+    }
+
+    /// <summary>
+    /// A running deployment that holds <paramref name="secretValue"/> both as a shared variable and
+    /// on its only stack — the state a deploy with "save value" checked leaves behind.
+    /// </summary>
+    private static ProductDeployment CreateDeploymentWithStoredSecret(
+        ProductDefinition product, string secretName, string secretValue)
+    {
+        var stackConfigs = product.Stacks.Select(s => new StackDeploymentConfig(
+            s.Name, s.Name, s.Id.Value, s.Services.Count,
+            new Dictionary<string, string>
+            {
+                ["SHARED_VAR"] = "existing-shared",
+                [secretName] = secretValue
+            })).ToList();
+
+        var deployment = ProductDeployment.InitiateDeployment(
+            ProductDeploymentId.NewId(),
+            new EnvironmentId(Guid.Parse(TestEnvironmentId)),
+            product.GroupId, product.Id, product.Name, product.DisplayName,
+            product.ProductVersion ?? "1.0.0",
+            UserId.Create(),
+            "test-deployment",
+            stackConfigs,
+            new Dictionary<string, string>
+            {
+                ["SHARED_VAR"] = "existing-shared",
+                [secretName] = secretValue
+            });
+
+        deployment.SetSecretVariableNames(new[] { secretName });
+
+        foreach (var stack in deployment.GetStacksInDeployOrder())
+        {
+            deployment.StartStack(stack.StackName, DeploymentId.NewId());
+            deployment.CompleteStack(stack.StackName);
+        }
+
+        return deployment;
+    }
+
+    private ProductDeployment RunUpgradeAndCaptureSuccessor(
+        ProductDeployment existing,
+        ProductDefinition targetProduct,
+        Dictionary<string, string>? sharedVariables = null,
+        HashSet<string>? excludeFromStorage = null,
+        List<DeployStackCommand>? capturedCommands = null)
+    {
+        SetupExistingDeployment(existing);
+        SetupTargetProductFound(targetProduct);
+
+        if (capturedCommands != null)
+        {
+            _mediatorMock
+                .Setup(m => m.Send(It.IsAny<DeployStackCommand>(), It.IsAny<CancellationToken>()))
+                .Callback<IRequest<DeployStackResponse>, CancellationToken>((req, _) =>
+                    capturedCommands.Add((DeployStackCommand)req))
+                .ReturnsAsync(new DeployStackResponse
+                {
+                    Success = true,
+                    DeploymentId = Guid.NewGuid().ToString()
+                });
+        }
+        else
+        {
+            SetupAllStacksSucceed();
+        }
+
+        ProductDeployment? captured = null;
+        _repositoryMock
+            .Setup(r => r.Add(It.IsAny<ProductDeployment>()))
+            .Callback<ProductDeployment>(pd => captured = pd);
+
+        var command = CreateUpgradeCommand(
+            existing, targetProduct,
+            sharedVariables: sharedVariables,
+            excludeFromStorage: excludeFromStorage);
+
+        _handler.Handle(command, CancellationToken.None).GetAwaiter().GetResult();
+
+        captured.Should().NotBeNull("the upgrade must have created a successor aggregate");
+        return captured!;
+    }
+
+    [Fact]
+    public void Handle_SharedVariableOmittedFromRequest_IsCarriedForwardToTheSuccessor()
+    {
+        // The upgrade form omits stored secrets the user did not retype, so the request carries no
+        // value for them. Without a carry-over the successor loses the value entirely and the next
+        // upgrade form shows an empty field with no "a value is stored" hint (#470).
+        var currentProduct = CreateTestProduct(1, version: "1.0.0");
+        var targetProduct = CreateTestProduct(1, version: "2.0.0");
+        var existing = CreateExistingDeployment(currentProduct);
+
+        var successor = RunUpgradeAndCaptureSuccessor(
+            existing, targetProduct, sharedVariables: new Dictionary<string, string>());
+
+        successor.SharedVariables.Should().ContainKey("SHARED_VAR")
+            .WhoseValue.Should().Be("existing-shared");
+    }
+
+    [Fact]
+    public void Handle_SharedVariableInRequest_OverridesTheCarriedForwardValue()
+    {
+        var currentProduct = CreateTestProduct(1, version: "1.0.0");
+        var targetProduct = CreateTestProduct(1, version: "2.0.0");
+        var existing = CreateExistingDeployment(currentProduct);
+
+        var successor = RunUpgradeAndCaptureSuccessor(
+            existing, targetProduct,
+            sharedVariables: new Dictionary<string, string> { ["SHARED_VAR"] = "retyped" });
+
+        successor.SharedVariables["SHARED_VAR"].Should().Be("retyped");
+    }
+
+    [Fact]
+    public void Handle_BlankSecretOverride_DoesNotWipeTheStoredSharedValue()
+    {
+        // A secret field the user cannot see stays empty; an empty submission means "unchanged",
+        // never "clear it".
+        var currentProduct = CreateProductWithSecret("1.0.0");
+        var targetProduct = CreateProductWithSecret("2.0.0");
+        var existing = CreateDeploymentWithStoredSecret(currentProduct, "DB_PASSWORD", "s3cr3t");
+
+        var successor = RunUpgradeAndCaptureSuccessor(
+            existing, targetProduct,
+            sharedVariables: new Dictionary<string, string> { ["DB_PASSWORD"] = "" });
+
+        successor.SharedVariables["DB_PASSWORD"].Should().Be("s3cr3t");
+    }
+
+    [Fact]
+    public void Handle_BlankSecretOverride_DoesNotWipeTheStoredStackValue()
+    {
+        // The shared tier beats the existing-stack tier during the merge, so a blank shared secret
+        // would reach Docker as an empty environment variable.
+        var currentProduct = CreateProductWithSecret("1.0.0");
+        var targetProduct = CreateProductWithSecret("2.0.0");
+        var existing = CreateDeploymentWithStoredSecret(currentProduct, "DB_PASSWORD", "s3cr3t");
+
+        var capturedCommands = new List<DeployStackCommand>();
+        var successor = RunUpgradeAndCaptureSuccessor(
+            existing, targetProduct,
+            sharedVariables: new Dictionary<string, string> { ["DB_PASSWORD"] = "" },
+            capturedCommands: capturedCommands);
+
+        capturedCommands.Should().ContainSingle();
+        capturedCommands[0].Variables["DB_PASSWORD"].Should().Be("s3cr3t");
+        successor.Stacks.Single().Variables["DB_PASSWORD"].Should().Be("s3cr3t");
+    }
+
+    [Fact]
+    public void Handle_BlankNonSecretOverride_StillClearsTheStoredValue()
+    {
+        // A visible field is pre-filled, so emptying it is a deliberate clear — the secret guard
+        // must not swallow that.
+        var currentProduct = CreateTestProduct(1, version: "1.0.0");
+        var targetProduct = CreateTestProduct(1, version: "2.0.0");
+        var existing = CreateExistingDeployment(currentProduct);
+
+        var successor = RunUpgradeAndCaptureSuccessor(
+            existing, targetProduct,
+            sharedVariables: new Dictionary<string, string> { ["SHARED_VAR"] = "" });
+
+        successor.SharedVariables["SHARED_VAR"].Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Handle_SharedVariableExcludedFromStorage_IsNotCarriedForward()
+    {
+        // "Save value" unchecked must win over the carry-over, otherwise unchecking the box on an
+        // upgrade would silently keep storing the value.
+        var currentProduct = CreateProductWithSecret("1.0.0");
+        var targetProduct = CreateProductWithSecret("2.0.0");
+        var existing = CreateDeploymentWithStoredSecret(currentProduct, "DB_PASSWORD", "s3cr3t");
+
+        var capturedCommands = new List<DeployStackCommand>();
+        var successor = RunUpgradeAndCaptureSuccessor(
+            existing, targetProduct,
+            sharedVariables: new Dictionary<string, string> { ["DB_PASSWORD"] = "retyped" },
+            excludeFromStorage: new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "DB_PASSWORD" },
+            capturedCommands: capturedCommands);
+
+        successor.SharedVariables.Should().NotContainKey("DB_PASSWORD");
+        successor.Stacks.Single().Variables.Should().NotContainKey("DB_PASSWORD");
+        capturedCommands[0].Variables["DB_PASSWORD"].Should().Be("retyped",
+            "Docker still needs the value the container runs with");
+    }
+
+    [Fact]
+    public void MergeVariables_BlankSecretOverride_KeepsTheExistingValue()
+    {
+        var stackDef = CreateProductWithSecret("2.0.0").Stacks[0];
+        var existing = new Dictionary<string, string> { ["DB_PASSWORD"] = "s3cr3t" };
+        var shared = new Dictionary<string, string> { ["DB_PASSWORD"] = "" };
+
+        var result = UpgradeProductHandler.MergeVariables(
+            stackDef, existing, shared, new Dictionary<string, string>(),
+            name => name == "DB_PASSWORD");
+
+        result["DB_PASSWORD"].Should().Be("s3cr3t");
+    }
+
+    [Fact]
+    public void MergeVariables_BlankSecretPerStackOverride_KeepsTheExistingValue()
+    {
+        var stackDef = CreateProductWithSecret("2.0.0").Stacks[0];
+        var existing = new Dictionary<string, string> { ["DB_PASSWORD"] = "s3cr3t" };
+        var perStack = new Dictionary<string, string> { ["DB_PASSWORD"] = "" };
+
+        var result = UpgradeProductHandler.MergeVariables(
+            stackDef, existing, new Dictionary<string, string>(), perStack,
+            name => name == "DB_PASSWORD");
+
+        result["DB_PASSWORD"].Should().Be("s3cr3t");
+    }
+
+    [Fact]
+    public void MergeVariables_NonBlankSecretOverride_Replaces()
+    {
+        var stackDef = CreateProductWithSecret("2.0.0").Stacks[0];
+        var existing = new Dictionary<string, string> { ["DB_PASSWORD"] = "s3cr3t" };
+        var shared = new Dictionary<string, string> { ["DB_PASSWORD"] = "rotated" };
+
+        var result = UpgradeProductHandler.MergeVariables(
+            stackDef, existing, shared, new Dictionary<string, string>(),
+            name => name == "DB_PASSWORD");
+
+        result["DB_PASSWORD"].Should().Be("rotated");
+    }
+
+    [Fact]
+    public void MergeVariables_BlankSecretOverride_WithoutAnExistingValue_KeepsTheBlank()
+    {
+        // Nothing to protect: the variable must still reach Docker so a required-but-empty value is
+        // not silently dropped from the environment.
+        var stackDef = CreateProductWithSecret("2.0.0").Stacks[0];
+        var shared = new Dictionary<string, string> { ["DB_PASSWORD"] = "" };
+
+        var result = UpgradeProductHandler.MergeVariables(
+            stackDef, null, shared, new Dictionary<string, string>(),
+            name => name == "DB_PASSWORD");
+
+        result["DB_PASSWORD"].Should().BeEmpty();
+    }
+
+    [Fact]
+    public void MergeVariables_BlankNonSecretOverride_Clears()
+    {
+        var stackDef = CreateTestProduct(1).Stacks[0];
+        var existing = new Dictionary<string, string> { ["SHARED_VAR"] = "existing" };
+        var shared = new Dictionary<string, string> { ["SHARED_VAR"] = "" };
+
+        var result = UpgradeProductHandler.MergeVariables(
+            stackDef, existing, shared, new Dictionary<string, string>(),
+            name => name == "DB_PASSWORD");
+
+        result["SHARED_VAR"].Should().BeEmpty();
     }
 
     #endregion

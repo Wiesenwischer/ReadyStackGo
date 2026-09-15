@@ -435,7 +435,8 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
         Domain.StackManagement.Stacks.StackDefinition stackDef,
         IReadOnlyDictionary<string, string>? existingVariables,
         Dictionary<string, string> sharedVariables,
-        Dictionary<string, string> perStackVariables)
+        Dictionary<string, string> perStackVariables,
+        Func<string, bool>? isSecret = null)
     {
         var merged = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
