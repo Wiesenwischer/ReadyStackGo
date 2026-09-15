@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Notifications;
 using ReadyStackGo.Application.Services;
@@ -111,6 +111,21 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
 
         var stackConfigs = new List<StackDeploymentConfig>();
 
+        // A variable counts as secret if the target version declares it as one, or if the running
+        // deployment already treats it as one — a variable that stops being a secret between
+        // versions still arrives from a form that never showed its value.
+        var targetSecretNames = new HashSet<string>(
+            DeployProduct.DeployProductHandler.CollectSecretVariableNames(targetProduct),
+            StringComparer.OrdinalIgnoreCase);
+        bool IsSecret(string name) => targetSecretNames.Contains(name) || existing.IsSecretVariable(name);
+
+        // Shared variables of the running deployment are the base for the successor. The upgrade form
+        // omits stored secrets the user did not retype, so without this carry-over the successor drops
+        // them — the value disappears from the detail page and the next upgrade submits an empty
+        // string over it (#470).
+        var sharedVariables = MergeSharedVariables(
+            existing.SharedVariables, request.SharedVariables, IsSecret);
+
         foreach (var reqStack in request.StackConfigs)
         {
             var stackDef = targetProduct.Stacks.FirstOrDefault(s =>
@@ -127,7 +142,8 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
                 ? existingStack.Variables
                 : (IReadOnlyDictionary<string, string>?)null;
 
-            var mergedVariables = MergeVariables(stackDef, existingVariables, request.SharedVariables, reqStack.Variables);
+            var mergedVariables = MergeVariables(
+                stackDef, existingVariables, sharedVariables, reqStack.Variables, IsSecret);
 
             // The full set is deployed below; only what the user allowed to be kept is persisted.
             stackConfigs.Add(new StackDeploymentConfig(
@@ -194,7 +210,9 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
             deploymentName,
             existing,
             stackConfigs,
-            VariableStorageFilter.ForStorage(request.SharedVariables, request.ExcludeFromStorage),
+            // The opt-out is applied to the merged set, so unchecking "save value" on the upgrade
+            // still drops a variable the predecessor had stored.
+            VariableStorageFilter.ForStorage(sharedVariables, request.ExcludeFromStorage),
             request.ContinueOnError);
 
         // Re-record the secret variable names from the *target* version: a variable can change type
@@ -211,7 +229,7 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
             edgeBundleHtml = await _edgeBundleReader.ReadBundleHtmlAsync(
                 targetProduct.FilePath, targetProduct.Edge!.MaintenancePage!.BundlePath, cancellationToken);
         }
-        var edgeConfig = EdgeConfigMapper.Map(targetProduct.Edge, request.SharedVariables, edgeBundleHtml);
+        var edgeConfig = EdgeConfigMapper.Map(targetProduct.Edge, sharedVariables, edgeBundleHtml);
         if (edgeConfig != null)
         {
             productDeployment.SetEdgeConfig(edgeConfig);
@@ -275,7 +293,8 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
                 ? existingStackEntry.Variables
                 : null;
 
-            var mergedVariables = MergeVariables(stackDef, existingVariables, request.SharedVariables, reqStack.Variables);
+            var mergedVariables = MergeVariables(
+                stackDef, existingVariables, sharedVariables, reqStack.Variables, IsSecret);
             var stackDeploymentName = ProductDeployment.DeriveStackDeploymentName(
                 deploymentName, stackDef.Name);
 
@@ -434,7 +453,7 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
     internal static Dictionary<string, string> MergeVariables(
         Domain.StackManagement.Stacks.StackDefinition stackDef,
         IReadOnlyDictionary<string, string>? existingVariables,
-        Dictionary<string, string> sharedVariables,
+        IReadOnlyDictionary<string, string> sharedVariables,
         Dictionary<string, string> perStackVariables,
         Func<string, bool>? isSecret = null)
     {
@@ -461,17 +480,57 @@ public class UpgradeProductHandler : IRequestHandler<UpgradeProductCommand, Upgr
         // 3. Shared variables (product-level overrides)
         foreach (var kvp in sharedVariables)
         {
+            if (KeepsStoredSecret(merged, kvp.Key, kvp.Value, isSecret)) continue;
             merged[kvp.Key] = kvp.Value;
         }
 
         // 4. Per-stack overrides (highest priority)
         foreach (var kvp in perStackVariables)
         {
+            if (KeepsStoredSecret(merged, kvp.Key, kvp.Value, isSecret)) continue;
             merged[kvp.Key] = kvp.Value;
         }
 
         return merged;
     }
+
+    /// <summary>
+    /// Merges the shared variables of the running deployment with those of the upgrade request.
+    ///
+    /// The request is the override, but it never clears a stored secret: the upgrade form cannot
+    /// pre-fill a secret (the server withholds the value), so an empty field means "unchanged", not
+    /// "clear it". Visible variables keep the old semantics — emptying such a field is a deliberate
+    /// clear.
+    /// </summary>
+    internal static Dictionary<string, string> MergeSharedVariables(
+        IReadOnlyDictionary<string, string> existingShared,
+        IReadOnlyDictionary<string, string> requestShared,
+        Func<string, bool>? isSecret = null)
+    {
+        var merged = new Dictionary<string, string>(existingShared, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var kvp in requestShared)
+        {
+            if (KeepsStoredSecret(merged, kvp.Key, kvp.Value, isSecret)) continue;
+            merged[kvp.Key] = kvp.Value;
+        }
+
+        return merged;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="value"/> must be ignored because it would clear a stored secret.
+    /// </summary>
+    private static bool KeepsStoredSecret(
+        IReadOnlyDictionary<string, string> merged,
+        string name,
+        string value,
+        Func<string, bool>? isSecret)
+        => string.IsNullOrEmpty(value)
+           && isSecret != null
+           && isSecret(name)
+           && merged.TryGetValue(name, out var stored)
+           && !string.IsNullOrEmpty(stored);
 
     private static void FinalizeProductStatus(ProductDeployment productDeployment)
     {

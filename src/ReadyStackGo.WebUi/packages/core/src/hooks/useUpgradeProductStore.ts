@@ -289,18 +289,25 @@ export function useUpgradeProductStore(
       sharedInit[v.name] = v.defaultValue || '';
     }
 
+    // Every variable the target version still knows, shared or stack-specific. A stored secret
+    // counts as stored no matter which scope holds it — a shared variable is persisted per stack as
+    // well, and deployments upgraded before #470 kept only that copy.
+    const targetVariableNames = new Set(
+      product.stacks.flatMap(s => s.variables.map(v => v.name)));
+
     // Overlay with current deployment shared variables. A secret arrives without its value; all we
     // learn is whether one is stored, which is enough to satisfy validation later.
     const storedSecrets = new Set<string>();
     if (deployment.sharedVariables) {
       for (const variable of deployment.sharedVariables) {
-        if (!Object.prototype.hasOwnProperty.call(sharedInit, variable.name)) continue;
-
         if (variable.isSecret) {
-          if (variable.hasValue) storedSecrets.add(variable.name);
+          if (variable.hasValue && targetVariableNames.has(variable.name)) {
+            storedSecrets.add(variable.name);
+          }
           continue;
         }
 
+        if (!Object.prototype.hasOwnProperty.call(sharedInit, variable.name)) continue;
         sharedInit[variable.name] = variable.value ?? '';
       }
     }
@@ -331,13 +338,16 @@ export function useUpgradeProductStore(
       if (existingStack?.variables) {
         const targetNames = new Set(stackVars.map(v => v.name));
         for (const variable of existingStack.variables) {
-          if (!targetNames.has(variable.name)) continue;
-
           if (variable.isSecret) {
-            if (variable.hasValue) storedSecrets.add(variable.name);
+            // Shared secrets are stored per stack too, so this is also where a shared secret is
+            // recognised when the deployment's own shared entry was lost (#470).
+            if (variable.hasValue && targetVariableNames.has(variable.name)) {
+              storedSecrets.add(variable.name);
+            }
             continue;
           }
 
+          if (!targetNames.has(variable.name)) continue;
           varValues[variable.name] = variable.value ?? '';
         }
       }
@@ -371,6 +381,8 @@ export function useUpgradeProductStore(
         if (v.defaultTransient) excluded.add(v.name);
       }
     }
+    // A secret without a stored value anywhere was declined at deploy time. One that is stored in
+    // any scope was not, so it must not land in the opt-out — that would drop it on this upgrade.
     for (const variable of deployment.sharedVariables ?? []) {
       if (variable.isSecret && !variable.hasValue) excluded.add(variable.name);
     }
@@ -378,6 +390,9 @@ export function useUpgradeProductStore(
       for (const variable of stack.variables ?? []) {
         if (variable.isSecret && !variable.hasValue) excluded.add(variable.name);
       }
+    }
+    for (const name of storedSecrets) {
+      excluded.delete(name);
     }
     setExcludeFromStorage(excluded);
     excludeFromStorageRef.current = excluded;
