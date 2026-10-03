@@ -1,0 +1,135 @@
+# Starts the steps of a project ("Vorhaben") from what Marcus does on GitHub. The steps themselves live in the shared
+# workflow Wiesenwischer/works/.github/workflows/vorhaben.yml; process: works/docs/prozesse/vorhaben.md.
+#
+#   new or reopened issue "Vorhaben: ..."           -> onto the board, column by the issue's labels
+#   label "spezifiziert" on an issue                -> column by the issue's labels
+#   label "planen" on an issue                      -> plan
+#   "@claude" comment on a plan/* pull request      -> revise the plan
+#   approve a plan/* pull request                   -> merge the plan, build, review, one rework, review
+#   "@claude" comment or "changes requested" on a vorhaben/* pull request -> rework
+#   review "bestanden" (no "muss" findings)         -> auto-merge, done by the shared workflow itself
+#   approve a vorhaben/* pull request               -> auto-merge (when the review left something for the owner)
+#   label "anhalten" on a vorhaben/* pull request   -> auto-merge off, the owner decides
+#
+# Hybrid, per project: a plan pull request labelled "umsetzung:<role>" is built in a Claude Code session on the
+# machine that fills that role (CLAUDE.md, "Vorhaben: bauen und testen"). ReadyStackGo has no such role yet: every
+# build runs on ubuntu-latest. A session that opens a vorhaben/* pull request under the owner's account is reviewed
+# like the workflow's own:
+#
+#   the session opens a vorhaben/* pull request     -> review
+#   "@claude" comment on that pull request          -> review again (after the session reworked it)
+#
+# Only the repository owner can start a step.
+name: Vorhaben
+
+on:
+  issues:
+    types: [opened, reopened, labeled]
+  issue_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  pull_request:
+    types: [opened, ready_for_review, labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+
+jobs:
+  route:
+    runs-on: ubuntu-latest
+    outputs:
+      phase: ${{ steps.route.outputs.phase }}
+      number: ${{ steps.route.outputs.number }}
+      mode: ${{ steps.route.outputs.mode }}
+    steps:
+      - id: route
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          OWNER: ${{ github.repository_owner }}
+          LABEL: ${{ github.event.label.name }}
+          ISSUE: ${{ github.event.issue.number }}
+          TITLE: ${{ github.event.issue.title }}
+          IS_PR: ${{ github.event.issue.pull_request != null }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          SENDER: ${{ github.event.sender.login }}
+          REVIEW_AUTHOR: ${{ github.event.review.user.login }}
+          REVIEW_STATE: ${{ github.event.review.state }}
+          PR: ${{ github.event.pull_request.number }}
+          PR_HEAD: ${{ github.event.pull_request.head.ref }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
+          ACTION: ${{ github.event.action }}
+        run: |
+          $phase = ''; $number = ''; $mode = 'workflow'
+          switch ($env:EVENT) {
+            'issues' {
+              # New or reopened issue "Vorhaben: ..." and label "spezifiziert": the board column follows the issue's
+              # labels (works/docs/prozesse/vorhaben.md, "Brett und Labels"). Closing needs no run: the project's own
+              # workflow "Item closed" sets Fertig.
+              if ($env:ACTION -in 'opened', 'reopened') {
+                if ($env:TITLE -like 'Vorhaben:*' -and $env:SENDER -eq $env:OWNER) { $phase = 'intake'; $number = $env:ISSUE }
+              }
+              elseif ($env:LABEL -eq 'planen' -and $env:SENDER -eq $env:OWNER) { $phase = 'plan'; $number = $env:ISSUE }
+              elseif ($env:LABEL -eq 'spezifiziert' -and $env:SENDER -eq $env:OWNER) { $phase = 'track'; $number = $env:ISSUE }
+            }
+            'issue_comment' {
+              if ($env:IS_PR -eq 'true' -and $env:COMMENT_AUTHOR -eq $env:OWNER -and $env:COMMENT_BODY -match '@claude') {
+                $pr = gh pr view $env:ISSUE --repo $env:GITHUB_REPOSITORY --json headRefName,author | ConvertFrom-Json
+                if ($pr.headRefName -like 'plan/*') { $phase = 'plan' }
+                elseif ($pr.headRefName -like 'vorhaben/*') {
+                  # A session's pull request is reworked by that session; the comment asks for the next review.
+                  $phase = if ($pr.author.login -eq $env:OWNER) { 'review' } else { 'rework' }
+                }
+                $number = $env:ISSUE
+              }
+            }
+            'pull_request_review' {
+              if ($env:REVIEW_AUTHOR -eq $env:OWNER) {
+                if ($env:PR_HEAD -like 'plan/*' -and $env:REVIEW_STATE -eq 'approved') {
+                  $phase = 'build'
+                  $roles = gh pr view $env:PR --repo $env:GITHUB_REPOSITORY --json labels --jq '.labels[].name' |
+                    Where-Object { $_ -like 'umsetzung:*' }
+                  if ($roles) { $mode = 'session'; Write-Output "Built in a session: $($roles -join ', ')" }
+                }
+                elseif ($env:PR_HEAD -like 'vorhaben/*' -and $env:REVIEW_STATE -eq 'approved') { $phase = 'approve' }
+                elseif ($env:PR_HEAD -like 'vorhaben/*' -and $env:REVIEW_STATE -eq 'changes_requested') { $phase = 'rework' }
+                $number = $env:PR
+              }
+            }
+            'pull_request' {
+              # "anhalten": the owner keeps this pull request for himself; auto-merge goes off.
+              # Opened: only a session opens vorhaben/* pull requests under the owner's account; the workflow's own come
+              # from its token and do not trigger this event. A draft means the session stopped short and says why.
+              if ($env:ACTION -eq 'labeled') {
+                if ($env:PR_HEAD -like 'vorhaben/*' -and $env:LABEL -eq 'anhalten' -and $env:SENDER -eq $env:OWNER) {
+                  $phase = 'hold'; $number = $env:PR
+                }
+              } elseif ($env:PR_HEAD -like 'vorhaben/*' -and $env:PR_AUTHOR -eq $env:OWNER -and $env:PR_DRAFT -ne 'true') {
+                $phase = 'review'; $number = $env:PR
+              }
+            }
+          }
+          "phase=$phase" >> $env:GITHUB_OUTPUT
+          "number=$number" >> $env:GITHUB_OUTPUT
+          "mode=$mode" >> $env:GITHUB_OUTPUT
+          Write-Output "Phase: '$phase', number: '$number', mode: '$mode'"
+
+  vorhaben:
+    needs: route
+    if: needs.route.outputs.phase != ''
+    uses: Wiesenwischer/works/.github/workflows/vorhaben.yml@main
+    with:
+      phase: ${{ needs.route.outputs.phase }}
+      number: ${{ needs.route.outputs.number }}
+      build-mode: ${{ needs.route.outputs.mode }}
+      ci-workflow: ci.yml
+      dotnet-global-json: global.json
+      node-version: "22"
+    secrets: inherit

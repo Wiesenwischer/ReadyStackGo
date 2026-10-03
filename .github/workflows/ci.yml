@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  # The Vorhaben workflow starts the CI of its own pull requests by hand (works/docs/prozesse/vorhaben.md, "Technik").
+  workflow_dispatch:
 
 # Cancel in-progress runs when a new commit is pushed
 concurrency:

@@ -34,7 +34,7 @@ Add Environment von einer einzelnen Seite mit Inline-Typ-Selektor auf einen Zwei
 ## AMS UI Counterpart
 
 - [x] **Ja** — AMS-Counterpart wird als eigenes PLAN file im AMS Repo angelegt
-  - RSGO PLAN referenziert: `docs/Plans/PLAN-environment-type-selector.md` (dieses File)
+  - RSGO PLAN referenziert: `docs/plans/PLAN-environment-type-selector.md` (dieses File)
   - AMS PLAN: `C:\proj\ReadyStackGo.Ams\docs\Plans\PLAN-environment-type-selector.md`
   - AMS PLAN enthält: ConsistentUI-spezifische Implementierungsschritte + Verweis auf dieses RSGO-PLAN
   - Zeitpunkt: Im nächsten AMS-Release
