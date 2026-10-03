@@ -162,7 +162,7 @@ einer Sitzung im Chat, im Workflow als Kommentar am PR. Ist `$ARGUMENTS` leer, n
     („Closes #<m>“).
 - Wiederverwenden, was es gibt. Keine Nebenbaustellen: Was du unterwegs findest und nicht zum Plan gehört, kommt als
   Liste in den PR („Gefunden, nicht angefasst“).
-- Quellcode englisch (Bezeichner, Kommentare, Logs, Testnamen). Commits auf Deutsch.
+- Quellcode englisch (Bezeichner, Kommentare, Logs, Testnamen). Commits in der Sprache, die die `CLAUDE.md` des Produkts für Commits und PRs vorgibt (ohne Vorgabe Deutsch; ReadyStackGo: Englisch, weil Open Source).
 
 ## 3. Bauen und testen
 
@@ -179,7 +179,7 @@ einer Sitzung im Chat, im Workflow als Kommentar am PR. Ist `$ARGUMENTS` leer, n
 
 ## 4. Abgeben
 
-- Commit(s) auf Deutsch, `git push -u origin vorhaben/<issue>-<name>`.
+- Commit(s) in der Sprache, die die `CLAUDE.md` des Produkts für Commits und PRs vorgibt (ohne Vorgabe Deutsch; ReadyStackGo: Englisch, weil Open Source), `git push -u origin vorhaben/<issue>-<name>`.
 - Modus `plan`: `gh pr create --base main --title "<type>(<bereich>): <Titel>"`, ohne Issue-Nummer im Titel (beim
   Squash hängt GitHub die PR-Nummer an). Die Beschreibung hat:
   - als erste Zeile „Closes #<issue>“ und den Link auf den Plan
@@ -192,7 +192,8 @@ einer Sitzung im Chat, im Workflow als Kommentar am PR. Ist `$ARGUMENTS` leer, n
     Platzhalter entfällt der Punkt.
   - „Nicht geprüft“
   - „Gefunden, nicht angefasst“
-  - `## Patchnotes`: Nutzersicht auf Deutsch oder „Keine Auswirkung für Nutzer.“
+  - `## Patchnotes`: Nutzersicht in der Sprache des PRs, oder „Keine Auswirkung für Nutzer.“ (englisch „No impact
+    for users.“)
 
   Label `vorhaben`. **Kein Auto-Merge und kein Merge:** Den Auto-Merge schaltet der Workflow ein, wenn die Prüfung
   `bestanden` sagt, oder Marcus mit seinem Approve.

@@ -175,8 +175,8 @@ ein zweiter Blick nach, der den Plan nicht geschrieben hat.
 
 ## 5. Vorlegen
 
-- Branch `plan/<issue>-<name>` von `origin/main`. Bei einer Überarbeitung auf den bestehenden Branch. Commit auf
-  Deutsch, zum Beispiel `docs(plan): <Titel>`.
+- Branch `plan/<issue>-<name>` von `origin/main`. Bei einer Überarbeitung auf den bestehenden Branch. Commit
+  in der Sprache, die die `CLAUDE.md` des Produkts für Commits und PRs vorgibt (ohne Vorgabe Deutsch; ReadyStackGo: Englisch, weil Open Source), zum Beispiel `docs(plan): <Titel>`.
 - Erstplanung: `gh pr create --base main --head plan/<issue>-<name> --title "Plan: <Titel>"` mit dieser Beschreibung:
   - „Vorhaben #<issue>“
   - fünf Zeilen Zusammenfassung
@@ -199,5 +199,5 @@ ein zweiter Blick nach, der den Plan nicht geschrieben hat.
   höchstens 6 je Lauf. Plan, Commits, PR und Kommentare schreibst nur du.
 - Kein Entwurf in Figma, auch wenn Figma-Werkzeuge da sind.
 - Du mergst nichts und gibst nichts frei.
-- Sprache: Plan, Commits und PR auf Deutsch. Code-Beispiele im Plan englisch benannt.
+- Sprache: Plan auf Deutsch, Commits und PR in der Sprache, die die `CLAUDE.md` des Produkts für Commits und PRs vorgibt (ohne Vorgabe Deutsch; ReadyStackGo: Englisch, weil Open Source). Code-Beispiele im Plan englisch benannt.
 - Keine Signatur und keine Zeile „Generated with Claude Code“ in Commits, PRs und Kommentaren.
