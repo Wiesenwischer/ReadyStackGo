@@ -209,7 +209,7 @@ Im Worktree, unter `docs/specs/<name>/entwurf/`:
 
 ## 5. Vorlegen
 
-- Commit auf Deutsch, zum Beispiel `docs(entwurf): <Titel>`, dann `git push -u origin entwurf/<issue>-<name>`.
+- Commit in der Sprache, die die `CLAUDE.md` des Produkts für Commits und PRs vorgibt (ohne Vorgabe Deutsch; ReadyStackGo: Englisch, weil Open Source), zum Beispiel `docs(entwurf): <Titel>`, dann `git push -u origin entwurf/<issue>-<name>`.
 - Neuer Entwurf: `gh pr create --base main --head entwurf/<issue>-<name> --title "docs(entwurf): <Titel>"
   --body-file <datei>`. Die Beschreibung schreibst du vorher mit dem Write-Werkzeug als UTF-8-Datei in den Scratchpad
   (Abschnitt „Grenzen“, „Texte nur aus einer Datei“):
@@ -273,5 +273,6 @@ Im Worktree, unter `docs/specs/<name>/entwurf/`:
 - Nichts erfinden: keine Node-IDs, Links, Maße, Texte oder Zustände ohne Quelle.
 - Der Entwurf lebt in Figma. Die Bilder im Repo halten den freigegebenen Stand fest, sie ersetzen Figma nicht. Ein
   Entwurf als Text oder Skizze im Repo ist kein Entwurf.
-- Sprache: README, Commits, PR und Kommentare auf Deutsch. Namen in Figma nach der Regel des Produkts.
+- Sprache: README und Kommentare auf Deutsch, Commits und PR in der Sprache, die die `CLAUDE.md` des Produkts für Commits und PRs vorgibt (ohne Vorgabe Deutsch; ReadyStackGo: Englisch, weil Open Source). Namen in Figma nach der Regel des
+  Produkts.
 - Keine Signatur und keine Zeile „Generated with Claude Code“ in Commits, PRs und Kommentaren.

@@ -284,7 +284,7 @@ anlegst.
 
 ## 7. Vorlegen
 
-- Commit auf Deutsch, etwa `docs(grafik): Probetafel der Skill-Icons`, dann `git push -u origin grafik/<issue>-<name>`.
+- Commit in der Sprache, die die `CLAUDE.md` des Produkts für Commits und PRs vorgibt (ohne Vorgabe Deutsch; ReadyStackGo: Englisch, weil Open Source), etwa `docs(grafik): Probetafel der Skill-Icons`, dann `git push -u origin grafik/<issue>-<name>`.
 - `gh pr create --base main --head grafik/<issue>-<name> --title "docs(grafik): <Titel>" --body-file <datei>`. Die
   Beschreibung schreibst du vorher mit dem Write-Werkzeug als UTF-8-Datei in den Scratchpad (Abschnitt „Grenzen“,
   „Texte nur aus einer Datei“). Sie wird beim Merge die Commit-Nachricht und beschreibt also den fertigen Stand:
@@ -370,5 +370,5 @@ anlegst.
   `fal_run.py cost`.
 - Bei erschöpftem Guthaben oder gesperrtem Konto nicht wiederholen, nicht ausweichen, Marcus sagen.
 - Nichts erfinden: keine Lizenz, keine Kosten, keine Seeds, keine Quellen ohne Beleg.
-- Sprache: README, Commits, PR und Kommentare auf Deutsch.
+- Sprache: README und Kommentare auf Deutsch, Commits und PR in der Sprache, die die `CLAUDE.md` des Produkts für Commits und PRs vorgibt (ohne Vorgabe Deutsch; ReadyStackGo: Englisch, weil Open Source).
 - Keine Signatur und keine Zeile „Generated with Claude Code“ in Commits, PRs und Kommentaren.
