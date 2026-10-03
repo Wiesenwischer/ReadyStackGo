@@ -25,6 +25,8 @@ von wiesenwischer.de gibt die Richtung vor.
 - Custom Distributions: Eine Distribution bringt weiter ihr eigenes Design mit. Das neue Theme gilt nur für die
   Standard-Oberfläche `@rsgo/ui-generic`.
 - Die Adresse der Website (Domain-Wechsel ist ein eigenes Thema).
+- Lokalisierung der Oberfläche: Sie kommt kurz vor Version 1.0 (Marcus, 03.10.2026). Neue oder geänderte Texte
+  bleiben bis dahin englisch.
 
 ## Vorgaben
 
