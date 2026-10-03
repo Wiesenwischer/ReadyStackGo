@@ -12,7 +12,7 @@ namespace ReadyStackGo.Api.Endpoints.Integrations;
 /// either as <c>X-Api-Key</c> header or <c>?apikey=</c> query parameter) into
 /// a single PRTG sensor. No template install, no probe restart, no MIB import.
 ///
-/// Variant 4 of the PRTG integration; see docs/Plans/PLAN-prtg-http-json-sensor.md.
+/// Variant 4 of the PRTG integration; see docs/plans/PLAN-prtg-http-json-sensor.md.
 /// </summary>
 [RequirePermission("Settings", "Read")]
 public class GetPrtgJsonStatusEndpoint : EndpointWithoutRequest<PrtgJsonStatusResponse>

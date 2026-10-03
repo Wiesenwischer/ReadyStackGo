@@ -40,6 +40,33 @@
 - **Filterlogik** testen: Wenn Daten gefiltert werden (z.B. "Removed" ausblenden), explizit testen dass der Filter funktioniert
 - Vor dem Schreiben von Code überlegen: "Welche Bugs könnten hier entstehen?" und dafür Tests schreiben
 
+## Vorhaben: bauen und testen
+
+Vorhaben laufen über GitHub (Issue „Vorhaben: …“ mit Spezifikation und Label `spezifiziert`, bei Oberflächen zuerst
+ein Figma-Entwurf, dann Label `planen`, Plan-PR, Umsetzungs-PR). Den Ablauf, das Brett und die Labels beschreibt
+`Wiesenwischer/works/docs/prozesse/vorhaben.md`. Die Schritte stecken in den Skills `vorhaben-entwerfen`
+(Figma-Entwurf, Sitzung am PC), `vorhaben-grafik` (Raster-Grafik über fal.ai, Sitzung am PC), `vorhaben-planen`,
+`vorhaben-umsetzen` und `vorhaben-pruefen`. Spezifikationen liegen unter `docs/specs/`, Pläne unter `docs/plans/`,
+freigegebene Entwürfe unter `docs/specs/<name>/entwurf/`. Die älteren Skills `plan-feature` und `implement-feature`
+gelten für Vorhaben nicht mehr.
+
+Vor dem Umsetzungs-PR muss grün sein, auf dem GitHub-Runner `ubuntu-latest` (Docker ist dort vorhanden), genau wie
+der Pflicht-Check „Build & Test“ (`.github/workflows/ci.yml`):
+
+- `dotnet restore`, `dotnet build --configuration Release --no-restore`
+- `dotnet test` für `tests/ReadyStackGo.UnitTests`, `tests/ReadyStackGo.IntegrationTests` und
+  `tests/ReadyStackGo.DomainTests` (`--configuration Release --no-build`)
+- in `src/ReadyStackGo.WebUi`: `corepack enable`, dann `pnpm install --frozen-lockfile`, `pnpm run lint`,
+  `pnpm exec tsc -b`, `pnpm run test` und `pnpm run build`
+- bei Änderungen an der Oberfläche zusätzlich die Browsertests gegen den Container: `docker compose build`,
+  `docker compose up -d`, dann in `src/ReadyStackGo.WebUi` `pnpm exec playwright install --with-deps chromium` und
+  `pnpm run test:e2e:container` für die betroffenen Tests; danach `docker compose down -v`. Bilder der Oberfläche
+  selbst ansehen.
+
+Es gibt noch keine Umsetzungsrolle (Label `umsetzung:<rolle>`): Jede Umsetzung läuft auf `ubuntu-latest`.
+
+Ein Merge nach `main` rollt nichts aus. Ausgerollt wird über ein Release.
+
 ## Docker / Container
 
 - **Container immer mit `docker compose` bauen und starten** (im Projektroot)
