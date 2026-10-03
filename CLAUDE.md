@@ -12,18 +12,20 @@
 ## Commit-Regeln
 
 - **KEIN Footer** in Commit-Messages (kein "Generated with Claude Code", kein "Co-Authored-By")
-- Commit-Messages und Beschreibungen auf **Englisch oder Deutsch** (siehe „Projekt-Sprache“)
+- Commit-Messages und Beschreibungen **komplett auf Englisch**
 
 ## Pull Request-Regeln
 
 - **KEIN Footer** in PR-Beschreibungen (kein "🤖 Generated with Claude Code" o.ä.)
-- PR-Titel und Beschreibungen auf **Englisch oder Deutsch**; PRs aus dem Vorhaben-Ablauf schreiben die Skills auf Deutsch
+- PR-Titel und Beschreibungen **komplett auf Englisch**, auch aus dem Vorhaben-Ablauf: Beim Squash-Merge werden
+  Titel und Beschreibung zur Commit-Message
 
 ## Projekt-Sprache
 
 - Dokumentation: Deutsch mit englischen Fachbegriffen
 - Code und Kommentare: **Englisch** (keine deutschen Kommentare im Code!)
-- Commits und PRs: **Englisch oder Deutsch** (Marcus, 03.10.2026: „Für ReadyStackGo gilt Englisch und deutsch“)
+- Commits und PRs: **Englisch**, denn ReadyStackGo ist Open Source (Marcus, 03.10.2026). Spezifikationen und Pläne
+  unter `docs/` gehören zur Dokumentation und dürfen deutsch sein
 - Produkt: **zweisprachig, Englisch und Deutsch**. Die Website und die Dokumentation sind es schon; die Oberfläche
   der App wird **kurz vor Version 1.0** lokalisiert (Marcus, 03.10.2026), bis dahin bleiben neue Texte dort englisch
 
