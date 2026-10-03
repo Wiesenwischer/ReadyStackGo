@@ -64,8 +64,8 @@ von wiesenwischer.de gibt die Richtung vor.
 
 ## Oberfläche und Bilder
 
-Ein freigegebener Entwurf fehlt noch. Er entsteht vor der Planung mit `/vorhaben-entwerfen` und liegt danach unter
-`docs/specs/theme-und-logo/entwurf/`. Er zeigt mindestens:
+Verbindlich: Entwurf in `docs/specs/theme-und-logo/entwurf/` (freigegeben mit dem Merge von PR #481). Er zeigt
+mindestens:
 
 - beide Farbrichtungen (Schriftzug-Farben und Pastellgrün) in hellem und dunklem Modus,
 - die Theme-Auswahl unter Settings,
