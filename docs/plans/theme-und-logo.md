@@ -21,6 +21,9 @@ Seiten und das Logo B1 fest.
 - Unter **Settings → Appearance** wählt man das Theme (Turquoise, Pastel Green, Classic) und den Modus (Light, Dark).
   Die Wahl gilt sofort und bleibt im Browser nach einem Neuladen erhalten. Der Knopf in der Kopfzeile schaltet weiter
   zwischen hell und dunkel.
+- Themes sind Pakete, die die App beim Start lädt. Wer ReadyStackGo betreibt, kann ein eigenes Theme-Paket in ein
+  Verzeichnis legen und dem Container mitgeben; es erscheint ohne neues Image in der Auswahl. Welche Themes angeboten
+  werden und welches der Standard ist, legt die Konfiguration fest. Gibt es nur eines, entfällt die Auswahl.
 - Classic sieht aus wie heute (Blau), aber mit dem neuen Logo und den neuen Schriften.
 - Die Website und die Dokumentation zeigen Türkis, hell und dunkel, mit dem neuen Logo, dem Bild der Projektseite auf
   der Startseite und einem orangefarbenen „Get Started“.
@@ -34,11 +37,13 @@ Seiten und das Logo B1 fest.
 - Website `src/ReadyStackGo.PublicWeb`: Landing-Seiten, Feature-Seiten, Dokumentation (Starlight), Logo, Favicon,
   Schriften.
 - Logo als Vektor-Master (SVG) mit Ableitungen.
+- Theme-Pakete: Format, Laden aus Image und Verzeichnis, API, Konfiguration, Dokumentation des Formats.
 
 **Nicht-Umfang**
 
 - Neue Funktionen außer der Theme-Auswahl; Abläufe bleiben gleich.
-- Custom Distributions (bringen ihr eigenes UI-Paket mit), Domain der Website, Lokalisierung der App (vor 1.0).
+- Custom Distributions und ihre Themes (sie bauen und halten sie in ihrem eigenen Repo), Domain der Website,
+  Lokalisierung der App (vor 1.0), Laden von Theme-Paketen über eine URL.
 - Neue Screenshots der Dokumentation (`PublicWeb/public/images/docs/`, 141 Bilder): eigenes Folge-Issue (Entscheidung
   E9).
 - Das Logo auf wiesenwischer.de: Issue Wiesenwischer/works#144, startet, wenn der Master auf `main` liegt.
@@ -59,8 +64,8 @@ Seiten und das Logo B1 fest.
   auf `turquoise/700` (`#00787B`, 5,29 : 1 mit Weiß) gelegt, nicht auf `#00CED1`; die leuchtenden Töne liegen in
   `brand-300/400`. Gleiches Prinzip in Pastellgrün (`brand-500` = `pastel/700`). Buttons, die auf die semantischen
   Tokens umgestellt werden, zeigen wie im Entwurf `primary/default` mit `text/on-primary`.
-- **E3 – Speicherung des Themes.** Neuer Schlüssel `colorTheme` in `localStorage` mit `turquoise`, `pastel-green`,
-  `classic`; fehlend oder ungültig → `turquoise`. Der Modus bleibt beim heutigen Schlüssel `theme` (`light`/`dark`,
+- **E3 – Speicherung des Themes.** Neuer Schlüssel `colorTheme` in `localStorage` mit der Id eines verfügbaren
+  Themes; fehlend oder nicht (mehr) verfügbar → Standard der Installation (E17). Der Modus bleibt beim heutigen Schlüssel `theme` (`light`/`dark`,
   `ThemeContext.tsx:21`). Angewendet als `data-theme` am `<html>`, zusätzlich zur Klasse `dark` (`ThemeContext.tsx:35-39`).
   Ein kleines Inline-Skript in `apps/rsgo-generic/index.html` setzt beides vor dem ersten Rendern, damit nichts
   aufblitzt. Nicht serverseitig je Benutzer – so wie der Modus heute.
@@ -96,6 +101,37 @@ Seiten und das Logo B1 fest.
 - **E12 – Build-Ausgabe.** `src/ReadyStackGo.Api/wwwroot` ist eingecheckte Build-Ausgabe der WebUi
   (`vite.config.ts:31-34`, `emptyOutDir: true`) und wird von UI-PRs mitgezogen (z. B. #474). Die Umsetzung baut sie neu
   und committet sie.
+- **E15 – Format der Theme-Pakete.** Ein Paket ist ein Ordner `<id>/` mit `theme.json` und `theme.css`.
+  `theme.json`: `{"id","name","description","order"}`; `id` nach `^[a-z0-9][a-z0-9-]{0,39}$` und gleich dem
+  Ordnernamen. `theme.css` setzt nur CSS-Variablen `--rsgo-*`: die 38 semantischen Tokens des Entwurfs
+  (`--rsgo-bg-page` …, Schreibweise `/` → `-`) und die Skalen `--rsgo-brand-25…950`, `--rsgo-gray-25…950`, im Block
+  `[data-theme="<id>"]` (hell) und `.dark [data-theme="<id>"], .dark[data-theme="<id>"]` (dunkel). So wirkt ein Theme
+  am `<html>` und ebenso in einem Vorschau-Container. Optional `--rsgo-font-sans`, `--rsgo-font-display`,
+  `--rsgo-radius-*`. Grund: reines CSS, kein Code, von Dritten ohne Build erstellbar. Dokumentiert in
+  `docs/Architecture/Themes.md` und auf der Website (Doku, en/de).
+- **E16 – Herkunft der Pakete.** Eingebaut: `apps/rsgo-generic/public/themes/<id>/` (landet mit dem Build in
+  `wwwroot/themes/`, `vite.config.ts:31-34`) mit `turquoise`, `pastel-green`, `classic`. Zusätzlich ein Verzeichnis aus
+  der Einstellung `Themes:Path` (Umgebungsvariable `Themes__Path`, Standard `/app/themes`, darf fehlen); bisher werden
+  Pfade flach gelesen (`ConfigStore.cs:30`, `appsettings.json:9-10`), hier als Options-Klasse wie
+  `HealthCollectorOptions` (`Program.cs:125-126`). Gleiche Id im Verzeichnis ersetzt das eingebaute Paket. Ungültige
+  Pakete werden mit Warnung im Log übersprungen.
+- **E17 – Auswahl und Standard.** `Themes:Enabled` (Komma-Liste von Ids, leer = alle gefundenen) und `Themes:Default`
+  (Standard `turquoise`; fehlt das Theme, das erste nach `order`). Eine Distribution liefert so z. B. nur ihr Paket im
+  Verzeichnis und setzt `Themes__Enabled=<id>`, `Themes__Default=<id>`.
+- **E18 – API.** `GET /api/themes` (anonym, auch die Anmeldeseite ist gestaltet) liefert
+  `{ "default": "<id>", "themes": [{ "id", "name", "description", "cssUrl" }] }`; `GET /api/themes/{id}/theme.css`
+  (anonym, `text/css`, `Cache-Control: no-cache` mit ETag) liefert die CSS. Muster wie
+  `Endpoints/Wizard/ListRegistryForWizardEndpoint.cs:19-23` (`Get(...)`, `AllowAnonymous()`). Dienst `IThemeCatalog`
+  in `Application/Services`, `ThemeCatalog` in `Infrastructure/Services/Themes`, Registrierung als Singleton wie
+  `Infrastructure/DependencyInjection.cs:76`. Die Id aus der Route wird gegen das Muster aus E15 geprüft (kein
+  Pfad-Ausbruch).
+- **E19 – Laden im Browser.** `ThemeProvider` holt `/api/themes`, hängt für jedes angebotene Theme ein
+  `<link rel="stylesheet">` an (alle, wegen der Vorschau-Karten) und setzt `data-theme`. Gegen Aufblitzen merkt sich
+  der Browser Id und CSS-Adresse des gewählten Themes in `localStorage`; das Inline-Skript in `index.html` setzt
+  `data-theme`, `.dark` und diesen `<link>` vor dem ersten Rendern. `index.css` trägt die Türkis-Werte zusätzlich als
+  Rückfall unter `:root`, damit die App auch ohne geladene Pakete lesbar ist. Es gibt keinen
+  Content-Security-Policy-Header, der das verhindert.
+- **E20 – Auswahl ausblenden.** Bietet die Installation nur ein Theme an, zeigt Appearance nur den Abschnitt „Mode“.
 - **E14 – Neue gemeinsame Komponenten `Button` und `StatusBadge`.** `packages/ui-generic/src/components/ui/` enthält
   heute nur `DeploymentError.tsx` und `TypeSelector.tsx`; Knöpfe und Pillen sind in den Seiten mit Tailwind-Klassen
   geschrieben (z. B. `Deployments.tsx:213`, `:249`). Die Status-Zuordnung steht mehrfach: Produkt-Status in
@@ -134,11 +170,11 @@ Raster-Icons: keine.
 ## 6. Schritte der Umsetzung
 
 1. **Tokens WebUi** – `apps/rsgo-generic/src/index.css`:
-   - Primitive Skalen aus dem Entwurf (`farben-tokens.png`, Figma `13:1341`) als CSS-Variablen; die heutigen Werte
-     `brand` (`:47-58`) und `gray` (`:73-85`) bleiben als Classic-Satz erhalten.
-   - Blöcke `:root[data-theme="turquoise"]`, `…[data-theme="turquoise"].dark`, ebenso `pastel-green` und `classic`,
-     mit allen 38 semantischen Tokens (`--rsgo-bg-page` …) und den Werten für `--color-brand-*`/`--color-gray-*`
-     (E1, E2). `:root` ohne `data-theme` = Türkis.
+   - `@theme` bindet `--color-brand-*` und `--color-gray-*` an `var(--rsgo-brand-*)`/`var(--rsgo-gray-*)` (E1).
+   - Türkis-Werte als Rückfall unter `:root` (E19).
+   - Theme-Pakete nach E15 unter `apps/rsgo-generic/public/themes/{turquoise,pastel-green,classic}/` mit den Werten
+     aus dem Entwurf (`farben-tokens.png`, Figma `13:1341`); Classic mit den heutigen Werten `brand` (`:47-58`) und
+     `gray` (`:73-85`), Türkis und Pastellgrün nach E2.
    - `@theme inline` für die semantischen Farben (`--color-page`, `--color-surface`, `--color-raised`, `--color-line`,
      `--color-line-strong`, `--color-fg`, `--color-fg-secondary`, `--color-fg-muted`, `--color-fg-brand`,
      `--color-primary`, `--color-primary-hover`, `--color-primary-subtle`, `--color-on-primary`, `--color-go`,
@@ -149,11 +185,17 @@ Raster-Icons: keine.
      `@import` Google Fonts (`:1`) entfernen, Fontsource importieren (E4).
    - Menü-Utilities (`:200-246`) auf `nav/*`-Tokens.
    - `App.css` (Vite-Reste, `:15`, `:18`, `:41`) prüfen und, falls ungenutzt, entfernen.
-2. **Theme-Logik** – `packages/ui-generic/src/context/ThemeContext.tsx`: um `colorTheme`, `setColorTheme`,
+2. **Theme-Pakete im Backend** (E16–E18) – `IThemeCatalog` (Application), `ThemeCatalog` und `ThemeOptions`
+   (Infrastructure), Registrierung, Endpunkte `Endpoints/Themes/ListThemesEndpoint.cs` und
+   `GetThemeCssEndpoint.cs`, `appsettings.json` Abschnitt `Themes`, `docker-compose.yml` Kommentar zu `Themes__Path`,
+   `Dockerfile` legt `/app/themes` an (wie `:78`). Dokumentation `docs/Architecture/Themes.md` und Doku-Seite der
+   Website (en/de, unter System).
+3. **Theme-Logik im Browser** – `packages/ui-generic/src/context/ThemeContext.tsx`: um `colorTheme`, `setColorTheme`,
    `setTheme` erweitern (E3); reine Funktionen `parseColorTheme`/`parseMode` in eigene Datei
    `packages/ui-generic/src/context/themeStorage.ts` (testbar in Vitest, `vitest.config.ts:6-7` nimmt nur `.test.ts`).
+   API-Aufruf in `@rsgo/core` (`packages/core/src/api/themes.ts`, rein additiv). Laden der Pakete nach E19,
    Inline-Skript in `apps/rsgo-generic/index.html`.
-3. **Logo** – `packages/ui-generic/src/components/brand/Logo.tsx` mit `variant="mark" | "mark-small" | "lockup"`.
+4. **Logo** – `packages/ui-generic/src/components/brand/Logo.tsx` mit `variant="mark" | "mark-small" | "lockup"`.
    Geometrie (aus dem Entwurf, Figma `67:153`/`6:40`): isometrischer Würfel mit Kante `e = 10`, Breite
    `w = e·√3`, Ecken T(w/2,0), R(w,e/2), C(w/2,e), L(0,e/2), BL(0,1.5e), B(w/2,2e), BR(w,1.5e); Flächen oben T-R-C-L,
    links L-C-B-BL, rechts C-R-BR-B. Abstand `g = 0,9`. Farben oben/links/rechts: Türkis `#4CDCDF/#00CED1/#00A8AB`,
@@ -167,41 +209,53 @@ Raster-Icons: keine.
    `…-lockup-light.svg`, `…-lockup-dark.svg` (Schriftzug als Pfade nicht nötig; Lockup-Dateien mit eingebetteter
    Schriftangabe genügen für Doku und works#144). Dieselben Dateien in `PublicWeb/public/images/logo/`.
    Favicons nach E7.
-4. **Leiste und Kopfzeile** – `AppSidebar.tsx`: `<aside>` (`:314-321`, heute `bg-white dark:bg-gray-900`,
+5. **Leiste und Kopfzeile** – `AppSidebar.tsx`: `<aside>` (`:314-321`, heute `bg-white dark:bg-gray-900`,
    `border-gray-200 dark:border-gray-800`) auf `bg-nav border-nav-line`; Logo-Bereich (`:334-349`) mit
    `Logo variant="lockup"` bzw. `mark` (36 px eingeklappt); aktive Marke 4 px `nav-marker` links;
    Abschnittsüberschriften (`:366-372`, `:387-393`) `text-nav-fg-muted`. `AppHeader.tsx`: Logo (`:71-73`, nur unter
    `lg`), Flächen `bg-surface border-line`. `AppLayout.tsx:12` (heute `bg-gray-100 dark:bg-gray-950`) auf `bg-page`.
-5. **Bausteine** – `Button` und `StatusBadge` nach E14 anlegen und auf den genannten Seiten einsetzen; Karten
+6. **Bausteine** – `Button` und `StatusBadge` nach E14 anlegen und auf den genannten Seiten einsetzen; Karten
    (`rounded-2xl`-Container der Seiten) auf `bg-surface border-line`. Status nach dem Entwurf (Healthy/Running grün,
    Degraded/Partially Running gelb, Unhealthy/Failed rot, Unknown/Not Found/Stopped/Removing grau,
    Deploying/Upgrading Markenfarbe; Orange nie Status). Diagramme nach E8.
-6. **Appearance** – `packages/ui-generic/src/pages/Settings/Appearance/AppearanceSettingsPage.tsx` + `index.ts`,
+7. **Appearance** – `packages/ui-generic/src/pages/Settings/Appearance/AppearanceSettingsPage.tsx` + `index.ts`,
    Export in `pages/Settings/index.ts`, Route in `apps/rsgo-generic/src/App.tsx` neben `:377-402`, Eintrag in
    `settingsSections` (`SettingsIndex.tsx:12-145`). Theme-Karten als Radio-Gruppe (`role="radiogroup"`, Pfeiltasten),
-   Miniatur je Karte über einen Container mit `data-theme` des jeweiligen Themes; Umschalter Light/Dark über
-   `setTheme`.
-7. **Website** – `PublicWeb/src/styles/tailwind.css`: `brand-*` (`:57-68`) auf die Türkis-Skala nach E2,
+   Karten aus der Liste von `/api/themes` (nicht fest verdrahtet), Miniatur je Karte über einen Container mit
+   `data-theme` des jeweiligen Themes; Abschnitt „Theme“ nur bei mehr als einem Theme (E20); Umschalter Light/Dark
+   über `setTheme`.
+8. **Website** – `PublicWeb/src/styles/tailwind.css`: `brand-*` (`:57-68`) auf die Türkis-Skala nach E2,
    `gray-*` (`:70-82`) auf Neutral/Ink, Schriften nach E4; `--sl-color-*` (`:162-231`) nach `starlight.css` (E10),
    Werte Türkis hell/dunkel. `Header.astro`: Logo (`:17`) und Schriftzug (`:19`) durch das Lockup-SVG und den Text
    in Montserrat; CTA (`:66`) Orange `go` mit dunklem Text. `Footer.astro` (`:16`, `:18`) ebenso. `Hero.astro`
    zweispaltig mit Bild (E11). Feature-Karten nach Entwurf (Icon-Kachel `primary-subtle`). `astro.config.mjs`:
    `favicon: '/favicon.svg'`, Starlight-`logo` auf das Zeichen. `LandingLayout.astro:18`, `:49-51` anpassen.
-8. **Build-Ausgabe** – `pnpm run build` in `src/ReadyStackGo.WebUi`, `wwwroot` committen (E12).
-9. **Folge-Issue** „Doku-Screenshots im neuen Theme erneuern“ (E9) anlegen.
+9. **Build-Ausgabe** – `pnpm run build` in `src/ReadyStackGo.WebUi`, `wwwroot` committen (E12).
+10. **Folge-Issue** „Doku-Screenshots im neuen Theme erneuern“ (E9) anlegen.
 
 ## 7. Tests und Abnahme
 
 - **Unit (Vitest)**, neu, ohne die Änderung rot (Datei fehlt):
-  - `packages/ui-generic/src/context/themeStorage.test.ts`: fehlender, leerer, ungültiger (`"blue"`, `"Classic"`)
-    Wert → `turquoise`; gültige Werte bleiben; Modus `light`/`dark`, Unsinn → `light`.
-  - `apps/rsgo-generic/src/theme-contrast.test.ts` (Include in `vitest.config.ts` ergänzen): liest `index.css`,
-    löst die Tokens je Theme und Modus auf und prüft die Paare des Entwurfs (Text ≥ 4,5 : 1, Ränder/Fokus ≥ 3 : 1);
-    prüft, dass jedes der sechs Theme-Blöcke alle 38 Tokens setzt und dass `#465fff` nur im Classic-Satz vorkommt.
-- **E2E** (`e2e/appearance-settings.spec.ts`, gegen den Container): Settings zeigt die Karte Appearance; Klick auf
-  Pastel Green setzt `data-theme="pastel-green"` am `<html>`, nach Neuladen weiter; Pfeiltasten wechseln die Auswahl;
-  Light/Dark setzt `.dark` und stimmt mit dem Knopf der Kopfzeile überein; ohne gespeicherten Wert `turquoise`;
-  ungültiger `localStorage`-Wert → `turquoise`. Bestehende Specs müssen grün bleiben, besonders `static-files.spec.ts`
+  - `packages/ui-generic/src/context/themeStorage.test.ts`: fehlender, leerer, nicht angebotener (`"blue"`,
+    `"Classic"`) Wert → Standard der Installation; angebotene Werte bleiben; Modus `light`/`dark`, Unsinn → `light`.
+  - `apps/rsgo-generic/src/theme-packages.test.ts` (Include in `vitest.config.ts` ergänzen): liest
+    `public/themes/*/theme.json` und `theme.css`; prüft Id = Ordner = Selektoren, dass hell und dunkel alle 38 Tokens
+    und beide Skalen setzen, die Kontrast-Paare des Entwurfs (Text ≥ 4,5 : 1, Ränder/Fokus ≥ 3 : 1) und dass
+    `#465fff` nur in Classic vorkommt.
+- **.NET** (neu, ohne die Änderung rot):
+  - Unit `tests/ReadyStackGo.UnitTests/Infrastructure/Themes/ThemeCatalogTests.cs`: eingebaute Pakete gefunden;
+    Verzeichnis fehlt → nur eingebaute; Paket im Verzeichnis ersetzt gleiche Id; ungültige Id, Id ≠ Ordner, fehlende
+    `theme.css`, kaputtes JSON → übersprungen; `Enabled` filtert; `Default` fehlt oder nicht angeboten → erstes nach
+    `order`; keine Pakete → leere Liste ohne Fehler.
+  - Integration `tests/ReadyStackGo.IntegrationTests/ThemesEndpointsIntegrationTests.cs` mit
+    `CustomWebApplicationFactory` (`Infrastructure/CustomWebApplicationFactory.cs:37-46` setzt Pfade): `/api/themes`
+    ohne Anmeldung 200 mit `default` und den Paketen; CSS mit `text/css`; unbekannte Id 404; Id mit `..` oder
+    Großbuchstaben 404; Paket aus `Themes:Path` erscheint; `Enabled=classic` liefert nur Classic.
+- **E2E** (`e2e/appearance-settings.spec.ts`, gegen den Container): Settings zeigt die Karte Appearance; drei
+  Theme-Karten aus der API; Klick auf Pastel Green setzt `data-theme="pastel-green"` am `<html>`, nach Neuladen weiter,
+  schon vor dem Laden der App gesetzt; Pfeiltasten wechseln die Auswahl; Light/Dark setzt `.dark` und stimmt mit dem
+  Knopf der Kopfzeile überein; ohne gespeicherten Wert `turquoise`; ungültiger `localStorage`-Wert → `turquoise`. Die
+  Variante mit nur einem Theme deckt der Integrationstest ab. Bestehende Specs müssen grün bleiben, besonders `static-files.spec.ts`
   (Favicon, angepasst) und `not-found.spec.ts:62-71`.
 - **Bilder im Umsetzungs-PR** neben denen des Entwurfs: Deployments ausgeklappt (Türkis hell/dunkel, Pastellgrün
   hell/dunkel), eingeklappt Türkis hell, Appearance (Türkis hell, Classic dunkel), Website-Start hell/dunkel, eine
@@ -230,6 +284,11 @@ Vorhaben-Workflow für ReadyStackGo nicht läuft (#482), baut eine Claude-Code-S
 - **Starlight:** Die Farben wirken auf die Doku erst nach E10; Starlight-Updates können Variablennamen ändern.
 - **Schriften:** Montserrat ist breiter als Outfit; lange Navigations- und Tabellentexte können umbrechen.
 - **Docs-Screenshots** zeigen bis zum Folge-Issue (E9) das alte Blau.
+- **Fremde Theme-Pakete** sind CSS aus einem Verzeichnis, das der Betreiber mitgibt. CSS führt keinen Code aus, kann
+  aber die Oberfläche unbrauchbar machen. Die App prüft nur die Form (Id, Dateien), nicht den Inhalt; die Verantwortung
+  liegt beim Betreiber. Steht so in `Themes.md`.
+- **Aufblitzen:** Beim allerersten Besuch oder nach Wechsel der Installation kann kurz Türkis (Rückfall) erscheinen,
+  bis das gewählte Paket geladen ist.
 
 ## 10. Offene Fragen
 
