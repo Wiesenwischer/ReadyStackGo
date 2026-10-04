@@ -67,3 +67,30 @@ export function toneClasses(tone: StatusTone): { bgColor: string; textColor: str
       return { bgColor: "bg-status-unknown-bg", textColor: "text-status-unknown", dotColor: "bg-status-unknown" };
   }
 }
+
+/** Tone of the color names used by the status presentations of @rsgo/core. */
+export function toneForPresentationColor(color: string | null | undefined): StatusTone {
+  switch ((color ?? "").toLowerCase()) {
+    case "green":
+      return "healthy";
+    case "yellow":
+      return "degraded";
+    case "red":
+      return "unhealthy";
+    case "blue":
+      return "progress";
+    default:
+      // gray, orange (Not Found) and anything unknown stay neutral.
+      return "unknown";
+  }
+}
+
+/**
+ * Keeps label and icon of a @rsgo/core status presentation but replaces its fixed
+ * Tailwind colors with the theme's status tokens.
+ */
+export function themedPresentation<T extends { color: string; bgColor: string; textColor: string }>(
+  presentation: T,
+): T & { dotColor: string } {
+  return { ...presentation, ...toneClasses(toneForPresentationColor(presentation.color)) };
+}

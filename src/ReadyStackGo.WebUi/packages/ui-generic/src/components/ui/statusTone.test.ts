@@ -1,5 +1,42 @@
 import { describe, expect, it } from "vitest";
-import { toneForHealthStatus, toneForOperationMode, toneForProductStatus } from "./statusTone";
+import {
+  themedPresentation,
+  toneForHealthStatus,
+  toneForOperationMode,
+  toneForPresentationColor,
+  toneForProductStatus,
+} from "./statusTone";
+
+describe("toneForPresentationColor", () => {
+  it.each([
+    ["green", "healthy"],
+    ["yellow", "degraded"],
+    ["red", "unhealthy"],
+    ["blue", "progress"],
+    ["orange", "unknown"],
+    ["gray", "unknown"],
+    ["", "unknown"],
+  ])("maps %s to %s", (color, tone) => {
+    expect(toneForPresentationColor(color)).toBe(tone);
+  });
+});
+
+describe("themedPresentation", () => {
+  it("keeps label and icon but swaps the fixed colors for tokens", () => {
+    const result = themedPresentation({
+      color: "red",
+      bgColor: "bg-red-100",
+      textColor: "text-red-800",
+      icon: "x-circle",
+      label: "Unhealthy",
+    });
+    expect(result.label).toBe("Unhealthy");
+    expect(result.icon).toBe("x-circle");
+    expect(result.bgColor).toBe("bg-status-unhealthy-bg");
+    expect(result.textColor).toBe("text-status-unhealthy");
+    expect(result.dotColor).toBe("bg-status-unhealthy");
+  });
+});
 
 describe("toneForProductStatus", () => {
   it.each([
