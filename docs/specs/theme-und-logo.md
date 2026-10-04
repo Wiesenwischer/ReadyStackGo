@@ -16,6 +16,14 @@ von wiesenwischer.de gibt die Richtung vor.
 - **Theme-Auswahl in der App** (Marcus, 03.10.2026): Unter Settings wählt man das Theme der Weboberfläche. Zur Wahl
   stehen drei Themes, jedes mit hellem und dunklem Modus: Türkis (die Farben des Schriftzugs), Pastellgrün und das
   bisherige Blau als „Classic“. Hell oder dunkel bleibt zusätzlich über den Knopf in der Kopfzeile umschaltbar.
+- **Themes zur Laufzeit ladbar** (Marcus, 04.10.2026: „dass man die Themes irgendwie optional oder zur Laufzeit
+  anladen kann, so dass … nur das eigene Theme in den Container mitgedacht wird oder vielleicht sogar an anderer
+  offenerer Stelle geladen wird“): Ein Theme ist ein Paket aus Beschreibung und Token-Werten, kein fest eingebauter
+  Code. Die App lädt die verfügbaren Theme-Pakete beim Start. Ein Image oder eine Installation legt fest, welche
+  Pakete es gibt und welches der Standard ist; eine Distribution kann so nur ihr eigenes Theme mitliefern. Pakete
+  können außer im Image auch aus einem Verzeichnis kommen, das man dem Container mitgibt. Gibt es nur ein Theme,
+  zeigt Settings → Appearance keine Theme-Auswahl, nur hell und dunkel. Das Format der Pakete ist dokumentiert, damit
+  Dritte eigene Themes bauen können.
 - **Weboberfläche** (`src/ReadyStackGo.WebUi`, Paket `@rsgo/ui-generic`): Navigationsleiste links, Kopfzeile,
   Buttons, Formulare, Tabellen, Status-Anzeigen und Diagramme im neuen Schema. Das Logo in der Navigationsleiste,
   ein- und ausgeklappt.
@@ -27,8 +35,9 @@ von wiesenwischer.de gibt die Richtung vor.
 - Neue Funktionen oder geänderte Abläufe, außer der Theme-Auswahl unter Settings. Sonst ändert sich nur das Aussehen.
 - Eine Theme-Auswahl auf der Website und in der Dokumentation: Sie zeigen das Theme Türkis mit hellem und dunklem
   Modus (Marcus, 03.10.2026).
-- Custom Distributions: Eine Distribution bringt weiter ihr eigenes Design mit. Das neue Theme gilt nur für die
-  Standard-Oberfläche `@rsgo/ui-generic`.
+- Themes einer Distribution: Eine Distribution baut ihr Theme selbst und hält es in ihrem eigenen Repo. In diesem
+  Repo stehen nur der Mechanismus, das Format und die drei Standard-Themes.
+- Laden von Theme-Paketen über eine URL aus dem Netz: vorerst nicht, nur aus dem Image und aus einem Verzeichnis.
 - Die Adresse der Website (Domain-Wechsel ist ein eigenes Thema).
 - Lokalisierung der Oberfläche: Sie kommt kurz vor Version 1.0 (Marcus, 03.10.2026). Neue oder geänderte Texte
   bleiben bis dahin englisch.
@@ -56,9 +65,10 @@ von wiesenwischer.de gibt die Richtung vor.
 - **Lesbarkeit:** Text und Bedienelemente erreichen in beiden Modi mindestens WCAG AA (Kontrast 4,5 : 1 für Text,
   3 : 1 für Bedienelemente und Ränder). Status-Farben (gesund, eingeschränkt, ausgefallen, unbekannt) bleiben
   unterscheidbar und werden nicht von den Markenfarben verschluckt.
-- **Tokens an einer Stelle:** Die Farben stehen als Tokens im `@theme` der App (`apps/rsgo-generic/src/index.css`)
-  und der Website, nicht verstreut in Komponenten. Komponenten verwenden nur semantische Tokens; jedes Theme ist ein
-  Satz von Werten für diese Tokens, hell und dunkel.
+- **Tokens an einer Stelle:** Die App definiert die Tokens im `@theme` (`apps/rsgo-generic/src/index.css`), die
+  Werte je Theme liefert das Theme-Paket. Die Website hat ihre Tokens im eigenen `@theme`. Nichts verstreut in
+  Komponenten. Komponenten verwenden nur semantische Tokens; jedes Theme ist ein Satz von Werten für diese Tokens, hell
+  und dunkel.
 - **Logo als Vektor:** Das Zeichen muss bei 16 px (Favicon) noch als Würfelstapel erkennbar sein; für kleine Größen
   gibt es eine vereinfachte Fassung.
 
@@ -81,7 +91,10 @@ oder nachgezeichnet. Richtung, nicht verbindlich: das Bild „P-RSG“ auf der P
 
 - Die App zeigt in den Themes Türkis und Pastellgrün, hell und dunkel, auf allen Seiten das neue Schema und das neue
   Logo; dort zeigt keine Stelle mehr das alte Blau `#465FFF`. Classic zeigt das bisherige Blau mit dem neuen Logo.
-- Das gewählte Theme bleibt nach einem Neuladen erhalten; ohne Wahl gilt Türkis.
+- Das gewählte Theme bleibt nach einem Neuladen erhalten; ohne Wahl gilt der Standard der Installation (im
+  Standard-Image Türkis).
+- Ein Theme-Paket, das man dem Container über ein Verzeichnis mitgibt, erscheint ohne neues Image in der Auswahl;
+  eine Installation mit nur einem Theme zeigt keine Theme-Auswahl.
 - Die Website samt Dokumentation zeigt das Theme Türkis und das neue Logo.
 - Kontrast in beiden Modi gemessen, kein Wert unter WCAG AA.
 - Das Favicon ist bei 16 px als Würfelstapel erkennbar.
