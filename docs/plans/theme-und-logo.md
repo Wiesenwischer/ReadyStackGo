@@ -106,7 +106,8 @@ Seiten und das Logo B1 fest.
   Product Deployment Detail, Health und Catalog/Product Detail ein. Die Zuordnung Status → Ton steht in einer Funktion
   in `ui-generic`. `@rsgo/core` bleibt unverändert (Labels werden weiter von dort gelesen), damit die private
   Distribution nicht berührt wird. Folge des Entwurfs: „Stopped“ wird grau statt orange (heute orange,
-  `Deployments.tsx:171-189`).
+  `Deployments.tsx:171-189`), weil Orange die Markenfarbe ist und zwischen Gelb und Rot schlecht unterscheidbar wäre;
+  von Marcus bestätigt im Chat, 04.10.2026.
 - **E13 – Texte.** Die Seite Appearance nutzt die Texte aus dem Entwurf (README, „Festlegungen“). Neue Karte auf der
   Settings-Übersicht: Titel „Appearance“, Beschreibung „Choose the color theme and light or dark mode“, Route
   `/settings/appearance`.
