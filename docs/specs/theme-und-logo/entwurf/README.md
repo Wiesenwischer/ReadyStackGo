@@ -45,7 +45,8 @@ das Theme setzt der explizite Variablen-Modus der Sammlung „Theme“ am Rahmen
 | Theme Card | `18:190` | State = Default `18:69`, Hover `18:99`, Selected `18:129`, Focus `18:160`. Eigenschaften „Name“, „Description“ |
 | Theme Preview | `18:46` | Miniatur der App, zeigt das Theme, dessen Modus an der Instanz gesetzt ist |
 | Segmented Control / Mode | `18:201` | Selected = Light `18:191`, Dark `18:196` |
-| Logo/Mark | `6:40` | vereinfachtes Vektor-Zeichen, 48 × 48 |
+| Logo/Mark | `67:153` | Zeichen B1: Pyramide aus sechs Würfeln, 48 × 48; ab 40 px |
+| Logo/Mark Small | `6:40` | vereinfachtes Zeichen aus drei Würfeln, 48 × 48; für 16 bis 32 px (Favicon) |
 | Logo/Lockup | `6:67` | Context = Page `6:41`, Nav `6:54` |
 | Icons | `3:2` | 18 Strich-Symbole 24 px (`Icon/Dashboard` `3:8` … `Icon/Arrow Right` `3:80`) |
 
@@ -88,10 +89,15 @@ der Kontrastregel ausgenommen.
   `project-readystackgo.webp` (Wiesenwischer/works, Bereich x 1640–2320, y 400–1110 im Original 2880 × 1280).
   4 Anfragen, 12 Bilder, geschätzt 1,80 USD. Die Vorschläge liegen nur als Bildfüllung in Figma und auf der Tafel
   `logo-vorschlaege-fal.png`, nicht als Asset im Repo.
-- **Vektor-Zeichen** `Logo/Mark`: drei flache isometrische Würfel, unten links Türkis (`#00CED1`), unten rechts Weiß
-  mit grauer Kante, oben Orange (`#FF6B35`); die Seitenflächen nehmen hellere und dunklere Stufen derselben Skala.
-  Es ist die vereinfachte Fassung für kleine Größen (Favicon, eingeklappte Leiste) und zeigt bei 16 px noch drei
-  Würfel. Der endgültige Vektor-Master entsteht, wenn Marcus ein Zeichen gewählt hat.
+- **Gewählt: B1** (Marcus im Chat, 04.10.2026). Auf der Tafel orange umrandet.
+- **Vektor-Zeichen** `Logo/Mark`: B1 als Pyramide aus sechs flachen isometrischen Würfeln, oben Orange (`#FF6B35`),
+  in der Mitte Weiß (mit grauer Kante) und Türkis, unten Türkis, Weiß, Türkis (`#00CED1`); die Seitenflächen nehmen
+  hellere und dunklere Stufen derselben Skala. Verwendet ab 40 px: Schriftzug, eingeklappte Leiste (36 px), App-Icon.
+  Der Vektor-Master (SVG) für das Repo entsteht in der Umsetzung aus dieser Komponente.
+- **Kleines Zeichen** `Logo/Mark Small`: drei Würfel (unten Türkis und Weiß, oben Orange) für 16 und 32 px, damit das
+  Favicon als Würfelstapel erkennbar bleibt.
+- **Ein Logo für alle Themes** (Marcus im Chat, 04.10.2026): Türkis, Pastellgrün und Classic zeigen dasselbe Zeichen
+  und denselben Schriftzug.
 - **Schriftzug** `Logo/Lockup`: Zeichen 36 px und „ReadyStackGo“ in Montserrat ExtraBold 21 px, „Ready“ Türkis,
   „Stack“ dunkel auf hellem und weiß auf dunklem Grund, „Go“ Orange. Ohne Rakete.
 
@@ -137,6 +143,9 @@ der Kontrastregel ausgenommen.
 - Das Heldenbild der Website ist das Bild der Projektseite (`project-readystackgo.webp`), auf 1232 × 840 zugeschnitten
   — mein Vorschlag.
 - Strich-Symbole: eigene einfache Zeichnungen im Stil der heutigen Symbole, keine Übernahme einer Bibliothek.
+- Logo-Zeichen B1, in jedem Theme dasselbe Logo — Marcus im Chat, 04.10.2026.
+- wiesenwischer.de übernimmt das neue Logo auf Projektkarte, Übersicht und Projektseite — Marcus im Chat, 04.10.2026;
+  eigenes Issue works#144, sobald der Vektor-Master im Repo liegt.
 
 ## Hinweise für die Umsetzung
 
@@ -148,11 +157,10 @@ der Kontrastregel ausgenommen.
 - Website und Starlight: nur Türkis; die Akzentfarben in `src/styles/tailwind.css` und `starlight.css` (dort heute nur
   die Schrift) auf die Türkis-Tokens umstellen.
 - Logo-Dateien unter `src/ReadyStackGo.Api/wwwroot/images/logo/` und im PublicWeb ersetzen, sobald der Vektor-Master
-  freigegeben ist; Favicon aus `Logo/Mark`.
+  freigegeben ist: Zeichen und Schriftzug aus `Logo/Mark` und `Logo/Lockup`, Favicon (16 und 32 px) aus
+  `Logo/Mark Small`. Danach übernimmt wiesenwischer.de das Logo (works#144).
 - Schriften Montserrat und Inter lokal ausliefern (heute Outfit über Google Fonts, Noto Sans lokal).
 
 ## Offene Fragen
 
-- Welches Logo-Zeichen? Vorschlag: A3 (drei Würfel übereinander, von unten Türkis, Weiß, Orange wie „Ready Stack
-  Go“) für das große Zeichen, das flache Vektor-Zeichen für kleine Größen. Danach entsteht der Vektor-Master.
-- Bekommt Classic das neue Logo (so im Entwurf) oder das alte? Vorschlag: neues Logo, Classic ändert nur die Farben.
+Keine.
