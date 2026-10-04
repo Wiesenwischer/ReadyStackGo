@@ -30,39 +30,39 @@ const c = content[lang];
 const amsProjectUrl = 'https://www.ams-erp.com/projektmanagement/';
 ---
 
-<section class="py-16 lg:py-20 bg-gradient-to-br from-brand-50 to-blue-light-50 dark:from-brand-900/20 dark:to-blue-light-900/20">
+<section class="py-16 lg:py-20 bg-surface">
 	<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
 		<div class="grid lg:grid-cols-2 gap-12 items-center">
 			<!-- Left: Text content -->
 			<div class="text-center lg:text-left">
 				<!-- Badge -->
-				<span class="inline-flex items-center gap-2 px-4 py-2 bg-brand-100 dark:bg-brand-500/20 rounded-full mb-4">
-					<svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<span class="inline-flex items-center gap-2 px-4 py-2 bg-primary-subtle border border-primary-subtle-line rounded-full mb-4">
+					<svg class="w-4 h-4 text-fg-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 					</svg>
-					<span class="text-theme-sm font-medium text-brand-600 dark:text-brand-400">{c.badge}</span>
+					<span class="text-theme-sm font-medium text-fg-brand">{c.badge}</span>
 				</span>
 
 				<!-- Slogan -->
-				<p class="text-theme-xl font-semibold text-brand-500 mb-4 italic">
+				<p class="text-theme-xl font-semibold text-fg-brand mb-4 italic">
 					"{c.slogan}"
 				</p>
 
 				<!-- Title -->
-				<h2 class="text-title-md sm:text-title-lg font-bold text-gray-900 dark:text-white mb-6">
+				<h2 class="text-title-md sm:text-title-lg font-bold text-fg mb-6">
 					{c.title}
 				</h2>
 
 				<!-- Description -->
-				<p class="text-gray-600 dark:text-gray-300 text-theme-lg mb-6" set:html={c.description}>
+				<p class="text-fg-secondary text-lg mb-6" set:html={c.description}>
 				</p>
 
 				<!-- Highlight Box -->
-				<div class="inline-flex items-center gap-3 bg-white dark:bg-gray-800 rounded-xl px-6 py-4 shadow-theme-sm mb-6">
+				<div class="inline-flex items-center gap-3 bg-page border border-line rounded-xl px-6 py-4 mb-6">
 					<svg class="w-6 h-6 text-success-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
 					</svg>
-					<span class="text-gray-700 dark:text-gray-200 font-medium">{c.highlight}</span>
+					<span class="text-fg font-medium">{c.highlight}</span>
 				</div>
 
 				<!-- CTA -->
@@ -71,7 +71,7 @@ const amsProjectUrl = 'https://www.ams-erp.com/projektmanagement/';
 						href={amsProjectUrl}
 						target="_blank"
 						rel="noopener noreferrer"
-						class="inline-flex items-center gap-2 text-brand-500 hover:text-brand-600 font-medium transition-colors"
+						class="inline-flex items-center gap-2 text-fg-brand hover:underline font-medium transition-colors"
 					>
 						{c.cta}
 						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -83,17 +83,14 @@ const amsProjectUrl = 'https://www.ams-erp.com/projektmanagement/';
 
 			<!-- Right: Image -->
 			<div class="relative">
-				<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-theme-xl p-4 lg:p-6">
+				<div class="bg-page border border-line rounded-[24px] shadow-theme-lg p-4 lg:p-6">
 					<img
 						src="/images/showcase/ams-project.png"
 						alt="ams.project - Multiprojektmanagement"
 						class="rounded-lg w-full"
 					/>
 				</div>
-				<!-- Decorative elements -->
-				<div class="absolute -top-4 -right-4 w-24 h-24 bg-brand-500/10 rounded-full blur-2xl"></div>
-				<div class="absolute -bottom-4 -left-4 w-32 h-32 bg-blue-light-500/10 rounded-full blur-2xl"></div>
-			</div>
+															</div>
 		</div>
 	</div>
 </section>

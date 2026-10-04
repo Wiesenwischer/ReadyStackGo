@@ -37,6 +37,11 @@ services:
       # Docker registry credentials (optional, set via .env file or environment)
       # - Docker__Username=${DOCKER_USERNAME}
       # - Docker__Password=${DOCKER_PASSWORD}
+      # Theme packages (optional, see docs/Architecture/Themes.md). Mount a directory
+      # with additional packages to /app/themes, e.g. "./themes:/app/themes:ro".
+      # - Themes__Path=/app/themes
+      # - Themes__Enabled=turquoise,classic
+      # - Themes__Default=turquoise
     restart: unless-stopped
     networks:
       - rsgo-net

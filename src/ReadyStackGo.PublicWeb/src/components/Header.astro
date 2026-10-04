@@ -9,37 +9,39 @@ const { lang = 'de' } = Astro.props;
 const otherLang = lang === 'de' ? 'en' : 'de';
 ---
 
-<header class="sticky top-0 z-99 bg-white/80 backdrop-blur-md border-b border-gray-200 dark:bg-gray-900/80 dark:border-gray-800">
-	<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-		<div class="flex items-center justify-between h-16">
+<header class="sticky top-0 z-99 bg-surface/90 backdrop-blur-md border-b border-line">
+	<div class="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-10">
+		<div class="flex items-center justify-between h-[75px]">
 			<!-- Logo -->
-			<a href={`/${lang}/home/`} class="flex items-center gap-3">
-				<img src="/images/logo/readystackgo-icon.png" alt="" class="h-10 w-auto" />
-				<span class="text-xl font-bold">
-					<span class="text-[#00CED1]">Ready</span><span class="text-gray-900 dark:text-white">Stack</span><span class="text-[#FF6B35]">Go</span>
+			<a href={`/${lang}/home/`} class="flex items-center gap-2.5" aria-label="ReadyStackGo">
+				<img src="/images/logo/readystackgo-mark.svg" alt="" width="36" height="36" class="h-9 w-9" />
+				<span class="font-display font-extrabold text-[21px] tracking-[-0.3px] leading-none" translate="no">
+					<span class="text-logo-ready">Ready</span><span class="text-logo-stack">Stack</span><span class="text-logo-go">Go</span>
 				</span>
 			</a>
 
 			<!-- Navigation -->
 			<nav class="hidden md:flex items-center gap-8">
-				<a href={`/${lang}/home/#features`} class="text-gray-600 hover:text-brand-500 transition-colors text-theme-sm font-medium dark:text-gray-300 dark:hover:text-brand-400">{t(lang, 'header.features')}</a>
-				<a href={`/${lang}/home/#installation`} class="text-gray-600 hover:text-brand-500 transition-colors text-theme-sm font-medium dark:text-gray-300 dark:hover:text-brand-400">{t(lang, 'header.installation')}</a>
-				<a href={getDocsPath(lang)} class="text-gray-600 hover:text-brand-500 transition-colors text-theme-sm font-medium dark:text-gray-300 dark:hover:text-brand-400">{t(lang, 'header.docs')}</a>
+				<a href={`/${lang}/home/#features`} class="text-fg-secondary hover:text-fg-brand transition-colors text-[15px] font-medium">{t(lang, 'header.features')}</a>
+				<a href={`/${lang}/home/#installation`} class="text-fg-secondary hover:text-fg-brand transition-colors text-[15px] font-medium">{t(lang, 'header.installation')}</a>
+				<a href={getDocsPath(lang)} class="text-fg-secondary hover:text-fg-brand transition-colors text-[15px] font-medium">{t(lang, 'header.docs')}</a>
 			</nav>
 
 			<!-- Controls -->
-			<div class="flex items-center gap-3">
+			<div class="flex items-center gap-4">
 				<!-- Language Switcher -->
-				<div class="flex items-center gap-1 text-theme-xs">
+				<div class="flex items-center gap-0.5 text-theme-sm">
 					<a
 						href="/de/home/"
-						class={`px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${lang === 'de' ? 'text-brand-500 font-semibold' : 'text-gray-600 dark:text-gray-300'}`}
+						class={`px-1.5 py-1 rounded hover:text-fg-brand ${lang === 'de' ? 'text-fg-brand font-semibold' : 'text-fg-muted'}`}
+						aria-current={lang === 'de' ? 'page' : undefined}
 						title="Deutsch"
 					>DE</a>
-					<span class="text-gray-300 dark:text-gray-600">|</span>
+					<span class="text-line-strong">|</span>
 					<a
 						href="/en/home/"
-						class={`px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${lang === 'en' ? 'text-brand-500 font-semibold' : 'text-gray-600 dark:text-gray-300'}`}
+						class={`px-1.5 py-1 rounded hover:text-fg-brand ${lang === 'en' ? 'text-fg-brand font-semibold' : 'text-fg-muted'}`}
+						aria-current={lang === 'en' ? 'page' : undefined}
 						title="English"
 					>EN</a>
 				</div>
@@ -47,7 +49,7 @@ const otherLang = lang === 'de' ? 'en' : 'de';
 				<!-- Dark Mode Toggle -->
 				<button
 					id="theme-toggle"
-					class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors"
+					class="w-10 h-10 inline-flex items-center justify-center rounded-[10px] border border-line bg-surface hover:bg-raised text-fg transition-colors"
 					title="Toggle dark mode"
 				>
 					<!-- Sun icon (shown in dark mode) -->
@@ -63,12 +65,9 @@ const otherLang = lang === 'de' ? 'en' : 'de';
 				<!-- CTA -->
 				<a
 					href={`/${lang}/home/#installation`}
-					class="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 bg-brand-500 text-white font-medium rounded-lg hover:bg-brand-600 transition-colors shadow-theme-xs"
+					class="hidden sm:inline-flex items-center h-10 px-[18px] bg-go hover:bg-go-hover text-on-go font-semibold text-[15px] rounded-[10px] transition-colors shadow-theme-xs"
 				>
 					{t(lang, 'header.cta')}
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
-					</svg>
 				</a>
 			</div>
 		</div>

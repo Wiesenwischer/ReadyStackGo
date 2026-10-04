@@ -17,6 +17,7 @@ import {
 import { useSidebar } from "../context/SidebarContext";
 import { useEnvironment } from "../context/EnvironmentContext";
 import SidebarWidget from "./SidebarWidget";
+import { Logo, LogoMark } from "../components/brand/Logo";
 
 type NavItem = {
   name: string;
@@ -200,7 +201,7 @@ const AppSidebar: React.FC = () => {
                   className={`ml-auto w-5 h-5 transition-transform duration-200 ${
                     openSubmenu?.type === menuType &&
                     openSubmenu?.index === index
-                      ? "rotate-180 text-brand-500"
+                      ? "rotate-180 text-nav-active-fg"
                       : ""
                   }`}
                 >
@@ -221,7 +222,7 @@ const AppSidebar: React.FC = () => {
               {(isExpanded || isHovered || isMobileOpen) && (
                 <>
                   <span className="menu-item-text">{nav.name}</span>
-                  <svg className="ml-auto w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="ml-auto w-4 h-4 text-nav-fg-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
                 </>
@@ -235,6 +236,12 @@ const AppSidebar: React.FC = () => {
                   isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
                 }`}
               >
+                {isActive(nav.path) && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-nav-marker"
+                  />
+                )}
                 <span
                   className={`menu-item-icon-size ${
                     isActive(nav.path)
@@ -312,7 +319,7 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-[100000] border-r border-gray-200 
+      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-nav text-nav-fg h-screen transition-all duration-300 ease-in-out z-[100000] border-r border-nav-line 
         ${
           isExpanded || isMobileOpen
             ? "w-[290px]"
@@ -326,27 +333,15 @@ const AppSidebar: React.FC = () => {
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`py-1 flex ${
+        className={`pt-5 pb-6 flex ${
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
-        <Link to="/">
+        <Link to="/" aria-label="ReadyStackGo">
           {isExpanded || isHovered || isMobileOpen ? (
-            <img
-              src="/images/logo/readystackgo-logo.png"
-              alt="ReadyStackGo"
-              width={130}
-              height={36}
-              className="object-contain"
-            />
+            <Logo context="nav" />
           ) : (
-            <img
-              src="/images/logo/readystackgo-icon.png"
-              alt="ReadyStackGo"
-              width={28}
-              height={28}
-              className="object-contain"
-            />
+            <LogoMark size={36} />
           )}
         </Link>
       </div>
@@ -357,7 +352,7 @@ const AppSidebar: React.FC = () => {
             {filteredOperationalItems.length > 0 && (
               <div>
                 <h2
-                  className={`mb-2 text-xs uppercase flex leading-[20px] text-gray-400 ${
+                  className={`mb-2 text-[11px] font-semibold tracking-[0.08em] uppercase flex leading-[20px] text-nav-fg-muted ${
                     !isExpanded && !isHovered
                       ? "lg:justify-center"
                       : "justify-start"
@@ -378,7 +373,7 @@ const AppSidebar: React.FC = () => {
             {/* Configuration Menu Items */}
             <div>
               <h2
-                className={`mb-2 mt-1 text-xs uppercase flex leading-[20px] text-gray-400 ${
+                className={`mb-2 mt-1 text-[11px] font-semibold tracking-[0.08em] uppercase flex leading-[20px] text-nav-fg-muted ${
                   !isExpanded && !isHovered
                     ? "lg:justify-center"
                     : "justify-start"

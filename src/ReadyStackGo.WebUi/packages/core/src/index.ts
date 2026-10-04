@@ -26,6 +26,7 @@ export * from './api/volumes';
 export * from './api/wizard';
 export * from './api/precheck';
 export * from './api/snmp';
+export * from './api/themes';
 
 // Realtime (SignalR hubs)
 // ConnectionState is defined identically in all three authenticated hubs — export once

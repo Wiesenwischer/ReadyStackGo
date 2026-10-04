@@ -17,5 +17,7 @@
     "src",
     "../../packages/core/src",
     "../../packages/ui-generic/src"
-  ]
+  ],
+  // Node-based checks of the static theme packages run in Vitest only.
+  "exclude": ["src/theme-packages.test.ts"]
 }

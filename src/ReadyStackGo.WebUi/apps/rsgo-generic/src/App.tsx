@@ -56,6 +56,7 @@ import {
   SystemInfo,
   Licenses,
   SnmpSettingsPage,
+  AppearanceSettingsPage,
   PrtgConnectionsPage,
   SmtpSettingsPage,
   OidcSettingsPage,
@@ -396,6 +397,7 @@ export default function App() {
                 <Route path="/settings/system" element={<SystemInfo />} />
                 <Route path="/settings/licenses" element={<Licenses />} />
                 <Route path="/settings/snmp" element={<SnmpSettingsPage />} />
+                    <Route path="/settings/appearance" element={<AppearanceSettingsPage />} />
                 <Route path="/settings/prtg-connections" element={<PrtgConnectionsPage />} />
                 <Route path="/settings/email" element={<SmtpSettingsPage />} />
                 <Route path="/settings/oidc" element={<OidcSettingsPage />} />

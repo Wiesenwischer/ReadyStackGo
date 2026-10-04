@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toneClasses, toneForOperationMode, toneForProductStatus } from "../../components/ui/statusTone";
 import { useParams, Link } from "react-router";
 import {
   useProductDeploymentDetailStore,
@@ -54,44 +55,14 @@ function VariableValue({ variable }: { variable: DeploymentVariableDto }) {
 }
 
 function getProductStatusPresentation(status: string) {
-  switch (status) {
-    case 'Running':
-      return { label: 'Running', bgColor: 'bg-green-100 dark:bg-green-900/30', textColor: 'text-green-800 dark:text-green-300' };
-    case 'Deploying':
-    case 'Upgrading':
-      return { label: status, bgColor: 'bg-brand-100 dark:bg-brand-900/30', textColor: 'text-brand-800 dark:text-brand-300' };
-    case 'Failed':
-      return { label: 'Failed', bgColor: 'bg-red-100 dark:bg-red-900/30', textColor: 'text-red-800 dark:text-red-300' };
-    case 'PartiallyRunning':
-      return { label: 'Partially Running', bgColor: 'bg-yellow-100 dark:bg-yellow-900/30', textColor: 'text-yellow-800 dark:text-yellow-300' };
-    case 'Stopped':
-      return { label: 'Stopped', bgColor: 'bg-orange-100 dark:bg-orange-900/30', textColor: 'text-orange-800 dark:text-orange-300' };
-    case 'Removing':
-      return { label: 'Removing', bgColor: 'bg-gray-100 dark:bg-gray-700', textColor: 'text-gray-700 dark:text-gray-300' };
-    case 'Removed':
-      return { label: 'Removed', bgColor: 'bg-gray-100 dark:bg-gray-700', textColor: 'text-gray-500 dark:text-gray-400' };
-    default:
-      return { label: status, bgColor: 'bg-gray-100 dark:bg-gray-700', textColor: 'text-gray-700 dark:text-gray-300' };
-  }
+  const label = status === 'PartiallyRunning' ? 'Partially Running' : status;
+  return { label, ...toneClasses(toneForProductStatus(status)) };
 }
 
 function getStackStatusPresentation(status: string) {
-  switch (status) {
-    case 'Running':
-      return { label: 'Running', bgColor: 'bg-green-100 dark:bg-green-900/30', textColor: 'text-green-800 dark:text-green-300' };
-    case 'Deploying':
-      return { label: 'Deploying', bgColor: 'bg-brand-100 dark:bg-brand-900/30', textColor: 'text-brand-800 dark:text-brand-300' };
-    case 'Pending':
-      return { label: 'Pending', bgColor: 'bg-gray-100 dark:bg-gray-700', textColor: 'text-gray-600 dark:text-gray-400' };
-    case 'Failed':
-      return { label: 'Failed', bgColor: 'bg-red-100 dark:bg-red-900/30', textColor: 'text-red-800 dark:text-red-300' };
-    case 'Removed':
-      return { label: 'Removed', bgColor: 'bg-gray-100 dark:bg-gray-700', textColor: 'text-gray-500 dark:text-gray-400' };
-    case 'Stopped':
-      return { label: 'Stopped', bgColor: 'bg-orange-100 dark:bg-orange-900/30', textColor: 'text-orange-800 dark:text-orange-300' };
-    default:
-      return { label: status, bgColor: 'bg-gray-100 dark:bg-gray-700', textColor: 'text-gray-700 dark:text-gray-300' };
-  }
+  // Stack statuses: Running, Deploying, Pending, Failed, Removed, Stopped.
+  const tone = status === 'Pending' ? 'unknown' : toneForProductStatus(status);
+  return { label: status, ...toneClasses(tone) };
 }
 
 export default function ProductDeploymentDetail() {
@@ -184,7 +155,7 @@ export default function ProductDeploymentDetail() {
               />
             )}
             {modePresentation && (
-              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${modePresentation.bgColor} ${modePresentation.textColor}`}>
+              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${toneClasses(toneForOperationMode(deployment.operationMode)).bgColor} ${toneClasses(toneForOperationMode(deployment.operationMode)).textColor}`}>
                 {modePresentation.label}
               </span>
             )}
@@ -324,7 +295,7 @@ export default function ProductDeploymentDetail() {
           {(() => {
             const mp = getOperationModePresentation(deployment.operationMode);
             return (
-              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${mp.bgColor} ${mp.textColor}`}>
+              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${toneClasses(toneForOperationMode(deployment.operationMode)).bgColor} ${toneClasses(toneForOperationMode(deployment.operationMode)).textColor}`}>
                 {mp.label}
               </span>
             );

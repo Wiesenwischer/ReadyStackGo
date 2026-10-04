@@ -28,6 +28,18 @@ public class Program
         // Add services to the container
         builder.Services.AddApplication();
         builder.Services.AddInfrastructure(builder.Configuration);
+
+        // Built-in theme packages are part of the WebUi build output (wwwroot/themes).
+        var themesWebRoot = builder.Environment.WebRootPath
+            ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
+        builder.Services.PostConfigure<ReadyStackGo.Infrastructure.Services.Themes.ThemeOptions>(o =>
+        {
+            if (string.IsNullOrWhiteSpace(o.BuiltInPath))
+            {
+                o.BuiltInPath = Path.Combine(themesWebRoot, "themes");
+            }
+        });
+
         builder.Services.AddFastEndpoints(o =>
         {
             // Explicit assembly specification for multi-assembly endpoint discovery.

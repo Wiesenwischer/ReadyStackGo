@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { themedPresentation } from "../../components/ui/statusTone";
 import { useEnvironment } from '../../context/EnvironmentContext';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -304,8 +305,8 @@ function ProductGroupCard({ group, isExpanded, onToggle }: {
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  const statusPresentation = getHealthStatusPresentation(group.overallStatus);
-  const modePresentation = getOperationModePresentation(group.operationMode);
+  const statusPresentation = themedPresentation(getHealthStatusPresentation(group.overallStatus));
+  const modePresentation = themedPresentation(getOperationModePresentation(group.operationMode));
   const showOperationMode = (group.operationMode || 'Normal').toLowerCase() !== 'normal';
 
   return (

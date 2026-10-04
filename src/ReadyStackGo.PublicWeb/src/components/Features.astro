@@ -147,38 +147,37 @@ const features = [
 ];
 ---
 
-<section id="features" class="py-20 lg:py-28 bg-white dark:bg-gray-900">
-	<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<section id="features" class="py-20 lg:py-24 bg-surface">
+	<div class="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-10">
 		<!-- Section header -->
-		<div class="text-center max-w-2xl mx-auto mb-16">
-			<span class="text-brand-500 font-semibold text-theme-sm uppercase tracking-wide">Features</span>
-			<h2 class="text-title-md sm:text-title-lg font-bold text-gray-900 dark:text-white mt-3 mb-4">
+		<div class="text-center max-w-2xl mx-auto mb-12">
+			<h2 class="font-display text-[32px] leading-[40px] sm:text-[40px] sm:leading-[48px] font-bold text-fg mb-4">
 				{t(lang, 'features.title')}
 			</h2>
-			<p class="text-gray-500 dark:text-gray-400 text-theme-xl">
+			<p class="text-fg-secondary text-lg">
 				{t(lang, 'features.subtitle')}
 			</p>
 		</div>
 
 		<!-- Highlighted new features -->
-		<div class="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-12">
+		<div class="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-6">
 			{highlightedFeatures.map((feature) => (
-				<a href={feature.link} class="group relative p-6 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 shadow-lg hover:shadow-2xl hover:scale-[1.02] transition-all duration-300">
+				<a href={feature.link} class="group relative flex flex-col p-6 rounded-[20px] bg-primary-subtle border border-primary-subtle-line dark:bg-raised dark:border-line hover:border-fg-brand dark:hover:border-fg-brand hover:shadow-theme-lg transition-all duration-200">
 					{feature.badge && (
-						<span class="absolute top-4 right-4 px-2 py-1 text-xs font-bold bg-white text-brand-600 rounded-full">
+						<span class="absolute top-4 right-4 px-2 py-0.5 text-[11px] font-bold bg-go text-on-go rounded-full">
 							{feature.badge}
 						</span>
 					)}
-					<div class="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center mb-6">
-						<svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" set:html={feature.icon} />
+					<div class="w-12 h-12 bg-surface dark:bg-primary-subtle rounded-xl flex items-center justify-center mb-5">
+						<svg class="w-6 h-6 text-fg-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24" set:html={feature.icon} />
 					</div>
-					<h3 class="text-theme-xl font-semibold text-white mb-3">
+					<h3 class="text-lg font-semibold text-fg mb-2">
 						{t(lang, feature.titleKey)}
 					</h3>
-					<p class="text-white/80">
+					<p class="text-[15px] leading-6 text-fg-secondary">
 						{t(lang, feature.descKey)}
 					</p>
-					<div class="mt-4 flex items-center text-white/90 text-sm font-medium group-hover:text-white">
+					<div class="mt-auto pt-4 flex items-center text-fg-brand text-sm font-semibold">
 						{lang === 'de' ? 'Mehr erfahren' : 'Learn more'}
 						<svg class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
@@ -189,16 +188,16 @@ const features = [
 		</div>
 
 		<!-- Standard features grid -->
-		<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+		<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
 			{features.map((feature) => (
-				<div class="group p-8 rounded-2xl bg-gray-50 dark:bg-gray-800 hover:bg-brand-500 hover:shadow-theme-xl transition-all duration-300">
-					<div class="w-14 h-14 bg-brand-50 dark:bg-brand-500/10 group-hover:bg-white/20 rounded-xl flex items-center justify-center mb-6 transition-colors">
-						<svg class="w-7 h-7 text-brand-500 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" set:html={feature.icon} />
+				<div class="p-7 rounded-[20px] bg-page border border-line hover:border-primary transition-colors duration-200">
+					<div class="w-12 h-12 bg-primary-subtle rounded-xl flex items-center justify-center mb-5">
+						<svg class="w-6 h-6 text-fg-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24" set:html={feature.icon} />
 					</div>
-					<h3 class="text-theme-xl font-semibold text-gray-900 dark:text-white group-hover:text-white mb-3 transition-colors">
+					<h3 class="text-xl font-semibold text-fg mb-3">
 						{t(lang, feature.titleKey)}
 					</h3>
-					<p class="text-gray-500 dark:text-gray-400 group-hover:text-white/80 transition-colors">
+					<p class="text-[15px] leading-6 text-fg-secondary">
 						{t(lang, feature.descKey)}
 					</p>
 				</div>

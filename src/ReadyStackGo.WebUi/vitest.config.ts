@@ -4,6 +4,6 @@ export default defineConfig({
   test: {
     // Pure logic only — no DOM, no component rendering.
     environment: 'node',
-    include: ['packages/*/src/**/*.test.ts'],
+    include: ['packages/*/src/**/*.test.ts', 'apps/*/src/**/*.test.ts'],
   },
 });
