@@ -1,5 +1,6 @@
 # Starts the steps of a project ("Vorhaben") from what Marcus does on GitHub. The steps themselves live in the shared
-# workflow Wiesenwischer/works/.github/workflows/vorhaben.yml; process: works/docs/prozesse/vorhaben.md.
+# workflow, here as the copy vorhaben-shared.yml of Wiesenwischer/works/.github/workflows/vorhaben.yml (#482);
+# process: works/docs/prozesse/vorhaben.md.
 #
 #   new or reopened issue "Vorhaben: ..."           -> onto the board, column by the issue's labels
 #   label "spezifiziert" on an issue                -> column by the issue's labels
@@ -124,7 +125,7 @@ jobs:
   vorhaben:
     needs: route
     if: needs.route.outputs.phase != ''
-    uses: Wiesenwischer/works/.github/workflows/vorhaben.yml@main
+    uses: ./.github/workflows/vorhaben-shared.yml
     with:
       phase: ${{ needs.route.outputs.phase }}
       number: ${{ needs.route.outputs.number }}

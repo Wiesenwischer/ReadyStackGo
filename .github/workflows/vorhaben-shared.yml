@@ -1,0 +1,575 @@
+# COPY of Wiesenwischer/works/.github/workflows/vorhaben.yml (works 35c9584, 27.09.2026). Do not edit here:
+# change it in works and copy it over in the same change (works: docs/prozesse/vorhaben.md).
+# Why a copy: this repository is public, works is private, and GitHub does not let a public repository call a
+# reusable workflow from a private one (#482).
+#
+# Runs one project ("Vorhaben") of a product repository with Claude Code: plan, build, review, one round of rework,
+# and moves it along on Marcus' board. Called from the product repository's own .github/workflows/vorhaben.yml, which
+# decides the phase from the event. Process description: docs/prozesse/vorhaben.md. The design before planning
+# (skill vorhaben-entwerfen) is not a phase: it runs in a Claude Code session with the Figma connector.
+#
+# Everything a job pushes or opens uses the caller's GITHUB_TOKEN. This workflow therefore chains its jobs itself
+# (build -> review -> rework -> review). The product's CI does get a pull_request run for such a pull request, but GitHub
+# holds it as "action_required" until someone approves it, and only that run counts for the required checks of main - a
+# dispatched run on the branch does not (plan pull request WYSCH#81, 26.09.2026). Start-PullRequestCi approves it.
+name: Vorhaben (shared)
+
+on:
+  workflow_call:
+    inputs:
+      phase:
+        description: "intake | track | plan | build | rework | review | approve | hold"
+        type: string
+        required: true
+      build-mode:
+        description: >
+          "workflow": a job builds on build-runner. "session": Marcus builds in a Claude Code session on his PC (hybrid,
+          e.g. Unreal work); the build phase then only merges the plan, and "review" is started when that session opens
+          its pull request.
+        type: string
+        default: "workflow"
+      number:
+        description: "Issue number (intake, track, plan) or pull request number (plan revision, other phases)"
+        type: string
+        required: true
+      plan-runner:
+        description: "runs-on for planning, as JSON"
+        type: string
+        default: '"ubuntu-latest"'
+      build-runner:
+        description: "runs-on for building, as JSON"
+        type: string
+        default: '"ubuntu-latest"'
+      review-runner:
+        description: "runs-on for the review, as JSON"
+        type: string
+        default: '"ubuntu-latest"'
+      ci-workflow:
+        description: "Workflow file of the product's CI; dispatched only if its pull_request run cannot be approved"
+        type: string
+        default: ""
+      dotnet-global-json:
+        description: "global.json for actions/setup-dotnet before building (empty = no .NET setup)"
+        type: string
+        default: ""
+      node-version:
+        description: "Node.js version for actions/setup-node before building (empty = no Node setup)"
+        type: string
+        default: ""
+      model:
+        description: "Claude model for all phases (empty = account default)"
+        type: string
+        default: "claude-opus-5-5"
+      effort:
+        description: "Claude Code effort level for all phases: low | medium | high | xhigh | max (empty = CLI default)"
+        type: string
+        default: "max"
+      project-number:
+        description: "Number of Marcus' GitHub project that shows every project on a board (users/<owner>/projects/<n>)"
+        type: string
+        default: "9"
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        description: "Subscription token (claude setup-token); not needed on runners where Claude Code is signed in"
+        required: false
+      VORHABEN_PROJECT_TOKEN:
+        description: >
+          Token with the "project" scope for the board. GITHUB_TOKEN cannot write a project owned by a user account.
+          Without it the board steps do nothing.
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+
+jobs:
+  # The board moves along with the steps (docs/prozesse/vorhaben.md, "Brett und Labels"): new or reopened issue
+  # "Vorhaben: ..." (intake) and label "spezifiziert" (track) -> by the issue's labels (In Planung with "planen",
+  # Spezifikation fehlt without "spezifiziert"); planning starts -> In Planung; plan pull request open -> Plan zur
+  # Freigabe (job board-plan-ready); planning stopped without one -> by the labels (job board-plan-stopped); plan
+  # approved -> In Umsetzung. Closing the issue (the implementation's "Closes #n") sets Fertig through the project's own
+  # workflow "Item closed".
+  board:
+    if: contains(fromJSON('["intake", "track", "plan", "build"]'), inputs.phase)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Move the project on the board
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROJECT_TOKEN: ${{ secrets.VORHABEN_PROJECT_TOKEN }}
+          PROJECT_NUMBER: ${{ inputs.project-number }}
+        run: |
+          ${{ env.BOARD }}
+          $status = @{ plan = 'In Planung'; build = 'In Umsetzung' }['${{ inputs.phase }}']
+          # intake and track go by the labels: an issue opened with labels sends "opened" and one "labeled" per label at
+          # the same time, and all runs (intake, track, plan) must end in the same column, whichever finishes last.
+          # With "planen" on the issue that is In Planung, as the plan run sets it.
+          if (-not $status) { $status = Get-LabelStatus '${{ inputs.number }}' }
+          Set-BoardStatus '${{ inputs.number }}' $status
+          exit 0
+
+  # 90 minutes also cover the fact-checking subagents of vorhaben-planen (since 27.09.2026, one parallel round plus
+  # re-checks). Measured before them, without subagents and without --effort max, planning took about 8 minutes.
+  plan:
+    if: inputs.phase == 'plan'
+    runs-on: ${{ fromJSON(inputs.plan-runner) }}
+    timeout-minutes: 90
+    concurrency:
+      group: vorhaben-plan-${{ inputs.number }}
+    outputs:
+      pr: ${{ steps.claude.outputs.pr }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Claude plans
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          VORHABEN_MODEL: ${{ inputs.model }}
+          VORHABEN_EFFORT: ${{ inputs.effort }}
+          # Subagents must run synchronously. In CLI 2.1.269 an Agent call without run_in_background defaults to the
+          # background, and claude -p kills background agents after 10 minutes without progress
+          # (CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS, default 600000). Only for planning and review: the build may need
+          # Bash background tasks.
+          CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1'
+        id: claude
+        run: |
+          ${{ env.INVOKE }}
+          Invoke-Claude "/vorhaben-planen ${{ inputs.number }}"
+          Write-PrOutput
+      # main requires green checks. Starting CI now means the checks are done by the time Marcus approves, so the
+      # build job can merge the plan.
+      - name: Start CI on the plan pull request
+        if: steps.claude.outputs.pr != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ${{ env.CI }}
+          Start-PullRequestCi '${{ steps.claude.outputs.pr }}' '${{ inputs.ci-workflow }}'
+
+  board-plan-ready:
+    needs: [board, plan]
+    if: always() && needs.plan.outputs.pr != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Move the project on the board
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROJECT_TOKEN: ${{ secrets.VORHABEN_PROJECT_TOKEN }}
+          PROJECT_NUMBER: ${{ inputs.project-number }}
+        run: |
+          ${{ env.BOARD }}
+          Set-BoardStatus '${{ needs.plan.outputs.pr }}' 'Plan zur Freigabe'
+          exit 0
+
+  # Planning stopped without a pull request. vorhaben-planen then removed "planen" and left the reason in the issue's
+  # labels: "spezifiziert" removed or missing (no specification) or "entwurf-fehlt" set (no approved design). The skill
+  # cannot move the board itself, its job has no project token. Without either reason (a "planen" left on the issue
+  # included) the column stays as it is.
+  board-plan-stopped:
+    needs: [board, plan]
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.pr == ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Move the project on the board
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROJECT_TOKEN: ${{ secrets.VORHABEN_PROJECT_TOKEN }}
+          PROJECT_NUMBER: ${{ inputs.project-number }}
+        run: |
+          ${{ env.BOARD }}
+          $status = @(Get-LabelStatus '${{ inputs.number }}')
+          if ($status.Count -eq 0 -or $status[0] -in 'Spezifiziert', 'In Planung') {
+            Write-Output 'Planning ended without a pull request, but the labels name no reason; board unchanged.'
+            exit 0
+          }
+          Set-BoardStatus '${{ inputs.number }}' $status
+          exit 0
+
+  # Hybrid: the approved plan is merged here, the build happens in a session on Marcus' PC.
+  plan-merge:
+    if: inputs.phase == 'build' && inputs.build-mode == 'session'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Merge the approved plan
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh pr merge ${{ inputs.number }} --squash --delete-branch 2>$null
+          if ((gh pr view ${{ inputs.number }} --json state --jq .state) -ne 'MERGED') {
+            gh pr merge ${{ inputs.number }} --auto --squash --delete-branch
+            $deadline = (Get-Date).AddMinutes(30)
+            while ((gh pr view ${{ inputs.number }} --json state --jq .state) -ne 'MERGED') {
+              if ((Get-Date) -gt $deadline) { throw "Plan pull request #${{ inputs.number }} was not merged within 30 minutes; are its checks green?" }
+              Start-Sleep -Seconds 30
+            }
+          }
+          gh pr edit ${{ inputs.number }} --remove-label freigabe 2>$null
+          # Marcus looks at the issue on his board, not at the plan pull request: the command goes there, with the issue
+          # number the skill resolves itself (vorhaben-umsetzen, "1. Auftrag bestimmen"). Like the skill, it reads the
+          # issue from the branch (plan/<issue>-...): the body may name another issue first ("builds on Vorhaben #230").
+          $head = gh pr view ${{ inputs.number }} --json headRefName --jq .headRefName
+          $issue = if ($head -match '^plan/(\d+)-') { $Matches[1] } else { '' }
+          $start = if ($issue) { "/vorhaben-umsetzen $issue" } else { "/vorhaben-umsetzen ${{ inputs.number }}" }
+          $say = if ($issue) { " oder schreib: ``Setz Vorhaben #$issue um``" } else { '' }
+          $text = "Plan gemergt (#${{ inputs.number }}). Umgesetzt wird in einer Claude-Code-Sitzung am PC: ``$start``$say. Öffnet die Sitzung den PR, startet die Prüfung von selbst."
+          gh pr comment ${{ inputs.number }} --body $text
+          if ($issue) { gh issue comment $issue --body $text }
+
+  # Marcus' approval of an implementation pull request is the gate: only now does it merge, once the checks are green.
+  approve:
+    if: inputs.phase == 'approve'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Turn on auto-merge
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh pr merge ${{ inputs.number }} --auto --squash --delete-branch
+          gh pr edit ${{ inputs.number }} --remove-label freigabe 2>$null
+
+  build:
+    if: (inputs.phase == 'build' || inputs.phase == 'rework') && inputs.build-mode != 'session'
+    runs-on: ${{ fromJSON(inputs.build-runner) }}
+    timeout-minutes: 300
+    concurrency:
+      group: vorhaben-build-${{ inputs.number }}
+    outputs:
+      pr: ${{ steps.claude.outputs.pr }}
+      draft: ${{ steps.draft.outputs.draft }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v5
+        if: inputs.dotnet-global-json != ''
+        with:
+          global-json-file: ${{ inputs.dotnet-global-json }}
+      - uses: actions/setup-node@v5
+        if: inputs.node-version != ''
+        with:
+          node-version: ${{ inputs.node-version }}
+      - name: Merge the approved plan
+        if: inputs.phase == 'build'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Merge right away if the checks are done, otherwise let GitHub merge once they are and wait for it.
+          gh pr merge ${{ inputs.number }} --squash --delete-branch 2>$null
+          if ((gh pr view ${{ inputs.number }} --json state --jq .state) -ne 'MERGED') {
+            gh pr merge ${{ inputs.number }} --auto --squash --delete-branch
+            $deadline = (Get-Date).AddMinutes(30)
+            while ((gh pr view ${{ inputs.number }} --json state --jq .state) -ne 'MERGED') {
+              if ((Get-Date) -gt $deadline) { throw "Plan pull request #${{ inputs.number }} was not merged within 30 minutes; are its checks green?" }
+              Start-Sleep -Seconds 30
+            }
+          }
+          git fetch origin main
+          git checkout --detach origin/main
+      - name: Claude builds
+        id: claude
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          VORHABEN_MODEL: ${{ inputs.model }}
+          VORHABEN_EFFORT: ${{ inputs.effort }}
+        run: |
+          ${{ env.INVOKE }}
+          $mode = if ('${{ inputs.phase }}' -eq 'rework') { 'nacharbeit' } else { 'plan' }
+          Invoke-Claude "/vorhaben-umsetzen $mode ${{ inputs.number }}"
+          Write-PrOutput
+      - name: Is the pull request a draft?
+        id: draft
+        if: steps.claude.outputs.pr != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ steps.claude.outputs.pr }}
+        run: |
+          # A draft means the build stopped short and says why in it (vorhaben-umsetzen, "Wenn es nicht geht", e.g.
+          # entwurf-fehlt); there is nothing to review until the rework marks it ready.
+          $draft = gh pr view $env:PR --json isDraft --jq .isDraft
+          "draft=$draft" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
+      - name: Start CI on the implementation pull request
+        if: steps.claude.outputs.pr != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ${{ env.CI }}
+          Start-PullRequestCi '${{ steps.claude.outputs.pr }}' '${{ inputs.ci-workflow }}'
+
+  # Runs after a build job, or on its own (phase "review") for a pull request that a session opened. A draft from the
+  # build is not reviewed; rework, review-again and merge are skipped with it.
+  # 90 minutes, like planning: since 27.09.2026 vorhaben-pruefen runs two rounds of subagents one after the other
+  # (three reviewers, then up to seven skeptics) at --effort max. Measured before that, without subagents and without
+  # --effort max, a review took about 10 minutes (WYSCH, 27.09.2026); 60 minutes left too little room for the new
+  # rounds.
+  review:
+    needs: build
+    if: >-
+      always() && (inputs.phase == 'review' ||
+      (needs.build.result == 'success' && needs.build.outputs.pr != '' && needs.build.outputs.draft != 'true'))
+    runs-on: ${{ fromJSON(inputs.review-runner) }}
+    timeout-minutes: 90
+    outputs:
+      verdict: ${{ steps.claude.outputs.verdict }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Claude reviews
+        id: claude
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          VORHABEN_MODEL: ${{ inputs.model }}
+          VORHABEN_EFFORT: ${{ inputs.effort }}
+          # Subagents run synchronously, see "Claude plans".
+          CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1'
+        run: |
+          ${{ env.INVOKE }}
+          Invoke-Claude "/vorhaben-pruefen ${{ inputs.phase == 'review' && inputs.number || needs.build.outputs.pr }}"
+          Write-VerdictOutput
+
+  rework:
+    needs: [build, review]
+    if: inputs.phase == 'build' && needs.review.outputs.verdict == 'nacharbeit'
+    runs-on: ${{ fromJSON(inputs.build-runner) }}
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v5
+        if: inputs.dotnet-global-json != ''
+        with:
+          global-json-file: ${{ inputs.dotnet-global-json }}
+      - uses: actions/setup-node@v5
+        if: inputs.node-version != ''
+        with:
+          node-version: ${{ inputs.node-version }}
+      - name: Claude reworks
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          VORHABEN_MODEL: ${{ inputs.model }}
+          VORHABEN_EFFORT: ${{ inputs.effort }}
+        run: |
+          ${{ env.INVOKE }}
+          Invoke-Claude "/vorhaben-umsetzen nacharbeit ${{ needs.build.outputs.pr }}"
+      - name: Start CI again
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ${{ env.CI }}
+          Start-PullRequestCi '${{ needs.build.outputs.pr }}' '${{ inputs.ci-workflow }}'
+
+  # Same review with subagents as above, hence the same 90 minutes.
+  review-again:
+    needs: [build, rework]
+    runs-on: ${{ fromJSON(inputs.review-runner) }}
+    timeout-minutes: 90
+    outputs:
+      verdict: ${{ steps.claude.outputs.verdict }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Claude reviews the rework
+        id: claude
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          VORHABEN_MODEL: ${{ inputs.model }}
+          VORHABEN_EFFORT: ${{ inputs.effort }}
+          # Subagents run synchronously, see "Claude plans".
+          CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1'
+        run: |
+          ${{ env.INVOKE }}
+          Invoke-Claude "/vorhaben-pruefen ${{ needs.build.outputs.pr }} letzte-runde"
+          Write-VerdictOutput
+
+  # A passed review merges the pull request once the required checks are green: the gate is the plan and the release,
+  # not the merge to main (Marcus, 17.09.2026 and 26.09.2026). The label "anhalten" keeps it for Marcus.
+  merge:
+    needs: [build, review, review-again]
+    if: always() && (needs.review.outputs.verdict == 'bestanden' || needs.review-again.outputs.verdict == 'bestanden')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Turn on auto-merge
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ inputs.phase == 'review' && inputs.number || needs.build.outputs.pr }}
+        run: |
+          $labels = gh pr view $env:PR --json labels --jq '.labels[].name'
+          if ($labels -contains 'anhalten') { Write-Output "#$env:PR is on hold (label anhalten)."; exit 0 }
+          gh pr merge $env:PR --auto --squash --delete-branch
+          gh pr edit $env:PR --remove-label freigabe 2>$null
+
+  # Label "anhalten" on an implementation pull request: no merge until Marcus releases it (approve, or his own merge
+  # of a pull request a session opened under his account).
+  hold:
+    if: inputs.phase == 'hold'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Turn off auto-merge
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh pr merge ${{ inputs.number }} --disable-auto 2>$null
+          gh pr edit ${{ inputs.number }} --add-label freigabe
+          gh pr comment ${{ inputs.number }} --body "Angehalten (Label ``anhalten``). Gemergt wird erst, wenn du freigibst: mit Approve oder, hat eine Sitzung den PR unter deinem Konto geöffnet, indem du selbst mergst."
+
+env:
+  # Start-PullRequestCi gets the product's CI going for a pull request this workflow opened or pushed to with
+  # GITHUB_TOKEN. GitHub creates the pull_request run for it but holds it as "action_required"; approving it lets it run,
+  # and only that run satisfies main's required checks. The run can take a moment to appear. If none shows up or it
+  # cannot be approved, the CI is dispatched on the branch as before, with a warning: those checks may not count, and
+  # someone has to approve the waiting run in the Actions tab.
+  CI: |
+    function Start-PullRequestCi([string]$Pr, [string]$CiWorkflow) {
+      $head = gh pr view $Pr --json headRefName,headRefOid | ConvertFrom-Json
+      $approved = 0
+      $deadline = (Get-Date).AddMinutes(3)
+      do {
+        Start-Sleep -Seconds 15
+        $runs = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs?head_sha=$($head.headRefOid)&event=pull_request" --jq '.workflow_runs[] | select(.conclusion == "action_required") | .id'
+        foreach ($id in @($runs | Where-Object { $_ })) {
+          gh api -X POST "repos/$env:GITHUB_REPOSITORY/actions/runs/$id/approve" | Out-Null
+          if ($LASTEXITCODE -eq 0) { $approved++; Write-Output "Approved CI run $id for pull request #$Pr." }
+          else { Write-Warning "Could not approve CI run $id for pull request #$Pr." }
+        }
+      } while ($approved -eq 0 -and (Get-Date) -lt $deadline)
+      if ($approved -gt 0) { return }
+      if (-not $CiWorkflow) { Write-Warning "No CI run to approve for pull request #$Pr and no ci-workflow to dispatch."; return }
+      Write-Warning "No CI run approved for pull request #$Pr; dispatching $CiWorkflow on $($head.headRefName). Its checks may not count for the pull request."
+      gh workflow run $CiWorkflow --ref $head.headRefName
+    }
+  # Set-BoardStatus puts the project's issue on Marcus' board and sets its column. The number is the issue or a pull
+  # request that names it ("Vorhaben #n" in a plan, "Closes #n" in an implementation). Status may list several columns,
+  # first choice first; the first one the board has wins, so a column Marcus has not created (yet) falls back to the
+  # next. The board is never worth failing a step of the project for: without a token, or on any error, it only warns.
+  # Get-LabelStatus names the columns for the issue's labels: with "planen" In Planung (the planning removes it when it
+  # ends or stops), otherwise without "spezifiziert" Spezifikation fehlt, with "entwurf-fehlt" Entwurf fehlt, otherwise
+  # Spezifiziert. It reads with GITHUB_TOKEN, so call it before Set-BoardStatus, which switches GH_TOKEN to the project
+  # token.
+  BOARD: |
+    function Resolve-VorhabenIssue([string]$Number) {
+      $repo = $env:GITHUB_REPOSITORY
+      if ((gh api "repos/$repo/issues/$Number" --jq '.pull_request != null') -ne 'true') { return $Number }
+      $body = (gh pr view $Number --repo $repo --json body --jq .body) -join "`n"
+      if ($body -match '(?i)(?:Vorhaben|Closes)\s+#(\d+)') { return $Matches[1] }
+      return ''
+    }
+    function Get-LabelStatus([string]$Number) {
+      try {
+        $issue = Resolve-VorhabenIssue $Number
+        if (-not $issue) { Write-Warning "#$Number names no issue, labels not read."; return }
+        $labels = @(gh api "repos/$env:GITHUB_REPOSITORY/issues/$issue" --jq '.labels[].name')
+        if ($LASTEXITCODE -ne 0) { throw "gh api ended with exit code $LASTEXITCODE" }
+        if ($labels -contains 'planen') { return 'In Planung' }
+        if ($labels -notcontains 'spezifiziert') { return 'Spezifikation fehlt' }
+        if ($labels -contains 'entwurf-fehlt') { return @('Entwurf fehlt', 'Spezifiziert') }
+        return 'Spezifiziert'
+      }
+      catch { Write-Warning "Labels of #$Number not read: $($_.Exception.Message)" }
+    }
+    function Set-BoardStatus([string]$Number, [string[]]$Status) {
+      if (-not $env:PROJECT_TOKEN) { Write-Output 'No VORHABEN_PROJECT_TOKEN, board not updated.'; return }
+      if (-not $Status) { Write-Warning "No column for #$Number, board not updated."; return }
+      try {
+        $repo = $env:GITHUB_REPOSITORY
+        $issue = Resolve-VorhabenIssue $Number
+        if (-not $issue) { Write-Warning "#$Number names no issue, board not updated."; return }
+        $issueId = gh api "repos/$repo/issues/$issue" --jq .node_id
+        # Plain GraphQL: "gh project" also wants read:org and read:discussion, the token only has "project".
+        $env:GH_TOKEN = $env:PROJECT_TOKEN
+        $query = 'query($n:Int!){viewer{projectV2(number:$n){id field(name:"Status"){... on ProjectV2SingleSelectField{id options{id name}}}}}}'
+        $project = (gh api graphql -f query=$query -F "n=$env:PROJECT_NUMBER") -join "`n" | ConvertFrom-Json
+        $p = $project.data.viewer.projectV2
+        $option = @(foreach ($name in $Status) { $p.field.options | Where-Object name -eq $name })[0]
+        if (-not $option) { Write-Warning "Board has no column '$($Status -join "' or '")'."; return }
+        if ($option.name -ne $Status[0]) { Write-Warning "Board has no column '$($Status[0])', set '$($option.name)'." }
+        $add = 'mutation($p:ID!,$c:ID!){addProjectV2ItemById(input:{projectId:$p,contentId:$c}){item{id}}}'
+        $item = gh api graphql -f query=$add -f "p=$($p.id)" -f "c=$issueId" --jq .data.addProjectV2ItemById.item.id
+        $set = 'mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$o}}){projectV2Item{id}}}'
+        gh api graphql -f query=$set -f "p=$($p.id)" -f "i=$item" -f "f=$($p.field.id)" -f "o=$($option.id)" | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "gh api graphql ended with exit code $LASTEXITCODE" }
+        Write-Output "Board: $repo#$issue -> $($option.name)"
+      }
+      catch { Write-Warning "Board not updated: $($_.Exception.Message)" }
+    }
+  # Shared PowerShell helpers, inlined because a job of the calling repository cannot check out this private repository
+  # with its own token. Invoke-Claude runs Claude Code headless with the project's skills; on a self-hosted runner
+  # where Claude Code is signed in it uses that sign-in, elsewhere the subscription token.
+  INVOKE: |
+    $ErrorActionPreference = 'Stop'
+    function Invoke-Claude([string]$Prompt) {
+      if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
+        npm install -g @anthropic-ai/claude-code | Out-Null
+      }
+      else {
+        # A self-hosted runner keeps its CLI between jobs; an old one rejects newer models (2.1.269 refuses
+        # claude-opus-5-5 and asks for 2.1.280). A failed update is not fatal, the run below then says why.
+        claude update 2>&1 | Out-Null
+      }
+      $arguments = @('-p', $Prompt, '--output-format', 'text')
+      if ($env:VORHABEN_MODEL) { $arguments += @('--model', $env:VORHABEN_MODEL) }
+      if ($env:VORHABEN_EFFORT) { $arguments += @('--effort', $env:VORHABEN_EFFORT) }
+      # GitHub-hosted runners are thrown away after the job; a self-hosted runner is Marcus' PC and keeps the
+      # classifier-guarded auto mode the Windows runners have used since September 2026.
+      if ($env:RUNNER_ENVIRONMENT -eq 'github-hosted') { $arguments += '--dangerously-skip-permissions' }
+      else { $arguments += @('--permission-mode', 'auto') }
+      if (-not $env:CLAUDE_CODE_OAUTH_TOKEN) { Remove-Item Env:CLAUDE_CODE_OAUTH_TOKEN -ErrorAction SilentlyContinue }
+      $env:VORHABEN_OUT = Join-Path $env:RUNNER_TEMP 'vorhaben'
+      New-Item -ItemType Directory -Force $env:VORHABEN_OUT | Out-Null
+      git config user.name 'Claude (Vorhaben)'
+      git config user.email 'claude-vorhaben@users.noreply.github.com'
+      # Only the main run may start subagents. The caps in vorhaben-pruefen (10) and vorhaben-planen (6) count only its
+      # own, and a subagent's subagents would not get the read-only brief. Unset, the CLI takes the depth limit from a
+      # remote feature flag (fallback 3 in 2.1.269); 1 keeps Agent for the main run and removes it from subagents.
+      $env:CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH = '1'
+      & claude @arguments
+      if ($LASTEXITCODE -ne 0) { throw "Claude Code ended with exit code $LASTEXITCODE" }
+    }
+    # The skills write their result to $VORHABEN_OUT (pr.txt, verdict.txt); these helpers pass it on as step outputs.
+    function Write-PrOutput {
+      $file = Join-Path $env:RUNNER_TEMP 'vorhaben/pr.txt'
+      $pr = if (Test-Path $file) { (Get-Content -Raw $file).Trim() } else { '' }
+      "pr=$pr" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
+    }
+    function Write-VerdictOutput {
+      $file = Join-Path $env:RUNNER_TEMP 'vorhaben/verdict.txt'
+      $verdict = if (Test-Path $file) { (Get-Content -Raw $file).Trim() } else { 'freigabe' }
+      "verdict=$verdict" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
+    }
