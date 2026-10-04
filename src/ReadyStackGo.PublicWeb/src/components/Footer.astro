@@ -8,24 +8,24 @@ interface Props {
 const { lang = 'de' } = Astro.props;
 ---
 
-<footer class="bg-gray-900 py-12 border-t border-gray-800">
-	<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<footer class="bg-page py-12 border-t border-line">
+	<div class="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-10">
 		<div class="flex flex-col md:flex-row items-center justify-between gap-6">
 			<!-- Logo -->
-			<a href={`/${lang}/home/`} class="flex items-center gap-3">
-				<img src="/images/logo/readystackgo-icon.png" alt="" class="h-10 w-auto" />
-				<span class="text-xl font-bold">
-					<span class="text-[#00CED1]">Ready</span><span class="text-white">Stack</span><span class="text-[#FF6B35]">Go</span>
+			<a href={`/${lang}/home/`} class="flex items-center gap-2.5" aria-label="ReadyStackGo">
+				<img src="/images/logo/readystackgo-mark.svg" alt="" width="36" height="36" class="h-9 w-9" />
+				<span class="font-display font-extrabold text-[21px] tracking-[-0.3px] leading-none" translate="no">
+					<span class="text-logo-ready">Ready</span><span class="text-logo-stack">Stack</span><span class="text-logo-go">Go</span>
 				</span>
 			</a>
 
 			<!-- Links -->
 			<nav class="flex items-center gap-6">
-				<a href={getDocsPath(lang)} class="text-gray-400 hover:text-white transition-colors text-theme-sm font-medium">{t(lang, 'footer.docs')}</a>
-				<span class="text-gray-600">|</span>
-				<a href={lang === 'de' ? '/de/datenschutz/' : '/en/privacy/'} class="text-gray-400 hover:text-white transition-colors text-theme-sm font-medium">{t(lang, 'footer.privacy')}</a>
-				<span class="text-gray-600">|</span>
-				<a href={lang === 'de' ? '/de/impressum/' : '/en/imprint/'} class="text-gray-400 hover:text-white transition-colors text-theme-sm font-medium">{t(lang, 'footer.imprint')}</a>
+				<a href={getDocsPath(lang)} class="text-fg-secondary hover:text-fg-brand transition-colors text-theme-sm font-medium">{t(lang, 'footer.docs')}</a>
+				<span class="text-line-strong">|</span>
+				<a href={lang === 'de' ? '/de/datenschutz/' : '/en/privacy/'} class="text-fg-secondary hover:text-fg-brand transition-colors text-theme-sm font-medium">{t(lang, 'footer.privacy')}</a>
+				<span class="text-line-strong">|</span>
+				<a href={lang === 'de' ? '/de/impressum/' : '/en/imprint/'} class="text-fg-secondary hover:text-fg-brand transition-colors text-theme-sm font-medium">{t(lang, 'footer.imprint')}</a>
 			</nav>
 		</div>
 	</div>

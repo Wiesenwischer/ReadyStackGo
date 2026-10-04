@@ -17,6 +17,7 @@ using ReadyStackGo.Infrastructure.Services.Deployment;
 using ReadyStackGo.Infrastructure.Services.Deployment.Precheck;
 using ReadyStackGo.Infrastructure.Services.Health;
 using ReadyStackGo.Infrastructure.Services.StackSources;
+using ReadyStackGo.Infrastructure.Services.Themes;
 using ReadyStackGo.Infrastructure.Tls;
 using ReadyStackGo.Infrastructure.LetsEncrypt;
 
@@ -74,6 +75,10 @@ public static class DependencyInjection
 
         // Source Registry (v0.24)
         services.AddSingleton<ISourceRegistryService, SourceRegistryService>();
+
+        // Theme packages (built-in wwwroot/themes plus optional operator directory Themes:Path)
+        services.Configure<ThemeOptions>(configuration.GetSection(ThemeOptions.SectionName));
+        services.AddSingleton<IThemeCatalog, ThemeCatalog>();
 
         // Image Reference Extraction (v0.25)
         services.AddSingleton<IImageReferenceExtractor, ImageReferenceExtractor>();

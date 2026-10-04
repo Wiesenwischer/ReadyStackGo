@@ -29,16 +29,28 @@ ReadyStackGo uses the following open-source libraries. We thank all maintainers 
 
 ## Fonts
 
-### Noto Sans
+### Inter
 - **License:** SIL Open Font License 1.1
-- **Copyright:** Google Inc.
-- **Website:** https://fonts.google.com/noto/specimen/Noto+Sans
+- **Copyright:** The Inter Project Authors
+- **Website:** https://rsms.me/inter/
 
 ```
-Copyright 2022 The Noto Project Authors (https://github.com/notofonts/latin-greek-cyrillic)
+Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
-This license is available with a FAQ at: https://scripts.sil.org/OFL
+This license is available with a FAQ at: https://openfontlicense.org
+```
+
+### Montserrat
+- **License:** SIL Open Font License 1.1
+- **Copyright:** The Montserrat Project Authors
+- **Website:** https://github.com/JulietaUla/Montserrat
+
+```
+Copyright 2011 The Montserrat Project Authors (https://github.com/JulietaUla/Montserrat)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is available with a FAQ at: https://openfontlicense.org
 ```
 
 ## Backend & Core

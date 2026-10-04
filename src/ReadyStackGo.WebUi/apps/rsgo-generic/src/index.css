@@ -1,7 +1,5 @@
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap")
-layer(base);
-
 @import "tailwindcss";
+@import "./theme-fallback.css";
 
 @source "../../../packages/ui-generic/src";
 @source "../../../packages/core/src";
@@ -10,7 +8,9 @@ layer(base);
 
 @theme {
   --font-*: initial;
-  --font-outfit: Outfit, sans-serif;
+  --font-sans: "Inter Variable", Inter, system-ui, sans-serif;
+  --font-display: "Montserrat Variable", Montserrat, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --breakpoint-*: initial;
   --breakpoint-2xsm: 375px;
@@ -44,18 +44,6 @@ layer(base);
   --color-white: #ffffff;
   --color-black: #101828;
 
-  --color-brand-25: #f2f7ff;
-  --color-brand-50: #ecf3ff;
-  --color-brand-100: #dde9ff;
-  --color-brand-200: #c2d6ff;
-  --color-brand-300: #9cb9ff;
-  --color-brand-400: #7592ff;
-  --color-brand-500: #465fff;
-  --color-brand-600: #3641f5;
-  --color-brand-700: #2a31d8;
-  --color-brand-800: #252dae;
-  --color-brand-900: #262e89;
-  --color-brand-950: #161950;
 
   --color-blue-light-25: #f5fbff;
   --color-blue-light-50: #f0f9ff;
@@ -70,19 +58,6 @@ layer(base);
   --color-blue-light-900: #0b4a6f;
   --color-blue-light-950: #062c41;
 
-  --color-gray-25: #fcfcfd;
-  --color-gray-50: #f9fafb;
-  --color-gray-100: #f2f4f7;
-  --color-gray-200: #e4e7ec;
-  --color-gray-300: #d0d5dd;
-  --color-gray-400: #98a2b3;
-  --color-gray-500: #667085;
-  --color-gray-600: #475467;
-  --color-gray-700: #344054;
-  --color-gray-800: #1d2939;
-  --color-gray-900: #101828;
-  --color-gray-950: #0c111d;
-  --color-gray-dark: #1a2231;
 
   --color-orange-25: #fffaf5;
   --color-orange-50: #fff6ed;
@@ -150,7 +125,7 @@ layer(base);
   --shadow-theme-xl: 0px 20px 24px -4px rgba(16, 24, 40, 0.08),
     0px 8px 8px -4px rgba(16, 24, 40, 0.03);
   --shadow-datepicker: -5px 0 0 #262d3c, 5px 0 0 #262d3c;
-  --shadow-focus-ring: 0px 0px 0px 4px rgba(70, 95, 255, 0.12);
+  --shadow-focus-ring: 0px 0px 0px 4px color-mix(in srgb, var(--rsgo-focus-ring) 24%, transparent);
   --shadow-slider-navigation: 0px 1px 2px 0px rgba(16, 24, 40, 0.1),
     0px 1px 3px 0px rgba(16, 24, 40, 0.1);
   --shadow-tooltip: 0px 4px 6px -2px rgba(16, 24, 40, 0.05),
@@ -169,6 +144,80 @@ layer(base);
 }
 
 /*
+  Theme-dependent colors. Values come from the active theme package
+  (public/themes/<id>/theme.css, format: docs/Architecture/Themes.md);
+  theme-fallback.css holds the turquoise values as fallback.
+  `inline` keeps the var() references in the utilities, so a nested
+  [data-theme] container (theme previews) re-themes its content.
+*/
+@theme inline {
+  --color-brand-25: var(--rsgo-brand-25);
+  --color-brand-50: var(--rsgo-brand-50);
+  --color-brand-100: var(--rsgo-brand-100);
+  --color-brand-200: var(--rsgo-brand-200);
+  --color-brand-300: var(--rsgo-brand-300);
+  --color-brand-400: var(--rsgo-brand-400);
+  --color-brand-500: var(--rsgo-brand-500);
+  --color-brand-600: var(--rsgo-brand-600);
+  --color-brand-700: var(--rsgo-brand-700);
+  --color-brand-800: var(--rsgo-brand-800);
+  --color-brand-900: var(--rsgo-brand-900);
+  --color-brand-950: var(--rsgo-brand-950);
+  --color-gray-25: var(--rsgo-gray-25);
+  --color-gray-50: var(--rsgo-gray-50);
+  --color-gray-100: var(--rsgo-gray-100);
+  --color-gray-200: var(--rsgo-gray-200);
+  --color-gray-300: var(--rsgo-gray-300);
+  --color-gray-400: var(--rsgo-gray-400);
+  --color-gray-500: var(--rsgo-gray-500);
+  --color-gray-600: var(--rsgo-gray-600);
+  --color-gray-700: var(--rsgo-gray-700);
+  --color-gray-800: var(--rsgo-gray-800);
+  --color-gray-900: var(--rsgo-gray-900);
+  --color-gray-950: var(--rsgo-gray-950);
+  --color-gray-dark: var(--rsgo-gray-dark);
+
+  --color-page: var(--rsgo-bg-page);
+  --color-surface: var(--rsgo-bg-surface);
+  --color-raised: var(--rsgo-bg-raised);
+  --color-line: var(--rsgo-border-default);
+  --color-line-strong: var(--rsgo-border-strong);
+  --color-fg: var(--rsgo-text-primary);
+  --color-fg-secondary: var(--rsgo-text-secondary);
+  --color-fg-muted: var(--rsgo-text-muted);
+  --color-fg-brand: var(--rsgo-text-brand);
+  --color-primary: var(--rsgo-primary-default);
+  --color-primary-hover: var(--rsgo-primary-hover);
+  --color-primary-subtle: var(--rsgo-primary-subtle);
+  --color-on-primary: var(--rsgo-text-on-primary);
+  --color-go: var(--rsgo-accent-go);
+  --color-go-hover: var(--rsgo-accent-go-hover);
+  --color-on-go: var(--rsgo-text-on-go);
+  --color-go-text: var(--rsgo-accent-go-text);
+  --color-focus: var(--rsgo-focus-ring);
+  --color-nav: var(--rsgo-nav-bg);
+  --color-nav-fg: var(--rsgo-nav-text);
+  --color-nav-fg-muted: var(--rsgo-nav-text-muted);
+  --color-nav-hover: var(--rsgo-nav-hover-bg);
+  --color-nav-active: var(--rsgo-nav-active-bg);
+  --color-nav-active-fg: var(--rsgo-nav-active-text);
+  --color-nav-marker: var(--rsgo-nav-active-marker);
+  --color-nav-line: var(--rsgo-nav-border);
+  --color-status-healthy: var(--rsgo-status-healthy);
+  --color-status-healthy-bg: var(--rsgo-status-healthy-bg);
+  --color-status-degraded: var(--rsgo-status-degraded);
+  --color-status-degraded-bg: var(--rsgo-status-degraded-bg);
+  --color-status-unhealthy: var(--rsgo-status-unhealthy);
+  --color-status-unhealthy-bg: var(--rsgo-status-unhealthy-bg);
+  --color-status-unknown: var(--rsgo-status-unknown);
+  --color-status-unknown-bg: var(--rsgo-status-unknown-bg);
+  --color-logo-ready: var(--rsgo-logo-ready);
+  --color-logo-go: var(--rsgo-logo-go);
+  --color-logo-stack: var(--rsgo-logo-stack);
+  --color-logo-stack-on-nav: var(--rsgo-logo-stack-on-nav);
+}
+
+/*
   The default border color has changed to `currentColor` in Tailwind CSS v4,
   so we've added these compatibility styles to make sure everything still
   looks the same as it did with Tailwind CSS v3.
@@ -182,14 +231,19 @@ layer(base);
   ::before,
   ::backdrop,
   ::file-selector-button {
-    border-color: var(--color-gray-200, currentColor);
+    border-color: var(--color-line, currentColor);
   }
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
   }
   body {
-    @apply relative font-normal font-outfit z-1 bg-gray-50;
+    @apply relative font-normal font-sans z-1 bg-page text-fg;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
   }
 }
 
@@ -198,19 +252,19 @@ layer(base);
 }
 
 @utility menu-item-active {
-  @apply bg-brand-50 text-brand-500 dark:bg-brand-500/[0.12] dark:text-brand-400;
+  @apply bg-nav-active text-nav-active-fg font-semibold;
 }
 
 @utility menu-item-inactive {
-  @apply text-gray-700 hover:bg-gray-100 group-hover:text-gray-700 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-gray-300;
+  @apply text-nav-fg hover:bg-nav-hover;
 }
 
 @utility menu-item-icon {
-  @apply text-gray-500 group-hover:text-gray-700 dark:text-gray-400;
+  @apply text-nav-fg;
 }
 
 @utility menu-item-icon-active {
-  @apply text-brand-500 dark:text-brand-400;
+  @apply text-nav-active-fg;
 }
 
 @utility menu-item-icon-size {
@@ -220,7 +274,7 @@ layer(base);
 }
 
 @utility menu-item-icon-inactive {
-  @apply text-gray-500 group-hover:text-gray-700 dark:text-gray-400 dark:group-hover:text-gray-300;
+  @apply text-nav-fg;
 }
 
 @utility menu-item-arrow {
@@ -228,11 +282,11 @@ layer(base);
 }
 
 @utility menu-item-arrow-active {
-  @apply rotate-180 text-brand-500 dark:text-brand-400;
+  @apply rotate-180 text-nav-active-fg;
 }
 
 @utility menu-item-arrow-inactive {
-  @apply text-gray-500 group-hover:text-gray-700 dark:text-gray-400 dark:group-hover:text-gray-300;
+  @apply text-nav-fg-muted;
 }
 
 @utility menu-dropdown-item {
@@ -240,11 +294,11 @@ layer(base);
 }
 
 @utility menu-dropdown-item-active {
-  @apply bg-brand-50 text-brand-500 dark:bg-brand-500/[0.12] dark:text-brand-400;
+  @apply bg-nav-active text-nav-active-fg;
 }
 
 @utility menu-dropdown-item-inactive {
-  @apply text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5;
+  @apply text-nav-fg hover:bg-nav-hover;
 }
 
 @utility menu-dropdown-badge {
@@ -520,13 +574,13 @@ span.flatpickr-weekday,
 .flatpickr-day.selected.nextMonthDay,
 .flatpickr-day.startRange.nextMonthDay,
 .flatpickr-day.endRange.nextMonthDay {
-  background: #465fff;
+  background: var(--color-brand-500);
   @apply !border-brand-500 !bg-brand-500 hover:!border-brand-500 hover:!bg-brand-500;
 }
 .flatpickr-day.selected.startRange + .endRange:not(:nth-child(7n + 1)),
 .flatpickr-day.startRange.startRange + .endRange:not(:nth-child(7n + 1)),
 .flatpickr-day.endRange.startRange + .endRange:not(:nth-child(7n + 1)) {
-  box-shadow: -10px 0 0 #465fff;
+  box-shadow: -10px 0 0 var(--color-brand-500);
 }
 
 .flatpickr-months .flatpickr-prev-month svg,

@@ -2,13 +2,38 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>readystackgo-webui</title>
-    <script type="module" crossorigin src="/assets/index-CB0l3M9d.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-BBWZbEMq.css">
+    <title>ReadyStackGo</title>
+    <script>
+      // Applies the stored mode and theme package before the first render (no flash).
+      // Keep in sync with packages/ui-generic/src/context/themeStorage.ts.
+      (function () {
+        try {
+          var root = document.documentElement;
+          if (localStorage.getItem("theme") === "dark") root.classList.add("dark");
+          var id = localStorage.getItem("colorTheme");
+          if (!id || !/^[a-z0-9][a-z0-9-]{0,39}$/.test(id)) return;
+          root.setAttribute("data-theme", id);
+          var css = localStorage.getItem("colorThemeCss");
+          if (css && /^\/api\/themes\/[a-z0-9][a-z0-9-]{0,39}\/theme\.css$/.test(css)) {
+            var link = document.createElement("link");
+            link.rel = "stylesheet";
+            link.href = css;
+            link.setAttribute("data-rsgo-theme", id);
+            document.head.appendChild(link);
+          }
+        } catch (e) {
+          // Storage unavailable: the built-in fallback theme applies.
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-BP5vtPIV.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CTiNcPQy.css">
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"></div>
   </body>
 </html>

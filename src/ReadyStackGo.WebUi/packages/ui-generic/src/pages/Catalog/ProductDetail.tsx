@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toneClasses, toneForProductStatus } from "../../components/ui/statusTone";
 import { useParams, Link, useNavigate } from "react-router";
 import {
   useProductDetailStore,
@@ -169,15 +170,7 @@ export default function ProductDetail() {
           <div className="flex flex-col gap-2 sm:flex-row">
             {/* Deployed status badge */}
             {productDeployment && (
-              <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium whitespace-nowrap ${
-                productDeployment.status === 'Running'
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                  : productDeployment.status === 'PartiallyRunning'
-                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                    : productDeployment.status === 'Failed'
-                      ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                      : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-              }`}>
+              <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium whitespace-nowrap ${toneClasses(toneForProductStatus(productDeployment.status)).bgColor} ${toneClasses(toneForProductStatus(productDeployment.status)).textColor}`}>
                 {productDeployment.status === 'Running' ? 'Deployed' :
                  productDeployment.status === 'PartiallyRunning' ? 'Partially Running' :
                  productDeployment.status}
