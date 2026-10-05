@@ -23,10 +23,10 @@ das Theme setzt der explizite Variablen-Modus der Sammlung „Theme“ am Rahmen
 | App / Deployments | Leiste eingeklappt, Türkis dunkel | `11:747` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=11-747) | `app-eingeklappt-tuerkis-dunkel.png` |
 | App / Deployments | Leiste eingeklappt, Pastellgrün hell | `11:946` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=11-946) | `app-eingeklappt-pastellgruen-hell.png` |
 | App / Deployments | Leiste eingeklappt, Pastellgrün dunkel | `11:1145` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=11-1145) | `app-eingeklappt-pastellgruen-dunkel.png` |
-| App / Settings – Appearance | Türkis gewählt, hell | `18:938` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=18-938) | `app-einstellungen-darstellung-tuerkis-hell.png` |
-| App / Settings – Appearance | Türkis gewählt, dunkel | `18:1259` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=18-1259) | `app-einstellungen-darstellung-tuerkis-dunkel.png` |
-| App / Settings – Appearance | Pastellgrün gewählt, hell | `18:1580` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=18-1580) | `app-einstellungen-darstellung-pastellgruen-hell.png` |
-| App / Settings – Appearance | Classic gewählt, dunkel | `18:1901` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=18-1901) | `app-einstellungen-darstellung-classic-dunkel.png` |
+| App / Settings – Appearance | Türkis gewählt, Modus Light | `106:2929` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=106-2929) | `app-einstellungen-darstellung-tuerkis-hell.png` |
+| App / Settings – Appearance | Türkis gewählt, Modus Dark | `106:3284` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=106-3284) | `app-einstellungen-darstellung-tuerkis-dunkel.png` |
+| App / Settings – Appearance | Pastellgrün gewählt, Modus System (Betriebssystem hell) | `106:3639` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=106-3639) | `app-einstellungen-darstellung-pastellgruen-system.png` |
+| App / Settings – Appearance | nur ein Theme angeboten (Classic), Modus Dark: ohne Abschnitt „Theme“ | `106:3994` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=106-3994) | `app-einstellungen-darstellung-ein-theme-classic-dunkel.png` |
 | Website / Home | Türkis hell | `12:2` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=12-2) | `website-start-tuerkis-hell.png` |
 | Website / Home | Türkis dunkel | `13:813` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=13-813) | `website-start-tuerkis-dunkel.png` |
 | Website / Home | Pastellgrün hell (nur Vergleich) | `13:878` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=13-878) | `website-start-pastellgruen-hell.png` |
@@ -42,16 +42,17 @@ das Theme setzt der explizite Variablen-Modus der Sammlung „Theme“ am Rahmen
 | Nav Item | `4:52` | State = Default `4:2`, Hover `4:8`, Active `4:14`, Focus `4:21` (Collapsed = No); dieselben eingeklappt: `4:27`, `4:33`, `4:39`, `4:46`. Eigenschaften „Label“ (Text) und „Icon“ (Instanz-Tausch) |
 | Button | `5:52` | Variant = Primary, Secondary, Go × State = Default, Hover, Focus, Disabled (`5:28` bis `5:50`). Eigenschaft „Label“ |
 | Status Badge | `5:68` | Tone = Healthy `5:53`, Degraded `5:56`, Unhealthy `5:59`, Unknown `5:62`, Progress `5:65` |
-| Theme Card | `18:190` | State = Default `18:69`, Hover `18:99`, Selected `18:129`, Focus `18:160`. Eigenschaften „Name“, „Description“ |
-| Theme Preview | `18:46` | Miniatur der App, zeigt das Theme, dessen Modus an der Instanz gesetzt ist |
-| Segmented Control / Mode | `18:201` | Selected = Light `18:191`, Dark `18:196` |
+| Theme Orb | `106:203` | State = Default `106:152`, Hover `106:164`, Selected `106:177`, Focus `106:190`. Eigenschaft „Name“. Kugel 64 px, links die helle, rechts die dunkle Leistenfarbe des Themes (`nav/bg` je Modus), in der Mitte ein Kern 29 px in `primary/default`; Rand 1 px `border/strong` (70 %). Außenring 72 px: Hover 1,5 px `border/strong`, Selected 2,5 px `primary/default` mit weichem Schein, Focus 2,5 px `focus/ring`. Name 13 px darunter, gewählt halbfett `text/primary`, sonst `text/secondary` |
+| Mode Segment | `112:164` | State = Default `112:152`, Hover `112:155`, Selected `112:158`, Focus `112:161`. Eigenschaften „Icon“ (☀ ☾ ◐), „Label“. Höhe 34, Innenabstand 7/14/7/12, Radius 7, Symbol 14 px, Text 13 px. Default ohne Fläche, Text `text/secondary`, Symbol `text/muted`; Hover Fläche `bg/raised`, Text `text/primary`; Selected Fläche `bg/raised`, Rand 1 px `border/strong`, leichter Schatten, Text halbfett `text/primary`, Symbol `text/brand`; Focus Rand 2 px `focus/ring` |
+| Mode Switch | `112:195` | Selected = Light `112:165`, Dark `112:175`, System `112:185`. Leiste aus drei Mode Segments, Abstand 2, Innenabstand 3, Radius 10, Fläche `bg/page`, Rand 1 px `border/default` |
+| Theme Card, Theme Preview, Segmented Control / Mode, Mode Card | `18:190`, `18:46`, `18:201`, `106:540` | abgelöst durch Theme Orb und Mode Switch, bleiben nur als Verlauf in der Datei |
 | Logo/Mark | `67:153` | Zeichen B1: Pyramide aus sechs Würfeln, 48 × 48; ab 40 px |
 | Logo/Mark Small | `6:40` | vereinfachtes Zeichen aus drei Würfeln, 48 × 48; für 16 bis 32 px (Favicon) |
 | Logo/Lockup | `6:67` | Context = Page `6:41`, Nav `6:54` |
 | Icons | `3:2` | 18 Strich-Symbole 24 px (`Icon/Dashboard` `3:8` … `Icon/Arrow Right` `3:80`) |
 
 Bilder der Komponenten: `komponente-navigationseintrag.png`, `komponente-button.png`, `komponente-status-badge.png`,
-`komponente-theme-karte.png`.
+`komponente-theme-kugel.png`, `komponente-modus-segment.png`, `komponente-modus-umschalter.png`.
 
 ## Tokens und Variablen
 
@@ -77,7 +78,7 @@ Neu angelegt, in der Datei gab es vorher keine Variablen.
 `nav/text*` auf `nav/bg`, `nav/hover-bg`, `nav/active-bg`, Text auf `primary/default`, `primary/hover`, `accent/go`,
 Status-Text auf seiner Badge-Fläche), Ränder und Fokus ≥ 3 : 1 (`border/strong`, `focus/ring`,
 `nav/active-marker`). Kein Wert darunter. Ausnahme bewusst: die Fläche gefüllter Buttons und die Rahmenfarbe der
-gewählten Theme-Karte erreichen gegen Weiß in Türkis und Pastellgrün hell nicht 3 : 1; die Bedienelemente sind über
+gewählten Farbkugel erreichen gegen Weiß in Türkis und Pastellgrün hell nicht 3 : 1; die Bedienelemente sind über
 ihre Beschriftung (Text 4,5 : 1 und mehr) bzw. den gefüllten Radio-Punkt erkennbar. Der Schriftzug ist als Logo von
 der Kontrastregel ausgenommen.
 
@@ -113,11 +114,15 @@ der Kontrastregel ausgenommen.
 - **Status:** Pille mit Punkt und Text. Healthy/Running grün, Degraded/Partially Running gelb, Unhealthy/Failed rot,
   Unknown/Not Found/Stopped/Removing grau, Deploying/Upgrading in der Markenfarbe (Tone Progress). Orange bedeutet nie
   einen Status.
-- **Settings / Appearance:** neue Unterseite unter Settings, dazu eine neue Karte „Appearance“ auf der
-  Settings-Übersicht (Beschreibung: „Choose the color theme and light or dark mode“). Abschnitt „Theme“: drei Karten
-  als Radio-Gruppe (Turquoise, Pastel Green, Classic), jede mit Miniatur im eigenen Theme und im aktuellen Modus; die
-  ganze Karte ist klickbar, Pfeiltasten wechseln die Wahl, die Wahl gilt sofort ohne Speichern-Knopf. Abschnitt
-  „Mode“: Umschalter Light | Dark, derselbe Zustand wie der Knopf in der Kopfzeile.
+- **Settings / Appearance** (Entwurf E): Unterseite unter Settings, dazu eine Karte „Appearance“ auf der
+  Settings-Übersicht (Beschreibung: „Choose the color theme and light or dark mode“). Zwei Abschnitte als Karten:
+  - **Theme:** eine Reihe Farbkugeln als Radio-Gruppe, eine je angebotenem Theme in der Reihenfolge des Katalogs.
+    Jede Kugel zeigt das Theme hell und dunkel zugleich, darunter der Name. Klick oder Pfeiltasten wählen, die Wahl
+    gilt sofort ohne Speichern-Knopf. Bietet der Server nur ein Theme an, entfällt der Abschnitt ganz.
+  - **Mode:** ein kompakter Umschalter „Light | Dark | System“ als Radio-Gruppe (Pfeiltasten wechseln). System folgt
+    der Einstellung des Betriebssystems und wechselt mit, solange es gewählt ist. Der Knopf in der Kopfzeile schaltet
+    weiter zwischen hell und dunkel und setzt dabei Light oder Dark fest; steht System, schaltet er auf das Gegenteil
+    des gerade sichtbaren Modus.
 - **Eingabegeräte:** Maus und Tastatur; Tab-Reihenfolge Leiste, Kopfzeile, Inhalt.
 
 ## Festlegungen, die die Spezifikation nicht vorgibt
@@ -136,14 +141,23 @@ der Kontrastregel ausgenommen.
 - Texte der neuen Seite (englisch, Lokalisierung kommt vor 1.0): „Appearance“, „Choose the color theme and the mode of
   the web interface.“, „Theme“, „Applies to the whole web interface. Saved in this browser.“, „Turquoise“ / „Default.
   The colors of the ReadyStackGo wordmark.“, „Pastel Green“ / „Soft pastel green with the same orange accent.“,
-  „Classic“ / „The previous blue look of ReadyStackGo.“, „Mode“, „Light or dark. The button in the header switches
-  it as well.“, „Light“, „Dark“ — mein Vorschlag.
+  „Classic“ / „The previous blue look of ReadyStackGo.“ — mein Vorschlag. Für Entwurf E geändert: Hilfetext Theme „The
+  color theme of the web interface. Saved in this browser.“, Hilfetext Mode „Light or dark, or follow the operating
+  system. The button in the header switches light and dark as well.“, Umschalter „Light“, „Dark“, „System“; die
+  Beschreibungen der Themes zeigt die Seite nicht mehr (sie bleiben im Katalog) — mein Vorschlag.
 - Beispieldaten der Deployments-Seite aus `stacks/examples` (E2E Platform, Whoami, edge-bundle, backend, frontend,
   whoami); Texte der Website aus `src/ReadyStackGo.PublicWeb/src/i18n/translations.ts`.
 - Das Heldenbild der Website ist das Bild der Projektseite (`project-readystackgo.webp`), auf 1232 × 840 zugeschnitten
   — mein Vorschlag.
 - Strich-Symbole: eigene einfache Zeichnungen im Stil der heutigen Symbole, keine Übernahme einer Bibliothek.
 - Logo-Zeichen B1, in jedem Theme dasselbe Logo — Marcus im Chat, 04.10.2026.
+- Settings / Appearance als Entwurf E: Farbkugeln für das Theme statt großer Theme-Karten, die dunklen Themes sind so
+  in der Auswahl sichtbar — Marcus im Chat, 05.10.2026 („Okay dann mach e“), nach den Vorschlägen A bis F. Neu ist
+  damit der Modus „System“.
+- Modus als kompakter Umschalter statt der Modus-Karten aus E („riesige Kacheln … nicht professionell bzw. modern“) —
+  Marcus im Chat, 05.10.2026, Variante 1 von zwei kompakten Vorschlägen.
+- Kein orangefarbener Punkt in den Farbkugeln: Er stand für den Akzent „Go“, der in allen Themes gleich ist, und sagte
+  bei der Wahl nichts aus — Marcus im Chat, 05.10.2026.
 - wiesenwischer.de übernimmt das neue Logo auf Projektkarte, Übersicht und Projektseite — Marcus im Chat, 04.10.2026;
   eigenes Issue works#144, sobald der Vektor-Master im Repo liegt.
 
@@ -152,6 +166,9 @@ der Kontrastregel ausgenommen.
 - Tokens: Die semantischen Tokens kommen als CSS-Variablen in `@theme` von `apps/rsgo-generic/src/index.css`; je
   Theme und Modus ein Satz Werte (z. B. über `data-theme="turquoise|pastel-green|classic"` und die Klasse `.dark` am
   `<html>`). Die Komponenten nutzen nur die semantischen Tokens, nicht `brand-*` direkt.
+- Modus „System“: gespeichert wird die Wahl `light|dark|system`, wirksam ist hell oder dunkel nach
+  `prefers-color-scheme`. Die Farbkugeln brauchen die Farben eines Themes hell und dunkel unabhängig vom Modus der
+  Seite; die Theme-Pakete müssen sich deshalb auch an einem inneren Element hell oder dunkel setzen lassen.
 - `ThemeContext` bekommt neben `light|dark` das Theme; `localStorage` behält den Schlüssel `theme` für den Modus und
   bekommt einen eigenen für das Theme. Ohne Wert gilt Türkis.
 - Website und Starlight: nur Türkis; die Akzentfarben in `src/styles/tailwind.css` und `starlight.css` (dort heute nur
