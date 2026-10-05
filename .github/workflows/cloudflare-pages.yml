@@ -1,26 +1,24 @@
 name: Deploy PublicWeb to Cloudflare Pages
 
+# The production site is only rolled out with a release (tag v*). Merges to main do not deploy.
+# Pull requests get a preview deployment on their own branch.
 on:
   push:
     tags:
       - 'v*'
-    branches:
-      - main
-    paths:
-      - 'src/ReadyStackGo.PublicWeb/**'
-      - '.github/workflows/cloudflare-pages.yml'
   pull_request:
     branches:
       - main
     paths:
       - 'src/ReadyStackGo.PublicWeb/**'
       - '.github/workflows/cloudflare-pages.yml'
+  # Started by milestone-release.yml (a tag pushed with GITHUB_TOKEN does not trigger workflows),
+  # or by hand to redeploy a release.
   workflow_dispatch:
     inputs:
-      branch:
-        description: 'Branch to deploy'
-        required: false
-        default: 'main'
+      tag:
+        description: 'Release tag to deploy (e.g., v0.84.0)'
+        required: true
 
 jobs:
   deploy:
@@ -32,6 +30,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -51,14 +51,11 @@ jobs:
       - name: Determine branch name
         id: branch
         run: |
+          # Pull requests deploy a preview on their branch; releases go to the production branch "main".
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "name=${{ github.head_ref }}" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "name=${{ inputs.branch }}" >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref_type }}" = "tag" ]; then
-            echo "name=main" >> $GITHUB_OUTPUT
           else
-            echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "name=main" >> $GITHUB_OUTPUT
           fi
 
       # cloudflare/pages-action is archived and can no longer be resolved; wrangler-action replaces it.
