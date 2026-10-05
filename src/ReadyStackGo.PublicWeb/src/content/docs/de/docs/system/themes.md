@@ -13,6 +13,9 @@ Das Theme wählt man unter **Settings → Appearance**. Die Wahl wird im Browser
 |----|------|--------------|
 | `turquoise` | Turquoise | Standard. Die Farben des ReadyStackGo-Schriftzugs. |
 | `pastel-green` | Pastel Green | Helles Pastellgrün mit demselben orangefarbenen Akzent. |
+| `aurora` | Aurora | Violett auf kühlem Weiß, dunkel Mitternachts-Indigo. |
+| `graphite-lime` | Graphite Lime | Graphit mit elektrischem Limettengrün. |
+| `magenta` | Magenta | Kräftiges Magenta, dunkel Pflaume und Wein. |
 | `classic` | Classic | Das bisherige blaue Aussehen von ReadyStackGo. |
 
 ## Format eines Theme-Pakets

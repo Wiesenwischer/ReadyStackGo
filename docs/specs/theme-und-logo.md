@@ -60,6 +60,10 @@ von wiesenwischer.de gibt die Richtung vor.
   03.10.2026: „helles pastellfarbenes Grün“). Classic ist das bisherige Erscheinungsbild mit dem Blau `#465FFF`. Alle
   drei stehen in der App zur Wahl (Marcus, 03.10.2026); dass Türkis der Standard ist, folgt aus dem Ziel des
   Vorhabens.
+- **Drei weitere Themes** (Marcus, 05.10.2026: „Lass doch alle drei“): Aurora (Violett, dunkel Mitternachts-Indigo),
+  Graphite Lime (Graphit mit Limettengrün, dunkel warmes Anthrazit) und Magenta (dunkel Pflaume und Wein). Jeder
+  dunkle Modus hat einen eigenen Grundton, nicht nur eine andere Akzentfarbe (Marcus, 05.10.2026: „Der dark Mode
+  sieht iwie immer gleich aus nur mit anderer akzentfarbe“). Classic steht in der Auswahl zuletzt.
 - **Schrift:** Montserrat für Überschriften und Schriftzug, Inter für Text, wie bei Wiesenwischer Works (Marcus,
   03.10.2026).
 - **Logo ohne Rakete:** Das Zeichen besteht nur aus dem Würfelstapel (Marcus, 03.10.2026).
