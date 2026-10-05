@@ -221,6 +221,9 @@ public class Program
         // Initialize wizard timeout (timer starts at container startup, not browser access)
         await InitializeWizardTimeoutAsync(app);
 
+        // Installations set up before the theme packages keep their previous look (classic)
+        await InitializeInstallationThemeAsync(app);
+
         // Configure reverse proxy / forwarded headers if enabled
         var reverseProxyConfig = await ConfigureReverseProxyAsync(app);
 
@@ -352,6 +355,18 @@ public class Program
         var timeoutService = scope.ServiceProvider.GetRequiredService<ReadyStackGo.Application.Services.IWizardTimeoutService>();
 
         await timeoutService.InitializeOnStartupAsync();
+    }
+
+    /// <summary>
+    /// Stores the default theme "classic" for an installation that was set up before the theme packages existed.
+    /// </summary>
+    private static async Task InitializeInstallationThemeAsync(WebApplication app)
+    {
+        using var scope = app.Services.CreateScope();
+        var initializer = scope.ServiceProvider
+            .GetRequiredService<ReadyStackGo.Application.Services.Impl.InstallationThemeInitializer>();
+
+        await initializer.InitializeOnStartupAsync();
     }
 
     /// <summary>

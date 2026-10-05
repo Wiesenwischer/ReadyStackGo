@@ -18,6 +18,8 @@ Users choose the theme under **Settings → Appearance**. The choice is saved in
 | `magenta` | Magenta | Vivid magenta, plum and wine in dark mode. |
 | `classic` | Classic | The previous blue look of ReadyStackGo. |
 
+New installations start with **Turquoise**. Installations that were set up with an earlier version keep their previous look after the update: they start with **Classic**. Every user can switch the theme under Settings → Appearance.
+
 ## Format of a Theme Package
 
 A theme package is a folder whose name is the theme's id:
@@ -101,7 +103,7 @@ Each subfolder of the directory is one package. A package from the directory wit
 |----------------------|-------------|---------|
 | `Themes__Path` | Directory with additional theme packages. May be missing. | `/app/themes` |
 | `Themes__Enabled` | Comma-separated list of theme ids that are offered. Empty means all themes found. | (empty) |
-| `Themes__Default` | Theme used when a browser has not chosen one yet (or its choice is no longer offered). | `turquoise`; if missing, the first theme by `order` |
+| `Themes__Default` | Theme used when a browser has not chosen one yet (or its choice is no longer offered). Overrides the installation's own default. | empty: `turquoise` for new installations, `classic` for installations set up before the theme packages; if not offered, `turquoise`, then the first theme by `order` |
 
 Example: offer only your own theme:
 

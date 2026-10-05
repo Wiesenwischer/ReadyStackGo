@@ -396,6 +396,74 @@ public class ThemeCatalogTests : IDisposable
     }
 
     [Fact]
+    public void GetThemes_NoOperatorDefault_UsesInstallationDefault()
+    {
+        WriteDefaultBuiltIns();
+
+        var result = CreateCatalog(defaultId: null).GetThemes(installationDefault: "classic");
+
+        result.DefaultId.Should().Be("classic");
+    }
+
+    [Fact]
+    public void GetThemes_OperatorDefault_WinsOverInstallationDefault()
+    {
+        WriteDefaultBuiltIns();
+
+        var result = CreateCatalog(defaultId: "pastel-green").GetThemes(installationDefault: "classic");
+
+        result.DefaultId.Should().Be("pastel-green");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  ")]
+    [InlineData("unknown")]
+    [InlineData("Classic")]
+    public void GetThemes_InstallationDefaultMissingOrUnknown_UsesTurquoise(string? installationDefault)
+    {
+        WriteDefaultBuiltIns();
+
+        var result = CreateCatalog(defaultId: null).GetThemes(installationDefault);
+
+        result.DefaultId.Should().Be("turquoise");
+    }
+
+    [Fact]
+    public void GetThemes_InstallationDefaultNotOffered_UsesTurquoise()
+    {
+        WriteDefaultBuiltIns();
+
+        var result = CreateCatalog(enabled: "turquoise,pastel-green", defaultId: null)
+            .GetThemes(installationDefault: "classic");
+
+        result.DefaultId.Should().Be("turquoise");
+    }
+
+    [Fact]
+    public void GetThemes_InstallationDefaultNotOffered_WithoutTurquoise_UsesFirstOffered()
+    {
+        WriteDefaultBuiltIns();
+
+        var result = CreateCatalog(enabled: "classic,pastel-green", defaultId: null)
+            .GetThemes(installationDefault: "acme");
+
+        result.DefaultId.Should().Be("pastel-green");
+    }
+
+    [Fact]
+    public void GetThemes_InstallationDefault_IsNotCachedBetweenCalls()
+    {
+        WriteDefaultBuiltIns();
+        var catalog = CreateCatalog(defaultId: null);
+
+        catalog.GetThemes("classic").DefaultId.Should().Be("classic");
+        catalog.GetThemes(null).DefaultId.Should().Be("turquoise");
+        catalog.GetThemes("pastel-green").DefaultId.Should().Be("pastel-green");
+    }
+
+    [Fact]
     public void GetThemes_DefaultNotEnabled_FallsBackToFirstOffered()
     {
         WriteDefaultBuiltIns();
