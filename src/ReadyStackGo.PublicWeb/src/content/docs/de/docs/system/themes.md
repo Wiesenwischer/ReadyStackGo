@@ -5,7 +5,7 @@ description: Wie Farb-Themes in ReadyStackGo funktionieren, wie man ein eigenes 
 
 Das Aussehen der Weboberfläche von ReadyStackGo kommt aus **Theme-Paketen**. Ein Theme-Paket ist reines CSS: ein Satz Werte für die Design-Tokens der Oberfläche, für den hellen und den dunklen Modus. Es braucht weder Code noch einen Build, so kann jeder ein Theme erstellen und einer laufenden Installation mitgeben.
 
-Das Theme wählt man unter **Settings → Appearance**. Die Wahl wird im Browser gespeichert. Den Modus (hell oder dunkel) wählt man dort getrennt davon und weiterhin über den Knopf in der Kopfzeile.
+Das Theme wählt man unter **Settings → Appearance**. Die Wahl wird im Browser gespeichert. Den Modus wählt man dort getrennt davon: Light, Dark oder System, das dem Betriebssystem folgt. Der Knopf in der Kopfzeile schaltet weiterhin zwischen hell und dunkel um.
 
 ## Eingebaute Themes
 
@@ -58,15 +58,14 @@ my-theme/
 }
 
 /* Dunkler Modus */
-.dark [data-theme="my-theme"],
-.dark[data-theme="my-theme"] {
+[data-theme="my-theme"][data-mode="dark"] {
   --rsgo-bg-page: #060B11;
   --rsgo-primary-default: #00CED1;
   /* ... alle weiteren Tokens ... */
 }
 ```
 
-Durch diese Selektoren wirkt das Theme am `<html>`-Element und ebenso in den Vorschau-Karten der Theme-Auswahl. Beide Blöcke müssen **alle** Tokens setzen:
+Verwende genau diese Selektoren. Der dunkle Block hängt an keinem umgebenden Element, so wirkt das Theme am `<html>`-Element und ebenso in den Farbkugeln der Theme-Auswahl, die jedes Theme hell und dunkel nebeneinander zeigen. Beide Blöcke müssen **alle** Tokens setzen:
 
 - die semantischen Tokens, z. B. `--rsgo-bg-page`, `--rsgo-bg-surface`, `--rsgo-text-primary`, `--rsgo-text-brand`, `--rsgo-primary-default`, `--rsgo-accent-go`, `--rsgo-focus-ring`, `--rsgo-nav-*`, `--rsgo-status-*` und `--rsgo-logo-*`,
 - die Farbskalen `--rsgo-brand-25` … `--rsgo-brand-950` und `--rsgo-gray-25` … `--rsgo-gray-950`.
@@ -110,7 +109,7 @@ Themes__Enabled=my-theme
 Themes__Default=my-theme
 ```
 
-Wird nur **ein** Theme angeboten, blendet Settings → Appearance die Theme-Auswahl aus und zeigt nur den Umschalter zwischen hellem und dunklem Modus.
+Wird nur **ein** Theme angeboten, blendet Settings → Appearance die Theme-Auswahl aus und zeigt nur den Umschalter für den Modus.
 
 ## API
 

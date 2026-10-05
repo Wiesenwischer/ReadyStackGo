@@ -101,7 +101,7 @@ describe("built-in theme packages", () => {
     const meta = JSON.parse(readFileSync(join(themesDir, id, "theme.json"), "utf8"));
     const css = readFileSync(join(themesDir, id, "theme.css"), "utf8").replace(/\r\n/g, "\n");
     const light = parseBlock(css, `[data-theme="${id}"] {`);
-    const dark = parseBlock(css, `.dark [data-theme="${id}"],\n.dark[data-theme="${id}"] {`);
+    const dark = parseBlock(css, `[data-theme="${id}"][data-mode="dark"] {`);
 
     it("has an id matching the folder and the id rule", () => {
       expect(meta.id).toBe(id);
@@ -109,6 +109,12 @@ describe("built-in theme packages", () => {
       expect(typeof meta.name).toBe("string");
       expect(meta.name.length).toBeGreaterThan(0);
       expect(typeof meta.order).toBe("number");
+    });
+
+    it("has exactly the light and the dark block, the dark one keyed on data-mode", () => {
+      // The dark block must not depend on an ancestor (.dark), so a preview element can force either mode.
+      const selectors = [...css.matchAll(/^([^\s/*{}][^{\n]*)\{/gm)].map((m) => m[1].trim());
+      expect(selectors).toEqual([`[data-theme="${id}"]`, `[data-theme="${id}"][data-mode="dark"]`]);
     });
 
     it("only sets --rsgo-* custom properties", () => {
@@ -152,8 +158,8 @@ describe("built-in theme packages", () => {
     const pkg = readFileSync(join(themesDir, "turquoise", "theme.css"), "utf8");
     const fallback = readFileSync(join(appDir, "src", "theme-fallback.css"), "utf8");
     expect(parseBlock(fallback, ":where(:root) {")).toEqual(parseBlock(pkg, '[data-theme="turquoise"] {'));
-    expect(parseBlock(fallback, ":where(.dark) {")).toEqual(
-      parseBlock(pkg, '.dark [data-theme="turquoise"],\n.dark[data-theme="turquoise"] {'),
+    expect(parseBlock(fallback, ':where(:root[data-mode="dark"]) {')).toEqual(
+      parseBlock(pkg, '[data-theme="turquoise"][data-mode="dark"] {'),
     );
   });
 });
