@@ -1,44 +1,32 @@
 ---
-// Starlight SiteTitle override: logo mark plus the three-coloured "ReadyStackGo" wordmark,
+// Starlight SiteTitle override: the ReadyStackGo lockup (docs/branding/logo-refresh),
 // linking back to the landing page of the current language.
-import { logos } from 'virtual:starlight/user-images';
-
 const { locale } = Astro.locals.starlightRoute;
 const homeHref = `/${locale === 'en' ? 'en' : 'de'}/home/`;
-const mark = logos.dark;
 ---
 
-<a href={homeHref} class="site-title sl-flex">
-	{mark && <img alt="" src={mark.src} width={mark.width} height={mark.height} />}
-	<span class="wordmark" translate="no"><span class="ready">Ready</span><span class="stack">Stack</span><span class="go">Go</span></span>
+<a href={homeHref} class="site-title sl-flex" aria-label="ReadyStackGo">
+	<img class="lockup-dark" alt="" src="/images/logo/readystackgo-lockup-dark.svg" width="181" height="36" />
+	<img class="lockup-light" alt="" src="/images/logo/readystackgo-lockup-light.svg" width="181" height="36" />
 </a>
 
 <style>
 	.site-title {
 		align-items: center;
-		gap: 0.625rem;
 		text-decoration: none;
-		white-space: nowrap;
 		min-width: 0;
 	}
 	img {
 		height: 2.25rem;
 		width: auto;
 	}
-	.wordmark {
-		font-family: 'Montserrat Variable', 'Inter Variable', system-ui, sans-serif;
-		font-weight: 800;
-		font-size: 1.3125rem;
-		letter-spacing: -0.3px;
-		overflow: hidden;
+	.lockup-light {
+		display: none;
 	}
-	.ready {
-		color: #00ced1;
+	:global(:root[data-theme='light']) .lockup-light {
+		display: block;
 	}
-	.stack {
-		color: var(--rsgo-logo-stack);
-	}
-	.go {
-		color: #ff6b35;
+	:global(:root[data-theme='light']) .lockup-dark {
+		display: none;
 	}
 </style>
