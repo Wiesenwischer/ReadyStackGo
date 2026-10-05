@@ -91,8 +91,19 @@ Inhalt von `theme.css` liest jeder Abruf frisch von der Platte.
 |---|---|---|---|
 | `Themes:Path` | `Themes__Path` | `/app/themes` | Zusätzliches Verzeichnis mit Paketen. |
 | `Themes:Enabled` | `Themes__Enabled` | leer | Komma-Liste angebotener Ids; leer = alle gefundenen. Leerzeichen werden ignoriert, unbekannte Ids mit Warnung übergangen. Groß-/Kleinschreibung zählt. |
-| `Themes:Default` | `Themes__Default` | `turquoise` | Standard-Theme der Installation. Wird es nicht angeboten, gilt das erste nach `order` (dann `id`). |
+| `Themes:Default` | `Themes__Default` | leer | Standard-Theme, vom Betreiber festgelegt. Leer = das Standard-Theme der Installation (siehe unten). |
 | `Themes:BuiltInPath` | `Themes__BuiltInPath` | `WebRootPath/themes` | Verzeichnis der eingebauten Pakete. |
+
+### Standard-Theme
+
+Das Standard-Theme gilt für jeden Browser, der noch kein Theme gewählt hat. Es ist das erste davon, das angeboten wird:
+
+1. `Themes:Default`, wenn der Betreiber es setzt.
+2. Das Standard-Theme der Installation, gespeichert in `rsgo.system.json` (`defaultTheme`). Eine neue Installation
+   bekommt beim Abschluss des Wizards `turquoise`. Eine Installation, die vor den Theme-Paketen eingerichtet wurde,
+   bekommt beim ersten Start nach dem Update `classic` und behält so ihr bisheriges Aussehen.
+3. `turquoise`.
+4. Das erste Theme nach `order` (dann `id`).
 
 Beispiel `docker-compose.yml`:
 

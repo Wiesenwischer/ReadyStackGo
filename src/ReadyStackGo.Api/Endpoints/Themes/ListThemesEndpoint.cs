@@ -10,10 +10,12 @@ namespace ReadyStackGo.Api.Endpoints.Themes;
 public class ListThemesEndpoint : EndpointWithoutRequest<ThemeListResponse>
 {
     private readonly IThemeCatalog _themeCatalog;
+    private readonly ISystemConfigService _systemConfigService;
 
-    public ListThemesEndpoint(IThemeCatalog themeCatalog)
+    public ListThemesEndpoint(IThemeCatalog themeCatalog, ISystemConfigService systemConfigService)
     {
         _themeCatalog = themeCatalog;
+        _systemConfigService = systemConfigService;
     }
 
     public override void Configure()
@@ -26,9 +28,10 @@ public class ListThemesEndpoint : EndpointWithoutRequest<ThemeListResponse>
             .WithDescription("Returns the offered theme packages and the default theme id of this installation."));
     }
 
-    public override Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(CancellationToken ct)
     {
-        var snapshot = _themeCatalog.GetThemes();
+        var installationDefault = await _systemConfigService.GetDefaultThemeAsync();
+        var snapshot = _themeCatalog.GetThemes(installationDefault);
 
         Response = new ThemeListResponse
         {
@@ -43,8 +46,6 @@ public class ListThemesEndpoint : EndpointWithoutRequest<ThemeListResponse>
                 })
                 .ToList()
         };
-
-        return Task.CompletedTask;
     }
 }
 

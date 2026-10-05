@@ -41,7 +41,7 @@ services:
       # with additional packages to /app/themes, e.g. "./themes:/app/themes:ro".
       # - Themes__Path=/app/themes
       # - Themes__Enabled=turquoise,classic
-      # - Themes__Default=turquoise
+      # - Themes__Default=turquoise   # empty: turquoise for new, classic for older installations
     restart: unless-stopped
     networks:
       - rsgo-net

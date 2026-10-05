@@ -59,6 +59,25 @@ public class SystemConfigService : ISystemConfigService
         return config.BaseUrl;
     }
 
+    public async Task<string?> GetDefaultThemeAsync()
+    {
+        var config = await _configStore.GetSystemConfigAsync();
+        return config.DefaultTheme;
+    }
+
+    public async Task<bool> SetDefaultThemeIfUnsetAsync(string themeId)
+    {
+        var config = await _configStore.GetSystemConfigAsync();
+        if (!string.IsNullOrWhiteSpace(config.DefaultTheme))
+        {
+            return false;
+        }
+
+        config.DefaultTheme = themeId;
+        await _configStore.SaveSystemConfigAsync(config);
+        return true;
+    }
+
     private static InfraWizardState MapToInfraWizardState(AppWizardState state)
     {
         return state switch
