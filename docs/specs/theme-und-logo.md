@@ -76,7 +76,7 @@ von wiesenwischer.de gibt die Richtung vor.
 ## Oberfläche und Bilder
 
 Verbindlich: Entwurf in `docs/specs/theme-und-logo/entwurf/` (freigegeben mit dem Merge von PR #481, Settings →
-Appearance neu gestaltet mit dem Merge von PR #PR_NR). Er zeigt
+Appearance neu gestaltet mit dem Merge von PR #488). Er zeigt
 mindestens:
 
 - beide Farbrichtungen (Schriftzug-Farben und Pastellgrün) in hellem und dunklem Modus,

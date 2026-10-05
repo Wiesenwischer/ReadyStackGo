@@ -6,7 +6,7 @@
 - **Figma-Datei:** [ReadyStackGo Design](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1), Key
   `RxVNdSKNs7PpJqkYgvb6a1`, eingetragen in `Wiesenwischer/works`, `products/readystackgo.md` (works#143)
 - **Seiten:** Foundations `0:1`, Logo `2:97`, Components `2:98`, App `2:99`, Website `2:100`
-- **Freigabe:** freigegeben mit dem Merge von PR #481
+- **Freigabe:** freigegeben mit dem Merge von PR #481, Settings → Appearance neu mit dem Merge von PR #488
 
 ## Rahmen
 
