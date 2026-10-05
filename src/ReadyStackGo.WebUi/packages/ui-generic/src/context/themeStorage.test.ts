@@ -1,16 +1,41 @@
 import { describe, expect, it } from "vitest";
-import { isValidThemeId, parseMode, resolveColorTheme } from "./themeStorage";
+import {
+  isValidThemeId,
+  parseModePreference,
+  resolveColorTheme,
+  resolveMode,
+  toggledPreference,
+} from "./themeStorage";
 
 const offered = ["turquoise", "pastel-green", "classic"];
 
-describe("parseMode", () => {
-  it("keeps light and dark", () => {
-    expect(parseMode("light")).toBe("light");
-    expect(parseMode("dark")).toBe("dark");
+describe("parseModePreference", () => {
+  it.each(["light", "dark", "system"])("keeps %s", (value) => {
+    expect(parseModePreference(value)).toBe(value);
   });
 
-  it.each([null, undefined, "", "Dark", "system", "auto"])("falls back to light for %s", (value) => {
-    expect(parseMode(value as string | null | undefined)).toBe("light");
+  it.each([null, undefined, "", "Dark", "SYSTEM", "auto", "1"])("follows the system for %s", (value) => {
+    expect(parseModePreference(value as string | null | undefined)).toBe("system");
+  });
+});
+
+describe("resolveMode", () => {
+  it.each([
+    ["light", false, "light"],
+    ["light", true, "light"],
+    ["dark", false, "dark"],
+    ["dark", true, "dark"],
+    ["system", false, "light"],
+    ["system", true, "dark"],
+  ] as const)("shows %s with system dark=%s as %s", (preference, systemDark, shown) => {
+    expect(resolveMode(preference, systemDark)).toBe(shown);
+  });
+});
+
+describe("toggledPreference", () => {
+  it("switches to the opposite of what is shown, never to system", () => {
+    expect(toggledPreference("light")).toBe("dark");
+    expect(toggledPreference("dark")).toBe("light");
   });
 });
 
