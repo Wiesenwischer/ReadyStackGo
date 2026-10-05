@@ -93,8 +93,24 @@ const packages = readdirSync(themesDir, { withFileTypes: true })
   .sort();
 
 describe("built-in theme packages", () => {
-  it("ships turquoise, pastel-green and classic", () => {
-    expect(packages).toEqual(["classic", "pastel-green", "turquoise"]);
+  it("ships six themes, turquoise first and classic last", () => {
+    expect(packages).toEqual(["aurora", "classic", "graphite-lime", "magenta", "pastel-green", "turquoise"]);
+    const byOrder = packages
+      .map((id) => JSON.parse(readFileSync(join(themesDir, id, "theme.json"), "utf8")) as { id: string; order: number })
+      .sort((a, b) => a.order - b.order);
+    expect(byOrder.map((m) => m.order)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(byOrder[0].id).toBe("turquoise");
+    expect(byOrder[byOrder.length - 1].id).toBe("classic");
+  });
+
+  it("gives every theme its own dark base, not just another accent", () => {
+    // Dark modes must differ in their surfaces, not only in the primary color.
+    const darkBases = packages.map((id) => {
+      const css = readFileSync(join(themesDir, id, "theme.css"), "utf8");
+      const dark = parseBlock(css, `[data-theme="${id}"][data-mode="dark"] {`);
+      return ["bg-page", "bg-surface", "nav-bg"].map((t) => dark.get(t)!.toUpperCase()).join(" ");
+    });
+    expect(new Set(darkBases).size).toBe(packages.length);
   });
 
   describe.each(packages)("%s", (id) => {

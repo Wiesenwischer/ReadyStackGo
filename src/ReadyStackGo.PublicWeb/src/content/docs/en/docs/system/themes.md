@@ -13,6 +13,9 @@ Users choose the theme under **Settings → Appearance**. The choice is saved in
 |----|------|-------------|
 | `turquoise` | Turquoise | Default. The colors of the ReadyStackGo wordmark. |
 | `pastel-green` | Pastel Green | Soft pastel green with the same orange accent. |
+| `aurora` | Aurora | Violet on cool white, midnight indigo in dark mode. |
+| `graphite-lime` | Graphite Lime | Graphite with an electric lime accent. |
+| `magenta` | Magenta | Vivid magenta, plum and wine in dark mode. |
 | `classic` | Classic | The previous blue look of ReadyStackGo. |
 
 New installations start with **Turquoise**. Installations that were set up with an earlier version keep their previous look after the update: they start with **Classic**. Every user can switch the theme under Settings → Appearance.

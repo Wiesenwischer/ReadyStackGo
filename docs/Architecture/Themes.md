@@ -70,7 +70,7 @@ vollständig gesetzt sein.
 - `--rsgo-gray-dark`
 
 Die eingebauten Pakete unter `src/ReadyStackGo.WebUi/apps/rsgo-generic/public/themes/` (`turquoise`, `pastel-green`,
-`classic`) sind vollständige Beispiele.
+`aurora`, `graphite-lime`, `magenta`, `classic`) sind vollständige Beispiele.
 
 ## Herkunft der Pakete
 
