@@ -16,6 +16,7 @@ von wiesenwischer.de gibt die Richtung vor.
 - **Theme-Auswahl in der App** (Marcus, 03.10.2026): Unter Settings wählt man das Theme der Weboberfläche. Zur Wahl
   stehen drei Themes, jedes mit hellem und dunklem Modus: Türkis (die Farben des Schriftzugs), Pastellgrün und das
   bisherige Blau als „Classic“. Hell oder dunkel bleibt zusätzlich über den Knopf in der Kopfzeile umschaltbar.
+  Unter Settings gibt es als dritten Modus „System“, der dem Betriebssystem folgt (Marcus, 05.10.2026, Entwurf E).
 - **Themes zur Laufzeit ladbar** (Marcus, 04.10.2026: „dass man die Themes irgendwie optional oder zur Laufzeit
   anladen kann, so dass … nur das eigene Theme in den Container mitgedacht wird oder vielleicht sogar an anderer
   offenerer Stelle geladen wird“): Ein Theme ist ein Paket aus Beschreibung und Token-Werten, kein fest eingebauter
@@ -78,7 +79,8 @@ von wiesenwischer.de gibt die Richtung vor.
 
 ## Oberfläche und Bilder
 
-Verbindlich: Entwurf in `docs/specs/theme-und-logo/entwurf/` (freigegeben mit dem Merge von PR #481). Er zeigt
+Verbindlich: Entwurf in `docs/specs/theme-und-logo/entwurf/` (freigegeben mit dem Merge von PR #481, Settings →
+Appearance neu gestaltet mit dem Merge von PR #488). Er zeigt
 mindestens:
 
 - beide Farbrichtungen (Schriftzug-Farben und Pastellgrün) in hellem und dunklem Modus,
