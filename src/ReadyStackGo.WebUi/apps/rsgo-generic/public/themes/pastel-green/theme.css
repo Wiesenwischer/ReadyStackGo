@@ -67,8 +67,7 @@
   --rsgo-gray-dark: #141E21;
 }
 
-.dark [data-theme="pastel-green"],
-.dark[data-theme="pastel-green"] {
+[data-theme="pastel-green"][data-mode="dark"] {
   --rsgo-bg-page: #07110D;
   --rsgo-bg-surface: #0C1A15;
   --rsgo-bg-raised: #11231C;

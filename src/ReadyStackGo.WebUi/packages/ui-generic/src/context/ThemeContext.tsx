@@ -8,16 +8,22 @@ import {
   COLOR_THEME_STORAGE_KEY,
   MODE_STORAGE_KEY,
   isValidThemeId,
-  parseMode,
+  parseModePreference,
   resolveColorTheme,
+  resolveMode,
+  toggledPreference,
   type Mode,
+  type ModePreference,
 } from "./themeStorage";
 
 type ThemeContextType = {
-  /** Light or dark mode. */
+  /** The mode that is shown, light or dark. */
   theme: Mode;
+  /** Switches what is shown to the opposite mode as an explicit choice. */
   toggleTheme: () => void;
-  setTheme: (mode: Mode) => void;
+  /** The mode the user chose: light, dark or system. */
+  modePreference: ModePreference;
+  setModePreference: (preference: ModePreference) => void;
   /** Id of the active theme package, or null until known. */
   colorTheme: string | null;
   setColorTheme: (id: string) => void;
@@ -29,6 +35,13 @@ type ThemeContextType = {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const THEME_LINK_ATTRIBUTE = "data-rsgo-theme";
+const DARK_QUERY = "(prefers-color-scheme: dark)";
+
+function systemPrefersDark(): boolean {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia(DARK_QUERY).matches
+    : false;
+}
 
 function readStorage(key: string): string | null {
   try {
@@ -60,9 +73,11 @@ function ensureThemeStylesheets(themes: ThemeSummary[]): void {
 }
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setThemeState] = useState<Mode>(() =>
-    typeof window !== "undefined" ? parseMode(readStorage(MODE_STORAGE_KEY)) : "light",
+  const [modePreference, setModePreferenceState] = useState<ModePreference>(() =>
+    typeof window !== "undefined" ? parseModePreference(readStorage(MODE_STORAGE_KEY)) : "system",
   );
+  const [systemDark, setSystemDark] = useState<boolean>(systemPrefersDark);
+  const theme = resolveMode(modePreference, systemDark);
   const [colorTheme, setColorThemeState] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     const stored = readStorage(COLOR_THEME_STORAGE_KEY);
@@ -72,8 +87,21 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [themesLoaded, setThemesLoaded] = useState(false);
 
   useEffect(() => {
-    writeStorage(MODE_STORAGE_KEY, theme);
-    document.documentElement.classList.toggle("dark", theme === "dark");
+    if (typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia(DARK_QUERY);
+    const onChange = (event: MediaQueryListEvent) => setSystemDark(event.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    writeStorage(MODE_STORAGE_KEY, modePreference);
+  }, [modePreference]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("dark", theme === "dark");
+    root.setAttribute("data-mode", theme);
   }, [theme]);
 
   useEffect(() => {
@@ -114,10 +142,13 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [colorTheme, availableThemes]);
 
   const toggleTheme = useCallback(() => {
-    setThemeState((prev) => (prev === "light" ? "dark" : "light"));
-  }, []);
+    setModePreferenceState(toggledPreference(theme));
+  }, [theme]);
 
-  const setTheme = useCallback((mode: Mode) => setThemeState(mode), []);
+  const setModePreference = useCallback(
+    (preference: ModePreference) => setModePreferenceState(preference),
+    [],
+  );
 
   const setColorTheme = useCallback(
     (id: string) => {
@@ -128,7 +159,16 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   return (
     <ThemeContext.Provider
-      value={{ theme, toggleTheme, setTheme, colorTheme, setColorTheme, availableThemes, themesLoaded }}
+      value={{
+        theme,
+        toggleTheme,
+        modePreference,
+        setModePreference,
+        colorTheme,
+        setColorTheme,
+        availableThemes,
+        themesLoaded,
+      }}
     >
       {children}
     </ThemeContext.Provider>

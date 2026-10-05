@@ -1,7 +1,10 @@
 // Pure helpers for theme persistence. Keep in sync with the inline script in
 // apps/rsgo-generic/index.html, which applies the stored theme before the first render.
 
+/** The mode that is shown. */
 export type Mode = "light" | "dark";
+/** The mode the user chose; "system" follows prefers-color-scheme. */
+export type ModePreference = Mode | "system";
 
 export const MODE_STORAGE_KEY = "theme";
 export const COLOR_THEME_STORAGE_KEY = "colorTheme";
@@ -14,8 +17,19 @@ export function isValidThemeId(value: string | null | undefined): value is strin
   return typeof value === "string" && THEME_ID_PATTERN.test(value);
 }
 
-export function parseMode(value: string | null | undefined): Mode {
-  return value === "dark" ? "dark" : "light";
+/** Reads a stored preference. Unknown or missing values follow the operating system. */
+export function parseModePreference(value: string | null | undefined): ModePreference {
+  return value === "light" || value === "dark" || value === "system" ? value : "system";
+}
+
+export function resolveMode(preference: ModePreference, systemPrefersDark: boolean): Mode {
+  if (preference === "system") return systemPrefersDark ? "dark" : "light";
+  return preference;
+}
+
+/** The header button always switches to the opposite of what is shown, as an explicit choice. */
+export function toggledPreference(shown: Mode): ModePreference {
+  return shown === "dark" ? "light" : "dark";
 }
 
 /**
