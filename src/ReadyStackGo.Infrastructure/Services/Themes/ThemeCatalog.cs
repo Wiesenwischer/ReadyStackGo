@@ -41,7 +41,11 @@ public class ThemeCatalog : IThemeCatalog
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
-    public ThemeCatalogSnapshot GetThemes() => GetCachedScan().Snapshot;
+    public ThemeCatalogSnapshot GetThemes(string? installationDefault = null)
+    {
+        var themes = GetCachedScan().Themes;
+        return new ThemeCatalogSnapshot(ResolveDefault(_options.CurrentValue, installationDefault, themes), themes);
+    }
 
     private CachedScan GetCachedScan()
     {
@@ -56,9 +60,8 @@ public class ThemeCatalog : IThemeCatalog
             var options = _options.CurrentValue;
             var offered = LoadOfferedPackages(options);
             var themes = offered.Select(p => p.Info).ToList();
-            var snapshot = new ThemeCatalogSnapshot(ResolveDefault(options, themes), themes);
 
-            _cache = new CachedScan(now, snapshot, offered);
+            _cache = new CachedScan(now, themes, offered);
             return _cache;
         }
     }
@@ -131,12 +134,18 @@ public class ThemeCatalog : IThemeCatalog
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .ToHashSet(StringComparer.Ordinal);
 
-    private static string? ResolveDefault(ThemeOptions options, IReadOnlyList<ThemeInfo> themes)
+    private static string? ResolveDefault(
+        ThemeOptions options,
+        string? installationDefault,
+        IReadOnlyList<ThemeInfo> themes)
     {
-        var configured = options.Default?.Trim();
-        if (!string.IsNullOrEmpty(configured) && themes.Any(t => t.Id == configured))
+        foreach (var candidate in new[] { options.Default, installationDefault, ThemeDefaults.BuiltIn })
         {
-            return configured;
+            var id = candidate?.Trim();
+            if (!string.IsNullOrEmpty(id) && themes.Any(t => t.Id == id))
+            {
+                return id;
+            }
         }
 
         // themes is already sorted by order, then id.
@@ -227,7 +236,7 @@ public class ThemeCatalog : IThemeCatalog
 
     private sealed record CachedScan(
         DateTimeOffset CreatedAt,
-        ThemeCatalogSnapshot Snapshot,
+        IReadOnlyList<ThemeInfo> Themes,
         IReadOnlyList<ThemePackage> Packages);
 
     private sealed class ThemeMetadata

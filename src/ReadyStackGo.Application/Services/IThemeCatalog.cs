@@ -11,9 +11,11 @@ public interface IThemeCatalog
 {
     /// <summary>
     /// Returns the themes offered by this installation (sorted by order, then id) and the default theme id.
-    /// The default id is null only when no theme is offered.
+    /// The default is, in this order, the first one that is offered: the operator setting Themes:Default,
+    /// <paramref name="installationDefault"/> (stored in the system config), <see cref="ThemeDefaults.BuiltIn"/>,
+    /// the first theme. The default id is null only when no theme is offered.
     /// </summary>
-    ThemeCatalogSnapshot GetThemes();
+    ThemeCatalogSnapshot GetThemes(string? installationDefault = null);
 
     /// <summary>
     /// Returns the CSS content of an offered theme, or null if the id is invalid, unknown or not offered.
@@ -30,6 +32,23 @@ public sealed record ThemeInfo(string Id, string Name, string Description, int O
 /// The offered themes and the default theme id at the time of the call.
 /// </summary>
 public sealed record ThemeCatalogSnapshot(string? DefaultId, IReadOnlyList<ThemeInfo> Themes);
+
+/// <summary>
+/// Default theme ids of an installation.
+/// </summary>
+public static class ThemeDefaults
+{
+    /// <summary>
+    /// Default of a new installation, and the fallback when nothing else is set.
+    /// </summary>
+    public const string BuiltIn = "turquoise";
+
+    /// <summary>
+    /// Default of an installation that was set up before the theme packages existed:
+    /// it keeps the look it had before the update.
+    /// </summary>
+    public const string ExistingInstallation = "classic";
+}
 
 /// <summary>
 /// Validation rules for theme ids, shared by the catalog and the API.

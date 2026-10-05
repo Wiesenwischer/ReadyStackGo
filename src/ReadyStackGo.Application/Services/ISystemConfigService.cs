@@ -29,4 +29,15 @@ public interface ISystemConfigService
     /// Gets the configured public base URL of the application, used to build links in emails.
     /// </summary>
     Task<string> GetBaseUrlAsync();
+
+    /// <summary>
+    /// Gets the default theme id stored for this installation, or null if none is stored.
+    /// </summary>
+    Task<string?> GetDefaultThemeAsync();
+
+    /// <summary>
+    /// Stores the default theme id for this installation unless one is already stored.
+    /// Returns true if it was stored.
+    /// </summary>
+    Task<bool> SetDefaultThemeIfUnsetAsync(string themeId);
 }

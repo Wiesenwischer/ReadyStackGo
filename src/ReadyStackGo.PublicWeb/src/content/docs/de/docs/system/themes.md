@@ -18,6 +18,8 @@ Das Theme wählt man unter **Settings → Appearance**. Die Wahl wird im Browser
 | `magenta` | Magenta | Kräftiges Magenta, dunkel Pflaume und Wein. |
 | `classic` | Classic | Das bisherige blaue Aussehen von ReadyStackGo. |
 
+Neue Installationen starten mit **Turquoise**. Installationen, die mit einer früheren Version eingerichtet wurden, behalten nach dem Update ihr bisheriges Aussehen: Sie starten mit **Classic**. Jeder Nutzer kann das Theme unter Settings → Appearance wechseln.
+
 ## Format eines Theme-Pakets
 
 Ein Theme-Paket ist ein Ordner, dessen Name die Id des Themes ist:
@@ -101,7 +103,7 @@ Jeder Unterordner des Verzeichnisses ist ein Paket. Ein Paket aus dem Verzeichni
 |-------------------|--------------|----------|
 | `Themes__Path` | Verzeichnis mit zusätzlichen Theme-Paketen. Darf fehlen. | `/app/themes` |
 | `Themes__Enabled` | Komma-Liste der Theme-Ids, die angeboten werden. Leer bedeutet: alle gefundenen Themes. | (leer) |
-| `Themes__Default` | Theme, das gilt, solange ein Browser noch keines gewählt hat (oder seine Wahl nicht mehr angeboten wird). | `turquoise`; fehlt es, das erste nach `order` |
+| `Themes__Default` | Theme, das gilt, solange ein Browser noch keines gewählt hat (oder seine Wahl nicht mehr angeboten wird). Übersteuert den Standard der Installation. | leer: `turquoise` für neue Installationen, `classic` für Installationen von vor den Theme-Paketen; wird es nicht angeboten, `turquoise`, dann das erste nach `order` |
 
 Beispiel: nur das eigene Theme anbieten:
 
