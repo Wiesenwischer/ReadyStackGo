@@ -58,7 +58,7 @@ test.describe('Appearance settings', () => {
   test('offers the theme packages of the installation, turquoise by default', async ({ page }) => {
     await page.goto('/settings/appearance');
     const orbs = page.getByRole('radio').filter({ has: page.locator('[data-theme]') });
-    await expect(orbs).toHaveCount(3);
+    await expect(orbs).toHaveCount(6);
     await expect(page.getByTestId('theme-orb-turquoise')).toHaveAttribute('aria-checked', 'true');
     await expect(page.getByTestId('theme-orb-pastel-green')).toHaveAttribute('aria-checked', 'false');
     await expect(page.getByTestId('theme-orb-classic')).toHaveAttribute('aria-checked', 'false');
@@ -229,6 +229,12 @@ test.describe('Appearance settings', () => {
       ['app-settings-appearance-turquoise-light', 'turquoise', 'light'],
       ['app-settings-appearance-turquoise-dark', 'turquoise', 'dark'],
       ['app-settings-appearance-pastel-green-system', 'pastel-green', 'system'],
+      ['app-settings-appearance-aurora-light', 'aurora', 'light'],
+      ['app-settings-appearance-aurora-dark', 'aurora', 'dark'],
+      ['app-settings-appearance-graphite-lime-light', 'graphite-lime', 'light'],
+      ['app-settings-appearance-graphite-lime-dark', 'graphite-lime', 'dark'],
+      ['app-settings-appearance-magenta-light', 'magenta', 'light'],
+      ['app-settings-appearance-magenta-dark', 'magenta', 'dark'],
     ];
     await page.emulateMedia({ colorScheme: 'light' });
     for (const [name, theme, mode] of shots) {
