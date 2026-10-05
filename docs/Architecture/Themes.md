@@ -5,7 +5,9 @@ Beschreibung, ohne Code und ohne Build. So kann eine Installation zusätzliche T
 oder die Auswahl auf ein einziges Theme beschränken, ohne dass die App neu gebaut wird.
 
 Die App fragt beim Start `GET /api/themes` ab, bindet die Stylesheets der angebotenen Themes ein und setzt
-`data-theme="<id>"` am `<html>`. Hell und Dunkel (`.dark`) sind davon unabhängig; jedes Paket liefert beide Varianten.
+`data-theme="<id>"` am `<html>`. Der Modus ist davon unabhängig: Das `<html>` trägt `data-mode="light"` oder
+`data-mode="dark"` (dazu für Tailwind die Klasse `.dark`); jedes Paket liefert beide Varianten. Gewählt wird
+Light, Dark oder System; System folgt `prefers-color-scheme` und wechselt mit dem Betriebssystem.
 
 ## Paketformat
 
@@ -39,9 +41,10 @@ Ein Paket ist ein Ordner `<id>/` mit genau diesen beiden Dateien:
 
 - Setzt **nur CSS Custom Properties `--rsgo-*`**, keine Selektoren auf Elemente oder Klassen der App.
 - Heller Block mit dem Selektor `[data-theme="<id>"]`.
-- Dunkler Block mit dem Selektor `.dark [data-theme="<id>"], .dark[data-theme="<id>"]`.
-  Beide Selektoren sind nötig: der erste greift in einem Vorschau-Container (z. B. die Miniatur auf der Theme-Karte),
-  der zweite am `<html>`, das selbst `.dark` und `data-theme` trägt.
+- Dunkler Block mit dem Selektor `[data-theme="<id>"][data-mode="dark"]`, ohne Bezug auf ein umgebendes Element.
+  So greift er am `<html>` und ebenso an einem einzelnen Element, das ein Theme in einem festen Modus zeigt (die
+  Farbkugeln in Settings → Appearance zeigen jedes Theme hell und dunkel nebeneinander, unabhängig vom Modus der
+  Seite). Andere Selektoren, etwa `.dark [data-theme="<id>"]`, sind nicht erlaubt.
 - Beide Blöcke setzen **alle** Tokens unten. Optional zusätzlich `--rsgo-font-sans`, `--rsgo-font-display` und
   `--rsgo-radius-*`.
 
@@ -173,8 +176,7 @@ Verzeichnis sollte nur für den Betreiber beschreibbar sein und kann schreibgesc
   /* … */
 }
 
-.dark [data-theme="my-brand"],
-.dark[data-theme="my-brand"] {
+[data-theme="my-brand"][data-mode="dark"] {
   --rsgo-bg-page: #0B1120;
   --rsgo-bg-surface: #111827;
   --rsgo-text-primary: #F3F4F6;

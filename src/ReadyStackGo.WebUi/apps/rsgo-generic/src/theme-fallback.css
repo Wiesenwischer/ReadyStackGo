@@ -67,7 +67,7 @@
   --rsgo-gray-dark: #141E21;
 }
 
-:where(.dark) {
+:where(:root[data-mode="dark"]) {
   --rsgo-bg-page: #060B11;
   --rsgo-bg-surface: #0B141C;
   --rsgo-bg-raised: #101C26;

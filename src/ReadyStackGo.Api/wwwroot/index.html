@@ -13,7 +13,12 @@
       (function () {
         try {
           var root = document.documentElement;
-          if (localStorage.getItem("theme") === "dark") root.classList.add("dark");
+          var pref = localStorage.getItem("theme");
+          var dark =
+            pref === "dark" ||
+            (pref !== "light" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          root.setAttribute("data-mode", dark ? "dark" : "light");
+          if (dark) root.classList.add("dark");
           var id = localStorage.getItem("colorTheme");
           if (!id || !/^[a-z0-9][a-z0-9-]{0,39}$/.test(id)) return;
           root.setAttribute("data-theme", id);
@@ -30,8 +35,8 @@
         }
       })();
     </script>
-    <script type="module" crossorigin src="/assets/index-BedOmf5h.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CTiNcPQy.css">
+    <script type="module" crossorigin src="/assets/index-BkNPtnx6.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Dtfw7N5P.css">
   </head>
   <body>
     <div id="root"></div>

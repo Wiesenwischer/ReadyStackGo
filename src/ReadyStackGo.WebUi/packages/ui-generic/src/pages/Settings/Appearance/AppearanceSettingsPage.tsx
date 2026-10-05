@@ -1,51 +1,37 @@
-import { useRef, type KeyboardEvent } from "react";
+import { useRef, type KeyboardEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { ThemeSummary } from "@rsgo/core";
 import { useTheme } from "../../../context/ThemeContext";
-import type { Mode } from "../../../context/themeStorage";
+import type { ModePreference } from "../../../context/themeStorage";
 
-// Settings → Appearance (design: docs/specs/theme-und-logo/entwurf, frames "App / Settings – Appearance").
+// Settings → Appearance (design: docs/specs/theme-und-logo/entwurf, frames "App / Settings – Appearance",
+// components "Theme Orb" and "Mode Switch").
 
-/** Miniature of the app, rendered in the theme given by data-theme on its container. */
-function ThemePreview({ themeId }: { themeId: string }) {
-  return (
-    <div
-      data-theme={themeId}
-      aria-hidden="true"
-      className="flex h-[148px] overflow-hidden rounded-[10px] border border-line bg-page"
-    >
-      <div className="flex w-16 flex-col gap-2 bg-nav px-3 pt-3.5">
-        <div className="mb-2 flex items-center gap-1">
-          <span className="h-2 w-8 rounded bg-logo-ready" />
-          <span className="h-1.5 w-1.5 rounded-full bg-go" />
-        </div>
-        {[0, 1, 2, 3, 4].map((i) => (
-          <span key={i} className={`relative h-2 w-10 rounded ${i === 1 ? "bg-nav-active" : "bg-nav-hover"}`}>
-            {i === 1 && <span className="absolute -left-1 top-0 h-2 w-[3px] rounded bg-nav-marker" />}
-          </span>
-        ))}
-      </div>
-      <div className="flex flex-1 flex-col">
-        <div className="h-[22px] bg-surface" />
-        <div className="flex items-center justify-between px-3.5 pt-3">
-          <span className="h-2 w-16 rounded bg-fg" />
-          <span className="h-3.5 w-11 rounded bg-primary" />
-        </div>
-        <div className="mx-3.5 mt-2.5 flex flex-1 flex-col justify-center gap-3 rounded-md border border-line bg-surface px-3 mb-2.5">
-          {["bg-status-healthy", "bg-status-degraded", "bg-status-unhealthy"].map((dot) => (
-            <div key={dot} className="flex items-center gap-2">
-              <span className="h-1.5 w-14 rounded bg-fg-secondary" />
-              <span className={`h-2 w-2 rounded-full ${dot}`} />
-              <span className="h-1.5 w-7 rounded bg-fg-muted" />
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+/**
+ * Roving focus for a radio group: arrow keys, Home and End select and focus the next option.
+ * Returns the key handler and a ref setter per option.
+ */
+function useRadioKeys(count: number, select: (index: number) => void) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    let next = -1;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (index + 1) % count;
+    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (index - 1 + count) % count;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = count - 1;
+    if (next < 0) return;
+    e.preventDefault();
+    select(next);
+    refs.current[next]?.focus();
+  };
+  const setRef = (index: number) => (el: HTMLButtonElement | null) => {
+    refs.current[index] = el;
+  };
+  return { onKeyDown, setRef };
 }
 
-function ThemeCard({
+/** Color orb: the theme's navigation color in light (left) and dark (right), its brand color in the core. */
+function ThemeOrb({
   theme,
   selected,
   onSelect,
@@ -69,60 +55,92 @@ function ThemeCard({
       tabIndex={tabIndex}
       onClick={onSelect}
       onKeyDown={onKeyDown}
-      data-testid={`theme-card-${theme.id}`}
-      className={`flex w-full max-w-[284px] flex-col gap-3 rounded-2xl p-3 pb-3.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-        selected
-          ? "border-2 border-primary bg-surface"
-          : "border border-line bg-surface hover:border-line-strong hover:bg-raised"
-      }`}
+      data-testid={`theme-orb-${theme.id}`}
+      title={theme.description ?? undefined}
+      className="group flex min-w-20 flex-col items-center gap-2 px-1 pt-1 outline-none"
     >
-      <ThemePreview themeId={theme.id} />
-      <span className="flex gap-2.5 px-1">
+      <span className="relative flex h-[72px] w-[72px] items-center justify-center">
         <span
           aria-hidden="true"
-          className={`mt-0.5 flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full ${
-            selected ? "bg-primary" : "border-[1.5px] border-line-strong bg-surface"
+          className={`absolute inset-0 rounded-full ring-inset transition-shadow group-focus-visible:ring-[2.5px] group-focus-visible:ring-focus ${
+            selected
+              ? "shadow-[0_0_18px_-4px_var(--rsgo-primary-default)] ring-[2.5px] ring-primary"
+              : "group-hover:ring-[1.5px] group-hover:ring-line-strong"
           }`}
-        >
-          {selected && <span className="h-1.5 w-1.5 rounded-full bg-on-primary" />}
+        />
+        <span aria-hidden="true" className="relative flex h-16 w-16 overflow-hidden rounded-full">
+          <span data-theme={theme.id} data-mode="light" className="h-full w-1/2 bg-nav" />
+          <span data-theme={theme.id} data-mode="dark" className="h-full w-1/2 bg-nav" />
+          <span
+            data-theme={theme.id}
+            data-mode="light"
+            className="absolute left-1/2 top-1/2 h-[29px] w-[29px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary"
+          />
+          <span className="absolute inset-0 rounded-full border border-line-strong/70" />
         </span>
-        <span className="flex flex-col gap-0.5">
-          <span className="text-[15px] font-semibold leading-5 text-fg">{theme.name}</span>
-          {theme.description && (
-            <span className="text-[13px] leading-[18px] text-fg-secondary">{theme.description}</span>
-          )}
-        </span>
+      </span>
+      <span
+        className={`whitespace-nowrap text-[13px] leading-[18px] ${selected ? "font-semibold text-fg" : "font-medium text-fg-secondary"}`}
+      >
+        {theme.name}
       </span>
     </button>
   );
 }
 
-const MODES: { value: Mode; label: string }[] = [
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
+const iconProps = {
+  width: 14,
+  height: 14,
+  viewBox: "0 0 16 16",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.5,
+  strokeLinecap: "round" as const,
+  "aria-hidden": true,
+};
+
+const MODES: { value: ModePreference; label: string; icon: ReactNode }[] = [
+  {
+    value: "light",
+    label: "Light",
+    icon: (
+      <svg {...iconProps}>
+        <circle cx="8" cy="8" r="3" />
+        <path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1" />
+      </svg>
+    ),
+  },
+  {
+    value: "dark",
+    label: "Dark",
+    icon: (
+      <svg {...iconProps}>
+        <path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7Z" />
+      </svg>
+    ),
+  },
+  {
+    value: "system",
+    label: "System",
+    icon: (
+      <svg {...iconProps}>
+        <circle cx="8" cy="8" r="5.75" />
+        <path d="M8 2.25a5.75 5.75 0 0 1 0 11.5Z" fill="currentColor" stroke="none" />
+      </svg>
+    ),
+  },
 ];
 
 export default function AppearanceSettingsPage() {
-  const { theme: mode, setTheme, colorTheme, setColorTheme, availableThemes, themesLoaded } = useTheme();
-  const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const { modePreference, setModePreference, colorTheme, setColorTheme, availableThemes, themesLoaded } =
+    useTheme();
 
-  const selectedIndex = Math.max(
+  const selectedThemeIndex = Math.max(
     0,
     availableThemes.findIndex((t) => t.id === colorTheme),
   );
-
-  const moveSelection = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
-    const count = availableThemes.length;
-    let next = -1;
-    if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (index + 1) % count;
-    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (index - 1 + count) % count;
-    else if (e.key === "Home") next = 0;
-    else if (e.key === "End") next = count - 1;
-    if (next < 0) return;
-    e.preventDefault();
-    setColorTheme(availableThemes[next].id);
-    cardRefs.current[next]?.focus();
-  };
+  const themeKeys = useRadioKeys(availableThemes.length, (i) => setColorTheme(availableThemes[i].id));
+  const modeKeys = useRadioKeys(MODES.length, (i) => setModePreference(MODES[i].value));
 
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
@@ -144,19 +162,17 @@ export default function AppearanceSettingsPage() {
             <h3 id="appearance-theme" className="text-base font-semibold text-fg">
               Theme
             </h3>
-            <p className="mt-1 text-[13px] text-fg-muted">Applies to the whole web interface. Saved in this browser.</p>
-            <div role="radiogroup" aria-labelledby="appearance-theme" className="mt-4 flex flex-wrap gap-4">
+            <p className="mt-1 text-[13px] text-fg-muted">The color theme of the web interface. Saved in this browser.</p>
+            <div role="radiogroup" aria-labelledby="appearance-theme" className="mt-4 flex flex-wrap gap-6">
               {availableThemes.map((t, i) => (
-                <ThemeCard
+                <ThemeOrb
                   key={t.id}
                   theme={t}
                   selected={t.id === colorTheme}
                   onSelect={() => setColorTheme(t.id)}
-                  tabIndex={i === selectedIndex ? 0 : -1}
-                  onKeyDown={(e) => moveSelection(e, i)}
-                  buttonRef={(el) => {
-                    cardRefs.current[i] = el;
-                  }}
+                  tabIndex={i === selectedThemeIndex ? 0 : -1}
+                  onKeyDown={(e) => themeKeys.onKeyDown(e, i)}
+                  buttonRef={themeKeys.setRef(i)}
                 />
               ))}
             </div>
@@ -167,28 +183,34 @@ export default function AppearanceSettingsPage() {
           <h3 id="appearance-mode" className="text-base font-semibold text-fg">
             Mode
           </h3>
-          <p className="mt-1 text-[13px] text-fg-muted">Light or dark. The button in the header switches it as well.</p>
+          <p className="mt-1 text-[13px] text-fg-muted">
+            Light or dark, or follow the operating system. The button in the header switches light and dark as well.
+          </p>
           <div
             role="radiogroup"
             aria-labelledby="appearance-mode"
-            className="mt-4 inline-flex gap-1 rounded-xl border border-line bg-raised p-1"
+            className="mt-4 inline-flex gap-0.5 rounded-[10px] border border-line bg-page p-[3px]"
           >
-            {MODES.map((m) => {
-              const active = m.value === mode;
+            {MODES.map((m, i) => {
+              const active = m.value === modePreference;
               return (
                 <button
                   key={m.value}
+                  ref={modeKeys.setRef(i)}
                   type="button"
                   role="radio"
                   aria-checked={active}
-                  onClick={() => setTheme(m.value)}
+                  tabIndex={active ? 0 : -1}
+                  onClick={() => setModePreference(m.value)}
+                  onKeyDown={(e) => modeKeys.onKeyDown(e, i)}
                   data-testid={`mode-${m.value}`}
-                  className={`rounded-lg px-4 py-2 text-sm leading-5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
+                  className={`flex items-center gap-2 rounded-[7px] border py-1.5 pl-3 pr-3.5 text-[13px] leading-5 transition-colors focus-visible:border-focus focus-visible:outline-1 focus-visible:outline-focus ${
                     active
-                      ? "border border-line bg-surface font-semibold text-fg"
-                      : "border border-transparent font-medium text-fg-secondary hover:text-fg"
+                      ? "border-line-strong bg-raised font-semibold text-fg shadow-theme-xs"
+                      : "border-transparent font-medium text-fg-secondary hover:bg-raised hover:text-fg"
                   }`}
                 >
+                  <span className={active ? "text-fg-brand" : "text-fg-muted"}>{m.icon}</span>
                   {m.label}
                 </button>
               );
