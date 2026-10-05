@@ -1,5 +1,6 @@
 ---
 import { t, type Lang, getDocsPath } from '../i18n/translations';
+import Logo from './Logo.astro';
 
 interface Props {
 	lang?: Lang;
@@ -12,11 +13,8 @@ const { lang = 'de' } = Astro.props;
 	<div class="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-10">
 		<div class="flex flex-col md:flex-row items-center justify-between gap-6">
 			<!-- Logo -->
-			<a href={`/${lang}/home/`} class="flex items-center gap-2.5" aria-label="ReadyStackGo">
-				<img src="/images/logo/readystackgo-mark.svg" alt="" width="36" height="36" class="h-9 w-9" />
-				<span class="font-display font-extrabold text-[21px] tracking-[-0.3px] leading-none" translate="no">
-					<span class="text-logo-ready">Ready</span><span class="text-logo-stack">Stack</span><span class="text-logo-go">Go</span>
-				</span>
+			<a href={`/${lang}/home/`} class="flex items-center" aria-label="ReadyStackGo">
+				<Logo />
 			</a>
 
 			<!-- Links -->
