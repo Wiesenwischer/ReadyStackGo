@@ -240,7 +240,7 @@ public class WizardSsoSignInEndpoint : EndpointWithoutRequest
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var baseUrl = (await _systemConfig.GetBaseUrlAsync()).TrimEnd('/');
+        var baseUrl = await _systemConfig.GetEffectiveBaseUrlAsync();
         var run = _wizard.CurrentRun(HttpContext);
         if (run == null)
         {

@@ -44,6 +44,9 @@ public sealed class TestIdentityProviderHost : IAsyncDisposable
     /// </summary>
     public bool Unreachable { get; set; }
 
+    /// <summary>Delay of ReadyStackGo's calls to the token endpoint (a slow provider).</summary>
+    public TimeSpan TokenDelay { get; set; }
+
     public static async Task<TestIdentityProviderHost> StartAsync()
     {
         var settings = new Dictionary<string, string?> { ["Issuer"] = Issuer };
@@ -91,7 +94,7 @@ public sealed class TestIdentityProviderHost : IAsyncDisposable
     /// </summary>
     private sealed class ProviderNetwork(TestIdentityProviderHost host) : DelegatingHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             if (!string.Equals(request.RequestUri?.Authority, Authority, StringComparison.OrdinalIgnoreCase))
             {
@@ -103,7 +106,11 @@ public sealed class TestIdentityProviderHost : IAsyncDisposable
                 throw new HttpRequestException(HttpRequestError.ConnectionError,
                     "Connection refused (test identity provider switched off)");
             }
-            return base.SendAsync(request, cancellationToken);
+            if (host.TokenDelay > TimeSpan.Zero && request.RequestUri!.AbsolutePath.EndsWith("/token", StringComparison.Ordinal))
+            {
+                await Task.Delay(host.TokenDelay, cancellationToken);
+            }
+            return await base.SendAsync(request, cancellationToken);
         }
     }
 }

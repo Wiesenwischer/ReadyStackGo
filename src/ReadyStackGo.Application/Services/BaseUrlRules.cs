@@ -79,3 +79,16 @@ public static class BaseUrlRules
     public static string ProviderRedirectUri(string baseUrl, string providerName) =>
         $"{baseUrl.TrimEnd('/')}/api/auth/oidc/{providerName}/callback";
 }
+
+public static class SystemConfigBaseUrlExtensions
+{
+    /// <summary>
+    /// The base URL in the form every sign-in path uses (normalized like the setup does), so
+    /// "Add provider", the test sign-in and the real sign-in build the same redirect URI.
+    /// </summary>
+    public static async Task<string> GetEffectiveBaseUrlAsync(this ISystemConfigService systemConfig)
+    {
+        var raw = await systemConfig.GetBaseUrlAsync();
+        return BaseUrlRules.Normalize(raw) ?? raw.TrimEnd('/');
+    }
+}

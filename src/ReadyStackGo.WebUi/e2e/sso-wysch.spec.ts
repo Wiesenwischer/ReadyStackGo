@@ -19,7 +19,26 @@ const __dirname = path.dirname(__filename);
 const DOCS_IMAGES = path.join(__dirname, '..', '..', 'ReadyStackGo.PublicWeb', 'public', 'images', 'docs');
 const PR_IMAGES = path.join(__dirname, '..', '..', '..', 'docs', 'plans', 'identity-provider-vorlagen', 'bilder');
 const IDP = 'http://localhost:9090';
+// Address of ReadyStackGo in the browser (scripts/sso-e2e.sh sets it when port 8080 is taken).
+const RSGO = (process.env.E2E_BASE_URL || 'http://localhost:8080').replace(/\/+$/, '');
 const CONTAINER = process.env.RSGO_CONTAINER || 'rsgo-sso-e2e';
+const IDP_CONTAINER = process.env.RSGO_IDP_CONTAINER || 'rsgo-test-idp';
+
+/** Stops or starts the test identity provider ("not reachable" cases, emergency access). */
+async function testIdp(action: 'stop' | 'start') {
+  execFileSync('docker', [action, IDP_CONTAINER]);
+  if (action === 'start') {
+    await expect
+      .poll(async () => {
+        try {
+          return (await fetch(`${IDP}/health`)).ok;
+        } catch {
+          return false;
+        }
+      }, { timeout: 30_000 })
+      .toBe(true);
+  }
+}
 
 fs.mkdirSync(PR_IMAGES, { recursive: true });
 
@@ -105,13 +124,25 @@ test.describe('Single sign-on with WYSCH (test identity provider)', () => {
 
     // Address of this installation: http on a non-loopback host is refused.
     const address = page.getByTestId('sso-base-url');
-    await expect(address).toHaveValue('http://localhost:8080');
+    await expect(address).toHaveValue(RSGO);
     await shot(page, 'wizard-wysch-adresse');
     await address.fill('http://server:8080');
     await expect(page.getByTestId('sso-https-required')).toBeVisible();
     await expect(page.getByTestId('sso-connect')).toBeDisabled();
     await shot(page, 'wizard-wysch-ohne-https');
-    await address.fill('http://localhost:8080');
+    await address.fill(RSGO);
+
+    // The provider is down: "not reachable", then "Try again" back to the address.
+    await testIdp('stop');
+    try {
+      await page.getByTestId('sso-connect').click();
+      await expect(page.getByTestId('sso-error')).toContainText('WYSCH is not reachable');
+      await shot(page, 'wizard-wysch-fehler-nicht-erreichbar');
+    } finally {
+      await testIdp('start');
+    }
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await expect(page.getByTestId('sso-base-url')).toBeVisible();
 
     // Pairing at the provider: cancel first, then "Try again" and connect.
     await page.getByTestId('sso-connect').click();
@@ -164,8 +195,10 @@ test.describe('Single sign-on with WYSCH (test identity provider)', () => {
     await signInWithSso(page);
     await page.goto('/settings/oidc/add');
     await expect(page.getByTestId('template-company-sso')).toBeVisible();
-    await page.getByTestId('template-company-sso').click();
+    await page.getByTestId('template-wysch').click();
     await shot(page, 'sso-lauf-vorlage');
+    await page.getByTestId('template-company-sso').click();
+    await shot(page, 'sso-lauf-vorlage-company');
     await page.getByTestId('step-primary').click();
 
     // Provider address: wrong path first.
@@ -178,7 +211,7 @@ test.describe('Single sign-on with WYSCH (test identity provider)', () => {
 
     // This installation: name "company" and the redirect URI.
     await expect(page.getByTestId('provider-name')).toHaveValue('company');
-    await expect(page.getByTestId('redirect-uri')).toHaveValue('http://localhost:8080/api/auth/oidc/company/callback');
+    await expect(page.getByTestId('redirect-uri')).toHaveValue(`${RSGO}/api/auth/oidc/company/callback`);
     await shot(page, 'sso-lauf-installation');
     await page.getByTestId('step-primary').click();
 
@@ -203,6 +236,13 @@ test.describe('Single sign-on with WYSCH (test identity provider)', () => {
     await expect(page.getByTestId('test-result')).toContainText('The email address is not confirmed');
     await shot(page, 'sso-test-claims-unvollstaendig');
 
+    // Test sign-in without preferred_username: the username comes from the email address.
+    await page.getByTestId('run-test-sign-in').click();
+    await pickTestUser(page, 'Noah No Username');
+    await expect(page.getByTestId('claims-table')).toContainText('preferred_username');
+    await expect(page.getByText(/Username missing: ReadyStackGo forms the username from the email address/)).toBeVisible();
+    await shot(page, 'sso-test-claims-ohne-benutzername');
+
     await page.getByTestId('run-test-sign-in').click();
     await pickTestUser(page, 'Alex Verified');
     await expect(page.getByTestId('test-result')).toContainText('These details are enough to sign in');
@@ -215,6 +255,26 @@ test.describe('Single sign-on with WYSCH (test identity provider)', () => {
     await page.getByTestId('step-primary').click();
     await page.waitForURL(/\/settings\/oidc\?saved=company/);
     await expect(page.getByTestId('provider-company')).toContainText('Enabled');
+  });
+
+  test('add provider with Generic OIDC: wrong address, wrong issuer', async ({ page }) => {
+    await signInWithSso(page);
+    await page.goto('/settings/oidc/add');
+    await page.getByTestId('template-generic-oidc').click();
+    await page.getByTestId('step-primary').click();
+
+    await page.getByTestId('authority').fill('http://test-idp:9090/realms/main');
+    await page.getByTestId('step-primary').click();
+    await expect(page.getByTestId('discovery-result')).toHaveAttribute('data-result', 'failed');
+    await expect(page.getByTestId('discovery-result')).toContainText('Discovery document not found');
+
+    // The provider reports another issuer than the entered address.
+    await page.getByTestId('authority').fill('http://test-idp:9090/wrong-issuer/');
+    await page.getByTestId('step-primary').click();
+    await expect(page.getByTestId('discovery-result')).toHaveAttribute('data-result', 'failed');
+    await expect(page.getByTestId('discovery-result')).toContainText('Issuer does not match the provider address');
+    await expect(page.getByTestId('discovery-result')).toContainText('http://test-idp:9090/wrong-issuer/');
+    await shot(page, 'sso-lauf-anbieter-adresse-issuer');
   });
 
   test('sign-in page: provider buttons; unverified email is not matched', async ({ page }) => {
@@ -263,6 +323,13 @@ test.describe('Single sign-on with WYSCH (test identity provider)', () => {
     await expect(page.getByTestId('provider-wysch')).toContainText('Reconnect needed');
     await shot(page, 'sso-liste-reconnect');
 
+    // "Test" on the provider page names the rejected credentials.
+    await page.getByTestId('provider-wysch').getByRole('button', { name: 'Test' }).click();
+    await expect(page.getByTestId('test-card')).toBeVisible();
+    await expect(page.getByTestId('check-client')).toHaveAttribute('data-result', 'failed', { timeout: 30_000 });
+    await shot(page, 'sso-provider-wysch-test-abgelehnt');
+    await page.goto('/settings/oidc');
+
     await page.getByTestId('provider-wysch').getByRole('button', { name: 'Reconnect' }).click();
     await page.getByTestId('connect').click();
     await expect(page.getByRole('heading', { name: 'Connect an application' })).toBeVisible();
@@ -280,6 +347,8 @@ test.describe('Single sign-on with WYSCH (test identity provider)', () => {
   });
 
   test('emergency access: rsgo admin set-password inside the container', async ({ page }) => {
+    // The provider is down; the password set on the server is the way in.
+    await testIdp('stop');
     const output = execFileSync('docker', ['exec', '-i', CONTAINER, 'rsgo', 'admin', 'set-password', 'alex'], {
       input: 'Emergency123\n',
     }).toString();

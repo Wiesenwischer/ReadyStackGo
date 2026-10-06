@@ -5,7 +5,7 @@
 # project "rsgo-sso-e2e" with its own volumes; only those are removed, never the volumes of a
 # local development stack (docker-compose.yml names them rsgo-config and rsgo-data).
 #
-# Usage (repo root): scripts/sso-e2e.sh
+# Usage (repo root): scripts/sso-e2e.sh  (RSGO_SSO_E2E_PORT=8095 scripts/sso-e2e.sh if 8080 is taken)
 # Requires: Docker with compose, Node 22 + pnpm, Chromium for Playwright
 #           (pnpm exec playwright install --with-deps chromium in src/ReadyStackGo.WebUi).
 set -euo pipefail
@@ -14,6 +14,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE=(docker compose -p rsgo-sso-e2e -f "$ROOT/docker-compose.yml" -f "$ROOT/docker-compose.sso-e2e.yml")
 VOLUMES=(rsgo-sso-e2e-config rsgo-sso-e2e-data rsgo-sso-e2e-git-cache)
 export RSGO_CONTAINER=rsgo-sso-e2e
+# Host port of ReadyStackGo (default 8080; set RSGO_SSO_E2E_PORT when a local stack uses it).
+export RSGO_SSO_E2E_PORT="${RSGO_SSO_E2E_PORT:-8080}"
+export E2E_BASE_URL="http://localhost:$RSGO_SSO_E2E_PORT"
 TEMPLATES="$ROOT/src/ReadyStackGo.WebUi/e2e/test-data/identity-provider-templates"
 
 # Without the test templates the built-in template "wysch" points at the real WYSCH.
@@ -68,7 +71,7 @@ wait_for() {
 }
 
 wait_for http://localhost:9090/health
-wait_for http://localhost:8080/health
+wait_for "$E2E_BASE_URL/health"
 
 cd "$ROOT/src/ReadyStackGo.WebUi"
 pnpm run test:e2e:sso

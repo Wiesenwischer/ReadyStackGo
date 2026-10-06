@@ -123,6 +123,13 @@ describe("canContinue", () => {
     expect(canContinue("connect", session({ clientId: "c", registeredInSession: true }), {})).toBe(true);
   });
 
+  it("test needs credentials; a failed check does not block Continue (the provider can be saved disabled)", () => {
+    expect(canContinue("test", null, {})).toBe(false);
+    expect(canContinue("test", session(), {})).toBe(false);
+    expect(canContinue("test", session({ clientId: "c" }), {})).toBe(true);
+    expect(canContinue("test", session({ clientId: "c", checks: report(false) }), {})).toBe(true);
+  });
+
   it("save has no Continue", () => {
     expect(canContinue("save", session({ clientId: "c", canEnable: true }), {})).toBe(false);
   });

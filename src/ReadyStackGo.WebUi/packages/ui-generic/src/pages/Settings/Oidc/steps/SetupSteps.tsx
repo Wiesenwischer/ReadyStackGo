@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { followRegistrationStart, setupApi, type SetupSessionDto } from "@rsgo/core";
+import { followRegistrationStart, isHttpUrl, setupApi, type SetupSessionDto } from "@rsgo/core";
 import { Alert } from "../../../../components/ui/Alert";
 import { Button } from "../../../../components/ui/Button";
 import { CopyField, TextField, Toggle } from "../../../../components/ui/FormControls";
@@ -412,6 +412,9 @@ export function TestPanel({ session, onSession, autoRun = true }: { session: Set
     setError(null);
     try {
       const { url } = await setupApi.startTestSignIn(session.id);
+      if (!isHttpUrl(url)) {
+        throw new Error("The provider returned a sign-in address that is not http or https.");
+      }
       window.location.href = url;
     } catch (err) {
       setError(errorText(err, "The test sign-in could not start."));

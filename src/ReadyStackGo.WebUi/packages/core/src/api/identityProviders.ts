@@ -1,4 +1,5 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from './client';
+import { isHttpUrl } from '../lib/urls';
 
 // --- Templates ---
 
@@ -155,6 +156,9 @@ export async function removeOidcProvider(name: string): Promise<void> {
 export function followRegistrationStart(start: RegistrationStartDto): void {
   if (!start.url) {
     return;
+  }
+  if (!isHttpUrl(start.url)) {
+    throw new Error('The provider returned an address that is not http or https.');
   }
   if (start.kind === 'redirect') {
     window.location.href = start.url;

@@ -117,7 +117,7 @@ public class RegistrationCallbackEndpoint : Endpoint<RegistrationCallbackRequest
 
     public override async Task HandleAsync(RegistrationCallbackRequest req, CancellationToken ct)
     {
-        var baseUrl = (await _systemConfig.GetBaseUrlAsync()).TrimEnd('/');
+        var baseUrl = await _systemConfig.GetEffectiveBaseUrlAsync();
         var flow = string.IsNullOrEmpty(req.State) ? null : _flows.TakeRegistration(req.State);
 
         if (flow == null || !SsoFlowCookie.Matches(HttpContext, flow.FlowSecret))
@@ -130,12 +130,13 @@ public class RegistrationCallbackEndpoint : Endpoint<RegistrationCallbackRequest
 
         if (flow.Owner == RegistrationFlowOwner.WizardRun)
         {
+            // Back to the address this run was started with, not the installation's base URL.
             var run = _runs.Get(flow.ContextId);
             if (run != null)
             {
                 _wizard.AcceptRegistrationReturn(run, req.State!, req.Code, req.Error);
             }
-            await Redirect($"{baseUrl}/wizard?sso=returned");
+            await Redirect($"{(run?.BaseUrl.TrimEnd('/') ?? baseUrl)}/wizard?sso=returned");
             return;
         }
 

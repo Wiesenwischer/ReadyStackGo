@@ -104,10 +104,13 @@ public class WizardSsoRun
         State = WizardSsoRunState.Registered;
     }
 
-    /// <summary>Registered → SignedIn: the first system administrator was created.</summary>
-    public void MarkSignedIn(string username, string email, string? displayName, DateTime now)
+    /// <summary>
+    /// Registered → SignedIn: the first system administrator was created. The expiry is checked
+    /// before the administrator is created; once it exists the run records it even if the run
+    /// expired in the meantime, so the provider is still enabled.
+    /// </summary>
+    public void MarkSignedIn(string username, string email, string? displayName)
     {
-        EnsureNotExpired(now);
         if (State != WizardSsoRunState.Registered)
         {
             throw new InvalidOperationException($"Cannot sign in in state {State}.");

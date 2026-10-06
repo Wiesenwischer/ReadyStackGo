@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Moq;
 using ReadyStackGo.Infrastructure.Configuration;
+using BaseUrlExtensions = ReadyStackGo.Application.Services.SystemConfigBaseUrlExtensions;
 
 namespace ReadyStackGo.UnitTests.Infrastructure.Configuration;
 
@@ -101,5 +102,24 @@ public class SystemConfigServiceBaseUrlTests
         await CreateService().SetBaseUrlAsync("http://localhost:5000");
 
         (await CreateService().GetConfiguredBaseUrlAsync()).Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("https://rsgo.example.com/", "https://rsgo.example.com")]
+    [InlineData("HTTPS://RSGO.Example.com/path/", "https://rsgo.example.com/path")]
+    [InlineData("http://localhost:5000", "http://localhost:5000")]
+    public async Task GetEffectiveBaseUrl_IsNormalizedLikeTheSetup(string stored, string expected)
+    {
+        _config.BaseUrl = stored;
+
+        (await BaseUrlExtensions.GetEffectiveBaseUrlAsync(CreateService())).Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task GetEffectiveBaseUrl_ValueThatCannotBeNormalized_IsReturnedWithoutTrailingSlash()
+    {
+        _config.BaseUrl = "not a url/";
+
+        (await BaseUrlExtensions.GetEffectiveBaseUrlAsync(CreateService())).Should().Be("not a url");
     }
 }

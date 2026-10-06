@@ -40,7 +40,7 @@ public class WizardSsoIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Start_SetsFlowCookieAndBaseUrl_ReturnsPairingForm()
+    public async Task Start_SetsFlowCookie_ReturnsPairingForm_AndLeavesTheBaseUrlUntilTheAdminExists()
     {
         var ctx = await StartAsync();
 
@@ -49,7 +49,7 @@ public class WizardSsoIntegrationTests : IAsyncLifetime
 
         var cookie = response.Headers.GetValues("Set-Cookie").Single(c => c.StartsWith("rsgo_sso_flow=", StringComparison.Ordinal));
         cookie.Should().Contain("httponly").And.Contain("path=/api").And.Contain("samesite=lax");
-        (await ctx.SystemConfig.GetConfiguredBaseUrlAsync()).Should().Be("https://rsgo.example.com");
+        (await ctx.SystemConfig.GetConfiguredBaseUrlAsync()).Should().BeNull("an anonymous start must not change the installation's address");
 
         body.GetProperty("run").GetProperty("state").GetString().Should().Be("started");
         var start = body.GetProperty("start");
@@ -205,6 +205,45 @@ public class WizardSsoIntegrationTests : IAsyncLifetime
         // Signing in later from the login page works through the same provider.
         using var later = ctx.NewBrowser();
         (await later.SignInThroughAsync($"{BaseUrl}/api/auth/oidc/wysch/challenge", "alex")).Should().StartWith($"{BaseUrl}/oidc-callback#token=");
+    }
+
+    [Fact]
+    public async Task SecondStartWithAnotherAddress_DoesNotRedirectTheFirstRun_NorChangeTheBaseUrl()
+    {
+        var ctx = await StartAsync();
+        var start = await StartRunAsync(ctx.Browser);
+
+        // Another browser starts anonymously with a foreign address while the first run is open.
+        using var other = ctx.NewBrowser();
+        await Expect(other.PostJsonAsync("/api/wizard/sso/start", new { templateId = "wysch", baseUrl = "https://attacker.example" }));
+        (await ctx.SystemConfig.GetConfiguredBaseUrlAsync()).Should().BeNull();
+
+        (await ctx.Browser.PairAsync(start.GetProperty("start"))).Should().Be($"{BaseUrl}/wizard?sso=returned");
+        await Expect(ctx.Browser.PostJsonAsync("/api/wizard/sso/continue"));
+        var final = await ctx.Browser.SignInThroughAsync($"{BaseUrl}/api/wizard/sso/sign-in", "alex");
+
+        final.Should().StartWith($"{BaseUrl}/wizard?sso=returned#token=", "the token goes back to the address of this run");
+        // The test address is the default one, which counts as "not set"; the stored value shows who wrote last.
+        (await ctx.SystemConfig.GetBaseUrlAsync()).Should().Be(BaseUrl, "the run that created the administrator sets the address");
+    }
+
+    [Fact]
+    public async Task RunExpiresDuringTheTokenExchange_CreatesNoAdmin_AndTheWizardStaysOpen()
+    {
+        var ctx = await StartAsync(runSeconds: 6);
+        await RegisterRunAsync(ctx.Browser);
+        var status = await Expect(ctx.Browser.GetAsync("/api/wizard/sso/status"));
+        var expiresAt = status.GetProperty("expiresAt").GetDateTime().ToUniversalTime();
+
+        // The provider answers the token request only after the run has expired.
+        ctx.Idp.TokenDelay = expiresAt - DateTime.UtcNow + TimeSpan.FromSeconds(1);
+        var final = await ctx.Browser.SignInThroughAsync($"{BaseUrl}/api/wizard/sso/sign-in", "alex");
+
+        final.Should().Be($"{BaseUrl}/wizard?sso=returned");
+        (await Expect(ctx.Browser.GetAsync("/api/wizard/sso/status"))).GetProperty("failureReason").GetString().Should().Be("expired");
+        ctx.FindUser("alex").Should().BeNull("no administrator may be left behind without an enabled provider");
+        (await Expect(ctx.Browser.GetAsync("/api/wizard/status"))).GetProperty("isCompleted").GetBoolean().Should().BeFalse();
+        (await ctx.OidcSettings.GetByNameAsync("wysch"))!.Enabled.Should().BeFalse();
     }
 
     [Fact]

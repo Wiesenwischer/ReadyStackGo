@@ -118,7 +118,7 @@ public class SsoSetupService
             RequireHttps = template?.RequireHttps ?? false,
             Claims = provider.Claims,
             TrustUnverifiedEmail = provider.TrustUnverifiedEmail,
-            BaseUrl = (await _systemConfig.GetBaseUrlAsync()).TrimEnd('/'),
+            BaseUrl = await _systemConfig.GetEffectiveBaseUrlAsync(),
             ClientId = provider.ClientId,
             EncryptedClientSecret = string.IsNullOrEmpty(provider.ClientSecret) ? null : _encryption.Encrypt(provider.ClientSecret),
             PairedAt = provider.PairedAt,

@@ -46,6 +46,18 @@ export function showCountdown(view: WizardView): boolean {
   return view === "method" || view === "admin" || view === "ssoAddress" || view === "ssoError";
 }
 
+/**
+ * Whether the setup window running out locks the wizard. A run in progress continues after the
+ * window (E20): waiting for the provider, signed in, the email step after it, and its errors
+ * (they offer "Try again" or the built-in sign-in). Without a run the locked page shows.
+ */
+export function lockedBySetupWindow(windowTimedOut: boolean, view: WizardView | null): boolean {
+  if (!windowTimedOut) {
+    return false;
+  }
+  return !(view === "ssoWaiting" || view === "ssoSignedIn" || view === "smtp" || view === "ssoError");
+}
+
 /** Where a wizard run of this browser stands, mapped to a view. */
 export function viewForRun(run: WizardSsoRunDto): WizardView {
   switch (run.state) {

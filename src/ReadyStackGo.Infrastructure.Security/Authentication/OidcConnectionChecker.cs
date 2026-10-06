@@ -61,15 +61,16 @@ public class OidcConnectionChecker : IOidcConnectionChecker
 
         // 3. Endpoints
         var missing = new List<string>();
-        if (string.IsNullOrEmpty(doc.AuthorizationEndpoint)) missing.Add("authorization");
-        if (string.IsNullOrEmpty(doc.TokenEndpoint)) missing.Add("token");
-        if (string.IsNullOrEmpty(doc.JwksUri)) missing.Add("JWKS");
+        // Endpoints are navigation and request targets: only absolute http(s) URLs count.
+        if (!OidcEndpointUrls.IsHttp(doc.AuthorizationEndpoint)) missing.Add("authorization");
+        if (!OidcEndpointUrls.IsHttp(doc.TokenEndpoint)) missing.Add("token");
+        if (!OidcEndpointUrls.IsHttp(doc.JwksUri)) missing.Add("JWKS");
         items.Add(missing.Count == 0
             ? new OidcCheckItem(OidcCheckIds.Endpoints, OidcCheckStatus.Passed, "Endpoints present", "Authorization, token and JWKS endpoints found")
             : new OidcCheckItem(OidcCheckIds.Endpoints, OidcCheckStatus.Failed, "Endpoints missing",
                 $"The discovery document names no {JoinWords(missing)} endpoint.", "endpoints_missing"));
 
-        var parOffered = !string.IsNullOrEmpty(doc.ParEndpoint);
+        var parOffered = OidcEndpointUrls.IsHttp(doc.ParEndpoint);
         var parRequired = request.RequirePar || doc.RequirePar;
 
         if (scope == OidcCheckScope.Discovery)
@@ -249,15 +250,19 @@ public class OidcConnectionChecker : IOidcConnectionChecker
     private static string JoinWords(List<string> words) =>
         words.Count == 1 ? words[0] : $"{string.Join(", ", words.Take(words.Count - 1))} and {words[^1]}";
 
+    /// <summary>A string property of a JSON object; null for other JSON values (an array, a number, ...).</summary>
+    private static string? StringProperty(JsonElement element, string name) =>
+        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
     private static (string? Error, string? Description) ReadError(string json)
     {
         try
         {
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
-            return (
-                root.TryGetProperty("error", out var error) ? error.GetString() : null,
-                root.TryGetProperty("error_description", out var description) ? description.GetString() : null);
+            return (StringProperty(root, "error"), StringProperty(root, "error_description"));
         }
         catch (JsonException)
         {

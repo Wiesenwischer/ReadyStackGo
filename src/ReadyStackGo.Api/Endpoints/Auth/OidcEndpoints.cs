@@ -94,7 +94,7 @@ public class OidcChallengeEndpoint : Endpoint<OidcRouteRequest>
             return;
         }
 
-        var baseUrl = (await _systemConfig.GetBaseUrlAsync()).TrimEnd('/');
+        var baseUrl = await _systemConfig.GetEffectiveBaseUrlAsync();
         var redirectUri = BaseUrlRules.ProviderRedirectUri(baseUrl, provider.Name);
 
         var state = SsoTokens.NewToken();
@@ -179,7 +179,7 @@ public class OidcCallbackEndpoint : Endpoint<OidcCallbackRequest>
 
     public override async Task HandleAsync(OidcCallbackRequest req, CancellationToken ct)
     {
-        var baseUrl = (await _systemConfig.GetBaseUrlAsync()).TrimEnd('/');
+        var baseUrl = await _systemConfig.GetEffectiveBaseUrlAsync();
 
         var flow = string.IsNullOrEmpty(req.State) ? null : _flows.TakeOidc(req.State);
         if (flow == null || !string.Equals(flow.Provider, req.Provider, StringComparison.OrdinalIgnoreCase))

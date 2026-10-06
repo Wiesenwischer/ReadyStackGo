@@ -7,12 +7,12 @@ import { CheckIcon, CopyIcon } from "../sso/icons";
 const fieldClasses = (state: "default" | "error" | "readonly" = "default") =>
   [
     "h-11 w-full rounded-[10px] border px-3.5 text-sm text-fg outline-none transition-colors placeholder:text-fg-muted",
-    "focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-raised disabled:text-fg-muted",
+    "disabled:bg-raised disabled:text-fg-muted",
+    // An error keeps its border while the field has focus (design frame 171:2717).
     state === "error"
-      ? "border-status-unhealthy"
-      : state === "readonly"
-        ? "border-line-strong/55 bg-raised"
-        : "border-line-strong/55 bg-surface",
+      ? "border-status-unhealthy focus:ring-1 focus:ring-status-unhealthy"
+      : "focus:border-primary focus:ring-1 focus:ring-primary",
+    state === "readonly" ? "border-line-strong/55 bg-raised" : state === "default" ? "border-line-strong/55 bg-surface" : "",
   ].join(" ");
 
 type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "id"> & {

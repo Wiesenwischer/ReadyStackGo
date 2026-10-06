@@ -78,7 +78,7 @@ public class WizardSsoRunTests
         run.PendingRegistrationState.Should().BeNull();
 
         _time.Advance(TimeSpan.FromMinutes(5));
-        run.MarkSignedIn("admin", "admin@example.com", "Admin", Now);
+        run.MarkSignedIn("admin", "admin@example.com", "Admin");
 
         run.State.Should().Be(WizardSsoRunState.SignedIn);
         run.SignedInUsername.Should().Be("admin");
@@ -143,7 +143,7 @@ public class WizardSsoRunTests
     {
         var run = NewRun();
 
-        var act = () => run.MarkSignedIn("admin", "admin@example.com", null, Now);
+        var act = () => run.MarkSignedIn("admin", "admin@example.com", null);
 
         act.Should().Throw<InvalidOperationException>();
         run.State.Should().Be(WizardSsoRunState.Started);
@@ -164,7 +164,7 @@ public class WizardSsoRunTests
     public void MarkRegistered_AfterSignedIn_Throws()
     {
         var run = RegisteredRun();
-        run.MarkSignedIn("admin", "admin@example.com", null, Now);
+        run.MarkSignedIn("admin", "admin@example.com", null);
 
         var act = () => run.MarkRegistered("wysch", Now);
 
@@ -175,9 +175,9 @@ public class WizardSsoRunTests
     public void MarkSignedIn_Twice_Throws()
     {
         var run = RegisteredRun();
-        run.MarkSignedIn("admin", "admin@example.com", null, Now);
+        run.MarkSignedIn("admin", "admin@example.com", null);
 
-        var act = () => run.MarkSignedIn("other", "other@example.com", null, Now);
+        var act = () => run.MarkSignedIn("other", "other@example.com", null);
 
         act.Should().Throw<InvalidOperationException>();
         run.SignedInUsername.Should().Be("admin");
@@ -187,7 +187,7 @@ public class WizardSsoRunTests
     public void Fail_AfterSignedIn_Throws()
     {
         var run = RegisteredRun();
-        run.MarkSignedIn("admin", "admin@example.com", null, Now);
+        run.MarkSignedIn("admin", "admin@example.com", null);
 
         var act = () => run.Fail(WizardSsoFailure.SignInFailed);
 
@@ -212,7 +212,7 @@ public class WizardSsoRunTests
         var run = RegisteredRun();
         run.Fail(WizardSsoFailure.SignInFailed);
 
-        var act = () => run.MarkSignedIn("admin", "admin@example.com", null, Now);
+        var act = () => run.MarkSignedIn("admin", "admin@example.com", null);
 
         act.Should().Throw<InvalidOperationException>();
     }
@@ -264,7 +264,7 @@ public class WizardSsoRunTests
     public void Retry_FromSignedIn_Throws()
     {
         var run = RegisteredRun();
-        run.MarkSignedIn("admin", "admin@example.com", null, Now);
+        run.MarkSignedIn("admin", "admin@example.com", null);
 
         var act = () => run.Retry(Now);
 
@@ -291,7 +291,7 @@ public class WizardSsoRunTests
     public void IsExpired_SignedInRun_NeverExpires()
     {
         var run = RegisteredRun();
-        run.MarkSignedIn("admin", "admin@example.com", null, Now);
+        run.MarkSignedIn("admin", "admin@example.com", null);
 
         _time.Advance(TimeSpan.FromHours(1));
 
@@ -311,15 +311,17 @@ public class WizardSsoRunTests
     }
 
     [Fact]
-    public void MarkSignedIn_AfterExpiry_Throws()
+    public void MarkSignedIn_AfterExpiry_StillRecordsTheAdministrator()
     {
+        // The administrator was created before the run expired; the run must record it so the
+        // provider gets enabled instead of leaving an administrator nobody can sign in as.
         var run = RegisteredRun();
         _time.Advance(WizardSsoRun.DefaultDuration + TimeSpan.FromSeconds(1));
 
-        var act = () => run.MarkSignedIn("admin", "admin@example.com", null, Now);
+        run.MarkSignedIn("admin", "admin@example.com", null);
 
-        act.Should().Throw<InvalidOperationException>();
-        run.State.Should().Be(WizardSsoRunState.Registered);
+        run.State.Should().Be(WizardSsoRunState.SignedIn);
+        run.IsExpired(Now).Should().BeFalse();
     }
 
     [Fact]
@@ -433,7 +435,7 @@ public class WizardSsoRunTests
         run.Fail(WizardSsoFailure.EmailUnverified);
         run.Retry(Now);
 
-        run.MarkSignedIn("admin", "admin@example.com", null, Now);
+        run.MarkSignedIn("admin", "admin@example.com", null);
 
         run.State.Should().Be(WizardSsoRunState.SignedIn);
     }

@@ -223,6 +223,51 @@ public class OidcServiceTests : IDisposable
 
     #endregion
 
+    #region Endpoints that are not http(s)
+
+    [Theory]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("data:text/html,hello")]
+    [InlineData("/relative/auth")]
+    public async Task BuildAuthorizeUrl_AuthorizationEndpointNotHttp_FailsWithInvalidDiscovery(string endpoint)
+    {
+        _idp.PublishDiscovery(authorizationEndpoint: endpoint);
+
+        var result = await Authorize();
+
+        result.Succeeded.Should().BeFalse();
+        result.Error.Should().Be(OidcErrorCodes.InvalidDiscovery);
+        result.Url.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task BuildAuthorizeUrl_ParEndpointNotHttp_FailsWithParNotSupported_WithoutRequest()
+    {
+        _idp.PublishDiscovery(requirePar: true, parEndpointUrl: "javascript:alert(1)");
+
+        var result = await Authorize();
+
+        result.Error.Should().Be(OidcErrorCodes.ParNotSupported);
+        _idp.Handler.Requests.Should().NotContain(r => r.Method == HttpMethod.Post);
+    }
+
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("\"invalid_client\"")]
+    [InlineData("""{"error":42}""")]
+    public async Task BuildAuthorizeUrl_ParErrorBodyNotAnObject_FailsWithoutException(string body)
+    {
+        _idp.PublishDiscovery(requirePar: true);
+        _idp.Handler.MapJson(FakeOidcProvider.ParEndpoint, body, HttpStatusCode.BadRequest);
+
+        var result = await Authorize();
+
+        result.Succeeded.Should().BeFalse();
+        result.Error.Should().NotBeNullOrEmpty();
+    }
+
+    #endregion
+
     #region Discovery errors
 
     [Fact]
@@ -464,6 +509,9 @@ public class OidcServiceTests : IDisposable
     [InlineData("not json")]
     [InlineData("""{"access_token":"at"}""")]
     [InlineData("""{"id_token":""}""")]
+    [InlineData("""{"id_token":123}""")]
+    [InlineData("""["id_token"]""")]
+    [InlineData("\"id_token\"")]
     public async Task ExchangeCode_ResponseWithoutIdToken_FailsWithInvalidToken(string body)
     {
         _idp.PublishDiscovery();

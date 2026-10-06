@@ -97,12 +97,13 @@ internal sealed class FakeOidcProvider : IDisposable
     public SecurityKey SigningKey => new RsaSecurityKey(_rsa) { KeyId = KeyId };
 
     /// <summary>Publishes a discovery document with the given options.</summary>
-    public void PublishDiscovery(bool parEndpoint = true, bool requirePar = false, string? issuer = null)
+    public void PublishDiscovery(bool parEndpoint = true, bool requirePar = false, string? issuer = null,
+        string? authorizationEndpoint = null, string? parEndpointUrl = null)
     {
         var doc = new Dictionary<string, object>
         {
             ["issuer"] = issuer ?? Issuer,
-            ["authorization_endpoint"] = AuthorizationEndpoint,
+            ["authorization_endpoint"] = authorizationEndpoint ?? AuthorizationEndpoint,
             ["token_endpoint"] = TokenEndpoint,
             ["jwks_uri"] = JwksUrl,
             ["response_types_supported"] = new[] { "code" },
@@ -111,7 +112,7 @@ internal sealed class FakeOidcProvider : IDisposable
         };
         if (parEndpoint)
         {
-            doc["pushed_authorization_request_endpoint"] = ParEndpoint;
+            doc["pushed_authorization_request_endpoint"] = parEndpointUrl ?? ParEndpoint;
         }
         if (requirePar)
         {

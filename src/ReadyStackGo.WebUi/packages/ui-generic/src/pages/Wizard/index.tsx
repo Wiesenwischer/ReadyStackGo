@@ -14,6 +14,7 @@ import {
   viewForRun,
   wizardSteps,
   type WizardView,
+  lockedBySetupWindow,
 } from './wizardFlow';
 import { suggestBaseUrl } from '../../components/sso/baseUrl';
 import {
@@ -21,6 +22,7 @@ import {
   decodeAuthFromToken,
   followRegistrationStart,
   useWizardStore,
+  getWizardStatus,
   wizardSsoApi,
   wizardSsoSignInUrl,
   type IdentityProviderTemplateDto,
@@ -118,9 +120,16 @@ export default function Wizard() {
         setView('ssoError');
         return;
       }
+
+      // An installed system offers no setup: without a run of this browser, leave the wizard.
+      const status = await getWizardStatus().catch(() => null);
+      if (status?.isCompleted) {
+        navigate('/', { replace: true });
+        return;
+      }
       setView(offered.length > 0 ? 'method' : 'admin');
     })();
-  }, [advance, setAuthDirectly]);
+  }, [advance, navigate, setAuthDirectly]);
 
   const handleAdminCreated = async (data: { username: string; email: string; password: string }) => {
     const response = await submitAdmin(data);
@@ -228,8 +237,6 @@ export default function Wizard() {
     }
   };
 
-  // A run in progress continues even after the setup window ran out (E20).
-  const runKeepsWizardOpen = view === 'ssoWaiting' || view === 'ssoSignedIn' || view === 'smtp' || view === 'ssoError';
 
   if (isLoading || view === null) {
     return (
@@ -246,7 +253,8 @@ export default function Wizard() {
   }
 
   // Show timeout/locked message
-  if (isTimedOut && !runKeepsWizardOpen) {
+  // A run in progress continues even after the setup window ran out (E20).
+  if (lockedBySetupWindow(isTimedOut, view)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-page">
         <div className="max-w-md p-8 text-center">

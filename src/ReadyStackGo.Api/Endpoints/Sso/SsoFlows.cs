@@ -44,14 +44,15 @@ public enum RegistrationFlowOwner
 public record RegistrationFlowState(RegistrationFlowOwner Owner, string ContextId, string FlowSecret);
 
 /// <summary>
-/// Server-side store of the one-time states of browser round trips (10 minutes each,
-/// consumed on first use).
+/// Server-side store of the one-time states of browser round trips (10 minutes by default,
+/// consumed on first use: of two callbacks with the same state only one gets the flow).
 /// </summary>
 public class SsoFlowStore
 {
     public static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(10);
 
     private readonly IMemoryCache _cache;
+    private readonly object _takeLock = new();
 
     public SsoFlowStore(IMemoryCache cache)
     {
@@ -60,26 +61,24 @@ public class SsoFlowStore
 
     public void PutOidc(string state, OidcFlowState flow) => _cache.Set(OidcKey(state), flow, Lifetime);
 
-    public OidcFlowState? TakeOidc(string state)
-    {
-        if (!_cache.TryGetValue(OidcKey(state), out OidcFlowState? flow))
-        {
-            return null;
-        }
-        _cache.Remove(OidcKey(state));
-        return flow;
-    }
+    public OidcFlowState? TakeOidc(string state) => Take<OidcFlowState>(OidcKey(state));
 
-    public void PutRegistration(string state, RegistrationFlowState flow) => _cache.Set(RegistrationKey(state), flow, Lifetime);
+    public void PutRegistration(string state, RegistrationFlowState flow, TimeSpan? lifetime = null) =>
+        _cache.Set(RegistrationKey(state), flow, lifetime ?? Lifetime);
 
-    public RegistrationFlowState? TakeRegistration(string state)
+    public RegistrationFlowState? TakeRegistration(string state) => Take<RegistrationFlowState>(RegistrationKey(state));
+
+    private T? Take<T>(string key) where T : class
     {
-        if (!_cache.TryGetValue(RegistrationKey(state), out RegistrationFlowState? flow))
+        lock (_takeLock)
         {
-            return null;
+            if (!_cache.TryGetValue(key, out T? value))
+            {
+                return null;
+            }
+            _cache.Remove(key);
+            return value;
         }
-        _cache.Remove(RegistrationKey(state));
-        return flow;
     }
 
     private static string OidcKey(string state) => $"oidc_state:{state}";

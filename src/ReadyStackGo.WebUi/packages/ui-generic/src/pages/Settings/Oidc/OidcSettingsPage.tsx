@@ -93,11 +93,9 @@ export default function OidcSettingsPage() {
             invitation.
           </p>
         </div>
-        {providers.length > 0 && (
-          <ButtonLink to="/settings/oidc/add" data-testid="add-provider">
-            Add provider
-          </ButtonLink>
-        )}
+        <ButtonLink to="/settings/oidc/add" data-testid="add-provider">
+          Add provider
+        </ButtonLink>
       </div>
 
       <div className="flex flex-col gap-6">
@@ -127,7 +125,7 @@ export default function OidcSettingsPage() {
             <p className="text-sm text-fg-secondary">
               Add WYSCH or any OpenID Connect provider. A guided setup connects, tests and saves it.
             </p>
-            <ButtonLink to="/settings/oidc/add" data-testid="add-provider">
+            <ButtonLink to="/settings/oidc/add" data-testid="add-provider-empty">
               Add provider
             </ButtonLink>
           </section>
@@ -144,10 +142,12 @@ export default function OidcSettingsPage() {
                 <li
                   key={p.name}
                   data-testid={`provider-${p.name}`}
-                  className={`flex flex-wrap items-center gap-4 py-4 ${i < providers.length - 1 ? "border-b border-line" : ""}`}
+                  className={`flex flex-wrap items-center gap-4 py-4 min-[1360px]:grid min-[1360px]:grid-cols-[44px_minmax(0,1fr)_auto_190px_auto] ${
+                    i < providers.length - 1 ? "border-b border-line" : ""
+                  }`}
                 >
                   <ProviderMark iconUrl={p.iconUrl} />
-                  <div className="min-w-[220px] flex-1">
+                  <div className="min-w-[220px] flex-1 min-[1360px]:min-w-0">
                     <Link
                       to={`/settings/oidc/providers/${encodeURIComponent(p.name)}`}
                       className="text-[15px] font-semibold text-fg hover:underline"

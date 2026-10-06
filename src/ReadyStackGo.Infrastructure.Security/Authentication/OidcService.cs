@@ -56,13 +56,20 @@ public class OidcService : IOidcService
             ["code_challenge_method"] = "S256"
         };
 
+        if (!OidcEndpointUrls.IsHttp(config.AuthorizationEndpoint))
+        {
+            return OidcAuthorizeResult.Failure(
+                OidcErrorCodes.InvalidDiscovery,
+                "The discovery document names no absolute http or https authorization endpoint.");
+        }
+
         var usePar = provider.RequirePar || config.RequirePushedAuthorizationRequests;
         if (!usePar)
         {
             return OidcAuthorizeResult.Success($"{config.AuthorizationEndpoint}?{ToQuery(parameters)}");
         }
 
-        if (string.IsNullOrEmpty(config.PushedAuthorizationRequestEndpoint))
+        if (!OidcEndpointUrls.IsHttp(config.PushedAuthorizationRequestEndpoint))
         {
             return OidcAuthorizeResult.Failure(
                 OidcErrorCodes.ParNotSupported,
@@ -140,7 +147,11 @@ public class OidcService : IOidcService
         try
         {
             using var doc = JsonDocument.Parse(json);
-            idToken = doc.RootElement.TryGetProperty("id_token", out var element) ? element.GetString() : null;
+            idToken = doc.RootElement.ValueKind == JsonValueKind.Object &&
+                      doc.RootElement.TryGetProperty("id_token", out var element) &&
+                      element.ValueKind == JsonValueKind.String
+                ? element.GetString()
+                : null;
         }
         catch (JsonException)
         {
@@ -222,7 +233,9 @@ public class OidcService : IOidcService
                 try
                 {
                     using var doc = JsonDocument.Parse(json);
-                    if (doc.RootElement.TryGetProperty("request_uri", out var requestUri) &&
+                    if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                        doc.RootElement.TryGetProperty("request_uri", out var requestUri) &&
+                        requestUri.ValueKind == JsonValueKind.String &&
                         requestUri.GetString() is { Length: > 0 } value)
                     {
                         return new ParResult(value, null, null);
@@ -294,15 +307,19 @@ public class OidcService : IOidcService
     private static string ToQuery(Dictionary<string, string> parameters) =>
         string.Join("&", parameters.Select(kvp => $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value)}"));
 
+    /// <summary>A string property of a JSON object; null for other JSON values (an array, a number, ...).</summary>
+    private static string? StringProperty(JsonElement element, string name) =>
+        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
     private static (string? Error, string? Description) ReadError(string json)
     {
         try
         {
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
-            return (
-                root.TryGetProperty("error", out var error) ? error.GetString() : null,
-                root.TryGetProperty("error_description", out var description) ? description.GetString() : null);
+            return (StringProperty(root, "error"), StringProperty(root, "error_description"));
         }
         catch (JsonException)
         {

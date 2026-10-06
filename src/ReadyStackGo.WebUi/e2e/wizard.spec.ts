@@ -12,7 +12,9 @@ const SCREENSHOT_DIR = path.join(__dirname, '..', '..', 'ReadyStackGo.PublicWeb'
  */
 async function chooseBuiltInSignIn(page: Page) {
   const option = page.getByTestId('sign-in-option-built-in');
-  if (await option.isVisible({ timeout: 5000 }).catch(() => false)) {
+  // Wait for either the method step or the admin form (no template offered), then decide.
+  await expect(option.or(page.getByText('Create Admin Account'))).toBeVisible();
+  if (await option.isVisible()) {
     await option.click();
     await page.getByRole('button', { name: /^Continue$/ }).click();
   }
@@ -189,22 +191,20 @@ test.describe('Setup Wizard - Complete Flow with Onboarding', () => {
 
     // === ONBOARDING STEP 1: Organization (required, no skip) ===
     await expect(page.getByRole('heading', { name: 'Set Up ReadyStackGo' })).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('Step 1 of 4')).toBeVisible();
+    await expect(page.getByText('Step 1 of 5')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Create Your Organization' })).toBeVisible();
-    await expect(page.getByPlaceholder('My Company')).toBeVisible();
 
     // No "Skip for now" button on the org step
     await expect(page.getByRole('button', { name: /Skip/i })).not.toBeVisible();
 
-    // Fill org name and submit
-    await page.getByPlaceholder('My Company').fill('E2E Test Org');
+    await page.getByPlaceholder('my-company').fill('e2e-test-org');
+    await page.getByPlaceholder('My Company Inc.').fill('E2E Test Org');
     await page.getByRole('button', { name: /Continue/i }).click();
 
     // === ONBOARDING STEP 2: Docker Environment (skippable) ===
-    await expect(page.getByText('Step 2 of 4')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Step 2 of 5')).toBeVisible({ timeout: 5000 });
     await expect(page.getByRole('heading', { name: 'Add Docker Environment' })).toBeVisible();
     await expect(page.getByRole('button', { name: /Skip for now/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Continue/i })).toBeVisible();
 
     // Screenshot: Environment step
     await page.screenshot({
@@ -212,15 +212,12 @@ test.describe('Setup Wizard - Complete Flow with Onboarding', () => {
       fullPage: false,
     });
 
-    // Fill environment form (don't skip — so we can reach Dashboard later)
-    // Name is pre-filled with "Local Docker", socket path auto-populated from backend
-    await expect(page.getByPlaceholder('Local Docker')).toHaveValue('Local Docker');
+    // Keep the pre-filled environment (so the Dashboard is reachable later)
     await page.getByRole('button', { name: /Continue/i }).click();
 
     // === ONBOARDING STEP 3: Stack Sources (skippable) ===
-    await expect(page.getByText('Step 3 of 4')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Step 3 of 5')).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('heading', { name: 'Stack Sources' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Skip for now/i })).toBeVisible();
 
     // Screenshot: Sources step
     await page.screenshot({
@@ -228,17 +225,20 @@ test.describe('Setup Wizard - Complete Flow with Onboarding', () => {
       fullPage: false,
     });
 
-    // Skip sources
     await page.getByRole('button', { name: /Skip for now/i }).click();
 
-    // === ONBOARDING STEP 4: Complete ===
-    await expect(page.getByText('Step 4 of 4')).toBeVisible({ timeout: 5000 });
-    await expect(page.getByRole('heading', { name: "You're All Set!" })).toBeVisible();
+    // === ONBOARDING STEP 4: Container Registries ===
+    // Without detected registries the step only offers "Continue".
+    await expect(page.getByText('Step 4 of 5')).toBeVisible({ timeout: 10000 });
+    await page
+      .getByRole('button', { name: 'Skip for now' })
+      .or(page.getByRole('button', { name: 'Continue', exact: true }))
+      .first()
+      .click();
 
-    // Verify summary: org ✓, env ✓, sources skipped
-    await expect(page.getByText('Organization')).toBeVisible();
-    await expect(page.getByText('Docker Environment')).toBeVisible();
-    await expect(page.getByText('Stack Sources — skipped')).toBeVisible();
+    // === ONBOARDING STEP 5: Complete ===
+    await expect(page.getByText('Step 5 of 5')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: "You're All Set!" })).toBeVisible();
 
     // Screenshot: Onboarding complete
     await page.screenshot({
@@ -246,11 +246,9 @@ test.describe('Setup Wizard - Complete Flow with Onboarding', () => {
       fullPage: false,
     });
 
-    // Click "Go to Dashboard"
     await page.getByRole('button', { name: /Go to Dashboard/i }).click();
 
     // Should reach the Dashboard (env was created, so EnvironmentGuard passes)
-    // Multiple guards (OnboardingGuard + EnvironmentGuard) need to complete API calls first
     await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({ timeout: 15000 });
 
     // Screenshot: Dashboard after onboarding

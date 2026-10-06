@@ -31,7 +31,10 @@ public class WizardSsoRunStore
 /// administrator (E19): start (inside the setup window) → pairing in the browser → continue
 /// (redeem, save the provider disabled) → sign-in in the browser → admin created, provider
 /// enabled. Every step after the start is bound to the browser that started it (flow cookie)
-/// and checks the run's own expiry and that no system administrator exists yet.
+/// and checks the run's own expiry and that no system administrator exists yet. All redirects
+/// of a run go to the address the run was started with; the installation's base URL is saved
+/// only when the run creates the administrator, so a second, anonymous start cannot redirect
+/// another run or leave its address behind.
 /// </summary>
 public class WizardSsoService
 {
@@ -123,8 +126,6 @@ public class WizardSsoService
                 StatusCodes.Status502BadGateway);
         }
 
-        await _systemConfig.SetBaseUrlAsync(normalized);
-
         var duration = RunDuration;
         var secret = SsoFlowCookie.Ensure(http, duration + TimeSpan.FromMinutes(5));
         var run = new WizardSsoRun(SsoTokens.NewToken(), template.Id, secret, normalized, SystemClock.UtcNow, duration);
@@ -211,6 +212,19 @@ public class WizardSsoService
             return;
         }
 
+        // Another run may have saved or enabled this provider while the code was redeemed.
+        Refresh(run);
+        if (run.State != WizardSsoRunState.Started)
+        {
+            return;
+        }
+        var existing = await _settings.GetByNameAsync(name, ct);
+        if (existing != null && (existing.Enabled || existing.Template != template.Id))
+        {
+            run.Fail(WizardSsoFailure.RegistrationFailed, $"The provider \"{name}\" was set up elsewhere in the meantime.");
+            return;
+        }
+
         var provider = new OidcProviderSettings
         {
             Name = name,
@@ -229,7 +243,7 @@ public class WizardSsoService
             TrustUnverifiedEmail = false
         };
 
-        if (providers.Any(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)))
+        if (existing != null)
         {
             await _settings.UpdateAsync(provider, ct);
         }
@@ -238,7 +252,15 @@ public class WizardSsoService
             await _settings.AddAsync(provider, ct);
         }
 
-        run.MarkRegistered(name, SystemClock.UtcNow);
+        try
+        {
+            run.MarkRegistered(name, SystemClock.UtcNow);
+        }
+        catch (InvalidOperationException)
+        {
+            // Expired while saving: the provider stays disabled, the run ends.
+            run.Fail(WizardSsoFailure.Expired);
+        }
     }
 
     /// <summary>Builds the sign-in URL of a registered run (browser navigation).</summary>
@@ -283,23 +305,26 @@ public class WizardSsoService
             return $"{baseUrl}/wizard?sso=foreign";
         }
 
+        // From here on every redirect goes to the address this run was started with.
+        var returned = $"{run.BaseUrl.TrimEnd('/')}/wizard?sso=returned";
+
         Refresh(run);
         if (run.State != WizardSsoRunState.Registered)
         {
-            return $"{baseUrl}/wizard?sso=returned";
+            return returned;
         }
 
         if (!string.IsNullOrEmpty(error) || string.IsNullOrEmpty(code))
         {
             run.Fail(error == "access_denied" ? WizardSsoFailure.Cancelled : WizardSsoFailure.SignInFailed, error);
-            return $"{baseUrl}/wizard?sso=returned";
+            return returned;
         }
 
         var provider = await _settings.GetByNameAsync(flow.Provider, ct);
         if (provider == null)
         {
             run.Fail(WizardSsoFailure.SignInFailed, "The provider was removed.");
-            return $"{baseUrl}/wizard?sso=returned";
+            return returned;
         }
 
         var exchange = await _oidc.ExchangeCodeAsync(provider, code, flow.RedirectUri, flow.CodeVerifier, flow.Nonce, ct);
@@ -307,14 +332,14 @@ public class WizardSsoService
         {
             run.Fail(exchange.Error == OidcErrorCodes.Unreachable ? WizardSsoFailure.Unreachable : WizardSsoFailure.SignInFailed,
                 exchange.ErrorDescription);
-            return $"{baseUrl}/wizard?sso=returned";
+            return returned;
         }
 
         var info = exchange.UserInfo!;
         if (!info.EmailVerified || string.IsNullOrEmpty(info.Email))
         {
             run.Fail(WizardSsoFailure.EmailUnverified);
-            return $"{baseUrl}/wizard?sso=returned";
+            return returned;
         }
 
         EmailAddress email;
@@ -325,7 +350,15 @@ public class WizardSsoService
         catch (ArgumentException)
         {
             run.Fail(WizardSsoFailure.EmailInvalid);
-            return $"{baseUrl}/wizard?sso=returned";
+            return returned;
+        }
+
+        // The exchange may have taken a while: check expiry and state right before the
+        // administrator is created. After that nothing may fail before the provider is enabled.
+        Refresh(run);
+        if (run.State != WizardSsoRunState.Registered)
+        {
+            return returned;
         }
 
         User admin;
@@ -336,22 +369,26 @@ public class WizardSsoService
         }
         catch (InvalidOperationException)
         {
-            run.Fail(WizardSsoFailure.CompletedElsewhere);
-            return $"{baseUrl}/wizard?sso=returned";
+            if (run.State != WizardSsoRunState.SignedIn)
+            {
+                run.Fail(WizardSsoFailure.CompletedElsewhere);
+            }
+            return returned;
         }
 
         var now = SystemClock.UtcNow;
-        run.MarkSignedIn(admin.Username, admin.Email.Value, info.DisplayName, now);
+        run.MarkSignedIn(admin.Username, admin.Email.Value, info.DisplayName);
 
         provider.Enabled = true;
         provider.TestedSignIn = new OidcTestedSignIn(now, OidcConnectionFingerprint.Compute(provider));
         provider.LastResult = new OidcLastResult(now, OidcResultKinds.SignIn, true, null);
         await _settings.UpdateAsync(provider, ct);
+        await _systemConfig.SetBaseUrlAsync(run.BaseUrl);
 
         _logger.LogInformation("First system administrator {Username} created through {Provider}", admin.Username, provider.Name);
 
         var token = _tokens.GenerateToken(admin);
-        return $"{baseUrl}/wizard?sso=returned#token={Uri.EscapeDataString(token)}";
+        return $"{returned}#token={Uri.EscapeDataString(token)}";
     }
 
     /// <summary>
@@ -424,7 +461,10 @@ public class WizardSsoService
 
         run.PendingRegistrationState = state;
         run.PendingRegistrationCode = null;
-        _flows.PutRegistration(state, new RegistrationFlowState(RegistrationFlowOwner.WizardRun, run.Id, run.FlowSecret));
+        // The pairing may take as long as the run (for example with an account created at the provider).
+        var lifetime = run.ExpiresAt - SystemClock.UtcNow;
+        _flows.PutRegistration(state, new RegistrationFlowState(RegistrationFlowOwner.WizardRun, run.Id, run.FlowSecret),
+            lifetime > SsoFlowStore.Lifetime ? lifetime : SsoFlowStore.Lifetime);
         return start;
     }
 

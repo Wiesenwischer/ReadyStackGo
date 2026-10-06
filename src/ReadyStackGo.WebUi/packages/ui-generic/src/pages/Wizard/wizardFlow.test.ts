@@ -4,6 +4,7 @@ import {
   canContinueFromMethod,
   currentStepIndex,
   errorContent,
+  lockedBySetupWindow,
   nextRunAction,
   showCountdown,
   viewForRun,
@@ -129,5 +130,27 @@ describe("errorContent", () => {
     expect(c.title).toBe("Connection failed");
     expect(c.body).toBe("Provider said no.");
     expect(errorContent(null, options).body).toContain("WYSCH did not complete the connection");
+  });
+});
+
+describe("lockedBySetupWindow", () => {
+  it("an open setup window never locks", () => {
+    for (const view of ["method", "admin", "ssoAddress", "ssoWaiting", "ssoSignedIn", "ssoError", "smtp", null] as const) {
+      expect(lockedBySetupWindow(false, view)).toBe(false);
+    }
+  });
+
+  it("window closed, run active: the wizard stays open", () => {
+    expect(lockedBySetupWindow(true, "ssoWaiting")).toBe(false);
+    expect(lockedBySetupWindow(true, "ssoSignedIn")).toBe(false);
+    expect(lockedBySetupWindow(true, "smtp")).toBe(false);
+    expect(lockedBySetupWindow(true, "ssoError")).toBe(false);
+  });
+
+  it("window closed without a run: the locked page shows", () => {
+    expect(lockedBySetupWindow(true, "method")).toBe(true);
+    expect(lockedBySetupWindow(true, "admin")).toBe(true);
+    expect(lockedBySetupWindow(true, "ssoAddress")).toBe(true);
+    expect(lockedBySetupWindow(true, null)).toBe(true);
   });
 });

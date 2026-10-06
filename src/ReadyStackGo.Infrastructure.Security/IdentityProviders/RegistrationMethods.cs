@@ -168,7 +168,7 @@ public class PairingRegistrationMethod : IClientRegistrationMethod
         using var doc = TryParse(json);
         var pairing = Str(doc?.RootElement, "wysch_pairing_endpoint");
         var token = Str(doc?.RootElement, "wysch_pairing_token_endpoint");
-        if (string.IsNullOrEmpty(pairing) || string.IsNullOrEmpty(token))
+        if (!OidcEndpointUrls.IsHttp(pairing) || !OidcEndpointUrls.IsHttp(token))
         {
             throw new ClientRegistrationException("not_supported", "The provider does not offer client pairing.");
         }
