@@ -21,8 +21,23 @@ namespace ReadyStackGo.Api;
 
 public class Program
 {
-    public static async Task Main(string[] args)
+    public static async Task<int> Main(string[] args)
     {
+        // Emergency access ("rsgo admin set-password <username>"): runs against the database
+        // without migrations, bootstrap or web server, so it also works with a stopped container
+        // ("docker compose run --rm readystackgo admin set-password <username>").
+        if (ReadyStackGo.Infrastructure.CommandLine.AdminCommandLine.IsAdminCommand(args))
+        {
+            var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
+            var cliConfiguration = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: true)
+                .AddJsonFile($"appsettings.{environment}.json", optional: true)
+                .AddEnvironmentVariables()
+                .Build();
+            return await ReadyStackGo.Infrastructure.CommandLine.AdminCommandLine.RunAsync(args, cliConfiguration);
+        }
+
         var builder = WebApplication.CreateBuilder(args);
 
         // Add services to the container
@@ -132,6 +147,13 @@ public class Program
         builder.Services.AddScoped<IHealthNotificationService, HealthNotificationService>();
         builder.Services.AddScoped<IDeploymentNotificationService, DeploymentNotificationService>();
         builder.Services.AddSingleton<IUpdateNotificationService, UpdateNotificationService>();
+
+        // Single sign-on: browser round trips, setup sessions and wizard runs live in memory.
+        builder.Services.AddSingleton<ReadyStackGo.API.Endpoints.Sso.SsoFlowStore>();
+        builder.Services.AddSingleton<ReadyStackGo.API.Endpoints.Sso.SsoSetupSessionStore>();
+        builder.Services.AddSingleton<ReadyStackGo.API.Endpoints.Sso.WizardSsoRunStore>();
+        builder.Services.AddScoped<ReadyStackGo.API.Endpoints.Sso.SsoSetupService>();
+        builder.Services.AddScoped<ReadyStackGo.API.Endpoints.Sso.WizardSsoService>();
 
         // Health Collector Background Service (v0.11)
         builder.Services.Configure<HealthCollectorOptions>(
@@ -321,6 +343,7 @@ public class Program
         });
 
         await app.RunAsync();
+        return 0;
     }
 
     /// <summary>

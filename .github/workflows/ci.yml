@@ -76,6 +76,26 @@ jobs:
         working-directory: src/ReadyStackGo.WebUi
         run: pnpm run build
 
+      # Single sign-on against the container with the test identity provider (plan
+      # docs/plans/identity-provider-vorlagen.md E29). Never calls WYSCH.
+      - name: Install Playwright Chromium
+        working-directory: src/ReadyStackGo.WebUi
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Single sign-on browser test
+        run: bash scripts/sso-e2e.sh
+
+      - name: Upload single sign-on browser test report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: sso-e2e-report
+          path: |
+            src/ReadyStackGo.WebUi/playwright-report/
+            src/ReadyStackGo.WebUi/test-results/
+            sso-e2e-containers.log
+          retention-days: 7
+
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()

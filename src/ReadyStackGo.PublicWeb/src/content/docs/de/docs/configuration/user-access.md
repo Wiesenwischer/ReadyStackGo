@@ -16,7 +16,7 @@ Sign-On (SSO) über generische OIDC-Provider** (OpenID Connect).
 | Admin-Einladung | Administrator lädt eine E-Mail-Adresse mit einer Rolle ein |
 | E-Mail-Verifikation | Der Einladungslink ist der Besitznachweis; eigene Adresse später bestätigbar |
 | Login per E-Mail oder Username | Beide Kennungen funktionieren, abwärtskompatibel |
-| Single Sign-On (OIDC) | Anmeldung über externe Identity-Provider (z. B. IdentityAccess, Keycloak) |
+| Single Sign-On | Anmeldung mit WYSCH oder jedem OpenID-Connect-Anbieter (z. B. Keycloak) |
 
 :::note[Voraussetzung]
 Einladungen und Verifikations-Mails benötigen einen konfigurierten **SMTP-Server**.
@@ -88,22 +88,15 @@ Adresse später bestätigen, sobald SMTP eingerichtet ist.
 
 ---
 
-## Single Sign-On (OIDC)
+## Single Sign-On
 
-Unter **Settings → Single Sign-On (OIDC)** konfigurieren Sie einen oder mehrere generische
-OpenID-Connect-Provider. Pro Provider werden Name, Anzeigename, Authority (Issuer-URL),
-Client-ID, Client-Secret und Scopes hinterlegt.
-
-![OIDC-Einstellungen](/images/docs/auth-04-oidc-settings.png)
-
-Aktivierte Provider erscheinen als Schaltfläche auf der Anmeldeseite. Nach erfolgreicher
-Anmeldung beim Provider stellt ReadyStackGo ein eigenes Session-Token aus.
+Unter **Settings → Single Sign-On** fügen Sie Identity Provider in einem geführten Einrichtungslauf hinzu: **WYSCH** wird verbunden, ohne Client-ID oder Secret abzutippen, jeder andere OpenID-Connect-Anbieter funktioniert über **Generic OIDC**. Jeder Provider wird getestet, bevor er sich einschalten lässt, und eingeschaltete Provider erscheinen als Schaltfläche mit ihrem Symbol auf der Anmeldeseite.
 
 :::caution[Nur eingeladene oder bekannte Identitäten]
-Ein OIDC-Login funktioniert ausschließlich, wenn bereits ein Benutzer mit der zurückgelieferten
-E-Mail-Adresse existiert **oder** eine offene Einladung für diese Adresse vorliegt. Unbekannte
-Identitäten werden abgewiesen (kein automatisches Anlegen).
+Eine Single-Sign-On-Anmeldung funktioniert nur für bestehende Benutzer oder offene Einladungen. Über die E-Mail-Adresse wird nur zugeordnet, wenn der Anbieter sie bestätigt hat, außer **Trust unverified email addresses** ist für diesen Provider eingeschaltet. Unbekannte Identitäten werden abgewiesen (kein automatisches Anlegen).
 :::
+
+Details: [Single Sign-On](/de/docs/configuration/single-sign-on/).
 
 ---
 

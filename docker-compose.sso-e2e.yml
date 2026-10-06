@@ -1,0 +1,57 @@
+# Browser test of single sign-on (scripts/sso-e2e.sh, plan docs/plans/identity-provider-vorlagen.md E29).
+# Adds the test identity provider and points the built-in template "wysch" at it:
+#   docker compose -f docker-compose.yml -f docker-compose.sso-e2e.yml up -d --build
+# The browser reaches the provider under the same issuer as the container ("test-idp"), because
+# Playwright maps the name to 127.0.0.1 (playwright.sso.config.ts). scripts/sso-e2e.sh waits for
+# /health of both services (the provider image has no curl for a compose health check).
+# The test needs a fresh installation, so it runs under its own container name and volumes and
+# never touches the volumes of a local development stack (rsgo-config, rsgo-data). It also uses its
+# own network: "rsgo-net" may already exist without compose labels (ReadyStackGo creates it as its
+# deployment network), and compose refuses to reuse such a network.
+services:
+  readystackgo:
+    container_name: rsgo-sso-e2e
+    # RSGO_SSO_E2E_PORT moves the stack off 8080 when a local stack uses it.
+    ports: !override
+      - "127.0.0.1:${RSGO_SSO_E2E_PORT:-8080}:8080"
+    environment:
+      - IdentityProviderTemplates__Path=/app/identity-provider-templates
+      # The SSO browser test walks through pairing and sign-in at the test provider.
+      - Wizard__TimeoutSeconds=900
+      - Wizard__SsoRunSeconds=900
+    volumes:
+      - rsgo-sso-e2e-config:/app/config
+      - rsgo-sso-e2e-data:/app/data
+      - rsgo-sso-e2e-git-cache:/root/.rsgo/git-cache
+      - ./src/ReadyStackGo.WebUi/e2e/test-data/identity-provider-templates:/app/identity-provider-templates:ro
+    depends_on:
+      - test-idp
+
+  test-idp:
+    build:
+      context: .
+      dockerfile: tests/ReadyStackGo.TestIdentityProvider/Dockerfile
+    image: rsgo-test-idp:e2e
+    container_name: rsgo-test-idp
+    ports:
+      - "9090:9090"
+    environment:
+      - Issuer=http://test-idp:9090/
+      # Static client for the template "Company SSO" (manual registration, provider name "company").
+      - Clients__0__ClientId=rsgo-manual
+      - Clients__0__ClientSecret=e2e-manual-secret
+      - Clients__0__RedirectUris__0=http://localhost:${RSGO_SSO_E2E_PORT:-8080}/api/auth/oidc/company/callback
+    networks:
+      - rsgo-net
+
+volumes:
+  rsgo-sso-e2e-config:
+    name: rsgo-sso-e2e-config
+  rsgo-sso-e2e-data:
+    name: rsgo-sso-e2e-data
+  rsgo-sso-e2e-git-cache:
+    name: rsgo-sso-e2e-git-cache
+
+networks:
+  rsgo-net:
+    name: rsgo-sso-e2e-net

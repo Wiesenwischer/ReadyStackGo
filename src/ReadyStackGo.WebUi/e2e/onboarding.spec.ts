@@ -27,8 +27,15 @@ test.describe('Initial Setup: Wizard & Onboarding', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // Should redirect to /wizard
+    // Should redirect to /wizard; the first step asks for the sign-in method (built-in or WYSCH).
     await expect(page).toHaveURL(/\/wizard/);
+    const builtIn = page.getByTestId('sign-in-option-built-in');
+    // Wait for either the method step or the admin form (no template offered), then decide.
+    await expect(builtIn.or(page.getByText('Create Admin Account'))).toBeVisible();
+    if (await builtIn.isVisible()) {
+      await builtIn.click();
+      await page.getByRole('button', { name: /^Continue$/ }).click();
+    }
     await expect(page.getByText('Create Admin Account')).toBeVisible();
 
     // Screenshot: Wizard admin creation page
@@ -38,7 +45,8 @@ test.describe('Initial Setup: Wizard & Onboarding', () => {
     });
 
     // Fill and submit admin credentials
-    await page.getByPlaceholder('admin').fill('admin');
+    await page.getByPlaceholder('admin', { exact: true }).fill('admin');
+    await page.getByPlaceholder('admin@example.com').fill('admin@example.com');
     await page.getByPlaceholder('Enter a strong password').fill('Admin1234');
     await page.getByPlaceholder('Re-enter your password').fill('Admin1234');
 
@@ -48,6 +56,10 @@ test.describe('Initial Setup: Wizard & Onboarding', () => {
     });
 
     await page.getByRole('button', { name: 'Continue' }).click();
+
+    // The optional email step follows the admin step.
+    await expect(page.getByRole('heading', { name: /Configure email/ })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole('button', { name: 'Skip for now' }).click();
 
     // Should redirect to onboarding
     await page.waitForURL(/\/onboarding/, { timeout: 15_000 });
@@ -99,24 +111,21 @@ test.describe('Initial Setup: Wizard & Onboarding', () => {
 
     // === ONBOARDING STEP 4: Container Registries ===
 
-    // Wait for registries step to appear and detect registries
-    await page.waitForTimeout(5000);
+    // Wait for the step and for the registry checks: "Skip for now" (registries found) or
+    // "Continue" (none found) becomes enabled.
+    await expect(page.getByText('Step 4 of 5')).toBeVisible({ timeout: 15_000 });
+    const leaveRegistries = page
+      .getByRole('button', { name: 'Skip for now' })
+      .or(page.getByRole('button', { name: 'Continue', exact: true }))
+      .first();
+    await expect(leaveRegistries).toBeEnabled({ timeout: 30_000 });
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'onboarding-06-registries.png'),
       fullPage: false
     });
 
-    // Try to skip or continue past registries
-    const skipBtn = page.getByRole('button', { name: /skip for now/i });
-    const continueBtn = page.getByRole('button', { name: /continue/i });
-    if (await skipBtn.isVisible().catch(() => false)) {
-      await skipBtn.click();
-    } else if (await continueBtn.isVisible().catch(() => false)) {
-      await continueBtn.click();
-    }
-    await page.waitForTimeout(3000);
-
+    await leaveRegistries.click();
 
     // === ONBOARDING STEP 5: Completion ===
 
@@ -135,7 +144,7 @@ test.describe('Initial Setup: Wizard & Onboarding', () => {
     await page.waitForURL(/\/(dashboard)?$/, { timeout: 15_000 });
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('Dashboard')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({ timeout: 15_000 });
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'onboarding-08-dashboard.png'),

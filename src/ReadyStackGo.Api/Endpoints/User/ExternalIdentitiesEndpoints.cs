@@ -1,5 +1,7 @@
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
+using ReadyStackGo.Application.Services.IdentityProviders;
+using ReadyStackGo.Application.Services.Oidc;
 using ReadyStackGo.Domain.IdentityAccess.Users;
 using ReadyStackGo.Infrastructure.Security.Authentication;
 
@@ -9,6 +11,12 @@ public class ExternalIdentityDto
 {
     public string Provider { get; set; } = string.Empty;
     public DateTime LinkedAt { get; set; }
+
+    /// <summary>Display name of the provider (falls back to the provider name if it was removed).</summary>
+    public string DisplayName { get; set; } = string.Empty;
+
+    /// <summary>Icon of the provider's template, or null.</summary>
+    public string? IconUrl { get; set; }
 }
 
 /// <summary>
@@ -17,10 +25,14 @@ public class ExternalIdentityDto
 public class ListExternalIdentitiesEndpoint : EndpointWithoutRequest<List<ExternalIdentityDto>>
 {
     private readonly IUserRepository _userRepository;
+    private readonly IOidcSettingsService _settings;
+    private readonly IIdentityProviderTemplateCatalog _templates;
 
-    public ListExternalIdentitiesEndpoint(IUserRepository userRepository)
+    public ListExternalIdentitiesEndpoint(IUserRepository userRepository, IOidcSettingsService settings, IIdentityProviderTemplateCatalog templates)
     {
         _userRepository = userRepository;
+        _settings = settings;
+        _templates = templates;
     }
 
     public override void Configure()
@@ -29,19 +41,30 @@ public class ListExternalIdentitiesEndpoint : EndpointWithoutRequest<List<Extern
         Description(b => b.WithTags("User"));
     }
 
-    public override Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(CancellationToken ct)
     {
         var user = CurrentUser(_userRepository, HttpContext);
         if (user == null)
         {
             HttpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            return Task.CompletedTask;
+            return;
         }
 
+        var providers = await _settings.GetAllAsync(ct);
         Response = user.ExternalIdentities
-            .Select(e => new ExternalIdentityDto { Provider = e.Provider, LinkedAt = e.LinkedAt })
+            .Select(e =>
+            {
+                var provider = providers.FirstOrDefault(p => string.Equals(p.Name, e.Provider, StringComparison.OrdinalIgnoreCase));
+                var template = provider == null ? null : _templates.GetTemplate(provider.Template);
+                return new ExternalIdentityDto
+                {
+                    Provider = e.Provider,
+                    LinkedAt = e.LinkedAt,
+                    DisplayName = string.IsNullOrWhiteSpace(provider?.DisplayName) ? e.Provider : provider.DisplayName,
+                    IconUrl = template is { HasIcon: true } ? $"/api/identity-provider-templates/{template.Id}/icon" : null
+                };
+            })
             .ToList();
-        return Task.CompletedTask;
     }
 
     internal static Domain.IdentityAccess.Users.User? CurrentUser(IUserRepository repo, HttpContext ctx)
