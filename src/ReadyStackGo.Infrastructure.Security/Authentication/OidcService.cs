@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.IdentityModel.Tokens.Jwt;
+using System.Net;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
@@ -9,18 +11,26 @@ using ReadyStackGo.Application.Services.Oidc;
 namespace ReadyStackGo.Infrastructure.Security.Authentication;
 
 /// <summary>
-/// Generic OIDC authorization-code + PKCE client. Uses each provider's discovery document
-/// for endpoints and signing keys, and issues no session of its own — the caller mints the
-/// ReadyStackGo JWT after a successful exchange.
+/// Generic OIDC authorization-code + PKCE client with pushed authorization requests
+/// (RFC 9126). Uses each provider's discovery document for endpoints and signing keys, and
+/// issues no session of its own — the caller mints the ReadyStackGo JWT after a successful
+/// exchange. All HTTP goes through the named client <see cref="IOidcService.HttpClientName"/>.
 /// </summary>
 public class OidcService : IOidcService
 {
-    private static readonly HttpClient HttpClient = new();
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<OidcService> _logger;
 
-    // One cached discovery manager per authority (refreshes signing keys automatically).
+    // One cached discovery manager per metadata address (refreshes signing keys automatically).
     private readonly ConcurrentDictionary<string, ConfigurationManager<OpenIdConnectConfiguration>> _configManagers = new();
 
-    public async Task<string> BuildAuthorizeUrlAsync(
+    public OidcService(IHttpClientFactory httpClientFactory, ILogger<OidcService> logger)
+    {
+        _httpClientFactory = httpClientFactory;
+        _logger = logger;
+    }
+
+    public async Task<OidcAuthorizeResult> BuildAuthorizeUrlAsync(
         OidcProviderSettings provider,
         string redirectUri,
         string state,
@@ -28,9 +38,13 @@ public class OidcService : IOidcService
         string codeChallenge,
         CancellationToken cancellationToken = default)
     {
-        var config = await GetConfigurationAsync(provider, cancellationToken);
+        var discovery = await GetConfigurationAsync(provider, cancellationToken);
+        if (discovery.Configuration is not { } config)
+        {
+            return OidcAuthorizeResult.Failure(discovery.Error!, discovery.Description);
+        }
 
-        var query = new Dictionary<string, string?>
+        var parameters = new Dictionary<string, string>
         {
             ["client_id"] = provider.ClientId,
             ["response_type"] = "code",
@@ -42,14 +56,35 @@ public class OidcService : IOidcService
             ["code_challenge_method"] = "S256"
         };
 
-        var queryString = string.Join("&", query
-            .Where(kvp => kvp.Value != null)
-            .Select(kvp => $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value!)}"));
+        var usePar = provider.RequirePar || config.RequirePushedAuthorizationRequests;
+        if (!usePar)
+        {
+            return OidcAuthorizeResult.Success($"{config.AuthorizationEndpoint}?{ToQuery(parameters)}");
+        }
 
-        return $"{config.AuthorizationEndpoint}?{queryString}";
+        if (string.IsNullOrEmpty(config.PushedAuthorizationRequestEndpoint))
+        {
+            return OidcAuthorizeResult.Failure(
+                OidcErrorCodes.ParNotSupported,
+                "Pushed authorization requests are required, but the provider offers no PAR endpoint.");
+        }
+
+        var par = await PushAuthorizationRequestAsync(
+            config.PushedAuthorizationRequestEndpoint, provider, parameters, cancellationToken);
+        if (par.RequestUri == null)
+        {
+            return OidcAuthorizeResult.Failure(par.Error!, par.Description);
+        }
+
+        var query = ToQuery(new Dictionary<string, string>
+        {
+            ["client_id"] = provider.ClientId,
+            ["request_uri"] = par.RequestUri
+        });
+        return OidcAuthorizeResult.Success($"{config.AuthorizationEndpoint}?{query}");
     }
 
-    public async Task<OidcUserInfo?> ExchangeCodeAsync(
+    public async Task<OidcExchangeResult> ExchangeCodeAsync(
         OidcProviderSettings provider,
         string code,
         string redirectUri,
@@ -57,7 +92,11 @@ public class OidcService : IOidcService
         string expectedNonce,
         CancellationToken cancellationToken = default)
     {
-        var config = await GetConfigurationAsync(provider, cancellationToken);
+        var discovery = await GetConfigurationAsync(provider, cancellationToken);
+        if (discovery.Configuration is not { } config)
+        {
+            return OidcExchangeResult.Failure(discovery.Error!, discovery.Description);
+        }
 
         var form = new Dictionary<string, string>
         {
@@ -72,27 +111,45 @@ public class OidcService : IOidcService
             form["client_secret"] = provider.ClientSecret;
         }
 
-        using var response = await HttpClient.PostAsync(
-            config.TokenEndpoint,
-            new FormUrlEncodedContent(form),
-            cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
+        string json;
+        try
         {
-            return null;
+            using var response = await CreateClient().PostAsync(
+                config.TokenEndpoint, new FormUrlEncodedContent(form), cancellationToken);
+            json = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var (error, description) = ReadError(json);
+                if ((int)response.StatusCode >= 500)
+                {
+                    return OidcExchangeResult.Failure(OidcErrorCodes.Unreachable, $"The token endpoint answered {(int)response.StatusCode}.");
+                }
+                return OidcExchangeResult.Failure(
+                    error == "invalid_client" ? OidcErrorCodes.InvalidClient : OidcErrorCodes.Rejected,
+                    description ?? error);
+            }
+        }
+        catch (Exception ex) when (IsNetworkError(ex, cancellationToken))
+        {
+            _logger.LogWarning(ex, "OIDC provider {Provider}: token endpoint not reachable", provider.Name);
+            return OidcExchangeResult.Failure(OidcErrorCodes.Unreachable, "The token endpoint could not be reached.");
         }
 
-        var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("id_token", out var idTokenElement))
+        string? idToken;
+        try
         {
-            return null;
+            using var doc = JsonDocument.Parse(json);
+            idToken = doc.RootElement.TryGetProperty("id_token", out var element) ? element.GetString() : null;
+        }
+        catch (JsonException)
+        {
+            return OidcExchangeResult.Failure(OidcErrorCodes.InvalidToken, "The token response is not valid JSON.");
         }
 
-        var idToken = idTokenElement.GetString();
         if (string.IsNullOrEmpty(idToken))
         {
-            return null;
+            return OidcExchangeResult.Failure(OidcErrorCodes.InvalidToken, "The token response contains no id_token.");
         }
 
         var handler = new JwtSecurityTokenHandler { MapInboundClaims = false };
@@ -113,42 +170,158 @@ public class OidcService : IOidcService
             var principal = handler.ValidateToken(idToken, validationParameters, out _);
 
             // Replay protection: the nonce must match the one we sent in the challenge.
-            var nonce = principal.FindFirst("nonce")?.Value;
-            if (nonce != expectedNonce)
+            if (principal.FindFirst("nonce")?.Value != expectedNonce)
             {
-                return null;
+                return OidcExchangeResult.Failure(OidcErrorCodes.InvalidToken, "The nonce of the id token does not match.");
             }
 
             var subject = principal.FindFirst("sub")?.Value;
             if (string.IsNullOrEmpty(subject))
             {
-                return null;
+                return OidcExchangeResult.Failure(OidcErrorCodes.InvalidToken, "The id token has no subject.");
             }
 
-            var email = principal.FindFirst("email")?.Value;
-            var emailVerified = string.Equals(
-                principal.FindFirst("email_verified")?.Value, "true", StringComparison.OrdinalIgnoreCase);
+            string? Claim(string name) =>
+                principal.FindFirst(name)?.Value is { Length: > 0 } value ? value : null;
 
-            return new OidcUserInfo(subject, email, emailVerified);
+            var emailVerified = string.Equals(principal.FindFirst("email_verified")?.Value, "true", StringComparison.OrdinalIgnoreCase);
+
+            return OidcExchangeResult.Success(new OidcUserInfo(
+                subject,
+                Claim(provider.Claims.Email),
+                emailVerified,
+                Claim(provider.Claims.Username),
+                Claim(provider.Claims.DisplayName)));
         }
-        catch
+        catch (Exception ex) when (ex is SecurityTokenException or ArgumentException)
         {
-            return null;
+            _logger.LogWarning(ex, "OIDC provider {Provider}: id token rejected", provider.Name);
+            return OidcExchangeResult.Failure(OidcErrorCodes.InvalidToken, "The id token could not be validated.");
         }
     }
 
-    private async Task<OpenIdConnectConfiguration> GetConfigurationAsync(
+    private async Task<ParResult> PushAuthorizationRequestAsync(
+        string endpoint,
         OidcProviderSettings provider,
+        Dictionary<string, string> parameters,
         CancellationToken cancellationToken)
     {
-        var metadataAddress = $"{provider.Authority.TrimEnd('/')}/.well-known/openid-configuration";
+        var form = new Dictionary<string, string>(parameters);
+        if (!string.IsNullOrEmpty(provider.ClientSecret))
+        {
+            form["client_secret"] = provider.ClientSecret;
+        }
+
+        try
+        {
+            using var response = await CreateClient().PostAsync(endpoint, new FormUrlEncodedContent(form), cancellationToken);
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("request_uri", out var requestUri) &&
+                        requestUri.GetString() is { Length: > 0 } value)
+                    {
+                        return new ParResult(value, null, null);
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Fall through to the error below.
+                }
+                return new ParResult(null, OidcErrorCodes.Rejected, "The PAR endpoint returned no request_uri.");
+            }
+
+            if ((int)response.StatusCode >= 500)
+            {
+                return new ParResult(null, OidcErrorCodes.Unreachable, $"The PAR endpoint answered {(int)response.StatusCode}.");
+            }
+
+            var (error, description) = ReadError(json);
+            return new ParResult(
+                null,
+                error == "invalid_client" || response.StatusCode == HttpStatusCode.Unauthorized
+                    ? OidcErrorCodes.InvalidClient
+                    : OidcErrorCodes.Rejected,
+                description ?? error);
+        }
+        catch (Exception ex) when (IsNetworkError(ex, cancellationToken))
+        {
+            _logger.LogWarning(ex, "OIDC provider {Provider}: PAR endpoint not reachable", provider.Name);
+            return new ParResult(null, OidcErrorCodes.Unreachable, "The PAR endpoint could not be reached.");
+        }
+    }
+
+    private async Task<DiscoveryResult> GetConfigurationAsync(OidcProviderSettings provider, CancellationToken cancellationToken)
+    {
+        var metadataAddress = DiscoveryAddress(provider.Authority);
 
         var manager = _configManagers.GetOrAdd(metadataAddress, address =>
             new ConfigurationManager<OpenIdConnectConfiguration>(
                 address,
                 new OpenIdConnectConfigurationRetriever(),
-                new HttpDocumentRetriever(HttpClient) { RequireHttps = false }));
+                new HttpDocumentRetriever(CreateClient()) { RequireHttps = false }));
 
-        return await manager.GetConfigurationAsync(cancellationToken);
+        try
+        {
+            return new DiscoveryResult(await manager.GetConfigurationAsync(cancellationToken), null, null);
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            // A failed fetch must not stick: the next call retries.
+            _configManagers.TryRemove(metadataAddress, out _);
+            var unreachable = HasInner<HttpRequestException>(ex) || HasInner<TaskCanceledException>(ex) || HasInner<IOException>(ex);
+            _logger.LogWarning(ex, "OIDC provider {Provider}: discovery {Address} failed", provider.Name, metadataAddress);
+            return unreachable
+                ? new DiscoveryResult(null, OidcErrorCodes.Unreachable, "The provider could not be reached.")
+                : new DiscoveryResult(null, OidcErrorCodes.InvalidDiscovery, "The discovery document could not be read.");
+        }
     }
+
+    internal static string DiscoveryAddress(string authority) =>
+        $"{authority.TrimEnd('/')}/.well-known/openid-configuration";
+
+    private HttpClient CreateClient() => _httpClientFactory.CreateClient(IOidcService.HttpClientName);
+
+    private static string ToQuery(Dictionary<string, string> parameters) =>
+        string.Join("&", parameters.Select(kvp => $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value)}"));
+
+    private static (string? Error, string? Description) ReadError(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            return (
+                root.TryGetProperty("error", out var error) ? error.GetString() : null,
+                root.TryGetProperty("error_description", out var description) ? description.GetString() : null);
+        }
+        catch (JsonException)
+        {
+            return (null, null);
+        }
+    }
+
+    private static bool IsNetworkError(Exception ex, CancellationToken cancellationToken) =>
+        ex is HttpRequestException or IOException ||
+        (ex is TaskCanceledException && !cancellationToken.IsCancellationRequested);
+
+    private static bool HasInner<T>(Exception ex) where T : Exception
+    {
+        for (var current = ex; current != null; current = current.InnerException)
+        {
+            if (current is T)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private sealed record DiscoveryResult(OpenIdConnectConfiguration? Configuration, string? Error, string? Description);
+
+    private sealed record ParResult(string? RequestUri, string? Error, string? Description);
 }

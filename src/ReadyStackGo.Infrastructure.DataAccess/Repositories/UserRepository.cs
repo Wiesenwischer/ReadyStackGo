@@ -52,6 +52,28 @@ public class UserRepository : IUserRepository
             .FirstOrDefault(u => u.Email.Value == emailValue);
     }
 
+    public User? FindByExternalIdentity(string provider, string subject)
+    {
+        var normalizedProvider = provider.ToLowerInvariant();
+        return _context.Users
+            .FirstOrDefault(u => u.ExternalIdentities.Any(e => e.Provider == normalizedProvider && e.Subject == subject));
+    }
+
+    public int RemoveExternalIdentitiesOfProvider(string provider)
+    {
+        var normalizedProvider = provider.ToLowerInvariant();
+        var users = _context.Users
+            .Where(u => u.ExternalIdentities.Any(e => e.Provider == normalizedProvider))
+            .ToList();
+
+        var removed = users.Count(u => u.RemoveExternalIdentityOfRemovedProvider(normalizedProvider));
+        if (removed > 0)
+        {
+            _context.SaveChanges();
+        }
+        return removed;
+    }
+
     public IEnumerable<User> GetAll()
     {
         return _context.Users.ToList();

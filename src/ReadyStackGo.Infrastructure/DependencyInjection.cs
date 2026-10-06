@@ -80,6 +80,13 @@ public static class DependencyInjection
         services.Configure<ThemeOptions>(configuration.GetSection(ThemeOptions.SectionName));
         services.AddSingleton<IThemeCatalog, ThemeCatalog>();
 
+        // Identity provider templates (embedded built-ins plus optional operator directory
+        // IdentityProviderTemplates:Path)
+        services.Configure<Services.IdentityProviders.IdentityProviderTemplateOptions>(
+            configuration.GetSection(Services.IdentityProviders.IdentityProviderTemplateOptions.SectionName));
+        services.AddSingleton<Application.Services.IdentityProviders.IIdentityProviderTemplateCatalog,
+            Services.IdentityProviders.IdentityProviderTemplateCatalog>();
+
         // Image Reference Extraction (v0.25)
         services.AddSingleton<IImageReferenceExtractor, ImageReferenceExtractor>();
 

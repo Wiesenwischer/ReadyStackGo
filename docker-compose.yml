@@ -42,6 +42,11 @@ services:
       # - Themes__Path=/app/themes
       # - Themes__Enabled=turquoise,classic
       # - Themes__Default=turquoise   # empty: turquoise for new, classic for older installations
+      # Identity provider templates (optional, see docs/Architecture/Identity-Provider-Templates.md).
+      # Mount a directory with additional templates to /app/identity-provider-templates,
+      # e.g. "./identity-provider-templates:/app/identity-provider-templates:ro".
+      # - IdentityProviderTemplates__Path=/app/identity-provider-templates
+      # - IdentityProviderTemplates__Enabled=wysch,generic-oidc
     restart: unless-stopped
     networks:
       - rsgo-net

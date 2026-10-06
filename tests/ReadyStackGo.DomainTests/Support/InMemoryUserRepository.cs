@@ -36,6 +36,18 @@ public class InMemoryUserRepository : IUserRepository
         return _users.Values.FirstOrDefault(u => u.Email == email);
     }
 
+    public User? FindByExternalIdentity(string provider, string subject)
+    {
+        var normalizedProvider = provider.ToLowerInvariant();
+        return _users.Values.FirstOrDefault(u =>
+            u.ExternalIdentities.Any(e => e.Provider == normalizedProvider && e.Subject == subject));
+    }
+
+    public int RemoveExternalIdentitiesOfProvider(string provider)
+    {
+        return _users.Values.Count(u => u.RemoveExternalIdentityOfRemovedProvider(provider));
+    }
+
     public IEnumerable<User> GetAll()
     {
         return _users.Values;
