@@ -127,7 +127,7 @@ dazu, ohne den Einrichtungslauf neu zu bauen.
 Neu oder geändert: der erste Wizard-Schritt (Anmeldeart), der WYSCH-Weg im Wizard, die Vorlagenauswahl und der
 Einrichtungslauf unter Settings › Single Sign-On, das Testergebnis, die Knöpfe auf der Anmeldeseite und „Set a local
 password“ im Profil. Verbindlich: Entwurf in `docs/specs/identity-provider-vorlagen/entwurf/` (freigegeben mit dem
-Merge von PR #PR_NUMMER). Richtung: die Kacheln der Theme-Auswahl
+Merge von PR #499). Richtung: die Kacheln der Theme-Auswahl
 unter Settings › Appearance (PR #489) und das bestehende Wizard-Layout. Das Symbol für WYSCH ist das WYSCH-Logo.
 
 ## Abnahme

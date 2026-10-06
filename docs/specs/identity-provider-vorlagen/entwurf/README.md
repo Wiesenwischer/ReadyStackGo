@@ -3,7 +3,7 @@
 - **Vorhaben:** #498 (Wiesenwischer/ReadyStackGo), Spezifikation `docs/specs/identity-provider-vorlagen.md`
 - **Figma-Datei:** „ReadyStackGo Design“, Key `RxVNdSKNs7PpJqkYgvb6a1` (aus `works/products/readystackgo.md`)
 - **Seiten:** „App“ (`2:99`) für alle Rahmen, „Components“ (`2:98`) für die neuen Komponenten
-- **Freigabe:** freigegeben mit dem Merge von PR #PR_NUMMER
+- **Freigabe:** freigegeben mit dem Merge von PR #499
 - **Gegenstück:** Wiesenwischer/WYSCH#170 (Spezifikation `docs/specs/client-kopplung.md` dort, Bestätigungsseite bei
   WYSCH); Entwurf dort: Wiesenwischer/WYSCH#171
 
