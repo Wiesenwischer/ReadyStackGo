@@ -46,9 +46,9 @@ Link-Muster: `https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=<a>-<b
 | Add provider, „Connect“ (dunkel) | vor der Kopplung | `177:5698` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=177-5698) | `sso-lauf-koppeln-dunkel.png` |
 | Add provider, „Connect“ | gekoppelt | `174:3829` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=174-3829) | `sso-lauf-gekoppelt.png` |
 | Add provider, „Register“ (manuell, Generic OIDC) | Redirect-URI kopiert, Client-ID und Secret | `174:4021` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=174-4021) | `sso-lauf-manuell.png` |
-| Add provider, „Save“ | Test bestanden | `176:4394` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=176-4394) | `sso-lauf-speichern.png` |
-| Add provider, „Save“ | ohne bestandenen Test, nur ausgeschaltet | `176:4615` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=176-4615) | `sso-lauf-speichern-ohne-test.png` |
-| Bestehender Provider (WYSCH) mit „Test“ und „Reconnect“ | Test zeigt abgelehnte Zugangsdaten | `176:4851` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=176-4851) | `sso-provider-wysch.png` |
+| Add provider, „Save“ | Test-Anmeldung bestanden | `176:4394` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=176-4394) | `sso-lauf-speichern.png` |
+| Add provider, „Save“ | ohne bestandene Prüfungen und Test-Anmeldung, nur ausgeschaltet | `176:4615` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=176-4615) | `sso-lauf-speichern-ohne-test.png` |
+| Bestehender Provider (WYSCH) mit „Test“ und „Reconnect“ | eigener Anmeldeweg ohne Passwort (Schutz vor Aussperren), Test zeigt abgelehnte Zugangsdaten | `176:4851` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=176-4851) | `sso-provider-wysch.png` |
 
 ### 3. Testergebnis
 
@@ -71,7 +71,7 @@ Link-Muster: `https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=<a>-<b
 
 | Oberfläche | Zustand | Node-ID | Link | Bild |
 |---|---|---|---|---|
-| Profile | einziger SystemAdmin ohne Passwort, „Set a local password“ | `177:4834` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=177-4834) | `profil-ohne-passwort.png` |
+| Profile | einziger SystemAdmin ohne Passwort, „Set a local password“, „Unlink“ gesperrt | `177:4834` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=177-4834) | `profil-ohne-passwort.png` |
 | Profile (dunkel) | wie oben | `177:5913` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=177-5913) | `profil-ohne-passwort-dunkel.png` |
 
 ## Komponenten (Seite „Components“)
@@ -90,7 +90,7 @@ Neu angelegt, alle Farben an Variablen der Sammlung „Theme“ gebunden:
 | Alert | `169:309` | `Tone=Info` `169:278`, `Success` `169:286`, `Warning` `169:293`, `Error` `169:301`; Text `Title`, `Body`, Schalter `Show body` |
 | Input | `170:249` | `State=Default` `170:224`, `Focus` `170:229`, `Error` `170:234`, `Disabled` `170:239`, `Read-only` `170:244`; Text `Label`, `Value`, `Hint`, Schalter `Show hint`; Feld 44 hoch, Radius 10 |
 | Copy Field | `170:269` | `State=Default` `170:250`, `Copied` `170:260`; Wert in Monospace |
-| Toggle | `170:276` | `State=On` `170:270`, `Off` `170:272`, `Disabled` `170:274`; 40×22 |
+| Toggle | `170:276` | `State=On` `170:270`, `Off` `170:272`, `Disabled` `170:274`, `On Disabled` `227:239`; 40×22 |
 | Provider Button | `170:298` | `State=Default` `170:277`, `Hover` `170:284`, `Focus` `170:291`; Text `Label`, Instanztausch `Logo`; 48 hoch, Radius 10 |
 
 Neue Symbole im Rahmen „Icons“ (`3:2`), 24×24, Strich 2 wie die vorhandenen: `Icon/Key` `168:173`, `Icon/Lock`
@@ -169,15 +169,26 @@ Felder haben den Fokuszustand der Komponenten (Rahmen `focus/ring`, 2 px außen)
   PAR nicht angeboten, E-Mail unbestätigt, Benutzername fehlt.
 
 **Speichern**
-- Name (Kennung in der Route) und Anzeigename, Schalter „Enable provider“ (nur nach bestandenem Test bedienbar,
-  sonst gesperrt mit Erklärung und Knopf „Save disabled“), Schalter „Trust unverified email addresses“ (bei neuen
+- Name (Kennung in der Route) und Anzeigename, Schalter „Enable provider“ (nur nach bestandenen Prüfungen und
+  erfolgreicher Test-Anmeldung bedienbar, sonst gesperrt mit Erklärung und Knopf „Save disabled“), Schalter „Trust unverified email addresses“ (bei neuen
   Providern aus) und eine Vorschau des Knopfs auf der Anmeldeseite.
 
 **Anmeldeseite:** Aufbau wie heute; die Provider-Knöpfe zeigen das Symbol der Vorlage links vom Text
 „Sign in with <Anzeigename>“ (Generic OIDC: Schlüssel). Die rechte Hälfte nutzt `nav/bg` im dunklen Modus.
 
 **Profil:** Hat der Benutzer kein lokales Passwort, ersetzt die Karte „Set a local password“ die Karte „Change
-Password“ (ohne Feld „Current Password“); „Account Information“ zeigt „Password: Not set“.
+Password“ (ohne Feld „Current Password“); „Account Information“ zeigt „Password: Not set“. „Unlink“ ist gesperrt,
+solange der Benutzer kein lokales Passwort hat, mit dem Hinweis darunter, erst ein Passwort zu setzen (Marcus im Chat,
+06.10.2026).
+
+**Schutz vor Aussperren** (Marcus im Chat, 06.10.2026: „Es muss sichergestellt sein, dass man sich nicht aussperrt“)
+- Einschalten lässt sich ein Provider erst nach bestandenen Prüfungen **und** einer erfolgreichen Test-Anmeldung.
+- Meldet sich der aktuelle Benutzer nur über diesen Provider an (kein lokales Passwort), zeigt die Seite des Providers
+  eine Warnung; „Enable provider“ ist eingeschaltet und gesperrt (`Toggle` `On Disabled`), „Remove provider“ ist
+  gesperrt.
+- Neue Zugangsdaten aus „Reconnect“ und geänderte Einstellungen eines solchen Providers gelten erst nach einer
+  erfolgreichen Test-Anmeldung; bis dahin bleiben die alten Einstellungen aktiv.
+- „Unlink“ im Profil ist ohne lokales Passwort gesperrt (siehe Profil).
 
 ## Festlegungen, die die Spezifikation nicht vorgibt
 
@@ -186,8 +197,9 @@ Password“ (ohne Feld „Current Password“); „Account Information“ zeigt 
 - Gesperrte Kopplung mit Hinweis bei Adressen ohne `https` — aus der Entscheidung im Issue #498 (06.10.2026).
 - Countdown des Wizards im Wartezustand und im Ergebnis ausgeblendet (der Lauf gilt bis 15 Minuten) — Vorschlag im
   Entwurf.
-- „Enable provider“ setzt voraus, dass alle Prüfungen ohne Anmeldung bestanden sind; die Test-Anmeldung ist empfohlen,
-  aber nicht Pflicht — Vorschlag im Entwurf, siehe offene Fragen.
+- „Enable provider“ verlangt bestandene Prüfungen und eine erfolgreiche Test-Anmeldung; Schutz vor Aussperren wie oben
+  — Marcus im Chat, 06.10.2026.
+- „Unlink“ ohne lokales Passwort gesperrt — Marcus im Chat, 06.10.2026.
 - Die Liste zeigt das letzte Testergebnis je Provider — Vorschlag im Entwurf.
 - Beispielbefehl für den Notzugang `docker compose exec readystackgo rsgo admin set-password <username>` aus der
   Spezifikation; Name und Form legt der Plan fest, der Text folgt ihm.
@@ -204,10 +216,6 @@ Password“ (ohne Feld „Current Password“); „Account Information“ zeigt 
 
 ## Offene Fragen
 
-- **Test-Anmeldung als Pflicht?** Der Entwurf schaltet „Enable provider“ frei, sobald die Prüfungen ohne Anmeldung
-  bestanden sind. Soll zusätzlich die Test-Anmeldung verlangt werden? Vorschlag: nein, sie bleibt empfohlen.
 - **Widerruf erkennen** (offene Frage der Spezifikation): Der Entwurf zeigt auf der Seite des Providers, wie ein Test mit
   `invalid_client` auf „Reconnect“ hinweist. Ob ReadyStackGo das auch ohne Test (z. B. bei fehlgeschlagener Anmeldung)
   in der Liste anzeigt, bleibt offen.
-- **„Unlink“ ohne Passwort:** Darf der einzige SystemAdmin ohne lokales Passwort die Verknüpfung mit WYSCH lösen? Der
-  Entwurf zeigt „Unlink“ unverändert; Vorschlag: sperren mit dem Hinweis, erst ein Passwort zu setzen.
