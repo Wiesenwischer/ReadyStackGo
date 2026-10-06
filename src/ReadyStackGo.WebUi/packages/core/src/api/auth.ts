@@ -5,6 +5,8 @@ import { apiGet, apiPost } from './client';
 export interface OidcProviderDto {
   name: string;
   displayName: string;
+  /** Icon of the provider's template (SVG), or null (the UI shows a key). */
+  iconUrl?: string | null;
 }
 
 export async function getOidcProviders(): Promise<OidcProviderDto[]> {

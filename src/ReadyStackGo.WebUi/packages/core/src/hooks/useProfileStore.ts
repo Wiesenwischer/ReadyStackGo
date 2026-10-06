@@ -19,6 +19,8 @@ export interface UseProfileStoreReturn {
   setNewPassword: (value: string) => void;
   setConfirmPassword: (value: string) => void;
   changePassword: () => Promise<void>;
+  /** Reloads the profile (e.g. after a local password was set). */
+  reload: () => Promise<void>;
 
   // Computed
   roleLabel: string;
@@ -108,6 +110,7 @@ export function useProfileStore(): UseProfileStoreReturn {
     setNewPassword,
     setConfirmPassword,
     changePassword: changePasswordAction,
+    reload: loadProfile,
     roleLabel,
     canSubmitPasswordChange,
   };

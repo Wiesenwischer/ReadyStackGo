@@ -1,5 +1,8 @@
-import { useProfileStore } from '@rsgo/core';
+import { useState } from 'react';
+import { useProfileStore, type ExternalIdentityDto } from '@rsgo/core';
 import ConnectedAccounts from './ConnectedAccounts';
+import SetLocalPasswordCard from './SetLocalPasswordCard';
+import { Alert } from '../../components/ui/Alert';
 
 function formatDate(isoString?: string): string {
   if (!isoString) return "-";
@@ -14,6 +17,9 @@ function formatDate(isoString?: string): string {
 
 export default function Profile() {
   const store = useProfileStore();
+  const [identities, setIdentities] = useState<ExternalIdentityDto[]>([]);
+  const hasPassword = store.profile?.hasPassword ?? true;
+  const providerName = identities[0]?.displayName ?? 'single sign-on';
 
   const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,75 +30,99 @@ export default function Profile() {
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
       {/* Header */}
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-black dark:text-white">
+        <h2 className="text-[26px] font-bold leading-[34px] text-fg">
           Profile
         </h2>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <p className="mt-1 text-sm text-fg-secondary">
           Your account information and password management
         </p>
       </div>
 
       {store.isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
       ) : store.error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+        <div role="alert" className="rounded-xl border border-status-unhealthy/35 bg-status-unhealthy-bg px-4 py-3 text-sm text-fg">
           {store.error}
         </div>
       ) : (
         <div className="space-y-6">
+          {store.profile?.noAdminWithPassword && (
+            <Alert
+              tone="warning"
+              testId="no-password-warning"
+              title={
+                store.profile.systemAdminCount > 1
+                  ? 'No system administrator has a local password'
+                  : 'You are the only system administrator and have no local password'
+              }
+            >
+              You sign in with {providerName}. If {providerName} is unavailable, nobody can sign in. Set a local password below.
+            </Alert>
+          )}
+
           {/* Account Information */}
-          <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-            <div className="border-b border-gray-200 px-6 py-5 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <div className="rounded-2xl border border-line bg-surface">
+            <div className="border-b border-line px-6 py-[18px]">
+              <h3 className="text-[17px] font-semibold text-fg">
                 Account Information
               </h3>
             </div>
             <div className="px-6 py-5">
               <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <dt className="text-sm text-gray-500 dark:text-gray-400">
+                  <dt className="text-xs font-medium text-fg-muted">
                     Username
                   </dt>
-                  <dd className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                  <dd className="mt-1 text-sm text-fg">
                     {store.profile?.username}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm text-gray-500 dark:text-gray-400">
+                  <dt className="text-xs font-medium text-fg-muted">
                     Role
                   </dt>
                   <dd className="mt-1">
-                    <span className="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-900/20 dark:text-brand-400">
+                    <span className="inline-flex items-center rounded-full bg-primary-subtle px-2.5 py-0.5 text-xs font-medium text-fg-brand">
                       {store.roleLabel}
                     </span>
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm text-gray-500 dark:text-gray-400">
+                  <dt className="text-xs font-medium text-fg-muted">
                     Member since
                   </dt>
-                  <dd className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                  <dd className="mt-1 text-sm text-fg">
                     {formatDate(store.profile?.createdAt)}
                   </dd>
                 </div>
-                <div>
-                  <dt className="text-sm text-gray-500 dark:text-gray-400">
-                    Password last changed
-                  </dt>
-                  <dd className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-                    {formatDate(store.profile?.passwordChangedAt)}
-                  </dd>
-                </div>
+                {hasPassword ? (
+                  <div>
+                    <dt className="text-xs font-medium text-fg-muted">
+                      Password last changed
+                    </dt>
+                    <dd className="mt-1 text-sm text-fg">
+                      {formatDate(store.profile?.passwordChangedAt)}
+                    </dd>
+                  </div>
+                ) : (
+                  <div>
+                    <dt className="text-xs font-medium text-fg-muted">Password</dt>
+                    <dd className="mt-1 text-sm text-status-degraded" data-testid="password-not-set">
+                      Not set
+                    </dd>
+                  </div>
+                )}
               </dl>
             </div>
           </div>
 
-          {/* Change Password */}
-          <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-            <div className="border-b border-gray-200 px-6 py-5 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          {/* Change Password, or "Set a local password" for accounts without one */}
+          {hasPassword ? (
+          <div className="rounded-2xl border border-line bg-surface">
+            <div className="border-b border-line px-6 py-[18px]">
+              <h3 className="text-[17px] font-semibold text-fg">
                 Change Password
               </h3>
             </div>
@@ -101,7 +131,7 @@ export default function Profile() {
                 <div>
                   <label
                     htmlFor="currentPassword"
-                    className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    className="mb-1.5 block text-sm font-medium text-fg"
                   >
                     Current Password
                   </label>
@@ -111,13 +141,13 @@ export default function Profile() {
                     value={store.currentPassword}
                     onChange={(e) => store.setCurrentPassword(e.target.value)}
                     required
-                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-white"
+                    className="h-11 w-full rounded-[10px] border border-line-strong/55 bg-surface px-3.5 text-sm text-fg outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
                   />
                 </div>
                 <div>
                   <label
                     htmlFor="newPassword"
-                    className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    className="mb-1.5 block text-sm font-medium text-fg"
                   >
                     New Password
                   </label>
@@ -128,9 +158,9 @@ export default function Profile() {
                     onChange={(e) => store.setNewPassword(e.target.value)}
                     required
                     minLength={8}
-                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-white"
+                    className="h-11 w-full rounded-[10px] border border-line-strong/55 bg-surface px-3.5 text-sm text-fg outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
                   />
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  <p className="mt-1.5 text-xs text-fg-muted">
                     Minimum 8 characters with at least one uppercase letter, one
                     lowercase letter, and one digit.
                   </p>
@@ -138,7 +168,7 @@ export default function Profile() {
                 <div>
                   <label
                     htmlFor="confirmPassword"
-                    className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    className="mb-1.5 block text-sm font-medium text-fg"
                   >
                     Confirm New Password
                   </label>
@@ -149,18 +179,18 @@ export default function Profile() {
                     onChange={(e) => store.setConfirmPassword(e.target.value)}
                     required
                     minLength={8}
-                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-white"
+                    className="h-11 w-full rounded-[10px] border border-line-strong/55 bg-surface px-3.5 text-sm text-fg outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
                   />
                 </div>
 
                 {store.changeError && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+                  <div role="alert" className="rounded-xl border border-status-unhealthy/35 bg-status-unhealthy-bg px-4 py-3 text-sm text-fg">
                     {store.changeError}
                   </div>
                 )}
 
                 {store.changeSuccess && (
-                  <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400">
+                  <div role="status" className="rounded-xl border border-status-healthy/35 bg-status-healthy-bg px-4 py-3 text-sm text-fg">
                     {store.changeSuccess}
                   </div>
                 )}
@@ -168,11 +198,11 @@ export default function Profile() {
                 <button
                   type="submit"
                   disabled={!store.canSubmitPasswordChange}
-                  className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-primary px-[18px] text-sm font-semibold text-on-primary transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   {store.changing ? (
                     <>
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-on-primary border-t-transparent" />
                       Changing...
                     </>
                   ) : (
@@ -182,9 +212,16 @@ export default function Profile() {
               </form>
             </div>
           </div>
+          ) : (
+            <SetLocalPasswordCard
+              username={store.profile?.username ?? ''}
+              providerName={providerName}
+              onDone={store.reload}
+            />
+          )}
 
           {/* Connected accounts (OIDC) */}
-          <ConnectedAccounts />
+          <ConnectedAccounts hasPassword={hasPassword} onIdentities={setIdentities} />
         </div>
       )}
     </div>
