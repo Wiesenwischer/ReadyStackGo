@@ -111,6 +111,28 @@ Konvenienzbaustein für downstream Projekte — referenziert Domain, Application
 
 Später als NuGet-Package veröffentlichbar (`ReadyStackGo.Core`).
 
+### 5. Identity-Provider-Vorlagen und Notzugang
+
+Distributionen bringen eigene Vorlagen für Identity Provider mit (z. B. ams.Identity), indem sie ein Verzeichnis
+nach `/app/identity-provider-templates` legen oder `IdentityProviderTemplates:Path` setzen; eine Vorlage mit
+derselben Id ersetzt die eingebaute, `IdentityProviderTemplates:Enabled` schränkt ein. Siehe
+[Identity-Provider-Templates.md](Identity-Provider-Templates.md).
+
+Den Notzugang `rsgo admin set-password <username>` bekommt eine Distribution mit eigenem `Program.cs`, wenn sie am
+Anfang von `Main` den Aufruf übernimmt:
+
+```csharp
+if (ReadyStackGo.Infrastructure.CommandLine.AdminCommandLine.IsAdminCommand(args))
+{
+    var configuration = new ConfigurationBuilder()
+        .SetBasePath(AppContext.BaseDirectory)
+        .AddJsonFile("appsettings.json", optional: true)
+        .AddEnvironmentVariables()
+        .Build();
+    return await ReadyStackGo.Infrastructure.CommandLine.AdminCommandLine.RunAsync(args, configuration);
+}
+```
+
 ## Eigene Distribution erstellen
 
 ### 1. Projekt-Struktur

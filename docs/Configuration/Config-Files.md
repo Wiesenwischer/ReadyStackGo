@@ -19,6 +19,7 @@ With v0.6, the configuration was fundamentally revised:
 | `rsgo.tls.json` | TLS certificates and mode |
 | `rsgo.features.json` | Feature Flags |
 | `rsgo.release.json` | Installed stack version |
+| `rsgo.oidc.json` | Single sign-on providers |
 
 ### Removed Files (since v0.6)
 
@@ -134,6 +135,50 @@ Contains information about the installed stack version.
 
 ---
 
+## rsgo.oidc.json
+
+Single sign-on providers (OpenID Connect). Written by Settings › Single Sign-On and the setup wizard; client secrets
+are encrypted (`ICredentialEncryptionService`). Fields added with identity provider templates are optional, older
+entries read as "Generic OIDC" with "Trust unverified email addresses" on.
+
+```json
+{
+  "providers": [
+    {
+      "name": "wysch",
+      "displayName": "WYSCH",
+      "authority": "https://id.wysch.wiesenwischer.de/",
+      "clientId": "paired-…",
+      "encryptedClientSecret": "…",
+      "scopes": "openid profile email",
+      "enabled": true,
+      "template": "wysch",
+      "registration": "pairing",
+      "requirePar": true,
+      "claims": { "username": "preferred_username", "displayName": "nickname", "email": "email" },
+      "pairedAt": "2026-10-06T10:42:00Z",
+      "pairedBy": null,
+      "trustUnverifiedEmail": false,
+      "testedSignIn": { "at": "2026-10-06T10:43:00Z", "fingerprint": "…" },
+      "lastResult": { "at": "2026-10-06T10:43:00Z", "kind": "signIn", "passed": true, "message": null },
+      "reconnectNeeded": false
+    }
+  ]
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `name` | Id in routes and account links; fixed once created |
+| `template`, `registration`, `requirePar`, `claims` | Copied from the template when the provider was created (missing: `generic-oidc`, `manual`, `false`, standard claims) |
+| `pairedAt`, `pairedBy` | When and by whom the credentials were obtained through pairing |
+| `trustUnverifiedEmail` | Match by email even if the provider did not confirm it (missing: `true`) |
+| `testedSignIn` | Last passed test sign-in and the SHA-256 fingerprint of the connection it was made with |
+| `lastResult` | Last checks, test sign-in or sign-in result, shown in the provider list |
+| `reconnectNeeded` | The provider rejected the client of a paired provider (`invalid_client`) |
+
+---
+
 ## Storage Location
 
 All JSON files are located in the config volume:
@@ -143,7 +188,8 @@ All JSON files are located in the config volume:
 ├── rsgo.system.json
 ├── rsgo.tls.json
 ├── rsgo.features.json
-└── rsgo.release.json
+├── rsgo.release.json
+└── rsgo.oidc.json
 ```
 
 In the Docker container, this directory is typically mounted as a volume:

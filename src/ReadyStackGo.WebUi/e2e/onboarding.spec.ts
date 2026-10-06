@@ -27,8 +27,13 @@ test.describe('Initial Setup: Wizard & Onboarding', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // Should redirect to /wizard
+    // Should redirect to /wizard; the first step asks for the sign-in method (built-in or WYSCH).
     await expect(page).toHaveURL(/\/wizard/);
+    const builtIn = page.getByTestId('sign-in-option-built-in');
+    if (await builtIn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await builtIn.click();
+      await page.getByRole('button', { name: /^Continue$/ }).click();
+    }
     await expect(page.getByText('Create Admin Account')).toBeVisible();
 
     // Screenshot: Wizard admin creation page
@@ -38,7 +43,8 @@ test.describe('Initial Setup: Wizard & Onboarding', () => {
     });
 
     // Fill and submit admin credentials
-    await page.getByPlaceholder('admin').fill('admin');
+    await page.getByPlaceholder('admin', { exact: true }).fill('admin');
+    await page.getByPlaceholder('admin@example.com').fill('admin@example.com');
     await page.getByPlaceholder('Enter a strong password').fill('Admin1234');
     await page.getByPlaceholder('Re-enter your password').fill('Admin1234');
 

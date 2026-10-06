@@ -127,6 +127,11 @@ public class WizardSsoRun
             throw new InvalidOperationException("A run that signed in cannot fail.");
         }
         if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Reason is required.", nameof(reason));
+        if (State == WizardSsoRunState.Failed && FailureReason != null && WizardSsoFailure.IsFinal(FailureReason))
+        {
+            // A final failure (expired, completed elsewhere) stays; later errors do not hide it.
+            return;
+        }
 
         State = WizardSsoRunState.Failed;
         FailureReason = reason;

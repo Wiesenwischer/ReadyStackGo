@@ -1,10 +1,22 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SCREENSHOT_DIR = path.join(__dirname, '..', '..', 'ReadyStackGo.PublicWeb', 'public', 'images', 'docs');
+
+/**
+ * The wizard starts with "How do you want to sign in?" when an identity provider template is
+ * offered (built-in: WYSCH). These tests use the built-in sign-in.
+ */
+async function chooseBuiltInSignIn(page: Page) {
+  const option = page.getByTestId('sign-in-option-built-in');
+  if (await option.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await option.click();
+    await page.getByRole('button', { name: /^Continue$/ }).click();
+  }
+}
 
 /**
  * E2E Tests for Setup Wizard + Onboarding (v0.26)
@@ -29,19 +41,21 @@ test.describe('Setup Wizard - Pre-Setup Checks', () => {
     await page.waitForURL(/\/wizard/, { timeout: 5000 });
 
     await expect(page.getByRole('heading', { name: /Welcome to ReadyStackGo/i })).toBeVisible();
+    await chooseBuiltInSignIn(page);
     await expect(page.getByText('Create your admin account to get started')).toBeVisible();
   });
 
   test('should show admin creation form with all fields', async ({ page }) => {
     await page.goto('/wizard');
     await page.waitForLoadState('networkidle');
+    await chooseBuiltInSignIn(page);
 
     // Check heading and description
     await expect(page.getByRole('heading', { name: /Create Admin Account/i })).toBeVisible();
     await expect(page.getByText('This will be the primary administrator account for ReadyStackGo')).toBeVisible();
 
     // Check form fields by placeholder
-    await expect(page.getByPlaceholder('admin')).toBeVisible();
+    await expect(page.getByPlaceholder('admin', { exact: true })).toBeVisible();
     await expect(page.getByPlaceholder('Enter a strong password')).toBeVisible();
     await expect(page.getByPlaceholder('Re-enter your password')).toBeVisible();
 
@@ -62,13 +76,14 @@ test.describe('Setup Wizard - Pre-Setup Checks', () => {
   test('should validate short username', async ({ page }) => {
     await page.goto('/wizard');
     await page.waitForLoadState('networkidle');
+    await chooseBuiltInSignIn(page);
 
     // Disable HTML5 native validation so React validation fires
     await page.evaluate(() => {
       document.querySelector('form')?.setAttribute('novalidate', '');
     });
 
-    await page.getByPlaceholder('admin').fill('ab');
+    await page.getByPlaceholder('admin', { exact: true }).fill('ab');
     await page.getByPlaceholder('Enter a strong password').fill('ValidPassword123!');
     await page.getByPlaceholder('Re-enter your password').fill('ValidPassword123!');
     await page.getByRole('button', { name: /Continue/i }).click();
@@ -85,13 +100,15 @@ test.describe('Setup Wizard - Pre-Setup Checks', () => {
   test('should validate short password', async ({ page }) => {
     await page.goto('/wizard');
     await page.waitForLoadState('networkidle');
+    await chooseBuiltInSignIn(page);
 
     // Disable HTML5 native validation so React validation fires
     await page.evaluate(() => {
       document.querySelector('form')?.setAttribute('novalidate', '');
     });
 
-    await page.getByPlaceholder('admin').fill('testadmin');
+    await page.getByPlaceholder('admin', { exact: true }).fill('testadmin');
+    await page.getByPlaceholder('admin@example.com').fill('testadmin@example.com');
     await page.getByPlaceholder('Enter a strong password').fill('short');
     await page.getByPlaceholder('Re-enter your password').fill('short');
     await page.getByRole('button', { name: /Continue/i }).click();
@@ -102,8 +119,10 @@ test.describe('Setup Wizard - Pre-Setup Checks', () => {
   test('should validate password mismatch', async ({ page }) => {
     await page.goto('/wizard');
     await page.waitForLoadState('networkidle');
+    await chooseBuiltInSignIn(page);
 
-    await page.getByPlaceholder('admin').fill('testadmin');
+    await page.getByPlaceholder('admin', { exact: true }).fill('testadmin');
+    await page.getByPlaceholder('admin@example.com').fill('testadmin@example.com');
     await page.getByPlaceholder('Enter a strong password').fill('ValidPassword123!');
     await page.getByPlaceholder('Re-enter your password').fill('DifferentPassword456!');
     await page.getByRole('button', { name: /Continue/i }).click();
@@ -114,12 +133,13 @@ test.describe('Setup Wizard - Pre-Setup Checks', () => {
   test('should toggle password visibility', async ({ page }) => {
     await page.goto('/wizard');
     await page.waitForLoadState('networkidle');
+    await chooseBuiltInSignIn(page);
 
     const passwordInput = page.getByPlaceholder('Enter a strong password');
     await expect(passwordInput).toHaveAttribute('type', 'password');
 
     // Click the show/hide toggle button (eye icon)
-    await page.locator('button[type="button"]').first().click();
+    await passwordInput.locator('xpath=following-sibling::button').click();
 
     await expect(passwordInput).toHaveAttribute('type', 'text');
   });
@@ -128,10 +148,11 @@ test.describe('Setup Wizard - Pre-Setup Checks', () => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/wizard');
     await page.waitForLoadState('networkidle');
+    await chooseBuiltInSignIn(page);
 
     await expect(page.getByRole('heading', { name: /Welcome to ReadyStackGo/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: /Create Admin Account/i })).toBeVisible();
-    await expect(page.getByPlaceholder('admin')).toBeVisible();
+    await expect(page.getByPlaceholder('admin', { exact: true })).toBeVisible();
   });
 });
 
@@ -141,8 +162,10 @@ test.describe('Setup Wizard - Complete Flow with Onboarding', () => {
     await page.goto('/wizard');
     await page.evaluate(() => { localStorage.clear(); });
     await page.waitForLoadState('networkidle');
+    await chooseBuiltInSignIn(page);
 
-    await page.getByPlaceholder('admin').fill('admin');
+    await page.getByPlaceholder('admin', { exact: true }).fill('admin');
+    await page.getByPlaceholder('admin@example.com').fill('admin@example.com');
     await page.getByPlaceholder('Enter a strong password').fill('Admin1234');
     await page.getByPlaceholder('Re-enter your password').fill('Admin1234');
     await page.getByRole('button', { name: /Continue/i }).click();

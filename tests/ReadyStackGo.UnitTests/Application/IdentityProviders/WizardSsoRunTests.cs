@@ -120,6 +120,20 @@ public class WizardSsoRunTests
         run.FailureReason.Should().Be(WizardSsoFailure.Expired);
     }
 
+    [Theory]
+    [InlineData(WizardSsoFailure.Expired)]
+    [InlineData(WizardSsoFailure.CompletedElsewhere)]
+    public void Fail_AfterFinalFailure_KeepsFinalReason(string finalReason)
+    {
+        var run = NewRun();
+        run.Fail(finalReason);
+
+        run.Fail(WizardSsoFailure.Unreachable, "later error");
+
+        run.FailureReason.Should().Be(finalReason);
+        run.FailureDetail.Should().BeNull();
+    }
+
     #endregion
 
     #region Invalid transitions

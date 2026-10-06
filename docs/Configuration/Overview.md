@@ -34,8 +34,12 @@ Security and authentication configuration
 - Local admin users
 - Password hashes
 - JWT configuration
-- OIDC providers (future)
 - Roles and permissions
+
+### [`rsgo.oidc.json`](Config-Files.md#rsgo-oidc-json)
+Single sign-on providers (OpenID Connect), created from identity provider templates
+- Provider, authority, client ID, encrypted client secret, scopes
+- Template, registration kind (manual or pairing), test and sign-in results
 
 ### [`rsgo.tls.json`](Config-Files.md#rsgo-tls-json)
 TLS configuration
