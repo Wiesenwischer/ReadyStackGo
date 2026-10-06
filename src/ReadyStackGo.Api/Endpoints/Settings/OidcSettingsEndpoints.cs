@@ -319,6 +319,7 @@ public abstract class SetupSessionEndpointBase<TRequest> : Endpoint<TRequest> wh
             HasClientSecret = !string.IsNullOrEmpty(session.EncryptedClientSecret),
             PairedAt = session.PairedAt,
             PairedBy = session.PairedBy,
+            RegisteredInSession = session.RegisteredInSession,
             RegistrationError = session.RegistrationError,
             RegistrationErrorDescription = session.RegistrationErrorDescription,
             RegistrationPending = !string.IsNullOrEmpty(session.PendingRegistrationCode),

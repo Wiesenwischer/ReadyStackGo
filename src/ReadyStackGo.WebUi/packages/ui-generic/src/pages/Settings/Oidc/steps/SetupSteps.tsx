@@ -259,7 +259,7 @@ export function ConnectStep({ session, onSession, onNext, onBack, onCancel, reco
     }
   };
 
-  const connected = !!session.clientId && !session.registrationPending && !session.registrationError && !!session.pairedAt;
+  const connected = session.registeredInSession && !session.registrationPending && !session.registrationError;
 
   return (
     <>

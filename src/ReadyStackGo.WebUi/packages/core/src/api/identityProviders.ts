@@ -92,6 +92,8 @@ export interface SetupSessionDto {
   hasClientSecret: boolean;
   pairedAt?: string | null;
   pairedBy?: string | null;
+  /** Credentials were obtained by a registration in this session (connect or reconnect). */
+  registeredInSession: boolean;
   registrationError?: string | null;
   registrationErrorDescription?: string | null;
   /** The pairing came back with a code; complete the registration next. */

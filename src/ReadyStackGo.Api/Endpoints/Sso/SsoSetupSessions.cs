@@ -35,6 +35,9 @@ public class SsoSetupSession
     public DateTime? PairedAt { get; set; }
     public string? PairedBy { get; set; }
 
+    /// <summary>Credentials were obtained by a registration in this session (connect or reconnect).</summary>
+    public bool RegisteredInSession { get; set; }
+
     /// <summary>Result of the discovery checks of step "Provider address".</summary>
     public OidcCheckReport? Discovery { get; set; }
 

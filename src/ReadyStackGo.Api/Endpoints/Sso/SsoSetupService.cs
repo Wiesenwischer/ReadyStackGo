@@ -662,6 +662,7 @@ public class SsoSetupService
         session.EncryptedClientSecret = _encryption.Encrypt(client.ClientSecret);
         session.PairedAt = client.RegisteredAt;
         session.PairedBy = client.ConfirmedBy;
+        session.RegisteredInSession = true;
         session.RegistrationError = null;
         session.RegistrationErrorDescription = null;
         if (!string.IsNullOrEmpty(client.Issuer) && session.Authority == null)

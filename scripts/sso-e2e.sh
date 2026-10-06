@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Browser test of single sign-on against the container with the test identity provider
 # (plan docs/plans/identity-provider-vorlagen.md E29). Builds both images, starts them, waits
-# for /health, runs the Playwright project "sso" and always cleans up with "down -v".
+# for /health, runs the Playwright project "sso" and always cleans up. The stack runs as compose
+# project "rsgo-sso-e2e" with its own volumes; only those are removed, never the volumes of a
+# local development stack (docker-compose.yml names them rsgo-config and rsgo-data).
 #
 # Usage (repo root): scripts/sso-e2e.sh
 # Requires: Docker with compose, Node 22 + pnpm, Chromium for Playwright
@@ -9,15 +11,22 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-COMPOSE=(docker compose -f "$ROOT/docker-compose.yml" -f "$ROOT/docker-compose.sso-e2e.yml")
+COMPOSE=(docker compose -p rsgo-sso-e2e -f "$ROOT/docker-compose.yml" -f "$ROOT/docker-compose.sso-e2e.yml")
+VOLUMES=(rsgo-sso-e2e-config rsgo-sso-e2e-data rsgo-sso-e2e-git-cache)
+export RSGO_CONTAINER=rsgo-sso-e2e
+
+reset() {
+  "${COMPOSE[@]}" down --remove-orphans || true
+  docker volume rm -f "${VOLUMES[@]}" > /dev/null || true
+}
 
 cleanup() {
   "${COMPOSE[@]}" logs --no-color > "$ROOT/sso-e2e-containers.log" 2>&1 || true
-  "${COMPOSE[@]}" down -v --remove-orphans || true
+  reset
 }
 trap cleanup EXIT
 
-"${COMPOSE[@]}" down -v --remove-orphans || true
+reset
 "${COMPOSE[@]}" build
 "${COMPOSE[@]}" up -d readystackgo test-idp
 

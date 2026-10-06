@@ -62,7 +62,7 @@ export function canContinue(
     case "register":
       return !!input.clientId?.trim();
     case "connect":
-      return !!session?.clientId && !session.registrationPending && !session.registrationError;
+      return !!session?.registeredInSession && !session.registrationPending && !session.registrationError;
     case "test":
       return !!session?.clientId;
     case "save":
@@ -74,7 +74,7 @@ export function canContinue(
 export function initialStep(session: SetupSessionDto): SetupStepId {
   const steps = setupSteps(stepSourceOf(session)).map((s) => s.id);
   if (session.testSignIn || session.checks) return "test";
-  if (session.registrationPending || session.registrationError || session.clientId) {
+  if (session.registrationPending || session.registrationError || session.registeredInSession || (session.isNew && session.clientId)) {
     return steps.includes("connect") ? "connect" : "register";
   }
   if (steps.includes("provider") && !discoveryPassed(session.discovery)) return "provider";

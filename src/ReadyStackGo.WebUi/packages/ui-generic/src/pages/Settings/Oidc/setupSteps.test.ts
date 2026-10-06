@@ -31,6 +31,7 @@ const session = (overrides: Partial<SetupSessionDto> = {}): SetupSessionDto => (
   baseUrlConfigured: false,
   hasClientSecret: false,
   registrationPending: false,
+  registeredInSession: false,
   trustUnverifiedEmail: false,
   canEnable: false,
   template: {
@@ -113,11 +114,13 @@ describe("canContinue", () => {
     expect(canContinue("register", generic(), { clientId: "rsgo" })).toBe(true);
   });
 
-  it("connect needs credentials and no pending or failed pairing", () => {
+  it("connect needs credentials from this session and no pending or failed pairing", () => {
     expect(canContinue("connect", session(), {})).toBe(false);
-    expect(canContinue("connect", session({ clientId: "c", registrationPending: true }), {})).toBe(false);
-    expect(canContinue("connect", session({ clientId: "c", registrationError: "access_denied" }), {})).toBe(false);
-    expect(canContinue("connect", session({ clientId: "c" }), {})).toBe(true);
+    // Reconnect: the credentials of the existing provider do not count.
+    expect(canContinue("connect", session({ isNew: false, clientId: "old" }), {})).toBe(false);
+    expect(canContinue("connect", session({ registeredInSession: true, registrationPending: true }), {})).toBe(false);
+    expect(canContinue("connect", session({ registeredInSession: true, registrationError: "access_denied" }), {})).toBe(false);
+    expect(canContinue("connect", session({ clientId: "c", registeredInSession: true }), {})).toBe(true);
   });
 
   it("save has no Continue", () => {

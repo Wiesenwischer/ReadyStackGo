@@ -113,6 +113,9 @@ public class SetupSessionDto
     public bool HasClientSecret { get; set; }
     public DateTime? PairedAt { get; set; }
     public string? PairedBy { get; set; }
+
+    /// <summary>Credentials were obtained by a registration in this session.</summary>
+    public bool RegisteredInSession { get; set; }
     public string? RegistrationError { get; set; }
     public string? RegistrationErrorDescription { get; set; }
     public bool RegistrationPending { get; set; }
