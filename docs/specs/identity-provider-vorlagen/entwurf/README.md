@@ -36,7 +36,7 @@ Link-Muster: `https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=<a>-<b
 | Oberfläche | Zustand | Node-ID | Link | Bild |
 |---|---|---|---|---|
 | Provider-Liste | leer | `173:2891` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=173-2891) | `sso-liste-leer.png` |
-| Provider-Liste | drei Provider, Hinweis „kein Passwort“ | `173:3055` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=173-3055) | `sso-liste.png` |
+| Provider-Liste | drei Provider, WYSCH mit „Reconnect needed“, Hinweis „kein Passwort“ | `173:3055` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=173-3055) | `sso-liste.png` |
 | Provider-Liste (dunkel) | wie oben | `177:5611` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=177-5611) | `sso-liste-dunkel.png` |
 | Add provider, Schritt „Template“ | WYSCH gewählt | `173:3277` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=173-3277) | `sso-lauf-vorlage.png` |
 | Add provider, „Provider address“ (Generic OIDC) | Discovery gefunden | `173:3483` | [Figma](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1?node-id=173-3483) | `sso-lauf-anbieter-adresse.png` |
@@ -190,6 +190,11 @@ solange der Benutzer kein lokales Passwort hat, mit dem Hinweis darunter, erst e
   erfolgreichen Test-Anmeldung; bis dahin bleiben die alten Einstellungen aktiv.
 - „Unlink“ im Profil ist ohne lokales Passwort gesperrt (siehe Profil).
 
+**Widerruf erkennen** (offene Frage der Spezifikation, Marcus im Chat, 06.10.2026): Scheitert eine Anmeldung oder ein
+Test bei einem gekoppelten Provider mit `invalid_client`, zeigt die Liste am Provider das Badge „Reconnect needed“
+(Ton „Degraded“), als letztes Ergebnis „Sign-in failed“ und in der Beschreibung den Grund. Das Badge verschwindet nach
+einem erfolgreichen „Reconnect“ mit Test-Anmeldung.
+
 ## Festlegungen, die die Spezifikation nicht vorgibt
 
 - Einrichtungslauf als eigene Seite mit waagrechter Schrittanzeige — Marcus im Chat, 06.10.2026.
@@ -200,6 +205,7 @@ solange der Benutzer kein lokales Passwort hat, mit dem Hinweis darunter, erst e
 - „Enable provider“ verlangt bestandene Prüfungen und eine erfolgreiche Test-Anmeldung; Schutz vor Aussperren wie oben
   — Marcus im Chat, 06.10.2026.
 - „Unlink“ ohne lokales Passwort gesperrt — Marcus im Chat, 06.10.2026.
+- Badge „Reconnect needed“ bei `invalid_client` eines gekoppelten Providers — Marcus im Chat, 06.10.2026.
 - Die Liste zeigt das letzte Testergebnis je Provider — Vorschlag im Entwurf.
 - Beispielbefehl für den Notzugang `docker compose exec readystackgo rsgo admin set-password <username>` aus der
   Spezifikation; Name und Form legt der Plan fest, der Text folgt ihm.
@@ -216,6 +222,4 @@ solange der Benutzer kein lokales Passwort hat, mit dem Hinweis darunter, erst e
 
 ## Offene Fragen
 
-- **Widerruf erkennen** (offene Frage der Spezifikation): Der Entwurf zeigt auf der Seite des Providers, wie ein Test mit
-  `invalid_client` auf „Reconnect“ hinweist. Ob ReadyStackGo das auch ohne Test (z. B. bei fehlgeschlagener Anmeldung)
-  in der Liste anzeigt, bleibt offen.
+Keine.
