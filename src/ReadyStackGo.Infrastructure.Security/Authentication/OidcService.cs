@@ -273,7 +273,12 @@ public class OidcService : IOidcService
         {
             // A failed fetch must not stick: the next call retries.
             _configManagers.TryRemove(metadataAddress, out _);
-            var unreachable = HasInner<HttpRequestException>(ex) || HasInner<TaskCanceledException>(ex) || HasInner<IOException>(ex);
+            // An HTTP answer below 500 (e.g. 404) means the document is missing, not that the
+            // provider is unreachable; the retriever reports the status in the exception data.
+            var status = HttpStatusOf(ex);
+            var unreachable = status.HasValue
+                ? (int)status.Value >= 500
+                : HasInner<HttpRequestException>(ex) || HasInner<TaskCanceledException>(ex) || HasInner<IOException>(ex);
             _logger.LogWarning(ex, "OIDC provider {Provider}: discovery {Address} failed", provider.Name, metadataAddress);
             return unreachable
                 ? new DiscoveryResult(null, OidcErrorCodes.Unreachable, "The provider could not be reached.")
@@ -308,6 +313,19 @@ public class OidcService : IOidcService
     private static bool IsNetworkError(Exception ex, CancellationToken cancellationToken) =>
         ex is HttpRequestException or IOException ||
         (ex is TaskCanceledException && !cancellationToken.IsCancellationRequested);
+
+    private static HttpStatusCode? HttpStatusOf(Exception ex)
+    {
+        for (var current = ex; current != null; current = current.InnerException)
+        {
+            if (current.Data.Contains(HttpDocumentRetriever.StatusCode) &&
+                current.Data[HttpDocumentRetriever.StatusCode] is HttpStatusCode status)
+            {
+                return status;
+            }
+        }
+        return null;
+    }
 
     private static bool HasInner<T>(Exception ex) where T : Exception
     {
