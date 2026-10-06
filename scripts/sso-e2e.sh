@@ -14,6 +14,20 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE=(docker compose -p rsgo-sso-e2e -f "$ROOT/docker-compose.yml" -f "$ROOT/docker-compose.sso-e2e.yml")
 VOLUMES=(rsgo-sso-e2e-config rsgo-sso-e2e-data rsgo-sso-e2e-git-cache)
 export RSGO_CONTAINER=rsgo-sso-e2e
+TEMPLATES="$ROOT/src/ReadyStackGo.WebUi/e2e/test-data/identity-provider-templates"
+
+# Without the test templates the built-in template "wysch" points at the real WYSCH.
+if [ ! -f "$TEMPLATES/wysch/template.json" ] || [ ! -f "$TEMPLATES/company-sso/template.json" ]; then
+  echo "Test templates missing in $TEMPLATES" >&2
+  exit 1
+fi
+
+# ReadyStackGo attaches itself to the network "rsgo-net" at runtime and creates it without compose
+# labels; remove it afterwards only if the test created it.
+RSGO_NET_EXISTED=false
+if docker network inspect rsgo-net > /dev/null 2>&1; then
+  RSGO_NET_EXISTED=true
+fi
 
 reset() {
   "${COMPOSE[@]}" down --remove-orphans || true
@@ -31,6 +45,9 @@ reset() {
 cleanup() {
   "${COMPOSE[@]}" logs --no-color > "$ROOT/sso-e2e-containers.log" 2>&1 || true
   reset
+  if [ "$RSGO_NET_EXISTED" = false ]; then
+    docker network rm rsgo-net > /dev/null 2>&1 || true
+  fi
 }
 trap cleanup EXIT
 
