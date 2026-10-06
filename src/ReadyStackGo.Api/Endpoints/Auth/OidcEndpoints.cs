@@ -1,51 +1,31 @@
-using System.Security.Cryptography;
-using System.Text;
 using FastEndpoints;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Caching.Memory;
+using ReadyStackGo.API.Endpoints.Sso;
 using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.Services.IdentityProviders;
 using ReadyStackGo.Application.Services.Oidc;
-using ReadyStackGo.Domain.IdentityAccess.Invitations;
-using ReadyStackGo.Domain.IdentityAccess.Users;
 using ReadyStackGo.Domain.SharedKernel;
-using DomainUser = ReadyStackGo.Domain.IdentityAccess.Users.User;
 
 namespace ReadyStackGo.API.Endpoints.Auth;
-
-/// <summary>Transient state for an in-flight OIDC authorization-code flow.</summary>
-public record OidcFlowState(string Provider, string Nonce, string CodeVerifier, string RedirectUri);
-
-internal static class OidcPkce
-{
-    public static string NewToken()
-    {
-        return Base64Url(RandomNumberGenerator.GetBytes(32));
-    }
-
-    public static string Challenge(string verifier)
-    {
-        var hash = SHA256.HashData(Encoding.ASCII.GetBytes(verifier));
-        return Base64Url(hash);
-    }
-
-    private static string Base64Url(byte[] bytes) =>
-        Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
-}
 
 public class OidcProviderDto
 {
     public string Name { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
+
+    /// <summary>Icon of the provider's template, or null (the UI shows a key).</summary>
+    public string? IconUrl { get; set; }
 }
 
 /// <summary>GET /api/auth/oidc/providers — enabled OIDC providers for login buttons. Anonymous.</summary>
 public class OidcProvidersEndpoint : EndpointWithoutRequest<List<OidcProviderDto>>
 {
     private readonly IOidcSettingsService _settings;
+    private readonly IIdentityProviderTemplateCatalog _templates;
 
-    public OidcProvidersEndpoint(IOidcSettingsService settings)
+    public OidcProvidersEndpoint(IOidcSettingsService settings, IIdentityProviderTemplateCatalog templates)
     {
         _settings = settings;
+        _templates = templates;
     }
 
     public override void Configure()
@@ -60,7 +40,12 @@ public class OidcProvidersEndpoint : EndpointWithoutRequest<List<OidcProviderDto
         var providers = await _settings.GetAllAsync(ct);
         Response = providers
             .Where(p => p.Enabled)
-            .Select(p => new OidcProviderDto { Name = p.Name, DisplayName = p.DisplayName })
+            .Select(p => new OidcProviderDto
+            {
+                Name = p.Name,
+                DisplayName = p.DisplayName,
+                IconUrl = TemplateIcons.Url(_templates, p.Template)
+            })
             .ToList();
     }
 }
@@ -71,26 +56,26 @@ public class OidcRouteRequest
 }
 
 /// <summary>
-/// GET /api/auth/oidc/{provider}/challenge — starts the OIDC flow: generates state/nonce/PKCE,
-/// stores them server-side and redirects to the provider. Anonymous.
+/// GET /api/auth/oidc/{provider}/challenge — starts the sign-in: generates state/nonce/PKCE,
+/// stores them server-side and redirects to the provider (via PAR where required). Anonymous.
 /// </summary>
 public class OidcChallengeEndpoint : Endpoint<OidcRouteRequest>
 {
     private readonly IOidcSettingsService _settings;
     private readonly IOidcService _oidc;
     private readonly ISystemConfigService _systemConfig;
-    private readonly IMemoryCache _cache;
+    private readonly SsoFlowStore _flows;
 
     public OidcChallengeEndpoint(
         IOidcSettingsService settings,
         IOidcService oidc,
         ISystemConfigService systemConfig,
-        IMemoryCache cache)
+        SsoFlowStore flows)
     {
         _settings = settings;
         _oidc = oidc;
         _systemConfig = systemConfig;
-        _cache = cache;
+        _flows = flows;
     }
 
     public override void Configure()
@@ -110,24 +95,25 @@ public class OidcChallengeEndpoint : Endpoint<OidcRouteRequest>
         }
 
         var baseUrl = (await _systemConfig.GetBaseUrlAsync()).TrimEnd('/');
-        var redirectUri = $"{baseUrl}/api/auth/oidc/{provider.Name}/callback";
+        var redirectUri = BaseUrlRules.ProviderRedirectUri(baseUrl, provider.Name);
 
-        var state = OidcPkce.NewToken();
-        var nonce = OidcPkce.NewToken();
-        var codeVerifier = OidcPkce.NewToken();
-        var codeChallenge = OidcPkce.Challenge(codeVerifier);
+        var state = SsoTokens.NewToken();
+        var nonce = SsoTokens.NewToken();
+        var codeVerifier = SsoTokens.NewToken();
 
-        _cache.Set(
-            StateKey(state),
-            new OidcFlowState(provider.Name, nonce, codeVerifier, redirectUri),
-            TimeSpan.FromMinutes(10));
+        var result = await _oidc.BuildAuthorizeUrlAsync(
+            provider, redirectUri, state, nonce, SsoTokens.PkceChallenge(codeVerifier), ct);
 
-        var authorizeUrl = await _oidc.BuildAuthorizeUrlAsync(provider, redirectUri, state, nonce, codeChallenge, ct);
+        if (!result.Succeeded)
+        {
+            var error = await OidcSignInFailures.RecordAsync(_settings, provider, result.Error!, result.ErrorDescription, ct);
+            await Send.RedirectAsync($"{baseUrl}/login?error={error}", isPermanent: false, allowRemoteRedirects: true);
+            return;
+        }
 
-        await Send.RedirectAsync(authorizeUrl, isPermanent: false, allowRemoteRedirects: true);
+        _flows.PutOidc(state, new OidcFlowState(provider.Name, nonce, codeVerifier, redirectUri));
+        await Send.RedirectAsync(result.Url!, isPermanent: false, allowRemoteRedirects: true);
     }
-
-    internal static string StateKey(string state) => $"oidc_state:{state}";
 }
 
 public class OidcCallbackRequest
@@ -145,36 +131,43 @@ public class OidcCallbackRequest
 }
 
 /// <summary>
-/// GET /api/auth/oidc/{provider}/callback — completes the OIDC flow, performs just-in-time
-/// account mapping, mints the ReadyStackGo session token and redirects back to the SPA.
-/// Anonymous.
+/// GET /api/auth/oidc/{provider}/callback — completes an OIDC round trip. Depending on the
+/// purpose of the flow it signs the user in (account mapping, ReadyStackGo token), stores the
+/// result of a test sign-in in its setup session, or creates the first system administrator
+/// of a wizard run. Anonymous.
 /// </summary>
 public class OidcCallbackEndpoint : Endpoint<OidcCallbackRequest>
 {
     private readonly IOidcSettingsService _settings;
     private readonly IOidcService _oidc;
     private readonly ISystemConfigService _systemConfig;
-    private readonly IMemoryCache _cache;
-    private readonly IUserRepository _users;
-    private readonly IInvitationRepository _invitations;
+    private readonly SsoFlowStore _flows;
+    private readonly OidcAccountResolver _resolver;
     private readonly ITokenService _tokenService;
+    private readonly SsoSetupService _setup;
+    private readonly WizardSsoService _wizard;
+    private readonly ILogger<OidcCallbackEndpoint> _logger;
 
     public OidcCallbackEndpoint(
         IOidcSettingsService settings,
         IOidcService oidc,
         ISystemConfigService systemConfig,
-        IMemoryCache cache,
-        IUserRepository users,
-        IInvitationRepository invitations,
-        ITokenService tokenService)
+        SsoFlowStore flows,
+        OidcAccountResolver resolver,
+        ITokenService tokenService,
+        SsoSetupService setup,
+        WizardSsoService wizard,
+        ILogger<OidcCallbackEndpoint> logger)
     {
         _settings = settings;
         _oidc = oidc;
         _systemConfig = systemConfig;
-        _cache = cache;
-        _users = users;
-        _invitations = invitations;
+        _flows = flows;
+        _resolver = resolver;
         _tokenService = tokenService;
+        _setup = setup;
+        _wizard = wizard;
+        _logger = logger;
     }
 
     public override void Configure()
@@ -188,124 +181,100 @@ public class OidcCallbackEndpoint : Endpoint<OidcCallbackRequest>
     {
         var baseUrl = (await _systemConfig.GetBaseUrlAsync()).TrimEnd('/');
 
-        if (!string.IsNullOrEmpty(req.Error) || string.IsNullOrEmpty(req.Code) || string.IsNullOrEmpty(req.State))
+        var flow = string.IsNullOrEmpty(req.State) ? null : _flows.TakeOidc(req.State);
+        if (flow == null || !string.Equals(flow.Provider, req.Provider, StringComparison.OrdinalIgnoreCase))
         {
-            await RedirectToLoginError(baseUrl, "oidc_failed", ct);
+            await Redirect($"{baseUrl}/login?error={OidcSignInErrors.State}");
             return;
         }
 
-        if (!_cache.TryGetValue(OidcChallengeEndpoint.StateKey(req.State), out OidcFlowState? flow) || flow is null)
+        switch (flow.Purpose)
         {
-            await RedirectToLoginError(baseUrl, "oidc_state", ct);
-            return;
+            case OidcFlowPurpose.TestSignIn:
+                await Redirect(await _setup.CompleteTestSignInAsync(flow, HttpContext, req.Code, req.Error, baseUrl, ct));
+                return;
+            case OidcFlowPurpose.WizardAdmin:
+                await Redirect(await _wizard.CompleteSignInAsync(flow, HttpContext, req.Code, req.Error, baseUrl, ct));
+                return;
         }
-        _cache.Remove(OidcChallengeEndpoint.StateKey(req.State));
 
-        if (!string.Equals(flow.Provider, req.Provider, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrEmpty(req.Error) || string.IsNullOrEmpty(req.Code))
         {
-            await RedirectToLoginError(baseUrl, "oidc_state", ct);
+            await Redirect($"{baseUrl}/login?error={OidcSignInErrors.Failed}");
             return;
         }
 
         var provider = await _settings.GetByNameAsync(req.Provider, ct);
         if (provider is not { Enabled: true })
         {
-            await RedirectToLoginError(baseUrl, "oidc_provider", ct);
+            await Redirect($"{baseUrl}/login?error={OidcSignInErrors.Provider}");
             return;
         }
 
-        var userInfo = await _oidc.ExchangeCodeAsync(
-            provider, req.Code, flow.RedirectUri, flow.CodeVerifier, flow.Nonce, ct);
-
-        if (userInfo == null || string.IsNullOrEmpty(userInfo.Email))
+        var exchange = await _oidc.ExchangeCodeAsync(provider, req.Code, flow.RedirectUri, flow.CodeVerifier, flow.Nonce, ct);
+        if (!exchange.Succeeded)
         {
-            await RedirectToLoginError(baseUrl, "oidc_token", ct);
+            var error = await OidcSignInFailures.RecordAsync(_settings, provider, exchange.Error!, exchange.ErrorDescription, ct);
+            await Redirect($"{baseUrl}/login?error={error}");
             return;
         }
 
-        var user = ResolveUser(provider.Name, userInfo);
-        if (user == null)
+        var resolution = _resolver.Resolve(provider, exchange.UserInfo!, SystemClock.UtcNow);
+        if (resolution.User == null)
         {
-            // No existing account and no pending invitation: access is denied.
-            await RedirectToLoginError(baseUrl, "oidc_no_account", ct);
+            _logger.LogInformation("OIDC sign-in via {Provider} rejected: {Reason}", provider.Name, resolution.Error);
+            await Redirect($"{baseUrl}/login?error={resolution.Error}");
             return;
         }
 
-        var token = _tokenService.GenerateToken(user);
+        if (provider.ReconnectNeeded || provider.LastResult is { Passed: false })
+        {
+            await _settings.RecordResultAsync(provider.Name,
+                new OidcLastResult(SystemClock.UtcNow, OidcResultKinds.SignIn, true, null),
+                reconnectNeeded: false, ct);
+        }
+
+        var token = _tokenService.GenerateToken(resolution.User);
         // Hand the token to the SPA via the URL fragment (not sent to the server / logs).
-        await Send.RedirectAsync($"{baseUrl}/oidc-callback#token={Uri.EscapeDataString(token)}",
-            isPermanent: false, allowRemoteRedirects: true);
+        await Redirect($"{baseUrl}/oidc-callback#token={Uri.EscapeDataString(token)}");
     }
 
+    private Task Redirect(string url) => Send.RedirectAsync(url, isPermanent: false, allowRemoteRedirects: true);
+}
+
+/// <summary>Maps failed calls of a sign-in to login errors and records them at the provider.</summary>
+internal static class OidcSignInFailures
+{
     /// <summary>
-    /// Just-in-time mapping: (1) existing external identity, (2) existing user by email,
-    /// (3) pending invitation, else null (access denied).
+    /// Records the failure as the provider's last result. invalid_client of a paired provider
+    /// marks it "Reconnect needed" (the pairing was probably removed at the provider).
+    /// Returns the error code for the login page.
     /// </summary>
-    private DomainUser? ResolveUser(string providerName, OidcUserInfo userInfo)
+    public static async Task<string> RecordAsync(
+        IOidcSettingsService settings, OidcProviderSettings provider, string error, string? description, CancellationToken ct)
     {
-        var now = SystemClock.UtcNow;
-        var email = new EmailAddress(userInfo.Email!);
-
-        // (1) Already linked to this provider's subject.
-        var existingByEmail = _users.FindByEmail(email);
-        if (existingByEmail != null)
+        var (loginError, message) = error switch
         {
-            var link = existingByEmail.FindExternalIdentity(providerName);
-            if (link == null)
-            {
-                existingByEmail.LinkExternalIdentity(providerName, userInfo.Subject);
-            }
-            // The IdP asserted ownership of this email; reflect that honestly.
-            if (!existingByEmail.IsEmailVerified)
-            {
-                existingByEmail.VerifyEmail(now);
-            }
-            _users.Update(existingByEmail);
-            return existingByEmail;
-        }
+            OidcErrorCodes.InvalidClient => (OidcSignInErrors.ProviderRejected, "Sign-in failed: the provider rejected the client (invalid_client)"),
+            OidcErrorCodes.Unreachable => (OidcSignInErrors.Unreachable, "Sign-in failed: the provider is not reachable"),
+            OidcErrorCodes.InvalidToken => (OidcSignInErrors.Token, "Sign-in failed: the id token was rejected"),
+            _ => (OidcSignInErrors.Failed, $"Sign-in failed: {description ?? error}")
+        };
 
-        // (3) Pending invitation for this email → just-in-time provisioning.
-        var invitation = _invitations.FindPendingByEmail(email);
-        if (invitation == null)
-        {
-            return null;
-        }
-
-        var username = ResolveUsername(email.Value);
-        var newUser = DomainUser.RegisterExternal(_users.NextIdentity(), username, email, providerName, userInfo.Subject);
-        newUser.AssignRole(invitation.ToRoleAssignment());
-
-        try
-        {
-            invitation.Accept(now);
-        }
-        catch (InvalidOperationException)
-        {
-            return null;
-        }
-
-        _users.Add(newUser);
-        _invitations.Update(invitation);
-        return newUser;
+        bool? reconnectNeeded = error == OidcErrorCodes.InvalidClient && provider.IsPaired ? true : null;
+        await settings.RecordResultAsync(provider.Name,
+            new OidcLastResult(SystemClock.UtcNow, OidcResultKinds.SignIn, false, message),
+            reconnectNeeded, ct);
+        return loginError;
     }
+}
 
-    private string ResolveUsername(string email)
+/// <summary>Builds the anonymous URL of a template icon.</summary>
+internal static class TemplateIcons
+{
+    public static string? Url(IIdentityProviderTemplateCatalog catalog, string? templateId)
     {
-        var baseName = email.Split('@')[0];
-        if (baseName.Length < 3) baseName = baseName.PadRight(3, '0');
-        if (baseName.Length > 40) baseName = baseName[..40];
-
-        var candidate = baseName;
-        var suffix = 1;
-        while (_users.FindByUsername(candidate) != null)
-        {
-            candidate = $"{baseName}{suffix++}";
-        }
-        return candidate;
-    }
-
-    private async Task RedirectToLoginError(string baseUrl, string reason, CancellationToken ct)
-    {
-        await Send.RedirectAsync($"{baseUrl}/login?error={reason}", isPermanent: false, allowRemoteRedirects: true);
+        var template = catalog.GetTemplate(templateId);
+        return template is { HasIcon: true } ? $"/api/identity-provider-templates/{template.Id}/icon" : null;
     }
 }

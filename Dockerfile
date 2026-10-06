@@ -80,6 +80,9 @@ RUN mkdir -p /app/config /app/data /app/stacks /app/themes /app/identity-provide
 # Copy example stacks (copied to volume on first mount)
 COPY stacks/ /app/stacks/
 
+# Emergency access command: "docker compose exec readystackgo rsgo admin set-password <username>"
+RUN printf '#!/bin/sh\nexec dotnet /app/ReadyStackGo.Api.dll "$@"\n' > /usr/local/bin/rsgo && chmod +x /usr/local/bin/rsgo
+
 # Expose ports
 EXPOSE 8080 8443
 

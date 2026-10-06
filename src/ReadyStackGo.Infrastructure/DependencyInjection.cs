@@ -202,6 +202,8 @@ public static class DependencyInjection
 
         // Domain Services
         services.AddScoped<SystemAdminRegistrationService>();
+        services.AddScoped<UsernameGenerator>();
+        services.AddScoped<Application.Services.Oidc.OidcAccountResolver>();
         services.AddScoped<OrganizationProvisioningService>();
         services.AddScoped<AuthenticationService>();
 
