@@ -17,7 +17,15 @@ export RSGO_CONTAINER=rsgo-sso-e2e
 
 reset() {
   "${COMPOSE[@]}" down --remove-orphans || true
+  docker rm -f rsgo-sso-e2e rsgo-test-idp > /dev/null 2>&1 || true
   docker volume rm -f "${VOLUMES[@]}" > /dev/null || true
+  # The test needs a fresh installation: stop if a volume survived (for example after a Docker crash).
+  for volume in "${VOLUMES[@]}"; do
+    if docker volume inspect "$volume" > /dev/null 2>&1; then
+      echo "Volume $volume could not be removed" >&2
+      return 1
+    fi
+  done
 }
 
 cleanup() {

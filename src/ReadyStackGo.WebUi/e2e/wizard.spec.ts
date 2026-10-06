@@ -173,6 +173,10 @@ test.describe('Setup Wizard - Complete Flow with Onboarding', () => {
     // Button should show loading state
     await expect(page.getByRole('button', { name: /Creating/i })).toBeVisible({ timeout: 2000 });
 
+    // The optional email step follows the admin step.
+    await expect(page.getByRole('heading', { name: /Configure email/ })).toBeVisible({ timeout: 15000 });
+    await page.getByRole('button', { name: 'Skip for now' }).click();
+
     // Should auto-login and redirect to /onboarding (OnboardingGuard intercepts /)
     await page.waitForURL(url => new URL(url).pathname === '/onboarding', { timeout: 15000 });
     await page.waitForLoadState('networkidle');

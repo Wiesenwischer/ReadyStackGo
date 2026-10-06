@@ -30,6 +30,8 @@ async function shot(page: Page, name: string, options: { docs?: string; dark?: b
     await page.screenshot({ path: path.join(DOCS_IMAGES, options.docs), fullPage: false });
   }
   if (options.dark) {
+    // Colour transitions would otherwise be caught halfway in the screenshot.
+    await page.addStyleTag({ content: '*, *::before, *::after { transition: none !important; }' });
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.evaluate(() => {
       document.documentElement.dataset.mode = 'dark';
@@ -65,6 +67,8 @@ async function api<T>(page: Page, method: string, url: string, body?: unknown): 
 }
 
 async function signOut(page: Page) {
+  // A fresh page is still on about:blank, which has no localStorage of the app.
+  if (!page.url().startsWith('http')) await page.goto('/login');
   await page.evaluate(() => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
@@ -261,8 +265,10 @@ test.describe('Single sign-on with WYSCH (test identity provider)', () => {
 
     await page.getByTestId('provider-wysch').getByRole('button', { name: 'Reconnect' }).click();
     await page.getByTestId('connect').click();
-    await page.getByRole('button', { name: 'Connect' }).click();
+    await expect(page.getByRole('heading', { name: 'Connect an application' })).toBeVisible();
+    await page.getByRole('button', { name: 'Connect', exact: true }).click();
     await expect(page.getByTestId('connected')).toBeVisible();
+    await shot(page, 'sso-reconnect-verbunden');
     await page.getByTestId('step-primary').click();
     await expect(page.getByTestId('check-client')).toHaveAttribute('data-result', 'passed');
     await page.getByTestId('run-test-sign-in').click();

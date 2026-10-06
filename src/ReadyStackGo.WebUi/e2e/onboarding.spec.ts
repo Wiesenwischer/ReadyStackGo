@@ -55,6 +55,10 @@ test.describe('Initial Setup: Wizard & Onboarding', () => {
 
     await page.getByRole('button', { name: 'Continue' }).click();
 
+    // The optional email step follows the admin step.
+    await expect(page.getByRole('heading', { name: /Configure email/ })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole('button', { name: 'Skip for now' }).click();
+
     // Should redirect to onboarding
     await page.waitForURL(/\/onboarding/, { timeout: 15_000 });
 
