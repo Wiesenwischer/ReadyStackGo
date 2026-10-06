@@ -385,7 +385,8 @@ export function TestPanel({ session, onSession, autoRun = true }: { session: Set
   const started = useRef(false);
   const checks = session.checks?.current ? session.checks : null;
   const test = session.testSignIn?.current ? session.testSignIn : null;
-  const name = session.template?.name ?? session.displayName;
+  // Templates with a fixed provider (WYSCH) name it; Generic OIDC says "your provider".
+  const name = session.template?.hasFixedAuthority ? session.template.name : session.displayName || "your provider";
 
   const runChecks = async () => {
     setBusy("checks");

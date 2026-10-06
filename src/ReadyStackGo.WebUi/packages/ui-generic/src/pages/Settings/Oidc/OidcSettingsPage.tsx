@@ -31,9 +31,10 @@ function meta(p: OidcProviderSettingsDto): string {
 function LastResult({ provider }: { provider: OidcProviderSettingsDto }) {
   const r = provider.lastResult;
   if (!r) return <span className="text-[13px] text-fg-muted">Not tested yet</span>;
+  const what = r.kind === "signIn" ? "Sign-in" : r.kind === "checks" ? "Checks" : "Test sign-in";
   const label = r.passed
-    ? `${r.kind === "signIn" ? "Sign-in passed" : "Test passed"} · ${relativeTime(r.at)}`
-    : `${r.kind === "signIn" ? "Sign-in failed" : r.message || "Test failed"} · ${relativeTime(r.at)}`;
+    ? `${what} passed · ${relativeTime(r.at)}`
+    : `${r.kind === "signIn" ? "Sign-in failed" : r.message || `${what} failed`} · ${relativeTime(r.at)}`;
   return (
     <span className="flex items-center gap-1.5 text-[13px] text-fg-secondary" title={r.message ?? undefined}>
       {r.passed ? (

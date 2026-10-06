@@ -90,6 +90,8 @@ export function SignInOptionCard({
       type="button"
       role="radio"
       aria-checked={selected}
+      aria-label={title}
+      aria-description={description}
       tabIndex={tabIndex}
       onClick={onSelect}
       onKeyDown={onKeyDown}
