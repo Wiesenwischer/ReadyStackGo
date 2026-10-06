@@ -5,7 +5,9 @@
 # Playwright maps the name to 127.0.0.1 (playwright.sso.config.ts). scripts/sso-e2e.sh waits for
 # /health of both services (the provider image has no curl for a compose health check).
 # The test needs a fresh installation, so it runs under its own container name and volumes and
-# never touches the volumes of a local development stack (rsgo-config, rsgo-data).
+# never touches the volumes of a local development stack (rsgo-config, rsgo-data). It also uses its
+# own network: "rsgo-net" may already exist without compose labels (ReadyStackGo creates it as its
+# deployment network), and compose refuses to reuse such a network.
 services:
   readystackgo:
     container_name: rsgo-sso-e2e
@@ -46,3 +48,7 @@ volumes:
     name: rsgo-sso-e2e-data
   rsgo-sso-e2e-git-cache:
     name: rsgo-sso-e2e-git-cache
+
+networks:
+  rsgo-net:
+    name: rsgo-sso-e2e-net
