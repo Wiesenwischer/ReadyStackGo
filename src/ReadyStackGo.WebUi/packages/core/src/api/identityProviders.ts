@@ -115,6 +115,8 @@ export interface RegistrationResponse {
   start?: RegistrationStartDto | null;
 }
 
+// POSTs send an empty JSON object: FastEndpoints only matches endpoints with a request DTO
+// (the session id from the route) when the request carries a JSON body.
 export const setupApi = {
   createForTemplate: (templateId: string) =>
     apiPost<SetupSessionDto>('/api/settings/oidc/setup', { templateId }),
@@ -131,11 +133,11 @@ export const setupApi = {
   register: (id: string, credentials?: { clientId?: string; clientSecret?: string; scopes?: string }) =>
     apiPost<RegistrationResponse>(`/api/settings/oidc/setup/${encodeURIComponent(id)}/registration`, credentials ?? {}),
   completeRegistration: (id: string) =>
-    apiPost<SetupSessionDto>(`/api/settings/oidc/setup/${encodeURIComponent(id)}/registration/complete`),
+    apiPost<SetupSessionDto>(`/api/settings/oidc/setup/${encodeURIComponent(id)}/registration/complete`, {}),
   runChecks: (id: string) =>
-    apiPost<SetupSessionDto>(`/api/settings/oidc/setup/${encodeURIComponent(id)}/checks`),
+    apiPost<SetupSessionDto>(`/api/settings/oidc/setup/${encodeURIComponent(id)}/checks`, {}),
   startTestSignIn: (id: string) =>
-    apiPost<{ url: string }>(`/api/settings/oidc/setup/${encodeURIComponent(id)}/test-sign-in`),
+    apiPost<{ url: string }>(`/api/settings/oidc/setup/${encodeURIComponent(id)}/test-sign-in`, {}),
   save: (id: string, enabled: boolean) =>
     apiPost<{ name: string; enabled: boolean }>(`/api/settings/oidc/setup/${encodeURIComponent(id)}/save`, { enabled }),
 };
