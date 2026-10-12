@@ -154,3 +154,18 @@ describe("lockedBySetupWindow", () => {
     expect(lockedBySetupWindow(true, null)).toBe(true);
   });
 });
+
+describe("built-in sign-in after the setup window closed", () => {
+  it("is offered only while the setup window is open, for every failure", () => {
+    for (const reason of ["unreachable", "cancelled", "limit_reached", "email_unverified", "email_invalid", "registration_failed", "expired"]) {
+      expect(errorContent(reason, { ...options, windowOpen: true }).builtIn).toBe(true);
+      expect(errorContent(reason, { ...options, windowOpen: false }).builtIn).toBe(false);
+    }
+  });
+
+  it("keeps \"Try again\" for a run that continues after the window closed", () => {
+    const c = errorContent("cancelled", { ...options, windowOpen: false });
+    expect(c.primary).toBe("retry");
+    expect(c.builtIn).toBe(false);
+  });
+});

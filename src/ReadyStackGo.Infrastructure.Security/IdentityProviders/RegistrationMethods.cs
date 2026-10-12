@@ -26,7 +26,7 @@ public class ManualRegistrationMethod : IClientRegistrationMethod
 
 /// <summary>
 /// Registration kind "pairing" after the WYSCH client pairing protocol (modelled on the GitHub
-/// App manifest flow, Wiesenwischer/WYSCH docs/specs/client-kopplung.md and its plan):
+/// App manifest flow; protocol: Wiesenwischer/WYSCH docs/CLIENT-PAIRING.md):
 /// <list type="number">
 /// <item>The browser posts <c>manifest</c> (kind, name, url, redirect_uri, return_uri) and <c>state</c>
 /// to <c>wysch_pairing_endpoint</c>.</item>

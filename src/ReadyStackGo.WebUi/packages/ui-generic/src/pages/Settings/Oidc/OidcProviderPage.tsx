@@ -270,7 +270,7 @@ export default function OidcProviderPage() {
 
         {mode === "test" && session && (
           <Card title="Test" testId="test-card">
-            <TestPanel session={session} onSession={onSession} />
+            <TestPanel session={session} onSession={onSession} failedAlert={false} />
             {provider.reconnectNeeded && isPaired && session.checks?.items.some((i) => i.code === "invalid_client") && (
               <div>
                 <Button onClick={() => setMode("reconnect")}>Reconnect</Button>

@@ -113,6 +113,7 @@ test.describe('Initial Setup: Wizard & Onboarding', () => {
 
     // Wait for the step and for the registry checks: "Skip for now" (registries found) or
     // "Continue" (none found) becomes enabled.
+    // Replaces the fixed waits (2 s + 5 s) that were here before with waiting for the step.
     await expect(page.getByText('Step 4 of 5')).toBeVisible({ timeout: 15_000 });
     const leaveRegistries = page
       .getByRole('button', { name: 'Skip for now' })
@@ -144,6 +145,7 @@ test.describe('Initial Setup: Wizard & Onboarding', () => {
     await page.waitForURL(/\/(dashboard)?$/, { timeout: 15_000 });
     await page.waitForLoadState('networkidle');
 
+    // Same wait as wizard.spec.ts: the guards finish their API calls before the Dashboard renders.
     await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({ timeout: 15_000 });
 
     await page.screenshot({

@@ -60,7 +60,10 @@ public class SsoFlowStore
     public SsoFlowStore(IMemoryCache cache, IConfiguration configuration)
     {
         _cache = cache;
-        _lifetime = configuration.GetValue<int?>(LifetimeKey) is { } seconds && seconds > 0 ? TimeSpan.FromSeconds(seconds) : Lifetime;
+        // Only shorter than the 10 minutes of the specification, never longer.
+        _lifetime = configuration.GetValue<int?>(LifetimeKey) is { } seconds && seconds > 0 && seconds < Lifetime.TotalSeconds
+            ? TimeSpan.FromSeconds(seconds)
+            : Lifetime;
     }
 
     public void PutOidc(string state, OidcFlowState flow) => _cache.Set(OidcKey(state), flow, _lifetime);

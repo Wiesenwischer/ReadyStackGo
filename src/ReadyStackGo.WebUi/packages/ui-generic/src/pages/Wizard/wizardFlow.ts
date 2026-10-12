@@ -113,7 +113,9 @@ export function errorContent(
   options: { templateName: string; authority?: string | null; detail?: string | null; windowOpen: boolean; providerSaved: boolean },
 ): WizardErrorContent {
   const name = options.templateName;
-  const base = { builtIn: true, providerStaysDisabled: false } as const;
+  // "Use built-in sign-in instead" ends the run; once the setup window has closed the built-in
+  // sign-in would only reach the locked page, so the run (and "Try again") stays.
+  const base = { builtIn: options.windowOpen, providerStaysDisabled: false } as const;
   switch (reason) {
     case "unreachable":
       return {

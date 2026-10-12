@@ -124,10 +124,11 @@ public class RegistrationCallbackEndpoint : Endpoint<RegistrationCallbackRequest
         {
             // Unknown or expired state. A wizard run of this browser that waits for exactly this
             // pairing fails with a reason; otherwise the pairing is lost.
-            var waitingRun = _wizard.FailLateRegistrationReturn(HttpContext, req.State);
+            // Relative: the browser is on the installation's host, and its base URL may be unset.
+            var waitingRun = _wizard.FailLateRegistrationReturn(HttpContext, req.State, req.Error);
             await Redirect(waitingRun != null
                 ? WizardSsoService.WizardPage(waitingRun, "sso=returned")
-                : $"{baseUrl}/settings/oidc?error=registration_lost");
+                : "/settings/oidc?error=registration_lost");
             return;
         }
 
@@ -136,7 +137,7 @@ public class RegistrationCallbackEndpoint : Endpoint<RegistrationCallbackRequest
             // The browser that started the pairing must finish it.
             await Redirect(flow.Owner == RegistrationFlowOwner.WizardRun
                 ? WizardSsoService.WizardPage(null, "sso=foreign")
-                : $"{baseUrl}/settings/oidc?error=registration_lost");
+                : "/settings/oidc?error=registration_lost");
             return;
         }
 

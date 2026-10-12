@@ -363,7 +363,6 @@ public class SsoSetupService
         _sessions.Put(session);
     }
 
-    /// <summary>Step "Test": all checks without sign-in (E12).</summary>
     /// <summary>
     /// A paired provider has no secret anybody could copy: rejected credentials mean the
     /// connection was removed at the provider, and the way out is Reconnect (design frame 176:4851).
@@ -387,6 +386,7 @@ public class SsoSetupService
         return report with { Items = items };
     }
 
+    /// <summary>Step "Test": all checks without sign-in (E12).</summary>
     public async Task<OidcCheckReport> RunChecksAsync(SsoSetupSession session, CancellationToken ct)
     {
         EnsureConnection(session);

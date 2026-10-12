@@ -184,7 +184,12 @@ public class OidcCallbackEndpoint : Endpoint<OidcCallbackRequest>
         var flow = string.IsNullOrEmpty(req.State) ? null : _flows.TakeOidc(req.State);
         if (flow == null || !string.Equals(flow.Provider, req.Provider, StringComparison.OrdinalIgnoreCase))
         {
-            await Redirect($"{baseUrl}/login?error={OidcSignInErrors.State}");
+            // A wizard run of this browser that waits for its sign-in ends with a reason; otherwise
+            // back to the sign-in page. Relative: the base URL may still be unset during setup.
+            var waitingRun = flow == null ? _wizard.FailLateSignInReturn(HttpContext) : null;
+            await Redirect(waitingRun != null
+                ? WizardSsoService.WizardPage(waitingRun, "sso=returned")
+                : $"/login?error={OidcSignInErrors.State}");
             return;
         }
 

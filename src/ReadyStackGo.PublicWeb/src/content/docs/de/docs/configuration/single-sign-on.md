@@ -24,7 +24,7 @@ Der Setup-Wizard beginnt mit **How do you want to sign in?**:
 WYSCH verbindet nur Installationen, die unter einer `https://`-Adresse erreichbar sind; `http://` ist nur für `localhost` erlaubt. Läuft Ihre Installation unter `http://server:8080`, stellen Sie einen Reverse Proxy mit Zertifikat davor oder nutzen Sie die integrierte Anmeldung und fügen WYSCH später hinzu.
 :::
 
-Ist WYSCH nicht erreichbar, wird die Verbindung abgebrochen oder läuft der Anmeldelauf ab, erklärt der Wizard den Grund und bietet **Use built-in sign-in instead** an. Ein Lauf, der im Zeitfenster des Setups beginnt, darf bis zu 15 Minuten dauern, etwa um zuerst ein WYSCH-Konto anzulegen.
+Ist WYSCH nicht erreichbar, wird die Verbindung abgebrochen oder läuft der Anmeldelauf ab, erklärt der Wizard den Grund und bietet **Use built-in sign-in instead** an. Ein Lauf, der im Zeitfenster des Setups beginnt, darf bis zu 15 Minuten dauern. Die Bestätigung bei WYSCH, samt dem Anlegen eines WYSCH-Kontos, muss aber binnen 10 Minuten zurückkommen; danach bietet der Wizard **Try again** an.
 
 ## Provider hinzufügen
 

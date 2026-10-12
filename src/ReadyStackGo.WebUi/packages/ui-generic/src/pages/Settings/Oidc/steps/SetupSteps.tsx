@@ -378,7 +378,22 @@ export function RegisterStep({ session, onSession, onNext, onBack, onCancel }: S
 // ---------------------------------------------------------------- Test
 
 /** Checks without sign-in and the test sign-in (frames 175:3875, 175:4103, 175:4351, 175:4606). */
-export function TestPanel({ session, onSession, autoRun = true }: { session: SetupSessionDto; onSession: SessionUpdate; autoRun?: boolean }) {
+/**
+ * Checks and test sign-in. `failedAlert` shows the alert of "Add provider" (frame 175:4103) above
+ * failed checks; the page of an existing provider has none (frame 176:4851), because its saved
+ * connection stays active until a test sign-in passed (E14).
+ */
+export function TestPanel({
+  session,
+  onSession,
+  autoRun = true,
+  failedAlert = true,
+}: {
+  session: SetupSessionDto;
+  onSession: SessionUpdate;
+  autoRun?: boolean;
+  failedAlert?: boolean;
+}) {
   const [busy, setBusy] = useState<"checks" | "signIn" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -427,7 +442,7 @@ export function TestPanel({ session, onSession, autoRun = true }: { session: Set
 
   return (
     <div className="flex flex-col gap-[22px]" data-testid="test-panel">
-      {checks && !checks.passed && (
+      {failedAlert && checks && !checks.passed && (
         <Alert tone="error" title={`${checks.failedCount} of ${checks.executedCount} checks failed`} testId="checks-failed">
           Fix the problems below and run the checks again. Without a passing test you can only save the provider disabled.
         </Alert>

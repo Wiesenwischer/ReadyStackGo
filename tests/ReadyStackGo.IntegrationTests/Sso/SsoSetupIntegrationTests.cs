@@ -175,6 +175,8 @@ public class SsoSetupIntegrationTests : IAsyncLifetime
         checks.GetProperty("failedCount").GetInt32().Should().Be(1);
         checks.GetProperty("executedCount").GetInt32().Should().Be(5);
         Item(checks, OidcCheckIds.Client).GetProperty("code").GetString().Should().Be(OidcErrorCodes.InvalidClient);
+        // A manually registered client: the secret can be copied again (unlike a paired one).
+        Item(checks, OidcCheckIds.Client).GetProperty("detail").GetString().Should().Contain("copy the client secret again");
     }
 
     [Fact]

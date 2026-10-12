@@ -223,12 +223,10 @@ public class WizardSsoContinueEndpoint : WizardSsoRunEndpointBase
 public class WizardSsoSignInEndpoint : EndpointWithoutRequest
 {
     private readonly WizardSsoService _wizard;
-    private readonly ISystemConfigService _systemConfig;
 
-    public WizardSsoSignInEndpoint(WizardSsoService wizard, ISystemConfigService systemConfig)
+    public WizardSsoSignInEndpoint(WizardSsoService wizard)
     {
         _wizard = wizard;
-        _systemConfig = systemConfig;
     }
 
     public override void Configure()

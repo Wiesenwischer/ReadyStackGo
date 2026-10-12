@@ -327,6 +327,9 @@ test.describe('Single sign-on with WYSCH (test identity provider)', () => {
     await page.getByTestId('provider-wysch').getByRole('button', { name: 'Test' }).click();
     await expect(page.getByTestId('test-card')).toBeVisible();
     await expect(page.getByTestId('check-client')).toHaveAttribute('data-result', 'failed', { timeout: 30_000 });
+    await expect(page.getByTestId('check-client')).toContainText('The connection was probably removed in WYSCH');
+    // The saved connection stays active: no "save only disabled" alert on the provider page (frame 176:4851).
+    await expect(page.getByTestId('checks-failed')).toHaveCount(0);
     await shot(page, 'sso-provider-wysch-test-abgelehnt');
     await page.goto('/settings/oidc');
 

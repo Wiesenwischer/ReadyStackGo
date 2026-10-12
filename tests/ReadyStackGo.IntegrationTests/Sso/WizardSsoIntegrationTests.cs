@@ -263,6 +263,61 @@ public class WizardSsoIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SignInReturnAfterTheStateExpired_FailsTheWaitingRun()
+    {
+        var ctx = await StartAsync(flowStateSeconds: 2);
+        await RegisterRunAsync(ctx.Browser, RunAddress);
+        var (authorizeUrl, _) = await ctx.Browser.NavigateAsync($"{RunAddress}/api/wizard/sso/sign-in");
+        await Task.Delay(TimeSpan.FromSeconds(2.5));
+
+        var back = await ctx.Browser.SignInAtProviderAsync(authorizeUrl, "alex");
+
+        back.Should().Be($"{RunAddress}/wizard?sso=returned", "back to the run's address, not the unset default");
+        var status = await Expect(ctx.Browser.GetAsync("/api/wizard/sso/status"));
+        status.GetProperty("failureReason").GetString().Should().Be("sign_in_failed");
+        status.GetProperty("failureDetail").GetString().Should().Contain("more than 10 minutes");
+        ctx.FindUser("alex").Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SignInCallbackInAnotherBrowser_IsForeign_AndCreatesNoAdmin()
+    {
+        var ctx = await StartAsync();
+        await RegisterRunAsync(ctx.Browser);
+        var (authorizeUrl, _) = await ctx.Browser.NavigateAsync($"{BaseUrl}/api/wizard/sso/sign-in");
+
+        // Only the browser that started the run can finish it (E19).
+        using var other = ctx.NewBrowser();
+        var back = await other.SignInAtProviderAsync(authorizeUrl, "alex");
+
+        back.Should().EndWith("/wizard?sso=foreign");
+        ctx.FindUser("alex").Should().BeNull();
+        (await Expect(ctx.Browser.GetAsync("/api/wizard/sso/status"))).GetProperty("state").GetString().Should().Be("registered");
+    }
+
+    [Fact]
+    public async Task ProviderEnabledElsewhereWhileThePairingIsRedeemed_RunFails_ProviderUntouched()
+    {
+        var ctx = await StartAsync();
+        var start = await StartRunAsync(ctx.Browser);
+        await ctx.Browser.PairAsync(start.GetProperty("start"));
+
+        // The provider answers /pairing/token slowly; meanwhile "wysch" is set up and enabled elsewhere.
+        ctx.Idp.TokenDelay = TimeSpan.FromSeconds(2);
+        var continued = ctx.Browser.PostJsonAsync("/api/wizard/sso/continue");
+        await Task.Delay(TimeSpan.FromSeconds(0.5));
+        await ctx.AddProviderAsync("wysch", enabled: true);
+
+        var run = await Expect(continued);
+        run.GetProperty("state").GetString().Should().Be("failed");
+        run.GetProperty("failureReason").GetString().Should().Be("registration_failed");
+        run.GetProperty("failureDetail").GetString().Should().Contain("set up elsewhere");
+        var provider = await ctx.OidcSettings.GetByNameAsync("wysch");
+        provider!.Enabled.Should().BeTrue();
+        provider.ClientId.Should().Be(TestIdentityProviderHost.ManualClientId, "the enabled provider is not overwritten");
+    }
+
+    [Fact]
     public async Task PairingReturnAfterTheStateExpired_FailsTheWaitingRun()
     {
         var ctx = await StartAsync(flowStateSeconds: 1);
@@ -541,10 +596,10 @@ public class WizardSsoIntegrationTests : IAsyncLifetime
         Expect(browser.PostJsonAsync("/api/wizard/sso/start", new { templateId = "wysch", baseUrl }));
 
     /// <summary>Start, pairing and continue: the run is registered and the provider saved disabled.</summary>
-    private static async Task RegisterRunAsync(SsoBrowser browser)
+    private static async Task RegisterRunAsync(SsoBrowser browser, string baseUrl = BaseUrl)
     {
-        var start = await StartRunAsync(browser);
-        (await browser.PairAsync(start.GetProperty("start"))).Should().Be($"{BaseUrl}/wizard?sso=returned");
+        var start = await StartRunAsync(browser, baseUrl);
+        (await browser.PairAsync(start.GetProperty("start"))).Should().Be($"{baseUrl}/wizard?sso=returned");
         (await Expect(browser.PostJsonAsync("/api/wizard/sso/continue"))).GetProperty("state").GetString().Should().Be("registered");
     }
 }

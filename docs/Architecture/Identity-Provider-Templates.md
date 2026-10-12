@@ -30,9 +30,9 @@ Templates“.
 und `CompleteAsync`. Eingebaut (Security-Projekt, `IdentityProviders/RegistrationMethods.cs`):
 
 - `manual`: Redirect-URI kopieren, Client-ID und Secret eintragen.
-- `pairing`: Kopplung nach dem Protokoll von WYSCH ID (`Wiesenwischer/WYSCH`, `docs/specs/client-kopplung.md` und
-  `docs/plans/client-kopplung.md`): Formular-POST `manifest` (kind, name, url, redirect_uri, return_uri) und `state`
-  an `wysch_pairing_endpoint`; Rücksprung mit `code` und `state` (oder `error=access_denied`/`limit_reached`) nach
+- `pairing`: Kopplung nach dem Protokoll von WYSCH ID (verbindlich: `Wiesenwischer/WYSCH`, `docs/CLIENT-PAIRING.md`;
+  Regeln für ReadyStackGo in #498, Kommentar vom 06.10.2026): Formular-POST `manifest` (kind, name, url,
+  redirect_uri, return_uri) und `state` an `wysch_pairing_endpoint`; Rücksprung mit `code` und `state` (oder `error=access_denied`/`limit_reached`) nach
   `GET /api/sso/registration/callback`; Einlösen `code` + `state` an `wysch_pairing_token_endpoint` →
   `client_id`, `client_secret`, `issuer`. Beide Endpunkte kommen aus der Discovery.
 

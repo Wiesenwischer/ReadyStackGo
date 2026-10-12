@@ -144,10 +144,44 @@ public class WizardSsoService
         run == null ? $"/wizard?{query}" : $"{run.BaseUrl.TrimEnd('/')}/wizard?{query}";
 
     /// <summary>
-    /// A pairing that returns after its one-time state expired (10 minutes) while the run is still
-    /// waiting for it: the run of this browser fails with a reason instead of waiting forever.
+    /// A pairing that returns after its one-time state expired (10 minutes) while this browser's
+    /// run still waits for exactly that state: the run fails with a reason instead of waiting
+    /// forever. Returns the run only in that case.
     /// </summary>
-    public WizardSsoRun? FailLateRegistrationReturn(HttpContext http, string? state)
+    public WizardSsoRun? FailLateRegistrationReturn(HttpContext http, string? state, string? error)
+    {
+        var run = _runs.FindBySecret(SsoFlowCookie.Read(http));
+        if (run == null || string.IsNullOrEmpty(state))
+        {
+            return null;
+        }
+        lock (run)
+        {
+            Refresh(run);
+            if (run.State != WizardSsoRunState.Started ||
+                !string.Equals(run.PendingRegistrationState, state, StringComparison.Ordinal))
+            {
+                return null;
+            }
+            if (error == "access_denied")
+            {
+                FailRun(run, WizardSsoFailure.Cancelled);
+            }
+            else
+            {
+                FailRun(run, WizardSsoFailure.RegistrationFailed,
+                    "The connection came back more than 10 minutes after it was started. Try again.");
+            }
+            return run;
+        }
+    }
+
+    /// <summary>
+    /// An OIDC callback with an unknown state (more than 10 minutes at the provider, or a restart)
+    /// while this browser's run waits for its sign-in: the run fails with a reason, and the
+    /// browser goes back to the wizard. Returns the run only in that case.
+    /// </summary>
+    public WizardSsoRun? FailLateSignInReturn(HttpContext http)
     {
         var run = _runs.FindBySecret(SsoFlowCookie.Read(http));
         if (run == null)
@@ -157,14 +191,13 @@ public class WizardSsoService
         lock (run)
         {
             Refresh(run);
-            if (run.State == WizardSsoRunState.Started && !string.IsNullOrEmpty(state) &&
-                string.Equals(run.PendingRegistrationState, state, StringComparison.Ordinal))
+            if (run.State != WizardSsoRunState.Registered)
             {
-                run.Fail(WizardSsoFailure.RegistrationFailed,
-                    "The connection was confirmed more than 10 minutes after it was started. Try again.");
+                return null;
             }
+            FailRun(run, WizardSsoFailure.SignInFailed, "The sign-in came back more than 10 minutes after it was started. Try again.");
+            return run;
         }
-        return run;
     }
 
     /// <summary>The run of this browser, or null.</summary>
@@ -188,7 +221,7 @@ public class WizardSsoService
         }
         if (!string.Equals(run.PendingRegistrationState, state, StringComparison.Ordinal))
         {
-            run.Fail(WizardSsoFailure.RegistrationFailed, "The connection does not belong to this setup run.");
+            FailRun(run, WizardSsoFailure.RegistrationFailed, "The connection does not belong to this setup run.");
             return;
         }
 
@@ -198,13 +231,13 @@ public class WizardSsoService
                 run.PendingRegistrationCode = code;
                 break;
             case "access_denied":
-                run.Fail(WizardSsoFailure.Cancelled);
+                FailRun(run, WizardSsoFailure.Cancelled);
                 break;
             case "limit_reached":
-                run.Fail(WizardSsoFailure.LimitReached);
+                FailRun(run, WizardSsoFailure.LimitReached);
                 break;
             default:
-                run.Fail(WizardSsoFailure.RegistrationFailed, error);
+                FailRun(run, WizardSsoFailure.RegistrationFailed, error);
                 break;
         }
     }
@@ -225,7 +258,7 @@ public class WizardSsoService
         var template = _templates.GetTemplate(run.TemplateId);
         if (template == null)
         {
-            run.Fail(WizardSsoFailure.RegistrationFailed, "The template is no longer offered.");
+            FailRun(run, WizardSsoFailure.RegistrationFailed, "The template is no longer offered.");
             return;
         }
 
@@ -240,7 +273,7 @@ public class WizardSsoService
         }
         catch (ClientRegistrationException ex)
         {
-            run.Fail(ex.Code == "unreachable" ? WizardSsoFailure.Unreachable : WizardSsoFailure.RegistrationFailed, ex.Message);
+            FailRun(run, ex.Code == "unreachable" ? WizardSsoFailure.Unreachable : WizardSsoFailure.RegistrationFailed, ex.Message);
             return;
         }
 
@@ -253,7 +286,7 @@ public class WizardSsoService
         var existing = await _settings.GetByNameAsync(name, ct);
         if (existing != null && (existing.Enabled || existing.Template != template.Id))
         {
-            run.Fail(WizardSsoFailure.RegistrationFailed, $"The provider \"{name}\" was set up elsewhere in the meantime.");
+            FailRun(run, WizardSsoFailure.RegistrationFailed, $"The provider \"{name}\" was set up elsewhere in the meantime.");
             return;
         }
 
@@ -291,7 +324,7 @@ public class WizardSsoService
         catch (InvalidOperationException)
         {
             // Expired while saving: the provider stays disabled, the run ends.
-            run.Fail(WizardSsoFailure.Expired);
+            FailRun(run, WizardSsoFailure.Expired);
         }
     }
 
@@ -307,7 +340,7 @@ public class WizardSsoService
         var provider = await _settings.GetByNameAsync(run.ProviderName!, ct);
         if (provider == null)
         {
-            run.Fail(WizardSsoFailure.SignInFailed, "The provider was removed.");
+            FailRun(run, WizardSsoFailure.SignInFailed, "The provider was removed.");
             return null;
         }
 
@@ -318,7 +351,7 @@ public class WizardSsoService
         var result = await _oidc.BuildAuthorizeUrlAsync(provider, redirectUri, state, nonce, SsoTokens.PkceChallenge(verifier), ct);
         if (!result.Succeeded)
         {
-            run.Fail(result.Error == OidcErrorCodes.Unreachable ? WizardSsoFailure.Unreachable : WizardSsoFailure.SignInFailed,
+            FailRun(run, result.Error == OidcErrorCodes.Unreachable ? WizardSsoFailure.Unreachable : WizardSsoFailure.SignInFailed,
                 result.ErrorDescription);
             return null;
         }
@@ -348,21 +381,21 @@ public class WizardSsoService
 
         if (!string.IsNullOrEmpty(error) || string.IsNullOrEmpty(code))
         {
-            run.Fail(error == "access_denied" ? WizardSsoFailure.Cancelled : WizardSsoFailure.SignInFailed, error);
+            FailRun(run, error == "access_denied" ? WizardSsoFailure.Cancelled : WizardSsoFailure.SignInFailed, error);
             return returned;
         }
 
         var provider = await _settings.GetByNameAsync(flow.Provider, ct);
         if (provider == null)
         {
-            run.Fail(WizardSsoFailure.SignInFailed, "The provider was removed.");
+            FailRun(run, WizardSsoFailure.SignInFailed, "The provider was removed.");
             return returned;
         }
 
         var exchange = await _oidc.ExchangeCodeAsync(provider, code, flow.RedirectUri, flow.CodeVerifier, flow.Nonce, ct);
         if (!exchange.Succeeded)
         {
-            run.Fail(exchange.Error == OidcErrorCodes.Unreachable ? WizardSsoFailure.Unreachable : WizardSsoFailure.SignInFailed,
+            FailRun(run, exchange.Error == OidcErrorCodes.Unreachable ? WizardSsoFailure.Unreachable : WizardSsoFailure.SignInFailed,
                 exchange.ErrorDescription);
             return returned;
         }
@@ -370,7 +403,7 @@ public class WizardSsoService
         var info = exchange.UserInfo!;
         if (!info.EmailVerified || string.IsNullOrEmpty(info.Email))
         {
-            run.Fail(WizardSsoFailure.EmailUnverified);
+            FailRun(run, WizardSsoFailure.EmailUnverified);
             return returned;
         }
 
@@ -381,7 +414,7 @@ public class WizardSsoService
         }
         catch (ArgumentException)
         {
-            run.Fail(WizardSsoFailure.EmailInvalid);
+            FailRun(run, WizardSsoFailure.EmailInvalid);
             return returned;
         }
 
@@ -404,7 +437,7 @@ public class WizardSsoService
             }
             catch (InvalidOperationException)
             {
-                run.Fail(WizardSsoFailure.CompletedElsewhere);
+                FailRun(run, WizardSsoFailure.CompletedElsewhere);
                 return returned;
             }
 
@@ -454,6 +487,21 @@ public class WizardSsoService
     /// <summary>"Use built-in sign-in instead": ends the run. A paired provider stays disabled.</summary>
     public void End(WizardSsoRun run) => _runs.Remove(run.Id);
 
+    /// <summary>
+    /// Fails a run under its lock, the same lock that covers the creation of the administrator:
+    /// a failure from a second tab cannot slip in between, and a run that signed in stays so.
+    /// </summary>
+    private static void FailRun(WizardSsoRun run, string reason, string? detail = null)
+    {
+        lock (run)
+        {
+            if (run.State != WizardSsoRunState.SignedIn)
+            {
+                run.Fail(reason, detail);
+            }
+        }
+    }
+
     /// <summary>Applies expiry and "another path won" to a run that is not final.</summary>
     private void Refresh(WizardSsoRun run)
     {
@@ -468,11 +516,11 @@ public class WizardSsoService
             {
                 if (run.IsExpired(SystemClock.UtcNow))
                 {
-                    run.Fail(WizardSsoFailure.Expired);
+                    FailRun(run, WizardSsoFailure.Expired);
                 }
                 else if (_adminRegistration.SystemAdminExists())
                 {
-                    run.Fail(WizardSsoFailure.CompletedElsewhere);
+                    FailRun(run, WizardSsoFailure.CompletedElsewhere);
                 }
             }
         }
@@ -492,7 +540,7 @@ public class WizardSsoService
         }
         catch (ClientRegistrationException ex)
         {
-            run.Fail(ex.Code == "unreachable" ? WizardSsoFailure.Unreachable : WizardSsoFailure.RegistrationFailed, ex.Message);
+            FailRun(run, ex.Code == "unreachable" ? WizardSsoFailure.Unreachable : WizardSsoFailure.RegistrationFailed, ex.Message);
             throw new SsoSetupException(ex.Code == "unreachable" ? WizardSsoFailure.Unreachable : WizardSsoFailure.RegistrationFailed,
                 ex.Message, StatusCodes.Status502BadGateway);
         }
