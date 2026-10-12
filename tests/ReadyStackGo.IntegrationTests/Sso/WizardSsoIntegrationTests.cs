@@ -335,6 +335,28 @@ public class WizardSsoIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ContinueTwiceAtTheSameTime_OneGets409_TheRunEndsRegistered()
+    {
+        var ctx = await StartAsync();
+        var start = await StartRunAsync(ctx.Browser);
+        await ctx.Browser.PairAsync(start.GetProperty("start"));
+
+        // The first redemption waits at the provider; a second tab asks at the same time.
+        ctx.Idp.TokenDelay = TimeSpan.FromSeconds(2);
+        var first = ctx.Browser.PostJsonAsync("/api/wizard/sso/continue");
+        await Task.Delay(TimeSpan.FromSeconds(0.5));
+        var second = await ctx.Browser.PostJsonAsync("/api/wizard/sso/continue");
+
+        second.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await second.Content.ReadAsStringAsync()).Should().Contain("continue_in_progress");
+        (await Expect(first)).GetProperty("state").GetString().Should().Be("registered");
+
+        // Afterwards the run is free again: continue answers with the current state.
+        ctx.Idp.TokenDelay = TimeSpan.Zero;
+        (await Expect(ctx.Browser.PostJsonAsync("/api/wizard/sso/continue"))).GetProperty("state").GetString().Should().Be("registered");
+    }
+
+    [Fact]
     public async Task LatePairingCancel_StaysCancelled()
     {
         var ctx = await StartAsync(flowStateSeconds: 1);

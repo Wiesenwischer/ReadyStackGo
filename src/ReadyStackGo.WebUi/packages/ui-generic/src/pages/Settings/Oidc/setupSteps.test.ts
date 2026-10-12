@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CheckReportDto, SetupSessionDto } from "@rsgo/core";
 import {
   canContinue,
+  connectionChanges,
   discoveryPassed,
   initialStep,
   isValidProviderName,
@@ -193,5 +194,32 @@ describe("helpers", () => {
       testBadge(session({ testSignIn: { passed: false, current: true, at: "2026-10-06T10:00:00Z", claims: [] } })).label,
     ).toBe("Test failed");
     expect(testBadge(session()).label).toBe("Not tested");
+  });
+});
+
+describe("connectionChanges", () => {
+  const current = { authority: "https://idp.example.com/", clientId: "rsgo", scopes: "openid profile email" };
+  const fields = { authority: "https://idp.example.com/", clientId: "rsgo", clientSecret: "", scopes: "openid profile email" };
+
+  it("nothing changed: nothing to send", () => {
+    expect(connectionChanges(current, fields)).toEqual({ authority: false, client: false });
+    expect(connectionChanges(current, { ...fields, clientId: " rsgo ", scopes: "openid profile email " })).toEqual({ authority: false, client: false });
+  });
+
+  it("a new address needs discovery and registration", () => {
+    expect(connectionChanges(current, { ...fields, authority: "https://other.example.com/" })).toEqual({ authority: true, client: true });
+  });
+
+  it("client ID, a new secret or scopes need registration only", () => {
+    expect(connectionChanges(current, { ...fields, clientId: "other" })).toEqual({ authority: false, client: true });
+    expect(connectionChanges(current, { ...fields, clientSecret: "new-secret" })).toEqual({ authority: false, client: true });
+    expect(connectionChanges(current, { ...fields, scopes: "openid email" })).toEqual({ authority: false, client: true });
+  });
+
+  it("missing values of the session count as empty", () => {
+    expect(connectionChanges({ scopes: "openid" }, { authority: "", clientId: "", clientSecret: "", scopes: "openid" })).toEqual({
+      authority: false,
+      client: false,
+    });
   });
 });

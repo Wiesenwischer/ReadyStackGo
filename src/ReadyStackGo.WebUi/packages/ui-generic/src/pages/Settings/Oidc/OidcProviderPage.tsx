@@ -13,7 +13,7 @@ import { CopyField, TextField, Toggle } from "../../../components/ui/FormControl
 import { Card, SettingsBreadcrumb } from "./oidcShared";
 import { formatDate } from "./oidcFormat";
 import { ConnectStep, TestPanel } from "./steps/SetupSteps";
-import { redirectUriFor } from "./setupSteps";
+import { connectionChanges, redirectUriFor } from "./setupSteps";
 
 // Settings › Single Sign-On › <provider> (design frame 176:4851): connection, Test, Reconnect,
 // sign-in settings, and the lockout protection (plan E14).
@@ -117,7 +117,24 @@ export default function OidcProviderPage() {
     setError(null);
     setNotice(null);
     try {
-      const s = await ensureSession();
+      let s = await ensureSession();
+      // The Connection card of a manually registered provider is saved too (E14), not dropped.
+      const changes = provider && !provider.isPaired
+        ? connectionChanges(s, { authority, clientId, clientSecret, scopes })
+        : { authority: false, client: false };
+      if (changes.authority) s = await setupApi.discovery(s.id, authority.trim());
+      if (changes.client) {
+        s = (await setupApi.register(s.id, { clientId, clientSecret: clientSecret || undefined, scopes })).session;
+        setClientSecret("");
+      }
+      if (changes.client && provider?.enabled) {
+        // An enabled provider keeps its connection until a test sign-in passed (E14).
+        await setupApi.update(s.id, { displayName, trustUnverifiedEmail: trust });
+        setSession(s);
+        setMode("test");
+        setNotice("Run the test to take over the changed connection; until it passes, the saved connection stays active.");
+        return;
+      }
       await setupApi.update(s.id, { displayName, trustUnverifiedEmail: trust });
       await setupApi.save(s.id, enabled);
       setSession(null);

@@ -7,7 +7,7 @@ import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { ProviderMark } from "../../../components/sso/SsoComponents";
 import { CheckCircleIcon, XCircleIcon } from "../../../components/sso/icons";
 import { SettingsBreadcrumb, NoPasswordWarning } from "./oidcShared";
-import { formatDate } from "./oidcFormat";
+import { formatDate, lastResultLabel } from "./oidcFormat";
 
 // Settings › Single Sign-On (design frames 173:2891 "no providers", 173:3055 "providers").
 
@@ -17,7 +17,7 @@ const LOST_ERRORS: Record<string, string> = {
 };
 
 function meta(p: OidcProviderSettingsDto): string {
-  const parts = [p.name, p.templateName];
+  const parts = [p.name, `${p.templateName} template`];
   if (p.reconnectNeeded) {
     parts.push(`${p.templateName} rejected the client (invalid_client), the connection was probably removed`);
   } else if (p.isPaired && p.pairedAt) {
@@ -31,11 +31,9 @@ function meta(p: OidcProviderSettingsDto): string {
 function LastResult({ provider }: { provider: OidcProviderSettingsDto }) {
   const r = provider.lastResult;
   if (!r) return <span className="text-[13px] text-fg-muted">Not tested yet</span>;
-  // "Test passed · Oct 2, 2026" (frame 173:3055); a date fits the result column, unlike a sentence.
-  const what = r.kind === "signIn" ? "Sign-in" : "Test";
-  const label = r.passed ? `${what} passed · ${formatDate(r.at)}` : `${what} failed · ${formatDate(r.at)}`;
+  const label = lastResultLabel(r);
   return (
-    <span className="flex items-center gap-1.5 text-[13px] text-fg-secondary" title={r.message ?? undefined}>
+    <span className="flex items-center gap-1.5 text-[13px] text-fg-secondary" title={r.message && r.message !== label ? `${label}: ${r.message}` : label}>
       {r.passed ? (
         <CheckCircleIcon size={16} className="shrink-0 text-status-healthy" />
       ) : (

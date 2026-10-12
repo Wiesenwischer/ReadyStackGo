@@ -165,6 +165,20 @@ public class SsoSetupIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ProviderList_RedirectUri_NullWithoutBaseUrl_OtherwiseFromIt()
+    {
+        await _ctx.AddProviderAsync("oidc");
+
+        // The test installation runs on the unset default address.
+        (await Expect(Browser.GetAsync("/api/settings/oidc"))).GetProperty("providers")[0]
+            .GetProperty("redirectUri").ValueKind.Should().Be(JsonValueKind.Null);
+
+        await _ctx.SystemConfig.SetBaseUrlAsync("https://rsgo.example.com/");
+        (await Expect(Browser.GetAsync("/api/settings/oidc"))).GetProperty("providers")[0]
+            .GetProperty("redirectUri").GetString().Should().Be("https://rsgo.example.com/api/auth/oidc/oidc/callback");
+    }
+
+    [Fact]
     public async Task Checks_WrongSecret_ClientRejected()
     {
         var id = await PrepareManualSessionAsync(secret: "wrong-secret");

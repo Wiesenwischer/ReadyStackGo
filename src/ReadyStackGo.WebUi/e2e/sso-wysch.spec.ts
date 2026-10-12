@@ -349,6 +349,28 @@ test.describe('Single sign-on with WYSCH (test identity provider)', () => {
     await expect(page.getByTestId('provider-wysch')).not.toContainText('Reconnect needed');
   });
 
+  test('disabled provider: "Save changes" takes the changed connection right away', async ({ page }) => {
+    await signInWithPassword(page, 'alex', 'Local1234');
+    await page.goto('/settings/oidc/providers/company');
+
+    // Disable first, then change the scopes of the disabled provider and save (E14).
+    const saved = () =>
+      page.waitForResponse((r) => r.request().method() === 'POST' && /\/api\/settings\/oidc\/setup\/[^/]+\/save$/.test(r.url()));
+    await page.getByTestId('enable-provider').click();
+    await Promise.all([saved(), page.getByTestId('save-changes').click()]);
+    await expect(page.getByText('Changes saved.')).toBeVisible();
+    await page.getByTestId('scopes').fill('openid email');
+    await Promise.all([saved(), page.getByTestId('save-changes').click()]);
+    await expect(page.getByText('Changes saved.')).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByTestId('scopes')).toHaveValue('openid email');
+    const settings = await api<{ providers: { name: string; scopes: string; enabled: boolean }[] }>(page, 'GET', '/api/settings/oidc');
+    const company = settings.providers.find((p) => p.name === 'company')!;
+    expect(company.scopes).toBe('openid email');
+    expect(company.enabled).toBe(false);
+  });
+
   test('emergency access: rsgo admin set-password inside the container', async ({ page }) => {
     // The provider is down; the password set on the server is the way in.
     await testIdp('stop');

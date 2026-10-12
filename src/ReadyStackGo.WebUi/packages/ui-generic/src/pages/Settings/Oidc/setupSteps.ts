@@ -81,6 +81,32 @@ export function initialStep(session: SetupSessionDto): SetupStepId {
   return "installation";
 }
 
+/** The connection fields of a manually registered provider's page. */
+export interface ConnectionFields {
+  authority: string;
+  clientId: string;
+  clientSecret: string;
+  scopes: string;
+}
+
+/**
+ * What "Save changes" has to send of the Connection card: the provider address (discovery) and
+ * client ID, secret and scopes (register), compared with the connection of the session. An empty
+ * secret field keeps the stored secret.
+ */
+export function connectionChanges(
+  current: { authority?: string | null; clientId?: string | null; scopes: string },
+  fields: ConnectionFields,
+): { authority: boolean; client: boolean } {
+  const authority = fields.authority.trim() !== (current.authority ?? "");
+  const client =
+    authority ||
+    fields.clientId.trim() !== (current.clientId ?? "") ||
+    fields.clientSecret !== "" ||
+    fields.scopes.trim() !== current.scopes;
+  return { authority, client };
+}
+
 /** Provider names: lowercase letters, digits and dashes, 1–40, starting with a letter or digit. */
 export function isValidProviderName(name: string): boolean {
   return /^[a-z0-9][a-z0-9-]{0,39}$/.test(name);

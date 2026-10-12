@@ -62,11 +62,18 @@ export default function Wizard() {
   /** Continues a run without user interaction: redeem the pairing code, then sign in. */
   const advance = useCallback(async (current: WizardSsoRunDto) => {
     let next = current;
-    if (nextRunAction(next) === 'continue') {
+    for (let attempt = 0; nextRunAction(next) === 'continue'; attempt++) {
       try {
         next = await wizardSsoApi.continue();
         setRun(next);
       } catch (err) {
+        if (err instanceof ApiError && err.status === 409 && attempt < 30) {
+          // Another tab is completing the connection: wait and read the run's state again.
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          next = await wizardSsoApi.status();
+          setRun(next);
+          continue;
+        }
         setFailure({ reason: 'registration_failed', detail: err instanceof Error ? err.message : null });
         setView('ssoError');
         return;
@@ -230,6 +237,16 @@ export default function Wizard() {
           return;
       }
     } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        // The run is no longer where this card thought (another tab moved it on): show its state.
+        const fresh = await wizardSsoApi.status().catch(() => null);
+        if (fresh) {
+          setRun(fresh);
+          setFailure(null);
+          await advance(fresh);
+          return;
+        }
+      }
       setFailure({ reason: 'registration_failed', detail: err instanceof Error ? err.message : null });
       setView('ssoError');
     } finally {
