@@ -129,6 +129,10 @@ public class WizardSsoIntegrationTests : IAsyncLifetime
             HttpStatusCode.BadGateway);
 
         error.GetProperty("code").GetString().Should().Be("unreachable");
+        // The reason on its own, so the wizard card can show it (frame 172:2794).
+        var reason = error.GetProperty("reason").GetString();
+        reason.Should().NotBeNullOrWhiteSpace();
+        error.GetProperty("message").GetString().Should().Contain(reason!.TrimEnd('.'));
     }
 
     // ------------------------------------------------------------------ binding to the browser

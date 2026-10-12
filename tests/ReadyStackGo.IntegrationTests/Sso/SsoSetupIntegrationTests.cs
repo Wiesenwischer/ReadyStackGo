@@ -750,6 +750,102 @@ public class SsoSetupIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Reconnect_WhenTheFirstClientCheckFails_ALaterPassingCheckTakesTheClient()
+    {
+        await _ctx.AddProviderAsync("wysch", TestIdentityProviderHost.PairedStaticClientId, TestIdentityProviderHost.PairedStaticClientSecret,
+            registration: RegistrationKinds.Pairing);
+        _ctx.Idp.ParUnavailable = true;
+
+        var (id, session) = await ReconnectAsync("wysch");
+
+        session.GetProperty("adoptedAfterPairing").GetBoolean().Should().BeFalse();
+        (await _ctx.OidcSettings.GetByNameAsync("wysch"))!.ClientId.Should().Be(TestIdentityProviderHost.PairedStaticClientId);
+
+        _ctx.Idp.ParUnavailable = false;
+        (await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/checks"))).GetProperty("checks")
+            .GetProperty("passed").GetBoolean().Should().BeTrue();
+
+        var after = await Expect(Browser.GetAsync($"/api/settings/oidc/setup/{id}"));
+        after.GetProperty("adoptedAfterPairing").GetBoolean().Should().BeTrue();
+        after.GetProperty("connectionPending").GetBoolean().Should().BeFalse();
+        (await _ctx.OidcSettings.GetByNameAsync("wysch"))!.ClientId.Should().Be(session.GetProperty("clientId").GetString());
+    }
+
+    [Fact]
+    public async Task Reconnect_WithoutAPassedClientCheck_KeepsTheOldClient()
+    {
+        await _ctx.AddProviderAsync("wysch", TestIdentityProviderHost.PairedStaticClientId, TestIdentityProviderHost.PairedStaticClientSecret,
+            registration: RegistrationKinds.Pairing);
+        _ctx.Idp.ParUnavailable = true;
+
+        var (id, session) = await ReconnectAsync("wysch");
+        (await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/checks"))).GetProperty("checks")
+            .GetProperty("passed").GetBoolean().Should().BeFalse();
+
+        session.GetProperty("adoptedAfterPairing").GetBoolean().Should().BeFalse();
+        (await Expect(Browser.GetAsync($"/api/settings/oidc/setup/{id}"))).GetProperty("connectionPending").GetBoolean().Should().BeTrue();
+        (await _ctx.OidcSettings.GetByNameAsync("wysch"))!.ClientId.Should().Be(TestIdentityProviderHost.PairedStaticClientId);
+    }
+
+    [Fact]
+    public async Task ChecksAndFailedTest_OfAChangedConnection_DoNotRecordTheProvidersLastResult()
+    {
+        await _ctx.AddProviderAsync("oidc");
+        var before = (await _ctx.OidcSettings.GetByNameAsync("oidc"))!.LastResult;
+        var id = await IdAsync(Browser.PostJsonAsync("/api/settings/oidc/setup", new { provider = "oidc" }));
+        await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/registration",
+            new { clientId = TestIdentityProviderHost.ManualClientId, scopes = "openid email" }));
+
+        (await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/checks"))).GetProperty("checks")
+            .GetProperty("passed").GetBoolean().Should().BeTrue();
+        await TestSignInAsync(id, userId: null);
+
+        var provider = (await _ctx.OidcSettings.GetByNameAsync("oidc"))!;
+        provider.LastResult.Should().BeEquivalentTo(before, "neither result belongs to the provider's connection");
+        provider.Scopes.Should().Be("openid profile email");
+    }
+
+    [Fact]
+    public async Task Save_DisablingWithAChangedConnection_TakesTheConnection()
+    {
+        await _ctx.AddProviderAsync("oidc");
+        var id = await IdAsync(Browser.PostJsonAsync("/api/settings/oidc/setup", new { provider = "oidc" }));
+        await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/registration",
+            new { clientId = TestIdentityProviderHost.ManualClientId, scopes = "openid email" }));
+
+        await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/save", new { enabled = false }));
+
+        var provider = (await _ctx.OidcSettings.GetByNameAsync("oidc"))!;
+        provider.Enabled.Should().BeFalse();
+        provider.Scopes.Should().Be("openid email");
+    }
+
+    [Fact]
+    public async Task TestSignIn_AfterTheConnectionWasChangedElsewhere_IsNotTakenOver()
+    {
+        await _ctx.AddProviderAsync("oidc");
+        var before = (await _ctx.OidcSettings.GetByNameAsync("oidc"))!.LastResult;
+        var id = await IdAsync(Browser.PostJsonAsync("/api/settings/oidc/setup", new { provider = "oidc" }));
+        await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/registration",
+            new { clientId = TestIdentityProviderHost.ManualClientId, scopes = "openid email" }));
+        (await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/checks"))).GetProperty("checks")
+            .GetProperty("passed").GetBoolean().Should().BeTrue();
+        var elsewhere = (await _ctx.OidcSettings.GetByNameAsync("oidc"))!;
+        elsewhere.ClientSecret = "rotated-elsewhere";
+        await _ctx.OidcSettings.UpdateAsync(elsewhere);
+
+        await TestSignInAsync(id, "alex");
+
+        var session = await Expect(Browser.GetAsync($"/api/settings/oidc/setup/{id}"));
+        session.GetProperty("testSignIn").GetProperty("passed").GetBoolean().Should().BeTrue();
+        session.GetProperty("providerChangedElsewhere").GetBoolean().Should().BeTrue();
+        var provider = (await _ctx.OidcSettings.GetByNameAsync("oidc"))!;
+        provider.ClientSecret.Should().Be("rotated-elsewhere");
+        provider.Scopes.Should().Be("openid profile email");
+        provider.LastResult.Should().BeEquivalentTo(before);
+    }
+
+    [Fact]
     public async Task Save_AfterTheConnectionWasChangedElsewhere_Returns409()
     {
         // Session A changes the scopes; meanwhile the provider's connection changes elsewhere.

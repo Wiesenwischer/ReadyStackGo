@@ -52,7 +52,10 @@ Weitere Arten (andere Kopplung, RFC 7591) kommen per DI dazu, ohne Einrichtungsl
   aktuelle Verbindung; der einzige Anmeldeweg eines Benutzers ohne Passwort lässt sich nicht ausschalten oder
   entfernen; geänderte Zugangsdaten eines eingeschalteten Providers gelten erst nach einer erfolgreichen
   Test-Anmeldung, außer beim Reconnect gekoppelter Provider (nächster Punkt). Eine Sitzung überschreibt keine
-  Verbindung, die seit ihrem Beginn anderswo geändert wurde (409 `provider_changed`).
+  Verbindung, die seit ihrem Beginn anderswo geändert wurde: Speichern antwortet 409 `provider_changed`, eine bestandene
+  Test-Anmeldung übernimmt nichts, und die Sitzung meldet `providerChangedElsewhere`, worauf die Provider-Seite einen
+  Hinweis mit „Load the current connection“ zeigt. Prüfungen und Test-Anmeldungen schreiben das letzte Ergebnis des
+  Providers nur, wenn sie seine Verbindung betreffen oder diese dadurch übernommen wird.
 - **Zuordnung** (`OidcAccountResolver`): zuerst (Provider, Subject), dann E-Mail nur bestätigt oder mit „Trust
   unverified email addresses“, anderes Subject wird abgelehnt.
 - **Widerruf**: `invalid_client` eines gekoppelten Providers setzt „Reconnect needed“.

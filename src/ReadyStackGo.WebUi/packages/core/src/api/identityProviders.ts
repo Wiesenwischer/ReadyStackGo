@@ -99,6 +99,8 @@ export interface SetupSessionDto {
   adoptedAfterPairing?: boolean;
   /** The session holds a connection the existing provider has not taken over (it waits for a test sign-in). */
   connectionPending?: boolean;
+  /** The provider's connection was changed elsewhere since the session started; saving it answers 409. */
+  providerChangedElsewhere?: boolean;
   registrationError?: string | null;
   registrationErrorDescription?: string | null;
   /** The pairing came back with a code; complete the registration next. */

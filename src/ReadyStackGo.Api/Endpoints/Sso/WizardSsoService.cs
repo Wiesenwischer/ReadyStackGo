@@ -130,7 +130,7 @@ public class WizardSsoService
             var detail = discovery.Items.FirstOrDefault()?.Detail;
             throw new SsoSetupException(WizardSsoFailure.Unreachable,
                 $"ReadyStackGo could not reach {template.AuthorityUrl}{(detail != null ? $" ({detail.TrimEnd('.')})" : "")}.",
-                StatusCodes.Status502BadGateway);
+                StatusCodes.Status502BadGateway, detail);
         }
 
         var duration = RunDuration;

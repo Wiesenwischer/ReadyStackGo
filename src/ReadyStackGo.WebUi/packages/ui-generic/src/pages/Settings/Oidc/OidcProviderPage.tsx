@@ -38,6 +38,19 @@ export default function OidcProviderPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // The session as of now, for load(): set before the state update lands.
+  const sessionRef = useRef<SetupSessionDto | null>(null);
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+
+  /** Shows the connection of a session that waits for its test sign-in, so saving again keeps it. */
+  const showPendingConnection = useCallback((s: SetupSessionDto, fallback: OidcProviderSettingsDto) => {
+    setAuthority(s.authority ?? fallback.authority);
+    setClientId(s.clientId ?? fallback.clientId);
+    setScopes(s.scopes);
+    setClientSecret("");
+  }, []);
 
   /** Loads the provider; `resetFields` false keeps the edited fields (a connection waiting for its test). */
   const load = useCallback(async (resetFields = true) => {
@@ -51,9 +64,13 @@ export default function OidcProviderPage() {
       setAuthority(p.authority);
       setClientId(p.clientId);
       setScopes(p.scopes);
+      // A connection waiting for its test sign-in (after a reload or a cancelled test) is the one
+      // the Connection card shows; the provider's would replace it on the next save.
+      const pending = sessionRef.current;
+      if (pending?.connectionPending) showPendingConnection(pending, p);
     }
     return p;
-  }, [name]);
+  }, [name, showPendingConnection]);
 
   useEffect(() => {
     load().catch((err) => setError(errorText(err, "Failed to load the provider")));
@@ -66,14 +83,12 @@ export default function OidcProviderPage() {
     setupApi
       .get(id)
       .then((s) => {
+        sessionRef.current = s;
         setSession(s);
+        void load();
         const action = params.get("action");
         if (action === "reconnect" || s.registrationPending || (s.registrationError && !s.testSignIn)) setMode("reconnect");
         else setMode("test");
-        if (s.testSignIn?.passed && s.testSignIn.current) {
-          // A passed test sign-in with new credentials takes them over on the server.
-          void load();
-        }
       })
       .catch(() => setParams({}, { replace: true }));
   }, [params, session?.id, setParams, load]);
@@ -128,17 +143,21 @@ export default function OidcProviderPage() {
         s = (await setupApi.register(s.id, { clientId, clientSecret: clientSecret || undefined, scopes })).session;
         setClientSecret("");
       }
-      if (provider?.enabled && enabled && (changes.client || s.connectionPending)) {
+      // The server says whether the connection waits for a test sign-in, not the edited fields.
+      if (provider?.enabled && enabled && s.connectionPending) {
         // An enabled provider keeps its connection until a test sign-in passed (E14); display name
         // and "Trust …" are saved right away through a second session without the connection.
         const settingsOnly = await setupApi.createForProvider(name);
         await setupApi.update(settingsOnly.id, { displayName, trustUnverifiedEmail: trust });
         await setupApi.save(settingsOnly.id, true);
         await setupApi.update(s.id, { displayName, trustUnverifiedEmail: trust });
-        await load(false);
+        sessionRef.current = s;
         setSession(s);
+        await load(false);
         setMode("test");
-        setNotice("Display name and settings saved. The changed connection takes effect after a successful test sign-in.");
+        setNotice(
+          "Display name and “Trust unverified email addresses” saved. The changed connection takes effect after a successful test sign-in.",
+        );
         return;
       }
       await setupApi.update(s.id, { displayName, trustUnverifiedEmail: trust });
@@ -153,6 +172,18 @@ export default function OidcProviderPage() {
     } finally {
       setBusy(false);
     }
+  };
+
+  /** Drops the open session and shows the provider's current connection. */
+  const startOver = async () => {
+    if (session) await setupApi.cancel(session.id).catch(() => undefined);
+    sessionRef.current = null;
+    setSession(null);
+    setParams({}, { replace: true });
+    setMode("none");
+    setNotice(null);
+    setError(null);
+    await load().catch((err) => setError(errorText(err, "Failed to load the provider")));
   };
 
   const remove = async () => {
@@ -176,6 +207,7 @@ export default function OidcProviderPage() {
       // the new credentials over (only then, so later check runs keep unsaved input).
       const adoptedNow = !!s.adoptedAfterPairing && !adoptedSeen.current;
       adoptedSeen.current = !!s.adoptedAfterPairing;
+      sessionRef.current = s;
       if ((s.testSignIn?.passed && s.testSignIn.current) || adoptedNow) void load();
     },
     [load],
@@ -220,11 +252,22 @@ export default function OidcProviderPage() {
       <div className="flex max-w-[860px] flex-col gap-6">
         {locked && (
           <Alert tone="warning" title="You sign in with this provider and have no local password" testId="lockout-warning">
-            So you can't lock yourself out: this provider can't be disabled or removed, and changed settings take effect only after a
-            successful test sign-in. Set a local password in your profile to lift this.
+            So you can't lock yourself out: this provider can't be disabled or removed, and a changed connection (provider address,
+            client ID, secret, scopes) takes effect only after a successful test sign-in. Set a local password in your profile to lift this.
           </Alert>
         )}
         {error && <Alert tone="error" title="Something went wrong">{error}</Alert>}
+        {session?.providerChangedElsewhere && (
+          <Alert tone="warning" title="The connection was changed elsewhere" testId="provider-changed-elsewhere">
+            Someone changed this provider's connection after you opened it, so the changes and test results on this
+            page are not taken over.
+            <div className="mt-3">
+              <Button variant="secondary" size="sm" onClick={() => void startOver()} disabled={busy} data-testid="load-current-connection">
+                Load the current connection
+              </Button>
+            </div>
+          </Alert>
+        )}
         {notice && <Alert tone="success" title={notice} />}
 
         <Card

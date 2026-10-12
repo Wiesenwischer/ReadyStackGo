@@ -24,12 +24,15 @@ function getAuthHeaders(includeContentType: boolean = true): HeadersInit {
 export class ApiError extends Error {
   readonly status: number;
   readonly code?: string;
+  /** The underlying cause on its own, when the endpoint returns one (`{ code, message, reason }`). */
+  readonly reason?: string;
 
-  constructor(message: string, status: number, code?: string) {
+  constructor(message: string, status: number, code?: string, reason?: string) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.reason = reason;
   }
 }
 
@@ -48,7 +51,8 @@ async function toApiError(response: Response): Promise<ApiError> {
       return new ApiError(messages.length > 0 ? messages.join(', ') : fallback, response.status, code);
     }
     const message = body.error ?? body.message ?? body.detail ?? body.title ?? fallback;
-    return new ApiError(String(message), response.status, code);
+    const reason = typeof body.reason === 'string' ? body.reason : undefined;
+    return new ApiError(String(message), response.status, code, reason);
   } catch {
     return new ApiError(fallback, response.status);
   }

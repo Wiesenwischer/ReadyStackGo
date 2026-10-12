@@ -183,7 +183,7 @@ export default function Wizard() {
     } catch (err) {
       setBusy(false);
       if (err instanceof ApiError && err.code === 'unreachable') {
-        setFailure({ reason: 'unreachable', detail: null });
+        setFailure({ reason: 'unreachable', detail: err.reason ?? null });
         setView('ssoError');
       } else if (err instanceof ApiError && err.code === 'completed_elsewhere') {
         setFailure({ reason: 'completed_elsewhere' });

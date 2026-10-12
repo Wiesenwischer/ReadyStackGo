@@ -1,3 +1,4 @@
+using System.Net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
@@ -46,6 +47,9 @@ public sealed class TestIdentityProviderHost : IAsyncDisposable
 
     /// <summary>Delay of ReadyStackGo's calls to the token endpoint (a slow provider).</summary>
     public TimeSpan TokenDelay { get; set; }
+
+    /// <summary>When true, ReadyStackGo's calls to the PAR endpoint answer 503 (the client check fails, pairing works).</summary>
+    public bool ParUnavailable { get; set; }
 
     public static async Task<TestIdentityProviderHost> StartAsync()
     {
@@ -105,6 +109,10 @@ public sealed class TestIdentityProviderHost : IAsyncDisposable
             {
                 throw new HttpRequestException(HttpRequestError.ConnectionError,
                     "Connection refused (test identity provider switched off)");
+            }
+            if (host.ParUnavailable && request.RequestUri!.AbsolutePath.EndsWith("/par", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) { RequestMessage = request };
             }
             if (host.TokenDelay > TimeSpan.Zero && request.RequestUri!.AbsolutePath.EndsWith("/token", StringComparison.Ordinal))
             {

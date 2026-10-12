@@ -10,15 +10,19 @@ namespace ReadyStackGo.API.Endpoints.Sso;
 /// <summary>A setup step failed for a reason the UI shows (HTTP status and machine-readable code).</summary>
 public class SsoSetupException : Exception
 {
-    public SsoSetupException(string code, string message, int statusCode = StatusCodes.Status400BadRequest)
+    public SsoSetupException(string code, string message, int statusCode = StatusCodes.Status400BadRequest, string? reason = null)
         : base(message)
     {
         Code = code;
         StatusCode = statusCode;
+        Reason = reason;
     }
 
     public string Code { get; }
     public int StatusCode { get; }
+
+    /// <summary>The underlying cause on its own (e.g. "connection refused"), for UIs that build their own text.</summary>
+    public string? Reason { get; }
 }
 
 /// <summary>
@@ -319,7 +323,9 @@ public class SsoSetupService
         var context = RegistrationContext(session, session.PendingRegistrationState);
         try
         {
-            var client = await method.CompleteAsync(context, session.PendingRegistrationCode, ct);
+            // Not cancellable: once redeemed, the code is gone, and the provider may already have
+            // replaced the old client; the result must reach the session.
+            var client = await method.CompleteAsync(context, session.PendingRegistrationCode, CancellationToken.None);
             ApplyRegisteredClient(session, client);
         }
         catch (ClientRegistrationException ex)
@@ -704,8 +710,16 @@ public class SsoSetupService
         }
 
         var result = session.TestSignIn!;
+        var ownConnection = OidcConnectionFingerprint.Compute(existing) == Fingerprint(session);
+        var takeOver = TestPassedForCurrentConnection(session) && !ChangedElsewhere(session, existing);
+        if (!ownConnection && !takeOver)
+        {
+            // The tested connection is not the provider's and does not become it (a failed test of a
+            // changed connection, or one changed elsewhere meanwhile): its result is not the provider's.
+            return;
+        }
         existing.LastResult = new OidcLastResult(result.At, OidcResultKinds.TestSignIn, result.Passed, result.Error);
-        if (TestPassedForCurrentConnection(session) && !ChangedElsewhere(session, existing))
+        if (takeOver)
         {
             // A passed test sign-in with a new connection (reconnect, changed settings) takes it over,
             // unless the provider's connection was changed elsewhere since this session started.
@@ -727,6 +741,17 @@ public class SsoSetupService
         }
         var existing = await _settings.GetByNameAsync(session.ExistingProvider, ct);
         return existing != null && OidcConnectionFingerprint.Compute(existing) != Fingerprint(session);
+    }
+
+    /// <summary>The provider's connection was changed elsewhere since this session started (save answers 409).</summary>
+    public async Task<bool> ProviderChangedElsewhereAsync(SsoSetupSession session, CancellationToken ct)
+    {
+        if (session.IsNew || session.ExistingProvider == null)
+        {
+            return false;
+        }
+        var existing = await _settings.GetByNameAsync(session.ExistingProvider, ct);
+        return existing != null && ChangedElsewhere(session, existing);
     }
 
     private static bool ChangedElsewhere(SsoSetupSession session, OidcProviderSettings existing) =>

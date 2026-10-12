@@ -72,7 +72,7 @@ A user linked to this provider with a different identity is rejected rather than
 
 ## Don't lock yourself out
 
-- If you sign in only through a provider and have no local password, that provider **cannot be disabled or removed**, and changed settings take effect only after a successful test sign-in.
+- If you sign in only through a provider and have no local password, that provider **cannot be disabled or removed**, and a changed connection (provider address, client ID, secret, scopes) takes effect only after a successful test sign-in.
 - **Unlink** in your profile is disabled while you have no local password.
 - While no system administrator has a local password, Settings › Single Sign-On and the profile show a warning. Set a password under **Profile → Set a local password**.
 

@@ -72,7 +72,7 @@ Ein Benutzer, der mit diesem Provider unter einer anderen Identität verknüpft 
 
 ## Nicht aussperren
 
-- Melden Sie sich nur über einen Provider an und haben kein lokales Passwort, lässt sich dieser Provider **weder ausschalten noch entfernen**, und geänderte Einstellungen gelten erst nach einer erfolgreichen Test-Anmeldung.
+- Melden Sie sich nur über einen Provider an und haben kein lokales Passwort, lässt sich dieser Provider **weder ausschalten noch entfernen**, und eine geänderte Verbindung (Provider-Adresse, Client-ID, Secret, Scopes) gilt erst nach einer erfolgreichen Test-Anmeldung.
 - **Unlink** im Profil ist gesperrt, solange Sie kein lokales Passwort haben.
 - Solange kein Systemadministrator ein lokales Passwort hat, zeigen Settings › Single Sign-On und das Profil einen Hinweis. Setzen Sie ein Passwort unter **Profile → Set a local password**.
 

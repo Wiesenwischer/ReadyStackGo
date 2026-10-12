@@ -122,6 +122,9 @@ public class SetupSessionDto
 
     /// <summary>The session holds a connection the existing provider has not taken over (it waits for a test sign-in).</summary>
     public bool ConnectionPending { get; set; }
+
+    /// <summary>The provider's connection was changed elsewhere since the session started; saving it answers 409.</summary>
+    public bool ProviderChangedElsewhere { get; set; }
     public string? RegistrationError { get; set; }
     public string? RegistrationErrorDescription { get; set; }
     public bool RegistrationPending { get; set; }
@@ -158,12 +161,15 @@ public class SsoErrorDto
 {
     public string Code { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
+
+    /// <summary>The underlying cause on its own, when the error has one (e.g. why a provider is unreachable).</summary>
+    public string? Reason { get; set; }
 }
 
 internal static class SsoResponses
 {
     public static Task SendErrorAsync(HttpContext http, SsoSetupException ex, CancellationToken ct) =>
-        http.Response.SendAsync(new SsoErrorDto { Code = ex.Code, Message = ex.Message }, ex.StatusCode, cancellation: ct);
+        http.Response.SendAsync(new SsoErrorDto { Code = ex.Code, Message = ex.Message, Reason = ex.Reason }, ex.StatusCode, cancellation: ct);
 
     public static Task SendErrorAsync(HttpContext http, string code, string message, int status, CancellationToken ct) =>
         http.Response.SendAsync(new SsoErrorDto { Code = code, Message = message }, status, cancellation: ct);

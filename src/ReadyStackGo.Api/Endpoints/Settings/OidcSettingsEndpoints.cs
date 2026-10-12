@@ -330,6 +330,7 @@ public abstract class SetupSessionEndpointBase<TRequest> : Endpoint<TRequest> wh
             RegisteredInSession = session.RegisteredInSession,
             AdoptedAfterPairing = session.AdoptedAfterPairing,
             ConnectionPending = await Setup.ConnectionPendingAsync(session, CancellationToken.None),
+            ProviderChangedElsewhere = await Setup.ProviderChangedElsewhereAsync(session, CancellationToken.None),
             RegistrationError = session.RegistrationError,
             RegistrationErrorDescription = session.RegistrationErrorDescription,
             RegistrationPending = !string.IsNullOrEmpty(session.PendingRegistrationCode),
