@@ -24,7 +24,7 @@ The setup wizard starts with **How do you want to sign in?**:
 WYSCH only connects installations that are reachable under an `https://` address; `http://` is allowed for `localhost` only. If your installation runs under `http://server:8080`, put it behind a reverse proxy with a certificate, or use built-in sign-in and add WYSCH later.
 :::
 
-If WYSCH is not reachable, the connection is cancelled or the sign-in run expires, the wizard explains why and offers **Use built-in sign-in instead**. A sign-in run that started inside the setup window may take up to 15 minutes. The confirmation at WYSCH, including creating a WYSCH account first, has to come back within 10 minutes; after that the wizard offers **Try again**.
+If WYSCH is not reachable, the connection is cancelled or the sign-in run expires, the wizard explains why and offers **Try again** and, while the setup window is open, **Use built-in sign-in instead** (after the window closed, a restart of the container opens it again). A sign-in run that started inside the setup window may take up to 15 minutes. The confirmation at WYSCH, including creating a WYSCH account first, has to come back within 10 minutes; after that the wizard offers **Try again**.
 
 ## Add a provider
 

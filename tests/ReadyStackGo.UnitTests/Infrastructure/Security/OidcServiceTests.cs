@@ -252,6 +252,20 @@ public class OidcServiceTests : IDisposable
     }
 
     [Theory]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("/protocol/openid-connect/token")]
+    public async Task ExchangeCode_TokenEndpointNotHttp_FailsWithInvalidDiscovery_WithoutException(string endpoint)
+    {
+        _idp.PublishDiscovery(tokenEndpoint: endpoint);
+
+        var result = await Exchange();
+
+        result.Succeeded.Should().BeFalse();
+        result.Error.Should().Be(OidcErrorCodes.InvalidDiscovery);
+        _idp.Handler.Requests.Should().NotContain(r => r.Method == HttpMethod.Post);
+    }
+
+    [Theory]
     [InlineData("[]")]
     [InlineData("\"invalid_client\"")]
     [InlineData("""{"error":42}""")]

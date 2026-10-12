@@ -169,3 +169,15 @@ describe("built-in sign-in after the setup window closed", () => {
     expect(c.builtIn).toBe(false);
   });
 });
+
+describe("error texts after the setup window closed", () => {
+  it("name the restart instead of the built-in sign-in", () => {
+    for (const reason of ["unreachable", "cancelled", "email_invalid", "registration_failed"]) {
+      const closed = errorContent(reason, { ...options, windowOpen: false });
+      expect(closed.body).not.toMatch(/use built-in sign-in instead|continue with built-in sign-in/i);
+      expect(closed.body).toContain("restart the container");
+      const open = errorContent(reason, { ...options, windowOpen: true });
+      expect(open.body).toMatch(/built-in sign-in/);
+    }
+  });
+});

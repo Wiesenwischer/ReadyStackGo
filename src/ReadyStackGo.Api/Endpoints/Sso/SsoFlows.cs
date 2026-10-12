@@ -66,6 +66,9 @@ public class SsoFlowStore
             : Lifetime;
     }
 
+    /// <summary>Lifetime of the states of this store.</summary>
+    public TimeSpan StateLifetime => _lifetime;
+
     public void PutOidc(string state, OidcFlowState flow) => _cache.Set(OidcKey(state), flow, _lifetime);
 
     public OidcFlowState? TakeOidc(string state) => Take<OidcFlowState>(OidcKey(state));

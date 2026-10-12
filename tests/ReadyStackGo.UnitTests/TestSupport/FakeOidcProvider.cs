@@ -98,13 +98,13 @@ internal sealed class FakeOidcProvider : IDisposable
 
     /// <summary>Publishes a discovery document with the given options.</summary>
     public void PublishDiscovery(bool parEndpoint = true, bool requirePar = false, string? issuer = null,
-        string? authorizationEndpoint = null, string? parEndpointUrl = null)
+        string? authorizationEndpoint = null, string? parEndpointUrl = null, string? tokenEndpoint = null)
     {
         var doc = new Dictionary<string, object>
         {
             ["issuer"] = issuer ?? Issuer,
             ["authorization_endpoint"] = authorizationEndpoint ?? AuthorizationEndpoint,
-            ["token_endpoint"] = TokenEndpoint,
+            ["token_endpoint"] = tokenEndpoint ?? TokenEndpoint,
             ["jwks_uri"] = JwksUrl,
             ["response_types_supported"] = new[] { "code" },
             ["subject_types_supported"] = new[] { "public" },

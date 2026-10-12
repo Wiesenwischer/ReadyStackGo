@@ -26,6 +26,9 @@ public class OidcProviderSettingsDto
     public string Template { get; set; } = string.Empty;
     public string TemplateName { get; set; } = string.Empty;
     public string? IconUrl { get; set; }
+
+    /// <summary>The redirect URI to register at the provider; null while no base URL is set.</summary>
+    public string? RedirectUri { get; set; }
     public string Registration { get; set; } = string.Empty;
     public bool IsPaired { get; set; }
     public DateTime? PairedAt { get; set; }
@@ -58,13 +61,16 @@ public class GetOidcSettingsEndpoint : EndpointWithoutRequest<OidcSettingsDto>
     private readonly IIdentityProviderTemplateCatalog _templates;
     private readonly IUserRepository _users;
     private readonly SsoSetupService _setup;
+    private readonly ISystemConfigService _systemConfig;
 
-    public GetOidcSettingsEndpoint(IOidcSettingsService settings, IIdentityProviderTemplateCatalog templates, IUserRepository users, SsoSetupService setup)
+    public GetOidcSettingsEndpoint(IOidcSettingsService settings, IIdentityProviderTemplateCatalog templates, IUserRepository users, SsoSetupService setup,
+        ISystemConfigService systemConfig)
     {
         _settings = settings;
         _templates = templates;
         _users = users;
         _setup = setup;
+        _systemConfig = systemConfig;
     }
 
     public override void Configure()
@@ -79,6 +85,7 @@ public class GetOidcSettingsEndpoint : EndpointWithoutRequest<OidcSettingsDto>
         var providers = await _settings.GetAllAsync(ct);
         var currentUser = ListExternalIdentitiesEndpoint.CurrentUser(_users, HttpContext);
         var admins = _users.GetAll().Where(u => u.HasRole(RoleId.SystemAdmin)).ToList();
+        var baseUrl = await _systemConfig.GetConfiguredBaseUrlAsync();
 
         var list = new List<OidcProviderSettingsDto>();
         foreach (var p in providers)
@@ -96,6 +103,7 @@ public class GetOidcSettingsEndpoint : EndpointWithoutRequest<OidcSettingsDto>
                 Template = p.Template,
                 TemplateName = template?.Name ?? (p.Template == OidcProviderSettings.GenericTemplateId ? "Generic OIDC" : p.Template),
                 IconUrl = template is { HasIcon: true } ? $"/api/identity-provider-templates/{template.Id}/icon" : null,
+                RedirectUri = baseUrl == null ? null : BaseUrlRules.ProviderRedirectUri(baseUrl, p.Name),
                 Registration = p.Registration,
                 IsPaired = p.IsPaired,
                 PairedAt = p.PairedAt,

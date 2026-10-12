@@ -105,6 +105,12 @@ public class OidcService : IOidcService
             return OidcExchangeResult.Failure(discovery.Error!, discovery.Description);
         }
 
+        if (!OidcEndpointUrls.IsHttp(config.TokenEndpoint))
+        {
+            return OidcExchangeResult.Failure(OidcErrorCodes.InvalidDiscovery,
+                "The discovery document names no absolute http or https token endpoint.");
+        }
+
         var form = new Dictionary<string, string>
         {
             ["grant_type"] = "authorization_code",

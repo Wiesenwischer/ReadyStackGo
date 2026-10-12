@@ -7,7 +7,7 @@ import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { ProviderMark } from "../../../components/sso/SsoComponents";
 import { CheckCircleIcon, XCircleIcon } from "../../../components/sso/icons";
 import { SettingsBreadcrumb, NoPasswordWarning } from "./oidcShared";
-import { formatDate, relativeTime } from "./oidcFormat";
+import { formatDate } from "./oidcFormat";
 
 // Settings › Single Sign-On (design frames 173:2891 "no providers", 173:3055 "providers").
 
@@ -31,10 +31,9 @@ function meta(p: OidcProviderSettingsDto): string {
 function LastResult({ provider }: { provider: OidcProviderSettingsDto }) {
   const r = provider.lastResult;
   if (!r) return <span className="text-[13px] text-fg-muted">Not tested yet</span>;
-  const what = r.kind === "signIn" ? "Sign-in" : r.kind === "checks" ? "Checks" : "Test sign-in";
-  const label = r.passed
-    ? `${what} passed · ${relativeTime(r.at)}`
-    : `${r.kind === "signIn" ? "Sign-in failed" : r.message || `${what} failed`} · ${relativeTime(r.at)}`;
+  // "Test passed · Oct 2, 2026" (frame 173:3055); a date fits the result column, unlike a sentence.
+  const what = r.kind === "signIn" ? "Sign-in" : "Test";
+  const label = r.passed ? `${what} passed · ${formatDate(r.at)}` : `${what} failed · ${formatDate(r.at)}`;
   return (
     <span className="flex items-center gap-1.5 text-[13px] text-fg-secondary" title={r.message ?? undefined}>
       {r.passed ? (
@@ -142,7 +141,7 @@ export default function OidcSettingsPage() {
                 <li
                   key={p.name}
                   data-testid={`provider-${p.name}`}
-                  className={`flex flex-wrap items-center gap-4 py-4 min-[1360px]:grid min-[1360px]:grid-cols-[44px_minmax(0,1fr)_auto_190px_auto] ${
+                  className={`flex flex-wrap items-center gap-4 py-4 min-[1360px]:grid min-[1360px]:grid-cols-[44px_minmax(0,1fr)_auto_210px_auto] ${
                     i < providers.length - 1 ? "border-b border-line" : ""
                   }`}
                 >
@@ -160,7 +159,7 @@ export default function OidcSettingsPage() {
                     <StatusBadge tone={p.enabled ? "healthy" : "unknown"}>{p.enabled ? "Enabled" : "Disabled"}</StatusBadge>
                     {p.reconnectNeeded && <StatusBadge tone="degraded">Reconnect needed</StatusBadge>}
                   </div>
-                  <div className="w-[190px]">
+                  <div className="w-[210px]">
                     <LastResult provider={p} />
                   </div>
                   <div className="flex gap-2">

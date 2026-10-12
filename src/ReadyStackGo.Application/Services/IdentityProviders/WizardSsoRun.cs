@@ -82,6 +82,9 @@ public class WizardSsoRun
     public string? PendingRegistrationState { get; set; }
     public string? PendingRegistrationCode { get; set; }
 
+    /// <summary>State of the sign-in in flight (Registered), to recognize its late return.</summary>
+    public string? PendingSignInState { get; set; }
+
     public string? SignedInUsername { get; private set; }
     public string? SignedInEmail { get; private set; }
     public string? SignedInDisplayName { get; private set; }

@@ -24,6 +24,13 @@ public class WizardSsoRunStore
             : _runs.Values.Where(r => r.FlowSecret == flowSecret).OrderByDescending(r => r.StartedAt).FirstOrDefault();
 
     public void Remove(string id) => _runs.TryRemove(id, out _);
+
+    private readonly ConcurrentDictionary<string, byte> _continuing = new(StringComparer.Ordinal);
+
+    /// <summary>Marks a run's redemption as in progress; false if another request is redeeming it.</summary>
+    public bool TryBeginContinue(string id) => _continuing.TryAdd(id, 0);
+
+    public void EndContinue(string id) => _continuing.TryRemove(id, out _);
 }
 
 /// <summary>
@@ -177,25 +184,33 @@ public class WizardSsoService
     }
 
     /// <summary>
-    /// An OIDC callback with an unknown state (more than 10 minutes at the provider, or a restart)
-    /// while this browser's run waits for its sign-in: the run fails with a reason, and the
-    /// browser goes back to the wizard. Returns the run only in that case.
+    /// The sign-in of this browser's run returns after its one-time state expired (more than 10
+    /// minutes at the provider): the run fails with a reason, and the browser goes back to the
+    /// wizard. Only for exactly the state of that sign-in; returns the run only in that case.
     /// </summary>
-    public WizardSsoRun? FailLateSignInReturn(HttpContext http)
+    public WizardSsoRun? FailLateSignInReturn(HttpContext http, string? state, string? error)
     {
         var run = _runs.FindBySecret(SsoFlowCookie.Read(http));
-        if (run == null)
+        if (run == null || string.IsNullOrEmpty(state))
         {
             return null;
         }
         lock (run)
         {
             Refresh(run);
-            if (run.State != WizardSsoRunState.Registered)
+            if (run.State != WizardSsoRunState.Registered ||
+                !string.Equals(run.PendingSignInState, state, StringComparison.Ordinal))
             {
                 return null;
             }
-            FailRun(run, WizardSsoFailure.SignInFailed, "The sign-in came back more than 10 minutes after it was started. Try again.");
+            if (error == "access_denied")
+            {
+                run.Fail(WizardSsoFailure.Cancelled);
+            }
+            else
+            {
+                run.Fail(WizardSsoFailure.SignInFailed, "The sign-in came back more than 10 minutes after it was started. Try again.");
+            }
             return run;
         }
     }
@@ -244,6 +259,23 @@ public class WizardSsoService
 
     /// <summary>Redeems the pairing code and saves the provider disabled (Started → Registered).</summary>
     public async Task ContinueAsync(WizardSsoRun run, CancellationToken ct)
+    {
+        // One redemption per run at a time: a second tab must not fail a run that is being redeemed.
+        if (!_runs.TryBeginContinue(run.Id))
+        {
+            throw new SsoSetupException("continue_in_progress", "The connection is being completed in another tab.", StatusCodes.Status409Conflict);
+        }
+        try
+        {
+            await ContinueCoreAsync(run, ct);
+        }
+        finally
+        {
+            _runs.EndContinue(run.Id);
+        }
+    }
+
+    private async Task ContinueCoreAsync(WizardSsoRun run, CancellationToken ct)
     {
         Refresh(run);
         if (run.State != WizardSsoRunState.Started)
@@ -317,14 +349,19 @@ public class WizardSsoService
             await _settings.AddAsync(provider, ct);
         }
 
-        try
+        lock (run)
         {
-            run.MarkRegistered(name, SystemClock.UtcNow);
-        }
-        catch (InvalidOperationException)
-        {
-            // Expired while saving: the provider stays disabled, the run ends.
-            FailRun(run, WizardSsoFailure.Expired);
+            // Something else (expiry, another path) may have ended the run while saving; the
+            // provider then stays disabled.
+            var now = SystemClock.UtcNow;
+            if (run.State == WizardSsoRunState.Started && !run.IsExpired(now))
+            {
+                run.MarkRegistered(name, now);
+            }
+            else if (run.State == WizardSsoRunState.Started)
+            {
+                run.Fail(WizardSsoFailure.Expired);
+            }
         }
     }
 
@@ -357,6 +394,7 @@ public class WizardSsoService
         }
 
         _flows.PutOidc(state, new OidcFlowState(provider.Name, nonce, verifier, redirectUri, OidcFlowPurpose.WizardAdmin, run.Id, run.FlowSecret));
+        run.PendingSignInState = state;
         return result.Url;
     }
 

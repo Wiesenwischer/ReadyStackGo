@@ -10,7 +10,6 @@ import {
 import { Alert } from "../../../components/ui/Alert";
 import { Button } from "../../../components/ui/Button";
 import { CopyField, TextField, Toggle } from "../../../components/ui/FormControls";
-import { ProviderMark } from "../../../components/sso/SsoComponents";
 import { Card, SettingsBreadcrumb } from "./oidcShared";
 import { formatDate } from "./oidcFormat";
 import { ConnectStep, TestPanel } from "./steps/SetupSteps";
@@ -171,15 +170,12 @@ export default function OidcProviderPage() {
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
       <SettingsBreadcrumb trail={[{ label: "Single Sign-On", to: "/settings/oidc" }, provider.displayName]} />
       <div className="mb-6 flex max-w-[860px] flex-wrap items-end justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <ProviderMark iconUrl={provider.iconUrl} />
-          <div>
-            <h2 className="text-[26px] font-bold leading-[34px] text-fg">{provider.displayName}</h2>
-            <p className="text-sm text-fg-secondary">
-              {templateName} template · {provider.enabled ? "enabled" : "disabled"}
-              {provider.reconnectNeeded ? " · reconnect needed" : ""}
-            </p>
-          </div>
+        {/* Title without the symbol tile and status suffix, as in frame 176:4851. */}
+        <div>
+          <h2 className="text-[26px] font-bold leading-[34px] text-fg">{provider.displayName}</h2>
+          <p className="text-sm text-fg-secondary">
+            {templateName} template · {provider.enabled ? "enabled" : "disabled"}
+          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => startMode("test")} data-testid="provider-test">
@@ -253,7 +249,12 @@ export default function OidcProviderPage() {
               </div>
             </>
           )}
-          {session?.baseUrl && <CopyField label="Redirect URI" value={redirectUriFor(session.baseUrl, provider.name)} />}
+          {/* Shown without a session too (frame 176:4851); a session may test another address. */}
+          {session?.baseUrl ? (
+            <CopyField label="Redirect URI" value={redirectUriFor(session.baseUrl, provider.name)} />
+          ) : (
+            provider.redirectUri && <CopyField label="Redirect URI" value={provider.redirectUri} />
+          )}
         </Card>
 
         {mode === "reconnect" && session && (

@@ -116,6 +116,11 @@ export function errorContent(
   // "Use built-in sign-in instead" ends the run; once the setup window has closed the built-in
   // sign-in would only reach the locked page, so the run (and "Try again") stays.
   const base = { builtIn: options.windowOpen, providerStaysDisabled: false } as const;
+  // The alternative to "Try again": built-in sign-in while the setup window is open, otherwise
+  // only a restart of the container opens it again.
+  const otherwise = options.windowOpen
+    ? "use built-in sign-in instead"
+    : "restart the container to set up ReadyStackGo with built-in sign-in";
   switch (reason) {
     case "unreachable":
       return {
@@ -125,7 +130,9 @@ export function errorContent(
         body:
           `ReadyStackGo could not reach ${options.authority ?? name}` +
           `${options.detail ? ` (${options.detail.replace(/\.$/, "")})` : ""}. ` +
-          `Check that this server has internet access, or continue with built-in sign-in and add ${name} later under Settings › Single Sign-On.`,
+          (options.windowOpen
+            ? `Check that this server has internet access, or continue with built-in sign-in and add ${name} later under Settings › Single Sign-On.`
+            : `Check that this server has internet access and try again, or ${otherwise}.`),
         primary: "retry",
         primaryLabel: "Try again",
       };
@@ -134,7 +141,7 @@ export function errorContent(
         ...base,
         tone: "warning",
         title: "Connection cancelled",
-        body: `The connection was cancelled in ${name}, so no administrator was created. Try again, or use built-in sign-in instead.`,
+        body: `The connection was cancelled in ${name}, so no administrator was created. Try again, or ${otherwise}.`,
         primary: "retry",
         primaryLabel: "Try again",
       };
@@ -161,7 +168,7 @@ export function errorContent(
         ...base,
         tone: "error",
         title: "This email address cannot be used",
-        body: `ReadyStackGo cannot use the email address of this ${name} account. Use built-in sign-in instead.`,
+        body: `ReadyStackGo cannot use the email address of this ${name} account. Use another ${name} account, or ${otherwise}.`,
         primary: "retry",
         primaryLabel: "Try again",
       };
@@ -202,7 +209,7 @@ export function errorContent(
         ...base,
         tone: "error",
         title: "Connection failed",
-        body: options.detail ?? `${name} did not complete the connection. Try again, or use built-in sign-in instead.`,
+        body: options.detail ?? `${name} did not complete the connection. Try again, or ${otherwise}.`,
         primary: "retry",
         primaryLabel: "Try again",
       };

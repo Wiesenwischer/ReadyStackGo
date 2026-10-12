@@ -113,7 +113,7 @@ test.describe('Initial Setup: Wizard & Onboarding', () => {
 
     // Wait for the step and for the registry checks: "Skip for now" (registries found) or
     // "Continue" (none found) becomes enabled.
-    // Replaces the fixed waits (2 s + 5 s) that were here before with waiting for the step.
+    // Waits for the step instead of the fixed 5 s before and 3 s after the registries step on main.
     await expect(page.getByText('Step 4 of 5')).toBeVisible({ timeout: 15_000 });
     const leaveRegistries = page
       .getByRole('button', { name: 'Skip for now' })

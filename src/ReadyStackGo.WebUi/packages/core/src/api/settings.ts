@@ -45,6 +45,8 @@ export interface OidcLastResultDto {
 /** OIDC provider as listed under Settings › Single Sign-On. Secrets are never returned. */
 export interface OidcProviderSettingsDto {
   name: string;
+  /** Redirect URI to register at the provider; null while no base URL is set. */
+  redirectUri?: string | null;
   displayName: string;
   authority: string;
   clientId: string;

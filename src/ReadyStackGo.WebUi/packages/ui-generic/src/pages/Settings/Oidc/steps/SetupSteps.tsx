@@ -377,9 +377,9 @@ export function RegisterStep({ session, onSession, onNext, onBack, onCancel }: S
 
 // ---------------------------------------------------------------- Test
 
-/** Checks without sign-in and the test sign-in (frames 175:3875, 175:4103, 175:4351, 175:4606). */
 /**
- * Checks and test sign-in. `failedAlert` shows the alert of "Add provider" (frame 175:4103) above
+ * Checks without sign-in and the test sign-in (frames 175:3875, 175:4103, 175:4351, 175:4606).
+ * `failedAlert` shows the alert of "Add provider" (frame 175:4103) above
  * failed checks; the page of an existing provider has none (frame 176:4851), because its saved
  * connection stays active until a test sign-in passed (E14).
  */

@@ -39,12 +39,9 @@ export function NoPasswordWarning({ adminCount, providerName }: { adminCount: nu
           : "The only system administrator has no local password"
       }
     >
-      If {providerName} is unavailable, nobody can sign in. Set a local password in your{" "}
-      <Link to="/profile" className="font-medium text-fg-brand hover:underline">
-        profile
-      </Link>
-      . Emergency access from the server:{" "}
-      <code className="font-mono text-[12px]">docker compose exec readystackgo rsgo admin set-password &lt;username&gt;</code>
+      {/* Plain text as in frame 173:3055. */}
+      If {providerName} is unavailable, nobody can sign in. Set a local password in your profile. Emergency access from the
+      server: docker compose exec readystackgo rsgo admin set-password &lt;username&gt;
     </Alert>
   );
 }

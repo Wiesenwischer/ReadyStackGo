@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using ReadyStackGo.Application.Services.Oidc;
 using ReadyStackGo.Domain.IdentityAccess.Roles;
 
 namespace ReadyStackGo.IntegrationTests.Sso;
@@ -298,23 +299,124 @@ public class WizardSsoIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task ProviderEnabledElsewhereWhileThePairingIsRedeemed_RunFails_ProviderUntouched()
     {
+        // Same template, enabled meanwhile: only "Enabled" stops the run.
+        await ProviderSetUpElsewhereWhileRedeeming(ctx => ctx.AddProviderAsync("wysch", registration: RegistrationKinds.Pairing,
+                clientId: TestIdentityProviderHost.PairedStaticClientId, clientSecret: TestIdentityProviderHost.PairedStaticClientSecret, enabled: true),
+            expectedClientId: TestIdentityProviderHost.PairedStaticClientId, expectedEnabled: true);
+    }
+
+    [Fact]
+    public async Task ProviderOfAnotherTemplateSavedWhileThePairingIsRedeemed_RunFails_ProviderUntouched()
+    {
+        // Disabled, but from another template: only the template stops the run.
+        await ProviderSetUpElsewhereWhileRedeeming(ctx => ctx.AddProviderAsync("wysch", enabled: false),
+            expectedClientId: TestIdentityProviderHost.ManualClientId, expectedEnabled: false);
+    }
+
+    private async Task ProviderSetUpElsewhereWhileRedeeming(Func<SsoTestContext, Task> setUpElsewhere, string expectedClientId, bool expectedEnabled)
+    {
         var ctx = await StartAsync();
         var start = await StartRunAsync(ctx.Browser);
         await ctx.Browser.PairAsync(start.GetProperty("start"));
 
-        // The provider answers /pairing/token slowly; meanwhile "wysch" is set up and enabled elsewhere.
-        ctx.Idp.TokenDelay = TimeSpan.FromSeconds(2);
+        // The provider answers /pairing/token slowly; meanwhile "wysch" is saved elsewhere.
+        ctx.Idp.TokenDelay = TimeSpan.FromSeconds(3);
         var continued = ctx.Browser.PostJsonAsync("/api/wizard/sso/continue");
-        await Task.Delay(TimeSpan.FromSeconds(0.5));
-        await ctx.AddProviderAsync("wysch", enabled: true);
+        await Task.Delay(TimeSpan.FromSeconds(1));
+        await setUpElsewhere(ctx);
 
         var run = await Expect(continued);
         run.GetProperty("state").GetString().Should().Be("failed");
         run.GetProperty("failureReason").GetString().Should().Be("registration_failed");
         run.GetProperty("failureDetail").GetString().Should().Contain("set up elsewhere");
         var provider = await ctx.OidcSettings.GetByNameAsync("wysch");
-        provider!.Enabled.Should().BeTrue();
-        provider.ClientId.Should().Be(TestIdentityProviderHost.ManualClientId, "the enabled provider is not overwritten");
+        provider!.Enabled.Should().Be(expectedEnabled);
+        provider.ClientId.Should().Be(expectedClientId, "the provider saved elsewhere is not overwritten");
+    }
+
+    [Fact]
+    public async Task LatePairingCancel_StaysCancelled()
+    {
+        var ctx = await StartAsync(flowStateSeconds: 1);
+        var start = await StartRunAsync(ctx.Browser, RunAddress);
+        await Task.Delay(TimeSpan.FromSeconds(1.5));
+
+        (await ctx.Browser.PairAsync(start.GetProperty("start"), connect: false)).Should().Be($"{RunAddress}/wizard?sso=returned");
+
+        (await Expect(ctx.Browser.GetAsync("/api/wizard/sso/status"))).GetProperty("failureReason").GetString().Should().Be("cancelled");
+    }
+
+    [Fact]
+    public async Task PairingReturnTheRunDoesNotWaitFor_IsLost_AndTheRunKeepsWaiting()
+    {
+        var ctx = await StartAsync();
+        await StartRunAsync(ctx.Browser, RunAddress);
+
+        var back = await ctx.Browser.GetAsync($"{RunAddress}/api/sso/registration/callback?state=forged&code=x");
+
+        back.Headers.Location!.OriginalString.Should().Be("/settings/oidc?error=registration_lost", "relative, the base URL is still unset");
+        (await Expect(ctx.Browser.GetAsync("/api/wizard/sso/status"))).GetProperty("state").GetString().Should().Be("started");
+    }
+
+    [Fact]
+    public async Task SignInCallbackWithAForeignState_LeavesTheRunWaiting()
+    {
+        var ctx = await StartAsync();
+        await RegisterRunAsync(ctx.Browser, RunAddress);
+        await ctx.Browser.NavigateAsync($"{RunAddress}/api/wizard/sso/sign-in");
+
+        var back = await ctx.Browser.GetAsync($"{RunAddress}/api/auth/oidc/wysch/callback?state=forged&code=x");
+
+        back.Headers.Location!.OriginalString.Should().Be("/login?error=oidc_state", "relative, the base URL is still unset");
+        (await Expect(ctx.Browser.GetAsync("/api/wizard/sso/status"))).GetProperty("state").GetString().Should().Be("registered");
+    }
+
+    [Fact]
+    public async Task LateSignInCancel_StaysCancelled()
+    {
+        var ctx = await StartAsync(flowStateSeconds: 2);
+        await RegisterRunAsync(ctx.Browser, RunAddress);
+        var (authorizeUrl, _) = await ctx.Browser.NavigateAsync($"{RunAddress}/api/wizard/sso/sign-in");
+        await Task.Delay(TimeSpan.FromSeconds(2.5));
+
+        (await ctx.Browser.SignInAtProviderAsync(authorizeUrl, null)).Should().Be($"{RunAddress}/wizard?sso=returned");
+
+        (await Expect(ctx.Browser.GetAsync("/api/wizard/sso/status"))).GetProperty("failureReason").GetString().Should().Be("cancelled");
+    }
+
+    [Fact]
+    public async Task Templates_EachFilterConditionExcludesATemplate()
+    {
+        var ctx = await StartAsync(writeTemplates: dir =>
+        {
+            SsoTestContext.WriteTestWyschTemplate(dir);
+            // Fixed authority and connect, but not offered in setup.
+            SsoTestContext.WriteTemplate(dir, "pair-hidden", FilterTemplate("pair-hidden", fixedAuthority: true, kind: "pairing", offer: false));
+            // Offered and connect, but the authority has to be entered.
+            SsoTestContext.WriteTemplate(dir, "pair-input", FilterTemplate("pair-input", fixedAuthority: false, kind: "pairing", offer: true));
+            // Offered with a fixed authority, but manual registration (no connect).
+            SsoTestContext.WriteTemplate(dir, "manual-fixed", FilterTemplate("manual-fixed", fixedAuthority: true, kind: "manual", offer: true));
+        });
+
+        var templates = await Expect(ctx.Browser.GetAsync("/api/wizard/sso/templates"));
+
+        templates.EnumerateArray().Select(t => t.GetProperty("id").GetString()).Should().Equal("wysch");
+        foreach (var id in new[] { "pair-hidden", "pair-input", "manual-fixed" })
+        {
+            var error = await Expect(ctx.Browser.PostJsonAsync("/api/wizard/sso/start", new { templateId = id, baseUrl = BaseUrl }), HttpStatusCode.NotFound);
+            error.GetProperty("code").GetString().Should().Be("template_unknown", id);
+        }
+    }
+
+    private static string FilterTemplate(string id, bool fixedAuthority, string kind, bool offer)
+    {
+        var authority = fixedAuthority
+            ? "{ \"url\": \"" + TestIdentityProviderHost.Issuer + "\" }"
+            : "{ \"input\": { \"hint\": \"The issuer.\", \"example\": \"https://id.example.com/\" } }";
+        return "{ \"id\": \"" + id + "\", \"name\": \"" + id + "\", \"description\": \"Filter test\", " +
+               "\"provider\": { \"name\": \"" + id + "\" }, \"authority\": " + authority + ", " +
+               "\"registration\": { \"kind\": \"" + kind + "\" }, \"scopes\": \"openid profile email\", " +
+               "\"offerInSetup\": " + (offer ? "true" : "false") + " }";
     }
 
     [Fact]
@@ -549,7 +651,8 @@ public class WizardSsoIntegrationTests : IAsyncLifetime
 
     // ------------------------------------------------------------------ helpers
 
-    private async Task<SsoTestContext> StartAsync(int? timeoutSeconds = null, int? runSeconds = null, int? flowStateSeconds = null)
+    private async Task<SsoTestContext> StartAsync(int? timeoutSeconds = null, int? runSeconds = null, int? flowStateSeconds = null,
+        Action<string>? writeTemplates = null)
     {
         var settings = new Dictionary<string, string?>();
         if (flowStateSeconds != null)
@@ -564,7 +667,7 @@ public class WizardSsoIntegrationTests : IAsyncLifetime
         {
             settings["Wizard:SsoRunSeconds"] = runSeconds.ToString();
         }
-        var ctx = await SsoTestContext.StartAsync(settings);
+        var ctx = await SsoTestContext.StartAsync(settings, writeTemplates);
         _contexts.Add(ctx);
         return ctx;
     }
