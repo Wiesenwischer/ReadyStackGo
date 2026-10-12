@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { decodeAuthFromToken } from '@rsgo/core';
 import { useAuth } from '../../context/AuthContext';
@@ -10,8 +10,14 @@ import { useAuth } from '../../context/AuthContext';
 export default function OidcCallbackPage() {
   const { setAuthDirectly } = useAuth();
   const navigate = useNavigate();
+  const handled = useRef(false);
 
   useEffect(() => {
+    // Handle the fragment once: setAuthDirectly re-renders this page with a new callback, and by
+    // then navigate('/') has already removed the token from the URL.
+    if (handled.current) return;
+    handled.current = true;
+
     const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
     const params = new URLSearchParams(hash);
     const token = params.get('token');

@@ -15,7 +15,7 @@ email or username** and **single sign-on (SSO) via generic OIDC providers** (Ope
 | Admin invitation | An administrator invites an email address with a role |
 | Email verification | The invitation link proves ownership; your own address can be verified later |
 | Login by email or username | Both identifiers work, backwards compatible |
-| Single sign-on (OIDC) | Sign in through external identity providers (e.g. IdentityAccess, Keycloak) |
+| Single sign-on | Sign in with WYSCH or any OpenID Connect provider (e.g. Keycloak) |
 
 :::note[Prerequisite]
 Invitations and verification emails require a configured **SMTP server**. Configure the email
@@ -83,22 +83,15 @@ up.
 
 ---
 
-## Single Sign-On (OIDC)
+## Single Sign-On
 
-Under **Settings → Single Sign-On (OIDC)** you configure one or more generic OpenID Connect
-providers. For each provider you set name, display name, authority (issuer URL), client ID,
-client secret and scopes.
-
-![OIDC settings](/images/docs/auth-04-oidc-settings.png)
-
-Enabled providers appear as a button on the sign-in page. After a successful login at the
-provider, ReadyStackGo issues its own session token.
+Under **Settings → Single Sign-On** you add identity providers in a guided setup: **WYSCH** is connected without typing client ID or secret, any other OpenID Connect provider works through **Generic OIDC**. Every provider is tested before it can be enabled, and enabled providers appear as a button with their symbol on the sign-in page.
 
 :::caution[Invited or known identities only]
-An OIDC login works only if a user with the returned email address already exists **or** a
-pending invitation for that address exists. Unknown identities are rejected (no automatic
-account creation).
+A single sign-on login works only for an existing user or a pending invitation. An account is matched by the email address only if the provider confirmed it, unless **Trust unverified email addresses** is on for that provider. Unknown identities are rejected (no automatic account creation).
 :::
+
+Details: [Single Sign-On](/en/docs/configuration/single-sign-on/).
 
 ---
 

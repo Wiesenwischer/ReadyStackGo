@@ -30,6 +30,7 @@
     <ProjectReference Include="..\..\src\ReadyStackGo.Api\ReadyStackGo.Api.csproj" />
     <ProjectReference Include="..\..\src\ReadyStackGo.Application\ReadyStackGo.Application.csproj" />
     <ProjectReference Include="..\..\src\ReadyStackGo.Infrastructure\ReadyStackGo.Infrastructure.csproj" />
+    <ProjectReference Include="..\ReadyStackGo.TestIdentityProvider\ReadyStackGo.TestIdentityProvider.csproj" />
   </ItemGroup>
 
   <ItemGroup>

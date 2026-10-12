@@ -5,14 +5,14 @@ description: Complete the ReadyStackGo Setup Wizard and Onboarding
 
 After [installation](/en/getting-started/installation/), the setup process consists of two phases:
 
-1. **Setup Wizard** — Create your admin account (unauthenticated, time-limited)
+1. **Setup Wizard** — Choose how you sign in and create your admin account (unauthenticated, time-limited)
 2. **Onboarding** — Configure organization, environment, and stack sources (authenticated, guided)
 
 ---
 
 ## Phase 1: Setup Wizard
 
-The setup wizard starts automatically on first access to the web interface. It has a single step: creating the admin account.
+The setup wizard starts automatically on first access to the web interface. It first asks **How do you want to sign in?**, then creates the admin account, then offers the optional email settings.
 
 :::caution[Time Limit]
 The setup wizard has a **5-minute timeout** for security. If the timer expires, restart the container to try again:
@@ -20,6 +20,13 @@ The setup wizard has a **5-minute timeout** for security. If the timer expires, 
 docker restart readystackgo
 ```
 :::
+
+### Choose how you sign in
+
+![Setup Wizard: How do you want to sign in?](/images/docs/sso-01-wizard-method.png)
+
+- **Built-in sign-in**: you create the administrator with username and password (below).
+- **WYSCH**: you connect this installation to WYSCH and sign in with your WYSCH account, which becomes the first administrator without a local password. The address of the installation must use HTTPS. See [Single Sign-On](/en/docs/configuration/single-sign-on/).
 
 ### Create Admin Account
 

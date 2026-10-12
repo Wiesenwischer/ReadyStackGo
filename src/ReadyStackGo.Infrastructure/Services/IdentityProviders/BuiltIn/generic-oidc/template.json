@@ -1,0 +1,17 @@
+{
+  "id": "generic-oidc",
+  "name": "Generic OIDC",
+  "description": "Any OpenID Connect provider, for example Keycloak or Entra ID. You enter client ID and secret.",
+  "order": 100,
+  "provider": { "name": "oidc" },
+  "authority": {
+    "input": {
+      "hint": "For Keycloak it ends with /realms/<realm>.",
+      "example": "https://login.example.com/realms/main"
+    }
+  },
+  "registration": { "kind": "manual" },
+  "scopes": "openid profile email",
+  "helpUrl": "https://readystackgo.pages.dev/en/docs/configuration/single-sign-on/",
+  "offerInSetup": false
+}

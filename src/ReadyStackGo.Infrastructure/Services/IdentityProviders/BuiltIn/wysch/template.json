@@ -1,0 +1,16 @@
+{
+  "id": "wysch",
+  "name": "WYSCH",
+  "description": "Sign in with WYSCH ID. Connects automatically, no client ID or secret to type.",
+  "setupDescription": "Sign in with your WYSCH ID. Connects this installation to WYSCH, nothing to copy or type.",
+  "order": 10,
+  "provider": { "name": "wysch", "displayName": "WYSCH" },
+  "authority": { "url": "https://id.wysch.wiesenwischer.de/" },
+  "registration": { "kind": "pairing" },
+  "requirePar": true,
+  "requireHttps": true,
+  "scopes": "openid profile email",
+  "claims": { "username": "preferred_username", "displayName": "nickname", "email": "email" },
+  "helpUrl": "https://readystackgo.pages.dev/en/docs/configuration/single-sign-on/",
+  "offerInSetup": true
+}

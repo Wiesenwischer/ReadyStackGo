@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { userApi, type ExternalIdentityDto } from '@rsgo/core';
+import { ProviderMark } from '../../components/sso/SsoComponents';
 
 function formatDate(isoString: string): string {
   return new Date(isoString).toLocaleDateString(undefined, {
@@ -9,7 +10,17 @@ function formatDate(isoString: string): string {
   });
 }
 
-export default function ConnectedAccounts() {
+/**
+ * Linked single sign-on accounts. Without a local password "Unlink" is disabled: it could be the
+ * only way to sign in (design frames 177:4834, 177:5913; plan E22).
+ */
+export default function ConnectedAccounts({
+  hasPassword = true,
+  onIdentities,
+}: {
+  hasPassword?: boolean;
+  onIdentities?: (identities: ExternalIdentityDto[]) => void;
+}) {
   const [identities, setIdentities] = useState<ExternalIdentityDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -18,10 +29,13 @@ export default function ConnectedAccounts() {
   useEffect(() => {
     userApi
       .getExternalIdentities()
-      .then(setIdentities)
+      .then((list) => {
+        setIdentities(list);
+        onIdentities?.(list);
+      })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load connected accounts'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [onIdentities]);
 
   const handleUnlink = async (provider: string) => {
     setError('');
@@ -37,44 +51,52 @@ export default function ConnectedAccounts() {
   };
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-      <div className="border-b border-gray-200 px-6 py-5 dark:border-gray-700">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Connected accounts</h3>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Single sign-on (OIDC) providers linked to your account.
-        </p>
+    <section className="rounded-2xl border border-line bg-surface" data-testid="connected-accounts">
+      <div className="border-b border-line px-6 py-[18px]">
+        <h3 className="text-[17px] font-semibold text-fg">Connected accounts</h3>
+        <p className="mt-0.5 text-[13px] text-fg-muted">Single sign-on (OIDC) providers linked to your account.</p>
       </div>
       <div className="px-6 py-5">
         {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+          <div role="alert" className="mb-4 rounded-xl border border-status-unhealthy/35 bg-status-unhealthy-bg px-4 py-3 text-sm text-fg">
             {error}
           </div>
         )}
 
         {loading ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+          <p className="text-sm text-fg-muted">Loading…</p>
         ) : identities.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">No connected single sign-on accounts.</p>
+          <p className="text-sm text-fg-muted">No connected single sign-on accounts.</p>
         ) : (
-          <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+          <ul className="divide-y divide-line">
             {identities.map((i) => (
-              <li key={i.provider} className="flex items-center justify-between py-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{i.provider}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Linked {formatDate(i.linkedAt)}</p>
+              <li key={i.provider} className="flex flex-col gap-2 py-3" data-testid={`linked-${i.provider}`}>
+                <div className="flex items-center gap-3.5">
+                  <ProviderMark iconUrl={i.iconUrl} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-fg">{i.displayName || i.provider}</p>
+                    <p className="text-xs text-fg-muted">Linked {formatDate(i.linkedAt)}</p>
+                  </div>
+                  <button
+                    onClick={() => handleUnlink(i.provider)}
+                    disabled={!hasPassword || busy === i.provider}
+                    className="text-sm font-medium text-status-unhealthy hover:underline disabled:cursor-not-allowed disabled:text-fg-muted disabled:no-underline disabled:opacity-60"
+                    data-testid={`unlink-${i.provider}`}
+                  >
+                    {busy === i.provider ? 'Unlinking…' : 'Unlink'}
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleUnlink(i.provider)}
-                  disabled={busy === i.provider}
-                  className="text-sm text-red-600 hover:text-red-700 disabled:opacity-50"
-                >
-                  {busy === i.provider ? 'Unlinking…' : 'Unlink'}
-                </button>
+                {!hasPassword && (
+                  <p className="text-xs text-fg-muted">
+                    You can't unlink {i.displayName || i.provider} while you have no local password, otherwise you could no longer sign in.
+                    Set a local password first.
+                  </p>
+                )}
               </li>
             ))}
           </ul>
         )}
       </div>
-    </div>
+    </section>
   );
 }

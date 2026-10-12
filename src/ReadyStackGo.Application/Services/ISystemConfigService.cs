@@ -31,6 +31,18 @@ public interface ISystemConfigService
     Task<string> GetBaseUrlAsync();
 
     /// <summary>
+    /// Gets the base URL only if someone set it (not empty and not the built-in default
+    /// <see cref="BaseUrlRules.UnsetDefault"/>), otherwise null.
+    /// </summary>
+    Task<string?> GetConfiguredBaseUrlAsync();
+
+    /// <summary>
+    /// Stores the base URL. The value must be valid per <see cref="BaseUrlRules.Normalize"/>.
+    /// </summary>
+    /// <exception cref="ArgumentException">Thrown if the value is not a valid base URL.</exception>
+    Task SetBaseUrlAsync(string baseUrl);
+
+    /// <summary>
     /// Gets the default theme id stored for this installation, or null if none is stored.
     /// </summary>
     Task<string?> GetDefaultThemeAsync();

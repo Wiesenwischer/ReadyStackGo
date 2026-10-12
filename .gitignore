@@ -435,3 +435,6 @@ stacks/ams.project/
 **/e2e/test-data/
 # But allow test stack manifests
 !**/e2e/test-data/stacks/
+
+# Container log of scripts/sso-e2e.sh
+sso-e2e-containers.log

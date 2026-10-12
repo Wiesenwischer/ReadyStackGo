@@ -1,34 +1,12 @@
-import { useRef, type KeyboardEvent, type ReactNode } from "react";
+import { type KeyboardEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { ThemeSummary } from "@rsgo/core";
 import { useTheme } from "../../../context/ThemeContext";
 import type { ModePreference } from "../../../context/themeStorage";
+import { useRadioKeys } from "../../../hooks/useRadioKeys";
 
 // Settings → Appearance (design: docs/specs/theme-und-logo/entwurf, frames "App / Settings – Appearance",
 // components "Theme Orb" and "Mode Switch").
-
-/**
- * Roving focus for a radio group: arrow keys, Home and End select and focus the next option.
- * Returns the key handler and a ref setter per option.
- */
-function useRadioKeys(count: number, select: (index: number) => void) {
-  const refs = useRef<(HTMLButtonElement | null)[]>([]);
-  const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
-    let next = -1;
-    if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (index + 1) % count;
-    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (index - 1 + count) % count;
-    else if (e.key === "Home") next = 0;
-    else if (e.key === "End") next = count - 1;
-    if (next < 0) return;
-    e.preventDefault();
-    select(next);
-    refs.current[next]?.focus();
-  };
-  const setRef = (index: number) => (el: HTMLButtonElement | null) => {
-    refs.current[index] = el;
-  };
-  return { onKeyDown, setRef };
-}
 
 /** Color orb: the theme's navigation color in light (left) and dark (right), its brand color in the core. */
 function ThemeOrb({
