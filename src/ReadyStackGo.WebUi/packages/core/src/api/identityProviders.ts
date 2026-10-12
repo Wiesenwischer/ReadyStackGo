@@ -95,6 +95,8 @@ export interface SetupSessionDto {
   pairedBy?: string | null;
   /** Credentials were obtained by a registration in this session (connect or reconnect). */
   registeredInSession: boolean;
+  /** A Reconnect of a paired provider took the new credentials over right away. */
+  adoptedAfterPairing?: boolean;
   registrationError?: string | null;
   registrationErrorDescription?: string | null;
   /** The pairing came back with a code; complete the registration next. */

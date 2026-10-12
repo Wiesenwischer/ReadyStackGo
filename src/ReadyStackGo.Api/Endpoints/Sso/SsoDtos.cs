@@ -116,6 +116,9 @@ public class SetupSessionDto
 
     /// <summary>Credentials were obtained by a registration in this session.</summary>
     public bool RegisteredInSession { get; set; }
+
+    /// <summary>A Reconnect of a paired provider took the new credentials over right away.</summary>
+    public bool AdoptedAfterPairing { get; set; }
     public string? RegistrationError { get; set; }
     public string? RegistrationErrorDescription { get; set; }
     public bool RegistrationPending { get; set; }

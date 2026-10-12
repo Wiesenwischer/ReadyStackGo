@@ -58,7 +58,7 @@ Einschalten lässt sich ein Provider **erst nach bestandenen Prüfungen und eine
 
 ## Neu koppeln
 
-Wird die Verbindung in WYSCH gelöscht, scheitern Anmeldungen, und die Liste zeigt **Reconnect needed**. **Reconnect** koppelt die Installation neu und ersetzt Client-ID und Secret. Die neuen Zugangsdaten gelten nach einer erfolgreichen Test-Anmeldung.
+Wird die Verbindung in WYSCH gelöscht, scheitern Anmeldungen, und die Liste zeigt **Reconnect needed**. **Reconnect** koppelt die Installation neu und ersetzt Client-ID und Secret. WYSCH macht den alten Client ungültig, sobald es die neue Verbindung bestätigt. ReadyStackGo übernimmt die neuen Zugangsdaten deshalb sofort, sobald die Prüfung von Client-ID und Secret bestanden ist; eine Test-Anmeldung danach bestätigt die Anmeldung. Hat sich die Adresse der Installation inzwischen geändert, bleibt der alte Client gültig, und die neuen Zugangsdaten gelten erst nach einer erfolgreichen Test-Anmeldung.
 
 ## Zuordnung der Konten
 
@@ -72,7 +72,7 @@ Ein Benutzer, der mit diesem Provider unter einer anderen Identität verknüpft 
 
 ## Nicht aussperren
 
-- Melden Sie sich nur über einen Provider an und haben kein lokales Passwort, lässt sich dieser Provider **weder ausschalten noch entfernen**, und neue Zugangsdaten (Reconnect, geänderte Einstellungen) gelten erst nach einer erfolgreichen Test-Anmeldung.
+- Melden Sie sich nur über einen Provider an und haben kein lokales Passwort, lässt sich dieser Provider **weder ausschalten noch entfernen**, und geänderte Einstellungen gelten erst nach einer erfolgreichen Test-Anmeldung.
 - **Unlink** im Profil ist gesperrt, solange Sie kein lokales Passwort haben.
 - Solange kein Systemadministrator ein lokales Passwort hat, zeigen Settings › Single Sign-On und das Profil einen Hinweis. Setzen Sie ein Passwort unter **Profile → Set a local password**.
 

@@ -165,7 +165,9 @@ export default function OidcProviderPage() {
   const onSession = useCallback(
     (s: SetupSessionDto) => {
       setSession(s);
-      if (s.testSignIn?.passed && s.testSignIn.current) void load();
+      // The provider changed on the server: a passed test sign-in or a Reconnect that took the new
+      // credentials over right away.
+      if ((s.testSignIn?.passed && s.testSignIn.current) || s.adoptedAfterPairing) void load();
     },
     [load],
   );
@@ -209,8 +211,8 @@ export default function OidcProviderPage() {
       <div className="flex max-w-[860px] flex-col gap-6">
         {locked && (
           <Alert tone="warning" title="You sign in with this provider and have no local password" testId="lockout-warning">
-            So you can't lock yourself out: this provider can't be disabled or removed, and new credentials from Reconnect or changed
-            settings take effect only after a successful test sign-in. Set a local password in your profile to lift this.
+            So you can't lock yourself out: this provider can't be disabled or removed, and changed settings take effect only after a
+            successful test sign-in. Set a local password in your profile to lift this.
           </Alert>
         )}
         {error && <Alert tone="error" title="Something went wrong">{error}</Alert>}

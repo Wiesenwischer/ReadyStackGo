@@ -58,7 +58,7 @@ A provider can be **enabled only after the checks and a test sign-in passed**. W
 
 ## Reconnect
 
-If the connection is removed in WYSCH, sign-ins fail and the list shows **Reconnect needed**. **Reconnect** pairs the installation again and replaces client ID and secret. The new credentials take effect after a successful test sign-in.
+If the connection is removed in WYSCH, sign-ins fail and the list shows **Reconnect needed**. **Reconnect** pairs the installation again and replaces client ID and secret. WYSCH invalidates the old client as soon as it confirms the new connection, so ReadyStackGo takes the new credentials over right away once its check of client ID and secret passed; a test sign-in afterwards confirms the sign-in. If the address of the installation changed in the meantime, the old client stays valid and the new credentials take effect only after a successful test sign-in.
 
 ## Matching accounts
 
@@ -72,7 +72,7 @@ A user linked to this provider with a different identity is rejected rather than
 
 ## Don't lock yourself out
 
-- If you sign in only through a provider and have no local password, that provider **cannot be disabled or removed**, and new credentials (Reconnect, changed settings) take effect only after a successful test sign-in.
+- If you sign in only through a provider and have no local password, that provider **cannot be disabled or removed**, and changed settings take effect only after a successful test sign-in.
 - **Unlink** in your profile is disabled while you have no local password.
 - While no system administrator has a local password, Settings › Single Sign-On and the profile show a warning. Set a password under **Profile → Set a local password**.
 

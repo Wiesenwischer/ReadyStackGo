@@ -333,6 +333,58 @@ public class SsoSetupService
             session.PendingRegistrationState = null;
             _sessions.Put(session);
         }
+
+        await AdoptRedeemedPairingAsync(session, ct);
+    }
+
+    /// <summary>
+    /// Reconnect of a paired provider (Marcus, 12.10.2026): the provider invalidates the old client
+    /// as soon as the new code for the same redirect URI is redeemed, so the old settings cannot stay
+    /// active (E14). The new credentials are taken over right away once the server-side check of
+    /// client ID and secret passed. With another redirect URI the old client stays valid at the
+    /// provider, so E14 applies as before. Enabling a disabled provider still needs a test sign-in:
+    /// the provider's tested fingerprint stays the old one.
+    /// </summary>
+    private async Task AdoptRedeemedPairingAsync(SsoSetupSession session, CancellationToken ct)
+    {
+        if (session.IsNew || session.RegistrationKind != RegistrationKinds.Pairing || session.ExistingProvider == null)
+        {
+            return;
+        }
+
+        var configured = await _systemConfig.GetConfiguredBaseUrlAsync();
+        if (configured == null ||
+            !string.Equals(BaseUrlRules.ProviderRedirectUri(configured, session.Name), session.RedirectUri, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var report = ForRegistrationKind(await _checker.CheckAsync(
+            new OidcCheckRequest(session.Authority!, session.ClientId, Secret(session), session.Scopes, session.RedirectUri, session.RequirePar),
+            OidcCheckScope.Full, ct), session);
+        session.Checks = report;
+        session.ChecksFingerprint = Fingerprint(session);
+        if (report.Items.FirstOrDefault(i => i.Id == OidcCheckIds.Client)?.Status != OidcCheckStatus.Passed)
+        {
+            _sessions.Put(session);
+            return;
+        }
+
+        var existing = await _settings.GetByNameAsync(session.ExistingProvider, ct);
+        if (existing == null)
+        {
+            _sessions.Put(session);
+            return;
+        }
+        ApplyConnection(existing, session);
+        existing.ReconnectNeeded = false;
+        existing.LastResult = new OidcLastResult(SystemClock.UtcNow, OidcResultKinds.Checks, report.Passed,
+            report.Passed ? null : report.Items.FirstOrDefault(i => i.Status == OidcCheckStatus.Failed)?.Title);
+        await _settings.UpdateAsync(existing, CancellationToken.None);
+
+        session.AdoptedAfterPairing = true;
+        _sessions.Put(session);
+        _logger.LogInformation("Reconnect of {Provider}: new client {ClientId} taken over after the pairing", existing.Name, existing.ClientId);
     }
 
     /// <summary>Called by the registration callback: stores the code or the error in the session.</summary>
@@ -379,7 +431,7 @@ public class SsoSetupService
                 ? i with
                 {
                     Detail = $"{name} answered invalid_client. The connection was probably removed in {name}. " +
-                             "Reconnect, then confirm the new credentials with a test sign-in; until then the old settings stay active."
+                             $"Reconnect: the new credentials take effect as soon as {name} confirms the connection."
                 }
                 : i)
             .ToList();

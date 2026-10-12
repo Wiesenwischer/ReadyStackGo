@@ -276,6 +276,9 @@ export function ConnectStep({ session, onSession, onNext, onBack, onCancel, reco
           <Alert tone="success" title={`Connected with ${name}`} testId="connected">
             {session.pairedBy ? `Confirmed by ${session.pairedBy} in ${name}. ` : ""}Client ID {session.clientId} received, the secret is
             stored encrypted.
+            {session.adoptedAfterPairing
+              ? ` ${name} replaced the old client, so the new credentials are active already. Run the test to confirm the sign-in.`
+              : ""}
           </Alert>
           <div className="flex gap-1.5 text-[13px]">
             <span className="text-fg-muted">Connected the wrong account?</span>

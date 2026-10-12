@@ -632,6 +632,55 @@ public class SsoSetupIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Reconnect_WithTheInstallationsAddress_TakesTheNewClientRightAway()
+    {
+        // WYSCH invalidates the old client once the new code for the same redirect URI is redeemed,
+        // so the new credentials are taken over without waiting for a test sign-in (Marcus, 12.10.2026).
+        const string address = "http://localhost:5001";
+        await _ctx.SystemConfig.SetBaseUrlAsync(address);
+        await _ctx.AddProviderAsync("wysch", TestIdentityProviderHost.PairedStaticClientId, TestIdentityProviderHost.PairedStaticClientSecret,
+            registration: RegistrationKinds.Pairing);
+        using (var idp = _ctx.Idp.CreateBrowserClient())
+        {
+            await idp.PostAsync($"test/clients/{TestIdentityProviderHost.PairedStaticClientId}/revoke", null);
+        }
+
+        var id = await IdAsync(Browser.PostJsonAsync("/api/settings/oidc/setup", new { provider = "wysch" }));
+        var start = (await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/registration"))).GetProperty("start");
+        (await Browser.PairAsync(start)).Should().Be($"{address}/settings/oidc/providers/wysch?session={id}");
+        var session = await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/registration/complete"));
+
+        session.GetProperty("adoptedAfterPairing").GetBoolean().Should().BeTrue();
+        var newClient = session.GetProperty("clientId").GetString();
+        var provider = await _ctx.OidcSettings.GetByNameAsync("wysch");
+        provider!.ClientId.Should().Be(newClient, "taken over without a test sign-in");
+        provider.ReconnectNeeded.Should().BeFalse();
+        provider.Enabled.Should().BeTrue();
+
+        // Leaving now (no test sign-in) still leaves a working provider.
+        _ctx.AddUser("alexuser", "alex@example.com", systemAdmin: false, password: "Password123!x");
+        using var later = _ctx.NewBrowser();
+        (await later.SignInThroughAsync($"{address}/api/auth/oidc/wysch/challenge", "alex")).Should().StartWith($"{address}/oidc-callback#token=");
+    }
+
+    [Fact]
+    public async Task Reconnect_WithoutAConfiguredAddress_KeepsTheOldClientUntilTheTest()
+    {
+        // Without the installation's address the redirect URI may differ, and the provider keeps
+        // the old client valid: E14 applies (the old client stays until a test sign-in passed).
+        await _ctx.AddProviderAsync("wysch", TestIdentityProviderHost.PairedStaticClientId, TestIdentityProviderHost.PairedStaticClientSecret,
+            registration: RegistrationKinds.Pairing);
+
+        var id = await IdAsync(Browser.PostJsonAsync("/api/settings/oidc/setup", new { provider = "wysch" }));
+        var start = (await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/registration"))).GetProperty("start");
+        await Browser.PairAsync(start);
+        var session = await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/registration/complete"));
+
+        session.GetProperty("adoptedAfterPairing").GetBoolean().Should().BeFalse();
+        (await _ctx.OidcSettings.GetByNameAsync("wysch"))!.ClientId.Should().Be(TestIdentityProviderHost.PairedStaticClientId);
+    }
+
+    [Fact]
     public async Task Pairing_WithoutHttps_IsRejected()
     {
         var id = await IdAsync(NewSessionAsync("wysch"));

@@ -54,6 +54,11 @@ Weitere Arten (andere Kopplung, RFC 7591) kommen per DI dazu, ohne Einrichtungsl
 - **Zuordnung** (`OidcAccountResolver`): zuerst (Provider, Subject), dann E-Mail nur bestätigt oder mit „Trust
   unverified email addresses“, anderes Subject wird abgelehnt.
 - **Widerruf**: `invalid_client` eines gekoppelten Providers setzt „Reconnect needed“.
+- **Reconnect gekoppelter Provider** (Marcus, 12.10.2026): WYSCH macht den alten Client ungültig, sobald der neue Code für
+  dieselbe Redirect-URI eingelöst ist. Entspricht die Redirect-URI der Sitzung der gesetzten Basis-Adresse, übernimmt
+  ReadyStackGo die neuen Zugangsdaten deshalb sofort, sobald die Prüfung von Client-ID und Secret bestanden ist
+  (`SsoSetupService.AdoptRedeemedPairingAsync`). Sonst gilt E14: Die alte Verbindung bleibt bis zur bestandenen
+  Test-Anmeldung. Einschalten verlangt in jedem Fall eine Test-Anmeldung.
 - **Wizard** (`WizardSsoRun`, `WizardSsoService`): Start im Zeitfenster, dann bis zu 15 Minuten
   (`Wizard:SsoRunSeconds`); legt den ersten SystemAdmin ohne Passwort an. Integrierter Weg und WYSCH-Weg teilen eine
   Sperre in `SystemAdminRegistrationService`.

@@ -35,6 +35,9 @@ public class SsoSetupSession
     public DateTime? PairedAt { get; set; }
     public string? PairedBy { get; set; }
 
+    /// <summary>A Reconnect of a paired provider took the new credentials over right away.</summary>
+    public bool AdoptedAfterPairing { get; set; }
+
     /// <summary>Credentials were obtained by a registration in this session (connect or reconnect).</summary>
     public bool RegisteredInSession { get; set; }
 

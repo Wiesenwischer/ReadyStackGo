@@ -338,6 +338,10 @@ test.describe('Single sign-on with WYSCH (test identity provider)', () => {
     await expect(page.getByRole('heading', { name: 'Connect an application' })).toBeVisible();
     await page.getByRole('button', { name: 'Connect', exact: true }).click();
     await expect(page.getByTestId('connected')).toBeVisible();
+    // WYSCH replaced the old client: the new one is active right away, also in the Connection card.
+    await expect(page.getByTestId('connected')).toContainText('the new credentials are active already');
+    const newClientId = (await page.getByTestId('connected').innerText()).match(/Client ID (\S+) received/)![1];
+    await expect(page.getByTestId('connection-card')).toContainText(newClientId);
     await shot(page, 'sso-reconnect-verbunden');
     await page.getByTestId('step-primary').click();
     await expect(page.getByTestId('check-client')).toHaveAttribute('data-result', 'passed');
