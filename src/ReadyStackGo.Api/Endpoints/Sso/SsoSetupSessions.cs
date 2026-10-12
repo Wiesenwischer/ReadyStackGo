@@ -38,6 +38,12 @@ public class SsoSetupSession
     /// <summary>A Reconnect of a paired provider took the new credentials over right away.</summary>
     public bool AdoptedAfterPairing { get; set; }
 
+    /// <summary>
+    /// Connection fingerprint of the existing provider when this session started (or last took
+    /// its connection over). A connection changed elsewhere since then is not overwritten.
+    /// </summary>
+    public string? ProviderFingerprintAtStart { get; set; }
+
     /// <summary>Credentials were obtained by a registration in this session (connect or reconnect).</summary>
     public bool RegisteredInSession { get; set; }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   getOidcSettings,
@@ -39,11 +39,12 @@ export default function OidcProviderPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  /** Loads the provider; `resetFields` false keeps the edited fields (a connection waiting for its test). */
+  const load = useCallback(async (resetFields = true) => {
     const settings = await getOidcSettings();
     const p = settings.providers.find((x) => x.name.toLowerCase() === name.toLowerCase()) ?? null;
     setProvider(p);
-    if (p) {
+    if (p && resetFields) {
       setDisplayName(p.displayName);
       setTrust(p.trustUnverifiedEmail);
       setEnabled(p.enabled);
@@ -127,12 +128,17 @@ export default function OidcProviderPage() {
         s = (await setupApi.register(s.id, { clientId, clientSecret: clientSecret || undefined, scopes })).session;
         setClientSecret("");
       }
-      if (changes.client && provider?.enabled) {
-        // An enabled provider keeps its connection until a test sign-in passed (E14).
+      if (provider?.enabled && enabled && (changes.client || s.connectionPending)) {
+        // An enabled provider keeps its connection until a test sign-in passed (E14); display name
+        // and "Trust …" are saved right away through a second session without the connection.
+        const settingsOnly = await setupApi.createForProvider(name);
+        await setupApi.update(settingsOnly.id, { displayName, trustUnverifiedEmail: trust });
+        await setupApi.save(settingsOnly.id, true);
         await setupApi.update(s.id, { displayName, trustUnverifiedEmail: trust });
+        await load(false);
         setSession(s);
         setMode("test");
-        setNotice("Run the test to take over the changed connection; until it passes, the saved connection stays active.");
+        setNotice("Display name and settings saved. The changed connection takes effect after a successful test sign-in.");
         return;
       }
       await setupApi.update(s.id, { displayName, trustUnverifiedEmail: trust });
@@ -162,12 +168,15 @@ export default function OidcProviderPage() {
     }
   };
 
+  const adoptedSeen = useRef(false);
   const onSession = useCallback(
     (s: SetupSessionDto) => {
       setSession(s);
-      // The provider changed on the server: a passed test sign-in or a Reconnect that took the new
-      // credentials over right away.
-      if ((s.testSignIn?.passed && s.testSignIn.current) || s.adoptedAfterPairing) void load();
+      // The provider changed on the server: a passed test sign-in, or the moment a Reconnect took
+      // the new credentials over (only then, so later check runs keep unsaved input).
+      const adoptedNow = !!s.adoptedAfterPairing && !adoptedSeen.current;
+      adoptedSeen.current = !!s.adoptedAfterPairing;
+      if ((s.testSignIn?.passed && s.testSignIn.current) || adoptedNow) void load();
     },
     [load],
   );

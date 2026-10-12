@@ -329,6 +329,7 @@ public abstract class SetupSessionEndpointBase<TRequest> : Endpoint<TRequest> wh
             PairedBy = session.PairedBy,
             RegisteredInSession = session.RegisteredInSession,
             AdoptedAfterPairing = session.AdoptedAfterPairing,
+            ConnectionPending = await Setup.ConnectionPendingAsync(session, CancellationToken.None),
             RegistrationError = session.RegistrationError,
             RegistrationErrorDescription = session.RegistrationErrorDescription,
             RegistrationPending = !string.IsNullOrEmpty(session.PendingRegistrationCode),

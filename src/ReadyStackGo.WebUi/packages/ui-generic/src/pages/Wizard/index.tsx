@@ -15,6 +15,7 @@ import {
   wizardSteps,
   type WizardView,
   lockedBySetupWindow,
+  statusErrorMeansNoRun,
 } from './wizardFlow';
 import { suggestBaseUrl } from '../../components/sso/baseUrl';
 import {
@@ -70,7 +71,13 @@ export default function Wizard() {
         if (err instanceof ApiError && err.status === 409 && attempt < 30) {
           // Another tab is completing the connection: wait and read the run's state again.
           await new Promise((resolve) => setTimeout(resolve, 1000));
-          next = await wizardSsoApi.status();
+          try {
+            next = await wizardSsoApi.status();
+          } catch {
+            setFailure({ reason: 'registration_failed', detail: 'ReadyStackGo could not read the state of this sign-in run. Reload the page.' });
+            setView('ssoError');
+            return;
+          }
           setRun(next);
           continue;
         }
@@ -111,7 +118,12 @@ export default function Wizard() {
       let current: WizardSsoRunDto | null = null;
       try {
         current = await wizardSsoApi.status();
-      } catch {
+      } catch (err) {
+        if (!statusErrorMeansNoRun(err instanceof ApiError ? err : null)) {
+          setFailure({ reason: 'registration_failed', detail: 'ReadyStackGo could not read the state of this sign-in run. Reload the page.' });
+          setView('ssoError');
+          return;
+        }
         current = null;
       }
 

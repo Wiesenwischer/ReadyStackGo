@@ -5,6 +5,7 @@ import {
   currentStepIndex,
   errorContent,
   lockedBySetupWindow,
+  statusErrorMeansNoRun,
   nextRunAction,
   showCountdown,
   viewForRun,
@@ -179,5 +180,18 @@ describe("error texts after the setup window closed", () => {
       const open = errorContent(reason, { ...options, windowOpen: true });
       expect(open.body).toMatch(/built-in sign-in/);
     }
+  });
+});
+
+describe("statusErrorMeansNoRun", () => {
+  it("only 404 means this browser has no run", () => {
+    expect(statusErrorMeansNoRun({ status: 404 })).toBe(true);
+  });
+
+  it("network and server errors leave the run unknown", () => {
+    expect(statusErrorMeansNoRun({ status: 500 })).toBe(false);
+    expect(statusErrorMeansNoRun({ status: 409 })).toBe(false);
+    expect(statusErrorMeansNoRun({})).toBe(false);
+    expect(statusErrorMeansNoRun(null)).toBe(false);
   });
 });

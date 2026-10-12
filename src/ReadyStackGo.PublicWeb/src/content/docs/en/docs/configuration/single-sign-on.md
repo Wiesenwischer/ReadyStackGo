@@ -58,7 +58,7 @@ A provider can be **enabled only after the checks and a test sign-in passed**. W
 
 ## Reconnect
 
-If the connection is removed in WYSCH, sign-ins fail and the list shows **Reconnect needed**. **Reconnect** pairs the installation again and replaces client ID and secret. WYSCH invalidates the old client as soon as it confirms the new connection, so ReadyStackGo takes the new credentials over right away once its check of client ID and secret passed; a test sign-in afterwards confirms the sign-in. If the address of the installation changed in the meantime, the old client stays valid and the new credentials take effect only after a successful test sign-in.
+If the connection is removed in WYSCH, sign-ins fail and the list shows **Reconnect needed**. **Reconnect** pairs the installation again and replaces client ID and secret. WYSCH invalidates the old client as soon as the same WYSCH account confirms a new connection for the same address. ReadyStackGo therefore takes the new credentials over right away, once its check of client ID and secret passed and the new connection belongs to the address the installation signs in with; a test sign-in afterwards confirms the sign-in. If the address of the installation changes while you reconnect, the new credentials take effect only after a successful test sign-in.
 
 ## Matching accounts
 

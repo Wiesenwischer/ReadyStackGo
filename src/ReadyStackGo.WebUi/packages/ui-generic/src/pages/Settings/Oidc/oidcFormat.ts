@@ -23,7 +23,7 @@ export function lastResultLabel(
 export function relativeTime(value: string, now: Date = new Date()): string {
   const seconds = Math.max(0, Math.round((now.getTime() - new Date(value).getTime()) / 1000));
   if (seconds < 60) return "just now";
-  if (seconds < 3600) return `${Math.round(seconds / 60)} min ago`;
-  if (seconds < 86400) return `${Math.round(seconds / 3600)} h ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} h ago`;
   return formatDate(value);
 }

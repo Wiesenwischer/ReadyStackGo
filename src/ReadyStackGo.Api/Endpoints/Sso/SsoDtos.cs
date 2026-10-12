@@ -119,6 +119,9 @@ public class SetupSessionDto
 
     /// <summary>A Reconnect of a paired provider took the new credentials over right away.</summary>
     public bool AdoptedAfterPairing { get; set; }
+
+    /// <summary>The session holds a connection the existing provider has not taken over (it waits for a test sign-in).</summary>
+    public bool ConnectionPending { get; set; }
     public string? RegistrationError { get; set; }
     public string? RegistrationErrorDescription { get; set; }
     public bool RegistrationPending { get; set; }

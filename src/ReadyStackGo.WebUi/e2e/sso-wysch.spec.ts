@@ -339,7 +339,7 @@ test.describe('Single sign-on with WYSCH (test identity provider)', () => {
     await page.getByRole('button', { name: 'Connect', exact: true }).click();
     await expect(page.getByTestId('connected')).toBeVisible();
     // WYSCH replaced the old client: the new one is active right away, also in the Connection card.
-    await expect(page.getByTestId('connected')).toContainText('the new credentials are active already');
+    await expect(page.getByTestId('connected')).toContainText('The new credentials are active already');
     const newClientId = (await page.getByTestId('connected').innerText()).match(/Client ID (\S+) received/)![1];
     await expect(page.getByTestId('connection-card')).toContainText(newClientId);
     await shot(page, 'sso-reconnect-verbunden');
@@ -353,6 +353,29 @@ test.describe('Single sign-on with WYSCH (test identity provider)', () => {
     await expect(page.getByTestId('provider-wysch')).not.toContainText('Reconnect needed');
   });
 
+  test('enabled provider: "Save changes" saves the settings now, the changed connection after the test', async ({ page }) => {
+    await signInWithPassword(page, 'alex', 'Local1234');
+    await page.goto('/settings/oidc/providers/company');
+
+    await page.getByTestId('display-name').fill('Company Renamed');
+    await page.getByTestId('trust-unverified').click();
+    await page.getByTestId('scopes').fill('openid email');
+    await page.getByTestId('save-changes').click();
+    await expect(page.getByText('Display name and settings saved.')).toBeVisible();
+
+    type Settings = { providers: { name: string; displayName: string; trustUnverifiedEmail: boolean; scopes: string; enabled: boolean }[] };
+    const company = async () => (await api<Settings>(page, 'GET', '/api/settings/oidc')).providers.find((p) => p.name === 'company')!;
+    expect(await company()).toMatchObject({ displayName: 'Company Renamed', trustUnverifiedEmail: true, scopes: 'openid profile email', enabled: true });
+
+    // The test sign-in takes the changed connection over; the saved settings stay.
+    await expect(page.getByTestId('check-client')).toHaveAttribute('data-result', 'passed', { timeout: 30_000 });
+    await page.getByTestId('run-test-sign-in').click();
+    await pickTestUser(page, 'Alex Verified');
+    await expect(page.getByTestId('test-result')).toBeVisible();
+    await expect.poll(async () => (await company()).scopes).toBe('openid email');
+    expect(await company()).toMatchObject({ displayName: 'Company Renamed', trustUnverifiedEmail: true, enabled: true });
+  });
+
   test('disabled provider: "Save changes" takes the changed connection right away', async ({ page }) => {
     await signInWithPassword(page, 'alex', 'Local1234');
     await page.goto('/settings/oidc/providers/company');
@@ -363,15 +386,15 @@ test.describe('Single sign-on with WYSCH (test identity provider)', () => {
     await page.getByTestId('enable-provider').click();
     await Promise.all([saved(), page.getByTestId('save-changes').click()]);
     await expect(page.getByText('Changes saved.')).toBeVisible();
-    await page.getByTestId('scopes').fill('openid email');
+    await page.getByTestId('scopes').fill('openid profile');
     await Promise.all([saved(), page.getByTestId('save-changes').click()]);
     await expect(page.getByText('Changes saved.')).toBeVisible();
 
     await page.reload();
-    await expect(page.getByTestId('scopes')).toHaveValue('openid email');
+    await expect(page.getByTestId('scopes')).toHaveValue('openid profile');
     const settings = await api<{ providers: { name: string; scopes: string; enabled: boolean }[] }>(page, 'GET', '/api/settings/oidc');
     const company = settings.providers.find((p) => p.name === 'company')!;
-    expect(company.scopes).toBe('openid email');
+    expect(company.scopes).toBe('openid profile');
     expect(company.enabled).toBe(false);
   });
 

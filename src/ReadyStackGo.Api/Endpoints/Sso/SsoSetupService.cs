@@ -122,7 +122,8 @@ public class SsoSetupService
             ClientId = provider.ClientId,
             EncryptedClientSecret = string.IsNullOrEmpty(provider.ClientSecret) ? null : _encryption.Encrypt(provider.ClientSecret),
             PairedAt = provider.PairedAt,
-            PairedBy = provider.PairedBy
+            PairedBy = provider.PairedBy,
+            ProviderFingerprintAtStart = OidcConnectionFingerprint.Compute(provider)
         };
         _sessions.Put(session);
         return session;
@@ -334,46 +335,40 @@ public class SsoSetupService
             _sessions.Put(session);
         }
 
-        await AdoptRedeemedPairingAsync(session, ct);
+        await AdoptRedeemedPairingAsync(session);
     }
 
     /// <summary>
-    /// Reconnect of a paired provider (Marcus, 12.10.2026): the provider invalidates the old client
-    /// as soon as the new code for the same redirect URI is redeemed, so the old settings cannot stay
-    /// active (E14). The new credentials are taken over right away once the server-side check of
-    /// client ID and secret passed. With another redirect URI the old client stays valid at the
-    /// provider, so E14 applies as before. Enabling a disabled provider still needs a test sign-in:
-    /// the provider's tested fingerprint stays the old one.
+    /// Reconnect of a paired provider (Marcus, 12.10.2026): WYSCH invalidates the old client as soon
+    /// as a new code for the same redirect URI is redeemed by the same account, so the old settings
+    /// cannot stay active (E14). The new client is taken over right away when its redirect URI is the
+    /// one ReadyStackGo signs in with now (then it is the client sign-ins need, whether the old one
+    /// was replaced or had another redirect URI) and the server-side check of client ID and secret
+    /// passed. Otherwise E14 applies. Enabling a disabled provider still needs a test sign-in: the
+    /// provider's tested fingerprint stays the old one.
     /// </summary>
-    private async Task AdoptRedeemedPairingAsync(SsoSetupSession session, CancellationToken ct)
+    private async Task<bool> AdoptionApplicableAsync(SsoSetupSession session)
     {
-        if (session.IsNew || session.RegistrationKind != RegistrationKinds.Pairing || session.ExistingProvider == null)
+        if (session.IsNew || session.RegistrationKind != RegistrationKinds.Pairing || session.ExistingProvider == null ||
+            !session.RegisteredInSession || session.AdoptedAfterPairing)
         {
-            return;
+            return false;
         }
+        var signInBaseUrl = await _systemConfig.GetEffectiveBaseUrlAsync();
+        return string.Equals(BaseUrlRules.ProviderRedirectUri(signInBaseUrl, session.Name), session.RedirectUri, StringComparison.Ordinal);
+    }
 
-        var configured = await _systemConfig.GetConfiguredBaseUrlAsync();
-        if (configured == null ||
-            !string.Equals(BaseUrlRules.ProviderRedirectUri(configured, session.Name), session.RedirectUri, StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        var report = ForRegistrationKind(await _checker.CheckAsync(
-            new OidcCheckRequest(session.Authority!, session.ClientId, Secret(session), session.Scopes, session.RedirectUri, session.RequirePar),
-            OidcCheckScope.Full, ct), session);
-        session.Checks = report;
-        session.ChecksFingerprint = Fingerprint(session);
+    /// <summary>Takes the session's new client over if the client check of <paramref name="report"/> passed.</summary>
+    private async Task AdoptIfClientPassedAsync(SsoSetupSession session, OidcCheckReport report)
+    {
         if (report.Items.FirstOrDefault(i => i.Id == OidcCheckIds.Client)?.Status != OidcCheckStatus.Passed)
         {
-            _sessions.Put(session);
             return;
         }
-
-        var existing = await _settings.GetByNameAsync(session.ExistingProvider, ct);
+        // Not cancelled with the request: WYSCH has replaced the old client already.
+        var existing = await _settings.GetByNameAsync(session.ExistingProvider!, CancellationToken.None);
         if (existing == null)
         {
-            _sessions.Put(session);
             return;
         }
         ApplyConnection(existing, session);
@@ -383,8 +378,23 @@ public class SsoSetupService
         await _settings.UpdateAsync(existing, CancellationToken.None);
 
         session.AdoptedAfterPairing = true;
-        _sessions.Put(session);
+        session.ProviderFingerprintAtStart = OidcConnectionFingerprint.Compute(existing);
         _logger.LogInformation("Reconnect of {Provider}: new client {ClientId} taken over after the pairing", existing.Name, existing.ClientId);
+    }
+
+    private async Task AdoptRedeemedPairingAsync(SsoSetupSession session)
+    {
+        if (!await AdoptionApplicableAsync(session))
+        {
+            return;
+        }
+        var report = ForRegistrationKind(await _checker.CheckAsync(
+            new OidcCheckRequest(session.Authority!, session.ClientId, Secret(session), session.Scopes, session.RedirectUri, session.RequirePar),
+            OidcCheckScope.Full, CancellationToken.None), session);
+        session.Checks = report;
+        session.ChecksFingerprint = Fingerprint(session);
+        await AdoptIfClientPassedAsync(session, report);
+        _sessions.Put(session);
     }
 
     /// <summary>Called by the registration callback: stores the code or the error in the session.</summary>
@@ -431,7 +441,7 @@ public class SsoSetupService
                 ? i with
                 {
                     Detail = $"{name} answered invalid_client. The connection was probably removed in {name}. " +
-                             $"Reconnect: the new credentials take effect as soon as {name} confirms the connection."
+                             "Reconnect to connect this installation again."
                 }
                 : i)
             .ToList();
@@ -448,9 +458,16 @@ public class SsoSetupService
 
         session.Checks = report;
         session.ChecksFingerprint = Fingerprint(session);
+        if (await AdoptionApplicableAsync(session))
+        {
+            // A Reconnect whose first check failed (timeout, 5xx) is taken over by a later passing one.
+            await AdoptIfClientPassedAsync(session, report);
+        }
         _sessions.Put(session);
 
-        if (!session.IsNew)
+        // The provider's last result describes its own connection, not one waiting in this session.
+        var existingForResult = session.IsNew ? null : await _settings.GetByNameAsync(session.ExistingProvider!, ct);
+        if (existingForResult != null && OidcConnectionFingerprint.Compute(existingForResult) == Fingerprint(session))
         {
             await _settings.RecordResultAsync(session.ExistingProvider!, new OidcLastResult(
                 SystemClock.UtcNow, OidcResultKinds.Checks, report.Passed,
@@ -580,11 +597,17 @@ public class SsoSetupService
         updated.TrustUnverifiedEmail = session.TrustUnverifiedEmail;
 
         var connectionChanged = Fingerprint(session) != OidcConnectionFingerprint.Compute(existing);
+        if (connectionChanged && ChangedElsewhere(session, existing))
+        {
+            throw new SsoSetupException("provider_changed",
+                "The connection of this provider was changed elsewhere in the meantime, for example by a Reconnect in another tab. Open the provider again.",
+                StatusCodes.Status409Conflict);
+        }
         if (connectionChanged)
         {
-            if (!existing.Enabled)
+            if (!existing.Enabled || !enabled)
             {
-                // Disabled providers take every change right away.
+                // Disabled providers (also one disabled with this save) take every change right away.
                 ApplyConnection(updated, session);
             }
             else if (testedNow)
@@ -682,15 +705,33 @@ public class SsoSetupService
 
         var result = session.TestSignIn!;
         existing.LastResult = new OidcLastResult(result.At, OidcResultKinds.TestSignIn, result.Passed, result.Error);
-        if (TestPassedForCurrentConnection(session))
+        if (TestPassedForCurrentConnection(session) && !ChangedElsewhere(session, existing))
         {
-            // A passed test sign-in with a new connection (reconnect, changed settings) takes it over.
+            // A passed test sign-in with a new connection (reconnect, changed settings) takes it over,
+            // unless the provider's connection was changed elsewhere since this session started.
+            // (The session's own takeover below moves its start fingerprint along.)
             ApplyConnection(existing, session);
             existing.TestedSignIn = new OidcTestedSignIn(result.At, result.Fingerprint);
             existing.ReconnectNeeded = false;
+            session.ProviderFingerprintAtStart = OidcConnectionFingerprint.Compute(existing);
         }
         await _settings.UpdateAsync(existing, ct);
     }
+
+    /// <summary>The session holds a connection the existing provider has not taken over (yet).</summary>
+    public async Task<bool> ConnectionPendingAsync(SsoSetupSession session, CancellationToken ct)
+    {
+        if (session.IsNew || session.ExistingProvider == null)
+        {
+            return false;
+        }
+        var existing = await _settings.GetByNameAsync(session.ExistingProvider, ct);
+        return existing != null && OidcConnectionFingerprint.Compute(existing) != Fingerprint(session);
+    }
+
+    private static bool ChangedElsewhere(SsoSetupSession session, OidcProviderSettings existing) =>
+        session.ProviderFingerprintAtStart != null &&
+        session.ProviderFingerprintAtStart != OidcConnectionFingerprint.Compute(existing);
 
     private void ApplyConnection(OidcProviderSettings target, SsoSetupSession session)
     {
@@ -738,6 +779,7 @@ public class SsoSetupService
         session.PairedAt = client.RegisteredAt;
         session.PairedBy = client.ConfirmedBy;
         session.RegisteredInSession = true;
+        session.AdoptedAfterPairing = false;
         session.RegistrationError = null;
         session.RegistrationErrorDescription = null;
         if (!string.IsNullOrEmpty(client.Issuer) && session.Authority == null)

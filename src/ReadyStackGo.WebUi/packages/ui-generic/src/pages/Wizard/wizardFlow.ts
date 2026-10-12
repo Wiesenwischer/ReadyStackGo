@@ -58,6 +58,14 @@ export function lockedBySetupWindow(windowTimedOut: boolean, view: WizardView | 
   return !(view === "ssoWaiting" || view === "ssoSignedIn" || view === "smtp" || view === "ssoError");
 }
 
+/**
+ * Reading the run of this browser failed: only "no run" (404) means there is none; any other error
+ * (network, server) leaves the run unknown, which must not look like a foreign run.
+ */
+export function statusErrorMeansNoRun(error: { status?: number } | null | undefined): boolean {
+  return error?.status === 404;
+}
+
 /** Where a wizard run of this browser stands, mapped to a view. */
 export function viewForRun(run: WizardSsoRunDto): WizardView {
   switch (run.state) {

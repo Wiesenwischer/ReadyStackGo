@@ -277,7 +277,7 @@ export function ConnectStep({ session, onSession, onNext, onBack, onCancel, reco
             {session.pairedBy ? `Confirmed by ${session.pairedBy} in ${name}. ` : ""}Client ID {session.clientId} received, the secret is
             stored encrypted.
             {session.adoptedAfterPairing
-              ? ` ${name} replaced the old client, so the new credentials are active already. Run the test to confirm the sign-in.`
+              ? " The new credentials are active already: they belong to this installation's sign-in address. Run the test to confirm the sign-in."
               : ""}
           </Alert>
           <div className="flex gap-1.5 text-[13px]">

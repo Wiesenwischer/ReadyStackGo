@@ -320,6 +320,17 @@ public class Program
                 return OAuthError("invalid_grant", "The code was already used.");
             }
 
+            // Like WYSCH: re-pairing the same redirect URI (by the same, single test account)
+            // replaces the client; the old one stops working once the new code is redeemed.
+            if (state.Clients.TryGetValue(pairingCode.ClientId, out var redeemed))
+            {
+                foreach (var other in state.Clients.Values.Where(c =>
+                             c.Paired && c.ClientId != redeemed.ClientId && c.RedirectUris.Intersect(redeemed.RedirectUris).Any()))
+                {
+                    other.Revoked = true;
+                }
+            }
+
             return Results.Json(new
             {
                 client_id = pairingCode.ClientId,

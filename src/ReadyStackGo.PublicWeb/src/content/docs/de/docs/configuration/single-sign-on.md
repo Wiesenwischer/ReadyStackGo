@@ -58,7 +58,7 @@ Einschalten lässt sich ein Provider **erst nach bestandenen Prüfungen und eine
 
 ## Neu koppeln
 
-Wird die Verbindung in WYSCH gelöscht, scheitern Anmeldungen, und die Liste zeigt **Reconnect needed**. **Reconnect** koppelt die Installation neu und ersetzt Client-ID und Secret. WYSCH macht den alten Client ungültig, sobald es die neue Verbindung bestätigt. ReadyStackGo übernimmt die neuen Zugangsdaten deshalb sofort, sobald die Prüfung von Client-ID und Secret bestanden ist; eine Test-Anmeldung danach bestätigt die Anmeldung. Hat sich die Adresse der Installation inzwischen geändert, bleibt der alte Client gültig, und die neuen Zugangsdaten gelten erst nach einer erfolgreichen Test-Anmeldung.
+Wird die Verbindung in WYSCH gelöscht, scheitern Anmeldungen, und die Liste zeigt **Reconnect needed**. **Reconnect** koppelt die Installation neu und ersetzt Client-ID und Secret. WYSCH macht den alten Client ungültig, sobald dasselbe WYSCH-Konto eine neue Verbindung für dieselbe Adresse bestätigt. ReadyStackGo übernimmt die neuen Zugangsdaten deshalb sofort, sobald die Prüfung von Client-ID und Secret bestanden ist und die neue Verbindung zu der Adresse gehört, mit der sich die Installation anmeldet; eine Test-Anmeldung danach bestätigt die Anmeldung. Ändert sich die Adresse der Installation während des Reconnect, gelten die neuen Zugangsdaten erst nach einer erfolgreichen Test-Anmeldung.
 
 ## Zuordnung der Konten
 

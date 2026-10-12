@@ -587,7 +587,7 @@ public class SsoSetupIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Reconnect_AfterRevocation_TakesNewPairingAfterTestSignIn_AndClearsReconnectNeeded()
+    public async Task Reconnect_AfterRevocation_TakesTheNewPairingRightAway_AndClearsReconnectNeeded()
     {
         await _ctx.AddProviderAsync("wysch", TestIdentityProviderHost.PairedStaticClientId, TestIdentityProviderHost.PairedStaticClientSecret,
             registration: RegistrationKinds.Pairing);
@@ -616,8 +616,9 @@ public class SsoSetupIntegrationTests : IAsyncLifetime
         var newClient = (await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/registration/complete"))).GetProperty("clientId").GetString();
         (await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/checks"))).GetProperty("checks").GetProperty("passed").GetBoolean().Should().BeTrue();
 
-        // Until the test sign-in passed, the old (revoked) client stays.
-        (await _ctx.OidcSettings.GetByNameAsync("wysch"))!.ClientId.Should().Be(TestIdentityProviderHost.PairedStaticClientId);
+        // The new client is the one sign-ins need: taken over right away (Marcus, 12.10.2026).
+        (await _ctx.OidcSettings.GetByNameAsync("wysch"))!.ClientId.Should().Be(newClient);
+        (await _ctx.OidcSettings.GetByNameAsync("wysch"))!.ReconnectNeeded.Should().BeFalse();
 
         await TestSignInAsync(id, "alex");
 
@@ -644,6 +645,9 @@ public class SsoSetupIntegrationTests : IAsyncLifetime
         {
             await idp.PostAsync($"test/clients/{TestIdentityProviderHost.PairedStaticClientId}/revoke", null);
         }
+        var revoked = (await _ctx.OidcSettings.GetByNameAsync("wysch"))!;
+        revoked.ReconnectNeeded = true;
+        await _ctx.OidcSettings.UpdateAsync(revoked);
 
         var id = await IdAsync(Browser.PostJsonAsync("/api/settings/oidc/setup", new { provider = "wysch" }));
         var start = (await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/registration"))).GetProperty("start");
@@ -664,20 +668,112 @@ public class SsoSetupIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Reconnect_WithoutAConfiguredAddress_KeepsTheOldClientUntilTheTest()
+    public async Task Reconnect_OnTheUnsetDefaultAddress_TakesTheNewClient()
     {
-        // Without the installation's address the redirect URI may differ, and the provider keeps
-        // the old client valid: E14 applies (the old client stays until a test sign-in passed).
+        // The unset default is still the address sign-ins use, so the new client is the one they need.
         await _ctx.AddProviderAsync("wysch", TestIdentityProviderHost.PairedStaticClientId, TestIdentityProviderHost.PairedStaticClientSecret,
             registration: RegistrationKinds.Pairing);
 
+        var (_, session) = await ReconnectAsync("wysch");
+
+        session.GetProperty("adoptedAfterPairing").GetBoolean().Should().BeTrue();
+        (await _ctx.OidcSettings.GetByNameAsync("wysch"))!.ClientId.Should().Be(session.GetProperty("clientId").GetString());
+    }
+
+    [Fact]
+    public async Task Reconnect_WhenTheSignInAddressChangedMeanwhile_KeepsTheOldClientUntilTheTest()
+    {
+        // The new client belongs to the old address; sign-ins now use another one: E14 applies.
+        await _ctx.AddProviderAsync("wysch", TestIdentityProviderHost.PairedStaticClientId, TestIdentityProviderHost.PairedStaticClientSecret,
+            registration: RegistrationKinds.Pairing);
         var id = await IdAsync(Browser.PostJsonAsync("/api/settings/oidc/setup", new { provider = "wysch" }));
         var start = (await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/registration"))).GetProperty("start");
         await Browser.PairAsync(start);
+        await _ctx.SystemConfig.SetBaseUrlAsync("https://rsgo.example.com");
+
         var session = await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/registration/complete"));
 
         session.GetProperty("adoptedAfterPairing").GetBoolean().Should().BeFalse();
+        session.GetProperty("connectionPending").GetBoolean().Should().BeTrue();
         (await _ctx.OidcSettings.GetByNameAsync("wysch"))!.ClientId.Should().Be(TestIdentityProviderHost.PairedStaticClientId);
+    }
+
+    [Fact]
+    public async Task Reconnect_OfADisabledProvider_TakesTheClient_ButEnablingStillNeedsATestSignIn()
+    {
+        await _ctx.AddProviderAsync("wysch", TestIdentityProviderHost.PairedStaticClientId, TestIdentityProviderHost.PairedStaticClientSecret,
+            registration: RegistrationKinds.Pairing, enabled: false);
+
+        var (id, session) = await ReconnectAsync("wysch");
+        session.GetProperty("adoptedAfterPairing").GetBoolean().Should().BeTrue();
+
+        var error = await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/save", new { enabled = true }), HttpStatusCode.Conflict);
+        error.GetProperty("code").GetString().Should().Be("test_required");
+        (await _ctx.OidcSettings.GetByNameAsync("wysch"))!.Enabled.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Repairing_TheSameRedirectUri_RevokesTheOldClientAtTheProvider()
+    {
+        // The test provider behaves like WYSCH (#498, 06.10.): a re-pairing replaces the client.
+        await _ctx.AddProviderAsync("wysch", TestIdentityProviderHost.PairedStaticClientId, TestIdentityProviderHost.PairedStaticClientSecret,
+            registration: RegistrationKinds.Pairing, enabled: false);
+        var (_, first) = await ReconnectAsync("wysch");
+        first.GetProperty("adoptedAfterPairing").GetBoolean().Should().BeTrue();
+        var firstProvider = (await _ctx.OidcSettings.GetByNameAsync("wysch"))!;
+        var firstClient = firstProvider.ClientId;
+        var firstSecret = firstProvider.ClientSecret!;
+        (await ParStatusAsync(firstClient, firstSecret)).Should().Be(201, "the first paired client works before the re-pairing");
+
+        var (_, second) = await ReconnectAsync("wysch");
+
+        second.GetProperty("adoptedAfterPairing").GetBoolean().Should().BeTrue();
+        (await ParStatusAsync(firstClient, firstSecret)).Should().Be(401, "the replaced client no longer works");
+    }
+
+    private async Task<int> ParStatusAsync(string clientId, string secret)
+    {
+        using var idp = _ctx.Idp.CreateBrowserClient();
+        var par = await idp.PostAsync("par", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["client_id"] = clientId,
+            ["client_secret"] = secret,
+            ["response_type"] = "code",
+            ["redirect_uri"] = TestIdentityProviderHost.RedirectUri("wysch"),
+            ["scope"] = "openid",
+            ["state"] = "s",
+            ["nonce"] = "n",
+            ["code_challenge"] = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+            ["code_challenge_method"] = "S256"
+        }));
+        return (int)par.StatusCode;
+    }
+
+    [Fact]
+    public async Task Save_AfterTheConnectionWasChangedElsewhere_Returns409()
+    {
+        // Session A changes the scopes; meanwhile the provider's connection changes elsewhere.
+        await _ctx.AddProviderAsync("oidc");
+        var id = await IdAsync(Browser.PostJsonAsync("/api/settings/oidc/setup", new { provider = "oidc" }));
+        await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/registration",
+            new { clientId = TestIdentityProviderHost.ManualClientId, scopes = "openid email" }));
+        var elsewhere = (await _ctx.OidcSettings.GetByNameAsync("oidc"))!;
+        elsewhere.ClientSecret = "rotated-elsewhere";
+        await _ctx.OidcSettings.UpdateAsync(elsewhere);
+
+        var error = await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/save", new { enabled = false }), HttpStatusCode.Conflict);
+
+        error.GetProperty("code").GetString().Should().Be("provider_changed");
+        (await _ctx.OidcSettings.GetByNameAsync("oidc"))!.ClientSecret.Should().Be("rotated-elsewhere");
+    }
+
+    /// <summary>Reconnect on the provider's page: new session, pairing, redemption.</summary>
+    private async Task<(string Id, JsonElement Session)> ReconnectAsync(string provider)
+    {
+        var id = await IdAsync(Browser.PostJsonAsync("/api/settings/oidc/setup", new { provider }));
+        var start = (await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/registration"))).GetProperty("start");
+        await Browser.PairAsync(start);
+        return (id, await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/registration/complete")));
     }
 
     [Fact]
