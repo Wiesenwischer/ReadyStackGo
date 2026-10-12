@@ -364,12 +364,35 @@ public class SsoSetupService
     }
 
     /// <summary>Step "Test": all checks without sign-in (E12).</summary>
+    /// <summary>
+    /// A paired provider has no secret anybody could copy: rejected credentials mean the
+    /// connection was removed at the provider, and the way out is Reconnect (design frame 176:4851).
+    /// </summary>
+    internal static OidcCheckReport ForRegistrationKind(OidcCheckReport report, SsoSetupSession session)
+    {
+        if (session.RegistrationKind != RegistrationKinds.Pairing)
+        {
+            return report;
+        }
+        var name = string.IsNullOrWhiteSpace(session.DisplayName) ? "The provider" : session.DisplayName;
+        var items = report.Items
+            .Select(i => i.Code == OidcErrorCodes.InvalidClient
+                ? i with
+                {
+                    Detail = $"{name} answered invalid_client. The connection was probably removed in {name}. " +
+                             "Reconnect, then confirm the new credentials with a test sign-in; until then the old settings stay active."
+                }
+                : i)
+            .ToList();
+        return report with { Items = items };
+    }
+
     public async Task<OidcCheckReport> RunChecksAsync(SsoSetupSession session, CancellationToken ct)
     {
         EnsureConnection(session);
-        var report = await _checker.CheckAsync(
+        var report = ForRegistrationKind(await _checker.CheckAsync(
             new OidcCheckRequest(session.Authority!, session.ClientId, Secret(session), session.Scopes, session.RedirectUri, session.RequirePar),
-            OidcCheckScope.Full, ct);
+            OidcCheckScope.Full, ct), session);
 
         session.Checks = report;
         session.ChecksFingerprint = Fingerprint(session);

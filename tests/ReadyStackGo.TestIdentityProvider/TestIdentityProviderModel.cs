@@ -40,9 +40,9 @@ public sealed record TestUser(
 
 public static class TestUsers
 {
-    /// <summary>Verified email, all claims present.</summary>
+    /// <summary>Verified email, all claims present; nickname (WYSCH's display name) differs from the username.</summary>
     public static readonly TestUser AlexVerified =
-        new("alex", "sub-alex-verified", "Alex Verified", "alex@example.com", true, "alex", "alex");
+        new("alex", "sub-alex-verified", "Alex Verified", "alex@example.com", true, "alex", "Alex V.");
 
     /// <summary>Email not verified by the provider.</summary>
     public static readonly TestUser UmaUnverified =

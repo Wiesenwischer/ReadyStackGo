@@ -261,6 +261,46 @@ public class OidcConnectionCheckerTests : IDisposable
         Item(report, OidcCheckIds.Endpoints).Detail.Should().Contain("authorization");
     }
 
+    [Theory]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("data:text/html,hello")]
+    [InlineData("/protocol/openid-connect/token")]
+    public async Task Check_EndpointNotAbsoluteHttp_CountsAsMissing(string tokenEndpoint)
+    {
+        PublishRawDiscovery(new
+        {
+            issuer = FakeOidcProvider.Authority,
+            authorization_endpoint = FakeOidcProvider.AuthorizationEndpoint,
+            token_endpoint = tokenEndpoint,
+            jwks_uri = FakeOidcProvider.JwksUrl
+        });
+
+        var report = await Check(scope: OidcCheckScope.Discovery);
+
+        var item = Item(report, OidcCheckIds.Endpoints);
+        item.Status.Should().Be(OidcCheckStatus.Failed);
+        item.Detail.Should().Be("The discovery document names no token endpoint.");
+    }
+
+    [Fact]
+    public async Task Check_ParEndpointNotHttp_CountsAsNotOffered_AndSendsNoParRequest()
+    {
+        PublishRawDiscovery(new
+        {
+            issuer = FakeOidcProvider.Authority,
+            authorization_endpoint = FakeOidcProvider.AuthorizationEndpoint,
+            token_endpoint = FakeOidcProvider.TokenEndpoint,
+            jwks_uri = FakeOidcProvider.JwksUrl,
+            pushed_authorization_request_endpoint = "javascript:alert(1)"
+        });
+
+        var report = await Check(Request(requirePar: true));
+
+        report.ParOffered.Should().BeFalse();
+        Item(report, OidcCheckIds.Par).Status.Should().Be(OidcCheckStatus.Failed);
+        _idp.Handler.Requests.Should().NotContain(r => r.Method == HttpMethod.Post);
+    }
+
     #endregion
 
     #region Scope

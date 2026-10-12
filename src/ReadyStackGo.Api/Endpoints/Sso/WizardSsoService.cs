@@ -135,6 +135,38 @@ public class WizardSsoService
         return (run, start);
     }
 
+    /// <summary>
+    /// The wizard page to return to: the address the run was started with, or a relative URL when
+    /// no run is known (the browser is on the installation's host already). Never the installation's
+    /// base URL, which is unset until a run created the administrator.
+    /// </summary>
+    public static string WizardPage(WizardSsoRun? run, string query) =>
+        run == null ? $"/wizard?{query}" : $"{run.BaseUrl.TrimEnd('/')}/wizard?{query}";
+
+    /// <summary>
+    /// A pairing that returns after its one-time state expired (10 minutes) while the run is still
+    /// waiting for it: the run of this browser fails with a reason instead of waiting forever.
+    /// </summary>
+    public WizardSsoRun? FailLateRegistrationReturn(HttpContext http, string? state)
+    {
+        var run = _runs.FindBySecret(SsoFlowCookie.Read(http));
+        if (run == null)
+        {
+            return null;
+        }
+        lock (run)
+        {
+            Refresh(run);
+            if (run.State == WizardSsoRunState.Started && !string.IsNullOrEmpty(state) &&
+                string.Equals(run.PendingRegistrationState, state, StringComparison.Ordinal))
+            {
+                run.Fail(WizardSsoFailure.RegistrationFailed,
+                    "The connection was confirmed more than 10 minutes after it was started. Try again.");
+            }
+        }
+        return run;
+    }
+
     /// <summary>The run of this browser, or null.</summary>
     public WizardSsoRun? CurrentRun(HttpContext http)
     {
@@ -296,17 +328,17 @@ public class WizardSsoService
     }
 
     /// <summary>OIDC callback of the wizard sign-in: creates the first system administrator.</summary>
-    public async Task<string> CompleteSignInAsync(OidcFlowState flow, HttpContext http, string? code, string? error, string baseUrl, CancellationToken ct)
+    public async Task<string> CompleteSignInAsync(OidcFlowState flow, HttpContext http, string? code, string? error, CancellationToken ct)
     {
         var run = _runs.Get(flow.ContextId);
         if (run == null || !SsoFlowCookie.Matches(http, run.FlowSecret))
         {
             // Another browser cannot finish a run (E19).
-            return $"{baseUrl}/wizard?sso=foreign";
+            return WizardPage(null, "sso=foreign");
         }
 
         // From here on every redirect goes to the address this run was started with.
-        var returned = $"{run.BaseUrl.TrimEnd('/')}/wizard?sso=returned";
+        var returned = WizardPage(run, "sso=returned");
 
         Refresh(run);
         if (run.State != WizardSsoRunState.Registered)
@@ -354,38 +386,40 @@ public class WizardSsoService
         }
 
         // The exchange may have taken a while: check expiry and state right before the
-        // administrator is created. After that nothing may fail before the provider is enabled.
-        Refresh(run);
-        if (run.State != WizardSsoRunState.Registered)
-        {
-            return returned;
-        }
-
+        // administrator is created, and claim the run so a concurrent status call cannot fail it
+        // in between. After that nothing may stop the provider from being enabled.
         User admin;
-        try
+        lock (run)
         {
-            var username = _usernames.Generate(info.Username, email.Value);
-            admin = _adminRegistration.RegisterExternalSystemAdmin(username, email, provider.Name, info.Subject);
-        }
-        catch (InvalidOperationException)
-        {
-            if (run.State != WizardSsoRunState.SignedIn)
+            Refresh(run);
+            if (run.State != WizardSsoRunState.Registered)
+            {
+                return returned;
+            }
+
+            try
+            {
+                var username = _usernames.Generate(info.Username, email.Value);
+                admin = _adminRegistration.RegisterExternalSystemAdmin(username, email, provider.Name, info.Subject);
+            }
+            catch (InvalidOperationException)
             {
                 run.Fail(WizardSsoFailure.CompletedElsewhere);
+                return returned;
             }
-            return returned;
+
+            run.MarkSignedIn(admin.Username, admin.Email.Value, info.DisplayName);
         }
 
-        var now = SystemClock.UtcNow;
-        run.MarkSignedIn(admin.Username, admin.Email.Value, info.DisplayName);
+        _logger.LogInformation("First system administrator {Username} created through {Provider}", admin.Username, provider.Name);
 
+        // Not cancelled with the request: without this the administrator could not sign in.
+        var now = SystemClock.UtcNow;
         provider.Enabled = true;
         provider.TestedSignIn = new OidcTestedSignIn(now, OidcConnectionFingerprint.Compute(provider));
         provider.LastResult = new OidcLastResult(now, OidcResultKinds.SignIn, true, null);
-        await _settings.UpdateAsync(provider, ct);
+        await _settings.UpdateAsync(provider, CancellationToken.None);
         await _systemConfig.SetBaseUrlAsync(run.BaseUrl);
-
-        _logger.LogInformation("First system administrator {Username} created through {Provider}", admin.Username, provider.Name);
 
         var token = _tokens.GenerateToken(admin);
         return $"{returned}#token={Uri.EscapeDataString(token)}";
@@ -423,19 +457,23 @@ public class WizardSsoService
     /// <summary>Applies expiry and "another path won" to a run that is not final.</summary>
     private void Refresh(WizardSsoRun run)
     {
-        if (run.State is WizardSsoRunState.SignedIn)
+        // Same lock as the creation of the administrator (Monitor locks are reentrant).
+        lock (run)
         {
-            return;
-        }
-        if (run.State != WizardSsoRunState.Failed || !WizardSsoFailure.IsFinal(run.FailureReason!))
-        {
-            if (run.IsExpired(SystemClock.UtcNow))
+            if (run.State is WizardSsoRunState.SignedIn)
             {
-                run.Fail(WizardSsoFailure.Expired);
+                return;
             }
-            else if (_adminRegistration.SystemAdminExists())
+            if (run.State != WizardSsoRunState.Failed || !WizardSsoFailure.IsFinal(run.FailureReason!))
             {
-                run.Fail(WizardSsoFailure.CompletedElsewhere);
+                if (run.IsExpired(SystemClock.UtcNow))
+                {
+                    run.Fail(WizardSsoFailure.Expired);
+                }
+                else if (_adminRegistration.SystemAdminExists())
+                {
+                    run.Fail(WizardSsoFailure.CompletedElsewhere);
+                }
             }
         }
     }
@@ -461,10 +499,7 @@ public class WizardSsoService
 
         run.PendingRegistrationState = state;
         run.PendingRegistrationCode = null;
-        // The pairing may take as long as the run (for example with an account created at the provider).
-        var lifetime = run.ExpiresAt - SystemClock.UtcNow;
-        _flows.PutRegistration(state, new RegistrationFlowState(RegistrationFlowOwner.WizardRun, run.Id, run.FlowSecret),
-            lifetime > SsoFlowStore.Lifetime ? lifetime : SsoFlowStore.Lifetime);
+        _flows.PutRegistration(state, new RegistrationFlowState(RegistrationFlowOwner.WizardRun, run.Id, run.FlowSecret));
         return start;
     }
 

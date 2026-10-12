@@ -18,7 +18,9 @@ public static class BaseUrlRules
 
     /// <summary>
     /// Validates and normalizes a base URL: absolute http(s), no query, fragment or user
-    /// info, no trailing slash. Returns null if the value is not a valid base URL.
+    /// info, no trailing slash, ASCII only (international domain names in Punycode, path
+    /// percent-encoded, IPv4 dotted) as the WYSCH pairing protocol requires. Returns null if
+    /// the value is not a valid base URL.
     /// </summary>
     public static string? Normalize(string? value)
     {
@@ -43,7 +45,9 @@ public static class BaseUrlRules
             return null;
         }
 
-        return uri.GetLeftPart(UriPartial.Path).TrimEnd('/');
+        var host = uri.HostNameType == UriHostNameType.IPv6 ? uri.Host : uri.IdnHost;
+        var port = uri.IsDefaultPort ? "" : $":{uri.Port}";
+        return $"{uri.Scheme}://{host.ToLowerInvariant()}{port}{uri.AbsolutePath}".TrimEnd('/');
     }
 
     /// <summary>

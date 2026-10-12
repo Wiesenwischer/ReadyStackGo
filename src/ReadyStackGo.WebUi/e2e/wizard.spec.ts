@@ -212,11 +212,13 @@ test.describe('Setup Wizard - Complete Flow with Onboarding', () => {
       fullPage: false,
     });
 
-    // Keep the pre-filled environment (so the Dashboard is reachable later)
+    // Fill environment form (don't skip — so we can reach Dashboard later)
+    // Name is pre-filled with "Local Docker", socket path auto-populated from backend
+    await expect(page.getByPlaceholder('Local Docker')).toHaveValue('Local Docker');
     await page.getByRole('button', { name: /Continue/i }).click();
 
     // === ONBOARDING STEP 3: Stack Sources (skippable) ===
-    await expect(page.getByText('Step 3 of 5')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Step 3 of 5')).toBeVisible({ timeout: 5000 });
     await expect(page.getByRole('heading', { name: 'Stack Sources' })).toBeVisible();
 
     // Screenshot: Sources step
@@ -229,7 +231,7 @@ test.describe('Setup Wizard - Complete Flow with Onboarding', () => {
 
     // === ONBOARDING STEP 4: Container Registries ===
     // Without detected registries the step only offers "Continue".
-    await expect(page.getByText('Step 4 of 5')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Step 4 of 5')).toBeVisible({ timeout: 5000 });
     await page
       .getByRole('button', { name: 'Skip for now' })
       .or(page.getByRole('button', { name: 'Continue', exact: true }))
@@ -237,8 +239,13 @@ test.describe('Setup Wizard - Complete Flow with Onboarding', () => {
       .click();
 
     // === ONBOARDING STEP 5: Complete ===
-    await expect(page.getByText('Step 5 of 5')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Step 5 of 5')).toBeVisible({ timeout: 5000 });
     await expect(page.getByRole('heading', { name: "You're All Set!" })).toBeVisible();
+
+    // Verify summary: org ✓, env ✓, sources and registries skipped
+    await expect(page.getByText('Organization')).toBeVisible();
+    await expect(page.getByText('Docker Environment')).toBeVisible();
+    await expect(page.getByText('Stack Sources — skipped')).toBeVisible();
 
     // Screenshot: Onboarding complete
     await page.screenshot({

@@ -43,6 +43,11 @@ public class BaseUrlRulesTests
     [InlineData("https://rsgo.example.com:443", "https://rsgo.example.com")]
     [InlineData("https://example.com/rsgo/", "https://example.com/rsgo")]
     [InlineData("http://[::1]:8080", "http://[::1]:8080")]
+    // ASCII only, as the WYSCH pairing protocol requires
+    [InlineData("https://bücher.example", "https://xn--bcher-kva.example")]
+    [InlineData("https://BÜCHER.example/rsgo/", "https://xn--bcher-kva.example/rsgo")]
+    [InlineData("https://rsgo.example.com/my path", "https://rsgo.example.com/my%20path")]
+    [InlineData("http://127.1:8080", "http://127.0.0.1:8080")]
     public void Normalize_ValidValues_AreNormalized(string input, string expected)
     {
         BaseUrlRules.Normalize(input).Should().Be(expected);

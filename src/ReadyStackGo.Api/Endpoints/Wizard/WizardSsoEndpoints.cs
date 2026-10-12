@@ -240,16 +240,15 @@ public class WizardSsoSignInEndpoint : EndpointWithoutRequest
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var baseUrl = await _systemConfig.GetEffectiveBaseUrlAsync();
         var run = _wizard.CurrentRun(HttpContext);
         if (run == null)
         {
-            await Send.RedirectAsync($"{baseUrl}/wizard?sso=foreign", isPermanent: false, allowRemoteRedirects: true);
+            await Send.RedirectAsync(WizardSsoService.WizardPage(null, "sso=foreign"), isPermanent: false, allowRemoteRedirects: true);
             return;
         }
 
         var url = await _wizard.SignInUrlAsync(run, ct);
-        await Send.RedirectAsync(url ?? $"{baseUrl}/wizard?sso=returned", isPermanent: false, allowRemoteRedirects: true);
+        await Send.RedirectAsync(url ?? WizardSsoService.WizardPage(run, "sso=returned"), isPermanent: false, allowRemoteRedirects: true);
     }
 }
 

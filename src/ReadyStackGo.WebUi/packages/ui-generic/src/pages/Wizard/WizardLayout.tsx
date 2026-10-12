@@ -27,7 +27,8 @@ export default function WizardLayout({
   currentStep = 0,
 }: WizardLayoutProps) {
   return (
-    <div className="relative min-h-screen bg-page px-4 py-10">
+    // Vertically centered like the design frames and the layout on main.
+    <div className="relative flex min-h-screen flex-col justify-center bg-page px-4 py-10">
       <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-6">
         <div className="flex flex-col items-center gap-2 text-center">
           <Logo context="page" height={32} />

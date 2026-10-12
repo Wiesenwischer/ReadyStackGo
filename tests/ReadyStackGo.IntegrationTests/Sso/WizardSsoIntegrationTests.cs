@@ -15,6 +15,12 @@ public class WizardSsoIntegrationTests : IAsyncLifetime
 {
     private const string BaseUrl = TestIdentityProviderHost.RsgoBaseUrl;
 
+    /// <summary>
+    /// A run address other than the unset default (http://localhost:5000), on the same host so the
+    /// browser's cookies still apply.
+    /// </summary>
+    private const string RunAddress = "http://localhost:5001";
+
     private readonly List<SsoTestContext> _contexts = [];
 
     public Task InitializeAsync() => Task.CompletedTask;
@@ -182,6 +188,7 @@ public class WizardSsoIntegrationTests : IAsyncLifetime
         status.GetProperty("state").GetString().Should().Be("signedIn");
         status.GetProperty("signedInUsername").GetString().Should().Be("alex");
         status.GetProperty("signedInEmail").GetString().Should().Be("alex@example.com");
+        status.GetProperty("signedInDisplayName").GetString().Should().Be("Alex V.", "WYSCH sends the display name in nickname");
 
         var admin = ctx.FindUser("alex")!;
         admin.HasPassword.Should().BeFalse();
@@ -211,20 +218,63 @@ public class WizardSsoIntegrationTests : IAsyncLifetime
     public async Task SecondStartWithAnotherAddress_DoesNotRedirectTheFirstRun_NorChangeTheBaseUrl()
     {
         var ctx = await StartAsync();
-        var start = await StartRunAsync(ctx.Browser);
+        var start = await StartRunAsync(ctx.Browser, RunAddress);
 
         // Another browser starts anonymously with a foreign address while the first run is open.
         using var other = ctx.NewBrowser();
         await Expect(other.PostJsonAsync("/api/wizard/sso/start", new { templateId = "wysch", baseUrl = "https://attacker.example" }));
         (await ctx.SystemConfig.GetConfiguredBaseUrlAsync()).Should().BeNull();
 
-        (await ctx.Browser.PairAsync(start.GetProperty("start"))).Should().Be($"{BaseUrl}/wizard?sso=returned");
+        (await ctx.Browser.PairAsync(start.GetProperty("start"))).Should().Be($"{RunAddress}/wizard?sso=returned");
         await Expect(ctx.Browser.PostJsonAsync("/api/wizard/sso/continue"));
-        var final = await ctx.Browser.SignInThroughAsync($"{BaseUrl}/api/wizard/sso/sign-in", "alex");
+        var final = await ctx.Browser.SignInThroughAsync($"{RunAddress}/api/wizard/sso/sign-in", "alex");
 
-        final.Should().StartWith($"{BaseUrl}/wizard?sso=returned#token=", "the token goes back to the address of this run");
-        // The test address is the default one, which counts as "not set"; the stored value shows who wrote last.
-        (await ctx.SystemConfig.GetBaseUrlAsync()).Should().Be(BaseUrl, "the run that created the administrator sets the address");
+        final.Should().StartWith($"{RunAddress}/wizard?sso=returned#token=", "the token goes back to the address of this run");
+        (await ctx.SystemConfig.GetConfiguredBaseUrlAsync()).Should().Be(RunAddress, "the run that created the administrator sets the address");
+    }
+
+    [Fact]
+    public async Task SignInFailure_RedirectsToTheRunAddress_WhileTheBaseUrlIsUnset()
+    {
+        var ctx = await StartAsync();
+        var start = await StartRunAsync(ctx.Browser, RunAddress);
+        (await ctx.Browser.PairAsync(start.GetProperty("start"))).Should().Be($"{RunAddress}/wizard?sso=returned");
+        await Expect(ctx.Browser.PostJsonAsync("/api/wizard/sso/continue"));
+
+        // The provider is down when the sign-in starts: back to the run's address, not the unset default.
+        ctx.Idp.Unreachable = true;
+        var (url, _) = await ctx.Browser.NavigateAsync($"{RunAddress}/api/wizard/sso/sign-in");
+
+        url.Should().Be($"{RunAddress}/wizard?sso=returned");
+        (await Expect(ctx.Browser.GetAsync("/api/wizard/sso/status"))).GetProperty("failureReason").GetString().Should().Be("unreachable");
+        (await ctx.SystemConfig.GetConfiguredBaseUrlAsync()).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task WizardRedirectsWithoutARun_AreRelative()
+    {
+        var ctx = await StartAsync();
+        using var other = ctx.NewBrowser();
+
+        var signIn = await other.GetAsync("/api/wizard/sso/sign-in");
+
+        SsoBrowser.IsRedirect(signIn.StatusCode).Should().BeTrue();
+        signIn.Headers.Location!.OriginalString.Should().Be("/wizard?sso=foreign", "the browser is on the installation's host already");
+    }
+
+    [Fact]
+    public async Task PairingReturnAfterTheStateExpired_FailsTheWaitingRun()
+    {
+        var ctx = await StartAsync(flowStateSeconds: 1);
+        var start = await StartRunAsync(ctx.Browser, RunAddress);
+        await Task.Delay(TimeSpan.FromSeconds(1.5));
+
+        (await ctx.Browser.PairAsync(start.GetProperty("start"))).Should().Be($"{RunAddress}/wizard?sso=returned");
+
+        var status = await Expect(ctx.Browser.GetAsync("/api/wizard/sso/status"));
+        status.GetProperty("state").GetString().Should().Be("failed");
+        status.GetProperty("failureReason").GetString().Should().Be("registration_failed");
+        status.GetProperty("failureDetail").GetString().Should().Contain("more than 10 minutes");
     }
 
     [Fact]
@@ -444,9 +494,13 @@ public class WizardSsoIntegrationTests : IAsyncLifetime
 
     // ------------------------------------------------------------------ helpers
 
-    private async Task<SsoTestContext> StartAsync(int? timeoutSeconds = null, int? runSeconds = null)
+    private async Task<SsoTestContext> StartAsync(int? timeoutSeconds = null, int? runSeconds = null, int? flowStateSeconds = null)
     {
         var settings = new Dictionary<string, string?>();
+        if (flowStateSeconds != null)
+        {
+            settings["Sso:FlowStateSeconds"] = flowStateSeconds.ToString();
+        }
         if (timeoutSeconds != null)
         {
             settings["Wizard:TimeoutSeconds"] = timeoutSeconds.ToString();
@@ -483,8 +537,8 @@ public class WizardSsoIntegrationTests : IAsyncLifetime
     private static Task<JsonElement> Expect(Task<HttpResponseMessage> call, HttpStatusCode status = HttpStatusCode.OK) =>
         SsoBrowser.ExpectAsync(call, status);
 
-    private static Task<JsonElement> StartRunAsync(SsoBrowser browser) =>
-        Expect(browser.PostJsonAsync("/api/wizard/sso/start", new { templateId = "wysch", baseUrl = BaseUrl }));
+    private static Task<JsonElement> StartRunAsync(SsoBrowser browser, string baseUrl = BaseUrl) =>
+        Expect(browser.PostJsonAsync("/api/wizard/sso/start", new { templateId = "wysch", baseUrl }));
 
     /// <summary>Start, pairing and continue: the run is registered and the provider saved disabled.</summary>
     private static async Task RegisterRunAsync(SsoBrowser browser)

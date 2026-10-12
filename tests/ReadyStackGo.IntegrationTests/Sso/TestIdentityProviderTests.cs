@@ -159,7 +159,7 @@ public class TestIdentityProviderTests : IAsyncLifetime
         jwt.Claims.First(c => c.Type == "nonce").Value.Should().Be("n-123");
         jwt.Claims.First(c => c.Type == "email_verified").Value.Should().Be("true");
         jwt.Claims.First(c => c.Type == "preferred_username").Value.Should().Be("alex");
-        jwt.Claims.First(c => c.Type == "nickname").Value.Should().Be("alex");
+        jwt.Claims.First(c => c.Type == "nickname").Value.Should().Be("Alex V.");
     }
 
     [Fact]

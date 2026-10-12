@@ -44,27 +44,30 @@ public enum RegistrationFlowOwner
 public record RegistrationFlowState(RegistrationFlowOwner Owner, string ContextId, string FlowSecret);
 
 /// <summary>
-/// Server-side store of the one-time states of browser round trips (10 minutes by default,
-/// consumed on first use: of two callbacks with the same state only one gets the flow).
+/// Server-side store of the one-time states of browser round trips: 10 minutes each (spec,
+/// E11), consumed on first use (of two callbacks with the same state only one gets the flow).
+/// <c>Sso:FlowStateSeconds</c> shortens the lifetime for tests.
 /// </summary>
 public class SsoFlowStore
 {
     public static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(10);
+    public const string LifetimeKey = "Sso:FlowStateSeconds";
 
     private readonly IMemoryCache _cache;
+    private readonly TimeSpan _lifetime;
     private readonly object _takeLock = new();
 
-    public SsoFlowStore(IMemoryCache cache)
+    public SsoFlowStore(IMemoryCache cache, IConfiguration configuration)
     {
         _cache = cache;
+        _lifetime = configuration.GetValue<int?>(LifetimeKey) is { } seconds && seconds > 0 ? TimeSpan.FromSeconds(seconds) : Lifetime;
     }
 
-    public void PutOidc(string state, OidcFlowState flow) => _cache.Set(OidcKey(state), flow, Lifetime);
+    public void PutOidc(string state, OidcFlowState flow) => _cache.Set(OidcKey(state), flow, _lifetime);
 
     public OidcFlowState? TakeOidc(string state) => Take<OidcFlowState>(OidcKey(state));
 
-    public void PutRegistration(string state, RegistrationFlowState flow, TimeSpan? lifetime = null) =>
-        _cache.Set(RegistrationKey(state), flow, lifetime ?? Lifetime);
+    public void PutRegistration(string state, RegistrationFlowState flow) => _cache.Set(RegistrationKey(state), flow, _lifetime);
 
     public RegistrationFlowState? TakeRegistration(string state) => Take<RegistrationFlowState>(RegistrationKey(state));
 

@@ -194,7 +194,7 @@ public class OidcCallbackEndpoint : Endpoint<OidcCallbackRequest>
                 await Redirect(await _setup.CompleteTestSignInAsync(flow, HttpContext, req.Code, req.Error, baseUrl, ct));
                 return;
             case OidcFlowPurpose.WizardAdmin:
-                await Redirect(await _wizard.CompleteSignInAsync(flow, HttpContext, req.Code, req.Error, baseUrl, ct));
+                await Redirect(await _wizard.CompleteSignInAsync(flow, HttpContext, req.Code, req.Error, ct));
                 return;
         }
 

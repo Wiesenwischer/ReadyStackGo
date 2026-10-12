@@ -120,11 +120,23 @@ public class RegistrationCallbackEndpoint : Endpoint<RegistrationCallbackRequest
         var baseUrl = await _systemConfig.GetEffectiveBaseUrlAsync();
         var flow = string.IsNullOrEmpty(req.State) ? null : _flows.TakeRegistration(req.State);
 
-        if (flow == null || !SsoFlowCookie.Matches(HttpContext, flow.FlowSecret))
+        if (flow == null)
         {
-            // Unknown, expired or foreign: the browser that started the pairing must finish it.
-            var target = flow?.Owner == RegistrationFlowOwner.WizardRun ? "/wizard?sso=foreign" : "/settings/oidc?error=registration_lost";
-            await Redirect($"{baseUrl}{target}");
+            // Unknown or expired state. A wizard run of this browser that waits for exactly this
+            // pairing fails with a reason; otherwise the pairing is lost.
+            var waitingRun = _wizard.FailLateRegistrationReturn(HttpContext, req.State);
+            await Redirect(waitingRun != null
+                ? WizardSsoService.WizardPage(waitingRun, "sso=returned")
+                : $"{baseUrl}/settings/oidc?error=registration_lost");
+            return;
+        }
+
+        if (!SsoFlowCookie.Matches(HttpContext, flow.FlowSecret))
+        {
+            // The browser that started the pairing must finish it.
+            await Redirect(flow.Owner == RegistrationFlowOwner.WizardRun
+                ? WizardSsoService.WizardPage(null, "sso=foreign")
+                : $"{baseUrl}/settings/oidc?error=registration_lost");
             return;
         }
 
@@ -136,7 +148,7 @@ public class RegistrationCallbackEndpoint : Endpoint<RegistrationCallbackRequest
             {
                 _wizard.AcceptRegistrationReturn(run, req.State!, req.Code, req.Error);
             }
-            await Redirect($"{(run?.BaseUrl.TrimEnd('/') ?? baseUrl)}/wizard?sso=returned");
+            await Redirect(WizardSsoService.WizardPage(run, "sso=returned"));
             return;
         }
 

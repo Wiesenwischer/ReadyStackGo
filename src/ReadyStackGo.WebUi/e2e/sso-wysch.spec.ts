@@ -44,13 +44,13 @@ fs.mkdirSync(PR_IMAGES, { recursive: true });
 
 async function shot(page: Page, name: string, options: { docs?: string; dark?: boolean } = {}) {
   await page.waitForLoadState('networkidle');
+  // Colour transitions (focus, error borders, theme) would otherwise be caught halfway.
+  await page.addStyleTag({ content: '*, *::before, *::after { transition: none !important; }' });
   await page.screenshot({ path: path.join(PR_IMAGES, `${name}.png`), fullPage: true });
   if (options.docs) {
     await page.screenshot({ path: path.join(DOCS_IMAGES, options.docs), fullPage: false });
   }
   if (options.dark) {
-    // Colour transitions would otherwise be caught halfway in the screenshot.
-    await page.addStyleTag({ content: '*, *::before, *::after { transition: none !important; }' });
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.evaluate(() => {
       document.documentElement.dataset.mode = 'dark';
@@ -157,7 +157,7 @@ test.describe('Single sign-on with WYSCH (test identity provider)', () => {
 
     // Back in the wizard, ReadyStackGo redeems the code and sends the browser to the sign-in.
     await pickTestUser(page, 'Alex Verified');
-    await expect(page.getByTestId('sso-signed-in')).toContainText('Signed in as alex');
+    await expect(page.getByTestId('sso-signed-in')).toContainText('Signed in as Alex V.');
     await expect(page.getByTestId('sso-signed-in')).toContainText('username alex');
     await shot(page, 'wizard-wysch-angemeldet');
 

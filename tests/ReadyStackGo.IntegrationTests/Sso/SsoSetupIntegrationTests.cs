@@ -585,6 +585,14 @@ public class SsoSetupIntegrationTests : IAsyncLifetime
         }
         (await Expect(Browser.GetAsync("/api/settings/oidc"))).GetProperty("providers")[0].GetProperty("reconnectNeeded").GetBoolean().Should().BeTrue();
 
+        // "Test" names the removed connection and Reconnect, not a secret to copy (frame 176:4851).
+        var testId = await IdAsync(Browser.PostJsonAsync("/api/settings/oidc/setup", new { provider = "wysch" }));
+        var client = (await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{testId}/checks"))).GetProperty("checks")
+            .GetProperty("items").EnumerateArray().Single(i => i.GetProperty("id").GetString() == "client");
+        client.GetProperty("status").GetString().Should().Be("failed");
+        client.GetProperty("detail").GetString().Should().Contain("The connection was probably removed in").And.Contain("Reconnect")
+            .And.NotContain("copy the client secret");
+
         // "Reconnect": pair again on the provider's page, check, test sign-in.
         var id = await IdAsync(Browser.PostJsonAsync("/api/settings/oidc/setup", new { provider = "wysch" }));
         var start = (await Expect(Browser.PostJsonAsync($"/api/settings/oidc/setup/{id}/registration"))).GetProperty("start");
