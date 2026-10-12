@@ -25,8 +25,8 @@ if [ ! -f "$TEMPLATES/wysch/template.json" ] || [ ! -f "$TEMPLATES/company-sso/t
   exit 1
 fi
 
-# ReadyStackGo attaches itself to the network "rsgo-net" at runtime and creates it without compose
-# labels; remove it afterwards only if the test created it.
+# The network "rsgo-net" (ReadyStackGo's deployment network) is created for the test when it is
+# missing and removed afterwards only in that case.
 RSGO_NET_EXISTED=false
 if docker network inspect rsgo-net > /dev/null 2>&1; then
   RSGO_NET_EXISTED=true
@@ -55,6 +55,10 @@ cleanup() {
 trap cleanup EXIT
 
 reset
+# ReadyStackGo's deployment network; joined as an external network (docker-compose.sso-e2e.yml).
+if [ "$RSGO_NET_EXISTED" = false ]; then
+  docker network create rsgo-net > /dev/null
+fi
 "${COMPOSE[@]}" build
 "${COMPOSE[@]}" up -d readystackgo test-idp
 

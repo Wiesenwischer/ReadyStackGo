@@ -7,7 +7,9 @@
 # The test needs a fresh installation, so it runs under its own container name and volumes and
 # never touches the volumes of a local development stack (rsgo-config, rsgo-data). It also uses its
 # own network: "rsgo-net" may already exist without compose labels (ReadyStackGo creates it as its
-# deployment network), and compose refuses to reuse such a network.
+# deployment network), and compose refuses to reuse such a network. ReadyStackGo additionally joins
+# "rsgo-net" as an external network (scripts/sso-e2e.sh creates it if missing); otherwise the app
+# attaches its own container at runtime, which drops open connections in the middle of the test.
 services:
   readystackgo:
     container_name: rsgo-sso-e2e
@@ -24,6 +26,8 @@ services:
       - rsgo-sso-e2e-data:/app/data
       - rsgo-sso-e2e-git-cache:/root/.rsgo/git-cache
       - ./src/ReadyStackGo.WebUi/e2e/test-data/identity-provider-templates:/app/identity-provider-templates:ro
+    networks:
+      - rsgo-deploy-net
     depends_on:
       - test-idp
 
@@ -52,6 +56,10 @@ volumes:
   rsgo-sso-e2e-git-cache:
     name: rsgo-sso-e2e-git-cache
 
+
 networks:
   rsgo-net:
     name: rsgo-sso-e2e-net
+  rsgo-deploy-net:
+    name: rsgo-net
+    external: true
