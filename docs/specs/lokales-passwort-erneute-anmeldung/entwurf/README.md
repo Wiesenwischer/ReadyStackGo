@@ -3,7 +3,7 @@
 - **Vorhaben:** #506
 - **Spezifikation:** [`docs/specs/lokales-passwort-erneute-anmeldung.md`](../../lokales-passwort-erneute-anmeldung.md)
 - **Figma-Datei:** [ReadyStackGo Design](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1) (`RxVNdSKNs7PpJqkYgvb6a1`), Seite „App“ (`2:99`)
-- **Freigabe:** freigegeben mit dem Merge von PR #<PR>
+- **Freigabe:** freigegeben mit dem Merge von PR #507
 - **Grundlage:** Profil-Rahmen aus Vorhaben #498 (`177:4834` hell, `177:5913` dunkel, `docs/specs/identity-provider-vorlagen/entwurf/`). Die neuen Rahmen sind Kopien davon; geändert ist nur die Karte „Set a local password“ und im Rahmen mit mehreren Providern die Karte „Connected accounts“ und der Text der Warnung.
 
 ## Rahmen

@@ -74,7 +74,7 @@ Betroffen ist die Karte „Set a local password“ im Profil (heute `SetLocalPas
 `docs/specs/identity-provider-vorlagen/entwurf/`).
 
 Verbindlich: Entwurf in `docs/specs/lokales-passwort-erneute-anmeldung/entwurf/` (freigegeben mit dem Merge von PR
-#<PR>). Entworfen sind, hell und dunkel:
+#507). Entworfen sind, hell und dunkel:
 
 - Karte vor der Bestätigung: Erklärung und Knopf „Confirm with <Provider>“; bei mehreren Providern die Auswahl.
 - Karte nach der Rückkehr: das Formular wie heute, mit dem Hinweis, wie lange es noch gilt.
