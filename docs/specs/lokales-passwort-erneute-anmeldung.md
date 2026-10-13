@@ -73,8 +73,8 @@ Betroffen ist die Karte „Set a local password“ im Profil (heute `SetLocalPas
 `177:4834` hell und `177:5913` dunkel in der Figma-Datei von ReadyStackGo, Bilder unter
 `docs/specs/identity-provider-vorlagen/entwurf/`).
 
-Für den neuen Ablauf **fehlt der freigegebene Entwurf**. Er entsteht vor der Planung mit `/vorhaben-entwerfen`; das
-Issue trägt bis dahin `entwurf-fehlt`. Zu entwerfen, hell und dunkel:
+Verbindlich: Entwurf in `docs/specs/lokales-passwort-erneute-anmeldung/entwurf/` (freigegeben mit dem Merge von PR
+#507). Entworfen sind, hell und dunkel:
 
 - Karte vor der Bestätigung: Erklärung und Knopf „Confirm with <Provider>“; bei mehreren Providern die Auswahl.
 - Karte nach der Rückkehr: das Formular wie heute, mit dem Hinweis, wie lange es noch gilt.
