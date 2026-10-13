@@ -1,5 +1,9 @@
 # Entwurf: Lokales Passwort nur nach erneuter Anmeldung
 
+> **Verworfen** (Marcus, 13.10.2026): Vorhaben #506 ist geschlossen, Plan-PR #508 nicht gemergt. Ein Admin-Token erlaubt ohnehin,
+> Container mit Zugriff auf den Docker-Host zu deployen; die erneute Anmeldung rechtfertigt keinen eigenen Ablauf. Das erste
+> lokale Passwort setzt ein angemeldetes Konto weiter einmalig selbst. Diese Datei bleibt als Material.
+
 - **Vorhaben:** #506
 - **Spezifikation:** [`docs/specs/lokales-passwort-erneute-anmeldung.md`](../../lokales-passwort-erneute-anmeldung.md)
 - **Figma-Datei:** [ReadyStackGo Design](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1) (`RxVNdSKNs7PpJqkYgvb6a1`), Seite „App“ (`2:99`)

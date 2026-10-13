@@ -1,5 +1,9 @@
 # Lokales Passwort nur nach erneuter Anmeldung
 
+> **Verworfen** (Marcus, 13.10.2026): Vorhaben #506 ist geschlossen, Plan-PR #508 nicht gemergt. Ein Admin-Token erlaubt ohnehin,
+> Container mit Zugriff auf den Docker-Host zu deployen; die erneute Anmeldung rechtfertigt keinen eigenen Ablauf. Das erste
+> lokale Passwort setzt ein angemeldetes Konto weiter einmalig selbst. Diese Datei bleibt als Material.
+
 ## Ziel
 
 Ein Konto ohne lokales Passwort kann sich im Profil eines setzen („Set a local password“, Vorhaben #498). Heute genügt
@@ -110,6 +114,6 @@ Richtung: die bestehende Karte und die Alerts aus #498.
 
 ## Offene Fragen
 
-- **Länge des Zeitfensters.** Vorschlag: 5 Minuten, wie der „sudo mode“ von GitHub ungefähr.
+- **Länge des Zeitfensters.** Vorschlag: 5 Minuten.
 - **Wo die Bestätigung lebt.** Serverseitig je Benutzer im Speicher (wie die Einrichtungssitzungen), oder als Claim in
   einem neu ausgestellten Token. Vorschlag: serverseitig im Speicher, ein Neustart verlangt dann eine neue Bestätigung.
