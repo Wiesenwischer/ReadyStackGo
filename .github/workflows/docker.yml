@@ -17,7 +17,10 @@ env:
 jobs:
   e2e-tests:
     name: E2E Tests
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest is Ubuntu 26.04, which Playwright 1.58 does not support
+    # ("playwright install --with-deps chromium" fails, and build-and-push needs this job).
+    # Unpin after a Playwright upgrade.
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
