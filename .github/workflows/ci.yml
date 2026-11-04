@@ -19,7 +19,9 @@ env:
 jobs:
   build-and-test:
     name: Build & Test
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest is Ubuntu 26.04, which Playwright 1.58 does not support
+    # ("playwright install --with-deps chromium" fails). Unpin after a Playwright upgrade.
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
