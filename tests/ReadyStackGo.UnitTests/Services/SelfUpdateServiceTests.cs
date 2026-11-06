@@ -1,5 +1,7 @@
+using Docker.DotNet;
 using Docker.DotNet.Models;
 using FluentAssertions;
+using ReadyStackGo.Application.Services;
 using ReadyStackGo.Infrastructure.Docker;
 
 namespace ReadyStackGo.UnitTests.Services;
@@ -220,6 +222,94 @@ public class SelfUpdateServiceTests
     {
         var result = SelfUpdateService.GetRegistryFromImage(imageName);
         result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void ExtractPullError_UsesStructuredErrorMessage()
+    {
+        var msg = new JSONMessage { Error = new JSONError { Code = 1, Message = " write /var/lib/docker/tmp/x: no space left on device " } };
+
+        SelfUpdateService.ExtractPullError(msg).Should().Be("write /var/lib/docker/tmp/x: no space left on device");
+    }
+
+    [Fact]
+    public void ExtractPullError_FallsBackToErrorMessageText()
+    {
+        var msg = new JSONMessage { ErrorMessage = "pull access denied for wiesenwischer/readystackgo" };
+
+        SelfUpdateService.ExtractPullError(msg).Should().Be("pull access denied for wiesenwischer/readystackgo");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ExtractPullError_ProgressMessage_ReturnsNull(string? status)
+    {
+        var msg = new JSONMessage { Status = status, ErrorMessage = status };
+
+        SelfUpdateService.ExtractPullError(msg).Should().BeNull();
+    }
+
+    [Fact]
+    public void BuildErrorProgress_ImagePullFailed_ShowsShortMessageAndRealReasonInDetails()
+    {
+        var ex = new ImagePullFailedException("wiesenwischer/readystackgo:0.85.0", "write /var/lib/docker/x: no space left on device");
+
+        var progress = SelfUpdateService.BuildErrorProgress(ex, 180);
+
+        progress.Phase.Should().Be("error");
+        progress.Message.Should().Be("Could not download wiesenwischer/readystackgo:0.85.0. The previous version is still running.");
+        progress.Message.Should().NotContain("No such image");
+        progress.Details.Should().Contain("Image: wiesenwischer/readystackgo:0.85.0");
+        progress.Details.Should().Contain("no space left on device");
+        progress.Details.Should().Contain("disk of the Docker host is full");
+    }
+
+    [Fact]
+    public void BuildErrorProgress_ImagePullFailed_OtherReason_HasNoDiskHint()
+    {
+        var ex = new ImagePullFailedException("wiesenwischer/readystackgo:0.85.0", "pull access denied");
+
+        var progress = SelfUpdateService.BuildErrorProgress(ex, 180);
+
+        progress.Details.Should().Contain("pull access denied");
+        progress.Details.Should().NotContain("disk");
+    }
+
+    [Fact]
+    public void BuildErrorProgress_Stalled_NamesTheTimeout()
+    {
+        var progress = SelfUpdateService.BuildErrorProgress(new OperationCanceledException(), 180);
+
+        progress.Message.Should().Be("Download stalled (no progress for 3 min). Please try again.");
+        progress.Details.Should().Contain("180s");
+    }
+
+    [Fact]
+    public void BuildErrorProgress_DockerApiError_CarriesStatusAndBody()
+    {
+        var ex = new DockerApiException(System.Net.HttpStatusCode.InternalServerError, "{\"message\":\"boom\"}");
+
+        var progress = SelfUpdateService.BuildErrorProgress(ex, 180);
+
+        progress.Message.Should().StartWith("Docker error:");
+        progress.Details.Should().Contain("500").And.Contain("boom");
+    }
+
+    [Fact]
+    public void BuildErrorProgress_UnexpectedException_PutsStackTraceInDetails()
+    {
+        var progress = SelfUpdateService.BuildErrorProgress(new InvalidOperationException("kaputt"), 180);
+
+        progress.Message.Should().Be("Update failed: kaputt");
+        progress.Details.Should().Contain("InvalidOperationException").And.Contain("kaputt");
+    }
+
+    [Fact]
+    public void UpdateProgress_Idle_HasNoDetails()
+    {
+        UpdateProgress.Idle.Details.Should().BeNull();
     }
 
     private static ContainerInspectResponse CreateMinimalInspection()
