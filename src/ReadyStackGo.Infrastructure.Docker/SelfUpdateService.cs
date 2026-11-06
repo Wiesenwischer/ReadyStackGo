@@ -349,6 +349,9 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
                 Binds = hostConfig.Binds,
                 PortBindings = hostConfig.PortBindings,
                 RestartPolicy = hostConfig.RestartPolicy,
+                // Keep the log driver and its options (e.g. max-size / max-file), otherwise an update
+                // silently resets log rotation and the container log can grow without limit again.
+                LogConfig = hostConfig.LogConfig,
                 NetworkMode = primaryNetwork
             },
             NetworkingConfig = networkingConfig
