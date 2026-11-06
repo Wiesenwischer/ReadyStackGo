@@ -27,6 +27,8 @@ sudo systemctl start docker
 docker run -d \
   --name readystackgo \
   --restart unless-stopped \
+  --log-opt max-size=10m \
+  --log-opt max-file=3 \
   -p 8080:8080 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v readystackgo-config:/app/config \
