@@ -573,7 +573,10 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
             User = service.User,
             HealthCheck = service.HealthCheck != null ? ConvertToServiceHealthCheck(service.HealthCheck) : null,
             Lifecycle = service.Lifecycle,
-            InitTimeoutSeconds = service.InitTimeoutSeconds
+            InitTimeoutSeconds = service.InitTimeoutSeconds,
+            Logging = service.Logging != null
+                ? new ServiceLogging { MaxSize = service.Logging.MaxSize, MaxFile = service.Logging.MaxFile }
+                : null
         };
     }
 

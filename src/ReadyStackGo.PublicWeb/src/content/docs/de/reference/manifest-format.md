@@ -255,6 +255,7 @@ Services definieren die zu deployenden Docker Container.
 | `user` | string | Nein | Benutzer für Ausführung |
 | `labels` | object | Nein | Container-Labels |
 | `healthCheck` | object | Nein | Health-Check Konfiguration |
+| `logging` | object | Nein | Log-Rotation (`maxSize`, `maxFile`); siehe [Container-Log-Limit](#container-log-limit) |
 
 ### Service-Beispiel
 
@@ -627,6 +628,40 @@ stacks/
 ```
 
 ---
+
+### Container-Log-Limit
+
+RSGO begrenzt das Log jedes Containers, den es anlegt, damit ein gesprächiger Service nicht die Platte des Hosts
+füllt. Ohne Konfiguration behält jeder Container höchstens **3 Dateien à 10 MB** (30 MB). Ein Service kann den Wert
+mit `logging` erhöhen oder senken; was fehlt, behält den Standardwert:
+
+```yaml
+services:
+  api:
+    image: ${REGISTRY}/api:${VERSION}
+    logging:
+      maxSize: 50m    # Größe einer Log-Datei bis zur Rotation (k, m oder g; reine Zahlen sind Bytes)
+      maxFile: 5      # Anzahl der behaltenen Log-Dateien (mindestens 1)
+```
+
+| Eigenschaft | Typ | Beschreibung |
+|-------------|-----|--------------|
+| `maxSize` | string | Größe einer Log-Datei, z. B. `500k`, `10m`, `1g` |
+| `maxFile` | integer | Anzahl der Log-Dateien je Container, mindestens 1 |
+
+Den Standardwert selbst ändert man für die ganze RSGO-Installation mit den Einstellungen
+`Docker:ContainerLogs:MaxSize` und `Docker:ContainerLogs:MaxFile` (Umgebungsvariablen
+`Docker__ContainerLogs__MaxSize` und `Docker__ContainerLogs__MaxFile`). Ein leeres `MaxSize` schaltet das
+Standard-Limit ab; ein `logging`-Block im Manifest gilt weiterhin.
+
+Hinweise:
+
+- Das Limit wird beim Anlegen des Containers gesetzt. Bestehende Container behalten ihre Log-Einstellung bis zum
+  nächsten Deployment des Stacks.
+- Das Limit greift nur, wo der Docker-Daemon nach Größe rotiert (`json-file` oder `local`, der Docker-Standard). Nutzt
+  der Daemon einen anderen Treiber wie `journald` oder `syslog`, lässt RSGO ihn unangetastet, außer das Manifest setzt
+  `logging` ausdrücklich. Dann nutzt dieser Container `json-file`.
+- Ein ungültiger Wert (etwa `maxSize: ten` oder `maxFile: 0`) wird bei der Validierung des Manifests gemeldet.
 
 ### Service Includes
 
