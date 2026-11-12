@@ -261,7 +261,9 @@ Im Worktree, unter `docs/specs/<name>/entwurf/`:
   einzuschalten. Der Merge ist Marcus' Freigabe des Entwurfs. Approven kann er den PR nicht, er stammt von seinem Konto.
 - Im Repo änderst du nur `docs/specs/<name>/entwurf/`, die Zeile unter „Oberfläche und Bilder“ der Spezifikation und
   die Master der Symbole mit ihren `.meta.yaml`. Kein Code, keine Tokens im Code, kein Plan.
-- Kein Label `planen`, keine Planung, keine Umsetzung.
+- Kein Label `planen`, keine Planung, keine Umsetzung. Läuft die Sitzung als Übergabe aus dem Lagebild, setzt sie
+  `planen` erst nach Marcus' Merge, als nächsten Schritt ihres Auftrags und nicht als Teil dieses Skills
+  (works, `docs/prozesse/vorhaben.md`, „Übergabe an einen PC“).
 - **Texte nur aus einer Datei:** PR-Beschreibungen, Issue- und PR-Kommentare und Issues schreibst du mit dem
   Write-Werkzeug als UTF-8-Datei in den Scratchpad und übergibst sie mit `--body-file <datei>`. Nie inline mit
   `--body "…"`, auch keinen kurzen Text: Die Texte enthalten Backticks, `$` und Umlaute. Bash führt Backticks als
