@@ -95,6 +95,46 @@ public record ServiceTemplate
     /// Health check configuration.
     /// </summary>
     public ServiceHealthCheck? HealthCheck { get; init; }
+
+    /// <summary>
+    /// Log rotation override for this service's container (optional).
+    /// When null, RSGO's default log limit applies.
+    /// </summary>
+    public ServiceLogging? Logging { get; init; }
+}
+
+/// <summary>
+/// Container log rotation for a service. Fields left null keep RSGO's default.
+/// </summary>
+public record ServiceLogging
+{
+    /// <summary>
+    /// Maximum size of one log file before rotation (e.g. "10m", "500k", "1g"; plain numbers are bytes).
+    /// </summary>
+    public string? MaxSize { get; init; }
+
+    /// <summary>
+    /// Maximum number of log files kept per container (at least 1).
+    /// </summary>
+    public int? MaxFile { get; init; }
+
+    /// <summary>
+    /// True for a positive number optionally followed by k, m or g (case-insensitive).
+    /// </summary>
+    public static bool IsValidMaxSize(string? value) =>
+        value is not null && System.Text.RegularExpressions.Regex.IsMatch(value, "^[1-9][0-9]*[kKmMgG]?$");
+
+    /// <summary>
+    /// Describes what is wrong with the given values, or null when they are valid.
+    /// </summary>
+    public static string? Validate(string? maxSize, int? maxFile)
+    {
+        if (maxSize is not null && !IsValidMaxSize(maxSize))
+            return $"logging.maxSize '{maxSize}' is invalid. Use a positive number with an optional k, m or g suffix, e.g. 10m.";
+        if (maxFile is < 1)
+            return $"logging.maxFile {maxFile} is invalid. It must be at least 1.";
+        return null;
+    }
 }
 
 /// <summary>

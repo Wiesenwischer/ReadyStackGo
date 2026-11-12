@@ -1128,7 +1128,8 @@ public class DeploymentService : IDeploymentService
                 DependsOn = service.DependsOn.ToList(),
                 Lifecycle = service.Lifecycle,
                 InitTimeoutSeconds = service.InitTimeoutSeconds,
-                HealthCheck = service.HealthCheck
+                HealthCheck = service.HealthCheck,
+                Logging = service.Logging
             };
 
             // Map ports - resolve ${VAR} placeholders in port mappings

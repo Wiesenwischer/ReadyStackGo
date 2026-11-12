@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.UseCases.Deployments;
 using ReadyStackGo.Application.Services;
+using ServiceLogging = ReadyStackGo.Domain.StackManagement.Stacks.ServiceLogging;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -223,7 +224,8 @@ public class DockerComposeParser : IDockerComposeParser
                     service.ContainerName ?? DockerNamingUtility.CreateContainerName(stackName, serviceName),
                     resolvedVariables),
                 Internal = service.Ports == null || service.Ports.Count == 0,
-                Order = order++
+                Order = order++,
+                Logging = service.Logging
             };
 
             // Resolve networks for this service
@@ -480,7 +482,70 @@ public class DockerComposeParser : IDockerComposeParser
             service.HealthCheck = ParseHealthCheck(hcData);
         }
 
+        // Parse logging
+        if (data.TryGetValue("logging", out var logging) && logging is Dictionary<object, object> loggingData)
+        {
+            service.Logging = ParseLogging(loggingData);
+        }
+
         return service;
+    }
+
+    /// <summary>
+    /// Reads <c>logging.options.max-size</c> / <c>max-file</c>. Only the size-rotating drivers (json-file, local;
+    /// json-file when no driver is named) carry these options. For any other driver the options mean something
+    /// else, so they are ignored and RSGO's default log limit applies.
+    /// </summary>
+    internal ServiceLogging? ParseLogging(Dictionary<object, object> loggingData)
+    {
+        var driver = loggingData.TryGetValue("driver", out var driverValue) ? driverValue?.ToString() : null;
+        if (!string.IsNullOrEmpty(driver) && driver is not ("json-file" or "local"))
+        {
+            _logger.LogWarning(
+                "Compose logging driver '{Driver}' is not supported; the RSGO default log limit applies instead", driver);
+            return null;
+        }
+
+        if (loggingData.TryGetValue("options", out var options) is false || options is not Dictionary<object, object> optionData)
+            return null;
+
+        string? maxSize = null;
+        if (optionData.TryGetValue("max-size", out var sizeValue))
+        {
+            maxSize = NormalizeLogSize(sizeValue?.ToString());
+            if (maxSize is null)
+                _logger.LogWarning("Compose logging option max-size '{Value}' is invalid and ignored", sizeValue);
+        }
+
+        int? maxFile = null;
+        if (optionData.TryGetValue("max-file", out var fileValue))
+        {
+            if (int.TryParse(fileValue?.ToString(), System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out var file) && file >= 1)
+                maxFile = file;
+            else
+                _logger.LogWarning("Compose logging option max-file '{Value}' is invalid and ignored", fileValue);
+        }
+
+        return maxSize is null && maxFile is null ? null : new ServiceLogging { MaxSize = maxSize, MaxFile = maxFile };
+    }
+
+    /// <summary>
+    /// Docker accepts sizes like "10m" and "10MB". RSGO uses the short form, so a trailing "b" after k, m or g is dropped.
+    /// Returns null for anything that is not a positive size.
+    /// </summary>
+    private static string? NormalizeLogSize(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+        var match = System.Text.RegularExpressions.Regex.Match(trimmed, "^([1-9][0-9]*)([kKmMgG])[bB]$");
+        if (match.Success)
+            trimmed = match.Groups[1].Value + match.Groups[2].Value;
+
+        trimmed = trimmed.ToLowerInvariant();
+        return ServiceLogging.IsValidMaxSize(trimmed) ? trimmed : null;
     }
 
     private Dictionary<string, string>? ParseEnvironment(object environment)
