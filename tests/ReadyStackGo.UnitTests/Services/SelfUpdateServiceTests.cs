@@ -92,6 +92,45 @@ public class SelfUpdateServiceTests
     }
 
     [Fact]
+    public void BuildCreateParamsFromInspection_PreservesLogConfig()
+    {
+        // Arrange
+        var inspection = CreateMinimalInspection();
+        inspection.HostConfig.LogConfig = new LogConfig
+        {
+            Type = "json-file",
+            Config = new Dictionary<string, string>
+            {
+                ["max-size"] = "10m",
+                ["max-file"] = "3"
+            }
+        };
+
+        // Act
+        var result = SelfUpdateService.BuildCreateParamsFromInspection(
+            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update");
+
+        // Assert
+        result.HostConfig.LogConfig.Type.Should().Be("json-file");
+        result.HostConfig.LogConfig.Config.Should().BeEquivalentTo(inspection.HostConfig.LogConfig.Config);
+    }
+
+    [Fact]
+    public void BuildCreateParamsFromInspection_WithoutLogConfig_DoesNotInventOne()
+    {
+        // Arrange
+        var inspection = CreateMinimalInspection();
+        inspection.HostConfig.LogConfig = null;
+
+        // Act
+        var result = SelfUpdateService.BuildCreateParamsFromInspection(
+            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update");
+
+        // Assert
+        result.HostConfig.LogConfig.Should().BeNull();
+    }
+
+    [Fact]
     public void BuildCreateParamsFromInspection_UsesNewImage()
     {
         // Arrange
