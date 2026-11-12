@@ -170,25 +170,30 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
             // and should reset state + notify the user
             _ = Task.Run(() => MonitorHelperContainerAsync(helperResponse.ID, helperContainerName));
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
             _logger.LogError("Image pull stalled for more than {Timeout}s during self-update to {TargetVersion}",
                 PullStallTimeoutSeconds, targetVersion);
-            SetProgress(new UpdateProgress("error",
-                $"Download stalled (no progress for {PullStallTimeoutSeconds / 60} min). Please try again.",
-                null));
+            SetProgress(BuildErrorProgress(ex, PullStallTimeoutSeconds));
+            _updateInProgress = false;
+        }
+        catch (ImagePullFailedException ex)
+        {
+            _logger.LogError("Pulling {Image} failed during self-update to {TargetVersion}: {Reason}",
+                ex.Image, targetVersion, ex.Reason);
+            SetProgress(BuildErrorProgress(ex, PullStallTimeoutSeconds));
             _updateInProgress = false;
         }
         catch (DockerApiException ex)
         {
             _logger.LogError(ex, "Docker API error during self-update to {TargetVersion}", targetVersion);
-            SetProgress(new UpdateProgress("error", $"Docker error: {ex.Message}", null));
+            SetProgress(BuildErrorProgress(ex, PullStallTimeoutSeconds));
             _updateInProgress = false;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error during self-update to {TargetVersion}", targetVersion);
-            SetProgress(new UpdateProgress("error", $"Update failed: {ex.Message}", null));
+            SetProgress(BuildErrorProgress(ex, PullStallTimeoutSeconds));
             _updateInProgress = false;
         }
     }
@@ -280,23 +285,82 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
             catch (OperationCanceledException) { }
         });
 
+        // The daemon reports a failed pull inside the progress stream, not as an HTTP error
+        // (the response is already 200 by then), so CreateImageAsync returns normally.
+        string? pullError = null;
+
         try
         {
             await _client.Images.CreateImageAsync(
                 new ImagesCreateParameters { FromImage = imageName, Tag = tag },
                 authConfig,
-                new Progress<JSONMessage>(msg =>
+                // Synchronous reporter (not Progress<T>, which posts to the thread pool):
+                // every message, including the final error, has been handled when the call returns.
+                new SynchronousProgress<JSONMessage>(msg =>
                 {
                     Volatile.Write(ref lastProgressTicks, DateTime.UtcNow.Ticks);
+                    pullError ??= ExtractPullError(msg);
                     onProgress(msg);
                 }),
                 cts.Token);
+
+            if (pullError is not null)
+                throw new ImagePullFailedException($"{imageName}:{tag}", pullError);
         }
         finally
         {
             // Stop the stall detector once pull is done (success or failure)
             cts.Cancel();
         }
+    }
+
+    /// <summary>
+    /// Returns the error text of a pull-stream message, or null if the message is not an error.
+    /// </summary>
+    internal static string? ExtractPullError(JSONMessage msg)
+    {
+        var text = msg.Error?.Message;
+        if (string.IsNullOrWhiteSpace(text))
+            text = msg.ErrorMessage;
+
+        return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+    }
+
+    /// <summary>
+    /// Builds the user-facing error for a failed update. The message is a short sentence;
+    /// the details carry the technical reason shown behind the "Details" button.
+    /// </summary>
+    internal static UpdateProgress BuildErrorProgress(Exception ex, int stallTimeoutSeconds)
+    {
+        switch (ex)
+        {
+            case ImagePullFailedException pull:
+                var hint = pull.Reason.Contains("no space left on device", StringComparison.OrdinalIgnoreCase)
+                    ? "\n\nThe disk of the Docker host is full. Free up space (for example by limiting or truncating large container logs, or by running 'docker system prune') and retry."
+                    : string.Empty;
+                return new UpdateProgress("error",
+                    $"Could not download {pull.Image}. The previous version is still running.",
+                    null,
+                    $"Image: {pull.Image}\nDocker reported: {pull.Reason}{hint}");
+
+            case OperationCanceledException:
+                return new UpdateProgress("error",
+                    $"Download stalled (no progress for {stallTimeoutSeconds / 60} min). Please try again.",
+                    null,
+                    $"{ex.GetType().Name}: no pull progress for {stallTimeoutSeconds}s, the download was cancelled.");
+
+            case DockerApiException api:
+                return new UpdateProgress("error", $"Docker error: {api.Message}", null,
+                    $"{api.GetType().Name} (HTTP {(int)api.StatusCode}): {api.ResponseBody}");
+
+            default:
+                return new UpdateProgress("error", $"Update failed: {ex.Message}", null, ex.ToString());
+        }
+    }
+
+    private sealed class SynchronousProgress<T>(Action<T> handler) : IProgress<T>
+    {
+        public void Report(T value) => handler(value);
     }
 
     /// <summary>
@@ -449,6 +513,7 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
             _logger.LogInformation("Pulling helper image {Image}", fullImage);
 
             var authConfig = GetAuthConfig();
+            string? pullError = null;
             await _client.Images.CreateImageAsync(
                 new ImagesCreateParameters
                 {
@@ -456,11 +521,15 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
                     Tag = HelperImageTag
                 },
                 authConfig,
-                new Progress<JSONMessage>(msg =>
+                new SynchronousProgress<JSONMessage>(msg =>
                 {
+                    pullError ??= ExtractPullError(msg);
                     if (!string.IsNullOrEmpty(msg.Status))
                         _logger.LogDebug("Helper pull: {Status}", msg.Status);
                 }));
+
+            if (pullError is not null)
+                throw new ImagePullFailedException(fullImage, pullError);
         }
     }
 
@@ -668,4 +737,14 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
             return (int)Math.Min(100, downloadedBytes * 100 / totalBytes);
         }
     }
+}
+
+/// <summary>
+/// The Docker daemon reported an error while pulling an image (for example "no space left on device").
+/// </summary>
+public sealed class ImagePullFailedException(string image, string reason)
+    : Exception($"Pulling {image} failed: {reason}")
+{
+    public string Image { get; } = image;
+    public string Reason { get; } = reason;
 }
