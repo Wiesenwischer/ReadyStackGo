@@ -529,6 +529,9 @@ Notes:
   daemon uses another driver such as `journald` or `syslog`, RSGO leaves it alone, unless the manifest sets `logging`
   explicitly. Then that container uses `json-file`.
 - An invalid value (for example `maxSize: ten` or `maxFile: 0`) is reported when the manifest is validated.
+- In an imported Docker Compose file, `logging.options.max-size` and `max-file` are taken over when the driver is
+  `json-file`, `local` or not named. For any other driver (`syslog`, `journald`, `none`) the options are ignored and the
+  default applies.
 
 ### Service Includes
 

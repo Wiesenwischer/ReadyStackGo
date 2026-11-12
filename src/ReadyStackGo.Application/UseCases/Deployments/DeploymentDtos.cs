@@ -275,6 +275,11 @@ public class ComposeServiceDefinition
     /// Health check configuration
     /// </summary>
     public ComposeHealthCheck? HealthCheck { get; set; }
+
+    /// <summary>
+    /// Log rotation taken from the compose <c>logging</c> block (json-file / local driver only).
+    /// </summary>
+    public ServiceLogging? Logging { get; set; }
 }
 
 /// <summary>

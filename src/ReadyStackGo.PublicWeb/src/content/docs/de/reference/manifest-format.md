@@ -662,6 +662,9 @@ Hinweise:
   der Daemon einen anderen Treiber wie `journald` oder `syslog`, lässt RSGO ihn unangetastet, außer das Manifest setzt
   `logging` ausdrücklich. Dann nutzt dieser Container `json-file`.
 - Ein ungültiger Wert (etwa `maxSize: ten` oder `maxFile: 0`) wird bei der Validierung des Manifests gemeldet.
+- In einer importierten Docker-Compose-Datei werden `logging.options.max-size` und `max-file` übernommen, wenn der
+  Treiber `json-file`, `local` oder nicht angegeben ist. Bei jedem anderen Treiber (`syslog`, `journald`, `none`)
+  werden die Optionen ignoriert und der Standardwert gilt.
 
 ### Service Includes
 
