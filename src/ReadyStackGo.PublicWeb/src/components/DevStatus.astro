@@ -33,11 +33,11 @@ const content = {
 const c = content[lang];
 ---
 
-<section class="py-16 bg-brand-50 dark:bg-brand-900/20 border-y border-brand-200 dark:border-brand-800">
+<section class="py-16 bg-primary-subtle border-y border-primary-subtle-line">
   <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="text-center">
       <!-- Badge -->
-      <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200 text-sm font-medium mb-6">
+      <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface border border-primary-subtle-line text-fg-brand text-sm font-medium mb-6">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
@@ -45,23 +45,23 @@ const c = content[lang];
       </span>
 
       <!-- Title -->
-      <h2 class="text-2xl sm:text-3xl font-bold text-brand-900 dark:text-brand-100 mb-4">
+      <h2 class="font-display text-2xl sm:text-3xl font-bold text-fg mb-4">
         {c.title}
       </h2>
 
       <!-- Description -->
-      <p class="text-lg text-brand-800 dark:text-brand-200 max-w-3xl mx-auto mb-8">
+      <p class="text-lg text-fg-secondary max-w-3xl mx-auto mb-8">
         {c.description}
       </p>
 
       <!-- Points -->
       <div class="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
         {c.points.map((point) => (
-          <div class="flex items-center gap-3 text-left bg-white/50 dark:bg-gray-800/50 rounded-lg px-4 py-3">
-            <svg class="w-5 h-5 text-brand-600 dark:text-brand-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="flex items-center gap-3 text-left bg-surface/70 border border-primary-subtle-line rounded-lg px-4 py-3">
+            <svg class="w-5 h-5 text-fg-brand flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
             </svg>
-            <span class="text-brand-800 dark:text-brand-200">{point}</span>
+            <span class="text-fg">{point}</span>
           </div>
         ))}
       </div>

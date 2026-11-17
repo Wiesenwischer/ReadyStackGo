@@ -21,6 +21,22 @@ public interface IHealthChangeTracker
         CancellationToken ct = default);
 
     /// <summary>
+    /// Processes an aggregated health update for a whole product deployment. Compares the
+    /// product's overall status against the previous cycle and emits a single product-level
+    /// notification per transition (e.g. Healthy → Degraded, and later Degraded → Healthy).
+    /// Throttling is direction-aware so a recovery is never swallowed by a preceding
+    /// degradation. When <paramref name="suppressNotifications"/> is true the baseline still
+    /// advances but nothing is emitted — used while the product is deploying/upgrading/
+    /// removing/redeploying or in maintenance, where health churn is expected by design.
+    /// </summary>
+    Task ProcessProductHealthUpdateAsync(
+        string productDeploymentId,
+        string productDisplayName,
+        string overallStatus,
+        bool suppressNotifications = false,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Clears all tracked baselines (previous status + cooldown) for a deployment.
     /// Called when a deployment leaves the Running state (Installing/Upgrading/Failed/Removed)
     /// so the next post-recovery health cycle starts from a clean baseline and does not

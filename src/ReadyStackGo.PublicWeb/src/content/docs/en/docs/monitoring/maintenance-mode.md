@@ -127,6 +127,44 @@ The YAML fields are documented in the [manifest format reference](/en/reference/
 
 ---
 
+## Database access during maintenance
+
+Many products need their database **exclusively** while they maintain themselves — an update switches
+it to `SINGLE_USER`, a restore takes it offline. Yet a SQL observer reads the maintenance flag from
+exactly that database. ReadyStackGo handles this explicitly:
+
+**RSGO keeps no connection open.** Every connection RSGO opens itself for observers and setters is
+**non-pooled**: the session exists only for the duration of a single read and is gone afterwards.
+Product routines that wait for all connections to close before taking the database exclusively are
+therefore never waiting on ReadyStackGo. The product's containers are unaffected — RSGO does not build
+their connection strings, and they keep their pooling. RSGO's own sessions carry the application name
+`ReadyStackGo-Maintenance`, so they are unambiguously identifiable in `sys.dm_exec_sessions` or
+`sp_who2`.
+
+**RSGO does not read a database it must not touch.** Before every read, a SQL observer checks the
+database's availability in `sys.databases` over a `master` connection. `master` stays reachable while
+another database is `SINGLE_USER`, `RESTORING` or `OFFLINE`; the query takes no lock on the target
+database and cannot occupy the single-user slot the product's own update needs. While the database is
+unavailable, the observer reports maintenance with an observed value of
+`database-exclusive (<state>/<user access>)` and leaves the database alone.
+
+As soon as it is `ONLINE` and `MULTI_USER` again, the next poll reads the flag normally — so the
+automatic return to normal operation keeps working, however long the product takes.
+
+:::note[Manual maintenance suspends the observer]
+While maintenance is **manually** active, the observer does not poll at all. It would not be allowed
+to end manual maintenance anyway (trigger ownership), so it could not act on a result. During a manual
+maintenance window RSGO therefore opens no connection to the product whatsoever.
+:::
+
+:::caution[Access to master]
+If availability cannot be determined — for example because the observer login has no access to
+`master` — RSGO logs a warning once and reads the flag directly, as before. Granting the observer login
+access to `master` restores the protection.
+:::
+
+---
+
 ## API Endpoint
 
 Maintenance mode can also be controlled via the REST API:

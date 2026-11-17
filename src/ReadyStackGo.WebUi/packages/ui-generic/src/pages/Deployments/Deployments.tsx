@@ -10,6 +10,9 @@ import {
 import { useEnvironment } from "../../context/EnvironmentContext";
 import { useAuth } from "../../context/AuthContext";
 import { DeploymentError } from "../../components/ui/DeploymentError";
+import { ButtonLink } from "../../components/ui/Button";
+import { StatusBadge } from "../../components/ui/StatusBadge";
+import { toneForHealthStatus, toneForOperationMode, toneForProductStatus } from "../../components/ui/statusTone";
 
 export default function Deployments() {
   const { activeEnvironment } = useEnvironment();
@@ -20,23 +23,23 @@ export default function Deployments() {
     switch (store.connectionState) {
       case 'connected':
         return (
-          <span className="inline-flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
-            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+          <span className="inline-flex items-center gap-1.5 text-xs text-status-healthy">
+            <span className="h-2 w-2 rounded-full bg-status-healthy animate-pulse"></span>
             Live
           </span>
         );
       case 'connecting':
       case 'reconnecting':
         return (
-          <span className="inline-flex items-center gap-1.5 text-xs text-yellow-600 dark:text-yellow-400">
-            <span className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse"></span>
+          <span className="inline-flex items-center gap-1.5 text-xs text-status-degraded">
+            <span className="h-2 w-2 rounded-full bg-status-degraded animate-pulse"></span>
             Connecting...
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
-            <span className="h-2 w-2 rounded-full bg-gray-400"></span>
+          <span className="inline-flex items-center gap-1.5 text-xs text-fg-muted">
+            <span className="h-2 w-2 rounded-full bg-status-unknown"></span>
             Offline
           </span>
         );
@@ -49,24 +52,21 @@ export default function Deployments() {
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h2 className="text-[26px] leading-[34px] font-bold text-fg">
             Deployments
           </h2>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          <p className="mt-1 text-sm text-fg-secondary">
             Monitor and manage deployments {activeEnvironment && `in ${activeEnvironment.name}`}
           </p>
         </div>
         <div className="flex items-center gap-4">
           {getConnectionStatusBadge()}
-          <Link
-            to="/catalog"
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-center font-medium text-white hover:bg-brand-700"
-          >
+          <ButtonLink to="/catalog" variant="primary">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Deploy New Stack
-          </Link>
+          </ButtonLink>
         </div>
       </div>
 
@@ -85,26 +85,26 @@ export default function Deployments() {
       )}
 
       {store.loading ? (
-        <div className="rounded-2xl border border-gray-200 bg-white px-4 py-8 dark:border-gray-800 dark:bg-white/[0.03]">
-          <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+        <div className="rounded-2xl border border-line bg-surface px-4 py-8">
+          <p className="text-center text-sm text-fg-secondary">
             Loading deployments...
           </p>
         </div>
       ) : !activeEnvironment ? (
-        <div className="rounded-2xl border border-gray-200 bg-white px-4 py-8 dark:border-gray-800 dark:bg-white/[0.03]">
-          <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+        <div className="rounded-2xl border border-line bg-surface px-4 py-8">
+          <p className="text-center text-sm text-fg-secondary">
             Select an environment to view deployments.
           </p>
         </div>
       ) : hasNoDeployments ? (
-        <div className="rounded-2xl border border-gray-200 bg-white px-4 py-8 dark:border-gray-800 dark:bg-white/[0.03]">
+        <div className="rounded-2xl border border-line bg-surface px-4 py-8">
           <div className="text-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            <p className="text-sm text-fg-secondary mb-4">
               No deployments in this environment.
             </p>
             <Link
               to="/catalog"
-              className="inline-flex items-center gap-2 text-brand-600 hover:text-brand-700 dark:text-brand-400"
+              className="inline-flex items-center gap-2 text-fg-brand hover:underline"
             >
               Browse Catalog
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -117,13 +117,13 @@ export default function Deployments() {
         <div className="flex flex-col gap-6">
           {/* Product Deployments Section */}
           {store.productDeployments.length > 0 && (
-            <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-              <div className="px-4 py-6 md:px-6 xl:px-7.5">
-                <h4 className="text-xl font-semibold text-black dark:text-white">
+            <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+              <div className="px-4 py-[18px] md:px-6">
+                <h4 className="text-base font-semibold text-fg">
                   Product Deployments
                 </h4>
               </div>
-              <div className="border-t border-stroke dark:border-strokedark">
+              <div className="divide-y divide-line border-t border-line">
                 {store.productDeployments.map((pd) => (
                   <ProductDeploymentRow
                     key={pd.productDeploymentId}
@@ -137,13 +137,13 @@ export default function Deployments() {
 
           {/* Stack Deployments Section */}
           {store.deployments.length > 0 && (
-            <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-              <div className="px-4 py-6 md:px-6 xl:px-7.5">
-                <h4 className="text-xl font-semibold text-black dark:text-white">
+            <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+              <div className="px-4 py-[18px] md:px-6">
+                <h4 className="text-base font-semibold text-fg">
                   Deployed Stacks
                 </h4>
               </div>
-              <div className="border-t border-stroke dark:border-strokedark">
+              <div className="divide-y divide-line border-t border-line">
                 {store.deployments.map((deployment) => {
                   const health = store.healthData.get(deployment.deploymentId || '');
                   return (
@@ -168,26 +168,6 @@ export default function Deployments() {
 // Product Deployment Row
 // ============================================================================
 
-function getProductStatusPresentation(status: string) {
-  switch (status) {
-    case 'Running':
-      return { label: 'Running', bgColor: 'bg-green-100 dark:bg-green-900/30', textColor: 'text-green-800 dark:text-green-300' };
-    case 'Deploying':
-    case 'Upgrading':
-      return { label: status, bgColor: 'bg-brand-100 dark:bg-brand-900/30', textColor: 'text-brand-800 dark:text-brand-300' };
-    case 'Failed':
-      return { label: 'Failed', bgColor: 'bg-red-100 dark:bg-red-900/30', textColor: 'text-red-800 dark:text-red-300' };
-    case 'PartiallyRunning':
-      return { label: 'Partially Running', bgColor: 'bg-yellow-100 dark:bg-yellow-900/30', textColor: 'text-yellow-800 dark:text-yellow-300' };
-    case 'Stopped':
-      return { label: 'Stopped', bgColor: 'bg-orange-100 dark:bg-orange-900/30', textColor: 'text-orange-800 dark:text-orange-300' };
-    case 'Removing':
-      return { label: 'Removing', bgColor: 'bg-gray-100 dark:bg-gray-700', textColor: 'text-gray-700 dark:text-gray-300' };
-    default:
-      return { label: status, bgColor: 'bg-gray-100 dark:bg-gray-700', textColor: 'text-gray-700 dark:text-gray-300' };
-  }
-}
-
 interface ProductDeploymentRowProps {
   deployment: ProductDeploymentSummaryDto;
   formatDate: (date: string) => string;
@@ -196,40 +176,35 @@ interface ProductDeploymentRowProps {
 function ProductDeploymentRow({ deployment, formatDate }: ProductDeploymentRowProps) {
   // When in maintenance mode, show "Stopped" instead of the lifecycle status
   const effectiveStatus = deployment.operationMode === 'Maintenance' ? 'Stopped' : deployment.status;
-  const status = getProductStatusPresentation(effectiveStatus);
+  const statusTone = toneForProductStatus(effectiveStatus);
+  const statusLabel = effectiveStatus === 'PartiallyRunning' ? 'Partially Running' : effectiveStatus;
 
   return (
-    <div className="px-4 py-4 md:px-6 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+    <div className="px-4 py-4 md:px-6 hover:bg-raised transition-colors">
       <div className="flex items-center justify-between gap-4">
         {/* Product Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
-            <h5 className="font-semibold text-gray-900 dark:text-white truncate">
+            <h5 className="text-[15px] font-semibold text-fg truncate">
               {deployment.productDisplayName}
             </h5>
-            <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+            <span className="inline-flex items-center rounded-md bg-raised px-2 py-0.5 font-mono text-xs text-fg-secondary">
               v{deployment.productVersion}
             </span>
-            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${status.bgColor} ${status.textColor}`}>
-              {status.label}
-            </span>
+            <StatusBadge tone={statusTone}>{statusLabel}</StatusBadge>
             {deployment.operationMode !== 'Normal' && (() => {
               const mp = getOperationModePresentation(deployment.operationMode);
-              return (
-                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${mp.bgColor} ${mp.textColor}`}>
-                  {mp.label}
-                </span>
-              );
+              return <StatusBadge tone={toneForOperationMode(deployment.operationMode)}>{mp.label}</StatusBadge>;
             })()}
           </div>
-          <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+          <div className="mt-1 flex items-center gap-4 text-[13px] text-fg-muted">
             <span className="font-mono text-xs">{deployment.deploymentName}</span>
             <span>•</span>
             <span>{deployment.completedStacks}/{deployment.totalStacks} stacks</span>
             {deployment.failedStacks > 0 && (
               <>
                 <span>•</span>
-                <span className="text-red-600 dark:text-red-400">{deployment.failedStacks} failed</span>
+                <span className="text-status-unhealthy">{deployment.failedStacks} failed</span>
               </>
             )}
             <span>•</span>
@@ -244,27 +219,30 @@ function ProductDeploymentRow({ deployment, formatDate }: ProductDeploymentRowPr
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <Link
+          <ButtonLink
             to={`/product-deployments/${encodeURIComponent(deployment.productDeploymentId)}`}
-            className="inline-flex items-center justify-center rounded bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+            variant="secondary"
+            size="sm"
           >
             Details
-          </Link>
+          </ButtonLink>
           {deployment.canUpgrade && (
-            <Link
+            <ButtonLink
               to={`/upgrade-product/${deployment.productDeploymentId}`}
-              className="inline-flex items-center justify-center rounded bg-brand-100 px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-200 dark:bg-brand-900/30 dark:text-brand-400 dark:hover:bg-brand-900/50"
+              variant="secondary"
+              size="sm"
             >
               Upgrade
-            </Link>
+            </ButtonLink>
           )}
           {deployment.canRemove && (
-            <Link
+            <ButtonLink
               to={`/remove-product/${deployment.productDeploymentId}`}
-              className="inline-flex items-center justify-center rounded bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
+              variant="secondary"
+              size="sm"
             >
               Remove
-            </Link>
+            </ButtonLink>
           )}
         </div>
       </div>
@@ -292,34 +270,34 @@ function DeploymentRow({ deployment, health, formatDate }: DeploymentRowProps) {
     : null;
 
   return (
-    <div className="px-4 py-4 md:px-6 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+    <div className="px-4 py-4 md:px-6 hover:bg-raised transition-colors">
       <div className="flex items-center justify-between gap-4">
         {/* Stack Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
-            <h5 className="font-semibold text-gray-900 dark:text-white truncate">
+            <h5 className="text-[15px] font-semibold text-fg truncate">
               {deployment.stackName}
             </h5>
             {/* Health Status Badge */}
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${statusPresentation.bgColor} ${statusPresentation.textColor}`}>
-              {health?.requiresAttention && (
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+            <StatusBadge
+              tone={toneForHealthStatus(health?.overallStatus ?? 'unknown')}
+              icon={health?.requiresAttention ? (
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
-              )}
+              ) : undefined}
+            >
               {statusPresentation.label}
-            </span>
+            </StatusBadge>
             {/* Operation Mode Badge (if not Normal) */}
             {modePresentation && health?.operationMode !== 'Normal' && (
-              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${modePresentation.bgColor} ${modePresentation.textColor}`}>
-                {modePresentation.label}
-              </span>
+              <StatusBadge tone={toneForOperationMode(health?.operationMode)}>{modePresentation.label}</StatusBadge>
             )}
           </div>
-          <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+          <div className="mt-1 flex items-center gap-4 text-[13px] text-fg-muted">
             {deployment.stackVersion && (
               <>
-                <span>v{deployment.stackVersion}</span>
+                <span className="font-mono text-xs">v{deployment.stackVersion}</span>
                 <span>•</span>
               </>
             )}
@@ -332,7 +310,7 @@ function DeploymentRow({ deployment, health, formatDate }: DeploymentRowProps) {
             <span>Deployed {formatDate(deployment.deployedAt)}</span>
           </div>
           {health?.statusMessage && (
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mt-1 text-xs text-fg-muted">
               {health.statusMessage}
             </p>
           )}
@@ -340,18 +318,20 @@ function DeploymentRow({ deployment, health, formatDate }: DeploymentRowProps) {
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <Link
+          <ButtonLink
             to={`/deployments/${encodeURIComponent(deployment.stackName)}`}
-            className="inline-flex items-center justify-center rounded bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+            variant="secondary"
+            size="sm"
           >
             Details
-          </Link>
-          <Link
+          </ButtonLink>
+          <ButtonLink
             to={`/deployments/${encodeURIComponent(deployment.stackName)}/remove`}
-            className="inline-flex items-center justify-center rounded bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
+            variant="secondary"
+            size="sm"
           >
             Remove
-          </Link>
+          </ButtonLink>
         </div>
       </div>
     </div>

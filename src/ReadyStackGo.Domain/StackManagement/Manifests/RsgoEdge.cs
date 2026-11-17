@@ -50,6 +50,19 @@ public class RsgoEdge
     public string? Network { get; set; }
 
     /// <summary>
+    /// Client-facing TCP segment-size behaviour, making the edge robust behind VPN tunnels
+    /// that shrink the usable path MTU (and often blackhole ICMP). Accepted values:
+    /// <list type="bullet">
+    /// <item><c>pmtu</c> — adaptive kernel path-MTU probing (default; capability-free).</item>
+    /// <item>a literal number (e.g. <c>1360</c>) — enforce that fixed maximum segment size.</item>
+    /// <item><c>off</c> — keep the OS default (pre-feature behaviour).</item>
+    /// </list>
+    /// String-typed so it can also hold a <c>${VAR}</c> placeholder. When omitted the default
+    /// <c>pmtu</c> applies. See <c>EdgeMssMode</c>.
+    /// </summary>
+    public string? Mss { get; set; }
+
+    /// <summary>
     /// TLS configuration for the edge (consumed from Phase 2 onward).
     /// </summary>
     public RsgoEdgeTls? Tls { get; set; }

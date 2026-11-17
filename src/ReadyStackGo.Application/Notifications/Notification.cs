@@ -25,6 +25,7 @@ public enum NotificationType
     ProductDeploymentResult,
     ProductUpdateAvailable,
     HealthChange,
+    ProductHealthChange,
     ApiKeyFirstUse,
     CertificateExpiry,
     MaintenanceObserverDisabled,

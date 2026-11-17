@@ -57,6 +57,8 @@ public static class EdgeConfigMapper
 
         var branding = MapBranding(source.MaintenancePage?.Branding, variables);
 
+        var (mssMode, mssValue) = ParseMss(source.Mss, variables);
+
         try
         {
             return EdgeConfig.Create(
@@ -75,7 +77,9 @@ public static class EdgeConfigMapper
                 maintenanceContainerService,
                 maintenanceContainerPort,
                 bundleHtml,
-                branding);
+                branding,
+                mssMode,
+                mssValue);
         }
         catch (ArgumentException)
         {
@@ -96,6 +100,38 @@ public static class EdgeConfigMapper
             Resolve(source.LogoUrl, variables),
             Resolve(source.SupportContact, variables),
             source.Locales);
+    }
+
+    /// <summary>
+    /// Parses the manifest <c>edge.mss</c> field into a resolved (mode, value) pair.
+    /// <list type="bullet">
+    /// <item>absent / empty / <c>pmtu</c> → adaptive (the safe default).</item>
+    /// <item><c>off</c> → disabled.</item>
+    /// <item>a valid in-range integer → fixed cap at that MSS.</item>
+    /// </list>
+    /// Any unrecognised or out-of-range value falls back to the adaptive default rather than
+    /// disabling the edge — an unusable front door is worse than an ignored tuning value.
+    /// </summary>
+    private static (EdgeMssMode Mode, int? Value) ParseMss(
+        string? template,
+        IReadOnlyDictionary<string, string> variables)
+    {
+        var raw = Resolve(template, variables)?.Trim();
+        if (string.IsNullOrEmpty(raw))
+            return (EdgeMssMode.Pmtu, null);
+
+        switch (raw.ToLowerInvariant())
+        {
+            case "pmtu":
+                return (EdgeMssMode.Pmtu, null);
+            case "off":
+                return (EdgeMssMode.Off, null);
+        }
+
+        if (int.TryParse(raw, out var mss) && mss is >= EdgeConfig.MinFixedMss and <= EdgeConfig.MaxFixedMss)
+            return (EdgeMssMode.Fixed, mss);
+
+        return (EdgeMssMode.Pmtu, null);
     }
 
     private static EdgeTlsMode ParseTlsMode(string? mode) => mode?.Trim().ToLowerInvariant() switch

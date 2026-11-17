@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using ReadyStackGo.Application.Services;
+using ReadyStackGo.Domain.SharedKernel;
 using ReadyStackGo.Domain.StackManagement.Stacks;
 
 namespace ReadyStackGo.Infrastructure.Caching;
@@ -164,8 +165,15 @@ public class InMemoryProductCache : IProductCache
             return Enumerable.Empty<ProductDefinition>();
 
         var comparer = new SemVerComparer();
+
+        // Only offer upgrades within the SAME release channel as the deployed version
+        // (e.g. a `-ci` deployment is not "upgraded" to a `-preview` build, and vice versa).
+        // Channels are distinct streams, not a linear upgrade path.
+        var currentChannel = SemanticVersion.Channel(currentVersion);
+
         return versions.Values
             .Where(p => !string.IsNullOrEmpty(p.ProductVersion) &&
+                        SemanticVersion.Channel(p.ProductVersion) == currentChannel &&
                         comparer.Compare(p.ProductVersion, currentVersion) > 0)
             .OrderByDescending(p => p.ProductVersion, comparer)
             .ToList();
@@ -390,24 +398,8 @@ public class InMemoryProductCache : IProductCache
     /// </summary>
     private class SemVerComparer : IComparer<string?>
     {
-        public int Compare(string? x, string? y)
-        {
-            if (string.IsNullOrEmpty(x) && string.IsNullOrEmpty(y)) return 0;
-            if (string.IsNullOrEmpty(x)) return -1;
-            if (string.IsNullOrEmpty(y)) return 1;
-
-            var xNormalized = x.TrimStart('v', 'V');
-            var yNormalized = y.TrimStart('v', 'V');
-
-            // Try to parse as System.Version
-            if (Version.TryParse(xNormalized, out var xVer) &&
-                Version.TryParse(yNormalized, out var yVer))
-            {
-                return xVer.CompareTo(yVer);
-            }
-
-            // Fallback to string comparison
-            return string.Compare(xNormalized, yNormalized, StringComparison.OrdinalIgnoreCase);
-        }
+        // Proper SemVer 2.0.0 precedence (handles pre-release ordering correctly, unlike the
+        // previous System.Version + alphabetical fallback).
+        public int Compare(string? x, string? y) => SemanticVersion.Compare(x, y);
     }
 }

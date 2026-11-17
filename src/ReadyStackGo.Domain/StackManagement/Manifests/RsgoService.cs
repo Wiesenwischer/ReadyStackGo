@@ -95,4 +95,9 @@ public class RsgoService
     /// Health check configuration.
     /// </summary>
     public RsgoHealthCheck? HealthCheck { get; set; }
+
+    /// <summary>
+    /// Log rotation for this service's container. When omitted, RSGO's default log limit applies.
+    /// </summary>
+    public RsgoLogging? Logging { get; set; }
 }

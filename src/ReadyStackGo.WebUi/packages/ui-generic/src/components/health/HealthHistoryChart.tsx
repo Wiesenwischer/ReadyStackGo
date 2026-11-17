@@ -27,16 +27,16 @@ interface BandDataPoint {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  healthy: '#22c55e',
-  degraded: '#eab308',
-  unhealthy: '#ef4444',
+  healthy: 'var(--color-status-healthy)',
+  degraded: 'var(--color-status-degraded)',
+  unhealthy: 'var(--color-status-unhealthy)',
 };
 
-const MAINTENANCE_COLOR = '#3b82f6';
+const MAINTENANCE_COLOR = 'var(--color-primary)';
 
 function getEffectiveColor(status: string, operationMode: string): string {
   if (operationMode?.toLowerCase() === 'maintenance') return MAINTENANCE_COLOR;
-  return STATUS_COLORS[status.toLowerCase()] ?? '#6b7280';
+  return STATUS_COLORS[status.toLowerCase()] ?? 'var(--color-status-unknown)';
 }
 
 function getStatusLabel(status: string, operationMode: string): string {
@@ -89,7 +89,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
           {data.services.map((svc) => {
             const svcColor = data.operationMode?.toLowerCase() === 'maintenance'
               ? MAINTENANCE_COLOR
-              : STATUS_COLORS[svc.status.toLowerCase()] ?? '#6b7280';
+              : STATUS_COLORS[svc.status.toLowerCase()] ?? 'var(--color-status-unknown)';
             return (
               <div key={svc.name} className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300">
                 <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: svcColor }} />
@@ -255,7 +255,7 @@ export default function HealthHistoryChart({
                   type="number"
                   domain={['dataMin', 'dataMax']}
                   tickFormatter={(value) => formatTimestamp(value, rangeMs)}
-                  tick={{ fontSize: 10, fill: '#9ca3af' }}
+                  tick={{ fontSize: 10, fill: 'var(--color-fg-muted)' }}
                   tickLine={false}
                   axisLine={false}
                 />

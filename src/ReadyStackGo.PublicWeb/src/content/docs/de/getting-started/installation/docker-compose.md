@@ -35,17 +35,26 @@ Erstelle eine Datei `docker-compose.yml` mit folgendem Inhalt:
 ```yaml
 services:
   readystackgo:
-    image: ghcr.io/ams/readystackgo:latest
+    image: wiesenwischer/readystackgo:latest
     container_name: readystackgo
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - readystackgo-data:/data
+      - readystackgo-config:/app/config
+      - readystackgo-data:/app/data
+      - readystackgo-stacks:/app/stacks
 
 volumes:
+  readystackgo-config:
   readystackgo-data:
+  readystackgo-stacks:
 ```
 
 ### Schritt 3: Container starten
@@ -63,14 +72,21 @@ Du kannst die Compose-Datei nach Bedarf erweitern:
 ```yaml
 services:
   readystackgo:
-    image: ghcr.io/ams/readystackgo:latest
+    image: wiesenwischer/readystackgo:latest
     container_name: readystackgo
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - readystackgo-data:/data
+      - readystackgo-config:/app/config
+      - readystackgo-data:/app/data
+      - readystackgo-stacks:/app/stacks
     environment:
       - TZ=Europe/Berlin
     deploy:
@@ -79,7 +95,9 @@ services:
           memory: 512M
 
 volumes:
+  readystackgo-config:
   readystackgo-data:
+  readystackgo-stacks:
 ```
 
 ### Konfigurationsoptionen
@@ -127,7 +145,7 @@ Erfolgreiche Ausgabe:
 
 ```
 NAME              IMAGE                              STATUS         PORTS
-readystackgo      ghcr.io/ams/readystackgo:latest    Up 2 minutes   0.0.0.0:8080->8080/tcp
+readystackgo      wiesenwischer/readystackgo:latest  Up 2 minutes   0.0.0.0:8080->8080/tcp
 ```
 
 ---

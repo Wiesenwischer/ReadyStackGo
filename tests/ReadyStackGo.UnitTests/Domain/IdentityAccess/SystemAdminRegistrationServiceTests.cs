@@ -203,6 +203,80 @@ public class SystemAdminRegistrationServiceTests
 
     #endregion
 
+    #region RegisterExternalSystemAdmin Tests
+
+    [Fact]
+    public void RegisterExternalSystemAdmin_WithNoExistingAdmin_CreatesAdminWithoutPasswordLinkedAndVerified()
+    {
+        // Act
+        var result = _sut.RegisterExternalSystemAdmin("admin", new EmailAddress("admin@example.com"), "wysch", "sub-1");
+
+        // Assert
+        result.Username.Should().Be("admin");
+        result.IsSystemAdmin().Should().BeTrue();
+        result.HasPassword.Should().BeFalse();
+        result.IsEmailVerified.Should().BeTrue();
+        result.FindExternalIdentity("wysch")!.Subject.Should().Be("sub-1");
+        result.RoleAssignments.Should().ContainSingle(r => r.RoleId == RoleId.SystemAdmin && r.ScopeType == ScopeType.Global);
+        _userRepositoryMock.Verify(r => r.Add(result), Times.Once);
+        _passwordHasherMock.Verify(h => h.Hash(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public void RegisterExternalSystemAdmin_WhenAdminExists_ThrowsAndAddsNothing()
+    {
+        // Arrange
+        _userRepositoryMock.Setup(r => r.GetAll()).Returns(new List<User> { CreateExistingSystemAdmin() });
+
+        // Act
+        var act = () => _sut.RegisterExternalSystemAdmin("admin", new EmailAddress("admin@example.com"), "wysch", "sub-1");
+
+        // Assert
+        act.Should().Throw<InvalidOperationException>().WithMessage("*already exists*");
+        _userRepositoryMock.Verify(r => r.Add(It.IsAny<User>()), Times.Never);
+    }
+
+    [Fact]
+    public void RegisterExternalSystemAdmin_WhenOnlyNonAdminUsersExist_CreatesAdmin()
+    {
+        // Arrange
+        var operatorUser = User.Register(UserId.NewId(), "operator", new EmailAddress("op@example.com"), HashedPassword.FromHash("h"));
+        operatorUser.AssignRole(RoleAssignment.Global(RoleId.Operator));
+        _userRepositoryMock.Setup(r => r.GetAll()).Returns(new List<User> { operatorUser });
+
+        // Act
+        var result = _sut.RegisterExternalSystemAdmin("admin", new EmailAddress("admin@example.com"), "wysch", "sub-1");
+
+        // Assert
+        result.IsSystemAdmin().Should().BeTrue();
+    }
+
+    [Fact]
+    public void RegisterSystemAdmin_AfterExternalAdminExists_Throws()
+    {
+        // Arrange - both setup paths share one rule: exactly one first administrator.
+        var external = _sut.RegisterExternalSystemAdmin("admin", new EmailAddress("admin@example.com"), "wysch", "sub-1");
+        _userRepositoryMock.Setup(r => r.GetAll()).Returns(new List<User> { external });
+
+        // Act
+        var act = () => _sut.RegisterSystemAdmin("second", "second@example.com", "ValidPass1");
+
+        // Assert
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void SystemAdminExists_ReflectsRepository()
+    {
+        _sut.SystemAdminExists().Should().BeFalse();
+
+        _userRepositoryMock.Setup(r => r.GetAll()).Returns(new List<User> { CreateExistingSystemAdmin() });
+
+        _sut.SystemAdminExists().Should().BeTrue();
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static User CreateExistingSystemAdmin()

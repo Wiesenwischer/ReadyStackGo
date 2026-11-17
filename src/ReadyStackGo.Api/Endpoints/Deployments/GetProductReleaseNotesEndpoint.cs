@@ -31,7 +31,7 @@ public class GetProductReleaseNotesEndpoint : Endpoint<GetProductReleaseNotesReq
         var productDeploymentId = Route<string>("productDeploymentId")!;
 
         var response = await _mediator.Send(
-            new GetProductReleaseNotesQuery(productDeploymentId, req.Version ?? string.Empty), ct);
+            new GetProductReleaseNotesQuery(productDeploymentId, req.Version ?? string.Empty, req.Locale), ct);
 
         if (!response.Success)
         {
@@ -54,4 +54,8 @@ public class GetProductReleaseNotesRequest
     /// <summary>Query param ?version=X.Y.Z.</summary>
     [QueryParam]
     public string? Version { get; set; }
+
+    /// <summary>Query param ?locale=de|en (optional). Selects a localized changelog.</summary>
+    [QueryParam]
+    public string? Locale { get; set; }
 }

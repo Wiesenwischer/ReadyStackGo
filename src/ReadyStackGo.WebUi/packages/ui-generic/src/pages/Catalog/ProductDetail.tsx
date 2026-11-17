@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toneClasses, toneForProductStatus } from "../../components/ui/statusTone";
 import { useParams, Link, useNavigate } from "react-router";
 import {
   useProductDetailStore,
@@ -112,6 +113,19 @@ export default function ProductDetail() {
               <span className="text-sm text-gray-500 dark:text-gray-400">
                 {product.sourceName}
               </span>
+              {(product.availableVersions?.find((v) => v.isCurrent)?.hasReleaseNotes
+                ?? product.availableVersions?.find((v) => v.productId === product.id)?.hasReleaseNotes) && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/release-notes/${encodeURIComponent(product.id)}`)}
+                  className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 underline hover:no-underline dark:text-brand-400"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Release notes
+                </button>
+              )}
             </div>
 
             {product.description && (
@@ -156,15 +170,7 @@ export default function ProductDetail() {
           <div className="flex flex-col gap-2 sm:flex-row">
             {/* Deployed status badge */}
             {productDeployment && (
-              <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium whitespace-nowrap ${
-                productDeployment.status === 'Running'
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                  : productDeployment.status === 'PartiallyRunning'
-                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                    : productDeployment.status === 'Failed'
-                      ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                      : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-              }`}>
+              <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium whitespace-nowrap ${toneClasses(toneForProductStatus(productDeployment.status)).bgColor} ${toneClasses(toneForProductStatus(productDeployment.status)).textColor}`}>
                 {productDeployment.status === 'Running' ? 'Deployed' :
                  productDeployment.status === 'PartiallyRunning' ? 'Partially Running' :
                  productDeployment.status}

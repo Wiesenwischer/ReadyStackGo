@@ -161,8 +161,22 @@ test.describe.serial('Product Maintenance Mode', () => {
     // Click Enter Maintenance Mode button
     await page.getByRole('button', { name: 'Enter Maintenance Mode' }).click();
 
+    // Live progress view: the processing screen streams per-stack / per-container
+    // progress over SignalR instead of showing every stack with a static spinner.
+    // The "Entering Maintenance Mode..." heading appears immediately; the live
+    // "stack X of N" sub-heading appears once the first progress event arrives
+    // (emitted before the first container is stopped, which takes seconds).
+    await expect(page.getByRole('heading', { name: 'Entering Maintenance Mode...' }))
+      .toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/stack \d+ of \d+/i)).toBeVisible({ timeout: 15_000 });
+
+    await page.screenshot({
+      path: path.join(SCREENSHOT_DIR, 'maintenance-06-progress-enter.png'),
+      fullPage: false
+    });
+
     // Should show success page
-    await expect(page.getByText('Maintenance Mode Activated')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Maintenance Mode Activated')).toBeVisible({ timeout: 60_000 });
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'maintenance-03-overview-cards.png'),
@@ -214,8 +228,18 @@ test.describe.serial('Product Maintenance Mode', () => {
     // Click Exit Maintenance Mode button
     await page.getByRole('button', { name: 'Exit Maintenance Mode' }).click();
 
+    // Live progress view for the restart: same streaming behaviour, "Starting stack X of N".
+    await expect(page.getByRole('heading', { name: 'Exiting Maintenance Mode...' }))
+      .toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/stack \d+ of \d+/i)).toBeVisible({ timeout: 15_000 });
+
+    await page.screenshot({
+      path: path.join(SCREENSHOT_DIR, 'maintenance-07-progress-exit.png'),
+      fullPage: false
+    });
+
     // Should show success
-    await expect(page.getByText('Maintenance Mode Deactivated')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Maintenance Mode Deactivated')).toBeVisible({ timeout: 60_000 });
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'maintenance-04-exited.png'),

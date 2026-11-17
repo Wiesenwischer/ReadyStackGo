@@ -53,29 +53,6 @@ public class GetProductReleaseNotesHandler
             return GetProductReleaseNotesResponse.Failed("Version not found in catalog.");
         }
 
-        // Prefer own CHANGELOG.md (safe to render) over an external URL.
-        if (!string.IsNullOrWhiteSpace(definition.ChangelogMarkdown))
-        {
-            return new GetProductReleaseNotesResponse
-            {
-                Success = true,
-                Mode = "markdown",
-                Content = definition.ChangelogMarkdown,
-                Version = definition.ProductVersion
-            };
-        }
-
-        if (!string.IsNullOrWhiteSpace(definition.ReleaseNotesUrl))
-        {
-            return new GetProductReleaseNotesResponse
-            {
-                Success = true,
-                Mode = "url",
-                Url = definition.ReleaseNotesUrl,
-                Version = definition.ProductVersion
-            };
-        }
-
-        return GetProductReleaseNotesResponse.Failed("No release notes available for this version.");
+        return ReleaseNotesResolver.Resolve(definition, request.Locale);
     }
 }

@@ -1,0 +1,32 @@
+---
+// Starlight SiteTitle override: the ReadyStackGo lockup (docs/branding/logo-refresh),
+// linking back to the landing page of the current language.
+const { locale } = Astro.locals.starlightRoute;
+const homeHref = `/${locale === 'en' ? 'en' : 'de'}/home/`;
+---
+
+<a href={homeHref} class="site-title sl-flex" aria-label="ReadyStackGo">
+	<img class="lockup-dark" alt="" src="/images/logo/readystackgo-lockup-dark.svg" width="181" height="36" />
+	<img class="lockup-light" alt="" src="/images/logo/readystackgo-lockup-light.svg" width="181" height="36" />
+</a>
+
+<style>
+	.site-title {
+		align-items: center;
+		text-decoration: none;
+		min-width: 0;
+	}
+	img {
+		height: 2.25rem;
+		width: auto;
+	}
+	.lockup-light {
+		display: none;
+	}
+	:global(:root[data-theme='light']) .lockup-light {
+		display: block;
+	}
+	:global(:root[data-theme='light']) .lockup-dark {
+		display: none;
+	}
+</style>

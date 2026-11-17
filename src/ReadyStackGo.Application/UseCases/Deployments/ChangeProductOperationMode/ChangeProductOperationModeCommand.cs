@@ -11,7 +11,8 @@ public record ChangeProductOperationModeCommand(
     string ProductDeploymentId,
     string NewMode,
     string? Reason = null,
-    string Source = "Manual") : IRequest<ChangeProductOperationModeResponse>;
+    string Source = "Manual",
+    string? SessionId = null) : IRequest<ChangeProductOperationModeResponse>;
 
 /// <summary>
 /// Response from changing product operation mode.

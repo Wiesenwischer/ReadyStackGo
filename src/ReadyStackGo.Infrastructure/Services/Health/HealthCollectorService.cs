@@ -105,22 +105,22 @@ public class HealthCollectorService : IHealthCollectorService
                 EnrichWithProductInfo(dto, deployment.Id);
                 stackHealthDtos.Add(dto);
 
-                // Track health changes and create in-app notifications.
-                // Suppress during install/upgrade so the per-product result is the
-                // sole signal the user sees for the deploy. Also suppress while
-                // the parent product is in Maintenance — every service goes down
-                // by design and we don't want 40+ Service-Health-Changed
-                // notifications for one planned event (issue #391).
-                var serviceStatuses = dto.Self.Services
-                    .Select(s => new ServiceHealthUpdate(s.Name, s.Status))
-                    .ToList();
-                var suppress = deployment.IsInProgress || IsParentInMaintenance(deployment.Id);
-                await _healthChangeTracker.ProcessHealthUpdateAsync(
-                    deployment.Id.Value.ToString(),
-                    deployment.StackName,
-                    serviceStatuses,
-                    suppress,
-                    cancellationToken);
+                // In-app notifications: product-bound stacks are reported at the product
+                // level (one aggregated notification per product, emitted after this loop)
+                // so a single upgrade/redeploy doesn't spam per-service notifications.
+                // Standalone stacks (not part of a product) keep per-service notifications.
+                if (string.IsNullOrEmpty(dto.ProductDeploymentId))
+                {
+                    var serviceStatuses = dto.Self.Services
+                        .Select(s => new ServiceHealthUpdate(s.Name, s.Status))
+                        .ToList();
+                    await _healthChangeTracker.ProcessHealthUpdateAsync(
+                        deployment.Id.Value.ToString(),
+                        deployment.StackName,
+                        serviceStatuses,
+                        deployment.IsInProgress,
+                        cancellationToken);
+                }
 
                 // Notify about individual deployment health change (SignalR real-time)
                 await _healthNotificationService.NotifyDeploymentHealthChangedAsync(
@@ -132,6 +132,38 @@ public class HealthCollectorService : IHealthCollectorService
             {
                 _logger.LogError(ex, "Failed to collect health for deployment {DeploymentId}", deployment.Id);
             }
+        }
+
+        // Product-level in-app notifications: aggregate the stacks of each product into a
+        // single overall health and emit one notification per product transition (e.g.
+        // Healthy → Degraded and later Degraded → Healthy). This replaces per-service
+        // notifications for product-bound stacks. Suppressed while the product itself is
+        // mid-transition or in maintenance (expected churn), with the baseline still
+        // advancing so no stale flood fires afterwards.
+        foreach (var productGroup in stackHealthDtos
+            .Where(d => !string.IsNullOrEmpty(d.ProductDeploymentId))
+            .GroupBy(d => d.ProductDeploymentId!))
+        {
+            var overall = AggregateProductOverall(productGroup.Select(d => d.OverallStatus));
+            var displayName = productGroup
+                .Select(d => d.ProductDisplayName)
+                .FirstOrDefault(n => !string.IsNullOrEmpty(n)) ?? productGroup.Key;
+
+            var suppress = false;
+            if (Guid.TryParse(productGroup.Key, out var pdGuid))
+            {
+                var product = _productDeploymentRepository.Get(ProductDeploymentId.FromGuid(pdGuid));
+                suppress = product != null
+                    && (product.IsInProgress
+                        || product.OperationMode == ReadyStackGo.Domain.Deployment.Health.OperationMode.Maintenance);
+            }
+
+            await _healthChangeTracker.ProcessProductHealthUpdateAsync(
+                productGroup.Key,
+                displayName!,
+                overall,
+                suppress,
+                cancellationToken);
         }
 
         // Notify about environment-wide health update
@@ -207,18 +239,21 @@ public class HealthCollectorService : IHealthCollectorService
             var dto = HealthSnapshotMapper.MapToStackHealthDto(snapshot, deployment.EnvironmentId);
             EnrichWithProductInfo(dto, deploymentId);
 
-            // Track health changes and create in-app notifications.
-            // Suppress during install/upgrade (defense in depth — the Running-only
-            // filter above already blocks this path, but keep the signal explicit).
-            var serviceStatuses = dto.Self.Services
-                .Select(s => new ServiceHealthUpdate(s.Name, s.Status))
-                .ToList();
-            await _healthChangeTracker.ProcessHealthUpdateAsync(
-                deploymentId.Value.ToString(),
-                deployment.StackName,
-                serviceStatuses,
-                deployment.IsInProgress,
-                cancellationToken);
+            // In-app notifications: only for standalone stacks. Product-bound stacks are
+            // reported at the product level by the periodic environment collection cycle,
+            // so this targeted single-deployment refresh does not emit per-service noise.
+            if (string.IsNullOrEmpty(dto.ProductDeploymentId))
+            {
+                var serviceStatuses = dto.Self.Services
+                    .Select(s => new ServiceHealthUpdate(s.Name, s.Status))
+                    .ToList();
+                await _healthChangeTracker.ProcessHealthUpdateAsync(
+                    deploymentId.Value.ToString(),
+                    deployment.StackName,
+                    serviceStatuses,
+                    deployment.IsInProgress,
+                    cancellationToken);
+            }
 
             // Notify about deployment health change (SignalR real-time)
             await _healthNotificationService.NotifyDeploymentHealthChangedAsync(
@@ -319,13 +354,21 @@ public class HealthCollectorService : IHealthCollectorService
     }
 
     /// <summary>
-    /// Returns true if the stack deployment belongs to a ProductDeployment that
-    /// is currently in Maintenance mode. Used to suppress per-service health
-    /// notifications during planned maintenance (issue #391).
+    /// Aggregates the per-stack overall statuses of a product into a single overall
+    /// health: Unhealthy if any stack is unhealthy, otherwise Degraded if any is
+    /// degraded, otherwise Healthy if every stack is healthy, otherwise Unknown.
     /// </summary>
-    private bool IsParentInMaintenance(DeploymentId deploymentId)
+    private static string AggregateProductOverall(IEnumerable<string> stackStatuses)
     {
-        var parent = _productDeploymentRepository.GetByStackDeploymentId(deploymentId);
-        return parent is not null && parent.OperationMode == ReadyStackGo.Domain.Deployment.Health.OperationMode.Maintenance;
+        var statuses = stackStatuses.Where(s => !string.IsNullOrEmpty(s)).ToList();
+        if (statuses.Count == 0)
+            return "Unknown";
+        if (statuses.Any(s => s.Equals("Unhealthy", StringComparison.OrdinalIgnoreCase)))
+            return "Unhealthy";
+        if (statuses.Any(s => s.Equals("Degraded", StringComparison.OrdinalIgnoreCase)))
+            return "Degraded";
+        if (statuses.All(s => s.Equals("Healthy", StringComparison.OrdinalIgnoreCase)))
+            return "Healthy";
+        return "Unknown";
     }
 }

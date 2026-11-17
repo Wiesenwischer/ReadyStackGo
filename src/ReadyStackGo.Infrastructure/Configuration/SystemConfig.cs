@@ -54,6 +54,13 @@ public class SystemConfig
     public bool IsWizardLocked { get; set; }
 
     /// <summary>
+    /// Default color theme of this installation (theme package id). Set once: "turquoise" when the
+    /// wizard completes, "classic" on the first start of an installation that was set up before the
+    /// theme packages existed. The operator setting Themes:Default wins over it.
+    /// </summary>
+    public string? DefaultTheme { get; set; }
+
+    /// <summary>
     /// Whether the user has dismissed the onboarding checklist on the dashboard.
     /// </summary>
     public bool OnboardingDismissed { get; set; }
@@ -64,4 +71,16 @@ public class SystemConfig
     /// Default: 300 seconds (5 minutes).
     /// </summary>
     public int HealthNotificationCooldownSeconds { get; set; } = 300;
+
+    /// <summary>
+    /// When an image pull fails during deployment but a local copy of the image already exists,
+    /// controls whether the deployment falls back to that (potentially outdated) local image.
+    /// <para>
+    /// Default <c>false</c>: a failed pull fails the deployment, so broken registry access can never
+    /// silently deploy a stale image while the deployment (and any calling CI pipeline) still reports
+    /// success. Set to <c>true</c> only for environments that intentionally rely on cached local images
+    /// (e.g. air-gapped/offline installations) and accept the risk of running an outdated version.
+    /// </para>
+    /// </summary>
+    public bool AllowStaleImageOnPullFailure { get; set; }
 }

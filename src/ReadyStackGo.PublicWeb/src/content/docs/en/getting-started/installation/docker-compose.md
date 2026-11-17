@@ -35,17 +35,26 @@ Create a file `docker-compose.yml` with the following content:
 ```yaml
 services:
   readystackgo:
-    image: ghcr.io/ams/readystackgo:latest
+    image: wiesenwischer/readystackgo:latest
     container_name: readystackgo
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - readystackgo-data:/data
+      - readystackgo-config:/app/config
+      - readystackgo-data:/app/data
+      - readystackgo-stacks:/app/stacks
 
 volumes:
+  readystackgo-config:
   readystackgo-data:
+  readystackgo-stacks:
 ```
 
 ### Step 3: Start Container
@@ -63,14 +72,21 @@ You can extend the Compose file as needed:
 ```yaml
 services:
   readystackgo:
-    image: ghcr.io/ams/readystackgo:latest
+    image: wiesenwischer/readystackgo:latest
     container_name: readystackgo
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - readystackgo-data:/data
+      - readystackgo-config:/app/config
+      - readystackgo-data:/app/data
+      - readystackgo-stacks:/app/stacks
     environment:
       - TZ=Europe/Berlin
     deploy:
@@ -79,7 +95,9 @@ services:
           memory: 512M
 
 volumes:
+  readystackgo-config:
   readystackgo-data:
+  readystackgo-stacks:
 ```
 
 ---

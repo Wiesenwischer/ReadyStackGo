@@ -20,6 +20,7 @@ public class ChangeProductOperationModeHandlerTests
     private readonly Mock<IDockerService> _dockerServiceMock;
     private readonly Mock<IHealthNotificationService> _healthNotificationMock;
     private readonly Mock<IMaintenanceSetterService> _setterServiceMock;
+    private readonly Mock<IDeploymentNotificationService> _deploymentNotificationMock;
     private readonly Mock<ILogger<ChangeProductOperationModeHandler>> _loggerMock;
     private readonly ChangeProductOperationModeHandler _handler;
 
@@ -35,7 +36,14 @@ public class ChangeProductOperationModeHandlerTests
         _setterServiceMock
             .Setup(s => s.ApplyAsync(It.IsAny<MaintenanceSetterConfig?>(), It.IsAny<MaintenanceState>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(SetterResult.WasSkipped("no setter configured"));
+        _deploymentNotificationMock = new Mock<IDeploymentNotificationService>();
         _loggerMock = new Mock<ILogger<ChangeProductOperationModeHandler>>();
+
+        // Default: the daemon reports no containers, so the stop verification finds nothing left
+        // running. Tests that care about surviving containers set this up themselves.
+        _dockerServiceMock
+            .Setup(d => d.ListContainersAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
 
         _handler = new ChangeProductOperationModeHandler(
             _repositoryMock.Object,
@@ -43,6 +51,7 @@ public class ChangeProductOperationModeHandlerTests
             _dockerServiceMock.Object,
             _healthNotificationMock.Object,
             _setterServiceMock.Object,
+            _deploymentNotificationMock.Object,
             _loggerMock.Object);
     }
 
@@ -257,14 +266,14 @@ public class ChangeProductOperationModeHandlerTests
 
         _dockerServiceMock
             .Setup(d => d.StopStackContainersAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<string> { "c1" });
 
         await _handler.Handle(
             CreateCommand(deployment, mode: "Maintenance"), CancellationToken.None);
 
         _dockerServiceMock.Verify(d => d.StopStackContainersAsync(
-            TestEnvironmentId, It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            TestEnvironmentId, It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>(), It.IsAny<CancellationToken>()),
             Times.Exactly(3));
     }
 
@@ -278,7 +287,7 @@ public class ChangeProductOperationModeHandlerTests
             CreateCommand(deployment, mode: "Maintenance"), CancellationToken.None);
 
         _dockerServiceMock.Verify(d => d.StartStackContainersAsync(
-            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -324,7 +333,7 @@ public class ChangeProductOperationModeHandlerTests
 
         _dockerServiceMock
             .Setup(d => d.StartStackContainersAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<string> { "c1" });
 
         var result = await _handler.Handle(
@@ -347,7 +356,7 @@ public class ChangeProductOperationModeHandlerTests
 
         _dockerServiceMock
             .Setup(d => d.StartStackContainersAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<string> { "c1" });
 
         var result = await _handler.Handle(
@@ -366,7 +375,7 @@ public class ChangeProductOperationModeHandlerTests
 
         _dockerServiceMock
             .Setup(d => d.StartStackContainersAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<string> { "c1" });
 
         await _handler.Handle(
@@ -374,7 +383,7 @@ public class ChangeProductOperationModeHandlerTests
             CancellationToken.None);
 
         _dockerServiceMock.Verify(d => d.StartStackContainersAsync(
-            TestEnvironmentId, It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            TestEnvironmentId, It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>(), It.IsAny<CancellationToken>()),
             Times.Exactly(3));
     }
 
@@ -387,7 +396,7 @@ public class ChangeProductOperationModeHandlerTests
 
         _dockerServiceMock
             .Setup(d => d.StartStackContainersAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<string> { "c1" });
 
         await _handler.Handle(
@@ -395,7 +404,7 @@ public class ChangeProductOperationModeHandlerTests
             CancellationToken.None);
 
         _dockerServiceMock.Verify(d => d.StopStackContainersAsync(
-            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -498,8 +507,8 @@ public class ChangeProductOperationModeHandlerTests
         var callCount = 0;
         _dockerServiceMock
             .Setup(d => d.StopStackContainersAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string _, string _, CancellationToken _) =>
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, string _, Func<StackContainerProgress, Task> _, CancellationToken _) =>
             {
                 if (callCount++ == 0)
                     throw new InvalidOperationException("Docker error");
@@ -515,7 +524,7 @@ public class ChangeProductOperationModeHandlerTests
     }
 
     [Fact]
-    public async Task Handle_SkipsNonRunningStacks()
+    public async Task Handle_IncludesFailedStacksWhenStopping()
     {
         var stackConfigs = new List<StackDeploymentConfig>
         {
@@ -529,7 +538,6 @@ public class ChangeProductOperationModeHandlerTests
             "g", "p", "test", "Test", "1.0.0",
             UserId.Create(), "deploy", stackConfigs, new Dictionary<string, string>());
 
-        // Only complete the first stack; second is still deploying
         deployment.StartStack("db", DeploymentId.NewId());
         deployment.CompleteStack("db");
         deployment.StartStack("api", DeploymentId.NewId());
@@ -541,9 +549,40 @@ public class ChangeProductOperationModeHandlerTests
         await _handler.Handle(
             CreateCommand(deployment, mode: "Maintenance"), CancellationToken.None);
 
-        // Only the Running stack (db) should have containers stopped
+        // Both stacks are stopped. A Failed stack still has containers up — the stack is only
+        // marked Failed because one of them never became healthy (bug #468).
         _dockerServiceMock.Verify(d => d.StopStackContainersAsync(
-            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task Handle_SkipsStacksThatWereNeverDeployed()
+    {
+        var stackConfigs = new List<StackDeploymentConfig>
+        {
+            new("db", "Database", "source:db:1.0", 1, new Dictionary<string, string>()),
+            new("api", "API", "source:api:1.0", 2, new Dictionary<string, string>())
+        };
+
+        var deployment = ProductDeployment.InitiateDeployment(
+            ProductDeploymentId.NewId(),
+            new EnvironmentId(Guid.Parse(TestEnvironmentId)),
+            "g", "p", "test", "Test", "1.0.0",
+            UserId.Create(), "deploy", stackConfigs, new Dictionary<string, string>());
+
+        // 'api' is never started, so it stays Pending and has no deployment stack name.
+        deployment.StartStack("db", DeploymentId.NewId());
+        deployment.CompleteStack("db");
+        deployment.MarkAsPartiallyRunning("api not attempted");
+
+        SetupDeploymentFound(deployment);
+
+        await _handler.Handle(
+            CreateCommand(deployment, mode: "Maintenance"), CancellationToken.None);
+
+        _dockerServiceMock.Verify(d => d.StopStackContainersAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -590,7 +629,7 @@ public class ChangeProductOperationModeHandlerTests
 
         _dockerServiceMock
             .Setup(d => d.StartStackContainersAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<string> { "c1" });
 
         await _handler.Handle(
@@ -704,6 +743,157 @@ public class ChangeProductOperationModeHandlerTests
 
         result.Success.Should().BeTrue();
         deployment.MaintenanceTrigger!.IsManual.Should().BeTrue();
+    }
+
+    #endregion
+
+    #region Progress Notifications
+
+    private ChangeProductOperationModeCommand CreateCommandWithSession(
+        ProductDeployment deployment, string sessionId, string mode = "Maintenance", string source = "Manual")
+    {
+        return new ChangeProductOperationModeCommand(
+            TestEnvironmentId, deployment.Id.Value.ToString(), mode, null, source, sessionId);
+    }
+
+    [Fact]
+    public async Task Handle_WithoutSessionId_SendsNoProgressNotifications()
+    {
+        var deployment = CreateRunningDeployment(2);
+        SetupDeploymentFound(deployment);
+
+        await _handler.Handle(CreateCommand(deployment, mode: "Maintenance"), CancellationToken.None);
+
+        _deploymentNotificationMock.Verify(n => n.NotifyMaintenanceProgressAsync(
+            It.IsAny<MaintenanceProgressNotification>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_EnterMaintenance_WithSession_SendsStackLevelProgressPerRunningStack()
+    {
+        var deployment = CreateRunningDeployment(3);
+        SetupDeploymentFound(deployment);
+
+        await _handler.Handle(
+            CreateCommandWithSession(deployment, "session-1", mode: "Maintenance"), CancellationToken.None);
+
+        // One stack-level "active" update per running stack (containerIndex 0), all tagged action "enter".
+        _deploymentNotificationMock.Verify(n => n.NotifyMaintenanceProgressAsync(
+            It.Is<MaintenanceProgressNotification>(m =>
+                m.SessionId == "session-1" && m.Action == "enter" && m.Phase == "InProgress"
+                && m.ContainerIndex == 0 && m.TotalStacks == 3),
+            It.IsAny<CancellationToken>()),
+            Times.Exactly(3));
+    }
+
+    [Fact]
+    public async Task Handle_EnterMaintenance_WithSession_SendsTerminalCompleted()
+    {
+        var deployment = CreateRunningDeployment(2);
+        SetupDeploymentFound(deployment);
+
+        await _handler.Handle(
+            CreateCommandWithSession(deployment, "session-1", mode: "Maintenance"), CancellationToken.None);
+
+        _deploymentNotificationMock.Verify(n => n.NotifyMaintenanceProgressAsync(
+            It.Is<MaintenanceProgressNotification>(m =>
+                m.SessionId == "session-1" && m.Action == "enter" && m.Phase == "Completed"),
+            It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ExitMaintenance_WithSession_SendsStartProgressAndCompleted()
+    {
+        var deployment = CreateRunningDeployment(2);
+        deployment.EnterMaintenance(MaintenanceTrigger.Manual("Test"));
+        SetupDeploymentFound(deployment);
+
+        _dockerServiceMock
+            .Setup(d => d.StartStackContainersAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string> { "c1" });
+
+        await _handler.Handle(
+            CreateCommandWithSession(deployment, "session-x", mode: "Normal", source: "Manual"),
+            CancellationToken.None);
+
+        _deploymentNotificationMock.Verify(n => n.NotifyMaintenanceProgressAsync(
+            It.Is<MaintenanceProgressNotification>(m => m.Action == "exit" && m.Phase == "InProgress"),
+            It.IsAny<CancellationToken>()),
+            Times.AtLeast(2));
+        _deploymentNotificationMock.Verify(n => n.NotifyMaintenanceProgressAsync(
+            It.Is<MaintenanceProgressNotification>(m => m.Action == "exit" && m.Phase == "Completed"),
+            It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_EnterMaintenance_WithSession_ForwardsPerContainerProgress()
+    {
+        var deployment = CreateRunningDeployment(1);
+        SetupDeploymentFound(deployment);
+
+        // Drive the per-container callback the handler passes to the docker service.
+        _dockerServiceMock
+            .Setup(d => d.StopStackContainersAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>(), It.IsAny<CancellationToken>()))
+            .Returns(async (string _, string _, Func<StackContainerProgress, Task> cb, CancellationToken _) =>
+            {
+                await cb(new StackContainerProgress("web-1", 1, 2));
+                await cb(new StackContainerProgress("web-2", 2, 2));
+                return (IReadOnlyList<string>)new List<string> { "web-1", "web-2" };
+            });
+
+        await _handler.Handle(
+            CreateCommandWithSession(deployment, "session-c", mode: "Maintenance"), CancellationToken.None);
+
+        _deploymentNotificationMock.Verify(n => n.NotifyMaintenanceProgressAsync(
+            It.Is<MaintenanceProgressNotification>(m =>
+                m.CurrentContainer == "web-1" && m.ContainerIndex == 1 && m.TotalContainers == 2),
+            It.IsAny<CancellationToken>()),
+            Times.Once);
+        _deploymentNotificationMock.Verify(n => n.NotifyMaintenanceProgressAsync(
+            It.Is<MaintenanceProgressNotification>(m =>
+                m.CurrentContainer == "web-2" && m.ContainerIndex == 2 && m.TotalContainers == 2),
+            It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WithSession_CountsFailedStacksInProgress()
+    {
+        var stackConfigs = new List<StackDeploymentConfig>
+        {
+            new("db", "Database", "source:db:1.0", 1, new Dictionary<string, string>()),
+            new("api", "API", "source:api:1.0", 2, new Dictionary<string, string>())
+        };
+
+        var deployment = ProductDeployment.InitiateDeployment(
+            ProductDeploymentId.NewId(),
+            new EnvironmentId(Guid.Parse(TestEnvironmentId)),
+            "g", "p", "test", "Test", "1.0.0",
+            UserId.Create(), "deploy", stackConfigs, new Dictionary<string, string>());
+
+        deployment.StartStack("db", DeploymentId.NewId());
+        deployment.CompleteStack("db");
+        deployment.StartStack("api", DeploymentId.NewId());
+        deployment.FailStack("api", "Failed");
+        deployment.MarkAsPartiallyRunning("1 of 2 failed");
+
+        SetupDeploymentFound(deployment);
+
+        await _handler.Handle(
+            CreateCommandWithSession(deployment, "session-1", mode: "Maintenance"), CancellationToken.None);
+
+        // Both stacks are affected — the Failed one still has containers up — so the denominator
+        // is 2 and one stack-level progress event is emitted per stack.
+        _deploymentNotificationMock.Verify(n => n.NotifyMaintenanceProgressAsync(
+            It.Is<MaintenanceProgressNotification>(m =>
+                m.Phase == "InProgress" && m.ContainerIndex == 0 && m.TotalStacks == 2),
+            It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
     }
 
     #endregion

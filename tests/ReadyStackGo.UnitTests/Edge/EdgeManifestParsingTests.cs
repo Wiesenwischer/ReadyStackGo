@@ -113,6 +113,59 @@ public class EdgeManifestParsingTests
     }
 
     [Fact]
+    public async Task ParsesEdgeMssField_AndMapsToFixedMode()
+    {
+        const string yaml = """
+            metadata:
+              name: ams.project
+              productVersion: "1.0.0"
+            services:
+              web-bff:
+                image: ams/bff:1.0.0
+            edge:
+              enabled: true
+              publicHostname: project.customer.tld
+              upstream:
+                service: web-bff
+              network: ams-project-edge-net
+              mss: "1360"
+            """;
+
+        var manifest = await CreateParser().ParseAsync(yaml);
+
+        manifest.Edge!.Mss.Should().Be("1360");
+
+        var config = EdgeConfigMapper.Map(manifest.Edge, new Dictionary<string, string>());
+        config!.MssMode.Should().Be(EdgeMssMode.Fixed);
+        config.MssValue.Should().Be(1360);
+    }
+
+    [Fact]
+    public async Task EdgeBlockWithoutMss_DefaultsToAdaptivePmtu()
+    {
+        const string yaml = """
+            metadata:
+              name: ams.project
+              productVersion: "1.0.0"
+            services:
+              web-bff:
+                image: ams/bff:1.0.0
+            edge:
+              enabled: true
+              publicHostname: project.customer.tld
+              upstream:
+                service: web-bff
+              network: ams-project-edge-net
+            """;
+
+        var manifest = await CreateParser().ParseAsync(yaml);
+        manifest.Edge!.Mss.Should().BeNull();
+
+        var config = EdgeConfigMapper.Map(manifest.Edge, new Dictionary<string, string>());
+        config!.MssMode.Should().Be(EdgeMssMode.Pmtu, "the edge is VPN-robust by default without configuration");
+    }
+
+    [Fact]
     public async Task ManifestWithoutEdgeBlock_HasNullEdge()
     {
         const string yaml = """

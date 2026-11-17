@@ -21,6 +21,9 @@ edge:
     service: web-bff
     port: 80
   network: edge-examples-net
+  # Client-facing TCP segment sizing for VPN robustness. Defaults to "pmtu"
+  # (adaptive) when omitted; set a fixed number (536-1460) or "off" to override.
+  # mss: pmtu
   tls:
     mode: selfsigned
   maintenancePage:

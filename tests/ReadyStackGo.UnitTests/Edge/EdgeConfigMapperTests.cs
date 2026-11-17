@@ -169,6 +169,88 @@ public class EdgeConfigMapperTests
 
         EdgeConfigMapper.Map(edge, NoVars)!.TlsMode.Should().Be(expected);
     }
+
+    [Fact]
+    public void Mss_DefaultsToPmtu_WhenAbsent()
+    {
+        var edge = new RsgoEdge { Enabled = true, PublicHostname = "h", Network = "n", Upstream = new() { Service = "s" } };
+
+        var config = EdgeConfigMapper.Map(edge, NoVars);
+
+        config!.MssMode.Should().Be(EdgeMssMode.Pmtu, "the edge is VPN-robust out of the box");
+        config.MssValue.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("pmtu", EdgeMssMode.Pmtu)]
+    [InlineData("PMTU", EdgeMssMode.Pmtu)]
+    [InlineData("off", EdgeMssMode.Off)]
+    [InlineData("Off", EdgeMssMode.Off)]
+    [InlineData("", EdgeMssMode.Pmtu)]
+    [InlineData("   ", EdgeMssMode.Pmtu)]
+    public void Mss_ParsesKeywords(string value, EdgeMssMode expected)
+    {
+        var edge = MssEdge(value);
+
+        var config = EdgeConfigMapper.Map(edge, NoVars);
+
+        config!.MssMode.Should().Be(expected);
+        config.MssValue.Should().BeNull("keyword modes never carry a numeric value");
+    }
+
+    [Fact]
+    public void Mss_FixedNumber_MapsToFixedWithValue()
+    {
+        var config = EdgeConfigMapper.Map(MssEdge("1360"), NoVars);
+
+        config!.MssMode.Should().Be(EdgeMssMode.Fixed);
+        config.MssValue.Should().Be(1360);
+    }
+
+    [Fact]
+    public void Mss_ResolvesVariablePlaceholder()
+    {
+        var config = EdgeConfigMapper.Map(MssEdge("${MSS}"), new Dictionary<string, string> { ["MSS"] = "1300" });
+
+        config!.MssMode.Should().Be(EdgeMssMode.Fixed);
+        config.MssValue.Should().Be(1300);
+    }
+
+    [Theory]
+    [InlineData("535")]   // below RFC-879 minimum
+    [InlineData("1461")]  // above standard-Ethernet payload
+    [InlineData("0")]
+    [InlineData("-100")]
+    [InlineData("1400.5")]
+    [InlineData("nonsense")]
+    [InlineData("${UNRESOLVED}")]
+    public void Mss_InvalidOrOutOfRange_FallsBackToPmtu(string value)
+    {
+        var config = EdgeConfigMapper.Map(MssEdge(value), NoVars);
+
+        config!.MssMode.Should().Be(EdgeMssMode.Pmtu, "an unusable front door is worse than an ignored tuning value");
+        config.MssValue.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("536")]
+    [InlineData("1460")]
+    public void Mss_AcceptsInclusiveBounds(string value)
+    {
+        var config = EdgeConfigMapper.Map(MssEdge(value), NoVars);
+
+        config!.MssMode.Should().Be(EdgeMssMode.Fixed);
+        config.MssValue.Should().Be(int.Parse(value));
+    }
+
+    private static RsgoEdge MssEdge(string? mss) => new()
+    {
+        Enabled = true,
+        PublicHostname = "h",
+        Network = "n",
+        Upstream = new() { Service = "s" },
+        Mss = mss
+    };
 }
 
 internal static class PipeExtensions

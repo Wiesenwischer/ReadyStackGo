@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { themedPresentation } from "../ui/statusTone";
 import { Link } from 'react-router';
 import {
   type StackHealthDto,
@@ -15,8 +16,8 @@ export default function HealthStackCard({
   stack,
 }: HealthStackCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const statusPresentation = getHealthStatusPresentation(stack.overallStatus);
-  const modePresentation = getOperationModePresentation(stack.operationMode);
+  const statusPresentation = themedPresentation(getHealthStatusPresentation(stack.overallStatus));
+  const modePresentation = themedPresentation(getOperationModePresentation(stack.operationMode));
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);

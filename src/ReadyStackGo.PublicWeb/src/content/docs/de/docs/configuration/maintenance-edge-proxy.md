@@ -106,9 +106,15 @@ Deploye das Produkt wie gewohnt. RSGO erkennt den `edge:`-Block, provisioniert d
 
 ### Schritt 3: Verhalten beobachten
 
-Während eines **Redeploys** bleibt der Edge stehen und liefert die Wartungsseite (`state: deploying`) — kein Connection-Refused. Bei aktivem **Maintenance-Flag** zeigt er die Seite mit „geplanter Wartung" und einem `reason`:
+Während eines **Redeploys** bleibt der Edge stehen und liefert die Wartungsseite (`state: deploying`) — kein Connection-Refused:
+
+![Edge-Proxy-Seite während eines Rollouts](/images/docs/edge-05-maintenance-deploying.png)
+
+Bei aktivem **Maintenance-Flag** zeigt er die Variante „geplante Wartung" inklusive `reason`:
 
 ![Default-Wartungsseite des Edge-Proxy](/images/docs/edge-01-maintenance-page.png)
+
+Die Seite rendert den Live-Status aus `/__status` direkt als Status-Panel, **aktualisiert sich automatisch im Sekundentakt** und **leitet automatisch in die App weiter**, sobald das Produkt `running` meldet — niemand muss manuell neu laden. Die Akzentfarbe folgt dem Zustand (Amber bei Wartung, Blau beim Rollout).
 
 Der maschinenlesbare Status unter `/__status` unterscheidet die Zustände eindeutig:
 
@@ -124,7 +130,7 @@ Es gibt drei Stufen. Der Edge löst sie in der Reihenfolge **container → bundl
 
 ### Standard-Seite (Branding-Variablen)
 
-`maintenancePage.mode: default` liefert die mitgelieferte, zweisprachige Seite. Über `branding` passt du sie ohne eigenes HTML an:
+`maintenancePage.mode: default` liefert die mitgelieferte Seite — ein Live-Status-Panel in den RSGO-Markenfarben, das den `/__status`-Vertrag (Zustand, Grund, Version) spiegelt, sich automatisch aktualisiert und Besucher zurück in die App leitet, sobald sie `running` ist. Über `branding` passt du sie ohne eigenes HTML an:
 
 ```yaml
 maintenancePage:
@@ -141,7 +147,11 @@ maintenancePage:
 | `productName` | Anzeigename auf der Seite / im Browser-Tab |
 | `logoUrl` | Optionales Logo (absolute URL) |
 | `supportContact` | Optionale Support-Adresse, unten eingeblendet |
-| `locales` | Sprachen für die Texte (z. B. `[de, en]`) |
+| `locales` | Sprachen für den Umschalter auf der Seite (z. B. `[de, en]`) |
+
+:::note[Was die Seite anzeigt]
+Das Panel zeigt `state`, den `reason` (falls vorhanden — z. B. bei geplanter Wartung) und die deployte `productVersion`; Zeilen ohne Daten werden automatisch ausgeblendet. `locales` steuert den Sprachumschalter — die erste Sprache ist die Vorgabe, bei nur einer Sprache entfällt der Umschalter. Unterstützte Sprachen: `de`, `en`.
+:::
 
 ### Eigenes HTML (Bundle)
 
@@ -232,6 +242,7 @@ Anschließend trägst du das Image im Manifest unter `maintenance-web` ein (sieh
 | `upstream.service` | ja | — | Interner DNS-Alias des öffentlichen Eingangs (z. B. der BFF). |
 | `upstream.port` | nein | `8080` | Upstream-Port. |
 | `network` | ja | — | Gemeinsames externes Netz, das Edge und Upstream verbindet (`external: true`). |
+| `mss` | nein | `pmtu` | Client-seitige TCP-Segmentgröße für VPN-Robustheit: `pmtu` (adaptiv, Standard), eine feste Zahl (z. B. `1360`) oder `off`. Siehe [VPN-Robustheit](#vpn-robustheit-die-mss-option) unten. |
 | `tls.mode` | nein | keine | TLS-Terminierung: `selfsigned`, `custom` (`certRef`), `reuse` (RSGO-Cert), `letsencrypt`. |
 | `tls.certRef` | bei `custom` | — | Referenz auf das hochgeladene Zertifikat. |
 | `tls.letsencrypt.email` / `.dnsChallenge` | bei `letsencrypt` | — | ACME-Einstellungen. |
@@ -252,6 +263,73 @@ Ist `tls.mode` gesetzt, **terminiert** der Edge HTTPS auf `publicPort` mit einem
 | `letsencrypt` | Nutzt RSGOs ACME-verwaltetes Zertifikat. |
 
 Vollständige Schema-Details: [RSGo Manifest Format](/de/docs/reference/manifest-format/).
+
+---
+
+## VPN-Robustheit: die `mss`-Option
+
+### Das Problem
+
+Über die Edge gehostete Produkte können im LAN einwandfrei laufen, über VPN aber teilweise nicht: Der Login (kleine Requests) funktioniert, das Laden einer größeren Seite oder einer umfangreichen Start-Konfiguration endet jedoch mit **HTTP 502** oder einem Timeout.
+
+Die Ursache ist nicht der Server, sondern die Strecke. Ein VPN-Tunnel verpackt jedes Paket in eine zusätzliche Hülle und senkt so die nutzbare Paketgröße (MTU). Normalerweise meldet das Netz „Paket zu groß" an den Absender zurück (Path MTU Discovery) — viele Firmen-VPNs **filtern diese ICMP-Meldung** jedoch weg. Große Antwortpakete (mit gesetztem *Don't-Fragment*-Bit) werden dann **lautlos** verworfen: Kleine Übertragungen passen, große stocken. Das ist ein klassisches *PMTU-Blackhole*.
+
+Da die Edge die Client-TCP-Verbindung **terminiert** und die öffentliche Vordertür ist, gehört Netzwerk-/MTU-Robustheit hierher — einmal an der Edge gelöst, gilt sie für **jedes** über die Edge gehostete RSGO-Produkt bei jedem Kunden, **ohne Eingriff am Kunden-VPN**.
+
+### Die Option
+
+```yaml
+edge:
+  enabled: true
+  # ...
+  mss: pmtu        # Standard — muss normalerweise nicht gesetzt werden
+```
+
+| Wert | Verhalten |
+|------|-----------|
+| `pmtu` | **Standard, empfohlen.** Adaptives Kernel-Path-MTU-Probing (PLPMTUD, RFC 4821): Die Edge erkennt ein Blackhole bei großen Antworten und verkleinert ihre TCP-Segmentgröße selbstständig — **ohne** die (gefilterte) ICMP-Meldung und **ohne** einen geratenen festen Wert. Im LAN unschädlich (volle Segmentgröße, wenn die Strecke es zulässt). |
+| eine Zahl, z. B. `1360` | Erzwingt eine **feste** maximale Segmentgröße. Nur nutzen, wenn ein exakter Wert festgelegt werden muss; gültiger Bereich **536–1460**. Umgesetzt durch Absenken der Edge-Netz-MTU auf `mss + 40`. |
+| `off` | Funktion vollständig deaktivieren — die Edge behält den OS-Standard (Verhalten wie vor dieser Option). Rückwärtskompatibilitäts-Ausweg. |
+
+Fehlt `mss` oder ist der Wert ungültig bzw. außerhalb des Bereichs, fällt die Edge auf `pmtu` zurück — eine unbrauchbare Vordertür ist schlimmer als ein ignorierter Tuning-Wert.
+
+### Sicherheitshinweis: keine erhöhten Rechte
+
+Der Standard (`pmtu`) wird über **namespace-lokale Kernel-Sysctls** (`net.ipv4.tcp_mtu_probing`, `net.ipv4.tcp_base_mss`) nur am Edge-Container gesetzt. Der feste Modus senkt die **Edge-Netz-MTU**. **Kein Modus benötigt die Capability `NET_ADMIN`** oder eine Änderung am Container-Image — die Edge läuft mit denselben Rechten wie zuvor.
+
+> **Einschränkung im festen Modus:** Ein fester MSS-Wert wird angewendet, wenn RSGO das Edge-Netz **anlegt**. Existiert das Netz bereits (z. B. weil es zuerst vom Produkt-Stack erstellt wurde), lässt sich seine MTU nicht ohne Neuanlage ändern; RSGO schreibt eine Warnung ins Log und die feste Grenze greift nicht. Bevorzuge in diesem Fall `pmtu` (funktioniert unabhängig davon, wer das Netz besitzt) oder lass RSGO das Netz anlegen.
+
+### Wann eine Änderung greift
+
+Sysctls und die Netz-MTU sind **Erstellungs-Parameter** eines Containers — sie lassen sich an einem laufenden Container nicht ändern. Der Edge-Container überlebt außerdem bewusst jeden Redeploy (Label `rsgo.redeploy=ignore`), damit die Wartungsseite während des Redeploys erreichbar bleibt.
+
+Damit eine geänderte `mss`-Einstellung trotzdem ankommt, gilt:
+
+- **Redeploy und Upgrade lesen den `edge:`-Block neu aus dem Manifest** und vergleichen die eingestellte Tuning-Variante mit der, mit der der laufende Edge-Container erzeugt wurde (Label `rsgo.edge.mss`). Bei einer Abweichung wird der Edge-Container **einmalig neu erstellt** — noch bevor die Produkt-Stacks angefasst werden. Die Vordertür ist dabei wenige Sekunden nicht erreichbar; das Produkt ist zu diesem Zeitpunkt ohnehin im Redeploy.
+- **Der Hintergrund-Reconciler tut das nicht.** Er hält den Edge nur am Leben und schiebt Caddy-Konfiguration nach; er würde die Vordertür nie von sich aus neu starten.
+- Ein Edge-Container **aus einer RSGO-Version vor dieser Option** trägt kein Label und damit auch kein Tuning — er zählt als `off` und wird beim nächsten Redeploy/Upgrade auf die konfigurierte Variante (Standard `pmtu`) umgestellt.
+- Für einen **festen** Wert gilt zusätzlich die Netz-Einschränkung oben: Der neue Container allein hebt die MTU eines bestehenden Netzes nicht an.
+
+### Prüfen, ob das Clamping wirklich greift
+
+Der Edge-Container schreibt beim Start **eine Zeile** mit den Werten, die er selbst im Kernel vorfindet — damit lässt sich beim Kunden ohne Rätselraten feststellen, ob der Container tatsächlich aktualisiert wurde:
+
+```bash
+docker logs <deployment>-edge 2>&1 | head -1
+# rsgo-edge: client-facing MSS tuning mode=pmtu verdict=ACTIVE (expected: tcp_mtu_probing=1 | tcp_mtu_probing=1 tcp_base_mss=1024 iface_mtu: eth0=1500 eth1=1500)
+```
+
+| `verdict` | Bedeutung |
+|-----------|-----------|
+| `ACTIVE` | Die konfigurierte Variante ist im Container wirksam. |
+| `DISABLED` | `mss: off` — bewusst keine Anpassung. |
+| `INACTIVE` | Der Container läuft **nicht** mit der konfigurierten Variante (z. B. Container älter als die Einstellung, oder feste MTU am bestehenden Netz nicht anwendbar) → Redeploy ausführen bzw. Netz-Einschränkung prüfen. |
+
+Ergänzend zeigt das Label, mit welcher Variante der Container erzeugt wurde:
+
+```bash
+docker inspect -f '{{index .Config.Labels "rsgo.edge.mss"}}' <deployment>-edge
+```
 
 ---
 

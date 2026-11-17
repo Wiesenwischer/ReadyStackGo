@@ -622,7 +622,10 @@ public class RsgoManifestParser : IRsgoManifestParser
                 Internal = service.Ports == null || service.Ports.Count == 0,
                 Order = order++,
                 Lifecycle = service.Lifecycle,
-                InitTimeoutSeconds = service.InitTimeoutSeconds
+                InitTimeoutSeconds = service.InitTimeoutSeconds,
+                Logging = service.Logging != null
+                    ? new ServiceLogging { MaxSize = service.Logging.MaxSize, MaxFile = service.Logging.MaxFile }
+                    : null
             };
 
             // Resolve networks
@@ -807,6 +810,16 @@ public class RsgoManifestParser : IRsgoManifestParser
             {
                 result.IsValid = false;
                 result.Errors.Add($"{prefix}Service '{serviceName}': Image is required");
+            }
+
+            // A bad log limit would only surface as a Docker daemon error at deploy time
+            var loggingError = service.Logging is null
+                ? null
+                : ServiceLogging.Validate(service.Logging.MaxSize, service.Logging.MaxFile);
+            if (loggingError != null)
+            {
+                result.IsValid = false;
+                result.Errors.Add($"{prefix}Service '{serviceName}': {loggingError}");
             }
 
             // Validate dependencies exist

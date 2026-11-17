@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  # The Vorhaben workflow starts the CI of its own pull requests by hand (works/docs/prozesse/vorhaben.md, "Technik").
+  workflow_dispatch:
 
 # Cancel in-progress runs when a new commit is pushed
 concurrency:
@@ -11,12 +13,15 @@ concurrency:
 
 env:
   DOTNET_VERSION: '9.0.x'
-  NODE_VERSION: '20.x'
+  # 22.x is the floor for vitest 5 (and matches the local toolchain).
+  NODE_VERSION: '22.x'
 
 jobs:
   build-and-test:
     name: Build & Test
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest is Ubuntu 26.04, which Playwright 1.58 does not support
+    # ("playwright install --with-deps chromium" fails). Unpin after a Playwright upgrade.
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
@@ -65,9 +70,33 @@ jobs:
         working-directory: src/ReadyStackGo.WebUi
         run: pnpm exec tsc -b
 
+      - name: Run Frontend Unit Tests
+        working-directory: src/ReadyStackGo.WebUi
+        run: pnpm run test
+
       - name: Build frontend
         working-directory: src/ReadyStackGo.WebUi
         run: pnpm run build
+
+      # Single sign-on against the container with the test identity provider (plan
+      # docs/plans/identity-provider-vorlagen.md E29). Never calls WYSCH.
+      - name: Install Playwright Chromium
+        working-directory: src/ReadyStackGo.WebUi
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Single sign-on browser test
+        run: bash scripts/sso-e2e.sh
+
+      - name: Upload single sign-on browser test report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: sso-e2e-report
+          path: |
+            src/ReadyStackGo.WebUi/playwright-report/
+            src/ReadyStackGo.WebUi/test-results/
+            sso-e2e-containers.log
+          retention-days: 7
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4

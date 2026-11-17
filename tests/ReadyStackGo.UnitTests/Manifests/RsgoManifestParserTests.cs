@@ -1490,4 +1490,129 @@ services:
     }
 
     #endregion
+
+    #region Container log limit
+
+    [Fact]
+    public async Task ParseAsync_WithLogging_ReadsMaxSizeAndMaxFile()
+    {
+        var yaml = @"
+version: '1.0'
+metadata:
+  name: LogStack
+services:
+  api:
+    image: amssolution/api:latest
+    logging:
+      maxSize: 50m
+      maxFile: 5
+  worker:
+    image: amssolution/worker:latest
+";
+
+        var result = await _parser.ParseAsync(yaml);
+
+        result.Services!["api"]!.Logging.Should().NotBeNull();
+        result.Services!["api"]!.Logging!.MaxSize.Should().Be("50m");
+        result.Services!["api"]!.Logging!.MaxFile.Should().Be(5);
+        result.Services!["worker"]!.Logging.Should().BeNull("without the key the RSGO default applies");
+    }
+
+    [Fact]
+    public async Task ConvertToDeploymentPlanAsync_WithLogging_CarriesLimitToStep()
+    {
+        var yaml = @"
+version: '1.0'
+metadata:
+  productVersion: '1.0.0'
+services:
+  api:
+    image: nginx:1.21
+    logging:
+      maxSize: 1g
+  db:
+    image: postgres:15
+";
+        var manifest = await _parser.ParseAsync(yaml);
+
+        var plan = await _parser.ConvertToDeploymentPlanAsync(manifest, new Dictionary<string, string>(), "my-stack");
+
+        var api = plan.Steps.Single(s => s.ContextName == "api");
+        api.Logging.Should().NotBeNull();
+        api.Logging!.MaxSize.Should().Be("1g");
+        api.Logging!.MaxFile.Should().BeNull("only maxSize was set, maxFile keeps the default");
+        plan.Steps.Single(s => s.ContextName == "db").Logging.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("10m")]
+    [InlineData("500k")]
+    [InlineData("1G")]
+    [InlineData("1048576")]
+    public async Task ValidateAsync_ValidLogMaxSize_IsValid(string maxSize)
+    {
+        var yaml = $@"
+version: '1.0'
+metadata:
+  name: LogStack
+services:
+  api:
+    image: nginx:latest
+    logging:
+      maxSize: {maxSize}
+      maxFile: 2
+";
+
+        var result = await _parser.ValidateAsync(yaml);
+
+        result.IsValid.Should().BeTrue(string.Join("; ", result.Errors));
+    }
+
+    [Theory]
+    [InlineData("0m")]
+    [InlineData("-5m")]
+    [InlineData("ten")]
+    [InlineData("10 MB")]
+    [InlineData("1.5g")]
+    public async Task ValidateAsync_InvalidLogMaxSize_ReportsServiceAndValue(string maxSize)
+    {
+        var yaml = $@"
+version: '1.0'
+metadata:
+  name: LogStack
+services:
+  api:
+    image: nginx:latest
+    logging:
+      maxSize: '{maxSize}'
+";
+
+        var result = await _parser.ValidateAsync(yaml);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle()
+            .Which.Should().Contain("Service 'api'").And.Contain("logging.maxSize").And.Contain(maxSize);
+    }
+
+    [Fact]
+    public async Task ValidateAsync_LogMaxFileBelowOne_IsInvalid()
+    {
+        var yaml = @"
+version: '1.0'
+metadata:
+  name: LogStack
+services:
+  api:
+    image: nginx:latest
+    logging:
+      maxFile: 0
+";
+
+        var result = await _parser.ValidateAsync(yaml);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("logging.maxFile");
+    }
+
+    #endregion
 }

@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
@@ -12,32 +11,23 @@ namespace ReadyStackGo.Application.Services.Impl;
 
 /// <summary>
 /// Service that coordinates maintenance observer checks across all product deployments.
-/// Caches observer instances and last results per product deployment.
 /// Uses observer configuration stored on ProductDeployment entities (one check per product).
+/// Observer instances, results and check timestamps live in <see cref="IMaintenanceObserverStateStore"/>
+/// because this service is scoped and re-created for every check cycle.
 /// </summary>
 public class MaintenanceObserverService : IMaintenanceObserverService
 {
     private readonly IMaintenanceObserverFactory _observerFactory;
+    private readonly IMaintenanceObserverStateStore _state;
     private readonly IProductDeploymentRepository _productDeploymentRepository;
     private readonly IHealthSnapshotRepository _healthSnapshotRepository;
     private readonly IHealthNotificationService _notificationService;
     private readonly ISender _mediator;
     private readonly ILogger<MaintenanceObserverService> _logger;
 
-    // Cache for observer instances per product deployment
-    private readonly ConcurrentDictionary<Guid, IMaintenanceObserver> _observers = new();
-
-    // Cache for last results per product deployment
-    private readonly ConcurrentDictionary<Guid, ObserverResult> _lastResults = new();
-
-    // Track last check time per product deployment to respect individual polling intervals
-    private readonly ConcurrentDictionary<Guid, DateTimeOffset> _lastCheckTimes = new();
-
-    // Cache for observer configs per product deployment
-    private readonly ConcurrentDictionary<Guid, MaintenanceObserverConfig> _configs = new();
-
     public MaintenanceObserverService(
         IMaintenanceObserverFactory observerFactory,
+        IMaintenanceObserverStateStore state,
         IProductDeploymentRepository productDeploymentRepository,
         IHealthSnapshotRepository healthSnapshotRepository,
         IHealthNotificationService notificationService,
@@ -45,6 +35,7 @@ public class MaintenanceObserverService : IMaintenanceObserverService
         ILogger<MaintenanceObserverService> logger)
     {
         _observerFactory = observerFactory;
+        _state = state;
         _productDeploymentRepository = productDeploymentRepository;
         _healthSnapshotRepository = healthSnapshotRepository;
         _notificationService = notificationService;
@@ -86,6 +77,7 @@ public class MaintenanceObserverService : IMaintenanceObserverService
         if (productDeployment == null)
         {
             _logger.LogDebug("Product deployment {ProductDeploymentId} not found", productDeploymentId);
+            _state.Forget(productDeploymentId);
             return null;
         }
 
@@ -95,37 +87,50 @@ public class MaintenanceObserverService : IMaintenanceObserverService
             return null;
         }
 
-        // Get or create observer for this product deployment
-        var observer = GetOrCreateObserver(productDeployment);
-        if (observer == null)
+        var observerConfig = productDeployment.MaintenanceObserverConfig;
+        if (observerConfig == null)
         {
+            _logger.LogDebug("No maintenance observer configured for product {ProductName}",
+                productDeployment.ProductName);
+            _state.Forget(productDeploymentId);
             return null;
         }
 
-        // Check if enough time has passed since last check (respecting polling interval)
-        if (!ShouldCheck(productDeploymentId.Value))
+        if (IsSkippedForManualMaintenance(productDeployment))
         {
-            return _lastResults.GetValueOrDefault(productDeploymentId.Value);
+            return _state.GetLastResult(productDeploymentId);
         }
+
+        // Check if enough time has passed since last check (respecting polling interval)
+        if (!_state.ShouldCheck(productDeploymentId, observerConfig.PollingInterval))
+        {
+            return _state.GetLastResult(productDeploymentId);
+        }
+
+        var observer = _state.GetOrCreateObserver(productDeploymentId, observerConfig, config =>
+        {
+            var created = _observerFactory.Create(config);
+
+            _logger.LogInformation(
+                "Created maintenance observer for product {ProductName}: type={ObserverType}, interval={Interval}s",
+                productDeployment.ProductName, created.Type.DisplayName, config.PollingInterval.TotalSeconds);
+
+            return created;
+        });
 
         // Perform the check
         var result = await observer.CheckAsync(cancellationToken);
 
-        // Update caches
-        _lastResults[productDeploymentId.Value] = result;
-        _lastCheckTimes[productDeploymentId.Value] = DateTimeOffset.UtcNow;
+        _state.RecordResult(productDeploymentId, result);
 
         // Handle result
-        await HandleObserverResultAsync(productDeployment, result, cancellationToken);
+        await HandleObserverResultAsync(productDeployment, observerConfig, result, cancellationToken);
 
         return result;
     }
 
     public Task<ObserverResult?> GetLastResultAsync(ProductDeploymentId productDeploymentId)
-    {
-        var result = _lastResults.GetValueOrDefault(productDeploymentId.Value);
-        return Task.FromResult(result);
-    }
+        => Task.FromResult(_state.GetLastResult(productDeploymentId));
 
     public async Task<ObserverResult?> CheckDeploymentObserverAsync(
         DeploymentId deploymentId,
@@ -154,64 +159,36 @@ public class MaintenanceObserverService : IMaintenanceObserverService
         return GetLastResultAsync(productDeployment.Id);
     }
 
-    private IMaintenanceObserver? GetOrCreateObserver(ProductDeployment productDeployment)
+    /// <summary>
+    /// Manually activated maintenance is owned by the operator: the observer is not allowed to end it
+    /// (see <see cref="HandleObserverResultAsync"/>), so a check could not act on its own result.
+    /// Skipping it entirely means RSGO opens no connection to the product at all while an operator
+    /// works on it — a product maintenance routine that waits for every session to close before
+    /// taking its database exclusively must never end up waiting on RSGO.
+    /// </summary>
+    private bool IsSkippedForManualMaintenance(ProductDeployment productDeployment)
     {
-        var id = productDeployment.Id.Value;
-
-        // Try to get cached observer
-        if (_observers.TryGetValue(id, out var cachedObserver))
+        if (productDeployment.OperationMode != OperationMode.Maintenance ||
+            productDeployment.MaintenanceTrigger?.IsManual != true)
         {
-            return cachedObserver;
+            return false;
         }
 
-        // Get observer configuration from the product deployment
-        var observerConfig = productDeployment.MaintenanceObserverConfig;
-        if (observerConfig == null)
-        {
-            _logger.LogDebug("No maintenance observer configured for product {ProductName}",
-                productDeployment.ProductName);
-            return null;
-        }
+        _logger.LogDebug(
+            "Skipping maintenance observer check for product {ProductName}: maintenance was activated " +
+            "manually, so the observer cannot act on the result and stays off the product",
+            productDeployment.ProductName);
 
-        // Create observer and cache it
-        var observer = _observerFactory.Create(observerConfig);
-        _observers[id] = observer;
-        _configs[id] = observerConfig;
-
-        _logger.LogInformation(
-            "Created maintenance observer for product {ProductName}: type={ObserverType}",
-            productDeployment.ProductName, observer.Type.DisplayName);
-
-        return observer;
-    }
-
-    private bool ShouldCheck(Guid productDeploymentId)
-    {
-        if (!_lastCheckTimes.TryGetValue(productDeploymentId, out var lastCheck))
-        {
-            return true;
-        }
-
-        var interval = TimeSpan.FromSeconds(30);
-        if (_configs.TryGetValue(productDeploymentId, out var config))
-        {
-            interval = config.PollingInterval;
-        }
-
-        return DateTimeOffset.UtcNow - lastCheck >= interval;
+        return true;
     }
 
     private async Task HandleObserverResultAsync(
         ProductDeployment productDeployment,
+        MaintenanceObserverConfig observerConfig,
         ObserverResult result,
         CancellationToken cancellationToken)
     {
-        var id = productDeployment.Id.Value;
-
-        // Get observer type for notification
-        var observerType = _configs.TryGetValue(id, out var config)
-            ? config.Type.Value
-            : null;
+        var observerType = observerConfig.Type.Value;
 
         // Notify clients about observer results for each running stack
         var resultDto = ObserverResultDto.FromDomain(result, observerType);
@@ -243,8 +220,12 @@ public class MaintenanceObserverService : IMaintenanceObserverService
         // Handle mode transitions via ChangeProductOperationModeCommand
         if (shouldBeMaintenance && currentMode != OperationMode.Maintenance)
         {
+            // Logged at Information level with the observed value so a blocked product maintenance
+            // window can be verified in the field: RSGO reacted, and its own connections are
+            // non-pooled, so no RSGO session remains on the product database once containers stop.
             _logger.LogInformation(
-                "Maintenance observer triggered maintenance mode for product {ProductName} (observed: {Value})",
+                "Maintenance observer triggered maintenance mode for product {ProductName} (observed: {Value}); " +
+                "stopping containers, RSGO keeps no pooled session on the product",
                 productDeployment.ProductName, result.ObservedValue);
 
             var command = new ChangeProductOperationModeCommand(

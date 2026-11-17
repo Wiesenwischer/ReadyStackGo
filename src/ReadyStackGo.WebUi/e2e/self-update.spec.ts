@@ -142,6 +142,90 @@ test.describe('Self-Update', () => {
     });
   });
 
+  test('should show the real failure reason behind a Details button when the pull fails', async ({ page }) => {
+    const details =
+      'Image: wiesenwischer/readystackgo:0.20.0\nDocker reported: write /var/lib/docker/tmp/x: no space left on device';
+
+    // The update page talks to the anonymous UpdateHub over SignalR (JSON protocol).
+    // Mock negotiate + WebSocket so the hub reports the failed pull as its current progress.
+    await page.route('**/hubs/update/negotiate*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          negotiateVersion: 1,
+          connectionId: 'e2e-conn',
+          connectionToken: 'e2e-token',
+          availableTransports: [{ transport: 'WebSockets', transferFormats: ['Text'] }],
+        }),
+      });
+    });
+
+    // Like the real hub: report the current progress (idle) on connect, push the error once the update is triggered.
+    const RS = String.fromCharCode(0x1e); // SignalR record separator
+    const progressFrame = (payload: object) =>
+      JSON.stringify({ type: 1, target: 'UpdateProgress', arguments: [payload] }) + RS;
+    let pushToClient: ((payload: object) => void) | null = null;
+
+    await page.routeWebSocket(/\/hubs\/update/, (ws) => {
+      pushToClient = (payload) => ws.send(progressFrame(payload));
+      ws.onMessage((message) => {
+        if (typeof message === 'string' && message.includes('"protocol"')) {
+          ws.send(`{}${RS}`);
+          ws.send(progressFrame({ phase: 'idle' }));
+        }
+      });
+    });
+
+    await page.route('**/api/system/version', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_VERSION_UPDATE) });
+    });
+
+    // The page re-triggers the update when the hub reports an error: never let that reach a real server.
+    await page.route('**/api/system/update', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, message: 'Update to v0.20.0 initiated.' }),
+      });
+      // The background update then fails while pulling the image.
+      pushToClient?.({
+        phase: 'error',
+        message: 'Could not download wiesenwischer/readystackgo:0.20.0. The previous version is still running.',
+        details,
+      });
+    });
+
+    // Signed-in state without a backend: the auth provider only reads a non-expired JWT from storage.
+    await page.route('**/api/wizard/status', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ wizardState: 'Installed', isCompleted: true, defaultDockerSocketPath: 'unix:///var/run/docker.sock' }),
+      });
+    });
+    await page.addInitScript(() => {
+      const b64 = (o: object) => btoa(JSON.stringify(o)).replace(/=+$/, '');
+      const token = `${b64({ alg: 'none', typ: 'JWT' })}.${b64({ exp: Math.floor(Date.now() / 1000) + 3600 })}.sig`;
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('auth_user', JSON.stringify({ username: 'admin', role: 'admin' }));
+    });
+
+    await page.goto('/update?version=0.20.0');
+
+    await expect(page.getByText('Update failed')).toBeVisible();
+    await expect(page.getByText('Could not download wiesenwischer/readystackgo:0.20.0.')).toBeVisible();
+
+    // Details are hidden until requested
+    await expect(page.getByText('no space left on device')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Show details' }).click();
+    await expect(page.getByText('no space left on device')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Hide details' }).click();
+    await expect(page.getByText('no space left on device')).toHaveCount(0);
+  });
+
   test('should dismiss update banner', async ({ page }) => {
     await loginWithMockedVersion(page, MOCK_VERSION_UPDATE);
 

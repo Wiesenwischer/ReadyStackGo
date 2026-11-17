@@ -41,7 +41,8 @@ public class GetProductHandler : IRequestHandler<GetProductQuery, GetProductResu
                 Version: v.ProductVersion ?? "unknown",
                 ProductId: v.Id,
                 DefaultStackId: v.DefaultStack?.Id.Value ?? v.Stacks.FirstOrDefault()?.Id.Value ?? v.Id,
-                IsCurrent: v.Id == product.Id
+                IsCurrent: v.Id == product.Id,
+                HasReleaseNotes: v.HasReleaseNotes
             ))
             .ToList();
 
