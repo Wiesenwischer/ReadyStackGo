@@ -609,6 +609,9 @@ export default function UpgradeProduct() {
                           onChange={(newValue) =>
                             store.setSharedVariableValue(v.name, newValue)
                           }
+                          storedSecret={store.storedSecretNames.has(v.name)}
+                          saveValue={!store.excludeFromStorage.has(v.name)}
+                          onSaveValueChange={(save) => store.setVariableSave(v.name, save)}
                         />
                       ))}
                     </div>
@@ -711,6 +714,9 @@ export default function UpgradeProduct() {
                                         onChange={(newValue) =>
                                           store.setPerStackVariableValue(stack.id, v.name, newValue)
                                         }
+                                        storedSecret={store.storedSecretNames.has(v.name)}
+                                        saveValue={!store.excludeFromStorage.has(v.name)}
+                                        onSaveValueChange={(save) => store.setVariableSave(v.name, save)}
                                       />
                                     ))}
                                   </div>

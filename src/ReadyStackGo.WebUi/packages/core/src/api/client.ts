@@ -18,26 +18,43 @@ function getAuthHeaders(includeContentType: boolean = true): HeadersInit {
 }
 
 /**
- * Extracts a useful error message from a non-OK fetch response. Tries the JSON
- * body first (FastEndpoints validation errors, business error fields), falls
- * back to statusText.
+ * Error of a failed API call. `message` is user-facing; `code` is the machine-readable
+ * reason some endpoints return (e.g. `{ code: "https_required", message: "…" }`).
  */
-async function extractErrorMessage(response: Response): Promise<string> {
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code?: string;
+  /** The underlying cause on its own, when the endpoint returns one (`{ code, message, reason }`). */
+  readonly reason?: string;
+
+  constructor(message: string, status: number, code?: string, reason?: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    this.reason = reason;
+  }
+}
+
+/**
+ * Builds an ApiError from a non-OK fetch response. Tries the JSON body first (FastEndpoints
+ * validation errors, business error fields), falls back to statusText.
+ */
+async function toApiError(response: Response): Promise<ApiError> {
   const fallback = `API request failed: ${response.statusText}`;
   try {
     const body = await response.json();
+    const code = typeof body.code === 'string' ? body.code : undefined;
     if (body.errors) {
       // FastEndpoints validation error format: { errors: { fieldA: ["msg"], ... } }
       const messages = Object.values(body.errors).flat();
-      return messages.length > 0 ? messages.join(', ') : fallback;
+      return new ApiError(messages.length > 0 ? messages.join(', ') : fallback, response.status, code);
     }
-    if (body.error) return body.error;
-    if (body.message) return body.message;
-    if (body.detail) return body.detail;
-    if (body.title) return body.title;
-    return fallback;
+    const message = body.error ?? body.message ?? body.detail ?? body.title ?? fallback;
+    const reason = typeof body.reason === 'string' ? body.reason : undefined;
+    return new ApiError(String(message), response.status, code, reason);
   } catch {
-    return fallback;
+    return new ApiError(fallback, response.status);
   }
 }
 
@@ -57,7 +74,7 @@ export async function apiGet<T>(path: string): Promise<T> {
 
   if (!response.ok) {
     handle401IfNeeded(response);
-    throw new Error(await extractErrorMessage(response));
+    throw await toApiError(response);
   }
 
   // Handle empty responses
@@ -80,7 +97,7 @@ export async function apiPost<T = void>(path: string, body?: unknown): Promise<T
 
   if (!response.ok) {
     handle401IfNeeded(response);
-    throw new Error(await extractErrorMessage(response));
+    throw await toApiError(response);
   }
 
   // Handle empty responses - check multiple conditions
@@ -109,7 +126,7 @@ export async function apiPut<T = void>(path: string, body?: unknown): Promise<T>
 
   if (!response.ok) {
     handle401IfNeeded(response);
-    throw new Error(await extractErrorMessage(response));
+    throw await toApiError(response);
   }
 
   // Handle empty responses - check multiple conditions
@@ -138,7 +155,7 @@ export async function apiDelete<T = void>(path: string, body?: unknown): Promise
 
   if (!response.ok) {
     handle401IfNeeded(response);
-    throw new Error(await extractErrorMessage(response));
+    throw await toApiError(response);
   }
 
   // Handle empty responses - check multiple conditions
@@ -154,5 +171,24 @@ export async function apiDelete<T = void>(path: string, body?: unknown): Promise
   }
 
   // Parse the text as JSON
+  return JSON.parse(text) as T;
+}
+
+export async function apiPatch<T = void>(path: string, body?: unknown): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(!!body),
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!response.ok) {
+    handle401IfNeeded(response);
+    throw await toApiError(response);
+  }
+
+  const text = await response.text();
+  if (!text || text.trim() === '') {
+    return undefined as T;
+  }
   return JSON.parse(text) as T;
 }

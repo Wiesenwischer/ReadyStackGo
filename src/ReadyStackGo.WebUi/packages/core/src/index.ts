@@ -1,11 +1,13 @@
 // @rsgo/core - Public API
 
 // API client
-export { apiGet, apiPost, apiPut, apiDelete } from './api/client';
+export { apiGet, apiPost, apiPut, apiPatch, apiDelete, ApiError } from './api/client';
 
 // Domain APIs
 export * from './api/auth';
 export * from './api/settings';
+export * from './api/identityProviders';
+export * from './lib/urls';
 export * from './api/invitations';
 export * from './api/apiKeys';
 export * from './api/containers';
@@ -26,6 +28,7 @@ export * from './api/volumes';
 export * from './api/wizard';
 export * from './api/precheck';
 export * from './api/snmp';
+export * from './api/themes';
 
 // Realtime (SignalR hubs)
 // ConnectionState is defined identically in all three authenticated hubs — export once

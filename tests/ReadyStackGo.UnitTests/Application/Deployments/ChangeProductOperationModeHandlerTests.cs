@@ -39,6 +39,12 @@ public class ChangeProductOperationModeHandlerTests
         _deploymentNotificationMock = new Mock<IDeploymentNotificationService>();
         _loggerMock = new Mock<ILogger<ChangeProductOperationModeHandler>>();
 
+        // Default: the daemon reports no containers, so the stop verification finds nothing left
+        // running. Tests that care about surviving containers set this up themselves.
+        _dockerServiceMock
+            .Setup(d => d.ListContainersAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
         _handler = new ChangeProductOperationModeHandler(
             _repositoryMock.Object,
             _deploymentRepositoryMock.Object,
@@ -518,7 +524,7 @@ public class ChangeProductOperationModeHandlerTests
     }
 
     [Fact]
-    public async Task Handle_SkipsNonRunningStacks()
+    public async Task Handle_IncludesFailedStacksWhenStopping()
     {
         var stackConfigs = new List<StackDeploymentConfig>
         {
@@ -532,7 +538,6 @@ public class ChangeProductOperationModeHandlerTests
             "g", "p", "test", "Test", "1.0.0",
             UserId.Create(), "deploy", stackConfigs, new Dictionary<string, string>());
 
-        // Only complete the first stack; second is still deploying
         deployment.StartStack("db", DeploymentId.NewId());
         deployment.CompleteStack("db");
         deployment.StartStack("api", DeploymentId.NewId());
@@ -544,7 +549,38 @@ public class ChangeProductOperationModeHandlerTests
         await _handler.Handle(
             CreateCommand(deployment, mode: "Maintenance"), CancellationToken.None);
 
-        // Only the Running stack (db) should have containers stopped
+        // Both stacks are stopped. A Failed stack still has containers up — the stack is only
+        // marked Failed because one of them never became healthy (bug #468).
+        _dockerServiceMock.Verify(d => d.StopStackContainersAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task Handle_SkipsStacksThatWereNeverDeployed()
+    {
+        var stackConfigs = new List<StackDeploymentConfig>
+        {
+            new("db", "Database", "source:db:1.0", 1, new Dictionary<string, string>()),
+            new("api", "API", "source:api:1.0", 2, new Dictionary<string, string>())
+        };
+
+        var deployment = ProductDeployment.InitiateDeployment(
+            ProductDeploymentId.NewId(),
+            new EnvironmentId(Guid.Parse(TestEnvironmentId)),
+            "g", "p", "test", "Test", "1.0.0",
+            UserId.Create(), "deploy", stackConfigs, new Dictionary<string, string>());
+
+        // 'api' is never started, so it stays Pending and has no deployment stack name.
+        deployment.StartStack("db", DeploymentId.NewId());
+        deployment.CompleteStack("db");
+        deployment.MarkAsPartiallyRunning("api not attempted");
+
+        SetupDeploymentFound(deployment);
+
+        await _handler.Handle(
+            CreateCommand(deployment, mode: "Maintenance"), CancellationToken.None);
+
         _dockerServiceMock.Verify(d => d.StopStackContainersAsync(
             It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>(), It.IsAny<CancellationToken>()),
             Times.Once);
@@ -826,7 +862,7 @@ public class ChangeProductOperationModeHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithSession_SkipsNonRunningStacksInProgress()
+    public async Task Handle_WithSession_CountsFailedStacksInProgress()
     {
         var stackConfigs = new List<StackDeploymentConfig>
         {
@@ -851,13 +887,13 @@ public class ChangeProductOperationModeHandlerTests
         await _handler.Handle(
             CreateCommandWithSession(deployment, "session-1", mode: "Maintenance"), CancellationToken.None);
 
-        // Only the single running stack (db) is affected, so totalStacks must be 1 and
-        // exactly one stack-level progress event is emitted.
+        // Both stacks are affected — the Failed one still has containers up — so the denominator
+        // is 2 and one stack-level progress event is emitted per stack.
         _deploymentNotificationMock.Verify(n => n.NotifyMaintenanceProgressAsync(
             It.Is<MaintenanceProgressNotification>(m =>
-                m.Phase == "InProgress" && m.ContainerIndex == 0 && m.TotalStacks == 1),
+                m.Phase == "InProgress" && m.ContainerIndex == 0 && m.TotalStacks == 2),
             It.IsAny<CancellationToken>()),
-            Times.Once);
+            Times.Exactly(2));
     }
 
     #endregion

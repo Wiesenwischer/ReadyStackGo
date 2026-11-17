@@ -131,6 +131,18 @@ const settingsSections: SettingsSection[] = [
     ),
   },
   {
+    id: "appearance",
+    title: "Appearance",
+    description: "Choose the color theme and light or dark mode",
+    href: "/settings/appearance",
+    color: "bg-primary-subtle text-fg-brand",
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+      </svg>
+    ),
+  },
+  {
     id: "licenses",
     title: "Licenses",
     description: "View third-party open-source packages and their licenses",
@@ -148,10 +160,10 @@ export default function SettingsIndex() {
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-black dark:text-white">
+        <h2 className="text-[26px] leading-[34px] font-bold text-fg">
           Settings
         </h2>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <p className="mt-1 text-sm text-fg-secondary">
           Configure ReadyStackGo settings and integrations
         </p>
       </div>
@@ -161,22 +173,22 @@ export default function SettingsIndex() {
           <Link
             key={section.id}
             to={section.href}
-            className="group rounded-2xl border border-gray-200 bg-white p-6 transition-all duration-200 hover:border-brand-500 hover:shadow-lg dark:border-gray-800 dark:bg-white/[0.03] dark:hover:border-brand-500"
+            className="group rounded-2xl border border-line bg-surface p-6 transition-all duration-200 hover:border-primary hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
             <div className="flex items-start gap-4">
               <div className={`w-12 h-12 flex items-center justify-center rounded-xl ${section.color}`}>
                 {section.icon}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400">
+                <h3 className="text-lg font-semibold text-fg group-hover:text-fg-brand">
                   {section.title}
                 </h3>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                <p className="mt-1 text-sm text-fg-secondary">
                   {section.description}
                 </p>
               </div>
               <svg
-                className="w-5 h-5 text-gray-400 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-transform group-hover:translate-x-1"
+                className="w-5 h-5 text-fg-muted group-hover:text-fg-brand transition-transform group-hover:translate-x-1"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"

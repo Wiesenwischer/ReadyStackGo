@@ -7,6 +7,7 @@ using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.ProductDeployments;
+using ReadyStackGo.Domain.StackManagement.Manifests;
 
 namespace ReadyStackGo.Application.UseCases.Deployments.DeployProduct;
 
@@ -109,12 +110,14 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
 
             var mergedVariables = MergeVariables(stackDef, request.SharedVariables, reqStack.Variables);
 
+            // The full set is deployed further down; only the values the user allowed to be kept are
+            // written to the aggregate.
             stackConfigs.Add(new StackDeploymentConfig(
                 stackDef.Name,
                 stackDef.Name,
                 reqStack.StackId,
                 stackDef.Services.Count,
-                mergedVariables));
+                VariableStorageFilter.ForStorage(mergedVariables, request.ExcludeFromStorage)));
         }
 
         // 5. Create ProductDeployment aggregate
@@ -134,8 +137,12 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
             deployedBy,
             request.DeploymentName,
             stackConfigs,
-            request.SharedVariables,
+            VariableStorageFilter.ForStorage(request.SharedVariables, request.ExcludeFromStorage),
             request.ContinueOnError);
+
+        // Record which variables hold secrets, so read paths can withhold their values without
+        // having to resolve the product source again.
+        productDeployment.SetSecretVariableNames(CollectSecretVariableNames(product));
 
         // Resolve and attach the product-level maintenance observer config.
         // Without this the MaintenanceObserverService has no config to poll.
@@ -250,7 +257,8 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
                     stackDeploymentName,
                     new Dictionary<string, string>(mergedVariables),
                     sessionId,
-                    SuppressNotification: true), cancellationToken);
+                    SuppressNotification: true,
+                    ExcludeFromStorage: request.ExcludeFromStorage), cancellationToken);
             }
             catch (Exception ex)
             {
@@ -346,6 +354,19 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
             StackResults = stackResults
         };
     }
+
+    /// <summary>
+    /// Variable names across all of a product's stacks whose type carries a secret (passwords and
+    /// connection strings). Recorded on the deployment so read paths never need the product source.
+    /// </summary>
+    internal static IReadOnlyList<string> CollectSecretVariableNames(
+        Domain.StackManagement.Stacks.ProductDefinition product)
+        => product.Stacks
+            .SelectMany(s => s.Variables)
+            .Where(v => v.Type.IsSecret())
+            .Select(v => v.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
     private static Dictionary<string, string> MergeVariables(
         Domain.StackManagement.Stacks.StackDefinition stackDef,

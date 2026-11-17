@@ -3,6 +3,7 @@ namespace ReadyStackGo.Application.UseCases.Deployments.ChangeProductOperationMo
 using MediatR;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.UseCases.Containers;
 using ReadyStackGo.Application.UseCases.Health;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Health;
@@ -25,6 +26,18 @@ public class ChangeProductOperationModeHandler
     private readonly IMaintenanceSetterService _maintenanceSetterService;
     private readonly IDeploymentNotificationService _deploymentNotificationService;
     private readonly ILogger<ChangeProductOperationModeHandler> _logger;
+
+    /// <summary>
+    /// Stack statuses whose containers can still be up, and which a maintenance transition therefore
+    /// has to handle. <c>Pending</c> was never deployed, <c>Removed</c> is gone and <c>Stopped</c>
+    /// was deliberately stopped already — none of them own live containers.
+    /// </summary>
+    private static readonly StackDeploymentStatus[] MaintenanceRelevantStatuses =
+    [
+        StackDeploymentStatus.Running,
+        StackDeploymentStatus.Deploying,
+        StackDeploymentStatus.Failed
+    ];
 
     public ChangeProductOperationModeHandler(
         IProductDeploymentRepository productDeploymentRepository,
@@ -173,12 +186,23 @@ public class ChangeProductOperationModeHandler
         var isExit = previousMode == OperationMode.Maintenance && targetMode == OperationMode.Normal;
         var action = isEnter ? "enter" : "exit";
 
-        // Only stacks that are actually running are affected — this is the real
-        // denominator for the "stack X of N" progress shown to the user.
+        // Every stack that may still have containers up is affected — this is the real denominator
+        // for the "stack X of N" progress shown to the user. The set is deliberately wider than
+        // "Running": a stack recorded as Failed because a single container never became healthy
+        // still has all its other containers up, and restricting to Running skipped it wholesale,
+        // leaving those containers (and their database connections) alive through maintenance.
+        // A stack without a deployment stack name was never deployed, so there is nothing to touch.
         var affectedStacks = productDeployment.Stacks
-            .Where(s => s.Status == StackDeploymentStatus.Running)
+            .Where(s => MaintenanceRelevantStatuses.Contains(s.Status))
+            .Where(s => !string.IsNullOrEmpty(s.DeploymentStackName))
             .ToList();
         var totalStacks = affectedStacks.Count;
+
+        // Containers that survived the whole transition, across all stacks.
+        var stillRunning = new List<ContainerDto>();
+
+        // Stacks whose state could not be read back, so nothing can be claimed about them.
+        var unverifiedStacks = new List<string>();
 
         // Local helper: forwards a progress update to connected clients (no-op without a session).
         async Task NotifyAsync(
@@ -238,6 +262,23 @@ public class ChangeProductOperationModeHandler
 
                     await _dockerService.StopStackContainersAsync(
                         environmentId, stack.DeploymentStackName!, OnContainer, cancellationToken);
+
+                    // A stop that did not take effect must not pass as success — maintenance mode
+                    // exists to release the product's resources, above all its database sessions.
+                    // A verification that cannot run is not a success either: claiming the stack
+                    // stopped without having looked is what made the original bug invisible.
+                    try
+                    {
+                        stillRunning.AddRange(await EnsureStackStoppedAsync(
+                            environmentId, stack.DeploymentStackName!, stack.StackName, cancellationToken));
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        _logger.LogError(ex,
+                            "Could not verify that the containers of stack {StackName} stopped",
+                            stack.StackName);
+                        unverifiedStacks.Add(stack.StackDisplayName ?? stack.StackName);
+                    }
                 }
                 else if (isExit)
                 {
@@ -260,9 +301,116 @@ public class ChangeProductOperationModeHandler
         _deploymentRepository.SaveChanges();
 
         // Terminal update so the UI can flip every stack to done and leave the processing view.
+        // Reporting Completed while containers are still up would hide the failure entirely — the
+        // operator would start a database update against a product that is still connected.
+        if (stillRunning.Count > 0)
+        {
+            var names = string.Join(", ", stillRunning.Select(c => c.Name).Order());
+
+            _logger.LogError(
+                "Entered maintenance for product {ProductName} but {Count} container(s) are still running: {Containers}",
+                productDeployment.ProductName, stillRunning.Count, names);
+
+            await NotifyAsync(
+                "Failed", null, null, totalStacks, null, 0, 0,
+                $"{stillRunning.Count} container(s) could not be stopped: {names}");
+            return;
+        }
+
+        if (unverifiedStacks.Count > 0)
+        {
+            await NotifyAsync(
+                "Failed", null, null, totalStacks, null, 0, 0,
+                $"Could not verify that all containers stopped: {string.Join(", ", unverifiedStacks)}");
+            return;
+        }
+
         await NotifyAsync(
             "Completed", null, null, totalStacks, null, 0, 0,
             isEnter ? "All containers stopped" : "All containers started");
+    }
+
+    /// <summary>
+    /// Verifies that a stack really has no live containers left and forces the ones that remain.
+    ///
+    /// A single bulk stop is not enough: the container list is a snapshot taken before stopping, so
+    /// a container coming up during the transition is missed; individual stop calls can fail and
+    /// were only logged; and a container under a restart policy can come back up. Each round
+    /// therefore re-reads the actual state instead of trusting the previous call, escalating from
+    /// stop to kill. No delay between the rounds is needed — both Docker calls block until the
+    /// daemon has acted on the container.
+    /// </summary>
+    /// <returns>Containers that are still live after all attempts. Empty is the expected result.</returns>
+    private async Task<IReadOnlyList<ContainerDto>> EnsureStackStoppedAsync(
+        string environmentId,
+        string deploymentStackName,
+        string stackName,
+        CancellationToken cancellationToken)
+    {
+        var remaining = await GetLiveContainersAsync(environmentId, deploymentStackName, cancellationToken);
+        if (remaining.Count == 0)
+        {
+            return remaining;
+        }
+
+        _logger.LogWarning(
+            "{Count} container(s) of stack {StackName} did not stop, retrying individually: {Containers}",
+            remaining.Count, stackName, string.Join(", ", remaining.Select(c => c.Name)));
+
+        foreach (var container in remaining)
+        {
+            try
+            {
+                await _dockerService.StopContainerAsync(environmentId, container.Id, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Retrying stop failed for container {Name} ({Id})", container.Name, container.Id);
+            }
+        }
+
+        remaining = await GetLiveContainersAsync(environmentId, deploymentStackName, cancellationToken);
+        if (remaining.Count == 0)
+        {
+            return remaining;
+        }
+
+        // A container that ignored two stops gets killed. Losing its graceful shutdown is the lesser
+        // evil compared to a maintenance window that never actually starts.
+        foreach (var container in remaining)
+        {
+            _logger.LogWarning(
+                "Container {Name} ({Id}) of stack {StackName} survived two stop attempts, killing it",
+                container.Name, container.Id, stackName);
+
+            try
+            {
+                await _dockerService.KillContainerAsync(environmentId, container.Id, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Killing container {Name} ({Id}) failed", container.Name, container.Id);
+            }
+        }
+
+        return await GetLiveContainersAsync(environmentId, deploymentStackName, cancellationToken);
+    }
+
+    /// <summary>
+    /// Containers of the given stack that a maintenance stop still has to deal with. Containers the
+    /// product opted out of (<c>rsgo.maintenance=ignore</c>) and already stopped ones are excluded.
+    /// </summary>
+    private async Task<IReadOnlyList<ContainerDto>> GetLiveContainersAsync(
+        string environmentId,
+        string deploymentStackName,
+        CancellationToken cancellationToken)
+    {
+        var containers = await _dockerService.ListContainersAsync(environmentId, cancellationToken);
+
+        return containers
+            .Where(c => MaintenanceContainerFilter.BelongsToStack(c, deploymentStackName))
+            .Where(MaintenanceContainerFilter.ShouldStop)
+            .ToList();
     }
 
     private void PropagateOperationModeToChildDeployment(

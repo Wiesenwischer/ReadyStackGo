@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { useUpdateStore } from '@rsgo/core';
 
@@ -7,6 +8,7 @@ export default function UpdateStatus() {
   const releaseUrl = searchParams.get("releaseUrl") ?? "";
 
   const store = useUpdateStore(targetVersion);
+  const [showDetails, setShowDetails] = useState(false);
 
   return (
     <div className="relative min-h-screen bg-white dark:bg-gray-900">
@@ -123,9 +125,33 @@ export default function UpdateStatus() {
                 Update failed
               </h2>
 
-              <p className="mb-6 text-sm text-red-700 dark:text-red-300">
+              <p className="mb-4 text-sm text-red-700 dark:text-red-300">
                 {store.errorMessage}
               </p>
+
+              {store.errorDetails && (
+                <div className="mb-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowDetails(prev => !prev)}
+                    aria-expanded={showDetails}
+                    aria-controls="update-error-details"
+                    className="text-sm font-medium text-red-700 underline hover:text-red-800 dark:text-red-300 dark:hover:text-red-200"
+                  >
+                    {showDetails ? "Hide details" : "Show details"}
+                  </button>
+                  {showDetails && (
+                    <pre
+                      id="update-error-details"
+                      className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-red-200 bg-white p-3 text-left text-xs text-gray-800 dark:border-red-800 dark:bg-gray-900 dark:text-gray-200"
+                    >
+                      {store.errorDetails}
+                    </pre>
+                  )}
+                </div>
+              )}
+
+              {!store.errorDetails && <div className="mb-2" />}
 
               <div className="flex flex-col gap-3">
                 <button

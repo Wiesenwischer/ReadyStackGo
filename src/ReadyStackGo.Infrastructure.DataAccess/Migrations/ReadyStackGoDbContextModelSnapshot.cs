@@ -392,6 +392,11 @@ namespace ReadyStackGo.Infrastructure.DataAccess.Migrations
                     b.Property<DateTime?>("PrtgLastSyncedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("SecretVariableNames")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("SecretVariableNamesJson");
+
                     b.Property<string>("SharedVariables")
                         .IsRequired()
                         .HasColumnType("TEXT")

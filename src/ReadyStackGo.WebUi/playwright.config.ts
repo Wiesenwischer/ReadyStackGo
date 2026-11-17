@@ -16,7 +16,8 @@ const isCI = !!process.env.CI;
  */
 export default defineConfig({
   testDir: './e2e',
-  testIgnore: ['**/onboarding.spec.ts'],
+  // sso-*.spec.ts needs the test identity provider: playwright.sso.config.ts (scripts/sso-e2e.sh).
+  testIgnore: ['**/onboarding.spec.ts', '**/sso-*.spec.ts'],
   globalSetup: './e2e/global-setup.ts',
   globalTeardown: './e2e/global-teardown.ts',
   fullyParallel: true,

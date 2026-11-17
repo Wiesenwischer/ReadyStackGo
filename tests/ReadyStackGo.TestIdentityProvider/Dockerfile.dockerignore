@@ -1,0 +1,6 @@
+# Replaces the root .dockerignore (which excludes tests/) for this Dockerfile (BuildKit).
+*
+!global.json
+!tests/ReadyStackGo.TestIdentityProvider/
+**/bin
+**/obj

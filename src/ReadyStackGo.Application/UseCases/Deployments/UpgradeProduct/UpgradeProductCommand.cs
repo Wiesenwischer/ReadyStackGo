@@ -14,7 +14,12 @@ public record UpgradeProductCommand(
     Dictionary<string, string> SharedVariables,
     string? SessionId = null,
     bool ContinueOnError = true,
-    string? UserId = null
+    string? UserId = null,
+    /// <summary>
+    /// Variable names the user chose not to persist. The values are still deployed, they are just
+    /// not written to the deployment entity.
+    /// </summary>
+    HashSet<string>? ExcludeFromStorage = null
 ) : IRequest<UpgradeProductResponse>;
 
 /// <summary>

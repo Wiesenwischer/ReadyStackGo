@@ -38,6 +38,11 @@ services:
     image: wiesenwischer/readystackgo:latest
     container_name: readystackgo
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "8080:8080"
     volumes:
@@ -70,6 +75,11 @@ services:
     image: wiesenwischer/readystackgo:latest
     container_name: readystackgo
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "8080:8080"
     volumes:

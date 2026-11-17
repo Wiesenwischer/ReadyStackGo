@@ -42,7 +42,7 @@ Dieser Skill führt durch den gesamten Planungsprozess:
    gh issue list --label epic --state open --json number,title,milestone
    ```
 4. Lies die **Projektrichtlinien** (`CLAUDE.md`) für Konventionen.
-5. Prüfe ob bereits eine **Planungsdatei** für eine verwandte Phase existiert (`docs/Plans/PLAN-*.md`).
+5. Prüfe ob bereits eine **Planungsdatei** für eine verwandte Phase existiert (`docs/plans/PLAN-*.md`).
 6. Prüfe die **Release History** (`docs/Reference/Release-History.md`) für bereits implementierte Features.
 7. Falls `$ARGUMENTS` leer ist, frage den User welches Feature geplant werden soll.
 
@@ -103,7 +103,7 @@ gh issue create \
 <Kurzbeschreibung>
 
 ## Specification
-See [PLAN-<name>.md](docs/Plans/PLAN-<name>.md)
+See [PLAN-<name>.md](docs/plans/PLAN-<name>.md)
 
 ## Tasks
 - [ ] Feature 1: ...
@@ -148,7 +148,7 @@ Nach dem Erstellen MUSS geprüft werden:
 
 ## Schritt 5: Planungsdatei erstellen
 
-Erstelle eine Specification unter `docs/Plans/PLAN-<feature-name>.md`.
+Erstelle eine Specification unter `docs/plans/PLAN-<feature-name>.md`.
 
 **WICHTIG:** Füge am Anfang der Datei einen Kommentar mit der Issue-Nummer ein:
 ```markdown
@@ -233,11 +233,11 @@ Zeige dem User eine Zusammenfassung:
 **Feature**: <Feature-Beschreibung>
 **Milestone**: <z.B. v0.50>
 **GitHub Issue**: #NNN
-**Planungsdatei**: docs/Plans/PLAN-<name>.md
+**Planungsdatei**: docs/plans/PLAN-<name>.md
 **Geschätzter Umfang**: <Anzahl Features/Schritte>
 
 ### Geänderte/Erstellte Dateien:
-- docs/Plans/PLAN-<name>.md (Planungsdatei erstellt)
+- docs/plans/PLAN-<name>.md (Planungsdatei erstellt)
 - GitHub Issue #NNN (Epic erstellt)
 - GitHub Project Board (Issue hinzugefügt)
 ```
@@ -253,7 +253,7 @@ git rm docs/specs/<ordner>/<datei>.md
 ## Schritt 8: Committen
 
 ```bash
-git add docs/Plans/PLAN-<name>.md
+git add docs/plans/PLAN-<name>.md
 git rm docs/specs/...  # falls Spec gelöscht
 git commit -m "Plan <Feature-Titel>"
 ```
@@ -272,7 +272,7 @@ git commit -m "Plan <Feature-Titel>"
 - [ ] **Milestone existiert oder wurde erstellt** (PFLICHT — kein Issue ohne Milestone)
 - [ ] **GitHub Epic Issue erstellt** mit Milestone + Labels `epic,feature` (PFLICHT)
 - [ ] **Issue zum Project Board hinzugefügt** mit korrektem Status (PFLICHT)
-- [ ] Planungsdatei erstellt (`docs/Plans/PLAN-*.md`) mit `<!-- GitHub Epic: #NNN -->`
+- [ ] Planungsdatei erstellt (`docs/plans/PLAN-*.md`) mit `<!-- GitHub Epic: #NNN -->`
 - [ ] **Plan referenziert Issue-Nummer, Issue referenziert Plan-Datei** (bidirektionale Verlinkung)
 - [ ] **AMS UI Counterpart entschieden** — bei Ja: AMS PLAN file in `C:\proj\ReadyStackGo.Ams\docs\Plans\` erstellt
 - [ ] Offene Punkte dokumentiert

@@ -32,6 +32,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Services\StackSources\source-registry.json" />
+    <EmbeddedResource Include="Services\IdentityProviders\BuiltIn\**\*" LogicalName="IdentityProviderTemplates/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

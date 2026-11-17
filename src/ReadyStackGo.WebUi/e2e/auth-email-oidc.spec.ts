@@ -46,7 +46,7 @@ test.describe('Email & OIDC authentication', () => {
     await login(page);
     await page.goto('/settings/oidc');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText('Single Sign-On (OIDC)', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Single Sign-On', exact: true })).toBeVisible();
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'auth-04-oidc-settings.png'), fullPage: false });
   });
 

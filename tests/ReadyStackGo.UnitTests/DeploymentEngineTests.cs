@@ -9,6 +9,7 @@ using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.StackManagement.Manifests;
+using ReadyStackGo.Domain.StackManagement.Stacks;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Services.Deployment;
 using Xunit;
@@ -1612,6 +1613,60 @@ public class DeploymentEngineTests
         // Init containers should still appear in DeployedContexts (for logging)
         result.DeployedContexts.Should().Contain("migration-1");
         result.DeployedContexts.Should().Contain("migration-2");
+    }
+
+    #endregion
+
+    #region Container log limit
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_PassesManifestLogLimitToContainerRequest()
+    {
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "api",
+                    Image = "myregistry.com/api",
+                    Version = "1.0.0",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Logging = new ServiceLogging { MaxSize = "50m", MaxFile = 5 }
+                },
+                new()
+                {
+                    ContextName = "worker",
+                    Image = "myregistry.com/worker",
+                    Version = "1.0.0",
+                    ContainerName = "rsgo-worker",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>()
+                }
+            }
+        };
+
+        var requests = new List<CreateContainerRequest>();
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<string, CreateContainerRequest, CancellationToken>((_, request, _) => requests.Add(request))
+            .ReturnsAsync("container-id-123");
+
+        var result = await _sut.ExecuteDeploymentAsync(plan);
+
+        result.Success.Should().BeTrue(string.Join("; ", result.Errors));
+        requests.Single(r => r.Name == "rsgo-api").Logging.Should().BeEquivalentTo(
+            new ServiceLogging { MaxSize = "50m", MaxFile = 5 });
+        requests.Single(r => r.Name == "rsgo-worker").Logging.Should().BeNull(
+            "without an override the Docker layer applies RSGO's default log limit");
     }
 
     #endregion

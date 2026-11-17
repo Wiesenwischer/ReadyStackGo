@@ -17,6 +17,7 @@ using ReadyStackGo.Infrastructure.Services.Deployment;
 using ReadyStackGo.Infrastructure.Services.Deployment.Precheck;
 using ReadyStackGo.Infrastructure.Services.Health;
 using ReadyStackGo.Infrastructure.Services.StackSources;
+using ReadyStackGo.Infrastructure.Services.Themes;
 using ReadyStackGo.Infrastructure.Tls;
 using ReadyStackGo.Infrastructure.LetsEncrypt;
 
@@ -75,6 +76,17 @@ public static class DependencyInjection
         // Source Registry (v0.24)
         services.AddSingleton<ISourceRegistryService, SourceRegistryService>();
 
+        // Theme packages (built-in wwwroot/themes plus optional operator directory Themes:Path)
+        services.Configure<ThemeOptions>(configuration.GetSection(ThemeOptions.SectionName));
+        services.AddSingleton<IThemeCatalog, ThemeCatalog>();
+
+        // Identity provider templates (embedded built-ins plus optional operator directory
+        // IdentityProviderTemplates:Path)
+        services.Configure<Services.IdentityProviders.IdentityProviderTemplateOptions>(
+            configuration.GetSection(Services.IdentityProviders.IdentityProviderTemplateOptions.SectionName));
+        services.AddSingleton<Application.Services.IdentityProviders.IIdentityProviderTemplateCatalog,
+            Services.IdentityProviders.IdentityProviderTemplateCatalog>();
+
         // Image Reference Extraction (v0.25)
         services.AddSingleton<IImageReferenceExtractor, ImageReferenceExtractor>();
 
@@ -116,6 +128,15 @@ public static class DependencyInjection
         // AddInternalHttpClients (it targets a product endpoint and must bypass the proxy).
         services.AddSingleton<IMaintenanceObserverFactory, MaintenanceObserverFactory>();
         services.AddScoped<IMaintenanceObserverService, MaintenanceObserverService>();
+
+        // Observer state (instances, last result, last check time) must survive the per-cycle scope
+        // of MaintenanceObserverBackgroundService — the service itself stays scoped because it
+        // depends on repositories and the mediator.
+        services.AddSingleton<IMaintenanceObserverStateStore, MaintenanceObserverStateStore>();
+
+        // Reads database availability from master, so a SQL observer never connects to a database a
+        // product currently holds exclusively (see SqlDatabaseAvailabilityProbe).
+        services.AddSingleton<ISqlDatabaseAvailabilityProbe, SqlDatabaseAvailabilityProbe>();
 
         // Maintenance Setter (mirror of the observer — propagates RSGO-initiated transitions)
         services.AddSingleton<IMaintenanceSetterFactory, MaintenanceSetterFactory>();
@@ -181,6 +202,8 @@ public static class DependencyInjection
 
         // Domain Services
         services.AddScoped<SystemAdminRegistrationService>();
+        services.AddScoped<UsernameGenerator>();
+        services.AddScoped<Application.Services.Oidc.OidcAccountResolver>();
         services.AddScoped<OrganizationProvisioningService>();
         services.AddScoped<AuthenticationService>();
 

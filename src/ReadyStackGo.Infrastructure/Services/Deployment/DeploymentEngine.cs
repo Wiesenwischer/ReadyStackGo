@@ -928,7 +928,8 @@ public class DeploymentEngine : IDeploymentEngine
                 ["rsgo.stack.name"] = stackDefinitionName ?? stackName,
                 ["rsgo.product"] = productGroupId ?? ""
             },
-            RestartPolicy = restartPolicy
+            RestartPolicy = restartPolicy,
+            Logging = step.Logging
         };
 
         // Pass Docker HEALTHCHECK to container if configured.

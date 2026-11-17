@@ -37,6 +37,10 @@ public class CompleteWizardHandler : IRequestHandler<CompleteWizardCommand, Comp
         // Persist wizard completion state to SystemConfig
         await _systemConfigService.SetWizardStateAsync(WizardState.Installed);
 
+        // A new installation starts with the new look. Stored now, so that the startup check for
+        // installations from before the theme packages (InstallationThemeInitializer) leaves it alone.
+        await _systemConfigService.SetDefaultThemeIfUnsetAsync(ThemeDefaults.BuiltIn);
+
         // Wizard is complete — organization and further setup happen via onboarding checklist
         return new CompleteWizardResult(
             true,

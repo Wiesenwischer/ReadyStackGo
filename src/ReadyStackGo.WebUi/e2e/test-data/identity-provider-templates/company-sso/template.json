@@ -1,0 +1,19 @@
+{
+  "id": "company-sso",
+  "name": "Company SSO",
+  "description": "Test template from the templates directory of the browser test.",
+  "order": 50,
+  "provider": {
+    "name": "company"
+  },
+  "authority": {
+    "input": {
+      "hint": "The issuer of the test provider.",
+      "example": "http://test-idp:9090/"
+    }
+  },
+  "registration": {
+    "kind": "manual"
+  },
+  "scopes": "openid profile email"
+}

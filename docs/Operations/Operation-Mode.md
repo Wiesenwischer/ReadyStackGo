@@ -370,7 +370,6 @@ maintenanceObserver:
 | `timeout` | string | No | Timeout for each check (default: `10s`) |
 | `maintenanceValue` | string | **Yes** | Value that triggers maintenance mode |
 | `normalValue` | string | **Yes** | Value that exits maintenance mode |
-| `enabled` | boolean | No | Enable/disable observer (default: `true`) |
 
 **Type-specific properties:**
 
@@ -419,14 +418,39 @@ If a user manually changes the mode while an observer is active:
 |----------|----------|
 | Observer says "maintenance", user sets "normal" | Observer wins on next poll |
 | Observer says "normal", user sets "maintenance" | User wins (observer doesn't override manual) |
-| Observer disabled | Manual control only |
 
-To override the observer temporarily, disable it via API:
+Ownership decides: only the source that activated maintenance can end it. Manual maintenance is
+therefore never lifted by an observer — and because the observer could not act on a result anyway,
+RSGO **suspends observer polling entirely** while maintenance is manually active. For a SQL observer
+that means RSGO opens no connection to the product at all during a manual maintenance window.
 
-```http
-PUT /api/deployments/{id}/maintenance-observer
-{ "enabled": false }
-```
+Entering maintenance manually is thus also the way to keep RSGO off a product while working on it
+directly; polling resumes when maintenance is exited.
+
+### Databases Held Exclusively
+
+A product that maintains itself often takes its own database exclusively — an update switching it to
+`SINGLE_USER`, a restore. That interacts with a SQL observer in two ways RSGO handles explicitly:
+
+- **RSGO keeps no idle session.** Connections RSGO opens for observers and setters are non-pooled, so
+  a session exists only for the duration of a single read. Product routines that wait for all
+  sessions to close before taking the database exclusively are not blocked by RSGO. Product
+  containers are unaffected — RSGO does not build their connection strings, and they keep their
+  pools. RSGO's own sessions carry the application name `ReadyStackGo-Maintenance`, so they can be
+  identified in `sys.dm_exec_sessions` or `sp_who2`.
+
+- **RSGO does not read a database it may not touch.** Before every read, a SQL observer checks the
+  database's availability in `sys.databases` over a `master` connection derived from the same
+  credentials. `master` stays reachable while another database is `SINGLE_USER`, `RESTORING` or
+  `OFFLINE`, and reading it takes no lock on the target database and cannot occupy a single-user
+  slot. While the database is unavailable, the observer reports maintenance with an observed value of
+  `database-exclusive (<state>/<user access>)` and leaves the database alone. Once it is `ONLINE` and
+  `MULTI_USER` again, the next poll reads the flag normally — so the automatic return to normal
+  operation keeps working without anyone intervening, however long the product takes.
+
+  If the availability cannot be determined (the observer login has no access to `master`), RSGO logs a
+  warning once and falls back to reading the flag directly. Granting the login access to `master`
+  restores the protection.
 
 #### Failure Handling
 
@@ -435,7 +459,8 @@ PUT /api/deployments/{id}/maintenance-observer
 | Connection timeout | Log warning, retry on next poll |
 | Query error | Log error, retain current state |
 | Invalid response | Log error, retain current state |
-| 3 consecutive failures | Log critical, send notification |
+| Database not available (`SINGLE_USER`, `RESTORING`, `OFFLINE`) | Report maintenance, leave the database untouched until it is available again |
+| Availability not determinable (no access to `master`) | Log warning once, fall back to reading the flag directly |
 
 ### Dashboard Integration
 
@@ -446,10 +471,8 @@ When an observer is configured, the UI shows:
 │ Operation Mode: 🔧 Maintenance                      │
 │ ─────────────────────────────────────────────────── │
 │ Triggered by: SQL Extended Property Observer        │
-│ Property: ams.MaintenanceMode = 1                   │
+│ Observed: app.MaintenanceMode = 1                   │
 │ Last checked: 15 seconds ago                        │
-│ ─────────────────────────────────────────────────── │
-│ [Disable Observer] [View History]                   │
 └─────────────────────────────────────────────────────┘
 ```
 

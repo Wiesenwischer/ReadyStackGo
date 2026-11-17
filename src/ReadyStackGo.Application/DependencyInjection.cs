@@ -20,6 +20,9 @@ public static class DependencyInjection
         // Domain event dispatch through MediatR
         services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();
 
+        // Default theme of installations from before the theme packages (startup)
+        services.AddScoped<InstallationThemeInitializer>();
+
         // Deployment Precheck Rules — Application-layer rules (v0.59)
         services.AddScoped<IDeploymentPrecheckRule, VariableValidationRule>();
         services.AddScoped<IDeploymentPrecheckRule, ExistingDeploymentRule>();

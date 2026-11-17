@@ -1,4 +1,5 @@
 import { useParams, Link } from 'react-router';
+import { themedPresentation } from "../../components/ui/statusTone";
 import { useEnvironment } from '../../context/EnvironmentContext';
 import {
   type HealthCheckEntryDto,
@@ -44,7 +45,7 @@ export default function ServiceHealthDetail() {
   if (!result) return null;
 
   const { service, stackName, capturedAtUtc } = result;
-  const presentation = getHealthStatusPresentation(service.status);
+  const presentation = themedPresentation(getHealthStatusPresentation(service.status));
   const hasEntries = service.healthCheckEntries && service.healthCheckEntries.length > 0;
 
   return (
@@ -171,7 +172,7 @@ function InfoCard({ label, value }: { label: string; value: string }) {
 }
 
 function HealthCheckEntryCard({ entry }: { entry: HealthCheckEntryDto }) {
-  const presentation = getHealthStatusPresentation(entry.status);
+  const presentation = themedPresentation(getHealthStatusPresentation(entry.status));
   const hasData = entry.data && Object.keys(entry.data).length > 0;
 
   return (

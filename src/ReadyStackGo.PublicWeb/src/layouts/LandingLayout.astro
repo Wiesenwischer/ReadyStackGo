@@ -1,4 +1,6 @@
 ---
+import '@fontsource-variable/inter';
+import '@fontsource-variable/montserrat';
 import '../styles/tailwind.css';
 
 interface Props {
@@ -16,6 +18,9 @@ const { title, description = 'Docker Stack Deployment leicht gemacht' } = Astro.
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<meta name="description" content={description} />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<meta name="theme-color" content="#00CED1" />
 		<title>{title}</title>
 		<script is:inline>
 			// Apply dark mode immediately to prevent flash
@@ -40,13 +45,7 @@ const { title, description = 'Docker Stack Deployment leicht gemacht' } = Astro.
 			})();
 		</script>
 	</head>
-	<body class="bg-white dark:bg-gray-900 min-h-screen flex flex-col">
+	<body class="bg-surface text-fg-secondary min-h-screen flex flex-col">
 		<slot />
 	</body>
 </html>
-
-<style is:global>
-	html {
-		font-family: 'Noto Sans', system-ui, sans-serif;
-	}
-</style>

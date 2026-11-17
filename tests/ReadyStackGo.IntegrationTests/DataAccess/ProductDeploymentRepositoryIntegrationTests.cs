@@ -174,6 +174,65 @@ public class ProductDeploymentRepositoryIntegrationTests : IDisposable
     }
 
     // ═══════════════════════════════════════════════════════════════════
+    // SecretVariableNames JSON (#465)
+    // ═══════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void Add_ShouldPersistSecretVariableNames_AsJson()
+    {
+        // Arrange
+        var (_, envId) = CreateTestEnvironment();
+        var pd = CreateTestDeployment(envId);
+        pd.SetSecretVariableNames(new[] { "DB_ADMIN_PASSWORD", "DB_CONNECTION" });
+
+        // Act
+        _repository.Add(pd);
+        _fixture.Context.SaveChanges();
+
+        // Assert
+        using var verifyContext = _fixture.CreateNewContext();
+        var persisted = verifyContext.ProductDeployments.Find(pd.Id);
+
+        persisted.Should().NotBeNull();
+        persisted!.SecretVariableNames.Should().BeEquivalentTo(new[] { "DB_ADMIN_PASSWORD", "DB_CONNECTION" });
+    }
+
+    [Fact]
+    public void SecretVariableNames_ShouldStayCaseInsensitive_AfterRoundTrip()
+    {
+        // The value converter has to rebuild the set with the case-insensitive comparer —
+        // deserialization alone hands back a default-comparer set and lookups start missing.
+        var (_, envId) = CreateTestEnvironment();
+        var pd = CreateTestDeployment(envId);
+        pd.SetSecretVariableNames(new[] { "DB_ADMIN_PASSWORD" });
+
+        _repository.Add(pd);
+        _fixture.Context.SaveChanges();
+
+        using var verifyContext = _fixture.CreateNewContext();
+        var persisted = verifyContext.ProductDeployments.Find(pd.Id);
+
+        persisted!.IsSecretVariable("db_admin_password").Should().BeTrue();
+    }
+
+    [Fact]
+    public void Add_ShouldPersistEmptySecretVariableNames()
+    {
+        // Deployments predating the recording read back as an empty set, not as null or a crash on
+        // an empty column value.
+        var (_, envId) = CreateTestEnvironment();
+        var pd = CreateTestDeployment(envId);
+
+        _repository.Add(pd);
+        _fixture.Context.SaveChanges();
+
+        using var verifyContext = _fixture.CreateNewContext();
+        var persisted = verifyContext.ProductDeployments.Find(pd.Id);
+
+        persisted!.SecretVariableNames.Should().NotBeNull().And.BeEmpty();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
     // PhaseHistory JSON
     // ═══════════════════════════════════════════════════════════════════
 

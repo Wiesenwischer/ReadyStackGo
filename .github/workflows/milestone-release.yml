@@ -97,6 +97,17 @@ jobs:
 
           echo "✅ Docker Build dispatched for $VERSION"
 
+      - name: Trigger website deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Same reason as above: the tag push does not start cloudflare-pages.yml by itself.
+          gh workflow run cloudflare-pages.yml -f tag="$VERSION"
+
+          echo "✅ Website deploy dispatched for $VERSION"
+
       - name: Summary
         run: |
           VERSION="${{ steps.version.outputs.version }}"

@@ -13,7 +13,7 @@ Prüfe welche Feature-Plans vollständig umgesetzt sind und verschiebe sie ins A
 
 ## Schritt 1: Alle Plan-Dateien lesen
 
-Lies alle `PLAN-*.md` Dateien in `docs/Plans/` (NICHT in `docs/Plans/completed/`).
+Lies alle `PLAN-*.md` Dateien in `docs/plans/` (NICHT in `docs/plans/completed/`).
 
 Für jede Datei:
 1. Zähle alle Checkboxen: `- [ ]` (offen) und `- [x]` (erledigt)
@@ -55,7 +55,7 @@ Für jeden "Vollständig"-Plan:
 Für alle Plans die vollständig UND deren GitHub Issue geschlossen ist (oder in Release-History gelistet):
 
 ```bash
-git mv docs/Plans/PLAN-<name>.md docs/Plans/completed/PLAN-<name>.md
+git mv docs/plans/PLAN-<name>.md docs/plans/completed/PLAN-<name>.md
 ```
 
 ### Board-Status auf Done setzen (falls noch nicht):
@@ -78,7 +78,7 @@ gh project item-edit --project-id $PROJECT --id "$ITEM_ID" --field-id $STATUS_FI
 Falls Plans verschoben wurden:
 
 ```bash
-git add docs/Plans/ docs/Plans/completed/
+git add docs/plans/ docs/plans/completed/
 git commit -m "Archive completed plans: <liste der verschobenen Plans>"
 ```
 

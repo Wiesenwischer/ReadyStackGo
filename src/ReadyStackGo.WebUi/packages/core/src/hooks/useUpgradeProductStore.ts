@@ -8,6 +8,12 @@ import {
   type UpgradeProductStackResult,
 } from '../api/deployments';
 import { getProduct, type Product, type ProductStack, type StackVariable } from '../api/stacks';
+import {
+  buildUpgradeVariableState,
+  getStackSpecificVariables,
+  parseEnvContent,
+  withoutUntouchedSecrets,
+} from '../lib/upgradeVariables';
 import { useDeploymentHub } from '../realtime/useDeploymentHub';
 import type { DeploymentProgressUpdate, InitContainerLogEntry, ConnectionState } from '../realtime/useDeploymentHub';
 
@@ -15,51 +21,6 @@ import type { DeploymentProgressUpdate, InitContainerLogEntry, ConnectionState }
 const formatPhase = (phase: string | undefined): string => {
   if (!phase) return '';
   return phase.replace(/([A-Z])/g, ' $1').trim();
-};
-
-// Compute shared variables (appear in 2+ stacks)
-function computeSharedVariables(stacks: ProductStack[]): StackVariable[] {
-  const varCount = new Map<string, { count: number; variable: StackVariable }>();
-  for (const stack of stacks) {
-    for (const v of stack.variables) {
-      const existing = varCount.get(v.name);
-      if (existing) {
-        existing.count++;
-      } else {
-        varCount.set(v.name, { count: 1, variable: v });
-      }
-    }
-  }
-  return Array.from(varCount.values())
-    .filter(e => e.count >= 2)
-    .map(e => e.variable);
-}
-
-// Get stack-specific variables (not in shared set)
-function getStackSpecificVariables(stack: ProductStack, sharedNames: Set<string>): StackVariable[] {
-  return stack.variables.filter(v => !sharedNames.has(v.name));
-}
-
-// Parse .env file content and return key-value pairs
-const parseEnvContent = (content: string): Record<string, string> => {
-  const result: Record<string, string> = {};
-  const lines = content.split('\n');
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const eqIndex = trimmed.indexOf('=');
-    if (eqIndex === -1) continue;
-    const key = trimmed.substring(0, eqIndex).trim();
-    let value = trimmed.substring(eqIndex + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
-    if (key) {
-      result[key] = value;
-    }
-  }
-  return result;
 };
 
 export type UpgradeProductState = 'loading' | 'configure' | 'upgrading' | 'success' | 'error';
@@ -83,6 +44,14 @@ export interface UseUpgradeProductStoreReturn {
   perStackVariableValues: Record<string, Record<string, string>>;
   sharedVars: StackVariable[];
   sharedVarNames: Set<string>;
+  /**
+   * Secret variables that already have a stored value. Their input stays empty (the server withholds
+   * the value); leaving it empty keeps the stored value, typing a new one replaces it.
+   */
+  storedSecretNames: Set<string>;
+  /** Variable names the user chose NOT to persist. */
+  excludeFromStorage: Set<string>;
+  setVariableSave: (varName: string, save: boolean) => void;
 
   // Accordion state
   expandedStacks: Set<string>;
@@ -138,6 +107,17 @@ export function useUpgradeProductStore(
 
   // Accordion: which stacks are expanded
   const [expandedStacks, setExpandedStacks] = useState<Set<string>>(new Set());
+
+  // Names of secret variables that already have a stored value. The server withholds the value, so
+  // the form cannot pre-fill it — it must still count as "set" for required-variable validation, and
+  // must not be submitted as an empty string (which would overwrite the stored value on merge).
+  const [storedSecretNames, setStoredSecretNames] = useState<Set<string>>(new Set());
+  const storedSecretNamesRef = useRef<Set<string>>(new Set());
+
+  // Per-variable "save value" opt-out, carried forward so an upgrade does not quietly start storing
+  // a password the user declined to store at deploy time.
+  const [excludeFromStorage, setExcludeFromStorage] = useState<Set<string>>(new Set());
+  const excludeFromStorageRef = useRef<Set<string>>(new Set());
 
   // Computed shared variables
   const [sharedVars, setSharedVars] = useState<StackVariable[]>([]);
@@ -242,70 +222,17 @@ export function useUpgradeProductStore(
     deployment: GetProductDeploymentResponse,
     newStacks: string[] | null | undefined,
   ) => {
-    // Compute shared variables
-    const shared = computeSharedVariables(product.stacks);
-    setSharedVars(shared);
-    const sharedNames = new Set(shared.map(v => v.name));
-    setSharedVarNames(sharedNames);
+    const next = buildUpgradeVariableState(product, deployment, newStacks);
 
-    // Initialize shared variable values with target defaults
-    const sharedInit: Record<string, string> = {};
-    for (const v of shared) {
-      sharedInit[v.name] = v.defaultValue || '';
-    }
-
-    // Overlay with current deployment shared variables
-    if (deployment.sharedVariables) {
-      for (const [key, value] of Object.entries(deployment.sharedVariables)) {
-        if (Object.prototype.hasOwnProperty.call(sharedInit, key)) {
-          sharedInit[key] = value;
-        }
-      }
-    }
-
-    // Initialize per-stack variable values
-    const perStackInit: Record<string, Record<string, string>> = {};
-    const expandInit = new Set<string>();
-
-    for (const stack of product.stacks) {
-      const stackVars = getStackSpecificVariables(stack, sharedNames);
-      const varValues: Record<string, string> = {};
-      let hasRequiredMissing = false;
-
-      for (const v of stackVars) {
-        varValues[v.name] = v.defaultValue || '';
-        if (v.isRequired && !v.defaultValue) hasRequiredMissing = true;
-      }
-
-      // Overlay the existing stack deployment's per-stack values so the upgrade
-      // form is pre-filled with what the user configured at deploy time. Without
-      // this, required per-stack variables would appear empty and the upgrade
-      // would be blocked by validation even though the backend already merges
-      // the stored values. Only overlay variables that exist in the target
-      // version's variable set so removed variables don't leak forward.
-      const existingStack = deployment.stacks.find(
-        s => s.stackName.toLowerCase() === stack.name.toLowerCase()
-      );
-      if (existingStack?.variables) {
-        for (const v of stackVars) {
-          if (Object.prototype.hasOwnProperty.call(existingStack.variables, v.name)) {
-            varValues[v.name] = existingStack.variables[v.name];
-          }
-        }
-      }
-
-      perStackInit[stack.id] = varValues;
-
-      // Expand stacks that are new or have required variables missing values
-      const isNew = newStacks?.some(n => n.toLowerCase() === stack.name.toLowerCase());
-      if (isNew || hasRequiredMissing || stackVars.length > 0) {
-        expandInit.add(stack.id);
-      }
-    }
-
-    setSharedVariableValues(sharedInit);
-    setPerStackVariableValues(perStackInit);
-    setExpandedStacks(expandInit);
+    setSharedVars(next.sharedVars);
+    setSharedVarNames(next.sharedVarNames);
+    setSharedVariableValues(next.sharedVariableValues);
+    setPerStackVariableValues(next.perStackVariableValues);
+    setExpandedStacks(next.expandedStacks);
+    setStoredSecretNames(next.storedSecretNames);
+    storedSecretNamesRef.current = next.storedSecretNames;
+    setExcludeFromStorage(next.excludeFromStorage);
+    excludeFromStorageRef.current = next.excludeFromStorage;
   }, []);
 
   // Load product deployment and upgrade info
@@ -479,7 +406,7 @@ export function useUpgradeProductStore(
 
     // Check required shared variables
     const missingShared = sharedVars
-      .filter(v => v.isRequired && !sharedVariableValues[v.name])
+      .filter(v => v.isRequired && !sharedVariableValues[v.name] && !storedSecretNames.has(v.name))
       .map(v => v.label || v.name);
     if (missingShared.length > 0) {
       setError(`Missing required shared variables: ${missingShared.join(', ')}`);
@@ -490,7 +417,9 @@ export function useUpgradeProductStore(
     for (const stack of targetProduct.stacks) {
       const stackSpecific = getStackSpecificVariables(stack, sharedVarNames);
       const missing = stackSpecific
-        .filter(v => v.isRequired && !perStackVariableValues[stack.id]?.[v.name])
+        .filter(v => v.isRequired
+          && !perStackVariableValues[stack.id]?.[v.name]
+          && !storedSecretNames.has(v.name))
         .map(v => v.label || v.name);
       if (missing.length > 0) {
         setError(`Missing required variables in "${stack.name}": ${missing.join(', ')}`);
@@ -527,18 +456,24 @@ export function useUpgradeProductStore(
     }
 
     try {
-      // Build stack configs
+      // Build stack configs. Untouched stored secrets are omitted rather than sent as empty
+      // strings: an empty override would win over the stored value when the backend merges.
       const stackConfigs = targetProduct.stacks.map(stack => ({
         stackId: stack.id,
-        variables: perStackVariableValues[stack.id] || {},
+        variables: withoutUntouchedSecrets(
+          perStackVariableValues[stack.id] || {}, storedSecretNamesRef.current),
       }));
 
       const response = await upgradeProduct(environmentId, productDeploymentId!, {
         targetProductId,
         stackConfigs,
-        sharedVariables: sharedVariableValues,
+        sharedVariables: withoutUntouchedSecrets(
+          sharedVariableValues, storedSecretNamesRef.current),
         sessionId,
         continueOnError,
+        excludeFromStorage: excludeFromStorageRef.current.size > 0
+          ? [...excludeFromStorageRef.current]
+          : undefined,
       });
 
       setStackResults(response.stackResults || []);
@@ -579,9 +514,22 @@ export function useUpgradeProductStore(
   }, [
     targetProduct, environmentId, productDeployment, upgradeInfo,
     selectedVersion, sharedVars, sharedVariableValues, sharedVarNames,
-    perStackVariableValues, continueOnError, connectionState,
+    perStackVariableValues, storedSecretNames, continueOnError, connectionState,
     subscribeToDeployment, productDeploymentId,
   ]);
+
+  const setVariableSave = useCallback((varName: string, save: boolean) => {
+    setExcludeFromStorage(prev => {
+      const next = new Set(prev);
+      if (save) {
+        next.delete(varName);
+      } else {
+        next.add(varName);
+      }
+      excludeFromStorageRef.current = next;
+      return next;
+    });
+  }, []);
 
   const getBackUrl = useCallback(() => {
     if (productDeployment?.productId) {
@@ -612,6 +560,9 @@ export function useUpgradeProductStore(
     perStackVariableValues,
     sharedVars,
     sharedVarNames,
+    storedSecretNames,
+    excludeFromStorage,
+    setVariableSave,
     expandedStacks,
     progressUpdate,
     perStackProgress,

@@ -1,29 +1,102 @@
 /*
- * Starlight Theme - Custom font only
- * Uses Starlight's default colors for both light and dark mode
+ * Starlight theme for the ReadyStackGo documentation: Turquoise, light and dark.
+ * Values follow the Turquoise theme package of the web UI
+ * (src/ReadyStackGo.WebUi/apps/rsgo-generic/public/themes/turquoise/theme.css).
+ * Fonts (Inter, Montserrat) are loaded locally via @fontsource-variable (customCss in astro.config.mjs).
+ *
+ * Starlight semantics: in dark mode "white" is the strongest text colour and "black" the page background;
+ * in light mode both are inverted. gray-1 is closest to "white", gray-6/7 closest to "black".
  */
 
-/* Local Noto Sans font */
-@font-face {
-  font-family: 'Noto Sans';
-  src: url('/fonts/NotoSans-Variable.ttf') format('truetype');
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Noto Sans';
-  src: url('/fonts/NotoSans-Italic-Variable.ttf') format('truetype');
-  font-weight: 100 900;
-  font-style: italic;
-  font-display: swap;
-}
-
-/* Font override only - let Starlight handle all colors */
-:root {
-  --sl-font: 'Noto Sans', system-ui, sans-serif;
+/* Fonts and dark mode (Starlight's default block) */
+:root,
+::backdrop {
+  --sl-font: 'Inter Variable', system-ui, sans-serif;
   --sl-font-mono: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+  --rsgo-font-display: 'Montserrat Variable', 'Inter Variable', system-ui, sans-serif;
+
+  --sl-color-accent-low: #0B2830;
+  --sl-color-accent: #4CDCDF;
+  --sl-color-accent-high: #C4F4F5;
+
+  --sl-color-white: #FFFFFF;
+  --sl-color-gray-1: #EAF3F6;
+  --sl-color-gray-2: #C9D6DF;
+  --sl-color-gray-3: #8BA0B0;
+  --sl-color-gray-4: #5B7386;
+  --sl-color-gray-5: #22384A;
+  --sl-color-gray-6: #172633;
+  --sl-color-black: #060B11;
+
+  --sl-color-text: #C9D6DF;
+  --sl-color-text-accent: #4CDCDF;
+  --sl-color-bg: #060B11;
+  --sl-color-bg-nav: #0B141C;
+  --sl-color-bg-sidebar: #0B141C;
+  --sl-color-bg-inline-code: #101C26;
+  --sl-color-hairline: #172633;
+  --sl-color-hairline-light: #22384A;
+
+  --rsgo-logo-stack: #FFFFFF;
+}
+
+/* Light mode */
+:root[data-theme='light'],
+[data-theme='light'] ::backdrop {
+  --sl-color-accent-low: #E8FBFB;
+  --sl-color-accent: #00787B;
+  --sl-color-accent-high: #005F62;
+
+  --sl-color-white: #0E171A;
+  --sl-color-gray-1: #1C282B;
+  --sl-color-gray-2: #334246;
+  --sl-color-gray-3: #4A5A5E;
+  --sl-color-gray-4: #5C6D71;
+  --sl-color-gray-5: #CDD7D9;
+  --sl-color-gray-6: #E2E9EA;
+  --sl-color-gray-7: #F3FBFB;
+  --sl-color-black: #FFFFFF;
+
+  --sl-color-text: #334246;
+  --sl-color-text-accent: #00787B;
+  --sl-color-bg: #FFFFFF;
+  --sl-color-bg-nav: #FFFFFF;
+  --sl-color-bg-sidebar: #F3FBFB;
+  --sl-color-bg-inline-code: #E8FBFB;
+  --sl-color-hairline: #E2E9EA;
+  --sl-color-hairline-light: #E2E9EA;
+
+  --rsgo-logo-stack: #0E171A;
+}
+
+/* Headings in Montserrat */
+.sl-markdown-content :is(h1, h2, h3, h4),
+h1#_top {
+  font-family: var(--rsgo-font-display);
+  font-weight: 700;
+}
+
+/* Current page in the sidebar: turquoise surface with dark text (as primary buttons in the design) */
+.sidebar-content a[aria-current='page'] {
+  background-color: var(--sl-color-accent-low);
+  color: var(--sl-color-text-accent);
+  font-weight: 600;
+}
+
+/* Starlight's primary action buttons (e.g. on the docs start page): primary turquoise with dark text */
+.sl-link-button.primary {
+  background-color: #1AD3D6;
+  border-color: #1AD3D6;
+  color: #091012;
+}
+.sl-link-button.primary:hover {
+  background-color: #4CDCDF;
+  border-color: #4CDCDF;
+  color: #091012;
+}
+:root[data-theme='dark'] .sl-link-button.primary {
+  background-color: #00CED1;
+  border-color: #00CED1;
 }
 
 /* Hide "Auto" (system) option from theme selector - only show Light/Dark */

@@ -54,6 +54,13 @@ public class SystemConfig
     public bool IsWizardLocked { get; set; }
 
     /// <summary>
+    /// Default color theme of this installation (theme package id). Set once: "turquoise" when the
+    /// wizard completes, "classic" on the first start of an installation that was set up before the
+    /// theme packages existed. The operator setting Themes:Default wins over it.
+    /// </summary>
+    public string? DefaultTheme { get; set; }
+
+    /// <summary>
     /// Whether the user has dismissed the onboarding checklist on the dashboard.
     /// </summary>
     public bool OnboardingDismissed { get; set; }

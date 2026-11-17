@@ -1,4 +1,5 @@
 using ReadyStackGo.Application.UseCases.Containers;
+using ReadyStackGo.Domain.StackManagement.Stacks;
 
 namespace ReadyStackGo.Application.Services;
 
@@ -32,6 +33,13 @@ public interface IDockerService
     /// Stops a container in the specified environment.
     /// </summary>
     Task StopContainerAsync(string environmentId, string containerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Kills a container in the specified environment (SIGKILL, no grace period).
+    /// Escalation for a container that did not react to a stop — used by the maintenance
+    /// transition, which must not leave a container running.
+    /// </summary>
+    Task KillContainerAsync(string environmentId, string containerId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Tests the connection to a Docker host.
@@ -294,6 +302,12 @@ public class CreateContainerRequest
     /// Only used for Docker-type health checks with explicit test commands.
     /// </summary>
     public DockerHealthCheck? HealthCheck { get; set; }
+
+    /// <summary>
+    /// Log rotation override for this container. Fields left null (or the whole object) fall back to
+    /// RSGO's default log limit, so no container grows an unbounded log.
+    /// </summary>
+    public ServiceLogging? Logging { get; set; }
 }
 
 /// <summary>

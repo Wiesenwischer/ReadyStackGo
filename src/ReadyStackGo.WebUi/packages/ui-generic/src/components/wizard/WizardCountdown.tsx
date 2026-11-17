@@ -56,10 +56,10 @@ export default function WizardCountdown({ timeout, onTimeout }: WizardCountdownP
       <svg
         className={`w-5 h-5 ${
           isCritical
-            ? 'text-red-500 animate-pulse'
+            ? 'text-status-unhealthy animate-pulse'
             : isWarning
-            ? 'text-amber-500'
-            : 'text-gray-400 dark:text-gray-500'
+            ? 'text-status-degraded'
+            : 'text-fg-muted'
         }`}
         fill="none"
         stroke="currentColor"
@@ -78,26 +78,26 @@ export default function WizardCountdown({ timeout, onTimeout }: WizardCountdownP
         <span
           className={`text-sm font-medium ${
             isCritical
-              ? 'text-red-600 dark:text-red-400'
+              ? 'text-status-unhealthy'
               : isWarning
-              ? 'text-amber-600 dark:text-amber-400'
-              : 'text-gray-600 dark:text-gray-400'
+              ? 'text-status-degraded'
+              : 'text-fg'
           }`}
         >
           {formatTime(remainingSeconds)}
         </span>
-        <span className="text-xs text-gray-400 dark:text-gray-500">remaining</span>
+        <span className="text-xs text-fg-muted">remaining</span>
       </div>
 
       {/* Progress bar */}
-      <div className="w-24 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+      <div className="w-24 h-1.5 bg-line rounded-full overflow-hidden">
         <div
           className={`h-full transition-all duration-1000 ${
             isCritical
-              ? 'bg-red-500'
+              ? 'bg-status-unhealthy'
               : isWarning
-              ? 'bg-amber-500'
-              : 'bg-brand-500'
+              ? 'bg-status-degraded'
+              : 'bg-primary'
           }`}
           style={{ width: `${progressPercent}%` }}
         />

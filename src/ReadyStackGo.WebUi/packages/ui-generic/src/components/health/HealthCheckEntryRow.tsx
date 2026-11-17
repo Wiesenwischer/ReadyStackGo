@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { themedPresentation } from "../ui/statusTone";
 import { type HealthCheckEntryDto, getHealthStatusPresentation } from '@rsgo/core';
 
 interface HealthCheckEntryRowProps {
@@ -7,7 +8,7 @@ interface HealthCheckEntryRowProps {
 
 export default function HealthCheckEntryRow({ entry }: HealthCheckEntryRowProps) {
   const [showData, setShowData] = useState(false);
-  const presentation = getHealthStatusPresentation(entry.status);
+  const presentation = themedPresentation(getHealthStatusPresentation(entry.status));
   const hasData = entry.data && Object.keys(entry.data).length > 0;
   const hasExtra = hasData || entry.exception;
 

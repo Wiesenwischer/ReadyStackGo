@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { themedPresentation } from "../ui/statusTone";
 import { useEnvironment } from '../../context/EnvironmentContext';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -50,9 +51,9 @@ export default function HealthWidget({ className = '' }: HealthWidgetProps) {
   };
 
   const HealthStatusBadge = ({ status }: { status: string }) => {
-    const presentation = getHealthStatusPresentation(status);
+    const presentation = themedPresentation(getHealthStatusPresentation(status));
     return (
-      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${presentation.bgColor} ${presentation.textColor} dark:bg-opacity-20`}>
+      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${presentation.bgColor} ${presentation.textColor}`}>
         {presentation.label}
       </span>
     );
@@ -65,14 +66,14 @@ export default function HealthWidget({ className = '' }: HealthWidgetProps) {
     overallStatus: string;
     linkTo: string;
   }) => {
-    const presentation = getHealthStatusPresentation(overallStatus);
+    const presentation = themedPresentation(getHealthStatusPresentation(overallStatus));
     return (
       <Link
         to={linkTo}
         className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50 -mx-2 px-2 rounded transition-colors"
       >
         <div className="flex items-center gap-2 min-w-0">
-          <span className={`h-2 w-2 rounded-full flex-shrink-0 ${presentation.bgColor.replace('-100', '-500').replace('dark:bg-', '')}`} />
+          <span className={`h-2 w-2 rounded-full flex-shrink-0 ${presentation.dotColor}`} />
           <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
             {name}
           </span>
