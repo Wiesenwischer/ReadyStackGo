@@ -17,6 +17,7 @@ using ReadyStackGo.Infrastructure.Services.Deployment;
 using ReadyStackGo.Infrastructure.Services.Deployment.Precheck;
 using ReadyStackGo.Infrastructure.Services.Health;
 using ReadyStackGo.Infrastructure.Services.StackSources;
+using ReadyStackGo.Infrastructure.Services.Themes;
 using ReadyStackGo.Infrastructure.Tls;
 using ReadyStackGo.Infrastructure.LetsEncrypt;
 
@@ -75,6 +76,17 @@ public static class DependencyInjection
         // Source Registry (v0.24)
         services.AddSingleton<ISourceRegistryService, SourceRegistryService>();
 
+        // Theme packages (built-in wwwroot/themes plus optional operator directory Themes:Path)
+        services.Configure<ThemeOptions>(configuration.GetSection(ThemeOptions.SectionName));
+        services.AddSingleton<IThemeCatalog, ThemeCatalog>();
+
+        // Identity provider templates (embedded built-ins plus optional operator directory
+        // IdentityProviderTemplates:Path)
+        services.Configure<Services.IdentityProviders.IdentityProviderTemplateOptions>(
+            configuration.GetSection(Services.IdentityProviders.IdentityProviderTemplateOptions.SectionName));
+        services.AddSingleton<Application.Services.IdentityProviders.IIdentityProviderTemplateCatalog,
+            Services.IdentityProviders.IdentityProviderTemplateCatalog>();
+
         // Image Reference Extraction (v0.25)
         services.AddSingleton<IImageReferenceExtractor, ImageReferenceExtractor>();
 
@@ -112,29 +124,43 @@ public static class DependencyInjection
         services.AddScoped<IHealthCollectorService, HealthCollectorService>();
         services.AddSingleton<IHealthChangeTracker, HealthChangeTracker>();
 
-        // Maintenance Observers (v0.11)
+        // Maintenance Observers (v0.11) — the HTTP observer client is registered in
+        // AddInternalHttpClients (it targets a product endpoint and must bypass the proxy).
         services.AddSingleton<IMaintenanceObserverFactory, MaintenanceObserverFactory>();
         services.AddScoped<IMaintenanceObserverService, MaintenanceObserverService>();
 
-        // HTTP client for HTTP observer
-        services.AddHttpClient("MaintenanceObserver", client =>
-        {
-            client.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-MaintenanceObserver");
-        })
-        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-        {
-            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-        });
+        // Observer state (instances, last result, last check time) must survive the per-cycle scope
+        // of MaintenanceObserverBackgroundService — the service itself stays scoped because it
+        // depends on repositories and the mediator.
+        services.AddSingleton<IMaintenanceObserverStateStore, MaintenanceObserverStateStore>();
 
-        // Health check infrastructure services
-        services.AddHttpClient<IHttpHealthChecker, HttpHealthChecker>(client =>
-        {
-            client.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-HealthChecker");
-        })
-        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-        {
-            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-        });
+        // Reads database availability from master, so a SQL observer never connects to a database a
+        // product currently holds exclusively (see SqlDatabaseAvailabilityProbe).
+        services.AddSingleton<ISqlDatabaseAvailabilityProbe, SqlDatabaseAvailabilityProbe>();
+
+        // Maintenance Setter (mirror of the observer — propagates RSGO-initiated transitions)
+        services.AddSingleton<IMaintenanceSetterFactory, MaintenanceSetterFactory>();
+        services.AddScoped<IMaintenanceSetterService, Application.Services.Impl.MaintenanceSetterService>();
+
+        // Managed Maintenance Edge-Proxy (opt-in per manifest; dormant otherwise)
+        // Scoped: the provisioner depends on the scoped IDockerService — a singleton would be a
+        // captive dependency that ASP.NET Core scope validation rejects at startup.
+        services.AddScoped<Application.Services.Edge.IEdgeProvisioner, Services.Edge.EdgeProvisioner>();
+        services.AddSingleton<Application.Services.Edge.ICaddyAdminClient, Services.Edge.CaddyAdminClient>();
+        services.AddSingleton<Application.Services.Edge.IEdgeCertificateProvider, Services.Edge.EdgeCertificateProvider>();
+        services.AddSingleton<Application.Services.Edge.IEdgeBundleReader, Services.Edge.EdgeBundleReader>();
+        services.AddSingleton<Application.Services.Edge.IEdgeConfigCache, Application.Services.Edge.EdgeConfigCache>();
+        services.AddScoped<Application.Services.Edge.IEdgeReconciler, Application.Services.Impl.EdgeReconciler>();
+        services.AddScoped<Application.Services.Edge.IEdgeSettingsReconciler, Application.Services.Impl.EdgeSettingsReconciler>();
+        services.AddScoped<Application.Services.Edge.ISniRouterReconciler, Application.Services.Impl.SniRouterReconciler>();
+
+        // Internal/LAN HTTP clients — edge admin API, HTTP maintenance observer/setter, HTTP
+        // health checks and PRTG. All bypass any forward proxy (HTTP_PROXY/HTTPS_PROXY); see
+        // AddInternalHttpClients (issue #446).
+        services.AddInternalHttpClients();
+
+        // Health check infrastructure services (the HTTP checker client is registered in
+        // AddInternalHttpClients — it targets product containers and must bypass the proxy).
         services.AddSingleton<ITcpHealthChecker, TcpHealthChecker>();
 
         // Health check strategies (resolved by type via factory)
@@ -149,21 +175,8 @@ public static class DependencyInjection
         // are themselves Scoped, so no behavior changes.
         services.AddScoped<IHealthCheckStrategyFactory, HealthCheckStrategyFactory>();
 
-        // PRTG HTTP API client (Variant 3) — separate verify/no-verify-TLS clients
-        // so customers with self-signed PRTG certificates can opt out of cert
-        // validation per-connection (set on the PrtgConnection aggregate).
-        services.AddHttpClient("PrtgApiVerifyTls", c =>
-        {
-            c.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-PrtgClient");
-        });
-        services.AddHttpClient("PrtgApiNoVerifyTls", c =>
-        {
-            c.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-PrtgClient");
-        })
-        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-        {
-            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-        });
+        // PRTG HTTP API client (Variant 3): the verify / no-verify-TLS HttpClients are registered
+        // in AddInternalHttpClients — PRTG lives on the customer LAN and must bypass the proxy.
         services.AddSingleton<ReadyStackGo.Application.Services.IPrtgApiClient,
                               Services.Prtg.PrtgApiClient>();
 
@@ -180,11 +193,102 @@ public static class DependencyInjection
         // Notification Service (in-memory, singleton)
         services.AddSingleton<INotificationService, InMemoryNotificationService>();
 
+        // Email (SMTP via MailKit) and SMTP settings store
+        services.AddSingleton<Application.Services.Email.ISmtpSettingsService, Services.Email.SmtpSettingsService>();
+        services.AddSingleton<Application.Services.Email.IEmailService, Services.Email.SmtpEmailService>();
+
+        // OIDC settings store (the OIDC flow service itself is registered in AddSecurity)
+        services.AddSingleton<Application.Services.Oidc.IOidcSettingsService, Services.Oidc.OidcSettingsService>();
+
         // Domain Services
         services.AddScoped<SystemAdminRegistrationService>();
+        services.AddScoped<UsernameGenerator>();
+        services.AddScoped<Application.Services.Oidc.OidcAccountResolver>();
         services.AddScoped<OrganizationProvisioningService>();
         services.AddScoped<AuthenticationService>();
 
         return services;
     }
+
+    /// <summary>
+    /// Registers every HTTP client whose target is reachable directly — a product container on
+    /// the internal Docker network (edge admin API, HTTP maintenance observer/setter, HTTP health
+    /// checks) or the PRTG server on the customer LAN. All of these must bypass a forward proxy
+    /// (<c>HTTP_PROXY</c>/<c>HTTPS_PROXY</c>): routing an internal/LAN call through an internet
+    /// proxy makes it fail — issue #446, where the edge admin <c>/load</c> POST was hijacked by
+    /// the proxy, failed silently, and stranded the edge on its bootstrap holding page; the same
+    /// failure class hits health checks and the maintenance observer/setter. Clients that talk to
+    /// the public internet (registries, GitHub, Cloudflare) keep the default proxy behaviour and
+    /// are registered separately.
+    /// </summary>
+    public static IServiceCollection AddInternalHttpClients(this IServiceCollection services)
+    {
+        // Caddy admin API (edge container).
+        services.AddEdgeAdminHttpClient();
+
+        // HTTP maintenance observer — reads the product's flag from a product endpoint.
+        services.AddHttpClient("MaintenanceObserver", client =>
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-MaintenanceObserver");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => InternalHttpClientHandler(acceptAnyServerCert: true));
+
+        // Webhook maintenance setter — pushes the transition to a product endpoint.
+        services.AddHttpClient("MaintenanceSetter", client =>
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-MaintenanceSetter");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => InternalHttpClientHandler(acceptAnyServerCert: true));
+
+        // HTTP health checks against the deployed product containers.
+        services.AddHttpClient<IHttpHealthChecker, HttpHealthChecker>(client =>
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-HealthChecker");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => InternalHttpClientHandler(acceptAnyServerCert: true));
+
+        // PRTG monitoring API on the customer LAN — separate verify / no-verify-TLS clients so
+        // customers with self-signed PRTG certificates can opt out of cert validation per-connection.
+        services.AddHttpClient("PrtgApiVerifyTls", c =>
+        {
+            c.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-PrtgClient");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => InternalHttpClientHandler(acceptAnyServerCert: false));
+        services.AddHttpClient("PrtgApiNoVerifyTls", c =>
+        {
+            c.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-PrtgClient");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => InternalHttpClientHandler(acceptAnyServerCert: true));
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the named <see cref="System.Net.Http.HttpClient"/> used to talk to a product
+    /// edge's Caddy admin API. Container-internal — must bypass any forward proxy (issue #446).
+    /// </summary>
+    public static IServiceCollection AddEdgeAdminHttpClient(this IServiceCollection services)
+    {
+        services.AddHttpClient(Services.Edge.CaddyAdminClient.HttpClientName, client =>
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "ReadyStackGo-Edge");
+            client.Timeout = TimeSpan.FromSeconds(10);
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => InternalHttpClientHandler(acceptAnyServerCert: false));
+        return services;
+    }
+
+    /// <summary>
+    /// Primary handler for HTTP clients whose target is reachable directly (internal Docker
+    /// network or customer LAN). Sets <c>UseProxy = false</c> so a forward proxy configured via
+    /// <c>HTTP_PROXY</c>/<c>HTTPS_PROXY</c> can never hijack the call (issue #446), and optionally
+    /// accepts any server certificate (for self-signed product/PRTG endpoints).
+    /// </summary>
+    private static HttpClientHandler InternalHttpClientHandler(bool acceptAnyServerCert) => new()
+    {
+        UseProxy = false,
+        ServerCertificateCustomValidationCallback = acceptAnyServerCert
+            ? HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+            : null
+    };
 }

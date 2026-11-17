@@ -92,6 +92,28 @@ public class ConfigStore : IConfigStore
         await SaveConfigAsync("rsgo.release.json", config);
     }
 
+    public async Task<SmtpConfig> GetSmtpConfigAsync()
+    {
+        return await LoadConfigAsync<SmtpConfig>("rsgo.smtp.json")
+            ?? new SmtpConfig();
+    }
+
+    public async Task SaveSmtpConfigAsync(SmtpConfig config)
+    {
+        await SaveConfigAsync("rsgo.smtp.json", config);
+    }
+
+    public async Task<OidcConfig> GetOidcConfigAsync()
+    {
+        return await LoadConfigAsync<OidcConfig>("rsgo.oidc.json")
+            ?? new OidcConfig();
+    }
+
+    public async Task SaveOidcConfigAsync(OidcConfig config)
+    {
+        await SaveConfigAsync("rsgo.oidc.json", config);
+    }
+
     private async Task<T?> LoadConfigAsync<T>(string fileName) where T : class
     {
         var filePath = Path.Combine(_configPath, fileName);

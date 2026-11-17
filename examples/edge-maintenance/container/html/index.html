@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wartung — ams.project</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="card">
+    <img class="logo" src="./logo.svg" alt="ams.project" />
+    <div class="badge" id="badge">Wartung</div>
+    <h1 id="title">Geplante Wartung</h1>
+    <p id="body">Dieser Dienst ist vorübergehend wegen Wartungsarbeiten nicht erreichbar.
+      Bitte versuchen Sie es in Kürze erneut.</p>
+    <p class="meta" id="meta"></p>
+    <p class="support">Support: <a href="mailto:support@kunde.tld">support@kunde.tld</a></p>
+  </main>
+
+  <!-- Volle Kontrolle: eigener Container, eigene Assets (styles.css, logo.svg, ...).
+       Der Edge proxyt diese Seite im Wartungsfall; /__status liegt auf derselben Origin. -->
+  <script src="./status.js"></script>
+</body>
+</html>

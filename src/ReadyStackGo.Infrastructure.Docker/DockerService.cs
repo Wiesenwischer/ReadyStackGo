@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Docker.DotNet;
@@ -9,6 +10,7 @@ using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Containers;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.StackManagement.Stacks;
 
 namespace ReadyStackGo.Infrastructure.Docker;
 
@@ -41,6 +43,81 @@ public class DockerService : IDockerService, IDisposable
         _sshTunnelManager = sshTunnelManager;
         _credentialEncryptionService = credentialEncryptionService;
         _registryCredentialProvider = registryCredentialProvider;
+    }
+
+    /// <summary>
+    /// Built-in default log rotation for containers created by RSGO: 10 MB per file, 3 files (30 MB max).
+    /// Overridable per installation via <c>Docker:ContainerLogs:MaxSize</c> / <c>Docker:ContainerLogs:MaxFile</c>
+    /// (environment: <c>Docker__ContainerLogs__MaxSize</c>) and per service via the manifest key <c>logging</c>.
+    /// </summary>
+    internal sealed record ContainerLogDefaults(string? MaxSize, int? MaxFile)
+    {
+        public const string BuiltInMaxSize = "10m";
+        public const int BuiltInMaxFile = 3;
+
+        public static ContainerLogDefaults FromConfiguration(IConfiguration configuration)
+        {
+            var section = configuration.GetSection("Docker:ContainerLogs");
+
+            // An explicitly empty MaxSize switches the default off (daemon default applies).
+            var configuredSize = section["MaxSize"];
+            var maxSize = configuredSize is null
+                ? BuiltInMaxSize
+                : string.IsNullOrWhiteSpace(configuredSize) ? null
+                : ServiceLogging.IsValidMaxSize(configuredSize.Trim()) ? configuredSize.Trim()
+                : BuiltInMaxSize;
+
+            var maxFile = int.TryParse(section["MaxFile"], NumberStyles.None, CultureInfo.InvariantCulture, out var file) && file >= 1
+                ? file
+                : BuiltInMaxFile;
+
+            return new ContainerLogDefaults(maxSize, maxFile);
+        }
+    }
+
+    /// <summary>
+    /// Builds the container's log options: the manifest override wins per field, the default fills the rest.
+    /// Returns null when the daemon's own default should apply, i.e. when no limit is wanted, or when the
+    /// daemon's default driver does not rotate by size (journald, syslog, ...) and the manifest did not ask for one.
+    /// </summary>
+    internal static LogConfig? ResolveLogConfig(ServiceLogging? requested, ContainerLogDefaults defaults, string? daemonDriver)
+    {
+        var maxSize = requested?.MaxSize ?? defaults.MaxSize;
+        var maxFile = requested?.MaxFile ?? defaults.MaxFile;
+        if (maxSize is null && maxFile is null)
+            return null;
+
+        var daemonRotates = daemonDriver is "json-file" or "local";
+        var explicitlyRequested = requested is { MaxSize: not null } or { MaxFile: not null };
+        if (!daemonRotates && !explicitlyRequested)
+            return null;
+
+        var options = new Dictionary<string, string>();
+        if (maxSize is not null)
+            options["max-size"] = maxSize;
+        if (maxFile is not null)
+            options["max-file"] = maxFile.Value.ToString(CultureInfo.InvariantCulture);
+
+        return new LogConfig
+        {
+            Type = daemonRotates ? daemonDriver : "json-file",
+            Config = options
+        };
+    }
+
+    private async Task<string?> GetDaemonLoggingDriverAsync(DockerClient client, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var info = await client.System.GetSystemInfoAsync(cancellationToken);
+            return info.LoggingDriver;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Without the driver we cannot tell whether size limits are accepted: skip the default, never fail the deployment.
+            _logger.LogWarning(ex, "Could not read the Docker daemon's logging driver; no default log limit applied");
+            return null;
+        }
     }
 
     public async Task<IEnumerable<ContainerDto>> ListContainersAsync(string environmentId, CancellationToken cancellationToken = default)
@@ -112,6 +189,18 @@ public class DockerService : IDockerService, IDisposable
             cancellationToken);
 
         _logger.LogInformation("Stopped container {ContainerId} in environment {EnvironmentId}", containerId, environmentId);
+    }
+
+    public async Task KillContainerAsync(string environmentId, string containerId, CancellationToken cancellationToken = default)
+    {
+        var client = await GetDockerClientAsync(environmentId);
+
+        await client.Containers.KillContainerAsync(
+            containerId,
+            new ContainerKillParameters(),
+            cancellationToken);
+
+        _logger.LogWarning("Killed container {ContainerId} in environment {EnvironmentId}", containerId, environmentId);
     }
 
     public async Task<TestConnectionResult> TestConnectionAsync(string dockerHost, CancellationToken cancellationToken = default)
@@ -231,10 +320,29 @@ public class DockerService : IDockerService, IDisposable
                 PortBindings = portBindings,
                 Binds = binds,
                 RestartPolicy = restartPolicy,
-                NetworkMode = primaryNetwork
+                NetworkMode = primaryNetwork,
+                // Namespaced sysctls (e.g. edge TCP path-MTU probing). Only set when requested
+                // so unrelated containers keep the daemon defaults.
+                Sysctls = request.Sysctls.Count > 0
+                    ? new Dictionary<string, string>(request.Sysctls)
+                    : null
             },
             NetworkingConfig = networkingConfig
         };
+
+        // Bound the container log so a chatty service cannot fill the host disk.
+        var logConfig = ResolveLogConfig(
+            request.Logging,
+            ContainerLogDefaults.FromConfiguration(_configuration),
+            await GetDaemonLoggingDriverAsync(client, cancellationToken));
+        if (logConfig != null)
+            createParams.HostConfig.LogConfig = logConfig;
+
+        // Optional command/entrypoint overrides (e.g. the edge container's Caddy bootstrap).
+        if (request.Entrypoint is { Count: > 0 })
+            createParams.Entrypoint = request.Entrypoint;
+        if (request.Command is { Count: > 0 })
+            createParams.Cmd = request.Command;
 
         // Set Docker HEALTHCHECK if configured (from manifest/compose)
         if (request.HealthCheck != null)
@@ -300,8 +408,15 @@ public class DockerService : IDockerService, IDisposable
         _logger.LogInformation("Removed container {ContainerId} in environment {EnvironmentId}", containerId, environmentId);
     }
 
-    public async Task EnsureNetworkAsync(string environmentId, string networkName, CancellationToken cancellationToken = default)
+    public Task EnsureNetworkAsync(string environmentId, string networkName, CancellationToken cancellationToken = default)
+        => EnsureNetworkAsync(environmentId, networkName, mtu: null, cancellationToken);
+
+    public async Task EnsureNetworkAsync(string environmentId, string networkName, int? mtu, CancellationToken cancellationToken)
     {
+        // Docker bridge networks accept an MTU via the driver option below; the veth MTU it
+        // yields caps the edge's egress TCP segment size (used by the fixed-MSS edge mode).
+        const string MtuOption = "com.docker.network.driver.mtu";
+
         var client = await GetDockerClientAsync(environmentId);
 
         try
@@ -315,23 +430,48 @@ public class DockerService : IDockerService, IDisposable
                 }
             }, cancellationToken);
 
-            if (networks.Any(n => n.Name == networkName))
+            var existing = networks.FirstOrDefault(n => n.Name == networkName);
+            if (existing != null)
             {
-                _logger.LogDebug("Network {NetworkName} already exists in environment {EnvironmentId}",
-                    networkName, environmentId);
+                // Docker cannot change an existing network's MTU without recreating it (which
+                // would disrupt attached containers). Warn on a mismatch so the operator can act.
+                if (mtu.HasValue
+                    && existing.Options != null
+                    && existing.Options.TryGetValue(MtuOption, out var currentMtu)
+                    && currentMtu != mtu.Value.ToString(CultureInfo.InvariantCulture))
+                {
+                    _logger.LogWarning(
+                        "Network {NetworkName} already exists with MTU {CurrentMtu}; requested MTU {RequestedMtu} " +
+                        "will not be applied (recreation required). The fixed edge MSS may not take effect.",
+                        networkName, currentMtu, mtu.Value);
+                }
+                else
+                {
+                    _logger.LogDebug("Network {NetworkName} already exists in environment {EnvironmentId}",
+                        networkName, environmentId);
+                }
                 return;
             }
 
             // Create network
-            await client.Networks.CreateNetworkAsync(new NetworksCreateParameters
+            var createParams = new NetworksCreateParameters
             {
                 Name = networkName,
                 Driver = "bridge",
                 CheckDuplicate = true
-            }, cancellationToken);
+            };
+            if (mtu.HasValue)
+            {
+                createParams.Options = new Dictionary<string, string>
+                {
+                    [MtuOption] = mtu.Value.ToString(CultureInfo.InvariantCulture)
+                };
+            }
 
-            _logger.LogInformation("Created network {NetworkName} in environment {EnvironmentId}",
-                networkName, environmentId);
+            await client.Networks.CreateNetworkAsync(createParams, cancellationToken);
+
+            _logger.LogInformation("Created network {NetworkName} in environment {EnvironmentId}{MtuSuffix}",
+                networkName, environmentId, mtu.HasValue ? $" (MTU {mtu.Value})" : string.Empty);
         }
         catch (Exception ex)
         {
@@ -706,10 +846,24 @@ public class DockerService : IDockerService, IDisposable
         }
     }
 
-    public async Task<IReadOnlyList<string>> StopStackContainersAsync(
+    public Task<IReadOnlyList<string>> StopStackContainersAsync(
         string environmentId,
         string stackName,
         CancellationToken cancellationToken = default)
+        => StopStackContainersCoreAsync(environmentId, stackName, null, cancellationToken);
+
+    public Task<IReadOnlyList<string>> StopStackContainersAsync(
+        string environmentId,
+        string stackName,
+        Func<StackContainerProgress, Task> onContainerProgress,
+        CancellationToken cancellationToken = default)
+        => StopStackContainersCoreAsync(environmentId, stackName, onContainerProgress, cancellationToken);
+
+    private async Task<IReadOnlyList<string>> StopStackContainersCoreAsync(
+        string environmentId,
+        string stackName,
+        Func<StackContainerProgress, Task>? onContainerProgress,
+        CancellationToken cancellationToken)
     {
         _logger.LogInformation(
             "Stopping containers for stack {StackName} in environment {EnvironmentId}",
@@ -717,16 +871,22 @@ public class DockerService : IDockerService, IDisposable
 
         var containers = await ListContainersAsync(environmentId, cancellationToken);
         var stackContainers = containers
-            .Where(c => c.Labels.TryGetValue("rsgo.stack", out var stack) && stack == stackName)
-            .Where(c => !c.Labels.TryGetValue("rsgo.maintenance", out var mode) ||
-                        !mode.Equals("ignore", StringComparison.OrdinalIgnoreCase))
-            .Where(c => c.State == "running")
+            .Where(c => MaintenanceContainerFilter.BelongsToStack(c, stackName))
+            .Where(MaintenanceContainerFilter.ShouldStop)
             .ToList();
 
         var stoppedIds = new List<string>();
+        var index = 0;
 
         foreach (var container in stackContainers)
         {
+            index++;
+            if (onContainerProgress != null)
+            {
+                await onContainerProgress(new StackContainerProgress(
+                    NormalizeContainerName(container.Name), index, stackContainers.Count));
+            }
+
             try
             {
                 _logger.LogDebug("Stopping container {Name} ({Id})", container.Name, container.Id);
@@ -746,10 +906,24 @@ public class DockerService : IDockerService, IDisposable
         return stoppedIds;
     }
 
-    public async Task<IReadOnlyList<string>> StartStackContainersAsync(
+    public Task<IReadOnlyList<string>> StartStackContainersAsync(
         string environmentId,
         string stackName,
         CancellationToken cancellationToken = default)
+        => StartStackContainersCoreAsync(environmentId, stackName, null, cancellationToken);
+
+    public Task<IReadOnlyList<string>> StartStackContainersAsync(
+        string environmentId,
+        string stackName,
+        Func<StackContainerProgress, Task> onContainerProgress,
+        CancellationToken cancellationToken = default)
+        => StartStackContainersCoreAsync(environmentId, stackName, onContainerProgress, cancellationToken);
+
+    private async Task<IReadOnlyList<string>> StartStackContainersCoreAsync(
+        string environmentId,
+        string stackName,
+        Func<StackContainerProgress, Task>? onContainerProgress,
+        CancellationToken cancellationToken)
     {
         _logger.LogInformation(
             "Starting containers for stack {StackName} in environment {EnvironmentId}",
@@ -757,16 +931,22 @@ public class DockerService : IDockerService, IDisposable
 
         var containers = await ListContainersAsync(environmentId, cancellationToken);
         var stackContainers = containers
-            .Where(c => c.Labels.TryGetValue("rsgo.stack", out var stack) && stack == stackName)
-            .Where(c => !c.Labels.TryGetValue("rsgo.maintenance", out var mode) ||
-                        !mode.Equals("ignore", StringComparison.OrdinalIgnoreCase))
-            .Where(c => c.State == "exited" || c.State == "created")
+            .Where(c => MaintenanceContainerFilter.BelongsToStack(c, stackName))
+            .Where(MaintenanceContainerFilter.ShouldStart)
             .ToList();
 
         var startedIds = new List<string>();
+        var index = 0;
 
         foreach (var container in stackContainers)
         {
+            index++;
+            if (onContainerProgress != null)
+            {
+                await onContainerProgress(new StackContainerProgress(
+                    NormalizeContainerName(container.Name), index, stackContainers.Count));
+            }
+
             try
             {
                 _logger.LogDebug("Starting container {Name} ({Id})", container.Name, container.Id);
@@ -785,6 +965,10 @@ public class DockerService : IDockerService, IDisposable
 
         return startedIds;
     }
+
+    // Docker container names are often reported with a leading slash; strip it for display.
+    private static string NormalizeContainerName(string name) =>
+        name.StartsWith('/') ? name[1..] : name;
 
     public async Task<int?> GetContainerExitCodeAsync(string environmentId, string containerId, CancellationToken cancellationToken = default)
     {

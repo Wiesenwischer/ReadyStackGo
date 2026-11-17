@@ -12,8 +12,10 @@ Here you'll find detailed guides for using ReadyStackGo.
 - [Registry Management](/en/docs/configuration/registry-management/) - Manage Docker Registries and configure Image Patterns
 - [Stack Sources](/en/docs/configuration/stack-sources/) - Manage stack sources – catalog, import/export, and onboarding
 - [CI/CD Integration](/en/docs/configuration/ci-cd-integration/) - Automated deployments via API keys and webhooks
+- [User Access, Email & SSO](/en/docs/configuration/user-access/) - Invite users, verify email, sign in by email/username, and single sign-on (OIDC)
 - [Self-Update](/en/docs/system/self-update/) - Update ReadyStackGo with a single click
 - [Product Deployment](/en/docs/deployments/product-deployment/) - Deploy entire products with all stacks in a single operation
+- [Product Updates & Release Notes](/en/docs/configuration/product-release-notes/) - Surface update availability and read release notes (CHANGELOG.md / releaseNotesUrl) in the UI
 - [Product Redeploy](/en/docs/deployments/product-redeploy/) - Redeploy products with real-time per-stack progress tracking
 - [Volume Management](/en/docs/monitoring/volume-management/) - Manage Docker Volumes and clean up orphaned volumes
 - [Container Management](/en/docs/monitoring/container-management/) - Monitor, control, and view logs for all Docker containers
@@ -22,6 +24,7 @@ Here you'll find detailed guides for using ReadyStackGo.
 - [Custom Distributions](/en/docs/system/distributions/) - Run RSGO with your own corporate design — build a branded deployment platform for your company
 - [Health Monitoring](/en/docs/monitoring/health-monitoring/) - Real-time monitoring of all deployments with status dashboard and health history timeline
 - [Maintenance Mode](/en/docs/monitoring/maintenance-mode/) - Put products into maintenance mode and release them in a controlled manner
+- [Maintenance Edge-Proxy](/en/docs/configuration/maintenance-edge-proxy/) - A surviving per-product reverse-proxy with a controlled maintenance page and machine-readable status during redeploy and maintenance
 - [Deployment Precheck](/en/docs/deployments/deployment-precheck/) - Automatic infrastructure validation before deployment
 - [OCI Stack Bundles](/en/docs/configuration/oci-stack-bundles/) - Pull stacks from Docker/OCI registries with lock files and CI/CD integration
 - [SNMP Monitoring](/en/docs/monitoring/snmp/) - Built-in SNMP agent: poll every deployment from Nagios, Zabbix, PRTG, or `snmpwalk`, with v3 USM and traps

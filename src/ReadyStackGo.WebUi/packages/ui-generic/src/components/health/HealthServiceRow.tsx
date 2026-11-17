@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { themedPresentation } from "../ui/statusTone";
 import { Link } from 'react-router';
 import { type ServiceHealthDto, getHealthStatusPresentation } from '@rsgo/core';
 import HealthCheckEntryRow from './HealthCheckEntryRow';
@@ -10,7 +11,7 @@ interface HealthServiceRowProps {
 
 export default function HealthServiceRow({ service, deploymentId }: HealthServiceRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const presentation = getHealthStatusPresentation(service.status);
+  const presentation = themedPresentation(getHealthStatusPresentation(service.status));
   const hasEntries = service.healthCheckEntries && service.healthCheckEntries.length > 0;
 
   return (

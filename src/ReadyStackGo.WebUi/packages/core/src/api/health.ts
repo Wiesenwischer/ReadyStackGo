@@ -364,6 +364,11 @@ export interface ChangeProductOperationModeRequest {
   mode: 'Normal' | 'Maintenance';
   reason?: string;
   source?: string;
+  /**
+   * Optional SignalR session id. When provided, the server streams per-stack and
+   * per-container progress to the "deployment:{sessionId}" group during the transition.
+   */
+  sessionId?: string;
 }
 
 export interface ChangeProductOperationModeResponse {
@@ -395,9 +400,13 @@ export async function changeProductOperationMode(
 export async function enterProductMaintenanceMode(
   environmentId: string,
   productDeploymentId: string,
-  reason?: string
+  options?: { reason?: string; sessionId?: string }
 ): Promise<ChangeProductOperationModeResponse> {
-  return changeProductOperationMode(environmentId, productDeploymentId, { mode: 'Maintenance', reason });
+  return changeProductOperationMode(environmentId, productDeploymentId, {
+    mode: 'Maintenance',
+    reason: options?.reason,
+    sessionId: options?.sessionId,
+  });
 }
 
 /**
@@ -405,7 +414,11 @@ export async function enterProductMaintenanceMode(
  */
 export async function exitProductMaintenanceMode(
   environmentId: string,
-  productDeploymentId: string
+  productDeploymentId: string,
+  options?: { sessionId?: string }
 ): Promise<ChangeProductOperationModeResponse> {
-  return changeProductOperationMode(environmentId, productDeploymentId, { mode: 'Normal' });
+  return changeProductOperationMode(environmentId, productDeploymentId, {
+    mode: 'Normal',
+    sessionId: options?.sessionId,
+  });
 }

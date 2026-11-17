@@ -252,6 +252,8 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
         var productCategory = manifest.Metadata?.Category;
         var productTags = manifest.Metadata?.Tags;
         var maintenanceObserver = manifest.Maintenance?.Observer;
+        var maintenanceSetter = manifest.Maintenance?.Setter;
+        var edge = manifest.Edge;
         var version = ComputeHash(yamlContent);
         var stacks = new List<StackDefinition>();
 
@@ -284,6 +286,12 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
                 productName, stack.Variables.Count, stack.Services.Count);
         }
 
+        // Release notes: explicit URL from the manifest, plus optional CHANGELOG.md files
+        // sitting next to the manifest. A language-neutral CHANGELOG.md is the default/
+        // fallback; CHANGELOG.<locale>.md files provide localized variants (e.g. de/en).
+        var releaseNotesUrl = manifest.Metadata?.ReleaseNotesUrl;
+        var (changelogMarkdown, localizedChangelogs) = TryReadChangelogs(filePath);
+
         return new ProductDefinition(
             sourceId: sourceId,
             name: productName,
@@ -296,7 +304,63 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
             maintenanceObserver: maintenanceObserver,
             filePath: filePath,
             relativePath: relativePath,
-            productId: manifest.Metadata?.ProductId);
+            productId: manifest.Metadata?.ProductId,
+            releaseNotesUrl: releaseNotesUrl,
+            changelogMarkdown: changelogMarkdown,
+            maintenanceSetter: maintenanceSetter,
+            edge: edge,
+            localizedChangelogs: localizedChangelogs);
+    }
+
+    // Matches a localized changelog file name: CHANGELOG.<locale>.md, where locale is a
+    // language code, optionally with a region (e.g. "de", "en", "de-DE", "pt-BR").
+    private static readonly System.Text.RegularExpressions.Regex LocalizedChangelogPattern =
+        new(@"^CHANGELOG\.([A-Za-z]{2}(?:-[A-Za-z]{2})?)\.md$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// Reads the changelog files sitting next to the manifest. Returns the language-neutral
+    /// CHANGELOG.md content (or null) and a map of localized CHANGELOG.&lt;locale&gt;.md
+    /// contents keyed by lowercase language code. Best-effort: missing files or read errors
+    /// yield null / an empty map rather than throwing.
+    /// </summary>
+    private (string? Plain, IReadOnlyDictionary<string, string> Localized) TryReadChangelogs(string? manifestFilePath)
+    {
+        var empty = (string?)null;
+        var localized = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrEmpty(manifestFilePath))
+            return (empty, localized);
+
+        try
+        {
+            var directory = Path.GetDirectoryName(manifestFilePath);
+            if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
+                return (empty, localized);
+
+            var plainPath = Path.Combine(directory, "CHANGELOG.md");
+            var plain = File.Exists(plainPath) ? File.ReadAllText(plainPath) : null;
+
+            foreach (var file in Directory.EnumerateFiles(directory, "CHANGELOG.*.md"))
+            {
+                var match = LocalizedChangelogPattern.Match(Path.GetFileName(file));
+                if (!match.Success)
+                    continue;
+
+                var locale = match.Groups[1].Value.ToLowerInvariant();
+                localized[locale] = File.ReadAllText(file);
+            }
+
+            return (plain, localized);
+        }
+        catch (IOException)
+        {
+            return (empty, localized);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return (empty, localized);
+        }
     }
 
     /// <summary>
@@ -509,7 +573,10 @@ public class LocalDirectoryProductSourceProvider : IProductSourceProvider
             User = service.User,
             HealthCheck = service.HealthCheck != null ? ConvertToServiceHealthCheck(service.HealthCheck) : null,
             Lifecycle = service.Lifecycle,
-            InitTimeoutSeconds = service.InitTimeoutSeconds
+            InitTimeoutSeconds = service.InitTimeoutSeconds,
+            Logging = service.Logging != null
+                ? new ServiceLogging { MaxSize = service.Logging.MaxSize, MaxFile = service.Logging.MaxFile }
+                : null
         };
     }
 

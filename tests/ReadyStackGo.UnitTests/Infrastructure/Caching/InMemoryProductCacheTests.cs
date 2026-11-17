@@ -183,6 +183,32 @@ public class InMemoryProductCacheTests
     }
 
     [Fact]
+    public void GetAvailableUpgrades_OnlyWithinSameChannel()
+    {
+        // A -ci deployment must not be "upgraded" to a -preview build (different channel),
+        // only to a newer -ci build. (Regression: 4.0.0-preview.1 offered over 4.0.0-ci.)
+        _cache.Set(CreateProduct("local", "Whoami", "4.0.0-ci"));
+        _cache.Set(CreateProduct("local", "Whoami", "4.0.0-preview.1"));
+        _cache.Set(CreateProduct("local", "Whoami", "4.0.1-ci"));
+
+        var upgrades = _cache.GetAvailableUpgrades("local:Whoami", "4.0.0-ci").ToList();
+
+        upgrades.Should().ContainSingle();
+        upgrades[0].ProductVersion.Should().Be("4.0.1-ci");
+        upgrades.Should().NotContain(p => p.ProductVersion == "4.0.0-preview.1");
+    }
+
+    [Fact]
+    public void GetAvailableUpgrades_NoCrossChannelUpgrade_ReturnsEmpty()
+    {
+        // Exactly the reported case: deployed 4.0.0-ci, catalog also has 4.0.0-preview.1.
+        _cache.Set(CreateProduct("local", "Whoami", "4.0.0-ci"));
+        _cache.Set(CreateProduct("local", "Whoami", "4.0.0-preview.1"));
+
+        _cache.GetAvailableUpgrades("local:Whoami", "4.0.0-ci").Should().BeEmpty();
+    }
+
+    [Fact]
     public void GetAvailableUpgrades_ReturnsEmptyWhenOnLatest()
     {
         // Arrange

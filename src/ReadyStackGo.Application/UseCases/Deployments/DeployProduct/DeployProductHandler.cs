@@ -2,10 +2,12 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using ReadyStackGo.Application.Notifications;
 using ReadyStackGo.Application.Services;
+using ReadyStackGo.Application.Services.Edge;
 using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.ProductDeployments;
+using ReadyStackGo.Domain.StackManagement.Manifests;
 
 namespace ReadyStackGo.Application.UseCases.Deployments.DeployProduct;
 
@@ -22,6 +24,7 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
     private readonly INotificationService? _inAppNotificationService;
     private readonly ILogger<DeployProductHandler> _logger;
     private readonly TimeProvider _timeProvider;
+    private readonly IEdgeBundleReader? _edgeBundleReader;
 
     public DeployProductHandler(
         IProductSourceService productSourceService,
@@ -30,7 +33,8 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
         ILogger<DeployProductHandler> logger,
         IDeploymentNotificationService? notificationService = null,
         INotificationService? inAppNotificationService = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IEdgeBundleReader? edgeBundleReader = null)
     {
         _productSourceService = productSourceService;
         _repository = repository;
@@ -39,6 +43,7 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
         _notificationService = notificationService;
         _inAppNotificationService = inAppNotificationService;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _edgeBundleReader = edgeBundleReader;
     }
 
     public async Task<DeployProductResponse> Handle(DeployProductCommand request, CancellationToken cancellationToken)
@@ -105,12 +110,14 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
 
             var mergedVariables = MergeVariables(stackDef, request.SharedVariables, reqStack.Variables);
 
+            // The full set is deployed further down; only the values the user allowed to be kept are
+            // written to the aggregate.
             stackConfigs.Add(new StackDeploymentConfig(
                 stackDef.Name,
                 stackDef.Name,
                 reqStack.StackId,
                 stackDef.Services.Count,
-                mergedVariables));
+                VariableStorageFilter.ForStorage(mergedVariables, request.ExcludeFromStorage)));
         }
 
         // 5. Create ProductDeployment aggregate
@@ -130,8 +137,12 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
             deployedBy,
             request.DeploymentName,
             stackConfigs,
-            request.SharedVariables,
+            VariableStorageFilter.ForStorage(request.SharedVariables, request.ExcludeFromStorage),
             request.ContinueOnError);
+
+        // Record which variables hold secrets, so read paths can withhold their values without
+        // having to resolve the product source again.
+        productDeployment.SetSecretVariableNames(CollectSecretVariableNames(product));
 
         // Resolve and attach the product-level maintenance observer config.
         // Without this the MaintenanceObserverService has no config to poll.
@@ -158,6 +169,43 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
                         reason: "the manifest references variables that are not defined as shared variables for this product"),
                     cancellationToken);
             }
+        }
+
+        // Resolve and attach the product-level maintenance setter config (mirror of observer).
+        var setterConfig = MaintenanceSetterConfigMapper.Map(
+            product.MaintenanceSetter, request.SharedVariables);
+        if (setterConfig != null)
+        {
+            productDeployment.SetMaintenanceSetterConfig(setterConfig);
+            _logger.LogInformation(
+                "Product deployment {ProductDeploymentId} wired maintenance setter type={SetterType}",
+                productDeploymentId, setterConfig.Type);
+        }
+
+        // Resolve and attach the optional product-level edge config. Null = feature inert,
+        // so products without an enabled edge: block behave exactly as before.
+        // For bundle branding, read the maintenance HTML from the manifest repo now so the
+        // reconciler stays manifest-free.
+        string? edgeBundleHtml = null;
+        if (_edgeBundleReader != null &&
+            string.Equals(product.Edge?.MaintenancePage?.Mode, "bundle", StringComparison.OrdinalIgnoreCase))
+        {
+            edgeBundleHtml = await _edgeBundleReader.ReadBundleHtmlAsync(
+                product.FilePath, product.Edge!.MaintenancePage!.BundlePath, cancellationToken);
+        }
+        var edgeConfig = EdgeConfigMapper.Map(product.Edge, request.SharedVariables, edgeBundleHtml);
+        if (edgeConfig != null)
+        {
+            productDeployment.SetEdgeConfig(edgeConfig);
+            _logger.LogInformation(
+                "Product deployment {ProductDeploymentId} wired managed edge for host {Hostname} -> {Upstream}:{Port}",
+                productDeploymentId, edgeConfig.PublicHostname, edgeConfig.UpstreamService, edgeConfig.UpstreamPort);
+        }
+        else if (product.Edge is { Enabled: true })
+        {
+            _logger.LogWarning(
+                "Product {ProductName} declares an enabled edge: block but it could not be resolved (unresolved variables or invalid values) — edge disabled",
+                product.Name);
         }
 
         _repository.Add(productDeployment);
@@ -209,7 +257,8 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
                     stackDeploymentName,
                     new Dictionary<string, string>(mergedVariables),
                     sessionId,
-                    SuppressNotification: true), cancellationToken);
+                    SuppressNotification: true,
+                    ExcludeFromStorage: request.ExcludeFromStorage), cancellationToken);
             }
             catch (Exception ex)
             {
@@ -305,6 +354,19 @@ public class DeployProductHandler : IRequestHandler<DeployProductCommand, Deploy
             StackResults = stackResults
         };
     }
+
+    /// <summary>
+    /// Variable names across all of a product's stacks whose type carries a secret (passwords and
+    /// connection strings). Recorded on the deployment so read paths never need the product source.
+    /// </summary>
+    internal static IReadOnlyList<string> CollectSecretVariableNames(
+        Domain.StackManagement.Stacks.ProductDefinition product)
+        => product.Stacks
+            .SelectMany(s => s.Variables)
+            .Where(v => v.Type.IsSecret())
+            .Select(v => v.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
     private static Dictionary<string, string> MergeVariables(
         Domain.StackManagement.Stacks.StackDefinition stackDef,

@@ -464,4 +464,31 @@ public class NotificationFactoryTests
         notification.Metadata["daysRemaining"].Should().Be("14");
         notification.Metadata["threshold"].Should().Be("ABC123:14");
     }
+
+    // --- CreateProductUpdateAvailable ---
+
+    [Fact]
+    public void CreateProductUpdateAvailable_SetsTypeSeverityAndAction()
+    {
+        var notification = NotificationFactory.CreateProductUpdateAvailable(
+            productName: "ams.project", currentVersion: "1.0.0", latestVersion: "1.1.0",
+            productDeploymentId: "pd-123");
+
+        notification.Type.Should().Be(NotificationType.ProductUpdateAvailable);
+        notification.Severity.Should().Be(NotificationSeverity.Info);
+        notification.ActionUrl.Should().Be("/product-deployments/pd-123");
+        notification.Message.Should().Contain("1.0.0");
+        notification.Message.Should().Contain("1.1.0");
+    }
+
+    [Fact]
+    public void CreateProductUpdateAvailable_DedupKeyIsDeploymentAndVersion()
+    {
+        var notification = NotificationFactory.CreateProductUpdateAvailable(
+            "ams.project", "1.0.0", "1.1.0", "pd-123");
+
+        notification.Metadata["dedupKey"].Should().Be("pd-123:1.1.0");
+        notification.Metadata["latestVersion"].Should().Be("1.1.0");
+        NotificationFactory.ProductUpdateDedupKey("pd-123", "1.1.0").Should().Be("pd-123:1.1.0");
+    }
 }

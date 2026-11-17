@@ -48,8 +48,8 @@ main
    - Falls `$ARGUMENTS` leer ist, nimm das Feature mit der **höchsten Priorität** (niedrigste Priority-Nummer) im Status "Todo".
    - Alternativ: `gh issue list --label epic --state open --json number,title,milestone`
 2. Lies die **Projektrichtlinien** (`CLAUDE.md`) für Branch-Konventionen, Commit-Regeln und Test-Anforderungen.
-3. **Prüfe ob bereits eine Specification/Plan-Datei existiert** in `docs/Plans/`:
-   - Das Epic Issue enthält einen Link zur PLAN-Datei (z.B. "See [PLAN-xyz.md](docs/Plans/PLAN-xyz.md)")
+3. **Prüfe ob bereits eine Specification/Plan-Datei existiert** in `docs/plans/`:
+   - Das Epic Issue enthält einen Link zur PLAN-Datei (z.B. "See [PLAN-xyz.md](docs/plans/PLAN-xyz.md)")
    - **Falls vorhanden: Lies die Spec VOLLSTÄNDIG** – sie enthält Architektur-Entscheidungen, Feature-Aufteilung, betroffene Dateien, Abhängigkeiten und Test-Anforderungen
    - Die Spec ist die **primäre Quelle** für den Implementierungsplan. Erstelle keinen neuen Plan wenn eine Spec existiert – nutze sie als Basis
    - Falls keine Spec existiert: Erstelle eine neue Planungsdatei in Schritt 2
@@ -70,9 +70,9 @@ main
 
 Bevor irgendwelcher Code geschrieben wird, muss eine **Planungsdatei** für die Phase erstellt werden.
 
-### Planungsdatei anlegen: `docs/Plans/PLAN-<phase-name>.md`
+### Planungsdatei anlegen: `docs/plans/PLAN-<phase-name>.md`
 
-Beispiel: `docs/Plans/PLAN-init-container-ux.md`
+Beispiel: `docs/plans/PLAN-init-container-ux.md`
 
 Die Planungsdatei enthält:
 

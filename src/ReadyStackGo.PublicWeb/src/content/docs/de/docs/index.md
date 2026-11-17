@@ -12,8 +12,10 @@ Hier finden Sie detaillierte Anleitungen zur Nutzung von ReadyStackGo.
 - [Registry Management](/de/docs/configuration/registry-management/) - Docker Registries verwalten und Image Patterns konfigurieren
 - [Stack Sources](/de/docs/configuration/stack-sources/) - Stack-Quellen verwalten – Katalog, Import/Export und Onboarding
 - [CI/CD Integration](/de/docs/configuration/ci-cd-integration/) - Automatisierte Deployments über API Keys und Webhooks
+- [Benutzerzugang, E-Mail & SSO](/de/docs/configuration/user-access/) - Benutzer einladen, E-Mail verifizieren, Login per E-Mail/Username und Single Sign-On (OIDC)
 - [Self-Update](/de/docs/system/self-update/) - ReadyStackGo per Knopfdruck aktualisieren
 - [Product Deployment](/de/docs/deployments/product-deployment/) - Ganze Produkte mit allen Stacks in einem Vorgang deployen
+- [Produkt-Updates & Release Notes](/de/docs/configuration/product-release-notes/) - Update-Verfügbarkeit anzeigen und Release Notes (CHANGELOG.md / releaseNotesUrl) im UI lesen
 - [Product Redeploy](/de/docs/deployments/product-redeploy/) - Produkte mit Echtzeit-Fortschrittsanzeige pro Stack neu deployen
 - [Volume Management](/de/docs/monitoring/volume-management/) - Docker Volumes verwalten und verwaiste Volumes bereinigen
 - [Container Management](/de/docs/monitoring/container-management/) - Alle Docker-Container überwachen, steuern und Logs einsehen
@@ -22,6 +24,7 @@ Hier finden Sie detaillierte Anleitungen zur Nutzung von ReadyStackGo.
 - [Custom Distributions](/de/docs/system/distributions/) - RSGO mit eigenem Corporate Design betreiben — gebrandete Deployment-Plattform für Unternehmen
 - [Health Monitoring](/de/docs/monitoring/health-monitoring/) - Echtzeit-Überwachung aller Deployments mit Status-Dashboard und Health History Timeline
 - [Maintenance Mode](/de/docs/monitoring/maintenance-mode/) - Produkte in den Wartungsmodus versetzen und kontrolliert wieder freigeben
+- [Maintenance Edge-Proxy](/de/docs/configuration/maintenance-edge-proxy/) - Überlebender Reverse-Proxy pro Produkt mit kontrollierter Wartungsseite und maschinenlesbarem Status während Redeploy und Wartung
 - [Deployment Precheck](/de/docs/deployments/deployment-precheck/) - Automatische Infrastruktur-Prüfungen vor dem Deployment
 - [OCI Stack Bundles](/de/docs/configuration/oci-stack-bundles/) - Stacks aus Docker/OCI Registries laden mit Lock Files und CI/CD Integration
 - [SNMP Monitoring](/de/docs/monitoring/snmp/) - Eingebauter SNMP-Agent: Deployments aus Nagios, Zabbix, PRTG oder per `snmpwalk` auslesen, mit v3-USM und Traps

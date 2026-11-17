@@ -73,10 +73,54 @@ public class ProductDefinition
     public string? Documentation { get; }
 
     /// <summary>
+    /// Optional URL to external release notes for this version (rendered as a link).
+    /// </summary>
+    public string? ReleaseNotesUrl { get; }
+
+    /// <summary>
+    /// Optional release-notes markdown, loaded from a language-neutral CHANGELOG.md next to
+    /// the manifest. Preferred over <see cref="ReleaseNotesUrl"/> when present and used as the
+    /// fallback when no localized changelog matches the requested language.
+    /// </summary>
+    public string? ChangelogMarkdown { get; }
+
+    /// <summary>
+    /// Localized release-notes markdown, keyed by lowercase language code (e.g. "de", "en"),
+    /// loaded from CHANGELOG.&lt;locale&gt;.md files next to the manifest. Empty when the product
+    /// ships only a language-neutral CHANGELOG.md (or none).
+    /// </summary>
+    public IReadOnlyDictionary<string, string> LocalizedChangelogs { get; }
+
+    /// <summary>
+    /// Language codes for which a localized changelog exists, sorted for stable UI ordering.
+    /// Drives the language selector in the release-notes viewer.
+    /// </summary>
+    public IReadOnlyList<string> AvailableChangelogLocales =>
+        LocalizedChangelogs.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase).ToList();
+
+    /// <summary>True if any release-notes source (URL or changelog) is available.</summary>
+    public bool HasReleaseNotes =>
+        !string.IsNullOrWhiteSpace(ReleaseNotesUrl)
+        || !string.IsNullOrWhiteSpace(ChangelogMarkdown)
+        || LocalizedChangelogs.Count > 0;
+
+    /// <summary>
     /// Maintenance observer configuration for this product.
     /// Used to detect maintenance mode across all stacks in this product.
     /// </summary>
     public RsgoMaintenanceObserver? MaintenanceObserver { get; }
+
+    /// <summary>
+    /// Maintenance setter configuration for this product.
+    /// Used to propagate RSGO-initiated maintenance transitions back to the product.
+    /// </summary>
+    public RsgoMaintenanceSetter? MaintenanceSetter { get; }
+
+    /// <summary>
+    /// Optional edge configuration for this product (managed reverse-proxy / maintenance edge).
+    /// Null or disabled means the edge feature is inert for this product.
+    /// </summary>
+    public RsgoEdge? Edge { get; }
 
     /// <summary>
     /// Whether this product contains multiple stacks.
@@ -128,7 +172,12 @@ public class ProductDefinition
         RsgoMaintenanceObserver? maintenanceObserver = null,
         string? filePath = null,
         string? relativePath = null,
-        string? productId = null)
+        string? productId = null,
+        string? releaseNotesUrl = null,
+        string? changelogMarkdown = null,
+        RsgoMaintenanceSetter? maintenanceSetter = null,
+        RsgoEdge? edge = null,
+        IReadOnlyDictionary<string, string>? localizedChangelogs = null)
     {
         if (string.IsNullOrWhiteSpace(sourceId))
             throw new ArgumentException("SourceId cannot be empty.", nameof(sourceId));
@@ -149,7 +198,14 @@ public class ProductDefinition
         Tags = (tags?.ToList() ?? new List<string>()).AsReadOnly();
         Icon = icon;
         Documentation = documentation;
+        ReleaseNotesUrl = releaseNotesUrl;
+        ChangelogMarkdown = changelogMarkdown;
+        LocalizedChangelogs = localizedChangelogs != null
+            ? new Dictionary<string, string>(localizedChangelogs, StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         MaintenanceObserver = maintenanceObserver;
+        MaintenanceSetter = maintenanceSetter;
+        Edge = edge;
         FilePath = filePath;
         RelativePath = relativePath;
 

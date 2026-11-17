@@ -2,10 +2,12 @@ namespace ReadyStackGo.Domain.Deployment.ProductDeployments;
 
 using System.Text.RegularExpressions;
 using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Edge;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Domain.Deployment.Observers;
 using ReadyStackGo.Domain.SharedKernel;
+using ReadyStackGo.Domain.StackManagement.Manifests;
 
 /// <summary>
 /// Aggregate root representing a product-level deployment.
@@ -63,6 +65,15 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     private readonly Dictionary<string, string> _sharedVariables = new();
     public IReadOnlyDictionary<string, string> SharedVariables => _sharedVariables;
 
+    // ── Secret Variables ─────────────────────────────────────────────
+    // Names of variables whose values must never be returned to a client, recorded from the product
+    // definition at deploy/upgrade time. Kept on the deployment so read paths never have to resolve
+    // the product source (which can be remote, slow, or unavailable) just to answer "may I show
+    // this?". Empty for deployments created before this was recorded — read paths fall back to
+    // judging by name.
+    private readonly HashSet<string> _secretVariableNames = new(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlySet<string> SecretVariableNames => _secretVariableNames;
+
     // ── Upgrade Tracking ─────────────────────────────────────────────
     public string? PreviousVersion { get; private set; }
     public DateTime? LastUpgradedAt { get; private set; }
@@ -72,6 +83,15 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     public OperationMode OperationMode { get; private set; } = OperationMode.Normal;
     public MaintenanceTrigger? MaintenanceTrigger { get; private set; }
     public MaintenanceObserverConfig? MaintenanceObserverConfig { get; private set; }
+    public MaintenanceSetterConfig? MaintenanceSetterConfig { get; private set; }
+
+    // ── Edge (Maintenance Edge-Proxy) ──────────────────────────────
+    /// <summary>
+    /// Optional resolved edge configuration. When set, RSGO runs a managed reverse-proxy
+    /// ("edge") container for this product that survives redeploys and serves a maintenance
+    /// page + status while the product is down. Null = feature inert for this product.
+    /// </summary>
+    public EdgeConfig? EdgeConfig { get; private set; }
 
     // ── PRTG Integration (Variant 3 — PrtgConnection-Resource) ─────
     /// <summary>
@@ -867,12 +887,57 @@ public class ProductDeployment : AggregateRoot<ProductDeploymentId>
     // ═══════════════════════════════════════════════════════════════════
 
     /// <summary>
+    /// Records which variable names hold secret values, taken from the product definition at
+    /// deploy/upgrade time. Replaces any previously recorded set, so a variable that stops being a
+    /// secret in a newer product version stops being withheld.
+    /// </summary>
+    public void SetSecretVariableNames(IEnumerable<string>? names)
+    {
+        _secretVariableNames.Clear();
+
+        if (names == null) return;
+
+        foreach (var name in names.Where(n => !string.IsNullOrWhiteSpace(n)))
+        {
+            _secretVariableNames.Add(name);
+        }
+    }
+
+    /// <summary>
+    /// Whether the value of <paramref name="variableName"/> must be withheld from clients. Uses the
+    /// recorded set, and falls back to judging by name so deployments predating the recording — or
+    /// variables missing from it — are not exposed.
+    /// </summary>
+    public bool IsSecretVariable(string variableName)
+        => _secretVariableNames.Contains(variableName)
+           || VariableTypeSecrecy.NameSuggestsSecret(variableName);
+
+    /// <summary>
     /// Sets the maintenance observer configuration for this product deployment.
     /// Called during deployment when observer config is available from the product definition.
     /// </summary>
     public void SetMaintenanceObserverConfig(MaintenanceObserverConfig? config)
     {
         MaintenanceObserverConfig = config;
+    }
+
+    /// <summary>
+    /// Sets the maintenance setter configuration for this product deployment.
+    /// Called during deployment when setter config is available from the product definition.
+    /// </summary>
+    public void SetMaintenanceSetterConfig(MaintenanceSetterConfig? config)
+    {
+        MaintenanceSetterConfig = config;
+    }
+
+    /// <summary>
+    /// Sets (or clears) the resolved edge configuration for this product deployment.
+    /// Called during deployment when an <c>edge:</c> block is present and enabled in the
+    /// product definition. A null value keeps the edge feature inert for this product.
+    /// </summary>
+    public void SetEdgeConfig(EdgeConfig? config)
+    {
+        EdgeConfig = config;
     }
 
     /// <summary>

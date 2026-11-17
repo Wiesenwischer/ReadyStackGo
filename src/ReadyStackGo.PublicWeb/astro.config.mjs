@@ -14,7 +14,14 @@ export default defineConfig({
 		react(),
 		starlight({
 			title: 'ReadyStackGo',
+			logo: { src: './src/assets/readystackgo-mark.svg', alt: 'ReadyStackGo' },
+			favicon: '/favicon.svg',
+			components: {
+				SiteTitle: './src/components/DocsSiteTitle.astro',
+			},
 			head: [
+				{ tag: 'link', attrs: { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon.png' } },
+				{ tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' } },
 				{
 					tag: 'script',
 					content: `
@@ -25,13 +32,6 @@ export default defineConfig({
 								localStorage.setItem('starlight-theme', landingTheme);
 							}
 						})();
-
-						document.addEventListener('DOMContentLoaded', function() {
-							const siteTitle = document.querySelector('.site-title');
-							if (siteTitle) {
-								siteTitle.href = '/';
-							}
-						});
 					`,
 				},
 			],
@@ -101,7 +101,11 @@ export default defineConfig({
 				de: { label: 'Deutsch', lang: 'de' },
 				en: { label: 'English', lang: 'en' },
 			},
-			customCss: ['./src/styles/starlight.css'],
+			customCss: [
+				'@fontsource-variable/inter',
+				'@fontsource-variable/montserrat',
+				'./src/styles/starlight.css',
+			],
 		}),
 	],
 });

@@ -9,6 +9,7 @@ using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.IdentityAccess.Organizations;
 using ReadyStackGo.Domain.StackManagement.Manifests;
+using ReadyStackGo.Domain.StackManagement.Stacks;
 using ReadyStackGo.Infrastructure.Configuration;
 using ReadyStackGo.Infrastructure.Services.Deployment;
 using Xunit;
@@ -78,12 +79,69 @@ public class DeploymentEngineTests
 
         _configStoreMock.Setup(x => x.GetFeaturesConfigAsync()).ReturnsAsync(new FeaturesConfig());
         _configStoreMock.Setup(x => x.GetReleaseConfigAsync()).ReturnsAsync(new ReleaseConfig());
+        // Default: AllowStaleImageOnPullFailure = false → a failed pull fails the deployment.
+        _configStoreMock.Setup(x => x.GetSystemConfigAsync()).ReturnsAsync(new SystemConfig());
     }
 
     [Fact]
-    public async Task ExecuteDeploymentAsync_WhenImagePullFails_AndLocalImageExists_ShouldSucceedWithWarning()
+    public async Task ExecuteDeploymentAsync_WhenImagePullFails_AndLocalImageExists_ByDefault_ShouldFail()
     {
         // Arrange
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "api",
+                    Image = "myregistry.com/api",
+                    Version = "1.0.0",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>()
+                }
+            }
+        };
+
+        // Mock image pull failure
+        _dockerServiceMock
+            .Setup(x => x.PullImageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Connection refused - registry unreachable"));
+
+        // Mock local image exists (a stale fallback would otherwise be available)
+        _dockerServiceMock
+            .Setup(x => x.ImageExistsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var startCalled = false;
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .Callback(() => startCalled = true)
+            .ReturnsAsync("container-id-123");
+
+        // Act
+        var result = await _sut.ExecuteDeploymentAsync(plan);
+
+        // Assert — without the opt-in flag a failed pull fails the deployment, even though a
+        // local copy exists, so a stale image is never silently deployed (and CI goes red).
+        result.Success.Should().BeFalse("a failed pull must fail the deployment by default");
+        result.Errors.Should().ContainSingle();
+        result.Errors[0].Should().Contain("Failed to pull image");
+        result.Errors[0].Should().Contain("AllowStaleImageOnPullFailure");
+        startCalled.Should().BeFalse("no containers should be started when the pull phase fails");
+    }
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_WhenImagePullFails_AndLocalImageExists_WithAllowStaleFlag_ShouldSucceedWithWarning()
+    {
+        // Arrange — opt back into the lenient local-image fallback via SystemConfig.
+        _configStoreMock.Setup(x => x.GetSystemConfigAsync())
+            .ReturnsAsync(new SystemConfig { AllowStaleImageOnPullFailure = true });
+
         var plan = new DeploymentPlan
         {
             StackVersion = "1.0.0",
@@ -123,7 +181,7 @@ public class DeploymentEngineTests
         var result = await _sut.ExecuteDeploymentAsync(plan);
 
         // Assert
-        result.Success.Should().BeTrue("deployment should succeed when local image is available");
+        result.Success.Should().BeTrue("deployment should succeed when local image is available and the flag is set");
         result.Warnings.Should().ContainSingle("there should be one warning about using local image");
         result.Warnings[0].Should().Contain("could not be pulled");
         result.Warnings[0].Should().Contain("using existing local image");
@@ -220,7 +278,10 @@ public class DeploymentEngineTests
     [Fact]
     public async Task ExecuteDeploymentAsync_WithMultipleServices_WhenOneImagePullFails_ShouldIncludeWarningForThatService()
     {
-        // Arrange
+        // Arrange — the lenient local-image fallback (warning instead of failure) is now opt-in.
+        _configStoreMock.Setup(x => x.GetSystemConfigAsync())
+            .ReturnsAsync(new SystemConfig { AllowStaleImageOnPullFailure = true });
+
         var plan = new DeploymentPlan
         {
             StackVersion = "1.0.0",
@@ -969,10 +1030,12 @@ public class DeploymentEngineTests
     {
         // Arrange
         var progressUpdates = new List<(string Phase, int TotalInitContainers, int CompletedInitContainers)>();
+        var removedIds = new HashSet<string>();
 
+        // Simulate the daemon: a removed container no longer appears on the verification re-list.
         _dockerServiceMock
             .Setup(x => x.ListContainersAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<ContainerDto>
+            .ReturnsAsync(() => new List<ContainerDto>
             {
                 new()
                 {
@@ -983,10 +1046,11 @@ public class DeploymentEngineTests
                     Status = "running",
                     Labels = new Dictionary<string, string> { ["rsgo.stack"] = "test-stack", ["rsgo.context"] = "api" }
                 }
-            });
+            }.Where(c => !removedIds.Contains(c.Id)).ToList());
 
         _dockerServiceMock
             .Setup(x => x.RemoveContainerAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, bool, CancellationToken>((_, id, _, _) => removedIds.Add(id))
             .Returns(Task.CompletedTask);
 
         _configStoreMock
@@ -1549,6 +1613,60 @@ public class DeploymentEngineTests
         // Init containers should still appear in DeployedContexts (for logging)
         result.DeployedContexts.Should().Contain("migration-1");
         result.DeployedContexts.Should().Contain("migration-2");
+    }
+
+    #endregion
+
+    #region Container log limit
+
+    [Fact]
+    public async Task ExecuteDeploymentAsync_PassesManifestLogLimitToContainerRequest()
+    {
+        var plan = new DeploymentPlan
+        {
+            StackVersion = "1.0.0",
+            EnvironmentId = _testEnvId.ToString(),
+            Steps = new List<DeploymentStep>
+            {
+                new()
+                {
+                    ContextName = "api",
+                    Image = "myregistry.com/api",
+                    Version = "1.0.0",
+                    ContainerName = "rsgo-api",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>(),
+                    Logging = new ServiceLogging { MaxSize = "50m", MaxFile = 5 }
+                },
+                new()
+                {
+                    ContextName = "worker",
+                    Image = "myregistry.com/worker",
+                    Version = "1.0.0",
+                    ContainerName = "rsgo-worker",
+                    EnvVars = new Dictionary<string, string>(),
+                    Ports = new List<string>(),
+                    Volumes = new Dictionary<string, string>(),
+                    DependsOn = new List<string>()
+                }
+            }
+        };
+
+        var requests = new List<CreateContainerRequest>();
+        _dockerServiceMock
+            .Setup(x => x.CreateAndStartContainerAsync(It.IsAny<string>(), It.IsAny<CreateContainerRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<string, CreateContainerRequest, CancellationToken>((_, request, _) => requests.Add(request))
+            .ReturnsAsync("container-id-123");
+
+        var result = await _sut.ExecuteDeploymentAsync(plan);
+
+        result.Success.Should().BeTrue(string.Join("; ", result.Errors));
+        requests.Single(r => r.Name == "rsgo-api").Logging.Should().BeEquivalentTo(
+            new ServiceLogging { MaxSize = "50m", MaxFile = 5 });
+        requests.Single(r => r.Name == "rsgo-worker").Logging.Should().BeNull(
+            "without an override the Docker layer applies RSGO's default log limit");
     }
 
     #endregion

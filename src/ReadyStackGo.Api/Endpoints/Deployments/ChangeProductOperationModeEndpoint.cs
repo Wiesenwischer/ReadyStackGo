@@ -30,6 +30,12 @@ public class ChangeProductOperationModeApiRequest
     /// Source of the mode change: "Manual" (default) or "Observer".
     /// </summary>
     public string? Source { get; set; }
+
+    /// <summary>
+    /// Optional SignalR session id. When provided, the server streams per-stack and
+    /// per-container progress to the "deployment:{sessionId}" group during the transition.
+    /// </summary>
+    public string? SessionId { get; set; }
 }
 
 /// <summary>
@@ -65,7 +71,8 @@ public class ChangeProductOperationModeEndpoint
             productDeploymentId,
             req.Mode,
             req.Reason,
-            req.Source ?? "Manual");
+            req.Source ?? "Manual",
+            req.SessionId);
 
         var response = await _mediator.Send(command, ct);
 

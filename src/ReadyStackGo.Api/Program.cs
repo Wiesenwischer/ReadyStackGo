@@ -21,13 +21,40 @@ namespace ReadyStackGo.Api;
 
 public class Program
 {
-    public static async Task Main(string[] args)
+    public static async Task<int> Main(string[] args)
     {
+        // Emergency access ("rsgo admin set-password <username>"): runs against the database
+        // without migrations, bootstrap or web server, so it also works with a stopped container
+        // ("docker compose run --rm readystackgo admin set-password <username>").
+        if (ReadyStackGo.Infrastructure.CommandLine.AdminCommandLine.IsAdminCommand(args))
+        {
+            var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
+            var cliConfiguration = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: true)
+                .AddJsonFile($"appsettings.{environment}.json", optional: true)
+                .AddEnvironmentVariables()
+                .Build();
+            return await ReadyStackGo.Infrastructure.CommandLine.AdminCommandLine.RunAsync(args, cliConfiguration);
+        }
+
         var builder = WebApplication.CreateBuilder(args);
 
         // Add services to the container
         builder.Services.AddApplication();
         builder.Services.AddInfrastructure(builder.Configuration);
+
+        // Built-in theme packages are part of the WebUi build output (wwwroot/themes).
+        var themesWebRoot = builder.Environment.WebRootPath
+            ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
+        builder.Services.PostConfigure<ReadyStackGo.Infrastructure.Services.Themes.ThemeOptions>(o =>
+        {
+            if (string.IsNullOrWhiteSpace(o.BuiltInPath))
+            {
+                o.BuiltInPath = Path.Combine(themesWebRoot, "themes");
+            }
+        });
+
         builder.Services.AddFastEndpoints(o =>
         {
             // Explicit assembly specification for multi-assembly endpoint discovery.
@@ -73,6 +100,22 @@ public class Program
                         }
 
                         return Task.CompletedTask;
+                    },
+                    // Reject tokens that have been revoked (server-side logout).
+                    OnTokenValidated = context =>
+                    {
+                        var jti = context.Principal?.FindFirst("jti")?.Value;
+                        if (!string.IsNullOrEmpty(jti))
+                        {
+                            var revocation = context.HttpContext.RequestServices
+                                .GetRequiredService<ReadyStackGo.Application.Services.ITokenRevocationService>();
+                            if (revocation.IsRevoked(jti))
+                            {
+                                context.Fail("Token has been revoked.");
+                            }
+                        }
+
+                        return Task.CompletedTask;
                     }
                 };
             })
@@ -105,6 +148,13 @@ public class Program
         builder.Services.AddScoped<IDeploymentNotificationService, DeploymentNotificationService>();
         builder.Services.AddSingleton<IUpdateNotificationService, UpdateNotificationService>();
 
+        // Single sign-on: browser round trips, setup sessions and wizard runs live in memory.
+        builder.Services.AddSingleton<ReadyStackGo.API.Endpoints.Sso.SsoFlowStore>();
+        builder.Services.AddSingleton<ReadyStackGo.API.Endpoints.Sso.SsoSetupSessionStore>();
+        builder.Services.AddSingleton<ReadyStackGo.API.Endpoints.Sso.WizardSsoRunStore>();
+        builder.Services.AddScoped<ReadyStackGo.API.Endpoints.Sso.SsoSetupService>();
+        builder.Services.AddScoped<ReadyStackGo.API.Endpoints.Sso.WizardSsoService>();
+
         // Health Collector Background Service (v0.11)
         builder.Services.Configure<HealthCollectorOptions>(
             builder.Configuration.GetSection(HealthCollectorOptions.SectionName));
@@ -118,6 +168,21 @@ public class Program
 
         // Maintenance Observer Background Service (v0.11)
         builder.Services.AddHostedService<MaintenanceObserverBackgroundService>();
+
+        // Edge Reconciler Background Service (managed maintenance edge-proxy; inert unless a
+        // product opts in via its manifest edge: block)
+        builder.Services.AddHostedService<EdgeReconcilerBackgroundService>();
+
+        // Optional shared SNI passthrough router (Phase 4; default off)
+        var sniRouterOptions = builder.Configuration
+            .GetSection(ReadyStackGo.Application.Services.Edge.SniRouterOptions.SectionName)
+            .Get<ReadyStackGo.Application.Services.Edge.SniRouterOptions>()
+            ?? new ReadyStackGo.Application.Services.Edge.SniRouterOptions();
+        builder.Services.AddSingleton(sniRouterOptions);
+        if (sniRouterOptions.Enabled)
+        {
+            builder.Services.AddHostedService<SniRouterBackgroundService>();
+        }
 
         // Deployment Recovery Service - handles stuck deployments on startup (v0.15)
         builder.Services.AddHostedService<DeploymentRecoveryService>();
@@ -177,6 +242,9 @@ public class Program
 
         // Initialize wizard timeout (timer starts at container startup, not browser access)
         await InitializeWizardTimeoutAsync(app);
+
+        // Installations set up before the theme packages keep their previous look (classic)
+        await InitializeInstallationThemeAsync(app);
 
         // Configure reverse proxy / forwarded headers if enabled
         var reverseProxyConfig = await ConfigureReverseProxyAsync(app);
@@ -275,6 +343,7 @@ public class Program
         });
 
         await app.RunAsync();
+        return 0;
     }
 
     /// <summary>
@@ -309,6 +378,18 @@ public class Program
         var timeoutService = scope.ServiceProvider.GetRequiredService<ReadyStackGo.Application.Services.IWizardTimeoutService>();
 
         await timeoutService.InitializeOnStartupAsync();
+    }
+
+    /// <summary>
+    /// Stores the default theme "classic" for an installation that was set up before the theme packages existed.
+    /// </summary>
+    private static async Task InitializeInstallationThemeAsync(WebApplication app)
+    {
+        using var scope = app.Services.CreateScope();
+        var initializer = scope.ServiceProvider
+            .GetRequiredService<ReadyStackGo.Application.Services.Impl.InstallationThemeInitializer>();
+
+        await initializer.InitializeOnStartupAsync();
     }
 
     /// <summary>

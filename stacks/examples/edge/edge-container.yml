@@ -1,0 +1,40 @@
+metadata:
+  name: edge-container
+  productVersion: "1.0.0"
+  description: Edge-Proxy demo proxying the maintenance page to a product-contributed container.
+  category: Examples
+
+networks:
+  edge-examples-net:
+    external: true
+
+services:
+  web-bff:
+    image: traefik/whoami:latest
+    networks: [edge-examples-net]
+
+  # Product-contributed maintenance page. Build the image first (see README):
+  #   docker build -t rsgo-examples/edge-maintenance-page:1.0 examples/edge-maintenance/container
+  # Survives redeploys (rsgo.redeploy=ignore) and is reached by the edge via its alias.
+  maintenance-web:
+    image: rsgo-examples/edge-maintenance-page:1.0
+    networks: [edge-examples-net]
+    labels:
+      rsgo.role: maintenance-page
+      rsgo.redeploy: ignore
+
+edge:
+  enabled: true
+  publicHostname: edge-container.localhost
+  publicPort: 9445
+  upstream:
+    service: web-bff
+    port: 80
+  network: edge-examples-net
+  tls:
+    mode: selfsigned
+  maintenancePage:
+    mode: container
+    container:
+      service: maintenance-web
+      port: 80

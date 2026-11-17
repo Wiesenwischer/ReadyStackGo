@@ -110,6 +110,37 @@ public static class NotificationFactory
         };
     }
 
+    /// <summary>
+    /// Notification that a newer version of an installed product is available in the catalog.
+    /// Deduped per (productDeploymentId, latestVersion) via Metadata.
+    /// </summary>
+    public static Notification CreateProductUpdateAvailable(
+        string productName, string currentVersion, string latestVersion, string productDeploymentId)
+    {
+        return new Notification
+        {
+            Type = NotificationType.ProductUpdateAvailable,
+            Title = "Product update available",
+            Message = $"A newer version of '{productName}' is available: {currentVersion} → {latestVersion}.",
+            Severity = NotificationSeverity.Info,
+            ActionUrl = $"/product-deployments/{productDeploymentId}",
+            ActionLabel = "View Product Deployment",
+            Metadata = new Dictionary<string, string>
+            {
+                ["productName"] = productName,
+                ["currentVersion"] = currentVersion,
+                ["latestVersion"] = latestVersion,
+                ["productDeploymentId"] = productDeploymentId,
+                // Composite dedup key: one notification per (deployment, target version).
+                ["dedupKey"] = ProductUpdateDedupKey(productDeploymentId, latestVersion)
+            }
+        };
+    }
+
+    /// <summary>Dedup key for product-update notifications: one per (deployment, target version).</summary>
+    public static string ProductUpdateDedupKey(string productDeploymentId, string latestVersion) =>
+        $"{productDeploymentId}:{latestVersion}";
+
     public static Notification CreateHealthChangeNotification(
         string stackName, string serviceName,
         string previousStatus, string currentStatus,
@@ -145,6 +176,39 @@ public static class NotificationFactory
             ActionUrl = actionUrl ?? "/health",
             ActionLabel = actionUrl != null ? "View Deployment" : "View Health",
             Metadata = metadata
+        };
+    }
+
+    /// <summary>
+    /// Creates a product-level health-change notification. Emitted when a product
+    /// deployment's aggregated overall health transitions (e.g. Healthy → Degraded),
+    /// so the user sees one signal per product instead of one per service/stack.
+    /// </summary>
+    public static Notification CreateProductHealthChangeNotification(
+        string productDisplayName,
+        string previousStatus, string currentStatus,
+        string productDeploymentId)
+    {
+        var isRecovery = currentStatus.Equals("Healthy", StringComparison.OrdinalIgnoreCase);
+        var severity = ResolveHealthSeverity(currentStatus);
+        var title = isRecovery ? "Product Recovered" : "Product Health Changed";
+        var message = $"Product '{productDisplayName}' health changed from {previousStatus} to {currentStatus}.";
+
+        return new Notification
+        {
+            Type = NotificationType.ProductHealthChange,
+            Title = title,
+            Message = message,
+            Severity = severity,
+            ActionUrl = $"/product-deployments/{Uri.EscapeDataString(productDeploymentId)}",
+            ActionLabel = "View Product",
+            Metadata = new Dictionary<string, string>
+            {
+                ["productDeploymentId"] = productDeploymentId,
+                ["productDisplayName"] = productDisplayName,
+                ["previousStatus"] = previousStatus,
+                ["currentStatus"] = currentStatus
+            }
         };
     }
 

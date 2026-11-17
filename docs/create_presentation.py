@@ -323,7 +323,7 @@ add_card(slide, Inches(6.8), Inches(1.7), Inches(5.2), Inches(4.8),
              "Test-Strategie (Unit/Integration/E2E)",
              "Entscheidungen mit Begründung",
              "",
-             "Ablage: docs/Plans/PLAN-<name>.md",
+             "Ablage: docs/plans/PLAN-<name>.md",
          ],
          ACCENT_BLUE)
 

@@ -17,6 +17,11 @@ public class CreateAdminValidator : Validator<CreateAdminRequest>
             .MaximumLength(50).WithMessage("Username must not exceed 50 characters")
             .Matches("^[a-zA-Z0-9_]+$").WithMessage("Username can only contain letters, numbers, and underscores");
 
+        RuleFor(x => x.Email)
+            .NotEmpty().WithMessage("Email is required")
+            .EmailAddress().WithMessage("Email format is invalid")
+            .MaximumLength(254).WithMessage("Email must not exceed 254 characters");
+
         RuleFor(x => x.Password)
             .NotEmpty().WithMessage("Password is required")
             .MinimumLength(8).WithMessage("Password must be at least 8 characters")

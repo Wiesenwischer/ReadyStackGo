@@ -133,6 +133,35 @@ stacks:
         image: prom/prometheus:latest
 ```
 
+### Maintenance Edge-Proxy (Optional)
+
+A product can opt into a **managed reverse-proxy ("edge") container** that survives redeploys
+and serves a controlled maintenance page plus a machine-readable status while the product is
+down. It is opt-in and dormant by default — without an `edge:` block (or with
+`edge.enabled: false`) nothing changes.
+
+```yaml
+edge:
+  enabled: true
+  publicHostname: project.customer.tld
+  publicPort: 443
+  upstream:
+    service: web-bff
+    port: 8080
+  network: ams-project-edge-net   # shared external network (external: true)
+  maintenancePage:
+    mode: default
+    branding:
+      productName: "ams.project"
+      supportContact: support@customer.tld
+      locales: [de, en]
+```
+
+While the product is `Running`, the edge proxies transparently to the upstream; during a
+redeploy or maintenance it serves a 503 maintenance page and a stable status JSON at
+`GET /__status` (`/hc` and `/liveness` always pass through). See the schema reference for the
+full field list, routing table and status contract.
+
 ---
 
 ## Full Reference

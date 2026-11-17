@@ -482,6 +482,30 @@ export interface ProductStackDeploymentDto {
   order: number;
   serviceCount: number;
   isNewInUpgrade: boolean;
+  /**
+   * Variables configured for this stack in the current deployment. Used to
+   * pre-fill per-stack values on the Upgrade page so required-variable
+   * validation does not block an upgrade whose values were set at deploy time.
+   * Secret values are withheld — see {@link DeploymentVariableDto}.
+   */
+  variables: DeploymentVariableDto[];
+}
+
+/**
+ * A variable of a deployment as returned by the API.
+ *
+ * Secret values never leave the server: for a password or connection string `value` is null and
+ * `hasValue` states whether something is stored. That is enough to pre-fill required-variable
+ * validation on the Upgrade page without knowing the value — the backend merges the stored value.
+ */
+export interface DeploymentVariableDto {
+  name: string;
+  /** The value, or null when `isSecret` is true. */
+  value: string | null;
+  /** Whether the value is withheld by the server. */
+  isSecret: boolean;
+  /** Whether a non-empty value is stored. */
+  hasValue: boolean;
 }
 
 /**
@@ -518,7 +542,8 @@ export interface GetProductDeploymentResponse {
   maintenanceTrigger?: MaintenanceTriggerDto;
   durationSeconds?: number;
   stacks: ProductStackDeploymentDto[];
-  sharedVariables: Record<string, string>;
+  /** Secret values are withheld — see {@link DeploymentVariableDto}. */
+  sharedVariables: DeploymentVariableDto[];
   // PRTG integration (Variant 3) — null when the deployment is not linked.
   prtgConnectionId?: string | null;
   prtgDeviceId?: number | null;
@@ -573,6 +598,8 @@ export interface AvailableProductVersion {
   productId: string;
   sourceId: string;
   stackCount: number;
+  releaseNotesUrl?: string;
+  hasReleaseNotes: boolean;
 }
 
 /**
@@ -585,6 +612,8 @@ export interface CheckProductUpgradeResponse {
   currentVersion?: string;
   latestVersion?: string;
   latestProductId?: string;
+  latestReleaseNotesUrl?: string;
+  latestHasReleaseNotes: boolean;
   availableVersions?: AvailableProductVersion[];
   newStacks?: string[];
   removedStacks?: string[];
@@ -605,6 +634,40 @@ export async function checkProductUpgrade(
 }
 
 /**
+ * Release notes for a product version.
+ * mode "markdown": render `content`; mode "url": link to `url` (never embed).
+ */
+export interface ProductReleaseNotesResponse {
+  success: boolean;
+  message?: string;
+  mode: 'markdown' | 'url' | 'none';
+  content?: string;
+  url?: string;
+  version?: string;
+  /** Language of the returned markdown (only when a localized changelog was served). */
+  locale?: string;
+  /** Language codes with a localized changelog; the viewer shows a selector when >1. */
+  availableLocales?: string[];
+}
+
+/**
+ * Fetch release notes for a specific version of a product deployment's product.
+ * Pass `locale` (e.g. "de", "en") to select a localized changelog when the product
+ * ships CHANGELOG.<locale>.md files.
+ */
+export async function getProductReleaseNotes(
+  environmentId: string,
+  productDeploymentId: string,
+  version: string,
+  locale?: string
+): Promise<ProductReleaseNotesResponse> {
+  const localeParam = locale ? `&locale=${encodeURIComponent(locale)}` : '';
+  return apiGet<ProductReleaseNotesResponse>(
+    `/api/environments/${environmentId}/product-deployments/${productDeploymentId}/release-notes?version=${encodeURIComponent(version)}${localeParam}`
+  );
+}
+
+/**
  * Per-stack configuration for product upgrade.
  */
 export interface UpgradeProductStackConfigRequest {
@@ -621,6 +684,8 @@ export interface UpgradeProductRequest {
   sharedVariables: Record<string, string>;
   sessionId?: string;
   continueOnError?: boolean;
+  /** Variable names the user chose NOT to persist (transient/sensitive values) */
+  excludeFromStorage?: string[];
 }
 
 /**

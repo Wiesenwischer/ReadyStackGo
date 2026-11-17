@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using ReadyStackGo.Domain.Deployment;
 using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Edge;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.Health;
 using ReadyStackGo.Domain.Deployment.Observers;
@@ -136,12 +137,50 @@ public class ProductDeploymentConfiguration : IEntityTypeConfiguration<ProductDe
                 v => string.IsNullOrEmpty(v) ? null : JsonSerializer.Deserialize<MaintenanceObserverConfig>(v, observerConfigOptions))
             .HasColumnName("MaintenanceObserverConfigJson");
 
+        // Configure MaintenanceSetterConfig as JSON column (mirror of the observer config)
+        var setterConfigOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Converters = { new MaintenanceSetterConfigJsonConverter() }
+        };
+        builder.Property(d => d.MaintenanceSetterConfig)
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, setterConfigOptions),
+                v => string.IsNullOrEmpty(v) ? null : JsonSerializer.Deserialize<MaintenanceSetterConfig>(v, setterConfigOptions))
+            .HasColumnName("MaintenanceSetterConfigJson");
+
+        // Configure EdgeConfig as JSON column (managed maintenance edge-proxy, opt-in)
+        var edgeConfigOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Converters = { new EdgeConfigJsonConverter() }
+        };
+        builder.Property(d => d.EdgeConfig)
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, edgeConfigOptions),
+                v => string.IsNullOrEmpty(v) ? null : JsonSerializer.Deserialize<EdgeConfig>(v, edgeConfigOptions))
+            .HasColumnName("EdgeConfigJson");
+
         // Configure SharedVariables as JSON column
         builder.Property(d => d.SharedVariables)
             .HasConversion(
                 v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
                 v => JsonSerializer.Deserialize<Dictionary<string, string>>(v, (JsonSerializerOptions?)null) ?? new())
             .HasColumnName("SharedVariablesJson");
+
+        // Names of variables whose values must never be returned to a client. JSON column, mirroring
+        // SharedVariables; the backing field is a HashSet so it needs field access.
+        builder.Property(d => d.SecretVariableNames)
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                // Rebuild with the case-insensitive comparer: deserialization would otherwise hand
+                // back a set with the default comparer and quietly lose case-insensitive lookups.
+                v => new HashSet<string>(
+                    JsonSerializer.Deserialize<HashSet<string>>(v, (JsonSerializerOptions?)null)
+                        ?? new HashSet<string>(),
+                    StringComparer.OrdinalIgnoreCase))
+            .HasColumnName("SecretVariableNamesJson")
+            .Metadata.SetPropertyAccessMode(PropertyAccessMode.Field);
 
         // Configure PhaseHistory as JSON column
         builder.Property(d => d.PhaseHistory)

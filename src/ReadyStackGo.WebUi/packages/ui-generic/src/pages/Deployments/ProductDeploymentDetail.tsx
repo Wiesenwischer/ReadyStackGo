@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toneClasses, toneForOperationMode, toneForProductStatus } from "../../components/ui/statusTone";
 import { useParams, Link } from "react-router";
 import {
   useProductDeploymentDetailStore,
@@ -8,52 +9,60 @@ import {
   setInlinePrtgRegistration,
   probePrtgGroups,
   type ProductStackDeploymentDto,
+  type DeploymentVariableDto,
   type PrtgConnectionDto,
   type ProbedPrtgGroup,
 } from '@rsgo/core';
 import { useAuth } from "../../context/AuthContext";
 import { useEnvironment } from "../../context/EnvironmentContext";
 import { DeploymentError } from "../../components/ui/DeploymentError";
+import ProductUpdateBadge from "../../components/deployments/ProductUpdateBadge";
+
+/**
+ * Renders one stored variable. A secret never arrives with its value — the server withholds it — so
+ * all this can show is whether something is stored. Deliberately no reveal affordance: the value is
+ * not present in the response, and an admin who needs it takes it from the source of truth, not from
+ * a deployment view.
+ */
+function VariableValue({ variable }: { variable: DeploymentVariableDto }) {
+  return (
+    <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800/50">
+      <div className="flex items-center gap-2">
+        <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          {variable.name}
+        </div>
+        {variable.isSecret && (
+          <span
+            className="inline-flex items-center gap-1 rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+            title="Secret value — not returned by the server"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            Secret
+          </span>
+        )}
+      </div>
+      <div className="mt-1 text-sm font-mono text-gray-900 dark:text-white break-all">
+        {variable.isSecret
+          ? (variable.hasValue
+              ? <span className="text-gray-500 dark:text-gray-400" title="A value is stored">••••••••</span>
+              : <span className="text-gray-400 italic">not stored</span>)
+          : (variable.value || <span className="text-gray-400 italic">not set</span>)}
+      </div>
+    </div>
+  );
+}
 
 function getProductStatusPresentation(status: string) {
-  switch (status) {
-    case 'Running':
-      return { label: 'Running', bgColor: 'bg-green-100 dark:bg-green-900/30', textColor: 'text-green-800 dark:text-green-300' };
-    case 'Deploying':
-    case 'Upgrading':
-      return { label: status, bgColor: 'bg-brand-100 dark:bg-brand-900/30', textColor: 'text-brand-800 dark:text-brand-300' };
-    case 'Failed':
-      return { label: 'Failed', bgColor: 'bg-red-100 dark:bg-red-900/30', textColor: 'text-red-800 dark:text-red-300' };
-    case 'PartiallyRunning':
-      return { label: 'Partially Running', bgColor: 'bg-yellow-100 dark:bg-yellow-900/30', textColor: 'text-yellow-800 dark:text-yellow-300' };
-    case 'Stopped':
-      return { label: 'Stopped', bgColor: 'bg-orange-100 dark:bg-orange-900/30', textColor: 'text-orange-800 dark:text-orange-300' };
-    case 'Removing':
-      return { label: 'Removing', bgColor: 'bg-gray-100 dark:bg-gray-700', textColor: 'text-gray-700 dark:text-gray-300' };
-    case 'Removed':
-      return { label: 'Removed', bgColor: 'bg-gray-100 dark:bg-gray-700', textColor: 'text-gray-500 dark:text-gray-400' };
-    default:
-      return { label: status, bgColor: 'bg-gray-100 dark:bg-gray-700', textColor: 'text-gray-700 dark:text-gray-300' };
-  }
+  const label = status === 'PartiallyRunning' ? 'Partially Running' : status;
+  return { label, ...toneClasses(toneForProductStatus(status)) };
 }
 
 function getStackStatusPresentation(status: string) {
-  switch (status) {
-    case 'Running':
-      return { label: 'Running', bgColor: 'bg-green-100 dark:bg-green-900/30', textColor: 'text-green-800 dark:text-green-300' };
-    case 'Deploying':
-      return { label: 'Deploying', bgColor: 'bg-brand-100 dark:bg-brand-900/30', textColor: 'text-brand-800 dark:text-brand-300' };
-    case 'Pending':
-      return { label: 'Pending', bgColor: 'bg-gray-100 dark:bg-gray-700', textColor: 'text-gray-600 dark:text-gray-400' };
-    case 'Failed':
-      return { label: 'Failed', bgColor: 'bg-red-100 dark:bg-red-900/30', textColor: 'text-red-800 dark:text-red-300' };
-    case 'Removed':
-      return { label: 'Removed', bgColor: 'bg-gray-100 dark:bg-gray-700', textColor: 'text-gray-500 dark:text-gray-400' };
-    case 'Stopped':
-      return { label: 'Stopped', bgColor: 'bg-orange-100 dark:bg-orange-900/30', textColor: 'text-orange-800 dark:text-orange-300' };
-    default:
-      return { label: status, bgColor: 'bg-gray-100 dark:bg-gray-700', textColor: 'text-gray-700 dark:text-gray-300' };
-  }
+  // Stack statuses: Running, Deploying, Pending, Failed, Removed, Stopped.
+  const tone = status === 'Pending' ? 'unknown' : toneForProductStatus(status);
+  return { label: status, ...toneClasses(tone) };
 }
 
 export default function ProductDeploymentDetail() {
@@ -62,6 +71,7 @@ export default function ProductDeploymentDetail() {
   const { activeEnvironment } = useEnvironment();
 
   const store = useProductDeploymentDetailStore(token, activeEnvironment?.id, productDeploymentId);
+  const [showStackVariables, setShowStackVariables] = useState(false);
 
   if (store.state === 'loading') {
     return (
@@ -108,7 +118,7 @@ export default function ProductDeploymentDetail() {
   const modePresentation = deployment.operationMode !== 'Normal'
     ? getOperationModePresentation(deployment.operationMode)
     : null;
-  const variableEntries = Object.entries(deployment.sharedVariables ?? {});
+  const variableEntries = deployment.sharedVariables ?? [];
 
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
@@ -138,8 +148,14 @@ export default function ProductDeploymentDetail() {
             <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${status.bgColor} ${status.textColor}`}>
               {status.label}
             </span>
+            {activeEnvironment?.id && productDeploymentId && (
+              <ProductUpdateBadge
+                environmentId={activeEnvironment.id}
+                productDeploymentId={productDeploymentId}
+              />
+            )}
             {modePresentation && (
-              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${modePresentation.bgColor} ${modePresentation.textColor}`}>
+              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${toneClasses(toneForOperationMode(deployment.operationMode)).bgColor} ${toneClasses(toneForOperationMode(deployment.operationMode)).textColor}`}>
                 {modePresentation.label}
               </span>
             )}
@@ -279,7 +295,7 @@ export default function ProductDeploymentDetail() {
           {(() => {
             const mp = getOperationModePresentation(deployment.operationMode);
             return (
-              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${mp.bgColor} ${mp.textColor}`}>
+              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${toneClasses(toneForOperationMode(deployment.operationMode)).bgColor} ${toneClasses(toneForOperationMode(deployment.operationMode)).textColor}`}>
                 {mp.label}
               </span>
             );
@@ -371,19 +387,71 @@ export default function ProductDeploymentDetail() {
           {store.showVariables && (
             <div className="border-t border-gray-200 dark:border-gray-700 p-4 md:p-6">
               <div className="grid gap-3 md:grid-cols-2">
-                {variableEntries.map(([key, value]) => (
-                  <div key={key} className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800/50">
-                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{key}</div>
-                    <div className="mt-1 text-sm font-mono text-gray-900 dark:text-white break-all">
-                      {value || <span className="text-gray-400 italic">not set</span>}
-                    </div>
-                  </div>
+                {variableEntries.map((variable) => (
+                  <VariableValue key={variable.name} variable={variable} />
                 ))}
               </div>
             </div>
           )}
         </div>
       )}
+
+      {/* Stack Variables — per-stack values (excluding shared, which are shown above) */}
+      {(() => {
+        const sharedKeys = new Set((deployment.sharedVariables ?? []).map((v) => v.name));
+        const stacksWithVars = deployment.stacks
+          .slice()
+          .sort((a, b) => a.order - b.order)
+          .map((stack) => ({
+            stack,
+            entries: (stack.variables ?? []).filter((v) => !sharedKeys.has(v.name)),
+          }))
+          .filter((s) => s.entries.length > 0);
+
+        if (stacksWithVars.length === 0) return null;
+        const totalCount = stacksWithVars.reduce((sum, s) => sum + s.entries.length, 0);
+
+        return (
+          <div className="mt-6 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+            <button
+              onClick={() => setShowStackVariables((v) => !v)}
+              className="w-full px-4 py-5 md:px-6 flex items-center justify-between text-left"
+            >
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Stack Variables ({totalCount})
+              </h4>
+              <svg
+                className={`w-5 h-5 text-gray-500 transition-transform ${showStackVariables ? 'rotate-180' : ''}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showStackVariables && (
+              <div className="border-t border-gray-200 dark:border-gray-700 p-4 md:p-6 space-y-6">
+                {stacksWithVars.map(({ stack, entries }) => (
+                  <div key={stack.stackId}>
+                    <div className="mb-3 flex items-center gap-2">
+                      <span className="text-xs font-mono text-gray-400 dark:text-gray-500">#{stack.order}</span>
+                      <h5 className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {stack.stackDisplayName || stack.stackName}
+                      </h5>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        ({entries.length} variable{entries.length !== 1 ? 's' : ''})
+                      </span>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {entries.map((variable) => (
+                        <VariableValue key={variable.name} variable={variable} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

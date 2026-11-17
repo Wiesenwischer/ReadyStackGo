@@ -15,6 +15,11 @@ export interface VariableInputProps {
   disabled?: boolean;
   /** Whether this variable will be saved (persisted). undefined = no checkbox shown. */
   saveValue?: boolean;
+  /**
+   * True when a secret value is already stored for this variable. The server withholds the value, so
+   * the field starts empty: leaving it empty keeps what is stored, typing replaces it.
+   */
+  storedSecret?: boolean;
   /** Callback when user toggles the save checkbox. */
   onSaveValueChange?: (save: boolean) => void;
 }
@@ -23,17 +28,23 @@ export interface VariableInputProps {
  * Factory component that renders the appropriate input based on variable type.
  */
 export default function VariableInput(props: VariableInputProps) {
-  const { variable, saveValue, onSaveValueChange } = props;
+  const { variable, saveValue, onSaveValueChange, storedSecret } = props;
   const type = variable.type || 'String';
   const inputElement = renderInput(props, type);
 
-  if (onSaveValueChange === undefined) {
+  if (onSaveValueChange === undefined && !storedSecret) {
     return inputElement;
   }
 
   return (
     <div>
       {inputElement}
+      {storedSecret && (
+        <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+          A value is stored — leave empty to keep it, or enter a new one to replace it.
+        </p>
+      )}
+      {onSaveValueChange && (
       <label className="mt-1.5 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
         <input
           type="checkbox"
@@ -46,6 +57,7 @@ export default function VariableInput(props: VariableInputProps) {
           <span className="text-amber-600 dark:text-amber-400">— will not be stored, must be re-entered on redeploy</span>
         )}
       </label>
+      )}
     </div>
   );
 }

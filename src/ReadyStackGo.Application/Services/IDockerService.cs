@@ -1,6 +1,15 @@
 using ReadyStackGo.Application.UseCases.Containers;
+using ReadyStackGo.Domain.StackManagement.Stacks;
 
 namespace ReadyStackGo.Application.Services;
+
+/// <summary>
+/// Per-container progress reported while stopping or starting the containers of a stack.
+/// </summary>
+/// <param name="ContainerName">Name of the container currently being processed.</param>
+/// <param name="Index">1-based position of this container within the stack.</param>
+/// <param name="Total">Total number of containers being processed for the stack.</param>
+public record StackContainerProgress(string ContainerName, int Index, int Total);
 
 public interface IDockerService
 {
@@ -26,6 +35,13 @@ public interface IDockerService
     Task StopContainerAsync(string environmentId, string containerId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Kills a container in the specified environment (SIGKILL, no grace period).
+    /// Escalation for a container that did not react to a stop — used by the maintenance
+    /// transition, which must not leave a container running.
+    /// </summary>
+    Task KillContainerAsync(string environmentId, string containerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Tests the connection to a Docker host.
     /// </summary>
     Task<TestConnectionResult> TestConnectionAsync(string dockerHost, CancellationToken cancellationToken = default);
@@ -47,6 +63,14 @@ public interface IDockerService
     /// Ensures a Docker network exists in the specified environment.
     /// </summary>
     Task EnsureNetworkAsync(string environmentId, string networkName, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Ensures a Docker network exists, requesting a specific interface MTU when the network is
+    /// created. When <paramref name="mtu"/> is null this behaves exactly like the two-argument
+    /// overload. If the network already exists its MTU is left untouched (Docker cannot change
+    /// an existing network's MTU without recreating it); a mismatch is logged as a warning.
+    /// </summary>
+    Task EnsureNetworkAsync(string environmentId, string networkName, int? mtu, CancellationToken cancellationToken);
 
     /// <summary>
     /// Pulls an image in the specified environment.
@@ -83,6 +107,21 @@ public interface IDockerService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Stops all containers belonging to a stack, reporting per-container progress
+    /// before each container is stopped.
+    /// </summary>
+    /// <param name="environmentId">Environment ID</param>
+    /// <param name="stackName">Stack name (rsgo.stack label value)</param>
+    /// <param name="onContainerProgress">Callback invoked before each container is stopped.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of container IDs that were stopped</returns>
+    Task<IReadOnlyList<string>> StopStackContainersAsync(
+        string environmentId,
+        string stackName,
+        Func<StackContainerProgress, Task> onContainerProgress,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Starts all containers belonging to a stack (identified by rsgo.stack label).
     /// Containers with rsgo.maintenance=ignore label will be excluded.
     /// </summary>
@@ -93,6 +132,21 @@ public interface IDockerService
     Task<IReadOnlyList<string>> StartStackContainersAsync(
         string environmentId,
         string stackName,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Starts all containers belonging to a stack, reporting per-container progress
+    /// before each container is started.
+    /// </summary>
+    /// <param name="environmentId">Environment ID</param>
+    /// <param name="stackName">Stack name (rsgo.stack label value)</param>
+    /// <param name="onContainerProgress">Callback invoked before each container is started.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of container IDs that were started</returns>
+    Task<IReadOnlyList<string>> StartStackContainersAsync(
+        string environmentId,
+        string stackName,
+        Func<StackContainerProgress, Task> onContainerProgress,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -227,10 +281,33 @@ public class CreateContainerRequest
     public string RestartPolicy { get; set; } = "unless-stopped";
 
     /// <summary>
+    /// Optional command override (Docker CMD). When null, the image's default command runs.
+    /// </summary>
+    public List<string>? Command { get; set; }
+
+    /// <summary>
+    /// Optional entrypoint override (Docker ENTRYPOINT). When null, the image's default entrypoint runs.
+    /// </summary>
+    public List<string>? Entrypoint { get; set; }
+
+    /// <summary>
+    /// Kernel sysctls to set in the container's namespaces (maps to Docker <c>--sysctl</c> /
+    /// <c>HostConfig.Sysctls</c>). Only namespaced sysctls are permitted by the daemon; used by
+    /// the edge to enable adaptive TCP path-MTU probing without any elevated capability.
+    /// </summary>
+    public Dictionary<string, string> Sysctls { get; set; } = new();
+
+    /// <summary>
     /// Docker HEALTHCHECK to set on the container (optional).
     /// Only used for Docker-type health checks with explicit test commands.
     /// </summary>
     public DockerHealthCheck? HealthCheck { get; set; }
+
+    /// <summary>
+    /// Log rotation override for this container. Fields left null (or the whole object) fall back to
+    /// RSGO's default log limit, so no container grows an unbounded log.
+    /// </summary>
+    public ServiceLogging? Logging { get; set; }
 }
 
 /// <summary>

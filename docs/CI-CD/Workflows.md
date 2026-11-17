@@ -67,13 +67,15 @@ docker inspect ghcr.io/wiesenwischer/readystackgo:latest \
 
 ## Cloudflare Pages (cloudflare-pages.yml)
 
-**Trigger:** Tag `v*` (on every release), or manually
+**Trigger:** Tag `v*` (on every release), started by `milestone-release.yml` for its release, or manually with a
+release tag. Merges to `main` do not deploy the website. Pull requests that change the website get a preview
+deployment on their own branch, with the URL as a PR comment.
 
 Deploys the PublicWeb documentation site to Cloudflare Pages:
 
 - Node.js 20 setup
 - npm ci and build (Astro/Starlight)
-- Deploy to Cloudflare Pages
+- Deploy to Cloudflare Pages with `cloudflare/wrangler-action` (`wrangler pages deploy`)
 - Release notes are fetched from GitHub API at build time
 
 **Required Secrets:**

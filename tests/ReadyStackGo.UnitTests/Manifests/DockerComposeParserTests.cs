@@ -753,4 +753,155 @@ services:
     }
 
     #endregion
+
+    #region Container log limit (compose logging block)
+
+    [Fact]
+    public async Task ParseAsync_JsonFileLogging_ReadsMaxSizeAndMaxFile()
+    {
+        var yaml = @"
+services:
+  web:
+    image: nginx:latest
+    logging:
+      driver: json-file
+      options:
+        max-size: '25m'
+        max-file: '4'
+  db:
+    image: postgres:15
+";
+
+        var result = await _parser.ParseAsync(yaml);
+
+        result.Services["web"].Logging.Should().NotBeNull();
+        result.Services["web"].Logging!.MaxSize.Should().Be("25m");
+        result.Services["web"].Logging!.MaxFile.Should().Be(4);
+        result.Services["db"].Logging.Should().BeNull("without a logging block the RSGO default applies");
+    }
+
+    [Fact]
+    public async Task ParseAsync_LoggingWithoutDriver_IsTreatedAsJsonFile()
+    {
+        var yaml = @"
+services:
+  web:
+    image: nginx:latest
+    logging:
+      options:
+        max-size: 5m
+        max-file: 2
+";
+
+        var result = await _parser.ParseAsync(yaml);
+
+        result.Services["web"].Logging!.MaxSize.Should().Be("5m");
+        result.Services["web"].Logging!.MaxFile.Should().Be(2);
+    }
+
+    [Theory]
+    [InlineData("10MB", "10m")]
+    [InlineData("500kb", "500k")]
+    [InlineData("1G", "1g")]
+    public async Task ParseAsync_LoggingMaxSize_AcceptsDockerSpellings(string composeValue, string expected)
+    {
+        var yaml = $@"
+services:
+  web:
+    image: nginx:latest
+    logging:
+      options:
+        max-size: '{composeValue}'
+";
+
+        var result = await _parser.ParseAsync(yaml);
+
+        result.Services["web"].Logging!.MaxSize.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("syslog")]
+    [InlineData("journald")]
+    [InlineData("none")]
+    public async Task ParseAsync_LoggingWithOtherDriver_IsIgnored(string driver)
+    {
+        // For these drivers the options mean something else (e.g. syslog-address): never read them as size limits.
+        var yaml = $@"
+services:
+  web:
+    image: nginx:latest
+    logging:
+      driver: {driver}
+      options:
+        max-size: 5m
+";
+
+        var result = await _parser.ParseAsync(yaml);
+
+        result.Services["web"].Logging.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ParseAsync_InvalidLoggingValues_AreIgnoredIndividually()
+    {
+        var yaml = @"
+services:
+  web:
+    image: nginx:latest
+    logging:
+      options:
+        max-size: lots
+        max-file: '3'
+";
+
+        var result = await _parser.ParseAsync(yaml);
+
+        result.Services["web"].Logging!.MaxSize.Should().BeNull();
+        result.Services["web"].Logging!.MaxFile.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task ConvertToDeploymentPlanAsync_LoggingBlock_ReachesTheStep()
+    {
+        var yaml = @"
+services:
+  web:
+    image: nginx:latest
+    logging:
+      options:
+        max-size: 20m
+";
+        var definition = await _parser.ParseAsync(yaml);
+
+        var plan = await _parser.ConvertToDeploymentPlanAsync(definition, new Dictionary<string, string>(), "mystack");
+
+        plan.Steps.Single().Logging!.MaxSize.Should().Be("20m");
+    }
+
+    [Fact]
+    public async Task ConvertAsync_LoggingBlock_BecomesManifestLogging()
+    {
+        var yaml = @"
+services:
+  web:
+    image: nginx:latest
+    logging:
+      options:
+        max-size: 20m
+        max-file: 2
+  db:
+    image: postgres:15
+";
+        var converter = new DockerComposeToRsgoConverter(
+            new Mock<ILogger<DockerComposeToRsgoConverter>>().Object, _parser);
+
+        var manifest = await converter.ConvertAsync(yaml, "mystack");
+
+        manifest.Services!["web"].Logging.Should().NotBeNull();
+        manifest.Services["web"].Logging!.MaxSize.Should().Be("20m");
+        manifest.Services["web"].Logging!.MaxFile.Should().Be(2);
+        manifest.Services["db"].Logging.Should().BeNull();
+    }
+
+    #endregion
 }

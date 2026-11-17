@@ -3,12 +3,13 @@ import { Outlet } from "react-router";
 import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
+import EmailVerificationBanner from "../components/auth/EmailVerificationBanner";
 
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-950 xl:flex">
+    <div className="min-h-screen bg-page xl:flex">
       <div>
         <AppSidebar />
         <Backdrop />
@@ -19,6 +20,7 @@ const LayoutContent: React.FC = () => {
         } ${isMobileOpen ? "ml-0" : ""}`}
       >
         <AppHeader />
+        <EmailVerificationBanner />
         <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
           <Outlet />
         </div>

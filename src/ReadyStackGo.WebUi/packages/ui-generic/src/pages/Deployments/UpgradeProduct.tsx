@@ -384,7 +384,7 @@ export default function UpgradeProduct() {
                   <div className="flex items-center gap-3 p-4 rounded-lg bg-orange-50 dark:bg-orange-900/10">
                     <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
                     <p className="text-sm text-orange-700 dark:text-orange-300">
-                      Removing existing stack before deploying the new version...
+                      {selectedProgress?.message ?? 'Removing existing stack before deploying the new version...'}
                     </p>
                   </div>
                 </div>
@@ -609,6 +609,9 @@ export default function UpgradeProduct() {
                           onChange={(newValue) =>
                             store.setSharedVariableValue(v.name, newValue)
                           }
+                          storedSecret={store.storedSecretNames.has(v.name)}
+                          saveValue={!store.excludeFromStorage.has(v.name)}
+                          onSaveValueChange={(save) => store.setVariableSave(v.name, save)}
                         />
                       ))}
                     </div>
@@ -711,6 +714,9 @@ export default function UpgradeProduct() {
                                         onChange={(newValue) =>
                                           store.setPerStackVariableValue(stack.id, v.name, newValue)
                                         }
+                                        storedSecret={store.storedSecretNames.has(v.name)}
+                                        saveValue={!store.excludeFromStorage.has(v.name)}
+                                        onSaveValueChange={(save) => store.setVariableSave(v.name, save)}
                                       />
                                     ))}
                                   </div>

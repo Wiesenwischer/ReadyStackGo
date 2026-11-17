@@ -29,7 +29,7 @@ public class CreateAdminEndpoint : Endpoint<CreateAdminRequest, CreateAdminRespo
         // Timeout check is handled by WizardTimeoutPreProcessor
 
         var result = await _mediator.Send(
-            new RegisterSystemAdminCommand(req.Username, req.Password),
+            new RegisterSystemAdminCommand(req.Username, req.Email, req.Password),
             ct);
 
         if (!result.Success)

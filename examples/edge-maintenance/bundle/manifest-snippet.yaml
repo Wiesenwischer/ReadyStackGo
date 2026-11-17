@@ -1,0 +1,25 @@
+# Manifest snippet: maintenance page from a static HTML bundle (no own container).
+# RSGO reads {manifestDir}/{bundlePath}/index.html at deploy time and serves it inline.
+
+networks:
+  ams-project-edge-net:
+    external: true
+
+services:
+  web-bff:
+    image: ams/bff:1.0.0
+    networks: [ams-project-edge-net]
+
+edge:
+  enabled: true
+  publicHostname: project.kunde.tld
+  publicPort: 443
+  upstream:
+    service: web-bff
+    port: 8080
+  network: ams-project-edge-net
+  tls:
+    mode: selfsigned
+  maintenancePage:
+    mode: bundle
+    bundlePath: ./maintenance/     # directory next to the manifest containing index.html

@@ -14,18 +14,18 @@ interface ServiceTimeline {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  healthy: '#22c55e',
-  degraded: '#eab308',
-  unhealthy: '#ef4444',
-  unknown: '#6b7280',
-  notfound: '#6b7280',
+  healthy: 'var(--color-status-healthy)',
+  degraded: 'var(--color-status-degraded)',
+  unhealthy: 'var(--color-status-unhealthy)',
+  unknown: 'var(--color-status-unknown)',
+  notfound: 'var(--color-status-unknown)',
 };
 
-const MAINTENANCE_COLOR = '#3b82f6';
+const MAINTENANCE_COLOR = 'var(--color-primary)';
 
 function getSegmentColor(segment: ServiceSegment): string {
   if (segment.operationMode?.toLowerCase() === 'maintenance') return MAINTENANCE_COLOR;
-  return STATUS_COLORS[segment.status.toLowerCase()] ?? '#6b7280';
+  return STATUS_COLORS[segment.status.toLowerCase()] ?? 'var(--color-status-unknown)';
 }
 
 function getSegmentLabel(segment: ServiceSegment): string {

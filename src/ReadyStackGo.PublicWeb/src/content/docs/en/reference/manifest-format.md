@@ -255,6 +255,7 @@ Services define the Docker containers to deploy.
 | `user` | string | No | User to run as |
 | `labels` | object | No | Container labels |
 | `healthCheck` | object | No | Health check configuration |
+| `logging` | object | No | Log rotation (`maxSize`, `maxFile`); see [Container Log Limit](#container-log-limit) |
 
 ### Service Example
 
@@ -317,6 +318,42 @@ healthCheck:
   retries: 3
   startPeriod: 40s
 ```
+
+### Container Log Limit
+
+RSGO limits the log of every container it creates, so a chatty service cannot fill the host disk. Without any
+configuration each container keeps at most **3 files of 10 MB** (30 MB). A service can raise or lower this with
+`logging`; fields left out keep the default:
+
+```yaml
+services:
+  api:
+    image: ${REGISTRY}/api:${VERSION}
+    logging:
+      maxSize: 50m    # size of one log file before it is rotated (k, m or g; plain numbers are bytes)
+      maxFile: 5      # number of log files kept (at least 1)
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `maxSize` | string | Size of one log file, e.g. `500k`, `10m`, `1g` |
+| `maxFile` | integer | Number of log files kept per container, at least 1 |
+
+The default itself can be changed for the whole RSGO installation with the settings `Docker:ContainerLogs:MaxSize`
+and `Docker:ContainerLogs:MaxFile` (environment variables `Docker__ContainerLogs__MaxSize` and
+`Docker__ContainerLogs__MaxFile`). An empty `MaxSize` switches the default limit off; a `logging` block in the manifest
+still applies.
+
+Notes:
+
+- The limit is set when the container is created. Existing containers keep their log settings until the stack is redeployed.
+- The limit only applies where the Docker daemon rotates by size (`json-file` or `local`, the Docker default). If the
+  daemon uses another driver such as `journald` or `syslog`, RSGO leaves it alone, unless the manifest sets `logging`
+  explicitly. Then that container uses `json-file`.
+- An invalid value (for example `maxSize: ten` or `maxFile: 0`) is reported when the manifest is validated.
+- In an imported Docker Compose file, `logging.options.max-size` and `max-file` are taken over when the driver is
+  `json-file`, `local` or not named. For any other driver (`syslog`, `journald`, `none`) the options are ignored and the
+  default applies.
 
 ### Service Includes
 
@@ -511,6 +548,70 @@ maintenance:
     mode: exists
     maintenanceValue: "true"
     normalValue: "false"
+```
+
+### Setter Configuration
+
+The optional `maintenance.setter` is the mirror image of the observer: when an operator puts
+the product into maintenance **from within ReadyStackGo** (not via the observer), RSGO actively
+propagates that state to the product. This keeps the RSGO operation mode and the product's own
+maintenance flag consistent, and lets the product warn/drain its clients.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | **Yes** | `sqlExtendedProperty` or `webhook` |
+| `gracePeriod` | string | No | Delay between firing the setter and stopping containers (e.g. `10s`). Default `0` |
+
+:::note[No feedback loop]
+The setter fires **only for operator/manual transitions**, never for observer-initiated ones
+(where the product already set the flag). The SQL write is idempotent. Setter failures are
+non-fatal: they are logged and reported, but do not block the maintenance transition.
+:::
+
+#### SQL Extended Property (`sqlExtendedProperty`)
+
+Writes the **same** extended property the observer reads, keeping both sides in sync. Works
+even while the product is down.
+
+```yaml
+maintenance:
+  observer:
+    type: sqlExtendedProperty
+    connectionString: "${AMS_DB}"
+    propertyName: ams-MaintenanceMode
+    maintenanceValue: "1"
+    normalValue: "0"
+  setter:
+    type: sqlExtendedProperty
+    connectionString: "${AMS_DB}"
+    propertyName: ams-MaintenanceMode
+    maintenanceValue: "1"
+    normalValue: "0"
+    gracePeriod: "10s"
+```
+
+#### Webhook (`webhook`)
+
+Calls a product endpoint with `POST { "state": "maintenance" | "normal" }`, signed with
+HMAC-SHA256 over the body (header `X-RSGO-Signature: sha256=<hex>`). Good for a synchronous
+product reaction while it is still running. The external URL is never read back (no SSRF).
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `url` | string | **Yes** | Endpoint the product exposes (supports `${VAR}`) |
+| `secret` | string | No | HMAC secret to sign the body (supports `${VAR}`; never logged) |
+| `timeout` | string | No | Request timeout (e.g. `10s`). Default `10s` |
+| `retries` | int | No | Retries on failure. Default `2` |
+
+```yaml
+maintenance:
+  setter:
+    type: webhook
+    url: "${PRODUCT_BASE_URL}/internal/maintenance"
+    secret: "${MAINTENANCE_WEBHOOK_SECRET}"
+    timeout: "10s"
+    retries: 2
+    gracePeriod: "15s"
 ```
 
 ---

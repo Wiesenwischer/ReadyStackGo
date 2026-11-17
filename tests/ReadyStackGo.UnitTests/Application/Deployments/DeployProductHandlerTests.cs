@@ -1004,4 +1004,131 @@ public class DeployProductHandlerTests
     }
 
     #endregion
+
+    #region Secret variables and the save-value opt-out (#465)
+
+    [Fact]
+    public async Task Handle_ExcludedVariable_IsDeployedButNotPersisted()
+    {
+        var product = CreateProductWithSecret();
+        SetupProductFound(product);
+        SetupNoExistingDeployment();
+        SetupAllStacksSucceed();
+
+        ProductDeployment? captured = null;
+        _repositoryMock.Setup(r => r.Add(It.IsAny<ProductDeployment>()))
+            .Callback<ProductDeployment>(pd => captured = pd);
+
+        DeployStackCommand? deployedCommand = null;
+        _mediatorMock
+            .Setup(m => m.Send(It.IsAny<DeployStackCommand>(), It.IsAny<CancellationToken>()))
+            .Callback<object, CancellationToken>((c, _) => deployedCommand = (DeployStackCommand)c)
+            .ReturnsAsync((DeployStackCommand cmd, CancellationToken _) => new DeployStackResponse
+            {
+                Success = true,
+                DeploymentId = Guid.NewGuid().ToString(),
+                StackName = cmd.StackName,
+                Message = "Deployed successfully"
+            });
+
+        var command = new DeployProductCommand(
+            TestEnvironmentId,
+            product.Id,
+            "test-deployment",
+            product.Stacks.Select(s => new DeployProductStackConfig(
+                s.Id.Value, new Dictionary<string, string>())).ToList(),
+            new Dictionary<string, string>
+            {
+                ["DB_SERVER"] = "db.example.local",
+                ["DB_ADMIN_PASSWORD"] = "s3cret",
+            },
+            SessionId: null,
+            ContinueOnError: true,
+            UserId: TestUserId,
+            ExcludeFromStorage: new HashSet<string> { "DB_ADMIN_PASSWORD" });
+
+        await _handler.Handle(command, CancellationToken.None);
+
+        captured.Should().NotBeNull();
+        captured!.SharedVariables.Should().NotContainKey("DB_ADMIN_PASSWORD",
+            "the user opted out of saving it");
+        captured.SharedVariables.Should().ContainKey("DB_SERVER");
+        captured.Stacks.Should().OnlyContain(s => !s.Variables.ContainsKey("DB_ADMIN_PASSWORD"));
+
+        deployedCommand.Should().NotBeNull();
+        deployedCommand!.Variables.Should().ContainKey("DB_ADMIN_PASSWORD",
+            "the container still needs the value to run");
+        deployedCommand.ExcludeFromStorage.Should().Contain("DB_ADMIN_PASSWORD",
+            "the child stack deployment must honour the opt-out too");
+    }
+
+    [Fact]
+    public async Task Handle_WithoutOptOut_PersistsEveryVariable()
+    {
+        var product = CreateProductWithSecret();
+        SetupProductFound(product);
+        SetupNoExistingDeployment();
+        SetupAllStacksSucceed();
+
+        ProductDeployment? captured = null;
+        _repositoryMock.Setup(r => r.Add(It.IsAny<ProductDeployment>()))
+            .Callback<ProductDeployment>(pd => captured = pd);
+
+        var command = CreateCommand(product, new Dictionary<string, string>
+        {
+            ["DB_ADMIN_PASSWORD"] = "s3cret",
+        });
+
+        await _handler.Handle(command, CancellationToken.None);
+
+        captured!.SharedVariables.Should().ContainKey("DB_ADMIN_PASSWORD");
+    }
+
+    [Fact]
+    public async Task Handle_RecordsSecretVariableNamesFromTheProductDefinition()
+    {
+        var product = CreateProductWithSecret();
+        SetupProductFound(product);
+        SetupNoExistingDeployment();
+        SetupAllStacksSucceed();
+
+        ProductDeployment? captured = null;
+        _repositoryMock.Setup(r => r.Add(It.IsAny<ProductDeployment>()))
+            .Callback<ProductDeployment>(pd => captured = pd);
+
+        await _handler.Handle(CreateCommand(product), CancellationToken.None);
+
+        captured.Should().NotBeNull();
+        captured!.SecretVariableNames.Should().Contain("DB_ADMIN_PASSWORD");
+        captured.SecretVariableNames.Should().Contain("DB_CONNECTION");
+        captured.SecretVariableNames.Should().NotContain("DB_SERVER",
+            "a hostname is not a secret and stays visible in the UI");
+    }
+
+    /// <summary>
+    /// A product whose stack declares a password, a connection string and a harmless variable.
+    /// </summary>
+    private static ProductDefinition CreateProductWithSecret()
+    {
+        var productId = new ProductId("stacks:test-product");
+        var stack = new StackDefinition(
+            "stacks",
+            "stack-0",
+            productId,
+            services: new[] { new ServiceTemplate { Name = "svc", Image = "test:latest" } },
+            variables: new[]
+            {
+                new Variable("DB_SERVER", "db", null, global::ReadyStackGo.Domain.StackManagement.Manifests.VariableType.String),
+                new Variable("DB_ADMIN_PASSWORD", null, null, global::ReadyStackGo.Domain.StackManagement.Manifests.VariableType.Password),
+                new Variable("DB_CONNECTION", null, null, global::ReadyStackGo.Domain.StackManagement.Manifests.VariableType.SqlServerConnectionString),
+            },
+            productName: "test-product",
+            productDisplayName: "Test Product",
+            productVersion: "1.0.0");
+
+        return new ProductDefinition(
+            "stacks", "test-product", "Test Product", new[] { stack }, productVersion: "1.0.0");
+    }
+
+    #endregion
 }

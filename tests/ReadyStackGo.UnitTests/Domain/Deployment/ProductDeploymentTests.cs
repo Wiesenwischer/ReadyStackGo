@@ -58,6 +58,21 @@ public class ProductDeploymentTests
     }
 
     [Fact]
+    public void IsInProgress_WhileRedeploying_IsTrue()
+    {
+        // Health-notification suppression during redeploy keys off IsInProgress
+        // (see HealthCollectorService.ShouldSuppressForParent); guard that contract.
+        var pd = CreateRunningDeployment(2);
+        pd.IsInProgress.Should().BeFalse();
+
+        pd.StartRedeploy();
+
+        pd.Status.Should().Be(ProductDeploymentStatus.Redeploying);
+        pd.IsInProgress.Should().BeTrue();
+        pd.IsOperational.Should().BeFalse();
+    }
+
+    [Fact]
     public void InitiateDeployment_SetsStackOrderFromConfigOrder()
     {
         var pd = CreateTestDeployment(3);

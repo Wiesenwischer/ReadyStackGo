@@ -39,6 +39,16 @@ public record CheckProductUpgradeResponse
     public string? LatestProductId { get; init; }
 
     /// <summary>
+    /// External release-notes URL for the latest version, if provided by the manifest.
+    /// </summary>
+    public string? LatestReleaseNotesUrl { get; init; }
+
+    /// <summary>
+    /// Whether the latest version has release notes (a changelog or a URL) to display.
+    /// </summary>
+    public bool LatestHasReleaseNotes { get; init; }
+
+    /// <summary>
     /// All available upgrade versions, sorted by version (newest first).
     /// </summary>
     public List<AvailableProductVersion>? AvailableVersions { get; init; }
@@ -81,4 +91,10 @@ public record AvailableProductVersion
     public required string ProductId { get; init; }
     public required string SourceId { get; init; }
     public int StackCount { get; init; }
+
+    /// <summary>External release-notes URL for this version, if any.</summary>
+    public string? ReleaseNotesUrl { get; init; }
+
+    /// <summary>Whether this version has release notes (changelog or URL) to display.</summary>
+    public bool HasReleaseNotes { get; init; }
 }

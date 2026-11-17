@@ -8,6 +8,7 @@ using ReadyStackGo.Application.UseCases.Deployments;
 using ReadyStackGo.Application.UseCases.Deployments.DeployStack;
 using ReadyStackGo.Application.UseCases.Deployments.RedeployProduct;
 using ReadyStackGo.Domain.Deployment.Deployments;
+using ReadyStackGo.Domain.Deployment.Edge;
 using ReadyStackGo.Domain.Deployment.Environments;
 using ReadyStackGo.Domain.Deployment.ProductDeployments;
 using UserId = ReadyStackGo.Domain.Deployment.UserId;
@@ -21,6 +22,7 @@ public class RedeployProductHandlerTests
     private readonly Mock<IMediator> _mediatorMock;
     private readonly Mock<IDeploymentService> _deploymentServiceMock;
     private readonly Mock<ILogger<RedeployProductHandler>> _loggerMock;
+    private readonly Mock<ReadyStackGo.Application.Services.Edge.IEdgeSettingsReconciler> _edgeSettingsMock;
     private readonly FakeTimeProvider _timeProvider;
     private readonly RedeployProductHandler _handler;
 
@@ -37,7 +39,7 @@ public class RedeployProductHandlerTests
 
         // Default: removal succeeds
         _deploymentServiceMock
-            .Setup(d => d.RemoveDeploymentAsync(It.IsAny<string>(), It.IsAny<string>()))
+            .Setup(d => d.RemoveDeploymentAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>()))
             .ReturnsAsync(new DeployComposeResponse { Success = true });
 
         // Default: deploy succeeds with a valid deployment ID
@@ -45,13 +47,16 @@ public class RedeployProductHandlerTests
             .Setup(m => m.Send(It.IsAny<DeployStackCommand>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new DeployStackResponse { Success = true, DeploymentId = Guid.NewGuid().ToString() });
 
+        _edgeSettingsMock = new Mock<ReadyStackGo.Application.Services.Edge.IEdgeSettingsReconciler>();
+
         _handler = new RedeployProductHandler(
             _repositoryMock.Object,
             _productSourceServiceMock.Object,
             _mediatorMock.Object,
             _deploymentServiceMock.Object,
             _loggerMock.Object,
-            timeProvider: _timeProvider);
+            timeProvider: _timeProvider,
+            edgeSettingsReconciler: _edgeSettingsMock.Object);
     }
 
     #region Helpers
@@ -169,7 +174,7 @@ public class RedeployProductHandlerTests
         await _handler.Handle(command, CancellationToken.None);
 
         _deploymentServiceMock.Verify(
-            d => d.RemoveDeploymentAsync(TestEnvironmentId, It.IsAny<string>()),
+            d => d.RemoveDeploymentAsync(TestEnvironmentId, It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>()),
             Times.Exactly(2));
     }
 
@@ -182,8 +187,8 @@ public class RedeployProductHandlerTests
 
         var callOrder = new List<string>();
         _deploymentServiceMock
-            .Setup(d => d.RemoveDeploymentAsync(It.IsAny<string>(), It.IsAny<string>()))
-            .Callback<string, string>((_, _) => callOrder.Add("remove"))
+            .Setup(d => d.RemoveDeploymentAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>()))
+            .Callback<string, string, Func<StackContainerProgress, Task>>((_, _, _) => callOrder.Add("remove"))
             .ReturnsAsync(new DeployComposeResponse { Success = true });
         _mediatorMock
             .Setup(m => m.Send(It.IsAny<DeployStackCommand>(), It.IsAny<CancellationToken>()))
@@ -203,7 +208,7 @@ public class RedeployProductHandlerTests
         var command = CreateCommand(pd.Id.Value.ToString());
 
         _deploymentServiceMock
-            .Setup(d => d.RemoveDeploymentAsync(It.IsAny<string>(), It.IsAny<string>()))
+            .Setup(d => d.RemoveDeploymentAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>()))
             .ReturnsAsync(new DeployComposeResponse { Success = false, Message = "Docker error" });
 
         await _handler.Handle(command, CancellationToken.None);
@@ -221,7 +226,7 @@ public class RedeployProductHandlerTests
         var command = CreateCommand(pd.Id.Value.ToString());
 
         _deploymentServiceMock
-            .Setup(d => d.RemoveDeploymentAsync(It.IsAny<string>(), It.IsAny<string>()))
+            .Setup(d => d.RemoveDeploymentAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>()))
             .ReturnsAsync(new DeployComposeResponse { Success = false, Message = "Docker error" });
 
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -244,7 +249,7 @@ public class RedeployProductHandlerTests
 
         // Remove called once (only for stack-0)
         _deploymentServiceMock.Verify(
-            d => d.RemoveDeploymentAsync(It.IsAny<string>(), It.IsAny<string>()),
+            d => d.RemoveDeploymentAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>()),
             Times.Once);
         // Deploy called once (only for stack-0)
         _mediatorMock.Verify(
@@ -472,6 +477,231 @@ public class RedeployProductHandlerTests
             stacks: new[] { stack },
             productVersion: "1.0.0",
             productId: productId);
+    }
+
+    #endregion
+
+    #region Edge Config Refresh
+
+    [Fact]
+    public async Task Handle_ReResolvesEdgeConfigFromCatalog()
+    {
+        var pd = CreateRunningDeploymentWithSharedVars(new Dictionary<string, string>());
+        pd.SetEdgeConfig(CreateEdgeConfig(EdgeMssMode.Pmtu));
+        SetupDeploymentFound(pd);
+
+        // Manifest was edited to mss: off since the initial deploy.
+        _productSourceServiceMock
+            .Setup(s => s.GetProductAsync(pd.ProductId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateCatalogProductWithEdge(pd.ProductId, mss: "off"));
+
+        await _handler.Handle(CreateCommand(pd.Id.Value.ToString()), CancellationToken.None);
+
+        pd.EdgeConfig!.MssMode.Should().Be(EdgeMssMode.Off,
+            "redeploy must re-read the edge: block so manifest edits to edge.mss take effect");
+    }
+
+    [Fact]
+    public async Task Handle_FixedMssInManifest_IsStoredWithItsValue()
+    {
+        var pd = CreateRunningDeploymentWithSharedVars(new Dictionary<string, string>());
+        pd.SetEdgeConfig(CreateEdgeConfig(EdgeMssMode.Pmtu));
+        SetupDeploymentFound(pd);
+
+        _productSourceServiceMock
+            .Setup(s => s.GetProductAsync(pd.ProductId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateCatalogProductWithEdge(pd.ProductId, mss: "1360"));
+
+        await _handler.Handle(CreateCommand(pd.Id.Value.ToString()), CancellationToken.None);
+
+        pd.EdgeConfig!.MssMode.Should().Be(EdgeMssMode.Fixed);
+        pd.EdgeConfig.MssValue.Should().Be(1360);
+    }
+
+    [Fact]
+    public async Task Handle_EdgeBlockNoLongerResolvable_KeepsRunningEdgeConfig()
+    {
+        var pd = CreateRunningDeploymentWithSharedVars(new Dictionary<string, string>());
+        pd.SetEdgeConfig(CreateEdgeConfig(EdgeMssMode.Fixed, 1360));
+        SetupDeploymentFound(pd);
+
+        // Catalog product without any edge: block (removed, or variables no longer resolve).
+        _productSourceServiceMock
+            .Setup(s => s.GetProductAsync(pd.ProductId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateCatalogProductWithoutObserver(pd.ProductId));
+
+        await _handler.Handle(CreateCommand(pd.Id.Value.ToString()), CancellationToken.None);
+
+        pd.EdgeConfig.Should().NotBeNull(
+            "tearing down the product's front door because a manifest value stopped resolving is worse than an outdated setting");
+        pd.EdgeConfig!.MssValue.Should().Be(1360);
+    }
+
+    [Fact]
+    public async Task Handle_UnresolvedHostnamePlaceholder_KeepsRunningEdgeConfig()
+    {
+        var pd = CreateRunningDeploymentWithSharedVars(new Dictionary<string, string>());
+        pd.SetEdgeConfig(CreateEdgeConfig(EdgeMssMode.Pmtu));
+        SetupDeploymentFound(pd);
+
+        // ${EDGE_HOST} is not among the shared variables → the mapper cannot resolve the block.
+        _productSourceServiceMock
+            .Setup(s => s.GetProductAsync(pd.ProductId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateCatalogProductWithEdge(pd.ProductId, mss: "off", hostname: "${EDGE_HOST}"));
+
+        await _handler.Handle(CreateCommand(pd.Id.Value.ToString()), CancellationToken.None);
+
+        pd.EdgeConfig.Should().NotBeNull();
+        pd.EdgeConfig!.MssMode.Should().Be(EdgeMssMode.Pmtu, "the unresolvable block must not be applied");
+    }
+
+    [Fact]
+    public async Task Handle_ProductWithoutEdge_LeavesEdgeInert()
+    {
+        var pd = CreateRunningDeploymentWithSharedVars(new Dictionary<string, string>());
+        SetupDeploymentFound(pd);
+
+        _productSourceServiceMock
+            .Setup(s => s.GetProductAsync(pd.ProductId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateCatalogProductWithoutObserver(pd.ProductId));
+
+        await _handler.Handle(CreateCommand(pd.Id.Value.ToString()), CancellationToken.None);
+
+        pd.EdgeConfig.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Handle_AppliesCreateTimeEdgeSettingsBeforeTheStacksGoDown()
+    {
+        var pd = CreateRunningDeploymentWithSharedVars(new Dictionary<string, string>());
+        pd.SetEdgeConfig(CreateEdgeConfig(EdgeMssMode.Pmtu));
+        SetupDeploymentFound(pd);
+
+        var order = new List<string>();
+        _edgeSettingsMock
+            .Setup(r => r.ApplyCreateTimeSettingsAsync(It.IsAny<ProductDeployment>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("edge"))
+            .ReturnsAsync(true);
+        _deploymentServiceMock
+            .Setup(d => d.RemoveDeploymentAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>()))
+            .Callback(() => order.Add("remove-stack"))
+            .ReturnsAsync(new DeployComposeResponse { Success = true });
+
+        await _handler.Handle(CreateCommand(pd.Id.Value.ToString()), CancellationToken.None);
+
+        _edgeSettingsMock.Verify(r => r.ApplyCreateTimeSettingsAsync(pd, It.IsAny<CancellationToken>()), Times.Once);
+        order.Should().Contain("remove-stack");
+        order[0].Should().Be("edge",
+            "the edge is recreated first so the whole redeploy already runs behind the configured edge");
+    }
+
+    [Fact]
+    public async Task Handle_EdgeRecreationFails_RedeployStillSucceeds()
+    {
+        var pd = CreateRunningDeploymentWithSharedVars(new Dictionary<string, string>());
+        pd.SetEdgeConfig(CreateEdgeConfig(EdgeMssMode.Pmtu));
+        SetupDeploymentFound(pd);
+
+        _edgeSettingsMock
+            .Setup(r => r.ApplyCreateTimeSettingsAsync(It.IsAny<ProductDeployment>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _handler.Handle(CreateCommand(pd.Id.Value.ToString()), CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+    }
+
+    private static ReadyStackGo.Domain.Deployment.Edge.EdgeConfig CreateEdgeConfig(
+        EdgeMssMode mode, int? mssValue = null)
+        => ReadyStackGo.Domain.Deployment.Edge.EdgeConfig.Create(
+            "app.test", 443, "bff", 8080, "edge-net", "caddy:2.8.4",
+            mssMode: mode, mssValue: mssValue);
+
+    private static global::ReadyStackGo.Domain.StackManagement.Stacks.ProductDefinition CreateCatalogProductWithEdge(
+        string productId, string mss, string hostname = "app.test")
+    {
+        var stack = new global::ReadyStackGo.Domain.StackManagement.Stacks.StackDefinition(
+            "stacks",
+            "stack-0",
+            new global::ReadyStackGo.Domain.StackManagement.Stacks.ProductId(productId),
+            services: new[]
+            {
+                new global::ReadyStackGo.Domain.StackManagement.Stacks.ServiceTemplate
+                {
+                    Name = "svc", Image = "test:latest"
+                }
+            },
+            variables: Array.Empty<global::ReadyStackGo.Domain.StackManagement.Stacks.Variable>(),
+            productName: "testproduct",
+            productDisplayName: "Test Product",
+            productVersion: "1.0.0");
+
+        return new global::ReadyStackGo.Domain.StackManagement.Stacks.ProductDefinition(
+            sourceId: "stacks",
+            name: "testproduct",
+            displayName: "Test Product",
+            stacks: new[] { stack },
+            productVersion: "1.0.0",
+            productId: productId,
+            edge: new global::ReadyStackGo.Domain.StackManagement.Manifests.RsgoEdge
+            {
+                Enabled = true,
+                PublicHostname = hostname,
+                Network = "edge-net",
+                Upstream = new global::ReadyStackGo.Domain.StackManagement.Manifests.RsgoEdgeUpstream
+                {
+                    Service = "bff",
+                    Port = "8080"
+                },
+                Mss = mss
+            });
+    }
+
+    #endregion
+
+    #region Per-Container Removal Progress
+
+    [Fact]
+    public async Task Handle_ForwardsPerContainerRemovalProgress()
+    {
+        var pd = CreateRunningDeployment(1);
+        SetupDeploymentFound(pd);
+
+        var notificationMock = new Mock<IDeploymentNotificationService>();
+
+        // Removal drives the per-container callback for two containers.
+        _deploymentServiceMock
+            .Setup(d => d.RemoveDeploymentAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Func<StackContainerProgress, Task>>()))
+            .Returns(async (string _, string _, Func<StackContainerProgress, Task> cb) =>
+            {
+                await cb(new StackContainerProgress("web-1", 1, 2));
+                await cb(new StackContainerProgress("web-2", 2, 2));
+                return new DeployComposeResponse { Success = true };
+            });
+
+        var handler = new RedeployProductHandler(
+            _repositoryMock.Object,
+            _productSourceServiceMock.Object,
+            _mediatorMock.Object,
+            _deploymentServiceMock.Object,
+            _loggerMock.Object,
+            notificationService: notificationMock.Object,
+            timeProvider: _timeProvider);
+
+        await handler.Handle(CreateCommand(pd.Id.Value.ToString()), CancellationToken.None);
+
+        // Each container yields a "RemovingContainer" progress event with its index/total.
+        notificationMock.Verify(n => n.NotifyProgressAsync(
+            It.IsAny<string>(), "RemovingContainer",
+            It.Is<string>(m => m.Contains("web-1") && m.Contains("(1/2)")),
+            It.IsAny<int>(), It.IsAny<string>(), 2, 1, 0, 0, It.IsAny<CancellationToken>()),
+            Times.Once);
+        notificationMock.Verify(n => n.NotifyProgressAsync(
+            It.IsAny<string>(), "RemovingContainer",
+            It.Is<string>(m => m.Contains("web-2") && m.Contains("(2/2)")),
+            It.IsAny<int>(), It.IsAny<string>(), 2, 2, 0, 0, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     #endregion

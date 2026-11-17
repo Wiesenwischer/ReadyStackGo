@@ -40,14 +40,18 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
                 .IsUnique();
         });
 
-        // Password as owned value object
+        // Password as owned value object. Optional: external-only (OIDC) users have no
+        // local password.
         builder.OwnsOne(u => u.Password, password =>
         {
             password.Property(p => p.Hash)
                 .HasColumnName("PasswordHash")
-                .IsRequired()
                 .HasMaxLength(256);
         });
+        builder.Navigation(u => u.Password).IsRequired(false);
+
+        // Honest email-verification timestamp (null until a real ownership proof).
+        builder.Property(u => u.EmailVerifiedAt);
 
         // Enablement as owned value object
         builder.OwnsOne(u => u.Enablement, enablement =>
@@ -109,6 +113,39 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         // Ensure RoleAssignments are always loaded with User
         builder.Navigation(u => u.RoleAssignments).AutoInclude();
+
+        // External identities (OIDC links) stored in a separate table.
+        builder.OwnsMany(u => u.ExternalIdentities, ext =>
+        {
+            ext.ToTable("UserExternalIdentities");
+            ext.UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            ext.WithOwner().HasForeignKey("UserId");
+
+            ext.Property<Guid>("Id")
+                .ValueGeneratedOnAdd();
+            ext.HasKey("Id");
+
+            ext.Property(e => e.Provider)
+                .HasColumnName("Provider")
+                .IsRequired()
+                .HasMaxLength(100);
+
+            ext.Property(e => e.Subject)
+                .HasColumnName("Subject")
+                .IsRequired()
+                .HasMaxLength(256);
+
+            ext.Property(e => e.LinkedAt)
+                .HasColumnName("LinkedAt")
+                .IsRequired();
+
+            // A given external identity maps to exactly one user.
+            ext.HasIndex(nameof(ExternalIdentity.Provider), nameof(ExternalIdentity.Subject))
+                .IsUnique();
+        });
+
+        builder.Navigation(u => u.ExternalIdentities).AutoInclude();
 
         // Ignore domain events - they're not persisted
         builder.Ignore(u => u.DomainEvents);

@@ -30,7 +30,7 @@ public class AuthEndpointsIntegrationTests : IAsyncLifetime
         _adminPassword = "TestPassword123!";
 
         // Step 1: Create admin
-        var adminRequest = new { username = _adminUsername, password = _adminPassword };
+        var adminRequest = new { username = _adminUsername, email = $"{_adminUsername}@example.com", password = _adminPassword };
         await _client.PostAsJsonAsync("/api/wizard/admin", adminRequest);
 
         // Step 2: Set organization

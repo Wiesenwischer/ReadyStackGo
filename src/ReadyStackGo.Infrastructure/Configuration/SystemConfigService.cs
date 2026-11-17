@@ -53,6 +53,46 @@ public class SystemConfigService : ISystemConfigService
         await _configStore.SaveSystemConfigAsync(config);
     }
 
+    public async Task<string> GetBaseUrlAsync()
+    {
+        var config = await _configStore.GetSystemConfigAsync();
+        return config.BaseUrl;
+    }
+
+    public async Task<string?> GetConfiguredBaseUrlAsync()
+    {
+        var config = await _configStore.GetSystemConfigAsync();
+        return BaseUrlRules.IsUnset(config.BaseUrl) ? null : BaseUrlRules.Normalize(config.BaseUrl);
+    }
+
+    public async Task SetBaseUrlAsync(string baseUrl)
+    {
+        var normalized = BaseUrlRules.Normalize(baseUrl)
+            ?? throw new ArgumentException("The base URL must be an absolute http or https address without query or fragment.", nameof(baseUrl));
+        var config = await _configStore.GetSystemConfigAsync();
+        config.BaseUrl = normalized;
+        await _configStore.SaveSystemConfigAsync(config);
+    }
+
+    public async Task<string?> GetDefaultThemeAsync()
+    {
+        var config = await _configStore.GetSystemConfigAsync();
+        return config.DefaultTheme;
+    }
+
+    public async Task<bool> SetDefaultThemeIfUnsetAsync(string themeId)
+    {
+        var config = await _configStore.GetSystemConfigAsync();
+        if (!string.IsNullOrWhiteSpace(config.DefaultTheme))
+        {
+            return false;
+        }
+
+        config.DefaultTheme = themeId;
+        await _configStore.SaveSystemConfigAsync(config);
+        return true;
+    }
+
     private static InfraWizardState MapToInfraWizardState(AppWizardState state)
     {
         return state switch

@@ -20,6 +20,12 @@ public class DeployProductApiRequest
     public Dictionary<string, string> SharedVariables { get; set; } = new();
     public string? SessionId { get; set; }
     public bool ContinueOnError { get; set; } = true;
+
+    /// <summary>
+    /// Variable names the user chose NOT to persist (the "save value" toggle in the deploy form).
+    /// The values are still deployed; they are just not written to the deployment entity.
+    /// </summary>
+    public HashSet<string>? ExcludeFromStorage { get; set; }
 }
 
 public class DeployProductStackConfigDto
@@ -63,7 +69,8 @@ public class DeployProductEndpoint : Endpoint<DeployProductApiRequest, DeployPro
             req.SharedVariables,
             req.SessionId,
             req.ContinueOnError,
-            userId);
+            userId,
+            req.ExcludeFromStorage);
 
         var response = await _mediator.Send(command, ct);
 

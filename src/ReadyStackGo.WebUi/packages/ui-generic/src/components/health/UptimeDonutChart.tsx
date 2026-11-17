@@ -14,14 +14,14 @@ interface UptimeSlice {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  healthy: { label: 'Healthy', color: '#22c55e' },
-  degraded: { label: 'Degraded', color: '#eab308' },
-  unhealthy: { label: 'Unhealthy', color: '#ef4444' },
-  maintenance: { label: 'Maintenance', color: '#3b82f6' },
+  healthy: { label: 'Healthy', color: 'var(--color-status-healthy)' },
+  degraded: { label: 'Degraded', color: 'var(--color-status-degraded)' },
+  unhealthy: { label: 'Unhealthy', color: 'var(--color-status-unhealthy)' },
+  maintenance: { label: 'Maintenance', color: 'var(--color-primary)' },
 };
 
 function getConfig(status: string) {
-  return STATUS_CONFIG[status.toLowerCase()] ?? { label: status, color: '#6b7280' };
+  return STATUS_CONFIG[status.toLowerCase()] ?? { label: status, color: 'var(--color-status-unknown)' };
 }
 
 function buildUptimeSlices(transitions: HealthTransitionDto[]): UptimeSlice[] {
