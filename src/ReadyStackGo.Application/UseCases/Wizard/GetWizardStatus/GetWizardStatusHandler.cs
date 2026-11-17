@@ -38,6 +38,16 @@ public class GetWizardStatusHandler : IRequestHandler<GetWizardStatusQuery, Wiza
             return new WizardStatusResult("Installed", true, defaultDockerSocketPath);
         }
 
+        // Once a system administrator exists, setup is done: no timeout applies, even if the
+        // setup window ran out while the remaining steps (SMTP, a sign-in run of an identity
+        // provider) were still open.
+        var hasAdmin = _userRepository.GetAll()
+            .Any(u => u.RoleAssignments.Any(r => r.RoleId == RoleId.SystemAdmin));
+        if (hasAdmin)
+        {
+            return new WizardStatusResult("Installed", true, defaultDockerSocketPath);
+        }
+
         // Get timeout info - this also initializes the timeout window on first access
         var timeoutInfo = await _wizardTimeoutService.GetTimeoutInfoAsync();
 
@@ -52,15 +62,9 @@ public class GetWizardStatusHandler : IRequestHandler<GetWizardStatusQuery, Wiza
             return new WizardStatusResult("NotStarted", false, defaultDockerSocketPath, freshTimeoutInfo);
         }
 
-        // Two states only: admin exists → Installed, else NotStarted
-        var hasAdmin = _userRepository.GetAll()
-            .Any(u => u.RoleAssignments.Any(r => r.RoleId == RoleId.SystemAdmin));
-
-        var wizardStateString = hasAdmin ? "Installed" : "NotStarted";
-
         return new WizardStatusResult(
-            wizardStateString,
-            hasAdmin,
+            "NotStarted",
+            false,
             defaultDockerSocketPath,
             timeoutInfo);
     }

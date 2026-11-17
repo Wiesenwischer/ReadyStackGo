@@ -5,7 +5,7 @@ description: Wie Farb-Themes in ReadyStackGo funktionieren, wie man ein eigenes 
 
 Das Aussehen der Weboberfläche von ReadyStackGo kommt aus **Theme-Paketen**. Ein Theme-Paket ist reines CSS: ein Satz Werte für die Design-Tokens der Oberfläche, für den hellen und den dunklen Modus. Es braucht weder Code noch einen Build, so kann jeder ein Theme erstellen und einer laufenden Installation mitgeben.
 
-Das Theme wählt man unter **Settings → Appearance**. Die Wahl wird im Browser gespeichert. Den Modus (hell oder dunkel) wählt man dort getrennt davon und weiterhin über den Knopf in der Kopfzeile.
+Das Theme wählt man unter **Settings → Appearance**. Die Wahl wird im Browser gespeichert. Den Modus wählt man dort getrennt davon: Light, Dark oder System, das dem Betriebssystem folgt. Der Knopf in der Kopfzeile schaltet weiterhin zwischen hell und dunkel um.
 
 ## Eingebaute Themes
 
@@ -13,7 +13,12 @@ Das Theme wählt man unter **Settings → Appearance**. Die Wahl wird im Browser
 |----|------|--------------|
 | `turquoise` | Turquoise | Standard. Die Farben des ReadyStackGo-Schriftzugs. |
 | `pastel-green` | Pastel Green | Helles Pastellgrün mit demselben orangefarbenen Akzent. |
+| `aurora` | Aurora | Violett auf kühlem Weiß, dunkel Mitternachts-Indigo. |
+| `graphite-lime` | Graphite Lime | Graphit mit elektrischem Limettengrün. |
+| `magenta` | Magenta | Kräftiges Magenta, dunkel Pflaume und Wein. |
 | `classic` | Classic | Das bisherige blaue Aussehen von ReadyStackGo. |
+
+Neue Installationen starten mit **Turquoise**. Installationen, die mit einer früheren Version eingerichtet wurden, behalten nach dem Update ihr bisheriges Aussehen: Sie starten mit **Classic**. Jeder Nutzer kann das Theme unter Settings → Appearance wechseln.
 
 ## Format eines Theme-Pakets
 
@@ -56,15 +61,14 @@ my-theme/
 }
 
 /* Dunkler Modus */
-.dark [data-theme="my-theme"],
-.dark[data-theme="my-theme"] {
+[data-theme="my-theme"][data-mode="dark"] {
   --rsgo-bg-page: #060B11;
   --rsgo-primary-default: #00CED1;
   /* ... alle weiteren Tokens ... */
 }
 ```
 
-Durch diese Selektoren wirkt das Theme am `<html>`-Element und ebenso in den Vorschau-Karten der Theme-Auswahl. Beide Blöcke müssen **alle** Tokens setzen:
+Verwende genau diese Selektoren. Der dunkle Block hängt an keinem umgebenden Element, so wirkt das Theme am `<html>`-Element und ebenso in den Farbkugeln der Theme-Auswahl, die jedes Theme hell und dunkel nebeneinander zeigen. Beide Blöcke müssen **alle** Tokens setzen:
 
 - die semantischen Tokens, z. B. `--rsgo-bg-page`, `--rsgo-bg-surface`, `--rsgo-text-primary`, `--rsgo-text-brand`, `--rsgo-primary-default`, `--rsgo-accent-go`, `--rsgo-focus-ring`, `--rsgo-nav-*`, `--rsgo-status-*` und `--rsgo-logo-*`,
 - die Farbskalen `--rsgo-brand-25` … `--rsgo-brand-950` und `--rsgo-gray-25` … `--rsgo-gray-950`.
@@ -99,7 +103,7 @@ Jeder Unterordner des Verzeichnisses ist ein Paket. Ein Paket aus dem Verzeichni
 |-------------------|--------------|----------|
 | `Themes__Path` | Verzeichnis mit zusätzlichen Theme-Paketen. Darf fehlen. | `/app/themes` |
 | `Themes__Enabled` | Komma-Liste der Theme-Ids, die angeboten werden. Leer bedeutet: alle gefundenen Themes. | (leer) |
-| `Themes__Default` | Theme, das gilt, solange ein Browser noch keines gewählt hat (oder seine Wahl nicht mehr angeboten wird). | `turquoise`; fehlt es, das erste nach `order` |
+| `Themes__Default` | Theme, das gilt, solange ein Browser noch keines gewählt hat (oder seine Wahl nicht mehr angeboten wird). Übersteuert den Standard der Installation. | leer: `turquoise` für neue Installationen, `classic` für Installationen von vor den Theme-Paketen; wird es nicht angeboten, `turquoise`, dann das erste nach `order` |
 
 Beispiel: nur das eigene Theme anbieten:
 
@@ -108,7 +112,7 @@ Themes__Enabled=my-theme
 Themes__Default=my-theme
 ```
 
-Wird nur **ein** Theme angeboten, blendet Settings → Appearance die Theme-Auswahl aus und zeigt nur den Umschalter zwischen hellem und dunklem Modus.
+Wird nur **ein** Theme angeboten, blendet Settings → Appearance die Theme-Auswahl aus und zeigt nur den Umschalter für den Modus.
 
 ## API
 

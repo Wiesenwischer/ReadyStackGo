@@ -96,19 +96,23 @@ public class User : AggregateRoot<UserId>
 
     /// <summary>
     /// Registers a user that authenticates only through an external identity provider
-    /// (OIDC). No local password is set, and the email is marked verified because a
-    /// trusted external provider asserted ownership.
+    /// (OIDC). No local password is set. The email is marked verified only when the
+    /// provider asserted that it verified the address (<paramref name="emailVerified"/>).
     /// </summary>
     public static User RegisterExternal(
         UserId id,
         string username,
         EmailAddress email,
         string provider,
-        string subject)
+        string subject,
+        bool emailVerified = true)
     {
         var user = new User(id, username, email, password: null);
         user.LinkExternalIdentity(provider, subject);
-        user.VerifyEmail(SystemClock.UtcNow);
+        if (emailVerified)
+        {
+            user.VerifyEmail(SystemClock.UtcNow);
+        }
         return user;
     }
 
@@ -180,6 +184,28 @@ public class User : AggregateRoot<UserId>
 
         _externalIdentities.Remove(existing);
         AddDomainEvent(new ExternalIdentityUnlinked(Id, existing.Provider, existing.Subject));
+    }
+
+    /// <summary>
+    /// Removes the link to a provider because the provider itself was removed from the
+    /// configuration. Unlike <see cref="UnlinkExternalIdentity"/> this does not protect the
+    /// user's last sign-in method: the provider no longer exists, so the link is useless and
+    /// must not be inherited by a later provider with the same name.
+    /// </summary>
+    /// <returns>True if a link was removed.</returns>
+    public bool RemoveExternalIdentityOfRemovedProvider(string provider)
+    {
+        if (string.IsNullOrEmpty(provider))
+            return false;
+
+        var normalizedProvider = provider.ToLowerInvariant();
+        var existing = _externalIdentities.FirstOrDefault(e => e.Provider == normalizedProvider);
+        if (existing == null)
+            return false;
+
+        _externalIdentities.Remove(existing);
+        AddDomainEvent(new ExternalIdentityUnlinked(Id, existing.Provider, existing.Subject));
+        return true;
     }
 
     /// <summary>
@@ -440,6 +466,26 @@ public class User : AggregateRoot<UserId>
     {
         SelfAssertArgumentNotNull(newPassword, "New password is required.");
         Password = newPassword;
+        PasswordChangedAt = SystemClock.UtcNow;
+        MustChangePassword = false;
+
+        AddDomainEvent(new UserPasswordChanged(Id));
+    }
+
+    /// <summary>
+    /// Sets a local password for a user that has none yet (signed up through an external
+    /// identity provider). Users with a password change it through <see cref="ChangePassword"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown if the user already has a password.</exception>
+    public void SetInitialPassword(HashedPassword password)
+    {
+        SelfAssertArgumentNotNull(password, "Password is required.");
+        if (HasPassword)
+        {
+            throw new InvalidOperationException("User already has a local password.");
+        }
+
+        Password = password;
         PasswordChangedAt = SystemClock.UtcNow;
         MustChangePassword = false;
 

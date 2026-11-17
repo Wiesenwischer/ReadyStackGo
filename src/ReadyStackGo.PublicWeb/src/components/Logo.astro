@@ -1,0 +1,15 @@
+---
+// ReadyStackGo logo (mark + wordmark) from the generated lockups (docs/branding/logo-refresh).
+// The light lockup has a graphite "Stack" for light backgrounds; the dark one the original white.
+// The surrounding link carries the accessible name, so the images are decorative.
+interface Props {
+	height?: number;
+}
+
+const { height = 36 } = Astro.props;
+// Aspect ratio of the generated lockups (viewBox 0 0 321.31 64).
+const width = Math.round((height * 321.31) / 64);
+---
+
+<img src="/images/logo/readystackgo-lockup-light.svg" alt="" width={width} height={height} class="block dark:hidden" />
+<img src="/images/logo/readystackgo-lockup-dark.svg" alt="" width={width} height={height} class="hidden dark:block" />

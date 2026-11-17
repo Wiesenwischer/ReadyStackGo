@@ -127,6 +127,8 @@ export interface UpdateProgressInfo {
   phase: string; // idle, pulling, creating, starting, handed_off, error
   message?: string;
   progressPercent?: number;
+  /** Technical failure reason, only set in the error phase. */
+  details?: string;
 }
 
 // Health Notification Settings

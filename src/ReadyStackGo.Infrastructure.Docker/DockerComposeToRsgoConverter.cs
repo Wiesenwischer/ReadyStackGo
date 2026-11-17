@@ -100,6 +100,15 @@ public class DockerComposeToRsgoConverter
                 };
             }
 
+            if (service.Logging != null)
+            {
+                rsgoService.Logging = new RsgoLogging
+                {
+                    MaxSize = service.Logging.MaxSize,
+                    MaxFile = service.Logging.MaxFile
+                };
+            }
+
             manifest.Services![serviceName] = rsgoService;
         }
 

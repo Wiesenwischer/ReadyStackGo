@@ -15,7 +15,8 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:container": "playwright test --config=playwright.container.config.ts",
-    "test:e2e:container:headed": "playwright test --config=playwright.container.config.ts --headed"
+    "test:e2e:container:headed": "playwright test --config=playwright.container.config.ts --headed",
+    "test:e2e:sso": "playwright test --config=playwright.sso.config.ts"
   },
   "dependencies": {
     "@microsoft/signalr": "^8.0.7",

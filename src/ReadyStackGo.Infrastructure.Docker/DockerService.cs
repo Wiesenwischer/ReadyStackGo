@@ -10,6 +10,7 @@ using ReadyStackGo.Application.Services;
 using ReadyStackGo.Application.UseCases.Containers;
 using ReadyStackGo.Domain.Deployment.Deployments;
 using ReadyStackGo.Domain.Deployment.Environments;
+using ReadyStackGo.Domain.StackManagement.Stacks;
 
 namespace ReadyStackGo.Infrastructure.Docker;
 
@@ -42,6 +43,81 @@ public class DockerService : IDockerService, IDisposable
         _sshTunnelManager = sshTunnelManager;
         _credentialEncryptionService = credentialEncryptionService;
         _registryCredentialProvider = registryCredentialProvider;
+    }
+
+    /// <summary>
+    /// Built-in default log rotation for containers created by RSGO: 10 MB per file, 3 files (30 MB max).
+    /// Overridable per installation via <c>Docker:ContainerLogs:MaxSize</c> / <c>Docker:ContainerLogs:MaxFile</c>
+    /// (environment: <c>Docker__ContainerLogs__MaxSize</c>) and per service via the manifest key <c>logging</c>.
+    /// </summary>
+    internal sealed record ContainerLogDefaults(string? MaxSize, int? MaxFile)
+    {
+        public const string BuiltInMaxSize = "10m";
+        public const int BuiltInMaxFile = 3;
+
+        public static ContainerLogDefaults FromConfiguration(IConfiguration configuration)
+        {
+            var section = configuration.GetSection("Docker:ContainerLogs");
+
+            // An explicitly empty MaxSize switches the default off (daemon default applies).
+            var configuredSize = section["MaxSize"];
+            var maxSize = configuredSize is null
+                ? BuiltInMaxSize
+                : string.IsNullOrWhiteSpace(configuredSize) ? null
+                : ServiceLogging.IsValidMaxSize(configuredSize.Trim()) ? configuredSize.Trim()
+                : BuiltInMaxSize;
+
+            var maxFile = int.TryParse(section["MaxFile"], NumberStyles.None, CultureInfo.InvariantCulture, out var file) && file >= 1
+                ? file
+                : BuiltInMaxFile;
+
+            return new ContainerLogDefaults(maxSize, maxFile);
+        }
+    }
+
+    /// <summary>
+    /// Builds the container's log options: the manifest override wins per field, the default fills the rest.
+    /// Returns null when the daemon's own default should apply, i.e. when no limit is wanted, or when the
+    /// daemon's default driver does not rotate by size (journald, syslog, ...) and the manifest did not ask for one.
+    /// </summary>
+    internal static LogConfig? ResolveLogConfig(ServiceLogging? requested, ContainerLogDefaults defaults, string? daemonDriver)
+    {
+        var maxSize = requested?.MaxSize ?? defaults.MaxSize;
+        var maxFile = requested?.MaxFile ?? defaults.MaxFile;
+        if (maxSize is null && maxFile is null)
+            return null;
+
+        var daemonRotates = daemonDriver is "json-file" or "local";
+        var explicitlyRequested = requested is { MaxSize: not null } or { MaxFile: not null };
+        if (!daemonRotates && !explicitlyRequested)
+            return null;
+
+        var options = new Dictionary<string, string>();
+        if (maxSize is not null)
+            options["max-size"] = maxSize;
+        if (maxFile is not null)
+            options["max-file"] = maxFile.Value.ToString(CultureInfo.InvariantCulture);
+
+        return new LogConfig
+        {
+            Type = daemonRotates ? daemonDriver : "json-file",
+            Config = options
+        };
+    }
+
+    private async Task<string?> GetDaemonLoggingDriverAsync(DockerClient client, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var info = await client.System.GetSystemInfoAsync(cancellationToken);
+            return info.LoggingDriver;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Without the driver we cannot tell whether size limits are accepted: skip the default, never fail the deployment.
+            _logger.LogWarning(ex, "Could not read the Docker daemon's logging driver; no default log limit applied");
+            return null;
+        }
     }
 
     public async Task<IEnumerable<ContainerDto>> ListContainersAsync(string environmentId, CancellationToken cancellationToken = default)
@@ -253,6 +329,14 @@ public class DockerService : IDockerService, IDisposable
             },
             NetworkingConfig = networkingConfig
         };
+
+        // Bound the container log so a chatty service cannot fill the host disk.
+        var logConfig = ResolveLogConfig(
+            request.Logging,
+            ContainerLogDefaults.FromConfiguration(_configuration),
+            await GetDaemonLoggingDriverAsync(client, cancellationToken));
+        if (logConfig != null)
+            createParams.HostConfig.LogConfig = logConfig;
 
         // Optional command/entrypoint overrides (e.g. the edge container's Caddy bootstrap).
         if (request.Entrypoint is { Count: > 0 })

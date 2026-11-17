@@ -60,13 +60,17 @@ public class ThemesEndpointsIntegrationTests : IDisposable
             css ?? $"[data-theme=\"{id}\"] {{ --rsgo-bg-page: #ffffff; }}");
     }
 
-    private HttpClient CreateClient(string? enabled = null, string? defaultId = null)
+    private HttpClient CreateClient(string? enabled = null, string? defaultId = null, string? configPath = null)
     {
         var settings = new Dictionary<string, string?>
         {
             ["Themes:BuiltInPath"] = _builtIn,
             ["Themes:Path"] = _extra
         };
+        if (configPath is not null)
+        {
+            settings["ConfigPath"] = configPath;
+        }
         if (enabled is not null)
         {
             settings["Themes:Enabled"] = enabled;
@@ -222,6 +226,100 @@ public class ThemesEndpointsIntegrationTests : IDisposable
         var body = await response.Content.ReadFromJsonAsync<ThemeListResponse>();
         body!.Themes.Should().BeEmpty();
         body.Default.Should().BeNull();
+    }
+
+    /// <summary>
+    /// Creates a config directory with an rsgo.system.json, as an installation has it before the start.
+    /// </summary>
+    private string WriteSystemConfig(string json)
+    {
+        var configPath = Path.Combine(_root, "config-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(configPath);
+        File.WriteAllText(Path.Combine(configPath, "rsgo.system.json"), json);
+        return configPath;
+    }
+
+    private static string? ReadStoredDefaultTheme(string configPath)
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(configPath, "rsgo.system.json")));
+        return doc.RootElement.TryGetProperty("defaultTheme", out var value) ? value.GetString() : null;
+    }
+
+    [Fact]
+    public async Task GET_Themes_ExistingInstallationFromBeforeThemes_DefaultsToClassic()
+    {
+        // An installation set up with an earlier version: wizard done, no default theme stored yet.
+        var configPath = WriteSystemConfig("""{"wizardState":"Installed"}""");
+        var client = CreateClient(configPath: configPath);
+
+        var body = await client.GetFromJsonAsync<ThemeListResponse>("/api/themes");
+
+        body!.Default.Should().Be("classic");
+        ReadStoredDefaultTheme(configPath).Should().Be("classic");
+    }
+
+    [Fact]
+    public async Task GET_Themes_InstallationWithStoredDefault_KeepsIt()
+    {
+        var configPath = WriteSystemConfig("""{"wizardState":"Installed","defaultTheme":"turquoise"}""");
+        var client = CreateClient(configPath: configPath);
+
+        var body = await client.GetFromJsonAsync<ThemeListResponse>("/api/themes");
+
+        body!.Default.Should().Be("turquoise");
+        ReadStoredDefaultTheme(configPath).Should().Be("turquoise");
+    }
+
+    [Fact]
+    public async Task GET_Themes_NotYetInstalled_DefaultsToTurquoiseAndStoresNothing()
+    {
+        var configPath = WriteSystemConfig("""{"wizardState":"NotStarted"}""");
+        var client = CreateClient(configPath: configPath);
+
+        var body = await client.GetFromJsonAsync<ThemeListResponse>("/api/themes");
+
+        body!.Default.Should().Be("turquoise");
+        ReadStoredDefaultTheme(configPath).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GET_Themes_OperatorDefault_WinsOverExistingInstallation()
+    {
+        var configPath = WriteSystemConfig("""{"wizardState":"Installed"}""");
+        var client = CreateClient(defaultId: "pastel-green", configPath: configPath);
+
+        var body = await client.GetFromJsonAsync<ThemeListResponse>("/api/themes");
+
+        body!.Default.Should().Be("pastel-green");
+    }
+
+    [Fact]
+    public async Task GET_Themes_ExistingInstallation_ClassicNotOffered_FallsBackToTurquoise()
+    {
+        var configPath = WriteSystemConfig("""{"wizardState":"Installed"}""");
+        var client = CreateClient(enabled: "turquoise,pastel-green", configPath: configPath);
+
+        var body = await client.GetFromJsonAsync<ThemeListResponse>("/api/themes");
+
+        body!.Default.Should().Be("turquoise");
+    }
+
+    [Fact]
+    public async Task CompletingTheWizard_StoresTurquoiseForTheNewInstallation()
+    {
+        var configPath = WriteSystemConfig("""{"wizardState":"NotStarted"}""");
+        var client = CreateClient(configPath: configPath);
+
+        var admin = await client.PostAsJsonAsync("/api/wizard/admin",
+            new { username = "themeadmin", email = "themeadmin@example.com", password = "TestPassword123!" });
+        admin.IsSuccessStatusCode.Should().BeTrue();
+        var install = await client.PostAsJsonAsync("/api/wizard/install", new { manifestPath = (string?)null });
+        install.IsSuccessStatusCode.Should().BeTrue();
+
+        ReadStoredDefaultTheme(configPath).Should().Be("turquoise");
+        var body = await client.GetFromJsonAsync<ThemeListResponse>("/api/themes");
+        body!.Default.Should().Be("turquoise");
     }
 
     private sealed class ThemesWebApplicationFactory(Dictionary<string, string?> settings) : CustomWebApplicationFactory

@@ -87,6 +87,11 @@ public class DeploymentStep
     public ServiceHealthCheck? HealthCheck { get; set; }
 
     /// <summary>
+    /// Log rotation override from the manifest. When null, RSGO's default log limit applies.
+    /// </summary>
+    public ServiceLogging? Logging { get; set; }
+
+    /// <summary>
     /// Optional image digest from an OCI lock file.
     /// When set, the deployment uses image@digest instead of image:tag for deterministic deployments.
     /// </summary>
@@ -270,6 +275,11 @@ public class ComposeServiceDefinition
     /// Health check configuration
     /// </summary>
     public ComposeHealthCheck? HealthCheck { get; set; }
+
+    /// <summary>
+    /// Log rotation taken from the compose <c>logging</c> block (json-file / local driver only).
+    /// </summary>
+    public ServiceLogging? Logging { get; set; }
 }
 
 /// <summary>

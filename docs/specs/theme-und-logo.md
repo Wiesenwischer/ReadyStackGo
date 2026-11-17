@@ -16,6 +16,7 @@ von wiesenwischer.de gibt die Richtung vor.
 - **Theme-Auswahl in der App** (Marcus, 03.10.2026): Unter Settings wählt man das Theme der Weboberfläche. Zur Wahl
   stehen drei Themes, jedes mit hellem und dunklem Modus: Türkis (die Farben des Schriftzugs), Pastellgrün und das
   bisherige Blau als „Classic“. Hell oder dunkel bleibt zusätzlich über den Knopf in der Kopfzeile umschaltbar.
+  Unter Settings gibt es als dritten Modus „System“, der dem Betriebssystem folgt (Marcus, 05.10.2026, Entwurf E).
 - **Themes zur Laufzeit ladbar** (Marcus, 04.10.2026: „dass man die Themes irgendwie optional oder zur Laufzeit
   anladen kann, so dass … nur das eigene Theme in den Container mitgedacht wird oder vielleicht sogar an anderer
   offenerer Stelle geladen wird“): Ein Theme ist ein Paket aus Beschreibung und Token-Werten, kein fest eingebauter
@@ -59,6 +60,10 @@ von wiesenwischer.de gibt die Richtung vor.
   03.10.2026: „helles pastellfarbenes Grün“). Classic ist das bisherige Erscheinungsbild mit dem Blau `#465FFF`. Alle
   drei stehen in der App zur Wahl (Marcus, 03.10.2026); dass Türkis der Standard ist, folgt aus dem Ziel des
   Vorhabens.
+- **Drei weitere Themes** (Marcus, 05.10.2026: „Lass doch alle drei“): Aurora (Violett, dunkel Mitternachts-Indigo),
+  Graphite Lime (Graphit mit Limettengrün, dunkel warmes Anthrazit) und Magenta (dunkel Pflaume und Wein). Jeder
+  dunkle Modus hat einen eigenen Grundton, nicht nur eine andere Akzentfarbe (Marcus, 05.10.2026: „Der dark Mode
+  sieht iwie immer gleich aus nur mit anderer akzentfarbe“). Classic steht in der Auswahl zuletzt.
 - **Schrift:** Montserrat für Überschriften und Schriftzug, Inter für Text, wie bei Wiesenwischer Works (Marcus,
   03.10.2026).
 - **Logo ohne Rakete:** Das Zeichen besteht nur aus dem Würfelstapel (Marcus, 03.10.2026).
@@ -74,7 +79,8 @@ von wiesenwischer.de gibt die Richtung vor.
 
 ## Oberfläche und Bilder
 
-Verbindlich: Entwurf in `docs/specs/theme-und-logo/entwurf/` (freigegeben mit dem Merge von PR #481). Er zeigt
+Verbindlich: Entwurf in `docs/specs/theme-und-logo/entwurf/` (freigegeben mit dem Merge von PR #481, Settings →
+Appearance neu gestaltet mit dem Merge von PR #488). Er zeigt
 mindestens:
 
 - beide Farbrichtungen (Schriftzug-Farben und Pastellgrün) in hellem und dunklem Modus,

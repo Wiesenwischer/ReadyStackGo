@@ -10,6 +10,7 @@ export type UpdatePhase = 'connecting' | 'triggering' | 'pulling' | 'creating' |
 export interface UseUpdateStoreReturn {
   phase: UpdatePhase;
   errorMessage: string | null;
+  errorDetails: string | null;
   currentVersion: string | null;
   pullPercent: number;
   isWorking: boolean;
@@ -20,6 +21,7 @@ export interface UseUpdateStoreReturn {
 export function useUpdateStore(targetVersion: string): UseUpdateStoreReturn {
   const [phase, setPhase] = useState<UpdatePhase>('connecting');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [currentVersion, setCurrentVersion] = useState<string | null>(null);
   const [pullPercent, setPullPercent] = useState(0);
 
@@ -92,6 +94,7 @@ export function useUpdateStore(targetVersion: string): UseUpdateStoreReturn {
       case 'error':
         setPhase('error');
         setErrorMessage(progress.message ?? 'Update failed.');
+        setErrorDetails(progress.details ?? null);
         break;
     }
   }, [progress, startVersionPolling]);
@@ -143,6 +146,7 @@ export function useUpdateStore(targetVersion: string): UseUpdateStoreReturn {
     hasTriggered.current = false;
     setPhase('triggering');
     setErrorMessage(null);
+    setErrorDetails(null);
     setPullPercent(0);
 
     const trigger = async () => {
@@ -178,6 +182,7 @@ export function useUpdateStore(targetVersion: string): UseUpdateStoreReturn {
   return {
     phase,
     errorMessage,
+    errorDetails,
     currentVersion,
     pullPercent,
     isWorking,

@@ -52,6 +52,11 @@ public class GetProfileEndpoint : EndpointWithoutRequest<UserProfileResponse>
             CreatedAt = user.CreatedAt,
             PasswordChangedAt = user.PasswordChangedAt,
             EmailVerified = user.IsEmailVerified,
+            HasPassword = user.HasPassword,
+            // Warn admins without a local password while no system administrator has one.
+            NoAdminWithPassword = role == "admin" && !user.HasPassword &&
+                _userRepository.GetAll().Where(u => u.HasRole(RoleId.SystemAdmin)).All(u => !u.HasPassword),
+            SystemAdminCount = _userRepository.GetAll().Count(u => u.HasRole(RoleId.SystemAdmin)),
             // Only show the "verify your email" prompt when sending is actually possible.
             SmtpEnabled = await _smtpSettings.IsEnabledAsync(ct)
         };
@@ -67,4 +72,12 @@ public class UserProfileResponse
     public DateTime? PasswordChangedAt { get; set; }
     public bool EmailVerified { get; set; }
     public bool SmtpEnabled { get; set; }
+
+    /// <summary>The user has a local password (users created through an identity provider may not).</summary>
+    public bool HasPassword { get; set; }
+
+    /// <summary>True for a system administrator without a local password while no system administrator has one.</summary>
+    public bool NoAdminWithPassword { get; set; }
+
+    public int SystemAdminCount { get; set; }
 }

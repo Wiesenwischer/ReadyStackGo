@@ -303,6 +303,29 @@ public class WizardEndpointsIntegrationTests : IAsyncLifetime
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task GET_WizardRegistry_OffersAmsProjectStableAndPreviewSources()
+    {
+        // Act
+        var response = await _client.GetAsync("/api/wizard/registry");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var sources = await response.Content.ReadFromJsonAsync<List<WizardRegistrySourceResponse>>();
+        sources.Should().NotBeNull();
+
+        var stable = sources!.Should().ContainSingle(s => s.Id == "rsgo-ams-project-stable").Subject;
+        stable.Name.Should().Be("ams.project Stacks (Stable)");
+        stable.Type.Should().Be("git-repository");
+        stable.Category.Should().Be("vendor");
+        stable.Featured.Should().BeFalse();
+        stable.Tags.Should().Contain("stable");
+
+        sources.Should().ContainSingle(s => s.Id == "rsgo-ams-project-preview");
+        sources.Should().NotContain(s => s.Id == "rsgo-ams-project-stacks");
+    }
+
     private async Task CreateAdminForTest()
     {
         var username = $"testadmin_{Guid.NewGuid():N}";
@@ -335,4 +358,12 @@ public class WizardEndpointsIntegrationTests : IAsyncLifetime
         List<string> Errors
     );
     private record InstallStackResponseSimple(bool Success, string? StackVersion);
+    private record WizardRegistrySourceResponse(
+        string Id,
+        string Name,
+        string Type,
+        string Category,
+        List<string> Tags,
+        bool Featured
+    );
 }

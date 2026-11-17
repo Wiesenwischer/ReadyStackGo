@@ -95,6 +95,8 @@ docker pull $IMAGE_NAME
 docker run -d \
   --name $CONTAINER_NAME \
   --restart unless-stopped \
+  --log-opt max-size=10m \
+  --log-opt max-file=3 \
   -p $PORT:8080 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v $VOLUME_CONFIG:/app/config \

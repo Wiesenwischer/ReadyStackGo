@@ -1,4 +1,5 @@
 using ReadyStackGo.Application.UseCases.Containers;
+using ReadyStackGo.Domain.StackManagement.Stacks;
 
 namespace ReadyStackGo.Application.Services;
 
@@ -301,6 +302,12 @@ public class CreateContainerRequest
     /// Only used for Docker-type health checks with explicit test commands.
     /// </summary>
     public DockerHealthCheck? HealthCheck { get; set; }
+
+    /// <summary>
+    /// Log rotation override for this container. Fields left null (or the whole object) fall back to
+    /// RSGO's default log limit, so no container grows an unbounded log.
+    /// </summary>
+    public ServiceLogging? Logging { get; set; }
 }
 
 /// <summary>

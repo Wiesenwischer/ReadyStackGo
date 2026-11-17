@@ -2,6 +2,11 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getOidcProviders, startOidcLogin, type OidcProviderDto } from '@rsgo/core';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import { Logo } from '../../components/brand/Logo';
+import { ProviderButton } from '../../components/sso/SsoComponents';
+
+// Sign-in page (design frames 177:4768, 177:5892): provider buttons show the symbol of their template.
 
 const OIDC_ERROR_MESSAGES: Record<string, string> = {
   oidc_failed: 'Single sign-on failed. Please try again.',
@@ -9,6 +14,16 @@ const OIDC_ERROR_MESSAGES: Record<string, string> = {
   oidc_provider: 'The selected sign-on provider is no longer available.',
   oidc_token: 'Single sign-on could not be completed.',
   oidc_no_account: 'No account exists for this identity. Ask an administrator to invite you.',
+  oidc_email_unverified:
+    'Your email address is not confirmed at the sign-in provider. Confirm it there, or ask an administrator.',
+  oidc_email_missing: 'The sign-in provider sent no email address. Ask an administrator.',
+  oidc_subject_mismatch:
+    'This account is already linked to a different identity at this provider. Ask an administrator.',
+  oidc_account_disabled: 'Your account is disabled.',
+  oidc_provider_rejected:
+    'The sign-in provider rejected ReadyStackGo. An administrator needs to reconnect it under Settings › Single Sign-On.',
+  oidc_unreachable: 'The sign-in provider is not reachable. Try again later or sign in with your password.',
+  oidc_email_invalid: 'ReadyStackGo cannot use the email address of this account. Ask an administrator.',
 };
 
 export default function Login() {
@@ -20,6 +35,7 @@ export default function Login() {
   const [providers, setProviders] = useState<OidcProviderDto[]>([]);
 
   const { login } = useAuth();
+  const { colorTheme } = useTheme();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -51,17 +67,17 @@ export default function Login() {
   };
 
   return (
-    <div className="relative p-6 bg-white dark:bg-gray-900 sm:p-0">
-      <div className="relative flex flex-col justify-center w-full h-screen lg:flex-row dark:bg-gray-900">
+    <div className="relative bg-surface p-6 sm:p-0">
+      <div className="relative flex h-screen w-full flex-col justify-center lg:flex-row">
         {/* Left side - Login Form */}
         <div className="flex flex-col flex-1">
           <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
             <div>
               <div className="mb-5 sm:mb-8">
-                <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
+                <h1 className="mb-1.5 text-[28px] font-bold leading-9 text-fg">
                   Sign In to ReadyStackGo
                 </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-fg-secondary">
                   Enter your credentials to manage your Docker stacks
                 </p>
               </div>
@@ -69,14 +85,14 @@ export default function Login() {
               <form onSubmit={handleSubmit}>
                 <div className="space-y-6">
                   {error && (
-                    <div className="p-4 text-sm border border-red-300 rounded-lg bg-red-50 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
+                    <div role="alert" className="rounded-xl border border-status-unhealthy/35 bg-status-unhealthy-bg px-4 py-3 text-sm text-fg">
                       {error}
                     </div>
                   )}
 
                   <div>
-                    <label className="block mb-2.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Email or username <span className="text-error-500">*</span>
+                    <label className="mb-1.5 block text-sm font-medium text-fg">
+                      Email or username <span className="text-status-unhealthy">*</span>
                     </label>
                     <input
                       type="text"
@@ -84,13 +100,13 @@ export default function Login() {
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder="admin@example.com"
                       required
-                      className="w-full h-12.5 px-4 py-3 text-sm bg-transparent border border-gray-300 rounded-lg shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 dark:border-gray-700 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-600"
+                      className="h-11 w-full rounded-[10px] border border-line-strong/55 bg-surface px-3.5 text-sm text-fg outline-none placeholder:text-fg-muted focus:border-primary focus:ring-1 focus:ring-primary"
                     />
                   </div>
 
                   <div>
-                    <label className="block mb-2.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Password <span className="text-error-500">*</span>
+                    <label className="mb-1.5 block text-sm font-medium text-fg">
+                      Password <span className="text-status-unhealthy">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -99,7 +115,7 @@ export default function Login() {
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Enter your password"
                         required
-                        className="w-full h-12.5 px-4 py-3 text-sm bg-transparent border border-gray-300 rounded-lg shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 dark:border-gray-700 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-600"
+                        className="h-11 w-full rounded-[10px] border border-line-strong/55 bg-surface px-3.5 text-sm text-fg outline-none placeholder:text-fg-muted focus:border-primary focus:ring-1 focus:ring-primary"
                       />
                       <button
                         type="button"
@@ -108,7 +124,7 @@ export default function Login() {
                       >
                         {showPassword ? (
                           <svg
-                            className="w-5 h-5 fill-gray-500 dark:fill-gray-400"
+                            className="w-5 h-5 fill-fg-muted"
                             viewBox="0 0 20 20"
                             fill="currentColor"
                           >
@@ -117,7 +133,7 @@ export default function Login() {
                           </svg>
                         ) : (
                           <svg
-                            className="w-5 h-5 fill-gray-500 dark:fill-gray-400"
+                            className="w-5 h-5 fill-fg-muted"
                             viewBox="0 0 20 20"
                             fill="currentColor"
                           >
@@ -133,14 +149,14 @@ export default function Login() {
                     <button
                       type="submit"
                       disabled={isLoading}
-                      className="inline-flex items-center justify-center w-full py-3 text-sm font-medium text-white transition-colors rounded-lg bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/50 disabled:opacity-50 disabled:cursor-not-allowed px-7"
+                      className="inline-flex h-11 w-full items-center justify-center rounded-[10px] bg-primary px-7 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       {isLoading ? 'Signing in...' : 'Sign in'}
                     </button>
                   </div>
 
                   <div className="text-center">
-                    <Link to="/forgot-password" className="text-sm text-brand-600 hover:text-brand-700">
+                    <Link to="/forgot-password" className="text-sm font-medium text-fg-brand hover:underline">
                       Forgot password?
                     </Link>
                   </div>
@@ -151,22 +167,22 @@ export default function Login() {
                 <div className="mt-6">
                   <div className="relative flex items-center justify-center mb-4">
                     <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-gray-200 dark:border-gray-700" />
+                      <div className="w-full border-t border-line" />
                     </div>
-                    <span className="relative px-3 text-xs text-gray-400 bg-white dark:bg-gray-900">
+                    <span className="relative bg-surface px-3 text-xs text-fg-muted">
                       or continue with
                     </span>
                   </div>
                   <div className="space-y-3">
                     {providers.map((p) => (
-                      <button
+                      <ProviderButton
                         key={p.name}
-                        type="button"
+                        label={`Sign in with ${p.displayName}`}
+                        iconUrl={p.iconUrl}
                         onClick={() => startOidcLogin(p.name)}
-                        className="inline-flex items-center justify-center w-full py-3 text-sm font-medium text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-transparent dark:text-white/90 dark:hover:bg-white/5 px-7"
-                      >
-                        Sign in with {p.displayName}
-                      </button>
+                        className="w-full"
+                        testId={`sign-in-with-${p.name}`}
+                      />
                     ))}
                   </div>
                 </div>
@@ -175,27 +191,12 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Right side - Branding with Grid Background */}
-        <div className="items-center hidden w-full h-full lg:w-1/2 bg-brand-950 dark:bg-white/5 lg:grid">
-          <div className="relative flex items-center justify-center z-1">
-            {/* Grid Background */}
-            <div className="absolute inset-0 overflow-hidden">
-              <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1"/>
-                  </pattern>
-                </defs>
-                <rect width="100%" height="100%" fill="url(#grid)" />
-              </svg>
-            </div>
-
-            {/* Logo and Description */}
-            <div className="relative flex flex-col items-center max-w-xs">
-              <div className="mb-6">
-                <h2 className="text-4xl font-bold text-white">ReadyStackGo</h2>
-              </div>
-              <p className="text-center text-gray-400 dark:text-white/60">
+        {/* Right side - branding on the dark navigation color of the theme */}
+        <div data-theme={colorTheme ?? undefined} data-mode="dark" className="hidden h-full w-full items-center bg-nav lg:grid lg:w-1/2">
+          <div className="relative z-1 flex items-center justify-center">
+            <div className="relative flex max-w-xs flex-col items-center gap-4">
+              <Logo context="nav" height={36} />
+              <p className="text-center text-sm text-fg-secondary">
                 Deploy and manage Docker stacks with ease. A modern, lightweight platform for container orchestration.
               </p>
             </div>

@@ -13,6 +13,8 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './e2e',
+  // sso-*.spec.ts needs the test identity provider: playwright.sso.config.ts (scripts/sso-e2e.sh).
+  testIgnore: ['**/sso-*.spec.ts'],
   globalSetup: './e2e/global-setup-container.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

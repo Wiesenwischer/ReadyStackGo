@@ -60,6 +60,8 @@ import {
   PrtgConnectionsPage,
   SmtpSettingsPage,
   OidcSettingsPage,
+  AddOidcProviderPage,
+  OidcProviderPage,
   InvitationsPage,
 } from "@rsgo/ui-generic/pages/Settings";
 import SetupEnvironment from "@rsgo/ui-generic/pages/Environments/SetupEnvironment";
@@ -401,6 +403,8 @@ export default function App() {
                 <Route path="/settings/prtg-connections" element={<PrtgConnectionsPage />} />
                 <Route path="/settings/email" element={<SmtpSettingsPage />} />
                 <Route path="/settings/oidc" element={<OidcSettingsPage />} />
+                <Route path="/settings/oidc/add" element={<AddOidcProviderPage />} />
+                <Route path="/settings/oidc/providers/:name" element={<OidcProviderPage />} />
                 <Route path="/settings/invitations" element={<InvitationsPage />} />
               </Route>
               {/* 404 catch-all route */}

@@ -5,7 +5,7 @@ description: How color themes work in ReadyStackGo, how to build your own theme 
 
 The web interface of ReadyStackGo is styled by **theme packages**. A theme package is pure CSS: a set of values for the design tokens of the interface, for light and dark mode. No code and no build step are needed, so anyone can create a theme and provide it to a running installation.
 
-Users choose the theme under **Settings → Appearance**. The choice is saved in the browser. The mode (light or dark) is chosen separately and also via the button in the header.
+Users choose the theme under **Settings → Appearance**. The choice is saved in the browser. The mode is chosen separately: Light, Dark or System, which follows the operating system. The button in the header switches between light and dark as well.
 
 ## Built-in Themes
 
@@ -13,7 +13,12 @@ Users choose the theme under **Settings → Appearance**. The choice is saved in
 |----|------|-------------|
 | `turquoise` | Turquoise | Default. The colors of the ReadyStackGo wordmark. |
 | `pastel-green` | Pastel Green | Soft pastel green with the same orange accent. |
+| `aurora` | Aurora | Violet on cool white, midnight indigo in dark mode. |
+| `graphite-lime` | Graphite Lime | Graphite with an electric lime accent. |
+| `magenta` | Magenta | Vivid magenta, plum and wine in dark mode. |
 | `classic` | Classic | The previous blue look of ReadyStackGo. |
+
+New installations start with **Turquoise**. Installations that were set up with an earlier version keep their previous look after the update: they start with **Classic**. Every user can switch the theme under Settings → Appearance.
 
 ## Format of a Theme Package
 
@@ -56,15 +61,14 @@ my-theme/
 }
 
 /* Dark mode */
-.dark [data-theme="my-theme"],
-.dark[data-theme="my-theme"] {
+[data-theme="my-theme"][data-mode="dark"] {
   --rsgo-bg-page: #060B11;
   --rsgo-primary-default: #00CED1;
   /* ... all other tokens ... */
 }
 ```
 
-The selectors make the theme work on the `<html>` element as well as inside the preview cards of the theme selection. Both blocks must set **all** tokens:
+Use exactly these selectors. The dark block does not depend on a surrounding element, so the theme works on the `<html>` element as well as in the color orbs of the theme selection, which show each theme light and dark side by side. Both blocks must set **all** tokens:
 
 - the semantic tokens, e.g. `--rsgo-bg-page`, `--rsgo-bg-surface`, `--rsgo-text-primary`, `--rsgo-text-brand`, `--rsgo-primary-default`, `--rsgo-accent-go`, `--rsgo-focus-ring`, `--rsgo-nav-*`, `--rsgo-status-*` and `--rsgo-logo-*`,
 - the color scales `--rsgo-brand-25` … `--rsgo-brand-950` and `--rsgo-gray-25` … `--rsgo-gray-950`.
@@ -99,7 +103,7 @@ Each subfolder of the directory is one package. A package from the directory wit
 |----------------------|-------------|---------|
 | `Themes__Path` | Directory with additional theme packages. May be missing. | `/app/themes` |
 | `Themes__Enabled` | Comma-separated list of theme ids that are offered. Empty means all themes found. | (empty) |
-| `Themes__Default` | Theme used when a browser has not chosen one yet (or its choice is no longer offered). | `turquoise`; if missing, the first theme by `order` |
+| `Themes__Default` | Theme used when a browser has not chosen one yet (or its choice is no longer offered). Overrides the installation's own default. | empty: `turquoise` for new installations, `classic` for installations set up before the theme packages; if not offered, `turquoise`, then the first theme by `order` |
 
 Example: offer only your own theme:
 
@@ -108,7 +112,7 @@ Themes__Enabled=my-theme
 Themes__Default=my-theme
 ```
 
-If only **one** theme is offered, Settings → Appearance hides the theme selection and only shows the switch between light and dark mode.
+If only **one** theme is offered, Settings → Appearance hides the theme selection and only shows the mode switch.
 
 ## API
 

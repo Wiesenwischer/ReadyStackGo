@@ -27,7 +27,9 @@ public class ThemeOptions
     public string? Enabled { get; set; } = "";
 
     /// <summary>
-    /// Default theme id. If it is not offered, the first theme by order (then id) is the default.
+    /// Default theme id set by the operator; wins over the default stored for the installation.
+    /// Empty = the installation's default (classic for installations set up before the theme packages,
+    /// otherwise turquoise). If it is not offered, the next candidate applies, finally the first theme by order.
     /// </summary>
-    public string? Default { get; set; } = "turquoise";
+    public string? Default { get; set; }
 }
