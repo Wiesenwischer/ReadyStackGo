@@ -13,7 +13,7 @@ PR merged to main
   Release Drafter updates draft
        │
        ▼ (manual)
-  Publish Release in GitHub UI
+  Publish that draft — GitHub UI or `gh release edit --draft=false`
        │
        ▼
   Tag v* is created automatically
@@ -26,7 +26,9 @@ PR merged to main
 
 ### 1. Merge to Main
 
-All features and fixes are merged to `main` via Pull Requests from `develop`.
+All features and fixes are merged to `main` via Pull Requests from `feature/<name>` or
+`bugfix/<name>` branches (`main` is the only permanent branch — see
+[Git Workflow](../Development/Git-Workflow.md)).
 
 ### 2. Review Release Draft
 
@@ -37,15 +39,38 @@ Go to [GitHub Releases](../../releases) and review the draft release:
 
 ### 3. Publish Release
 
-Click **"Publish release"** in GitHub UI:
-- A Git tag (e.g., `v0.10.0`) is created automatically
-- This triggers the Docker and Cloudflare workflows
+**Always publish the existing draft** — either via **"Publish release"** in the GitHub UI, or
+from the CLI:
+
+```bash
+# Find the draft (it already carries the next version as tag_name; the tag does not exist yet)
+gh api repos/Wiesenwischer/ReadyStackGo/releases \
+  --jq '.[] | select(.draft==true) | "id=\(.id) tag=\(.tag_name)"'
+
+# Replace the auto-generated PR list with handwritten highlights, then publish
+gh release edit v0.10.0 --notes-file release-notes.md --target main --draft=false --latest
+```
+
+Either way, a Git tag (e.g. `v0.10.0`) is created and triggers the Docker and Cloudflare
+workflows.
+
+> **Do not use `gh release create`.** Release Drafter keeps a draft up to date on every push to
+> `main`. Creating a separate release leaves that draft behind, so the release list ends up with
+> two entries carrying the same tag — one published, one draft. `gh release edit`/`delete <tag>`
+> are then ambiguous between them, and cleaning up requires the numeric release id
+> (`gh api -X DELETE repos/.../releases/<id>`).
+
+The drafter's raw "What's Changed" PR list is not sufficient as release notes: write the notes
+to a file first, with highlights per PR (see v0.81.0 / v0.82.0 for the expected style).
 
 ### 4. Verify Deployment
 
 After publishing:
 - Check [Docker Hub](https://hub.docker.com/r/wiesenwischer/readystackgo) for new image
 - Check [Documentation Site](https://readystackgo.pages.dev) for updates
+- Confirm no draft was left behind:
+  `gh api repos/Wiesenwischer/ReadyStackGo/releases --jq '[.[]|select(.draft==true)]|length'`
+  (a fresh draft for the *next* version only appears after the next merge to `main`)
 
 ## Docker Images
 
@@ -61,15 +86,16 @@ Triggered by release tags (`v*`):
 
 ### Development (GitHub Container Registry)
 
-Triggered by push to `develop` (after PR merge):
+Triggered by push to `main` (after PR merge; tag pushes are ignored — those are handled by the
+release workflow):
 
 | Tag | Description |
 |-----|-------------|
-| `ghcr.io/wiesenwischer/readystackgo:develop` | Latest develop build |
+| `ghcr.io/wiesenwischer/readystackgo:latest` | Latest build from `main` |
 
-The develop image is overwritten with each build. Use the image label to identify the commit:
+The dev image is overwritten with each build. Use the image label to identify the commit:
 ```bash
-docker inspect ghcr.io/wiesenwischer/readystackgo:develop \
+docker inspect ghcr.io/wiesenwischer/readystackgo:latest \
   --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
 ```
 
@@ -90,7 +116,7 @@ This will trigger the same workflows as publishing via GitHub UI.
 For urgent fixes:
 1. Create a hotfix branch from `main`
 2. Apply the fix
-3. Create a PR to `main` (bypassing `develop` if urgent)
+3. Create a PR to `main`
 4. Merge and publish release as normal
 
 ## Pre-Release Versions
