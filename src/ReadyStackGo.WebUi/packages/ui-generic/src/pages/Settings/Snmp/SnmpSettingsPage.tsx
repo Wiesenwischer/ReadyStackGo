@@ -349,8 +349,7 @@ function PrtgHttpSensorCard() {
 
         <ol className="list-decimal pl-5 text-sm text-gray-600 dark:text-gray-300 space-y-1">
           <li>
-            Create an API key with permission <code className="text-xs">Settings:Read</code>
-            via{' '}
+            Create an API key with the <strong>Read Status (PRTG)</strong> permission via{' '}
             <Link to="/settings/cicd" className="text-brand-600 hover:underline">
               CI/CD Integration
             </Link>{' '}
