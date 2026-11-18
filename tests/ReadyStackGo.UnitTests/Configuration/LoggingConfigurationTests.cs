@@ -35,6 +35,41 @@ public class LoggingConfigurationTests
         logger.IsEnabled(LogLevel.Error).Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData("System.Net.Http.HttpClient.IHttpHealthChecker.LogicalHandler")]
+    [InlineData("System.Net.Http.HttpClient.IHttpHealthChecker.ClientHandler")]
+    [InlineData("System.Net.Http.HttpClient.GitHub.LogicalHandler")]
+    [InlineData("System.Net.Http.HttpClient.MaintenanceObserver.ClientHandler")]
+    public void ShippedAppSettings_DoNotLogHttpClientRequests(string category)
+    {
+        // IHttpClientFactory logs four Information lines per request; the periodic health checks alone
+        // were the largest remaining share of the container log once EF Core was quiet.
+        var logger = CreateLoggerFromShippedAppSettings(category);
+
+        logger.IsEnabled(LogLevel.Information).Should().BeFalse(
+            "every health check request would otherwise be written to the container log");
+        logger.IsEnabled(LogLevel.Debug).Should().BeFalse();
+    }
+
+    [Fact]
+    public void ShippedAppSettings_StillLogHttpClientWarnings()
+    {
+        var logger = CreateLoggerFromShippedAppSettings("System.Net.Http.HttpClient.IHttpHealthChecker.LogicalHandler");
+
+        logger.IsEnabled(LogLevel.Warning).Should().BeTrue();
+        logger.IsEnabled(LogLevel.Error).Should().BeTrue();
+    }
+
+    [Fact]
+    public void ShippedAppSettings_HttpClientFilter_DoesNotSilenceTheHealthChecker()
+    {
+        // Only the IHttpClientFactory handler categories are lowered; the application's own health
+        // checker category keeps the default level.
+        var logger = CreateLoggerFromShippedAppSettings("ReadyStackGo.Infrastructure.Services.Health.HttpHealthChecker");
+
+        logger.IsEnabled(LogLevel.Information).Should().BeTrue();
+    }
+
     [Fact]
     public void ShippedAppSettings_StillLogApplicationInformation()
     {

@@ -95,6 +95,21 @@ Das Update wird von einem separaten Helper-Container (`wiesenwischer/rsgo-update
 - Zeigt während des Austauschs eine Wartungsseite im RSGO-Design an
 - Räumt sich nach Abschluss automatisch auf
 
+### Log-Limit des Containers
+
+Der neue Container übernimmt Log-Treiber und Log-Optionen des alten. Schreibt der alte Container
+`json-file`- oder `local`-Logs **ohne** `max-size` (jede Installation, die vor Einführung des
+Log-Limits eingerichtet wurde), bekommt der neue Container zusätzlich das Standard-Limit aus
+`Docker:ContainerLogs:MaxSize` / `MaxFile` (10 MB × 3 Dateien). Ein explizit leeres `MaxSize` schaltet
+das ab; andere Treiber wie `journald` bleiben unverändert.
+
+:::note[Wirkt ab dem zweiten Update]
+Den neuen Container legt die **laufende** Version an. Ein Update von 0.85 oder älter erzeugt daher noch
+einen Container ohne Log-Limit, erst das folgende Update ergänzt es. Wer das Log sofort begrenzen will,
+legt den Container einmal mit `--log-opt max-size=10m --log-opt max-file=3` neu an
+(siehe [Docker Run](/de/getting-started/installation/docker-run/)).
+:::
+
 ### Versionserkennung
 
 RSGO erkennt neue Versionen über die **GitHub Releases API**. Die aktuelle Version wird beim Build als Assembly-Metadaten eingebettet. Lokale Entwicklungs-Builds verwenden `0.0.0-dev` als Versionsnummer.
