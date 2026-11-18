@@ -13,6 +13,8 @@ namespace ReadyStackGo.UnitTests.Services;
 /// </summary>
 public class SelfUpdateServiceTests
 {
+    private static readonly DockerService.ContainerLogDefaults LogDefaults = new("10m", 3);
+
     [Fact]
     public void BuildCreateParamsFromInspection_PreservesEnvVars()
     {
@@ -26,7 +28,7 @@ public class SelfUpdateServiceTests
 
         // Act
         var result = SelfUpdateService.BuildCreateParamsFromInspection(
-            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update");
+            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update", LogDefaults);
 
         // Assert
         result.Env.Should().BeEquivalentTo(inspection.Config.Env);
@@ -45,7 +47,7 @@ public class SelfUpdateServiceTests
 
         // Act
         var result = SelfUpdateService.BuildCreateParamsFromInspection(
-            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update");
+            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update", LogDefaults);
 
         // Assert
         result.HostConfig.PortBindings.Should().HaveCount(2);
@@ -67,7 +69,7 @@ public class SelfUpdateServiceTests
 
         // Act
         var result = SelfUpdateService.BuildCreateParamsFromInspection(
-            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update");
+            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update", LogDefaults);
 
         // Assert
         result.HostConfig.Binds.Should().BeEquivalentTo(inspection.HostConfig.Binds);
@@ -85,7 +87,7 @@ public class SelfUpdateServiceTests
 
         // Act
         var result = SelfUpdateService.BuildCreateParamsFromInspection(
-            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update");
+            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update", LogDefaults);
 
         // Assert
         result.HostConfig.RestartPolicy.Name.Should().Be(RestartPolicyKind.UnlessStopped);
@@ -108,7 +110,7 @@ public class SelfUpdateServiceTests
 
         // Act
         var result = SelfUpdateService.BuildCreateParamsFromInspection(
-            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update");
+            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update", LogDefaults);
 
         // Assert
         result.HostConfig.LogConfig.Type.Should().Be("json-file");
@@ -124,11 +126,166 @@ public class SelfUpdateServiceTests
 
         // Act
         var result = SelfUpdateService.BuildCreateParamsFromInspection(
-            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update");
+            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update", LogDefaults);
 
         // Assert
         result.HostConfig.LogConfig.Should().BeNull();
     }
+
+    [Fact]
+    public void BuildCreateParamsFromInspection_JsonFileWithoutSizeLimit_GetsDefaultLimit()
+    {
+        // Arrange: what Docker reports for a container created without --log-opt (every install before #513)
+        var inspection = CreateMinimalInspection();
+        inspection.HostConfig.LogConfig = new LogConfig
+        {
+            Type = "json-file",
+            Config = new Dictionary<string, string>()
+        };
+
+        // Act
+        var result = SelfUpdateService.BuildCreateParamsFromInspection(
+            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update", LogDefaults);
+
+        // Assert
+        result.HostConfig.LogConfig.Type.Should().Be("json-file");
+        result.HostConfig.LogConfig.Config.Should().BeEquivalentTo(new Dictionary<string, string>
+        {
+            ["max-size"] = "10m",
+            ["max-file"] = "3"
+        });
+        inspection.HostConfig.LogConfig.Config.Should().BeEmpty("the inspected config must not be mutated");
+    }
+
+    #region CarryOverLogConfig
+
+    [Fact]
+    public void CarryOverLogConfig_JsonFileWithNullOptions_GetsDefaultLimit()
+    {
+        var current = new LogConfig { Type = "json-file", Config = null };
+
+        var result = SelfUpdateService.CarryOverLogConfig(current, LogDefaults);
+
+        result!.Type.Should().Be("json-file");
+        result.Config.Should().BeEquivalentTo(new Dictionary<string, string>
+        {
+            ["max-size"] = "10m",
+            ["max-file"] = "3"
+        });
+    }
+
+    [Fact]
+    public void CarryOverLogConfig_LocalDriverWithoutSizeLimit_GetsDefaultLimit()
+    {
+        var current = new LogConfig { Type = "local", Config = new Dictionary<string, string>() };
+
+        var result = SelfUpdateService.CarryOverLogConfig(current, LogDefaults);
+
+        result!.Type.Should().Be("local");
+        result.Config.Should().ContainKey("max-size").WhoseValue.Should().Be("10m");
+        result.Config.Should().ContainKey("max-file").WhoseValue.Should().Be("3");
+    }
+
+    [Fact]
+    public void CarryOverLogConfig_ExistingSizeLimit_IsKeptUnchanged()
+    {
+        var current = new LogConfig
+        {
+            Type = "json-file",
+            Config = new Dictionary<string, string> { ["max-size"] = "50m" }
+        };
+
+        var result = SelfUpdateService.CarryOverLogConfig(current, LogDefaults);
+
+        result.Should().BeSameAs(current);
+        result!.Config.Should().NotContainKey("max-file",
+            "an operator-chosen limit is not topped up with the default file count");
+    }
+
+    [Fact]
+    public void CarryOverLogConfig_OnlyMaxFileSet_AddsSizeAndKeepsFileCount()
+    {
+        // max-file has no effect on json-file without max-size, so the log is still unlimited
+        var current = new LogConfig
+        {
+            Type = "json-file",
+            Config = new Dictionary<string, string> { ["max-file"] = "5" }
+        };
+
+        var result = SelfUpdateService.CarryOverLogConfig(current, LogDefaults);
+
+        result!.Config.Should().BeEquivalentTo(new Dictionary<string, string>
+        {
+            ["max-size"] = "10m",
+            ["max-file"] = "5"
+        });
+    }
+
+    [Fact]
+    public void CarryOverLogConfig_OtherOptions_AreKept()
+    {
+        var current = new LogConfig
+        {
+            Type = "json-file",
+            Config = new Dictionary<string, string> { ["labels"] = "env", ["compress"] = "true" }
+        };
+
+        var result = SelfUpdateService.CarryOverLogConfig(current, LogDefaults);
+
+        result!.Config.Should().BeEquivalentTo(new Dictionary<string, string>
+        {
+            ["labels"] = "env",
+            ["compress"] = "true",
+            ["max-size"] = "10m",
+            ["max-file"] = "3"
+        });
+    }
+
+    [Theory]
+    [InlineData("journald")]
+    [InlineData("syslog")]
+    [InlineData("none")]
+    [InlineData("")]
+    public void CarryOverLogConfig_DriverWithoutSizeRotation_IsKeptUnchanged(string driver)
+    {
+        // These drivers reject max-size; adding it would make the container creation fail
+        var current = new LogConfig { Type = driver, Config = new Dictionary<string, string>() };
+
+        var result = SelfUpdateService.CarryOverLogConfig(current, LogDefaults);
+
+        result.Should().BeSameAs(current);
+        result!.Config.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void CarryOverLogConfig_NullConfig_StaysNull()
+    {
+        SelfUpdateService.CarryOverLogConfig(null, LogDefaults).Should().BeNull();
+    }
+
+    [Fact]
+    public void CarryOverLogConfig_DefaultSwitchedOff_IsKeptUnchanged()
+    {
+        // Docker:ContainerLogs:MaxSize set to "" turns the default off
+        var current = new LogConfig { Type = "json-file", Config = new Dictionary<string, string>() };
+
+        var result = SelfUpdateService.CarryOverLogConfig(current, new DockerService.ContainerLogDefaults(null, 3));
+
+        result.Should().BeSameAs(current);
+        result!.Config.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void CarryOverLogConfig_DefaultWithoutFileCount_AddsOnlySize()
+    {
+        var current = new LogConfig { Type = "json-file", Config = new Dictionary<string, string>() };
+
+        var result = SelfUpdateService.CarryOverLogConfig(current, new DockerService.ContainerLogDefaults("20m", null));
+
+        result!.Config.Should().BeEquivalentTo(new Dictionary<string, string> { ["max-size"] = "20m" });
+    }
+
+    #endregion
 
     [Fact]
     public void BuildCreateParamsFromInspection_UsesNewImage()
@@ -138,7 +295,7 @@ public class SelfUpdateServiceTests
 
         // Act
         var result = SelfUpdateService.BuildCreateParamsFromInspection(
-            inspection, "wiesenwischer/readystackgo:2.0.0", "readystackgo-update");
+            inspection, "wiesenwischer/readystackgo:2.0.0", "readystackgo-update", LogDefaults);
 
         // Assert
         result.Image.Should().Be("wiesenwischer/readystackgo:2.0.0");
@@ -152,7 +309,7 @@ public class SelfUpdateServiceTests
 
         // Act
         var result = SelfUpdateService.BuildCreateParamsFromInspection(
-            inspection, "wiesenwischer/readystackgo:2.0.0", "readystackgo-update");
+            inspection, "wiesenwischer/readystackgo:2.0.0", "readystackgo-update", LogDefaults);
 
         // Assert
         result.Name.Should().Be("readystackgo-update");
@@ -167,7 +324,7 @@ public class SelfUpdateServiceTests
 
         // Act
         var result = SelfUpdateService.BuildCreateParamsFromInspection(
-            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update");
+            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update", LogDefaults);
 
         // Assert
         result.HostConfig.NetworkMode.Should().Be("rsgo-net");
@@ -185,7 +342,7 @@ public class SelfUpdateServiceTests
 
         // Act
         var result = SelfUpdateService.BuildCreateParamsFromInspection(
-            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update");
+            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update", LogDefaults);
 
         // Assert
         result.Labels.Should().ContainKey("com.docker.compose.project");
@@ -204,7 +361,7 @@ public class SelfUpdateServiceTests
 
         // Act
         var result = SelfUpdateService.BuildCreateParamsFromInspection(
-            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update");
+            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update", LogDefaults);
 
         // Assert
         result.ExposedPorts.Should().HaveCount(2);
@@ -229,7 +386,7 @@ public class SelfUpdateServiceTests
 
         // Act
         var result = SelfUpdateService.BuildCreateParamsFromInspection(
-            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update");
+            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update", LogDefaults);
 
         // Assert
         result.NetworkingConfig.Should().NotBeNull();
@@ -245,7 +402,7 @@ public class SelfUpdateServiceTests
 
         // Act
         var result = SelfUpdateService.BuildCreateParamsFromInspection(
-            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update");
+            inspection, "wiesenwischer/readystackgo:1.0.0", "readystackgo-update", LogDefaults);
 
         // Assert
         result.NetworkingConfig.Should().BeNull();

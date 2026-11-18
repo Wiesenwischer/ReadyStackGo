@@ -122,7 +122,17 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
             // Clean up any leftover update container from a previous failed attempt
             await RemoveContainerIfExistsAsync(updateContainerName);
 
-            var createParams = BuildCreateParamsFromInspection(inspection, newImageTag, updateContainerName);
+            var logDefaults = DockerService.ContainerLogDefaults.FromConfiguration(_configuration);
+            var createParams = BuildCreateParamsFromInspection(inspection, newImageTag, updateContainerName, logDefaults);
+            var newLogConfig = createParams.HostConfig.LogConfig;
+            if (newLogConfig is not null && newLogConfig != inspection.HostConfig.LogConfig)
+            {
+                _logger.LogInformation(
+                    "Own container has no log size limit; the updated container gets {LogDriver} log options {LogOptions}",
+                    newLogConfig.Type,
+                    string.Join(", ", newLogConfig.Config.Select(o => $"{o.Key}={o.Value}")));
+            }
+
             var createResponse = await _client.Containers.CreateContainerAsync(createParams);
 
             _logger.LogInformation("Pre-created update container {ContainerId} ({Name})",
@@ -377,7 +387,8 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
     /// using the new image but preserving all other configuration.
     /// </summary>
     internal static CreateContainerParameters BuildCreateParamsFromInspection(
-        ContainerInspectResponse inspection, string newImage, string newName)
+        ContainerInspectResponse inspection, string newImage, string newName,
+        DockerService.ContainerLogDefaults logDefaults)
     {
         var hostConfig = inspection.HostConfig;
 
@@ -415,11 +426,41 @@ public class SelfUpdateService : ISelfUpdateService, IDisposable
                 RestartPolicy = hostConfig.RestartPolicy,
                 // Keep the log driver and its options (e.g. max-size / max-file), otherwise an update
                 // silently resets log rotation and the container log can grow without limit again.
-                LogConfig = hostConfig.LogConfig,
+                LogConfig = CarryOverLogConfig(hostConfig.LogConfig, logDefaults),
                 NetworkMode = primaryNetwork
             },
             NetworkingConfig = networkingConfig
         };
+    }
+
+    /// <summary>
+    /// Returns the log config for the updated container: the old container's driver and options, plus the
+    /// configured default size limit (<c>Docker:ContainerLogs</c>) when the old container rotates by size
+    /// (json-file, local) but was created without <c>max-size</c>. Every install made before the default
+    /// existed is such a container; carrying its config over unchanged would keep its log unlimited forever.
+    /// Returns the old config itself (same instance) when nothing is added.
+    /// </summary>
+    internal static LogConfig? CarryOverLogConfig(LogConfig? current, DockerService.ContainerLogDefaults defaults)
+    {
+        // Unknown driver: leave it to the daemon. Other drivers (journald, syslog, none, ...) reject max-size.
+        if (current?.Type is not ("json-file" or "local"))
+            return current;
+
+        if (defaults.MaxSize is null)
+            return current;
+
+        if (current.Config is not null && current.Config.ContainsKey("max-size"))
+            return current;
+
+        var options = current.Config is null
+            ? new Dictionary<string, string>()
+            : new Dictionary<string, string>(current.Config);
+
+        options["max-size"] = defaults.MaxSize;
+        if (!options.ContainsKey("max-file") && defaults.MaxFile is not null)
+            options["max-file"] = defaults.MaxFile.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        return new LogConfig { Type = current.Type, Config = options };
     }
 
     /// <summary>
