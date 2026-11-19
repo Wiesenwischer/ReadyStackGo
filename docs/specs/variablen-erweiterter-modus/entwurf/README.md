@@ -3,7 +3,7 @@
 - **Vorhaben:** #522
 - **Spezifikation:** [`docs/specs/variablen-erweiterter-modus.md`](../../variablen-erweiterter-modus.md)
 - **Figma-Datei:** [ReadyStackGo Design](https://www.figma.com/design/RxVNdSKNs7PpJqkYgvb6a1) (`RxVNdSKNs7PpJqkYgvb6a1`), Seiten „App“ (`2:99`) und „Components“ (`2:98`)
-- **Freigabe:** freigegeben mit dem Merge von PR #PR_NUMMER
+- **Freigabe:** freigegeben mit dem Merge von PR #523
 - **Grundlage:** App-Rahmen mit Seitenleiste und Kopfzeile aus „App / Profile – no local password“ (`177:4834`, Vorhaben #498). Die Seiten selbst gab es in Figma noch nicht; sie sind nach dem heutigen Aufbau von `DeployStack.tsx`, `DeployProduct.tsx`, `UpgradeStack.tsx` und `UpgradeProduct.tsx` gebaut (Hauptspalte mit Karten, Seitenleiste mit Aktionen und Info), mit den Komponenten der Datei.
 - **Inhalte:** Die Stack-Seiten zeigen den öffentlichen WordPress-Stack aus `Wiesenwischer/rsgo-community-stacks` (7 Variablen, davon hier Database Name, Database User, WordPress Version und MySQL Version als `advanced: true`). Die Produkt-Seiten zeigen ein Beispielprodukt „Order Platform“ mit 4 Stacks und 18 Variablen.
 

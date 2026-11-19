@@ -73,7 +73,7 @@ erweiterten Modus gehört, legt der Autor des Manifests mit einem Kennzeichen fe
 
 ## Oberfläche und Bilder
 
-Verbindlich: Entwurf in `docs/specs/variablen-erweiterter-modus/entwurf/` (freigegeben mit dem Merge von PR #PR_NUMMER).
+Verbindlich: Entwurf in `docs/specs/variablen-erweiterter-modus/entwurf/` (freigegeben mit dem Merge von PR #523).
 Er zeigt Deploy Stack, Deploy Product und Upgrade Stack hell und dunkel, Upgrade Product und den Fehler nach „Deploy“
 hell. Der Schalter sitzt im Seitenkopf; Hinweise, Badges, Tags und Texte beschreibt die README des Entwurfs.
 
