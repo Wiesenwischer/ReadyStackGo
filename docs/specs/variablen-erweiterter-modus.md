@@ -73,17 +73,9 @@ erweiterten Modus gehört, legt der Autor des Manifests mit einem Kennzeichen fe
 
 ## Oberfläche und Bilder
 
-Es gibt noch keinen freigegebenen Entwurf. Das Issue trägt `entwurf-fehlt`, der Entwurf entsteht vor der Planung mit
-`/vorhaben-entwerfen`. Zu entwerfen, hell und dunkel:
-
-- Deploy Stack: der Schalter in der Karte „Environment Variables“, im Standardmodus und im erweiterten Modus.
-- Deploy Product: der Schalter für „Shared Variables“ und „Stack Configuration“ zusammen, die Badges im Akkordeon der
-  Stacks („N variables“, „required“) in beiden Modi.
-- Ein Abschnitt, dessen Variablen im Standardmodus alle ausgeblendet sind (Karte „Shared Variables“ oder ein Stack im
-  Akkordeon).
-- Upgrade Stack: der Schalter neben der heutigen Hervorhebung neuer Variablen (Info-Box und Rahmen am Feld), mit
-  einer neuen erweiterten Variable.
-- Upgrade Product: der Schalter wie bei Deploy Product, mit einem neuen Stack in der Zielversion.
+Verbindlich: Entwurf in `docs/specs/variablen-erweiterter-modus/entwurf/` (freigegeben mit dem Merge von PR #523).
+Er zeigt Deploy Stack, Deploy Product und Upgrade Stack hell und dunkel, Upgrade Product und den Fehler nach „Deploy“
+hell. Der Schalter sitzt im Seitenkopf; Hinweise, Badges, Tags und Texte beschreibt die README des Entwurfs.
 
 Richtung: die bestehenden Karten, Gruppenüberschriften und Badges der vier Seiten.
 
